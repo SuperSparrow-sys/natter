@@ -16,8 +16,9 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M7 – Design-Prüfer, Paketverwaltung** (noch nicht kleinteilig
-aufgeschlüsselt, siehe Stichwortliste unten). M1–M6 sind funktional
+→ **M7, Schritt 1: Design-Prüfer – Regeln** – kleinteilig
+aufgeschlüsselt in [`docs/arbeitspakete/M7.md`](arbeitspakete/M7.md)
+(wie M1–M6). M1–M6 sind funktional
 abgeschlossen (M3-Abnahme bestanden: Ampel vollständig über Designer/
 Inspektor/Palette nachgebaut, siehe
 [`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md), Schritt 8; M4-Abnahme
@@ -439,6 +440,12 @@ Kleinteilig aufgeschlüsselt in
 - [x] Abnahme: Konsolen-/CRT-Übungen laufen (`beispielprojekte/CrtDemo/`)
 
 ## M7 – Design-Prüfer, Paketverwaltung
+
+Kleinteilig aufgeschlüsselt in
+[`docs/arbeitspakete/M7.md`](arbeitspakete/M7.md). Größenänderung/
+Skalierung (brauchen ein Anker-System bzw. eine DPI-Simulation, die
+`pcl` noch nicht hat) und Teile von Lesbarkeit (Schriftgröße/-art gibt
+es als Prop noch nicht) bewusst zurückgestellt, siehe M7.md.
 
 - [ ] Design-Prüfer (regelbasiert, Abschnitt 14)
 - [ ] Paketverwaltung (pip über die IDE)
