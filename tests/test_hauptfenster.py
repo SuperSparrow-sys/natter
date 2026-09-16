@@ -14,6 +14,28 @@ def test_fenstertitel() -> None:
     assert fenster.windowTitle() == "Natter"
 
 
+def test_fenster_hat_ein_symbol() -> None:
+    fenster = HauptFenster()
+    assert not fenster.windowIcon().isNull()
+
+
+def test_werkzeugleiste_enthaelt_die_aktionen_mit_symbol() -> None:
+    fenster = HauptFenster()
+    erwartet = [aktion.name for aktion in fenster.aktionen if aktion.symbol]
+
+    vorhanden = [aktion.text() for aktion in fenster.werkzeugleiste.actions()]
+
+    assert vorhanden == erwartet
+    assert "Starten ohne Debugger" in vorhanden
+
+
+def test_aktionen_mit_symbol_tragen_ein_icon() -> None:
+    fenster = HauptFenster()
+    for aktion in fenster.aktionen:
+        if aktion.symbol:
+            assert not aktion.qaction.icon().isNull()
+
+
 def test_alle_menuetitel_aus_abschnitt_7_2_vorhanden() -> None:
     fenster = HauptFenster()
     vorhandene_titel = [aktion.text() for aktion in fenster.menuBar().actions()]

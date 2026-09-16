@@ -67,3 +67,26 @@ def test_aktion_ohne_menue_wird_nicht_angehaengt() -> None:
 
     for titel in ("Datei", "Bearbeiten", "Projekt"):
         assert "Ohne Menü" not in [a.text() for a in fenster.menue(titel).actions()]
+
+
+def test_aktion_mit_symbol_traegt_ein_icon() -> None:
+    aktion = Aktion("start.ohne_debugger", "Starten ohne Debugger", symbol="start")
+    assert not aktion.qaction.icon().isNull()
+
+
+def test_aktion_ohne_symbol_hat_kein_icon() -> None:
+    aktion = Aktion("datei.unit_oeffnen", "Unit öffnen …")
+    assert aktion.qaction.icon().isNull()
+
+
+def test_an_hauptfenster_anhaengen_fuegt_symbol_aktionen_in_die_werkzeugleiste() -> None:
+    register = Aktionsregister()
+    register.registrieren(Aktion("test.mit_symbol", "Test mit Symbol", symbol="start"))
+    register.registrieren(Aktion("test.ohne_symbol", "Test ohne Symbol"))  # kein Symbol
+
+    fenster = HauptFenster()
+    register.an_hauptfenster_anhaengen(fenster)
+
+    werkzeugleisten_eintraege = [a.text() for a in fenster.werkzeugleiste.actions()]
+    assert "Test mit Symbol" in werkzeugleisten_eintraege
+    assert "Test ohne Symbol" not in werkzeugleisten_eintraege

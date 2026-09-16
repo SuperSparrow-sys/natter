@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from ide.actions import Aktion, Aktionsregister
+from ide.assets import symbol
 from ide.designer import DesignerCanvas, formular_fuer_designer_laden
 from ide.inspector import Objektinspektor
 from ide.palette import Komponentenpalette
@@ -30,6 +31,7 @@ from ide.palette.palette import TYP_ROLLE
 from ide.project import Projekt
 from ide.run import projekt_starten
 from ide.shell.explorer import PFAD_ROLLE, ProjektExplorer
+from ide.shell.quelltexteditor import QuelltextEditor
 from ide.shell.schnellauswahl import SchnellAuswahl
 from pcl.form import Form
 
@@ -59,10 +61,14 @@ class HauptFenster(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Natter")
+        self.setWindowIcon(symbol("app"))
 
         self._menues: dict[str, object] = {}
         for titel in MENUETITEL:
             self._menues[titel] = self.menuBar().addMenu(titel)
+
+        self.werkzeugleiste = self.addToolBar("Haupt-Werkzeugleiste")
+        self.werkzeugleiste.setMovable(False)
 
         self.editor_tabs = QTabWidget()
         self.editor_tabs.setTabsClosable(True)
@@ -106,19 +112,22 @@ class HauptFenster(QMainWindow):
         self.aktionen = Aktionsregister()
         self.aktionen.registrieren(
             Aktion(
-                "datei.oeffnen",
-                "Öffnen …",
+                "datei.neue_unit",
+                "Neue Unit",
                 menue="Datei",
-                tastenkuerzel="Ctrl+O",
-                callback=self._datei_oeffnen_dialog,
+                tastenkuerzel="Ctrl+N",
+                symbol="neu",
+                callback=self._neue_unit_aktion,
             )
         )
         self.aktionen.registrieren(
             Aktion(
-                "projekt.oeffnen",
-                "Projekt öffnen …",
-                menue="Projekt",
-                callback=self._projekt_oeffnen_dialog,
+                "datei.oeffnen",
+                "Öffnen …",
+                menue="Datei",
+                tastenkuerzel="Ctrl+O",
+                symbol="oeffnen",
+                callback=self._datei_oeffnen_dialog,
             )
         )
         self.aktionen.registrieren(
@@ -127,7 +136,17 @@ class HauptFenster(QMainWindow):
                 "Speichern",
                 menue="Datei",
                 tastenkuerzel="Ctrl+S",
+                symbol="speichern",
                 callback=self._aktuelle_datei_speichern,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "projekt.oeffnen",
+                "Projekt öffnen …",
+                menue="Projekt",
+                symbol="projekt_oeffnen",
+                callback=self._projekt_oeffnen_dialog,
             )
         )
         self.aktionen.registrieren(
@@ -141,19 +160,11 @@ class HauptFenster(QMainWindow):
         )
         self.aktionen.registrieren(
             Aktion(
-                "datei.neue_unit",
-                "Neue Unit",
-                menue="Datei",
-                tastenkuerzel="Ctrl+N",
-                callback=self._neue_unit_aktion,
-            )
-        )
-        self.aktionen.registrieren(
-            Aktion(
                 "start.ohne_debugger",
                 "Starten ohne Debugger",
                 menue="Start",
                 tastenkuerzel="Ctrl+F5",
+                symbol="start",
                 callback=self._projekt_starten_aktion,
             )
         )
@@ -250,7 +261,7 @@ class HauptFenster(QMainWindow):
                 self.editor_tabs.setCurrentIndex(index)
                 return editor
 
-        editor = QPlainTextEdit()
+        editor = QuelltextEditor()
         editor.setPlainText(pfad.read_text(encoding="utf-8"))
         editor.setProperty(_PFAD_EIGENSCHAFT, str(pfad))
         editor.document().modificationChanged.connect(

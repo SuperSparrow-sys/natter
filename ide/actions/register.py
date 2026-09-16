@@ -7,6 +7,8 @@ from typing import Any
 
 from PySide6.QtGui import QAction
 
+from ide.assets import symbol as symbol_laden
+
 
 class AktionsKonfliktError(Exception):
     """Eine Aktions-ID ist bereits vergeben oder ein Tastenkürzel ist
@@ -41,6 +43,8 @@ class Aktion:
         self.qaction = QAction(name)
         if tastenkuerzel:
             self.qaction.setShortcut(tastenkuerzel)
+        if symbol:
+            self.qaction.setIcon(symbol_laden(symbol))
         if callback is not None:
             self.qaction.triggered.connect(callback)
 
@@ -73,10 +77,15 @@ class Aktionsregister:
 
     def an_hauptfenster_anhaengen(self, hauptfenster: Any) -> None:
         """Fügt jede Aktion mit gesetztem `menue` in das gleichnamige Menü
-        des Hauptfensters ein (Abschnitt 7.2)."""
+        des Hauptfensters ein (Abschnitt 7.2); Aktionen mit gesetztem
+        `symbol` zusätzlich als Knopf in die Werkzeugleiste, in
+        Registrierungsreihenfolge (Abschnitt 7.3: „eine Aktion = Menüeintrag
+        + Werkzeugleisten-Button … nur einmal implementiert“)."""
         for aktion in self._aktionen.values():
             if aktion.menue:
                 hauptfenster.menue(aktion.menue).addAction(aktion.qaction)
+            if aktion.symbol:
+                hauptfenster.werkzeugleiste.addAction(aktion.qaction)
 
     def __getitem__(self, id: str) -> Aktion:
         return self._aktionen[id]
