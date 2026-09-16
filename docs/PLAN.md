@@ -22,6 +22,13 @@ funktional abgeschlossen; M2-„Zurückgestellt“-Punkte
 (`docs/arbeitspakete/M2.md`) werden bei Bedarf zwischen M3-Schritten
 nachgeholt.
 
+**IDE-Einstiegspunkt (`ide/main.py`, `python -m ide`) hinzugefügt**, auf
+ausdrücklichen Wunsch: die IDE lässt sich jetzt auf einem Windows-Rechner
+mit Bildschirm tatsächlich starten und benutzen (siehe README, Abschnitt
+„Die IDE starten“) – nicht nur headless testen. Ab jetzt wird nach jedem
+Arbeitsschritt weiter committet, bis auch der Designer/Objektinspektor
+sichtbar etwas zu bedienen bieten.
+
 ## Referenzmaterial
 
 - [x] Lazarus-Übungsprojekte in `referenz/lazarus/` vorhanden (18 Projekte,

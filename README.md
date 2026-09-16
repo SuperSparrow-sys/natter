@@ -10,11 +10,25 @@ Repository-Struktur, Teststrategie und Umsetzungsphasen (M0–M9).
 
 ## Status
 
-M0 (Repository, CI, Schemas, Design-Tokens, Referenzmaterial) ist im
-Wesentlichen abgeschlossen, M1 (`pcl`-Eigenschaften-System und erste
-Komponenten) beginnt. Der vollständige, laufend aktualisierte Ablaufplan
-mit Checkliste steht in [`docs/PLAN.md`](docs/PLAN.md) – dort auch immer
-der aktuelle Punkt unter „Wo wir stehen“.
+M0, M1 und M2 sind funktional abgeschlossen (Repository, `pcl`-Laufzeit
+mit 13 Komponenten, IDE-Grundgerüst mit Projekt öffnen/anlegen/starten),
+M3 (Designer, Objektinspektor) läuft. Der vollständige, laufend
+aktualisierte Ablaufplan mit Checkliste steht in
+[`docs/PLAN.md`](docs/PLAN.md) – dort auch immer der aktuelle Punkt
+unter „Wo wir stehen“.
+
+## Die IDE starten
+
+Auf einem Windows-Rechner mit Bildschirm (nicht headless):
+
+```
+uv sync --group dev
+uv run python -m ide
+```
+
+Zum Ausprobieren: „Projekt → Projekt öffnen …“ und z. B.
+`beispielprojekte/Ampel/ampel.natter` wählen, dann „Start → Starten ohne
+Debugger“ (Strg+F5) – die Ampel öffnet sich als eigenes Fenster.
 
 ## Aufbau des Repositories
 
