@@ -1,0 +1,242 @@
+"""Klassen-/Eigenschaftszuordnung `.lfm` → `.pfm` (Abschnitt 15).
+
+Wandelt das Ergebnis von `ide.import_lfm.parser.parse_lfm()` in ein
+`.pfm`-kompatibles `dict` um (validierbar gegen
+`schemas/pfm.schema.json`).
+
+**Umfang, bewusst eingeschränkt** (siehe docs/arbeitspakete/M8.md,
+Schritt 2): nicht unterstützte Komponenten/Eigenschaften werden nur im
+Importbericht vermerkt, nicht als Platzhalter angelegt (es gibt noch
+keine generische Platzhalter-Komponente in `pcl`). `Items.Strings`/
+`Cells`-Sammlungen werden ebenfalls nur gemeldet – das `.pfm`-Format
+selbst kann solche Sammlungen bisher gar nicht abbilden (`items` ist bei
+`ComboBox`/`ListBox`/`Memo` eine reine Python-`@property`, kein `Prop`,
+und fehlt deshalb auch beim Designer selbst, nicht nur beim Import).
+Bilder aus `Picture.Data` werden nicht dekodiert. Pascal-Rumpf-
+Übernahme aus der `.pas`-Datei ist nicht Teil dieses Moduls.
+"""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field
+from typing import Any
+
+# Lazarus-Klasse -> pcl-Komponente. Nur die im Kursmaterial
+# (referenz/lazarus/) tatsächlich verwendeten Typen (siehe
+# docs/komponenten.md).
+_KLASSEN: dict[str, str] = {
+    "TButton": "Button",
+    "TLabel": "Label",
+    "TEdit": "Edit",
+    "TShape": "Shape",
+    "TStringGrid": "StringGrid",
+    "TCheckBox": "CheckBox",
+    "TRadioButton": "RadioButton",
+    "TMemo": "Memo",
+    "TListBox": "ListBox",
+    "TComboBox": "ComboBox",
+    "TScrollBar": "ScrollBar",
+    "TImage": "Image",
+}
+
+# Lazarus-Formen (TShape.Shape) -> pcl Shape.shape.
+_FORMEN: dict[str, str] = {
+    "stRectangle": "rectangle",
+    "stSquare": "rectangle",
+    "stCircle": "circle",
+    "stEllipse": "circle",
+    "stRoundSquare": "rounded_rectangle",
+    "stRoundRect": "rounded_rectangle",
+}
+
+# clXxx-Konstanten. clBlack/clGray/clSilver/clYellow kommen tatsächlich
+# in referenz/lazarus/ vor, der Rest ist die Standard-VCL/LCL-Palette
+# für zukünftige Importe.
+_FARBEN: dict[str, str] = {
+    "clBlack": "#000000",
+    "clMaroon": "#800000",
+    "clGreen": "#008000",
+    "clOlive": "#808000",
+    "clNavy": "#000080",
+    "clPurple": "#800080",
+    "clTeal": "#008080",
+    "clGray": "#808080",
+    "clSilver": "#c0c0c0",
+    "clRed": "#ff0000",
+    "clLime": "#00ff00",
+    "clYellow": "#ffff00",
+    "clBlue": "#0000ff",
+    "clFuchsia": "#ff00ff",
+    "clAqua": "#00ffff",
+    "clWhite": "#ffffff",
+    "clMoneyGreen": "#c0dcc0",
+    "clCream": "#fffbf0",
+    "clBtnFace": "#f0f0f0",
+    "clWindow": "#ffffff",
+}
+
+
+class LfmZuordnungError(ValueError):
+    """Ein Eigenschaftswert konnte nicht umgewandelt werden."""
+
+
+def _bool_konvertieren(wert: Any) -> bool:
+    if isinstance(wert, bool):
+        return wert
+    if wert in ("True", "true"):
+        return True
+    if wert in ("False", "false"):
+        return False
+    raise LfmZuordnungError(f"Kein Wahrheitswert: {wert!r}")
+
+
+def _farbe_konvertieren(wert: Any) -> str:
+    if isinstance(wert, str) and wert.startswith("cl"):
+        hex_wert = _FARBEN.get(wert)
+        if hex_wert is None:
+            raise LfmZuordnungError(f"Unbekannte Farbkonstante: {wert}")
+        return hex_wert
+    if isinstance(wert, str) and wert.startswith("$"):
+        # Lazarus-Hex ist $00BBGGRR: die letzten beiden Ziffern sind Rot,
+        # nicht die ersten (umgekehrte Reihenfolge zu #RRGGBB).
+        zahl = int(wert[1:], 16)
+        r, g, b = zahl & 0xFF, (zahl >> 8) & 0xFF, (zahl >> 16) & 0xFF
+        return f"#{r:02x}{g:02x}{b:02x}"
+    raise LfmZuordnungError(f"Keine erkannte Farbe: {wert!r}")
+
+
+def _form_konvertieren(wert: Any) -> str:
+    if wert not in _FORMEN:
+        raise LfmZuordnungError(f"Unbekannte Shape-Form: {wert!r}")
+    return _FORMEN[wert]
+
+
+# Lazarus-Eigenschaft -> (pcl-Eigenschaft, Konverter). Klassenunabhängig
+# (Namen wie "Caption" bedeuten in jeder Klasse dasselbe pcl-Prop).
+_EIGENSCHAFTEN: dict[str, tuple[str, Any]] = {
+    "Caption": ("caption", str),
+    "Left": ("left", int),
+    "Top": ("top", int),
+    "Width": ("width", int),
+    "Height": ("height", int),
+    "Enabled": ("enabled", _bool_konvertieren),
+    "Checked": ("checked", _bool_konvertieren),
+    "Text": ("text", str),
+    "ReadOnly": ("read_only", _bool_konvertieren),
+    "ItemIndex": ("item_index", int),
+    "RowCount": ("row_count", int),
+    "ColCount": ("col_count", int),
+    "Color": ("color", _farbe_konvertieren),
+    "Brush.Color": ("brush_color", _farbe_konvertieren),
+    "Shape": ("shape", _form_konvertieren),
+}
+
+_EREIGNISSE: dict[str, str] = {
+    "OnClick": "on_click",
+    "OnChange": "on_change",
+    "OnCreate": "on_create",
+}
+
+
+def _schlange(text: str) -> str:
+    """camelCase/PascalCase -> snake_case, idempotent für bereits-snake
+    Text (deckt sich mit der bestehenden Namenskonvention im Projekt,
+    z. B. `b_einschalten`)."""
+    return re.sub(r"(?<!^)(?<!_)(?=[A-Z])", "_", text).lower()
+
+
+def _handler_konvertieren(ereignis_schluessel: str, handler: str) -> str:
+    """`OnClick`/`b_startClick` -> `b_start_click` (Lazarus hängt den
+    Ereignisnamen direkt an den Komponentennamen an; das Ergebnis deckt
+    sich mit der tatsächlichen Methodenbenennung in den bestehenden
+    `beispielprojekte/*/u_main.py`, z. B. `FormCreate` -> `form_create`)."""
+    if ereignis_schluessel.startswith("On"):
+        suffix = ereignis_schluessel[2:]
+    else:
+        suffix = ereignis_schluessel
+    praefix = handler[: -len(suffix)] if handler.endswith(suffix) else handler
+    return f"{_schlange(praefix)}_{suffix.lower()}"
+
+
+@dataclass
+class LfmImportErgebnis:
+    pfm: dict[str, Any]
+    warnungen: list[str] = field(default_factory=list)
+
+
+def lfm_zu_pfm(lfm_objekt: dict[str, Any]) -> LfmImportErgebnis:
+    """Wandelt das Ergebnis von `parse_lfm()` in ein `.pfm`-`dict` um."""
+    warnungen: list[str] = []
+    eigenschaften, ereignisse = _eigenschaften_umwandeln(
+        lfm_objekt["properties"], warnungen, ist_form=True
+    )
+    pfm: dict[str, Any] = {
+        "format": "pfm/1",
+        "class": lfm_objekt["name"],
+        "type": "Form",
+        "properties": eigenschaften,
+    }
+    if ereignisse:
+        pfm["events"] = ereignisse
+
+    kinder = []
+    for lfm_kind in lfm_objekt.get("children", []):
+        pfm_kind = _kind_umwandeln(lfm_kind, warnungen)
+        if pfm_kind is not None:
+            kinder.append(pfm_kind)
+    pfm["children"] = kinder
+
+    return LfmImportErgebnis(pfm=pfm, warnungen=warnungen)
+
+
+def _kind_umwandeln(lfm_kind: dict[str, Any], warnungen: list[str]) -> dict[str, Any] | None:
+    pcl_klasse = _KLASSEN.get(lfm_kind["class"])
+    if pcl_klasse is None:
+        warnungen.append(
+            f"{lfm_kind['name']}: Komponententyp {lfm_kind['class']} wird nicht "
+            "unterstützt, wurde nicht übernommen."
+        )
+        return None
+    eigenschaften, ereignisse = _eigenschaften_umwandeln(
+        lfm_kind["properties"], warnungen, name=lfm_kind["name"]
+    )
+    eintrag: dict[str, Any] = {
+        "name": lfm_kind["name"],
+        "type": pcl_klasse,
+        "properties": eigenschaften,
+    }
+    if ereignisse:
+        eintrag["events"] = ereignisse
+    return eintrag
+
+
+def _eigenschaften_umwandeln(
+    lfm_eigenschaften: dict[str, Any],
+    warnungen: list[str],
+    *,
+    ist_form: bool = False,
+    name: str = "Formular",
+) -> tuple[dict[str, Any], dict[str, str]]:
+    eigenschaften: dict[str, Any] = {}
+    ereignisse: dict[str, str] = {}
+    for schluessel, wert in lfm_eigenschaften.items():
+        if schluessel.startswith("On"):
+            ereignis_name = _EREIGNISSE.get(schluessel)
+            if ereignis_name is None:
+                warnungen.append(f"{name}: Ereignis {schluessel} wird nicht unterstützt.")
+                continue
+            ereignisse[ereignis_name] = _handler_konvertieren(schluessel, wert)
+            continue
+        if ist_form and schluessel in ("Left", "Top"):
+            continue  # Formulare haben in pcl keine left/top-Prop
+        zuordnung = _EIGENSCHAFTEN.get(schluessel)
+        if zuordnung is None:
+            warnungen.append(f"{name}: Eigenschaft {schluessel} wird nicht unterstützt.")
+            continue
+        pcl_name, konverter = zuordnung
+        try:
+            eigenschaften[pcl_name] = konverter(wert)
+        except LfmZuordnungError as fehler:
+            warnungen.append(f"{name}: {schluessel} = {wert!r} - {fehler}")
+    return eigenschaften, ereignisse
