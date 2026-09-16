@@ -16,8 +16,14 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M8 – Lazarus-Import, Exe-Export, Verteilung** (noch nicht
-kleinteilig aufgeschlüsselt, siehe Stichwortliste unten). M1–M7 sind
+→ **M8, Schritt 1: `.lfm`-Parser** – kleinteilig aufgeschlüsselt in
+[`docs/arbeitspakete/M8.md`](arbeitspakete/M8.md) (wie M1–M7), aber mit
+einer wichtigen Einschränkung: Exe-Export, portables ZIP, Starter/
+Launcher und Signatur (Abschnitt 16, 17) brauchen zwingend einen echten
+Windows-Rechner und werden hier nicht simuliert – bearbeitet wird der
+`.lfm`-Parser und die Klassen-/Eigenschaftszuordnung nach `.pfm`, reine
+Logik, testbar gegen die echten `referenz/lazarus/*.lfm`-Dateien. M1–M7
+sind
 funktional abgeschlossen (M3-Abnahme bestanden: Ampel vollständig über
 Designer/Inspektor/Palette nachgebaut, siehe
 [`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md), Schritt 8; M4-Abnahme
@@ -462,6 +468,10 @@ es als Prop noch nicht) bewusst zurückgestellt, siehe M7.md.
   Menü installierbar
 
 ## M8 – Lazarus-Import, Exe-Export, Verteilung
+
+Kleinteilig aufgeschlüsselt in
+[`docs/arbeitspakete/M8.md`](arbeitspakete/M8.md). Exe-Export/
+Verteilung brauchen einen echten Windows-Rechner, siehe M8.md.
 
 - [ ] `.lfm`-Import (Parser, Zuordnungstabelle, Abschnitt 15) – jetzt mit
   echten `.lfm`-Dateien aus `referenz/lazarus/` testbar
