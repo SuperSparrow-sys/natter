@@ -66,6 +66,12 @@ class Prop:
                 f"{_beschreibung(self.typ)}, erhalten wurde {_beschreibung(type(wert))}."
             )
         instance.__dict__[self._speicher_name()] = wert
+        # Live-Wirkung (Abschnitt 5.0): Unterklassen mit Qt-Anbindung
+        # (pcl.control.Control, pcl.form.Form) überschreiben diesen Hook,
+        # um das zugehörige QWidget sofort zu aktualisieren.
+        verarbeiten = getattr(instance, "_bei_prop_aenderung", None)
+        if verarbeiten is not None:
+            verarbeiten(self.name, wert)
 
     def _passt_typ(self, wert: Any) -> bool:
         if self.typ is bool:

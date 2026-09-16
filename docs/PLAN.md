@@ -16,8 +16,8 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M1, Schritt 2: Anbindung an Qt (`pcl.control`, `pcl.form`,
-`pcl.application`)** (siehe unten)
+→ **M1, Schritt 3: erste Komponenten (`Button`, `Label`, `Shape`), reichen
+für `k_Ampel`** (siehe unten)
 
 ## Referenzmaterial
 
@@ -101,14 +101,27 @@ zerlegt, jeder Schritt für sich mit `pytest` abgesichert.
   `neue_attribute_erlaubt`, `eigenschaften()`/`ereignisse()`-Helfer für
   den späteren Objektinspektor
 
-### 2. Anbindung an Qt
+### 2. Anbindung an Qt — erledigt
 
-- [ ] `pcl/control.py`: `Control` als Basisklasse, verbindet `Prop`-Zugriff
-  mit dem zugehörigen `QWidget` (Setter ändert sofort das Widget)
-- [ ] `pcl/form.py`: `Form` (Basis für `QWidget`-Fenster), `create_components`-
-  Konvention wie im generierten Code (Abschnitt 4.3)
-- [ ] `pcl/application.py`: `Application.run(FormKlasse)`
-- [ ] Tests headless mit `QT_QPA_PLATFORM=offscreen` (pytest-qt)
+- [x] `pcl/control.py`: `Control` als Basisklasse (Props `left`/`top`/
+  `width`/`height`/`enabled`), verbindet `Prop`-Zugriff über den in Schritt
+  1 ergänzten `_bei_prop_aenderung`-Hook mit dem zugehörigen `QWidget`
+  (Setter ändert sofort das Widget)
+- [x] `pcl/form.py`: `Form` (Props `caption`/`width`/`height`/`theme`,
+  Event `on_create`), `create_components()`-Konvention wie im generierten
+  Code (Abschnitt 4.3), `neue_attribute_erlaubt = True`
+- [x] `pcl/application.py`: `Application.run(FormKlasse)`
+- [x] Tests headless mit `QT_QPA_PLATFORM=offscreen`
+  (`tests/test_control_form.py`, 9 Tests; `tests/conftest.py` mit
+  session-weiter `QApplication`-Fixture)
+- **Stolperstein festgehalten:** ein `QWidget` ganz ohne vorher erzeugte
+  `QApplication` lässt den Prozess hart abstürzen (kein Python-Traceback,
+  nur Exitcode). Deshalb erzeugt eine `autouse`-Fixture in
+  `tests/conftest.py` immer zuerst eine `QApplication` für die gesamte
+  Testsitzung.
+- CI (`.github/workflows/ci.yml`) installiert dafür zusätzlich
+  Qt-Systembibliotheken (`libegl1`, `libxkbcommon0` u. a.) auf dem
+  Ubuntu-Runner
 
 ### 3. Erste Komponenten (reichen für `k_Ampel`)
 
