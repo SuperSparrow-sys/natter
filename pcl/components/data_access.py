@@ -14,6 +14,7 @@ gelöst.
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Callable
 from typing import Any
 
 import pymysql
@@ -184,7 +185,15 @@ class SQLQuery(Komponente):
     """Eine SQL-Abfrage oder -Anweisung (Abschnitt 10.1):
     ``open()``/``next()``/``eof``/``field_by_name()``/``close()`` für
     SELECT, ``exec_sql()`` für INSERT/UPDATE/DELETE. Benannte Parameter
-    über ``params`` (Stil ``:name``) verhindern SQL-Injection."""
+    über ``params`` (Stil ``:name``) verhindern SQL-Injection.
+
+    ``open()`` liest das gesamte Ergebnis auf einmal ein (gepuffert,
+    nicht Zeile für Zeile nachgeladen) – das hält `next()`/`eof` aus
+    Schritt 1 unverändert nutzbar, erlaubt zusätzlich aber
+    ``first()``/``prior()``/``last()`` und wahlfreien Zugriff auf alle
+    Zeilen für die Data Controls (M5, Schritt 5: `DBGrid` zeigt alle
+    Zeilen gleichzeitig an, `DBNavigator` bewegt einen Datensatzzeiger
+    vor und zurück)."""
 
     neue_attribute_erlaubt = True
 
@@ -194,48 +203,100 @@ class SQLQuery(Komponente):
         self.database = database
         self.params: dict[str, Any] = {}
         self._cursor: Any = None
-        self._zeile: tuple[Any, ...] | None = None
+        self._zeilen: list[tuple[Any, ...]] = []
+        self._index: int = -1
         self._spalten: list[str] = []
 
     def open(self) -> None:
-        """Führt ``sql`` aus (SELECT) und positioniert auf den ersten
-        Datensatz, falls vorhanden."""
+        """Führt ``sql`` aus (SELECT), liest alle Zeilen und
+        positioniert auf den ersten Datensatz, falls vorhanden."""
         self._ausfuehren()
-        self._zeile = self._cursor.fetchone()
+        self._zeilen = self._cursor.fetchall()
+        self._index = 0 if self._zeilen else -1
 
     def exec_sql(self) -> None:
         """Führt ``sql`` aus (INSERT/UPDATE/DELETE). Wird erst mit
         ``transaction.commit()`` dauerhaft."""
         self._ausfuehren()
+        self._zeilen = []
+        self._index = -1
 
     def next(self) -> None:
         if self._cursor is None:
             raise NatterDatenbankError("SQLQuery.next() ohne vorheriges open() aufgerufen.")
-        self._zeile = self._cursor.fetchone()
+        self._index += 1
+
+    def prior(self) -> None:
+        if self._cursor is None:
+            raise NatterDatenbankError("SQLQuery.prior() ohne vorheriges open() aufgerufen.")
+        if self._index > 0:
+            self._index -= 1
+
+    def first(self) -> None:
+        if self._cursor is None:
+            raise NatterDatenbankError("SQLQuery.first() ohne vorheriges open() aufgerufen.")
+        self._index = 0 if self._zeilen else -1
+
+    def last(self) -> None:
+        if self._cursor is None:
+            raise NatterDatenbankError("SQLQuery.last() ohne vorheriges open() aufgerufen.")
+        self._index = len(self._zeilen) - 1 if self._zeilen else -1
 
     @property
     def eof(self) -> bool:
-        return self._zeile is None
+        return self._index < 0 or self._index >= len(self._zeilen)
+
+    @property
+    def record_count(self) -> int:
+        return len(self._zeilen)
+
+    @property
+    def record_index(self) -> int:
+        return self._index
+
+    @property
+    def column_names(self) -> list[str]:
+        return list(self._spalten)
+
+    def all_rows(self) -> list[tuple[Any, ...]]:
+        """Alle gepufferten Zeilen (Abschnitt 10.1, für `DBGrid`), ohne
+        den Datensatzzeiger zu bewegen."""
+        return list(self._zeilen)
 
     def field_by_name(self, name: str) -> _Feld:
-        if self._zeile is None:
+        if self.eof:
             raise NatterDatenbankError(
                 f"field_by_name({name!r}) ohne aktuellen Datensatz aufgerufen."
             )
+        return _Feld(self._zeilen[self._index][self._spalten_index(name)])
+
+    def set_field(self, name: str, wert: Any) -> None:
+        """Ändert ein Feld der aktuellen Zeile im Puffer (Abschnitt 10.1,
+        für `DBEdit`) – wirkt nur auf den lokalen Zwischenspeicher, nicht
+        auf die Datenbank; dauerhaft wird die Änderung erst durch eigenen
+        SQL-Code (`sql`/`exec_sql()`) plus `transaction.commit()`."""
+        if self.eof:
+            raise NatterDatenbankError(f"set_field({name!r}) ohne aktuellen Datensatz aufgerufen.")
+        index = self._spalten_index(name)
+        zeile = list(self._zeilen[self._index])
+        zeile[index] = wert
+        self._zeilen[self._index] = tuple(zeile)
+
+    def _spalten_index(self, name: str) -> int:
         try:
-            index = self._spalten.index(name)
+            return self._spalten.index(name)
         except ValueError as fehler:
             raise NatterDatenbankError(
                 f"Spalte {name!r} ist nicht vorhanden. Vorhandene Spalten: "
                 f"{', '.join(self._spalten)}."
             ) from fehler
-        return _Feld(self._zeile[index])
 
     def close(self) -> None:
         if self._cursor is not None:
             self._cursor.close()
         self._cursor = None
-        self._zeile = None
+        self._zeilen = []
+        self._index = -1
         self._spalten = []
 
     def to_dataframe(self) -> Any:
@@ -262,9 +323,25 @@ class SQLQuery(Komponente):
 
 class DataSource(Komponente):
     """Bindeglied zwischen einer `SQLQuery` und den Data Controls (M5,
-    Schritt 5): ``dataset`` verweist auf die anzuzeigende Abfrage."""
+    Schritt 5): ``dataset`` verweist auf die anzuzeigende Abfrage.
+
+    **Vereinfachung, bewusst dokumentiert:** anders als `TDataSet` in
+    Lazarus, das gebundene Controls automatisch benachrichtigt, ruft hier
+    `aktualisieren()` die Benachrichtigung bewusst explizit aus – von
+    `DBNavigator` intern nach jeder Navigation, sonst nach eigenem
+    `query.open()`/`query.set_field()` selbst aufzurufen."""
 
     neue_attribute_erlaubt = True
 
     def __init__(self, dataset: SQLQuery | None = None) -> None:
         self.dataset = dataset
+        self._listener: list[Callable[[], None]] = []
+
+    def aktualisieren(self) -> None:
+        """Benachrichtigt alle gebundenen Data Controls, ihre Anzeige
+        anhand des aktuellen Zustands von `dataset` zu erneuern."""
+        for aufruf in self._listener:
+            aufruf()
+
+    def _registrieren(self, aufruf: Callable[[], None]) -> None:
+        self._listener.append(aufruf)

@@ -16,6 +16,7 @@ from pcl.components.data_access import (
     SQLQuery,
     SQLTransaction,
 )
+from pcl.components.data_controls import DBComboBox, DBEdit, DBGrid, DBNavigator, DBText
 from pcl.components.standard import (
     Button,
     CheckBox,
@@ -40,6 +41,11 @@ __all__ = [
     "Chart",
     "ComboBox",
     "Control",
+    "DBComboBox",
+    "DBEdit",
+    "DBGrid",
+    "DBNavigator",
+    "DBText",
     "DataSource",
     "Edit",
     "Event",
