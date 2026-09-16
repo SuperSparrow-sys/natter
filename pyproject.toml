@@ -9,6 +9,7 @@ dependencies = [
     "pyside6>=6.8",
     "jsonschema>=4.23",
     "libcst>=1.4",
+    "debugpy>=1.8",
 ]
 
 [dependency-groups]
@@ -19,7 +20,6 @@ dev = [
 ]
 prototypes = [
     "jedi>=0.19",
-    "debugpy>=1.8",
     "pandas>=2.2",
     "cryptography>=42",
 ]
