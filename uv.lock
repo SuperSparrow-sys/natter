@@ -225,12 +225,12 @@ name = "natter"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "jsonschema" },
     { name = "pyside6" },
 ]
 
 [package.dev-dependencies]
 dev = [
-    { name = "jsonschema" },
     { name = "pytest" },
     { name = "pytest-qt" },
     { name = "ruff" },
@@ -243,11 +243,13 @@ prototypes = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pyside6", specifier = ">=6.8" }]
+requires-dist = [
+    { name = "jsonschema", specifier = ">=4.23" },
+    { name = "pyside6", specifier = ">=6.8" },
+]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "jsonschema", specifier = ">=4.23" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-qt", specifier = ">=4.4" },
     { name = "ruff", specifier = ">=0.8" },

@@ -16,7 +16,8 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M1, Schritt 4: `.pfm` → `u_*_design.py`-Generator** (siehe unten)
+→ **M1, Schritt 6: restliche Standard-/Additional-/Common-Komponenten**
+(siehe unten)
 
 ## Referenzmaterial
 
@@ -139,25 +140,36 @@ zerlegt, jeder Schritt für sich mit `pytest` abgesichert.
   von `brush.color`, Tippfehlerschutz
 - [x] `docs/komponenten.md` für `Form`, `Button`, `Label`, `Shape` ausgefüllt
 
-### 4. `.pfm` → `u_*_design.py`
+### 4. `.pfm` → `u_*_design.py` — erledigt
 
-- [ ] Generator: liest `.pfm` (Abschnitt 4.2), erzeugt
+- [x] `ide/codegen/design.py`: liest `.pfm` (Abschnitt 4.2), erzeugt
   `u_*_design.py` im Format aus Abschnitt 4.3 (Kopfzeile „nicht
-  bearbeiten“)
-- [ ] gegen `schemas/pfm.schema.json` validiert
-- [ ] Test: `.pfm` → generierter Code → Formular liefert dieselben
-  Eigenschaftswerte wie die `.pfm`
+  bearbeiten“, Typ-Annotationen der Kinder, sortierte `from pcl import
+  ...`-Zeile)
+- [x] validiert gegen `schemas/pfm.schema.json` (`jsonschema.validate`,
+  jetzt Laufzeit-Abhängigkeit statt nur `dev`-Gruppe)
+- [x] Test (`tests/test_design_codegen.py`, 7 Tests): ungültige `.pfm`
+  abgelehnt, generierter Code importierbar, Formular liefert dieselben
+  Eigenschaftswerte wie die `.pfm`, `on_create`/`on_click` korrekt
+  verknüpft (echter Qt-Klick löst den generierten Handler-Aufruf aus)
 
-### 5. Ampel nachbauen (erstes Abnahmeprojekt)
+### 5. Ampel nachbauen (erstes Abnahmeprojekt) — erledigt
 
-- [ ] `.pfm` von Hand aus `referenz/lazarus/k_Ampel/u_main.lfm` ableiten
-  (Buttons `b_einschalten`/`b_wechseln`/`b_Auschalten`, Label, drei
-  `Shape`-Ampellichter)
-- [ ] `u_main_design.py` generieren
-- [ ] `u_ampel.py` (eigene Klasse, reines Python, siehe
-  `referenz/lazarus/k_Ampel/u_tampel.pas` als fachliche Vorlage)
-- [ ] `u_main.py` (Event-Handler) + `main.py`
-- [ ] läuft mit `python main.py`, Ampel schaltet sichtbar um
+- [x] `.pfm` von Hand aus `referenz/lazarus/k_Ampel/u_main.lfm` abgeleitet
+  (Buttons `b_einschalten`/`b_wechseln`/`b_auschalten`, Label, Gehäuse-
+  und drei Ampellicht-`Shape`s) → `beispielprojekte/Ampel/u_main.pfm`
+- [x] `u_main_design.py` mit dem Generator erzeugt (nicht von Hand)
+- [x] `u_ampel.py`: `Ampel`-Klasse, reines Python, Zustandsautomat 1↔2↔3↔4
+  originalgetreu aus `referenz/lazarus/k_Ampel/u_tampel.pas` übernommen
+- [x] `u_main.py` (Event-Handler, Farblogik aus `u_main.pas`
+  originalgetreu übernommen) + `main.py`
+- [x] Abnahme (`tests/test_beispiel_ampel.py`, 4 Tests): Startzustand
+  Grün, `Wechseln` durchläuft Grün→Gelb→Rot→Gelb→Grün, `Auschalten`
+  löscht alle Lichter, `Einschalten` zeigt die aktuelle Phase wieder –
+  über echte Qt-Klicks, headless, **nicht** durch tatsächliches
+  Ausführen von `python main.py` mit sichtbarem Fenster (das bleibt der
+  Gesamtabnahme auf einem echten Windows-Rechner vorbehalten, siehe
+  Abschnitt 19, letzte Zeile)
 
 ### 6. Restliche Standard-/Additional-/Common-Komponenten
 
