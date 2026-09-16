@@ -16,15 +16,11 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M2-Abnahmekriterium funktional erfüllt (Schritte 1–10, 164 Tests
-grün). Weiter mit M3 (Designer, Objektinspektor).** Die verbliebenen
-M2-„Zurückgestellt“-Punkte (siehe `docs/arbeitspakete/M2.md`) hängen
-größtenteils an Windows-Verifikation (Monaco-Machbarkeitstest S2,
-portable Laufzeit) oder sind mechanische Wiederholung des bereits
-bewiesenen Aktionsregister-Musters (restliche Menüeinträge); M3 bringt
-dagegen neue, für die eigentliche Ampel-Erstellung in der IDE nötige
-Fähigkeiten und folgt so auch der Reihenfolge des Konzepts (Abschnitt
-20). Wird bei Bedarf zwischen M3-Schritten nachgeholt.
+→ **M3, Schritt 1: Objektinspektor – Eigenschaften lesen/setzen** – siehe
+[`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md). M1 und M2 sind
+funktional abgeschlossen (164 Tests grün); M2-„Zurückgestellt“-Punkte
+(`docs/arbeitspakete/M2.md`) werden bei Bedarf zwischen M3-Schritten
+nachgeholt.
 
 ## Referenzmaterial
 
@@ -301,10 +297,13 @@ Pause/Stopp/Neustart, Tastenkürzel-Tab/Befehlspalette.
 
 ## M3 – Designer, Objektinspektor
 
-- [ ] Designer (Canvas, Auswahl, Anfasser, Raster, Undo)
-- [ ] Objektinspektor mit allen Editoren/Reitern
-- [ ] Komponentenpalette mit Reitern
-- [ ] Ereignis-Codegenerierung (Doppelklick → Methode, libcst)
+Kleinteilig aufgeschlüsselt in
+[`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md). Reihenfolge:
+Objektinspektor zuerst (baut direkt auf `pcl.properties` auf), dann
+Designer-Canvas (Anzeige/Auswahl, dann Platzieren/Verschieben/Größe),
+Undo, Komponentenpalette, Ereignis-Codegenerierung (libcst), zuletzt
+Ampel vollständig in der IDE nachbauen als Abnahme.
+
 - [ ] Abnahme: Ampel komplett in der IDE erstellen, alle Eigenschaften nur
   über den Inspektor gesetzt
 
