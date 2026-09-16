@@ -38,6 +38,15 @@ bei der Entwicklung von Natter eingesetzt, nicht in der fertigen IDE selbst
   `beispielprojekte/…/*.pfm` laufen, sondern müssen zuerst in
   `tmp_path` kopiert werden – sonst verändert der Testlauf die
   Beispieldatei im Repository.
+- `QT_QPA_PLATFORM=offscreen` findet unter Windows von sich aus keine
+  Schriftarten (`QFontDatabase.families()` ist leer, Text erscheint als
+  Kästchen/Tofu bzw. mit falschen Glyphen). Für alles, was tatsächlich
+  gerendertes Pixelbild braucht (`widget.grab()`, Screenshots, künftige
+  Bildvergleichstests), zusätzlich `QT_QPA_FONTDIR=C:\Windows\Fonts`
+  setzen und eine konkrete Schriftart wie `QApplication.setFont(QFont(
+  "Segoe UI", 9))` setzen – ohne Letzteres greift eine zufällige
+  Ersatzschrift mit fehlerhaften Glyphen für einzelne Buchstaben. Siehe
+  `tools/screenshot.py`.
 
 ## Generierte Dateien
 
