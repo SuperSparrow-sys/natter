@@ -118,9 +118,20 @@ class DebugSitzung(QObject):
             self._ausstehende_befehle_abarbeiten()
             if not self._laeuft:
                 break
-            ereignis = self.client.naechstes_ereignis_abfragen(_ABFRAGE_INTERVALL)
+            try:
+                ereignis = self.client.naechstes_ereignis_abfragen(_ABFRAGE_INTERVALL)
+            except DapFehler:
+                # Verbindung weg (z. B. nach einem harten Stopp/`kill()`) -
+                # kein Protokollfehler, sondern das erwartete Ende der
+                # Sitzung; "beendet" muss trotzdem zuverlässig feuern,
+                # sonst bleibt die IDE im Glauben, es laufe noch etwas.
+                break
             if ereignis is not None:
                 self._ereignis_verarbeiten(ereignis)
+
+        if self._laeuft:
+            self._laeuft = False
+            self.beendet.emit(self._letzter_exitcode)
 
     def _ausstehende_befehle_abarbeiten(self) -> None:
         while True:

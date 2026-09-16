@@ -16,7 +16,8 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M4, Schritt 6: IDE-Verdrahtung des DAP-Clients** – siehe
+→ **M4, Schritt 6 (Rest): Fehlerkatalog bei unbehandelter Ausnahme im
+Debugger anzeigen** – siehe
 [`docs/arbeitspakete/M4.md`](arbeitspakete/M4.md). M1, M2 und M3 sind
 funktional abgeschlossen (M3-Abnahme bestanden: Ampel vollständig über
 Designer/Inspektor/Palette nachgebaut, siehe
@@ -39,10 +40,15 @@ Komponente mittig, Doppelklick auf einer Komponente oder dem
 Formularhintergrund erzeugt (per `libcst`) ihre Standard-Ereignismethode
 in der `.py`-Unit und verknüpft sie, Strg+Z/Strg+Umschalt+Z machen
 rückgängig/wiederholen – jede Änderung wird automatisch in die `.pfm`
-zurückgeschrieben. „Start → Starten ohne Debugger“ prüft das Projekt
-zuerst mit Ruff (Syntaxfehler, unbekannte Namen, ungenutzte Importe/
-Variablen); bei Funden erscheinen sie im Panel „Meldungen“ statt zu
-starten, sonst startet das Programm als eigenes Fenster.
+zurückgeschrieben. „Start → Starten ohne Debugger“ (Strg+F5) prüft das
+Projekt zuerst mit Ruff (Syntaxfehler, unbekannte Namen, ungenutzte
+Importe/Variablen); bei Funden erscheinen sie im Panel „Meldungen“ statt
+zu starten, sonst startet das Programm als eigenes Fenster. „Start →
+Starten“ (F5) startet stattdessen mit echtem Debugger: ein per
+Rand-Klick im Editor gesetzter Breakpoint hält den laufenden Prozess an,
+Panel „Aufrufstapel“ zeigt den Aufrufstapel und „Variablen“ die lokalen
+Werte an der Haltestelle, Pause/Fortsetzen/Stopp/Einzelschritt/
+Prozedurschritt/bis Rücksprung sind eigene Aktionen im Start-Menü.
 
 ## Referenzmaterial
 

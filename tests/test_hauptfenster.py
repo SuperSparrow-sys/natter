@@ -32,7 +32,7 @@ def test_werkzeugleiste_enthaelt_die_aktionen_mit_symbol() -> None:
 def test_start_aktion_ist_durch_eine_trennlinie_von_den_dateiaktionen_abgesetzt() -> None:
     fenster = HauptFenster()
     eintraege = fenster.werkzeugleiste.actions()
-    start_index = next(i for i, a in enumerate(eintraege) if a.text() == "Starten ohne Debugger")
+    start_index = next(i for i, a in enumerate(eintraege) if a.text() == "Starten")
     assert eintraege[start_index - 1].isSeparator()
 
 

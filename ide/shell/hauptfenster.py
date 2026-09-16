@@ -20,11 +20,14 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QPlainTextEdit,
     QTabWidget,
+    QTreeWidget,
+    QTreeWidgetItem,
     QWidget,
 )
 
 from ide.actions import Aktion, Aktionsregister
 from ide.assets import symbol
+from ide.debugger import DebugSitzung
 from ide.designer import DesignerCanvas, formular_fuer_designer_laden
 from ide.inspector import Objektinspektor
 from ide.palette import Komponentenpalette
@@ -104,12 +107,22 @@ class HauptFenster(QMainWindow):
 
         self.panels = QTabWidget()
         self.meldungen_liste = QListWidget()
+        self.variablen_baum = QTreeWidget()
+        self.variablen_baum.setHeaderLabels(["Eigenschaft", "Wert"])
+        self.aufrufstapel_liste = QListWidget()
+        panel_widgets = {
+            "Meldungen": self.meldungen_liste,
+            "Variablen": self.variablen_baum,
+            "Aufrufstapel": self.aufrufstapel_liste,
+        }
         for reiter in PANEL_REITER:
-            inhalt = self.meldungen_liste if reiter == "Meldungen" else QWidget()
-            self.panels.addTab(inhalt, reiter)
+            self.panels.addTab(panel_widgets.get(reiter, QWidget()), reiter)
         self.panels_dock = self._dock_erzeugen(
             "Panels", Qt.DockWidgetArea.BottomDockWidgetArea, inhalt=self.panels
         )
+
+        self.debug_sitzung: DebugSitzung | None = None
+        self._aktueller_thread_id: int | None = None
 
         self.statusBar().showMessage("bereit")
 
@@ -164,13 +177,75 @@ class HauptFenster(QMainWindow):
         )
         self.aktionen.registrieren(
             Aktion(
+                "start.mit_debugger",
+                "Starten",
+                menue="Start",
+                tastenkuerzel="F5",
+                symbol="start_debug",
+                trennlinie_davor=True,
+                callback=self._projekt_mit_debugger_starten_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
                 "start.ohne_debugger",
                 "Starten ohne Debugger",
                 menue="Start",
                 tastenkuerzel="Ctrl+F5",
                 symbol="start",
-                trennlinie_davor=True,
                 callback=self._projekt_starten_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "start.pause",
+                "Pause",
+                menue="Start",
+                callback=self._debugger_pausieren_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "start.fortsetzen",
+                "Fortsetzen",
+                menue="Start",
+                callback=self._debugger_fortsetzen_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "start.stopp",
+                "Stopp",
+                menue="Start",
+                tastenkuerzel="Shift+F5",
+                callback=self._debugger_stoppen_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "start.einzelschritt",
+                "Einzelschritt",
+                menue="Start",
+                tastenkuerzel="F11",
+                callback=self._debugger_einzelschritt_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "start.prozedurschritt",
+                "Prozedurschritt",
+                menue="Start",
+                tastenkuerzel="F10",
+                callback=self._debugger_prozedurschritt_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "start.ruecksprung",
+                "Ausführen bis Rücksprung",
+                menue="Start",
+                tastenkuerzel="Shift+F11",
+                callback=self._debugger_ruecksprung_aktion,
             )
         )
         self.aktionen.an_hauptfenster_anhaengen(self)
@@ -379,3 +454,121 @@ class HauptFenster(QMainWindow):
 
         self.laufender_prozess = projekt_starten(self.projekt)
         self.statusBar().showMessage(f"{self.projekt.name} gestartet")
+
+    # -- Debugger (F5, Abschnitt 7.8/8.1) ------------------------------------
+
+    def _offene_breakpoints(self) -> dict[Path, list[int]]:
+        """Breakpoints aus allen offenen `QuelltextEditor`-Tabs, gebündelt
+        nach Datei – für `DebugSitzung.starten(..., anfangs_breakpoints=...)`."""
+        ergebnis: dict[Path, list[int]] = {}
+        for index in range(self.editor_tabs.count()):
+            editor = self.editor_tabs.widget(index)
+            if isinstance(editor, QuelltextEditor) and editor.breakpoints:
+                pfad = editor.property(_PFAD_EIGENSCHAFT)
+                if pfad:
+                    ergebnis[Path(pfad)] = sorted(editor.breakpoints)
+        return ergebnis
+
+    def _projekt_mit_debugger_starten_aktion(self) -> None:
+        """„Starten“ (F5, Abschnitt 7.8): wie „Starten ohne Debugger“, aber
+        mit `DebugSitzung` – Breakpoints aus den offenen Editor-Tabs werden
+        übernommen."""
+        if self.projekt is None:
+            self.statusBar().showMessage("Kein Projekt offen.")
+            return
+        if self.debug_sitzung is not None:
+            self.statusBar().showMessage(f"{self.projekt.name} läuft bereits (Debugger).")
+            return
+
+        funde = projekt_pruefen(self.projekt)
+        self.meldungen_liste.clear()
+        if funde:
+            self.meldungen_liste.addItems([str(fund) for fund in funde])
+            self.panels.setCurrentWidget(self.meldungen_liste)
+            self.statusBar().showMessage(
+                f"{len(funde)} Fund(e) vor dem Start - nicht gestartet."
+            )
+            return
+
+        self.variablen_baum.clear()
+        self.aufrufstapel_liste.clear()
+        self._aktueller_thread_id = None
+
+        self.debug_sitzung = DebugSitzung(self)
+        self.debug_sitzung.angehalten.connect(self._debugger_angehalten)
+        self.debug_sitzung.beendet.connect(self._debugger_beendet)
+        self.debug_sitzung.fehler.connect(self._debugger_fehler)
+        self.debug_sitzung.aufrufstapel_bereit.connect(self._debugger_aufrufstapel_bereit)
+        self.debug_sitzung.bereiche_bereit.connect(self._debugger_bereiche_bereit)
+        self.debug_sitzung.variablen_bereit.connect(self._debugger_variablen_bereit)
+        self.debug_sitzung.starten(
+            self.projekt.haupt_datei,
+            arbeitsordner=self.projekt.ordner,
+            anfangs_breakpoints=self._offene_breakpoints(),
+        )
+        self.statusBar().showMessage(f"{self.projekt.name} gestartet (mit Debugger)")
+
+    def _debugger_angehalten(self, ereignis: dict) -> None:
+        self._aktueller_thread_id = ereignis.get("threadId")
+        grund = ereignis.get("reason", "?")
+        self.statusBar().showMessage(f"Angehalten ({grund})")
+        if self._aktueller_thread_id is not None:
+            self.debug_sitzung.aufrufstapel_lesen(self._aktueller_thread_id)
+
+    def _debugger_beendet(self, exitcode: int) -> None:
+        self.statusBar().showMessage(f"Debugger beendet (Exitcode {exitcode})")
+        self.debug_sitzung = None
+        self._aktueller_thread_id = None
+        self.variablen_baum.clear()
+        self.aufrufstapel_liste.clear()
+
+    def _debugger_fehler(self, meldung: str) -> None:
+        self.meldungen_liste.addItem(meldung)
+        self.panels.setCurrentWidget(self.meldungen_liste)
+
+    def _debugger_aufrufstapel_bereit(self, stapel: list[dict]) -> None:
+        self.aufrufstapel_liste.clear()
+        for frame in stapel:
+            quelle = frame.get("source", {}).get("path", "")
+            name = Path(quelle).name if quelle else "?"
+            self.aufrufstapel_liste.addItem(f"{name}, Zeile {frame['line']}, in {frame['name']}")
+        if stapel and self.debug_sitzung is not None:
+            self.debug_sitzung.bereiche_lesen(stapel[0]["id"])
+
+    def _debugger_bereiche_bereit(self, bereiche: list[dict]) -> None:
+        if not bereiche or self.debug_sitzung is None:
+            return
+        lokale = next((b for b in bereiche if b["name"] == "Locals"), bereiche[0])
+        self.debug_sitzung.variablen_lesen(lokale["variablesReference"])
+
+    def _debugger_variablen_bereit(self, variablen: list[dict]) -> None:
+        self.variablen_baum.clear()
+        for variable in variablen:
+            QTreeWidgetItem(self.variablen_baum, [variable["name"], str(variable.get("value"))])
+
+    def _debugger_pausieren_aktion(self) -> None:
+        if self.debug_sitzung is not None and self._aktueller_thread_id is not None:
+            self.debug_sitzung.pausieren(self._aktueller_thread_id)
+
+    def _debugger_fortsetzen_aktion(self) -> None:
+        if self.debug_sitzung is not None and self._aktueller_thread_id is not None:
+            self.debug_sitzung.fortsetzen(self._aktueller_thread_id)
+
+    def _debugger_stoppen_aktion(self) -> None:
+        if self.debug_sitzung is not None:
+            self.debug_sitzung.beenden()
+            self.debug_sitzung = None
+            self._aktueller_thread_id = None
+            self.statusBar().showMessage("Debugger gestoppt")
+
+    def _debugger_einzelschritt_aktion(self) -> None:
+        if self.debug_sitzung is not None and self._aktueller_thread_id is not None:
+            self.debug_sitzung.einzelschritt(self._aktueller_thread_id)
+
+    def _debugger_prozedurschritt_aktion(self) -> None:
+        if self.debug_sitzung is not None and self._aktueller_thread_id is not None:
+            self.debug_sitzung.prozedurschritt(self._aktueller_thread_id)
+
+    def _debugger_ruecksprung_aktion(self) -> None:
+        if self.debug_sitzung is not None and self._aktueller_thread_id is not None:
+            self.debug_sitzung.bis_ruecksprung(self._aktueller_thread_id)
