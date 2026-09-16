@@ -342,7 +342,7 @@ Designer-Canvas (Anzeige/Auswahl, dann Platzieren/Verschieben/Größe),
 Undo, Komponentenpalette, Ereignis-Codegenerierung (libcst), zuletzt
 Ampel vollständig in der IDE nachbauen als Abnahme.
 
-- [ ] Abnahme: Ampel komplett in der IDE erstellen, alle Eigenschaften nur
+- [x] Abnahme: Ampel komplett in der IDE erstellen, alle Eigenschaften nur
   über den Inspektor gesetzt
 
 ## M4 – Debugger, Fehlerkatalog, Tests
