@@ -31,6 +31,13 @@ bei der Entwicklung von Natter eingesetzt, nicht in der fertigen IDE selbst
   In-Memory-SQLite …), erst zuletzt gegen echte Systeme (siehe
   konzept-natter.md, Abschnitt 19).
 - Jedes Beispielprojekt muss auch ohne IDE mit `python main.py` laufen.
+- `HauptFenster.designer_oeffnen()`/`DesignerCanvas(..., pfm_pfad=...)`
+  schreiben bei jeder Änderung automatisch in die zugrunde liegende
+  `.pfm` zurück. Tests, die etwas platzieren/verschieben/löschen/
+  duplizieren, dürfen deshalb **nie** direkt gegen eine eingecheckte
+  `beispielprojekte/…/*.pfm` laufen, sondern müssen zuerst in
+  `tmp_path` kopiert werden – sonst verändert der Testlauf die
+  Beispieldatei im Repository.
 
 ## Generierte Dateien
 

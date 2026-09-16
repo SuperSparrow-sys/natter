@@ -16,7 +16,7 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M3, Schritt 6: Komponentenpalette** – siehe
+→ **M3, Schritt 7: Ereignis-Codegenerierung (libcst)** – siehe
 [`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md). M1 und M2 sind
 funktional abgeschlossen; M2-„Zurückgestellt“-Punkte
 (`docs/arbeitspakete/M2.md`) werden bei Bedarf zwischen M3-Schritten

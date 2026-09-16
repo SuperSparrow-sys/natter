@@ -25,6 +25,8 @@ from PySide6.QtWidgets import (
 from ide.actions import Aktion, Aktionsregister
 from ide.designer import DesignerCanvas, formular_fuer_designer_laden
 from ide.inspector import Objektinspektor
+from ide.palette import Komponentenpalette
+from ide.palette.palette import TYP_ROLLE
 from ide.project import Projekt
 from ide.run import projekt_starten
 from ide.shell.explorer import PFAD_ROLLE, ProjektExplorer
@@ -77,10 +79,20 @@ class HauptFenster(QMainWindow):
             "Objektinspektor", Qt.DockWidgetArea.RightDockWidgetArea, inhalt=self.objektinspektor
         )
 
+        self.palette = Komponentenpalette()
+        self.palette.standard_liste.itemDoubleClicked.connect(self._bei_palette_doppelklick)
+        self.palette.zusaetzlich_liste.itemDoubleClicked.connect(self._bei_palette_doppelklick)
+        self.palette_dock = self._dock_erzeugen(
+            "Komponentenpalette", Qt.DockWidgetArea.TopDockWidgetArea, inhalt=self.palette
+        )
+
         self.projekt: Projekt | None = None
         self.laufender_prozess = None
         self._offene_canvases: list[DesignerCanvas] = []
         self._pfad_zu_formular: dict[str, Form] = {}
+        self._widget_zu_canvas: dict[QWidget, DesignerCanvas] = {}
+        self._aktueller_canvas: DesignerCanvas | None = None
+        self.editor_tabs.currentChanged.connect(self._bei_tab_wechsel)
 
         self.panels = QTabWidget()
         for reiter in PANEL_REITER:
@@ -289,11 +301,28 @@ class HauptFenster(QMainWindow):
         canvas.auswahl_beobachten(self._designer_auswahl_geaendert)
         self._offene_canvases.append(canvas)
         self._pfad_zu_formular[schluessel] = formular
+        self._widget_zu_canvas[formular._qwidget] = canvas
 
         index = self.editor_tabs.addTab(formular._qwidget, f"{pfad.stem} (Designer)")
         self.editor_tabs.setCurrentIndex(index)
         self.objektinspektor.formular_anzeigen(formular)
         return formular
+
+    def _bei_tab_wechsel(self, index: int) -> None:
+        widget = self.editor_tabs.widget(index)
+        self._aktueller_canvas = self._widget_zu_canvas.get(widget)
+
+    def _bei_palette_doppelklick(self, eintrag) -> None:
+        """Doppelklick in der Palette platziert die Komponente mittig im
+        aktiven Formular-Designer (Abschnitt 7.3)."""
+        if self._aktueller_canvas is None:
+            self.statusBar().showMessage("Kein Formular-Designer geöffnet.")
+            return
+        typ = eintrag.data(TYP_ROLLE)
+        formular = self._aktueller_canvas.formular
+        self._aktueller_canvas.komponente_platzieren(
+            typ, formular.width // 2, formular.height // 2
+        )
 
     def _designer_auswahl_geaendert(self, komponente) -> None:
         self.objektinspektor.eigenschaften_tabelle.komponente_anzeigen(komponente)

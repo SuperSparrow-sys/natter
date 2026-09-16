@@ -6,9 +6,10 @@ Siehe konzept-natter.md, Abschnitt 7.7: „Der Designer rendert echte
 pcl-Komponenten“, Tastenkürzel wie dort beschrieben (Pfeiltasten =
 Rasterschritt, Alt+Pfeil = 1 px, Umschalt+Pfeil = Größe, Entf = löschen,
 Strg+D = duplizieren, dazu Strg+Z/Strg+Umschalt+Z bzw. Strg+Y für
-Rückgängig/Wiederholen, Command-Pattern). Platzieren aus der Palette
-folgt mit Schritt 6; sichtbare Größenanfasser zum Ziehen (statt nur
-Tastatur) sind eine spätere Verfeinerung.
+Rückgängig/Wiederholen, Command-Pattern). `komponente_platzieren()` ist
+das Gegenstück für die Komponentenpalette (Abschnitt 7.3). Sichtbare
+Größenanfasser zum Ziehen (statt nur Tastatur) sind eine spätere
+Verfeinerung.
 """
 
 from __future__ import annotations
@@ -64,6 +65,28 @@ class _DuplizierenKommando:
 
         canvas._ueberwachung_einrichten(self.neue_komponente)
         # sofort wieder lösen: tun() fügt sie (erneut) ein - symmetrisch zu rueckgaengig()
+        canvas._komponente_entfernen(self.neue_komponente)
+
+    def tun(self) -> None:
+        self.canvas._komponente_wiederherstellen(self.name, self.neue_komponente)
+
+    def rueckgaengig(self) -> None:
+        self.canvas._komponente_entfernen(self.neue_komponente)
+
+
+class _PlatzierenKommando:
+    """Wie `_DuplizierenKommando`, aber mit einer frischen Komponente in
+    Standardwerten statt einer Kopie (Abschnitt 7.3: Palette → Formular)."""
+
+    def __init__(self, canvas: DesignerCanvas, typ: type, x: int, y: int) -> None:
+        self.canvas = canvas
+        self.name = canvas._eindeutigen_namen_finden(typ.__name__.lower())
+
+        self.neue_komponente = typ(canvas.formular)
+        self.neue_komponente.left = x
+        self.neue_komponente.top = y
+
+        canvas._ueberwachung_einrichten(self.neue_komponente)
         canvas._komponente_entfernen(self.neue_komponente)
 
     def tun(self) -> None:
@@ -260,6 +283,15 @@ class DesignerCanvas(QObject):
         if ziel is None or ziel is self.formular:
             return None
         kommando = _DuplizierenKommando(self, ziel)
+        self.kommandos.ausfuehren(kommando)
+        self._nach_aenderung(kommando.neue_komponente)
+        return kommando.neue_komponente
+
+    def komponente_platzieren(self, typ: type, x: int, y: int) -> Any:
+        """Platziert eine neue Komponente aus der Palette an Formular-
+        Koordinaten (x, y) (Abschnitt 7.3). `tun()` des Kommandos wählt
+        sie über `_komponente_wiederherstellen()` bereits aus."""
+        kommando = _PlatzierenKommando(self, typ, x, y)
         self.kommandos.ausfuehren(kommando)
         self._nach_aenderung(kommando.neue_komponente)
         return kommando.neue_komponente
