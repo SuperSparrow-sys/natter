@@ -226,6 +226,23 @@ def test_abgeschaltete_regeln_werden_uebersprungen() -> None:
     assert "namenskonvention.praefix" not in regeln
 
 
+def test_fehlende_width_height_defaulten_wie_pcl_control_statt_auf_null() -> None:
+    # Die .pfm speichert nur vom Standardwert abweichende Eigenschaften
+    # (Abschnitt 4.2) - ein Kind an der Standardgröße hat also gar
+    # keinen "width"/"height"-Schlüssel. Ohne die Control-Standardwerte
+    # (75x25) würde die Geometrie fälschlich als 0x0 gelesen und keine
+    # der Geometrie-Regeln würde je etwas an dieser Komponente finden.
+    pfm = {
+        "format": "pfm/1",
+        "class": "Form1",
+        "type": "Form",
+        "properties": {"caption": "Form1", "width": 50, "height": 50},
+        "children": [{"name": "b_x", "type": "Button", "properties": {"left": 0, "top": 0}}],
+    }
+
+    assert "geometrie.ausserhalb_formular" in _regeln(pfm)
+
+
 def test_befunde_sind_nie_fehler() -> None:
     pfm = _pfm([_komponente("knopf1", "Button", left=5, top=5, width=16, height=16)])
 

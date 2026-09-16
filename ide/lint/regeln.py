@@ -73,11 +73,15 @@ def _eigenschaft(objekt: dict[str, Any], name: str, standard: Any = 0) -> Any:
 
 
 def _rechteck(komponente: dict[str, Any]) -> tuple[int, int, int, int]:
+    # width/height defaulten wie pcl.Control selbst (75×25) statt auf 0 -
+    # die .pfm speichert nur Eigenschaften, die vom Standardwert
+    # abweichen (Abschnitt 4.2), ein Kind mit Standardgröße hat also gar
+    # keinen "width"/"height"-Schlüssel.
     return (
         _eigenschaft(komponente, "left", 0),
         _eigenschaft(komponente, "top", 0),
-        _eigenschaft(komponente, "width", 0),
-        _eigenschaft(komponente, "height", 0),
+        _eigenschaft(komponente, "width", 75),
+        _eigenschaft(komponente, "height", 25),
     )
 
 
