@@ -16,19 +16,23 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M6 – Konsolen-Feinschliff** (noch nicht kleinteilig aufgeschlüsselt,
-siehe Stichwortliste unten). M1–M5 sind funktional abgeschlossen
-(M3-Abnahme bestanden: Ampel vollständig über Designer/Inspektor/Palette
-nachgebaut, siehe [`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md),
-Schritt 8; M4-Abnahme bestanden: Fehlerkatalog-Beispiele, Ampel-
-Breakpoint mit Variablenanzeige, Test-Explorer mit Soll-/Ist-Anzeige,
-siehe [`docs/arbeitspakete/M4.md`](arbeitspakete/M4.md), Schritt 8;
-M5-Abnahme bestanden: Kontoverwaltung mit echter SQLite-Persistenz,
-CSV-Auswertung mit pandas in StringGrid und Chart, Würfelspiel-Highscore
-als HTML im Browser, siehe [`docs/arbeitspakete/M5.md`](arbeitspakete/M5.md),
-Schritt 9 – 484 Tests grün; MariaDB-Verbindungstest gegen eine echte
-Instanz bleibt zurückgestellt, siehe M5.md); die „Zurückgestellt“-Punkte
-aus M2–M5 werden bei Bedarf zwischen M6-Schritten nachgeholt.
+→ **M7 – Design-Prüfer, Paketverwaltung** (noch nicht kleinteilig
+aufgeschlüsselt, siehe Stichwortliste unten). M1–M6 sind funktional
+abgeschlossen (M3-Abnahme bestanden: Ampel vollständig über Designer/
+Inspektor/Palette nachgebaut, siehe
+[`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md), Schritt 8; M4-Abnahme
+bestanden: Fehlerkatalog-Beispiele, Ampel-Breakpoint mit Variablenanzeige,
+Test-Explorer mit Soll-/Ist-Anzeige, siehe
+[`docs/arbeitspakete/M4.md`](arbeitspakete/M4.md), Schritt 8; M5-Abnahme
+bestanden: Kontoverwaltung mit echter SQLite-Persistenz, CSV-Auswertung
+mit pandas in StringGrid und Chart, Würfelspiel-Highscore als HTML im
+Browser, siehe [`docs/arbeitspakete/M5.md`](arbeitspakete/M5.md), Schritt
+9 (MariaDB-Verbindungstest gegen eine echte Instanz bleibt
+zurückgestellt); M6-Abnahme bestanden: `pcl.crt` mit ANSI-
+Cursorsteuerung/-Farben, Tastatureingabe über `msvcrt`, Piepton über
+`winsound`, siehe [`docs/arbeitspakete/M6.md`](arbeitspakete/M6.md),
+Schritt 2 – 498 Tests grün); die „Zurückgestellt“-Punkte aus M2–M6
+werden bei Bedarf zwischen M7-Schritten nachgeholt.
 
 **Sichtbar und bedienbar:** `uv run python -m ide` öffnet die IDE;
 „Projekt öffnen …“ → `beispielprojekte/Ampel/ampel.natter` → Doppelklick
@@ -429,8 +433,10 @@ die Abnahme.
 
 ## M6 – Konsolen-Feinschliff
 
-- [ ] `pcl.crt` (optionales Hilfsmodul für den Umstieg aus CRT-Unterricht)
-- [ ] Abnahme: Konsolen-/CRT-Übungen laufen
+Kleinteilig aufgeschlüsselt in
+[`docs/arbeitspakete/M6.md`](arbeitspakete/M6.md).
+
+- [x] Abnahme: Konsolen-/CRT-Übungen laufen (`beispielprojekte/CrtDemo/`)
 
 ## M7 – Design-Prüfer, Paketverwaltung
 
