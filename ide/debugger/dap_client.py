@@ -1,7 +1,7 @@
 """DapClient: Debug Adapter Protocol (DAP)-Client gegen ein per `debugpy`
 gestartetes Schülerprogramm (Abschnitt 8.1, 7.8). Prozess starten,
-Socket-Verbindung, Handshake, Breakpoints und Ausführungssteuerung.
-Variablen/Aufrufstapel folgen in M4, Schritt 5.
+Socket-Verbindung, Handshake, Breakpoints, Ausführungssteuerung,
+Variablen und Aufrufstapel.
 
 Nachrichtenrahmen: `Content-Length: N\\r\\n\\r\\n` + N Bytes JSON (DAP-
 Standard), siehe `_naechste_nachricht`.
@@ -28,6 +28,8 @@ import sys
 import time
 from pathlib import Path
 from typing import Any
+
+from ide.debugger.eigener_code import ist_eigener_code
 
 _STANDARD_ZEITLIMIT = 15.0
 
@@ -259,3 +261,46 @@ class DapClient:
         ereignis = self.angehalten_abwarten()
         self.breakpoints_setzen(pfad, vorherige)
         return ereignis
+
+    # -- Variablen und Aufrufstapel (Abschnitt 8.1) --------------------------
+
+    def aufrufstapel_lesen(self, thread_id: int) -> list[dict[str, Any]]:
+        """DAP `stackTrace`, gefiltert auf eigenen Code (Abschnitt 8.1:
+        „nur mit eigenem Code“) – Frames aus `pcl`/Qt/der
+        Standardbibliothek werden ausgeblendet."""
+        body = self.anfrage("stackTrace", {"threadId": thread_id})
+        return [
+            frame
+            for frame in body.get("stackFrames", [])
+            if ist_eigener_code(frame.get("source", {}).get("path", ""))
+        ]
+
+    def bereiche_lesen(self, frame_id: int) -> list[dict[str, Any]]:
+        """DAP `scopes` für einen Frame aus `aufrufstapel_lesen()`, z. B.
+        „Locals“/„Globals“ mit je einer `variablesReference`."""
+        return self.anfrage("scopes", {"frameId": frame_id}).get("scopes", [])
+
+    def variablen_lesen(self, variablen_referenz: int) -> list[dict[str, Any]]:
+        """DAP `variables` für einen Bereich oder ein aufklappbares Objekt
+        (`variablesReference` aus `bereiche_lesen()` oder einer anderen
+        Variable). Ungefiltert – für `pcl`-Komponentenobjekte siehe
+        `komponenten_variablen_lesen()`."""
+        return self.anfrage("variables", {"variablesReference": variablen_referenz}).get(
+            "variables", []
+        )
+
+    def komponenten_variablen_lesen(self, variablen_referenz: int) -> list[dict[str, Any]]:
+        """Wie `variablen_lesen()`, aber auf die bekannten `Prop`-/
+        `Event`-Namen aller `pcl`-Komponententypen gefiltert (Abschnitt
+        8.1: „nur relevante Eigenschaften wie `text`, `caption`,
+        `checked`, `item_index`“), siehe `komponenten_variablen.py`."""
+        from ide.debugger.komponenten_variablen import komponenten_variablen_filtern
+
+        return komponenten_variablen_filtern(self.variablen_lesen(variablen_referenz))
+
+    def auswerten(self, ausdruck: str, frame_id: int) -> dict[str, Any]:
+        """Überwachter Ausdruck (DAP `evaluate`, `context: "watch"`,
+        Abschnitt 8.1): liefert u. a. `result` (Text) und `type`."""
+        return self.anfrage(
+            "evaluate", {"expression": ausdruck, "frameId": frame_id, "context": "watch"}
+        )

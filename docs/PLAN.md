@@ -16,7 +16,7 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M4, Schritt 5: DAP-Client – Variablen und Aufrufstapel** – siehe
+→ **M4, Schritt 6: IDE-Verdrahtung des DAP-Clients** – siehe
 [`docs/arbeitspakete/M4.md`](arbeitspakete/M4.md). M1, M2 und M3 sind
 funktional abgeschlossen (M3-Abnahme bestanden: Ampel vollständig über
 Designer/Inspektor/Palette nachgebaut, siehe
