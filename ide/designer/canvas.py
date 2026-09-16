@@ -7,9 +7,10 @@ pcl-Komponenten“, Tastenkürzel wie dort beschrieben (Pfeiltasten =
 Rasterschritt, Alt+Pfeil = 1 px, Umschalt+Pfeil = Größe, Entf = löschen,
 Strg+D = duplizieren, dazu Strg+Z/Strg+Umschalt+Z bzw. Strg+Y für
 Rückgängig/Wiederholen, Command-Pattern). `komponente_platzieren()` ist
-das Gegenstück für die Komponentenpalette (Abschnitt 7.3). Sichtbare
-Größenanfasser zum Ziehen (statt nur Tastatur) sind eine spätere
-Verfeinerung.
+das Gegenstück für die Komponentenpalette (Abschnitt 7.3). Acht sichtbare
+Größenanfasser (wie in Lazarus) an der ausgewählten Komponente lassen
+sich zusätzlich zur Tastatur mit der Maus ziehen (`_Anfasser`,
+`_ANFASSER_VERHALTEN`).
 """
 
 from __future__ import annotations
@@ -29,6 +30,35 @@ from ide.designer.pfm_schreiben import formular_als_pfm_speichern
 from ide.inspector.komponentenbaum import kind_komponenten
 from pcl.form import Form
 from pcl.properties import eigenschaften, ereignisse
+
+_ANFASSER_GROESSE = 7
+_ANFASSER_FARBE = "#0067c0"
+
+# Name -> (links_je_dx, breite_je_dx, oben_je_dy, hoehe_je_dy): wie stark
+# sich `left`/`width`/`top`/`height` je Pixel Mausbewegung ändern, z. B.
+# "nw" verschiebt links UND oben, während sich Breite/Höhe gegenläufig
+# verkleinern; "e" ändert nur die Breite.
+_ANFASSER_VERHALTEN: dict[str, tuple[int, int, int, int]] = {
+    "nw": (1, -1, 1, -1),
+    "n": (0, 0, 1, -1),
+    "ne": (0, 1, 1, -1),
+    "e": (0, 1, 0, 0),
+    "se": (0, 1, 0, 1),
+    "s": (0, 0, 0, 1),
+    "sw": (1, -1, 0, 1),
+    "w": (1, -1, 0, 0),
+}
+
+_ANFASSER_CURSOR: dict[str, Qt.CursorShape] = {
+    "nw": Qt.CursorShape.SizeFDiagCursor,
+    "se": Qt.CursorShape.SizeFDiagCursor,
+    "ne": Qt.CursorShape.SizeBDiagCursor,
+    "sw": Qt.CursorShape.SizeBDiagCursor,
+    "n": Qt.CursorShape.SizeVerCursor,
+    "s": Qt.CursorShape.SizeVerCursor,
+    "e": Qt.CursorShape.SizeHorCursor,
+    "w": Qt.CursorShape.SizeHorCursor,
+}
 
 # Wird einmal an das Stylesheet des Formulars angehängt (kaskadiert zu
 # allen Kindern, Abschnitt 6) statt einzelne Widget-Stylesheets zu
@@ -148,9 +178,14 @@ class DesignerCanvas(QObject):
         self._ziehen_komponente: Any = None
         self._ziehen_start: QPoint | None = None
         self._ziehen_start_werte: dict[str, Any] | None = None
+        self._anfasser_widget_zu_name: dict[QWidget, str] = {}
+        self._anfasser_ziehen: str | None = None
+        self._anfasser_start: QPoint | None = None
+        self._anfasser_start_werte: dict[str, int] | None = None
 
         formular._qwidget.setStyleSheet(formular._qwidget.styleSheet() + _AUSWAHL_REGEL)
         self._ueberwachung_einrichten(formular)
+        self._anfasser_erzeugen()
 
     def _ueberwachung_einrichten(self, objekt: Any) -> None:
         widget = objekt._qwidget
@@ -158,6 +193,50 @@ class DesignerCanvas(QObject):
         widget.installEventFilter(self)
         for _, komponente in kind_komponenten(objekt):
             self._ueberwachung_einrichten(komponente)
+
+    def _anfasser_erzeugen(self) -> None:
+        for name in _ANFASSER_VERHALTEN:
+            anfasser = QWidget(self.formular._qwidget)
+            anfasser.setFixedSize(_ANFASSER_GROESSE, _ANFASSER_GROESSE)
+            anfasser.setStyleSheet(
+                f"background-color: {_ANFASSER_FARBE}; border: 1px solid white;"
+            )
+            anfasser.setCursor(_ANFASSER_CURSOR[name])
+            anfasser.hide()
+            anfasser.installEventFilter(self)
+            self._anfasser_widget_zu_name[anfasser] = name
+
+    def _anfasser_aktualisieren(self) -> None:
+        komponente = self.ausgewaehlte_komponente
+        if komponente is None or komponente is self.formular:
+            for anfasser in self._anfasser_widget_zu_name:
+                anfasser.hide()
+            return
+
+        h = _ANFASSER_GROESSE
+        mitte = h // 2
+        positionen = {
+            "nw": (komponente.left, komponente.top),
+            "n": (komponente.left + komponente.width // 2, komponente.top),
+            "ne": (komponente.left + komponente.width, komponente.top),
+            "e": (komponente.left + komponente.width, komponente.top + komponente.height // 2),
+            "se": (komponente.left + komponente.width, komponente.top + komponente.height),
+            "s": (komponente.left + komponente.width // 2, komponente.top + komponente.height),
+            "sw": (komponente.left, komponente.top + komponente.height),
+            "w": (komponente.left, komponente.top + komponente.height // 2),
+        }
+        for anfasser, name in self._anfasser_widget_zu_name.items():
+            x, y = positionen[name]
+            anfasser.move(x - mitte, y - mitte)
+            anfasser.show()
+            anfasser.raise_()
+
+    def anfasser_widget(self, name: str) -> QWidget:
+        """Das Größenanfasser-Widget an Position `name` (`"nw"`, `"n"`,
+        `"ne"`, `"e"`, `"se"`, `"s"`, `"sw"`, `"w"`) – für echte
+        `QMouseEvent`s in Tests, sonst intern über `eventFilter`
+        angesprochen."""
+        return next(w for w, n in self._anfasser_widget_zu_name.items() if n == name)
 
     # -- Ereignisse -----------------------------------------------------
 
@@ -176,6 +255,19 @@ class DesignerCanvas(QObject):
             return True
 
         if typ == QEvent.Type.MouseButtonPress:
+            anfasser_name = self._anfasser_widget_zu_name.get(beobachtetes_objekt)
+            if anfasser_name is not None:
+                komponente = self.ausgewaehlte_komponente
+                self._anfasser_ziehen = anfasser_name
+                self._anfasser_start = ereignis.globalPosition().toPoint()
+                self._anfasser_start_werte = {
+                    "left": komponente.left,
+                    "top": komponente.top,
+                    "width": komponente.width,
+                    "height": komponente.height,
+                }
+                return True
+
             komponente = self._widget_zu_komponente.get(beobachtetes_objekt)
             if komponente is not None:
                 self._auswaehlen(komponente)
@@ -185,6 +277,10 @@ class DesignerCanvas(QObject):
                     self._ziehen_start_werte = {"left": komponente.left, "top": komponente.top}
                 return True  # Klick abfangen: keine echte Interaktion im Designer
 
+        elif typ == QEvent.Type.MouseMove and self._anfasser_ziehen is not None:
+            self._anfasser_ziehen_verarbeiten(ereignis)
+            return True
+
         elif typ == QEvent.Type.MouseMove and self._ziehen_komponente is not None:
             aktuell = ereignis.globalPosition().toPoint()
             delta = aktuell - self._ziehen_start
@@ -193,6 +289,11 @@ class DesignerCanvas(QObject):
                 self._ziehen_komponente.left += delta.x()
                 self._ziehen_komponente.top += delta.y()
                 self._ziehen_start = aktuell
+                self._anfasser_aktualisieren()
+            return True
+
+        elif typ == QEvent.Type.MouseButtonRelease and self._anfasser_ziehen is not None:
+            self._anfasser_ziehen_beenden()
             return True
 
         elif typ == QEvent.Type.MouseButtonRelease and self._ziehen_komponente is not None:
@@ -203,6 +304,49 @@ class DesignerCanvas(QObject):
             return True
 
         return False
+
+    def _anfasser_ziehen_verarbeiten(self, ereignis: QEvent) -> None:
+        aktuell = ereignis.globalPosition().toPoint()
+        delta = aktuell - self._anfasser_start
+        if not delta.x() and not delta.y():
+            return
+
+        komponente = self.ausgewaehlte_komponente
+        start = self._anfasser_start_werte
+        links_je_dx, breite_je_dx, oben_je_dy, hoehe_je_dy = _ANFASSER_VERHALTEN[
+            self._anfasser_ziehen
+        ]
+        komponente.left = start["left"] + links_je_dx * delta.x()
+        komponente.top = start["top"] + oben_je_dy * delta.y()
+        komponente.width = max(1, start["width"] + breite_je_dx * delta.x())
+        komponente.height = max(1, start["height"] + hoehe_je_dy * delta.y())
+        self._anfasser_aktualisieren()
+
+    def _anfasser_ziehen_beenden(self) -> None:
+        komponente = self.ausgewaehlte_komponente
+        startwerte = self._anfasser_start_werte
+        endwerte = {
+            "left": komponente.left,
+            "top": komponente.top,
+            "width": komponente.width,
+            "height": komponente.height,
+        }
+
+        self._anfasser_ziehen = None
+        self._anfasser_start = None
+        self._anfasser_start_werte = None
+
+        if endwerte == startwerte:
+            return  # keine tatsächliche Größenänderung, kein Kommando nötig
+
+        komponente.left = startwerte["left"]
+        komponente.top = startwerte["top"]
+        komponente.width = startwerte["width"]
+        komponente.height = startwerte["height"]
+        self.kommandos.ausfuehren(
+            EigenschaftKommando(komponente, endwerte, alte_werte=startwerte)
+        )
+        self._nach_aenderung(komponente)
 
     def _ziehen_beenden(self) -> None:
         komponente = self._ziehen_komponente
@@ -442,6 +586,7 @@ class DesignerCanvas(QObject):
         return name
 
     def _benachrichtigen(self, komponente: Any) -> None:
+        self._anfasser_aktualisieren()
         for beobachter in self._auswahl_beobachter:
             beobachter(komponente)
 

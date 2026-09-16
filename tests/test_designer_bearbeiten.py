@@ -85,7 +85,10 @@ def test_duplizieren_findet_einen_eindeutigen_namen() -> None:
     canvas.klick_bei(105, 105)
 
     canvas.duplizieren()
-    canvas.klick_bei(105, 105)  # b_ein wieder auswählen
+    # (101, 101) statt (105, 105): liegt in der schmalen Ecke von b_ein,
+    # die nicht von der (um RASTER versetzten) Kopie überlappt wird und
+    # außerhalb von deren Größenanfassern - trifft eindeutig wieder b_ein.
+    canvas.klick_bei(101, 101)  # b_ein wieder auswählen
     zweite_kopie = canvas.duplizieren()
 
     assert canvas._attributname(zweite_kopie) == "b_ein_kopie2"

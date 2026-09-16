@@ -31,7 +31,12 @@ from typing import Any
 
 from ide.debugger.eigener_code import ist_eigener_code
 
-_STANDARD_ZEITLIMIT = 15.0
+# Großzügig bemessen: schadet der echten Nutzung nicht (ein einzelner
+# Start dauert praktisch immer < 5s), macht die Testsuite aber robuster
+# gegen Zeitüberschreitungen unter Last, wenn viele DAP-Tests kurz
+# hintereinander eigene debugpy-Unterprozesse starten (siehe
+# docs/arbeitspakete/M4.md, Hinweis zu den DAP-Tests).
+_STANDARD_ZEITLIMIT = 30.0
 
 
 class DapFehler(Exception):

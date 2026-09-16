@@ -29,8 +29,11 @@ M4-Schritten nachgeholt.
 auf `u_main` im Explorer öffnet den echten Formular-Designer als Tab;
 Klick auf ein Ampellicht/einen Button wählt es aus und füllt den
 Objektinspektor rechts; Eigenschaften dort ändern wirkt sofort auf die
-Anzeige. Im Designer selbst: Ziehen mit der Maus verschiebt, Pfeiltasten/
-Alt+Pfeil/Umschalt+Pfeil bewegen bzw. skalieren rasterweise, Entf löscht,
+Anzeige. Im Designer selbst: Ziehen mit der Maus verschiebt, acht
+Größenanfasser (Ecken + Kantenmitten, wie in Lazarus) an den Ecken/Kanten
+der ausgewählten Komponente lassen sich mit der Maus zur Größenänderung
+ziehen, Pfeiltasten/Alt+Pfeil/Umschalt+Pfeil bewegen bzw. skalieren
+rasterweise, Entf löscht,
 Strg+D dupliziert, Doppelklick auf der Palette platziert eine neue
 Komponente mittig, Doppelklick auf einer Komponente oder dem
 Formularhintergrund erzeugt (per `libcst`) ihre Standard-Ereignismethode
