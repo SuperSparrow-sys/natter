@@ -1,0 +1,135 @@
+object Form1: TForm1
+  Left = 1435
+  Height = 490
+  Top = 151
+  Width = 422
+  Caption = 'Form1'
+  ClientHeight = 490
+  ClientWidth = 422
+  OnCreate = FormCreate
+  LCLVersion = '3.4.0.0'
+  object b_eintragen: TButton
+    Left = 19
+    Height = 45
+    Top = 250
+    Width = 384
+    Caption = 'Eintragen!'
+    TabOrder = 0
+    OnClick = b_eintragenClick
+  end
+  object m_anzeige: TMemo
+    Left = 70
+    Height = 147
+    Top = 307
+    Width = 294
+    TabOrder = 1
+  end
+  object b_zurueck: TButton
+    Left = 26
+    Height = 147
+    Top = 307
+    Width = 37
+    Caption = '<'
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -34
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    ParentFont = False
+    TabOrder = 2
+    OnClick = b_zurueckClick
+  end
+  object b_vor: TButton
+    Left = 373
+    Height = 147
+    Top = 307
+    Width = 30
+    Caption = '>'
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -34
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    ParentFont = False
+    TabOrder = 3
+    OnClick = b_vorClick
+  end
+  object l_ueberschrift: TLabel
+    Left = 128
+    Height = 46
+    Top = 13
+    Width = 176
+    Caption = 'Gästebuch'
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -38
+    Font.Name = 'Tahoma'
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    ParentFont = False
+  end
+  object l_username: TLabel
+    Left = 34
+    Height = 30
+    Top = 70
+    Width = 103
+    Caption = 'Username:'
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -22
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    ParentFont = False
+  end
+  object l_mail: TLabel
+    Left = 88
+    Height = 30
+    Top = 102
+    Width = 46
+    Caption = 'Mail:'
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -22
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    ParentFont = False
+  end
+  object l_kommentar: TLabel
+    Left = 19
+    Height = 30
+    Top = 147
+    Width = 118
+    Caption = 'Kommentar:'
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -22
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    ParentFont = False
+  end
+  object m_anzeige1: TMemo
+    Left = 141
+    Height = 96
+    Top = 147
+    Width = 262
+    TabOrder = 4
+  end
+  object e_eingabe_username: TEdit
+    Left = 141
+    Height = 27
+    Top = 74
+    Width = 262
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -14
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    ParentFont = False
+    TabOrder = 5
+  end
+  object e_eingabe_mail: TEdit
+    Left = 141
+    Height = 27
+    Top = 109
+    Width = 262
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -14
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    ParentFont = False
+    TabOrder = 6
+  end
+end

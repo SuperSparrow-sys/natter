@@ -1,0 +1,105 @@
+object Form1: TForm1
+  Left = 1166
+  Height = 753
+  Top = 107
+  Width = 738
+  Caption = 'Form1'
+  ClientHeight = 753
+  ClientWidth = 738
+  OnCreate = FormCreate
+  LCLVersion = '3.4.0.0'
+  object sg_Tabelle: TStringGrid
+    Left = 256
+    Height = 492
+    Top = 56
+    Width = 344
+    ColCount = 4
+    FixedCols = 0
+    RowCount = 2
+    TabOrder = 0
+    Cells = (
+      4
+      0
+      0
+      'Nr.'
+      1
+      0
+      'Name'
+      2
+      0
+      'Vorname'
+      3
+      0
+      'Geb.-Dat.'
+    )
+  end
+  object Label1: TLabel
+    Left = 57
+    Height = 15
+    Top = 72
+    Width = 35
+    Caption = 'Name:'
+  end
+  object Label2: TLabel
+    Left = 42
+    Height = 15
+    Top = 98
+    Width = 50
+    Caption = 'Vorname:'
+  end
+  object Label3: TLabel
+    Left = 13
+    Height = 15
+    Top = 128
+    Width = 79
+    Caption = 'Geburtsdatum:'
+  end
+  object b_uebernehmen: TButton
+    Left = 24
+    Height = 25
+    Top = 176
+    Width = 187
+    Caption = 'Daten in Tabelle übernehmen'
+    TabOrder = 1
+    OnClick = b_uebernehmenClick
+  end
+  object b_zurueksetzen: TButton
+    Left = 24
+    Height = 25
+    Top = 208
+    Width = 185
+    Caption = 'Tabelle zurücksetzen'
+    TabOrder = 2
+    OnClick = b_zurueksetzenClick
+  end
+  object e_name: TEdit
+    Left = 96
+    Height = 23
+    Top = 67
+    Width = 120
+    TabOrder = 3
+  end
+  object e_Vorname: TEdit
+    Left = 96
+    Height = 23
+    Top = 98
+    Width = 120
+    TabOrder = 4
+  end
+  object e_datum: TEdit
+    Left = 96
+    Height = 23
+    Top = 128
+    Width = 120
+    TabOrder = 5
+  end
+  object b_schliessen: TButton
+    Left = 24
+    Height = 25
+    Top = 264
+    Width = 184
+    Caption = 'Tabelle schließen'
+    TabOrder = 6
+    OnClick = b_schliessenClick
+  end
+end

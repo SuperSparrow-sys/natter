@@ -1,0 +1,214 @@
+object Form1: TForm1
+  Left = 1304
+  Height = 734
+  Top = 114
+  Width = 624
+  Caption = 'Form1'
+  ClientHeight = 734
+  ClientWidth = 624
+  OnCreate = FormCreate
+  LCLVersion = '3.4.0.0'
+  object l_Kassenzettel: TLabel
+    Left = 61
+    Height = 38
+    Top = 32
+    Width = 166
+    Caption = 'Kassenzettel'
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -32
+    Font.Name = 'Bodoni MT'
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object l_eingabeSorte: TLabel
+    Left = 61
+    Height = 21
+    Top = 88
+    Width = 86
+    Caption = 'Pizzasorte: '
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -16
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object l_grundpreis: TLabel
+    Left = 63
+    Height = 21
+    Top = 124
+    Width = 215
+    Caption = 'Grundpreis:                        EUR'
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -16
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object b_hinzufuegen: TButton
+    Left = 61
+    Height = 25
+    Top = 312
+    Width = 219
+    Caption = 'zum Kassenzettel hinzufügen'
+    TabOrder = 0
+    OnClick = b_hinzufuegenClick
+  end
+  object m_zettel: TMemo
+    Left = 65
+    Height = 140
+    Top = 344
+    Width = 214
+    ReadOnly = True
+    TabOrder = 1
+  end
+  object b_zettelLeer: TButton
+    Left = 64
+    Height = 25
+    Top = 496
+    Width = 215
+    Caption = 'Kassenzettel leeren'
+    TabOrder = 2
+    OnClick = b_zettelLeerClick
+  end
+  object e_eingabeSorte: TEdit
+    Left = 152
+    Height = 23
+    Top = 88
+    Width = 128
+    TabOrder = 3
+  end
+  object e_Grundpreis: TEdit
+    Left = 158
+    Height = 23
+    Top = 124
+    Width = 82
+    TabOrder = 4
+  end
+  object Label1: TLabel
+    Left = 64
+    Height = 15
+    Top = 169
+    Width = 50
+    Caption = 'Optionen'
+  end
+  object c_kaese: TCheckBox
+    Left = 128
+    Height = 19
+    Top = 169
+    Width = 71
+    Caption = 'Käserand?'
+    TabOrder = 5
+  end
+  object c_knoblauch: TCheckBox
+    Left = 216
+    Height = 19
+    Top = 169
+    Width = 104
+    Caption = 'Extra Knoblauch'
+    TabOrder = 6
+  end
+  object RadioGroup1: TRadioGroup
+    Left = 61
+    Height = 95
+    Top = 200
+    Width = 131
+    AutoFill = True
+    Caption = 'Größe wählen:'
+    ChildSizing.LeftRightSpacing = 6
+    ChildSizing.EnlargeHorizontal = crsHomogenousChildResize
+    ChildSizing.EnlargeVertical = crsHomogenousChildResize
+    ChildSizing.ShrinkHorizontal = crsScaleChilds
+    ChildSizing.ShrinkVertical = crsScaleChilds
+    ChildSizing.Layout = cclLeftToRightThenTopToBottom
+    ChildSizing.ControlsPerLine = 1
+    ClientHeight = 75
+    ClientWidth = 127
+    ParentBidiMode = False
+    TabOrder = 7
+    object rb_small: TRadioButton
+      Left = 6
+      Height = 15
+      Top = 0
+      Width = 115
+      Caption = 'Small'
+      TabOrder = 0
+    end
+    object rb_normal: TRadioButton
+      Left = 6
+      Height = 15
+      Top = 15
+      Width = 115
+      Caption = 'Normal'
+      TabOrder = 1
+    end
+    object rb_XL: TRadioButton
+      Left = 6
+      Height = 15
+      Top = 30
+      Width = 115
+      Caption = 'XL'
+      TabOrder = 2
+    end
+    object rb_XXL: TRadioButton
+      Left = 6
+      Height = 15
+      Top = 45
+      Width = 115
+      Caption = 'XXL'
+      TabOrder = 3
+    end
+    object rb_XXXL: TRadioButton
+      Left = 6
+      Height = 15
+      Top = 60
+      Width = 115
+      Caption = 'XXXL'
+      TabOrder = 4
+    end
+  end
+  object sb_behinderung: TScrollBar
+    Left = 66
+    Height = 17
+    Top = 560
+    Width = 212
+    Max = 50
+    Min = 5
+    PageSize = 0
+    Position = 5
+    TabOrder = 8
+    OnChange = sb_behinderungChange
+  end
+  object cb_mws: TComboBox
+    Left = 200
+    Height = 23
+    Top = 205
+    Width = 112
+    ItemHeight = 15
+    Items.Strings = (
+      '7'
+      '19'
+    )
+    ReadOnly = True
+    TabOrder = 9
+    Text = 'Mehrwertsteuer'
+  end
+  object Label2: TLabel
+    Left = 64
+    Height = 15
+    Top = 534
+    Width = 104
+    Caption = 'Schriftgöße andern:'
+  end
+  object lb_KurzWahl: TListBox
+    Left = 376
+    Height = 120
+    Top = 80
+    Width = 164
+    ItemHeight = 0
+    TabOrder = 10
+  end
+end

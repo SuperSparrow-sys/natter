@@ -1,103 +1,240 @@
-# Umsetzungsplan
+# Ablaufplan
 
-Konkretisiert konzept-natter.md, Abschnitt 20 (Umsetzungsphasen) und 23
-(Voraussetzungen) zu einer Schritt-für-Schritt-Reihenfolge. Wird laufend
-aktualisiert; der aktuelle Stand steht immer auch in
-`docs/arbeitspakete/M0.md`.
+Schritt-für-Schritt-Checkliste für die Umsetzung, damit nichts vergessen
+wird. Konkretisiert konzept-natter.md, Abschnitt 20 (Umsetzungsphasen) und
+23 (Voraussetzungen).
 
-## Warum echte Lazarus-Projekte, keine Screenshots
+**Funktionsweise:** jeder Punkt ist einzeln abhakbar (`[ ]` → `[x]`).
+Nahe Schritte (Rest von M0, ganz M1) sind kleinteilig. Spätere Phasen
+(M2–M9) stehen hier vorerst nur als vollständige Stichwortliste aus
+Abschnitt 20, damit nichts fehlt – sie werden jeweils kurz vor Beginn in
+einer eigenen `docs/arbeitspakete/M<n>.md` so kleinteilig aufgeschlüsselt
+wie M1 hier. Reihenfolge = Abhängigkeiten.
 
-Für Abschnitt 23.1 werden die **echten Projektdateien** gebraucht
-(`.lfm` + `.pas` + `assets/`), keine Screenshots:
+Aktueller Punkt, an dem wir stehen, steht immer ganz oben in diesem
+Dokument (Abschnitt „Wo wir stehen“).
 
-- Der `.lfm`-Importer (Abschnitt 15) parst den Text der `.lfm`-Datei
-  (`object … end`-Format). Ohne echte `.lfm`-Dateien lässt sich der Parser
-  nicht schreiben oder testen.
-- Die `.pas`-Dateien liefern die Pascal-Rümpfe, die beim Import als
-  Kommentar in die neuen Python-Methoden übernommen werden (Umstiegshilfe).
-- Die MVP-Abnahme („Alle Übungsprojekte … lassen sich vollständig in Natter
-  umsetzen, debuggen und als `.exe` exportieren“) braucht die Originale als
-  Vergleichsbasis.
+## Wo wir stehen
 
-Screenshots sind trotzdem nützlich, aber zusätzlich: als visuelle Referenz
-dafür, wie die Formulare aussehen sollen (für den Design-Prüfer und den
-Vergleich „sieht im Designer genauso aus wie zur Laufzeit“). Sie ersetzen
-die Quelldateien nicht.
+→ **M1, Schritt 1: `Prop`/`Event`-Kern in `pcl`** (siehe unten)
 
-**Bitte kopieren, wenn verfügbar:**
+## Referenzmaterial
 
-```
-referenz/
-  lazarus/
-    ampel/            Ampel.lpi, u_main.pas, u_main.lfm, u_ampel.pas, assets …
-    wuerfelspiel/      … (inkl. Highscore-Datei/-Format, falls vorhanden)
-    stringgrid_uebung/
-    cookie_clicker/
-    tauto/
-    infsys_pet/
-    gaestebuch/
-    kontoverwaltung/   inkl. SQL-Dump der Beispieldatenbank, falls vorhanden
-```
+- [x] Lazarus-Übungsprojekte in `referenz/lazarus/` vorhanden (18 Projekte,
+  mehr als die 8 MVP-Projekte aus Abschnitt 1) – nur Quelltext (`.pas`,
+  `.lfm`, `.lpi`, `.lpr`) und Bilder committet; `lib/`, `backup/`, `*.exe`,
+  `*.res`, `*.lps` sind über `.gitignore` ausgeschlossen (Kompilate/
+  Sessiondaten, ungefiltert ca. 490 MB, nicht nötig)
+- [ ] Zuordnungstabelle Projekt → benötigte `pcl`-Komponenten/Konzepte
+  pflegen, siehe Tabelle unten (wird während M1 befüllt)
+- [ ] optional, nicht blockierend: separate Excel-exportierte CSV-Beispiele,
+  SQL-Dump einer Beispieldatenbank, Beispiel-Diagramme (DIA-Dateien oder
+  Fotos von Struktogrammen) – erst relevant für M5 bzw. M9
 
-Reicht auch unvollständig / nach und nach – wir fangen mit **Ampel** an,
-weil es das durchgängige Beispiel im Konzept ist (Abschnitt 4–5) und die
-kleinste sinnvolle Menge an Komponenten abdeckt (Form, Button, Shape).
-Zusätzlich hilfreich, aber nicht blockierend: Beispiel-CSV-Dateien (auch aus
-Excel exportiert) und Beispiel-Diagramme (DIA-Dateien oder Fotos von
-Struktogrammen auf Papier).
+### Referenzprojekte in `referenz/lazarus/`
 
-## Reihenfolge
-
-### Schritt 1 – M0 abschließen (läuft parallel zu Schritt 2)
-
-| Wer | Aufgabe |
+| Ordner | Deckt ab (grob) |
 |---|---|
-| Ich | `prototypes/`-Ordner mit den sieben Wegwerf-Prototypen S1–S7 (Abschnitt 23.3) anlegen: je ein möglichst kleines, eigenständiges Skript pro Prüfung, mit `README.md` je Prüfung (Ausführung, Erfolgskriterium) |
-| Du | Prototypen auf dem Windows-Laptop ausführen, Ergebnis (bestanden/durchgefallen) zurückmelden |
-| Beide | bei Durchfallen: betroffene Technologie-Entscheidung in `konzept-natter.md` anpassen, bevor M1 beginnt |
+| `a_GUI_Komponenten` | Grundkomponenten |
+| `b_schneefigur` | Zeichnen (Shape/Canvas) |
+| `c_rechenen`, `e_rechenen` | Eingabe/Berechnung, Edit |
+| `d_Cookie_klicker` | Bilder, Timer/Klicks |
+| `f_Pizza` | RadioGroup/CheckBox-artige Auswahl |
+| `g_StringGrid` | StringGrid |
+| `h_LinearesucheTabelle` | Such-/Tabellenalgorithmen |
+| `i_KleinesEinmaleins` | Schleifen/Auswertung |
+| `j_komplexeLeistung` | komplexere Logik |
+| `k_Ampel` | Form, Button, Label, Shape – **Startprojekt für M1** |
+| `l_Pet` | Bilder/Zustände (InfSys-Pet) |
+| `m_Gaestebuch` | Textdatei-Ein-/Ausgabe |
+| `n_abstrakte_Klasse` | abstrakte Klassen |
+| `n_konto` | Kontoverwaltung, vermutlich Datenbank |
+| `o_vererbung` | Vererbung |
+| `p_Monster` | Klassen/Objekte |
+| `q_Würfelspiel` | Zufallszahlen, Highscore-Datei |
+| `r_Dateibearbeitung` | Dateiarbeit |
 
-Reihenfolge der Prototypen nach Risiko: **S2 (Monaco/Jedi)** und
-**S7 (QGraphicsView-Verbindungen)** zuerst, da sie die Konzept-Entscheidung
-am ehesten kippen könnten; danach S1, S3, S4, S5; S6 (Signatur) zuletzt, da
-er erst für den Export (M8) relevant wird.
+Wird während M1 verfeinert (genaue Komponentenliste je Projekt), sobald die
+`.lfm`-Dateien systematisch ausgewertet werden.
 
-### Schritt 2 – Material sammeln
+## Zurückgestellt (nicht blockierend)
 
-| Wer | Aufgabe |
-|---|---|
-| Du | Ampel-Projekt aus Lazarus in `referenz/lazarus/ampel/` kopieren (mindestens dieses eine, den Rest nach und nach) |
-| Ich | sobald `ampel/` da ist: `.lfm` als erstes Testbeispiel für `schemas/pfm.schema.json` und späteren Importer verwenden |
+- [ ] `prototypes/s1`–`s7` (Machbarkeitsprüfungen, Abschnitt 23.3): Code
+  liegt bereit (siehe `prototypes/README.md`), wird aber erst kurz vor dem
+  jeweils betroffenen Meilenstein tatsächlich ausgeführt statt jetzt:
+  S1/S4 vor M2, S2 vor M2, S3 vor M4, S5/S6 vor M8, S7 vor M9. Blockiert
+  M1 nicht.
+- [ ] `design/referenz/` (freigegebene UI-Mockups): setzt erste
+  Bildschirmentwürfe voraus, folgt mit M2/M3.
 
-### Schritt 3 – M1 starten, sobald Ampel vorliegt
+## M0 – Repository, CI, Schemas, Design-Tokens (Rest)
 
-Reihenfolge innerhalb M1, jede Teilaufgabe einzeln testbar:
+- [x] Repository, `pyproject.toml`, `AGENTS.md`, `LICENSE`, `.gitignore`
+- [x] Schemas (`pfm`, `project`-Entwurf, `pdiag`) + Tests
+- [x] `design/tokens.json` (Entwurf)
+- [x] CI (Ruff + pytest)
+- [x] Referenzmaterial eingespielt
+- [ ] `schemas/project.schema.json` gegen `k_Ampel` grob abgleichen (Name,
+  Typ, Hauptformular sinnvoll abgebildet?) – kleine Korrektur bei Bedarf
 
-1. `pcl` Eigenschaften-System: `Prop`, `Event`, Typprüfung, Fehler bei
-   unbekannter Eigenschaft (Abschnitt 5.0) – ohne Qt, reine Python-Logik,
-   zuerst testbar
-2. `pcl.Control`/`pcl.Form` als dünne Hülle um `QWidget` mit dem
-   Eigenschaften-System verbunden (headless testbar mit
-   `QT_QPA_PLATFORM=offscreen`)
-3. Erste Komponenten: `Form`, `Button`, `Label`, `Shape` – genug für Ampel
-4. `.pfm` → `u_main_design.py`-Generator (Abschnitt 4.3), gegen
-   `schemas/pfm.schema.json` und das echte Ampel-`.pfm` getestet
-5. Ampel von Hand als Natter-Projekt nachbauen (`main.py`, `u_main.py`,
-   `u_ampel.py`) und mit `python main.py` laufen lassen – Abnahmekriterium
-   von M1 für dieses eine Projekt
-6. Rest von M1: übrige Standard-/Additional-/Common-Komponenten, Theme
-   hell/dunkel, Dialoge, Timer, Sound, bis Würfelspiel und
-   StringGrid-Übung ebenfalls mit `python main.py` laufen
+## M1 – pcl-Kern: Eigenschaften-System und erste Komponenten
 
-### Danach
+Abnahmekriterium laut Konzept: Ampel, Würfelspiel, StringGrid-Übung laufen
+mit `python main.py`. Hier in einzelne, unabhängig testbare Schritte
+zerlegt, jeder Schritt für sich mit `pytest` abgesichert.
 
-M2–M9 wie im Konzept (Abschnitt 20) beschrieben; wird jeweils vor Beginn in
-`docs/arbeitspakete/M<n>.md` konkretisiert, wenn M1 abgeschlossen ist.
+### 1. Eigenschaften-System (ohne Qt, reine Python-Logik)
 
-## Nächste konkrete Schritte
+- [ ] `pcl/properties.py`: `Prop`-Deskriptor (Typ, Standardwert, Kategorie,
+  `doc`), `Event`-Deskriptor
+- [ ] Typprüfung beim Setzen, Fehlertext exakt wie im Fehlerkatalog
+  (`docs/fehlerkatalog.yaml`, Eintrag `pcl_property_error`)
+- [ ] unbekannte Eigenschaft (Tippfehler) löst Fehler aus statt still ein
+  neues Attribut anzulegen; eigene Attribute (`self.ampel = Ampel()`)
+  bleiben weiter erlaubt
+- [ ] Tests: Standardwert, Typprüfung, Tippfehler-Erkennung, Lesen liefert
+  aktuellen Wert
 
-1. Du: Ampel-Projekt (und wenn einfach möglich, gleich die übrigen sieben)
-   nach `referenz/lazarus/` kopieren.
-2. Ich: `prototypes/` für S1–S7 anlegen und pushen.
-3. Du: Prototypen auf dem Windows-Laptop durchgehen, Ergebnisse melden.
-4. Ich: `pcl`-Eigenschaften-System (`Prop`/`Event`) beginnen, sobald Ampel
-   vorliegt.
+### 2. Anbindung an Qt
+
+- [ ] `pcl/control.py`: `Control` als Basisklasse, verbindet `Prop`-Zugriff
+  mit dem zugehörigen `QWidget` (Setter ändert sofort das Widget)
+- [ ] `pcl/form.py`: `Form` (Basis für `QWidget`-Fenster), `create_components`-
+  Konvention wie im generierten Code (Abschnitt 4.3)
+- [ ] `pcl/application.py`: `Application.run(FormKlasse)`
+- [ ] Tests headless mit `QT_QPA_PLATFORM=offscreen` (pytest-qt)
+
+### 3. Erste Komponenten (reichen für `k_Ampel`)
+
+- [ ] `Button`, `Label`, `Shape` (inkl. `brush.color`, `shape` = circle/…)
+- [ ] `Form`-Events: `on_create`
+- [ ] `Button`-Event: `on_click`
+
+### 4. `.pfm` → `u_*_design.py`
+
+- [ ] Generator: liest `.pfm` (Abschnitt 4.2), erzeugt
+  `u_*_design.py` im Format aus Abschnitt 4.3 (Kopfzeile „nicht
+  bearbeiten“)
+- [ ] gegen `schemas/pfm.schema.json` validiert
+- [ ] Test: `.pfm` → generierter Code → Formular liefert dieselben
+  Eigenschaftswerte wie die `.pfm`
+
+### 5. Ampel nachbauen (erstes Abnahmeprojekt)
+
+- [ ] `.pfm` von Hand aus `referenz/lazarus/k_Ampel/u_main.lfm` ableiten
+  (Buttons `b_einschalten`/`b_wechseln`/`b_Auschalten`, Label, drei
+  `Shape`-Ampellichter)
+- [ ] `u_main_design.py` generieren
+- [ ] `u_ampel.py` (eigene Klasse, reines Python, siehe
+  `referenz/lazarus/k_Ampel/u_tampel.pas` als fachliche Vorlage)
+- [ ] `u_main.py` (Event-Handler) + `main.py`
+- [ ] läuft mit `python main.py`, Ampel schaltet sichtbar um
+
+### 6. Restliche Standard-/Additional-/Common-Komponenten
+
+- [ ] `Edit`, `CheckBox`, `RadioButton`, `RadioGroup`, `Memo`, `ComboBox`,
+  `ListBox`, `ScrollBar`, `GroupBox`, `Panel`, `MainMenu`, `PopupMenu`
+- [ ] `StringGrid`, `Image`, `SpinEdit`, `FloatSpinEdit`, `MaskEdit`,
+  `PaintBox` (inkl. Canvas: `line_to`, `rectangle`, `ellipse`, `text_out`),
+  `HtmlViewer`
+- [ ] `TrackBar`, `ProgressBar`, `DateEdit`, `TimeEdit`, `Calendar`
+- [ ] Dialoge: `show_message`, `input_box`, `message_dlg`, `OpenDialog`,
+  `SaveDialog`, `SelectDirectoryDialog`, `ColorDialog`, `FontDialog`
+- [ ] `Timer`, `Sound`
+- [ ] Datei-Methoden der Komponenten (`lines.load_from_file` usw.,
+  Abschnitt 11.2), `open_url`
+
+### 7. Theme
+
+- [ ] `design/tokens.json` → QSS-Generator für `pcl`-Programme, hell/dunkel,
+  `theme`-Eigenschaft des Formulars (`system`/`light`/`dark`)
+
+### 8. Zweites/drittes Abnahmeprojekt
+
+- [ ] Würfelspiel mit Highscore (`referenz/lazarus/q_Würfelspiel` als
+  Vorlage) läuft mit `python main.py`
+- [ ] StringGrid-Übung (`referenz/lazarus/g_StringGrid` als Vorlage) läuft
+  mit `python main.py`
+
+### 9. Dokumentation nachziehen
+
+- [ ] `docs/komponenten.md` für jede in M1 entstandene Komponente ausfüllen
+  (Pflicht laut `AGENTS.md`, Definition of Done)
+
+## M2 – IDE-Grundgerüst (Stichworte aus Abschnitt 20, Details folgen in `docs/arbeitspakete/M2.md`)
+
+- [ ] Aktionsregister, alle Menüs/Werkzeugleisten, SVG-Symbole
+- [ ] Monaco-Einbindung, Themes
+- [ ] Explorer, Neu-Dialog
+- [ ] Units (Tabs, geteilte Ansicht, Einbinden)
+- [ ] portable Laufzeit mit getrennten Paketordnern
+- [ ] Ausführung in eigenen Fenstern (GUI + Konsole)
+- [ ] Tastenkürzel-Tab
+- [ ] Abnahme: Projekt aus M1 in der IDE öffnen, alle Datei-Menüfunktionen,
+  `u_pflanzen`/`u_garten`-Projekt anlegen und starten, Konsolenprogramm mit
+  `input()` im eigenen Fenster
+
+## M3 – Designer, Objektinspektor
+
+- [ ] Designer (Canvas, Auswahl, Anfasser, Raster, Undo)
+- [ ] Objektinspektor mit allen Editoren/Reitern
+- [ ] Komponentenpalette mit Reitern
+- [ ] Ereignis-Codegenerierung (Doppelklick → Methode, libcst)
+- [ ] Abnahme: Ampel komplett in der IDE erstellen, alle Eigenschaften nur
+  über den Inspektor gesetzt
+
+## M4 – Debugger, Fehlerkatalog, Tests
+
+- [ ] Ruff-Prüfung vor Start
+- [ ] Debugger (DAP-Client auf debugpy) inkl. Tabellenansicht für Variablen
+- [ ] Fehlerkatalog vollständig verdrahtet (Wo/Was/Prüfe)
+- [ ] Test-Explorer
+- [ ] Abnahme: Fehlerbeispiele liefern korrekte Meldungen,
+  Breakpoints/Step funktionieren, Tests mit Soll/Ist-Anzeige
+
+## M5 – Datenbank, pandas, Charts
+
+- [ ] SQLdb- und Data-Control-Komponenten
+- [ ] DB-Panel mit CSV-Import/-Export
+- [ ] pandas-Anbindung, Chart-Komponente (matplotlib)
+- [ ] CSV-/Bild-/HTML-Ansichten in der IDE
+- [ ] Abnahme: Kontoverwaltung (`referenz/lazarus/n_konto`) mit
+  MariaDB/SQLite, CSV-Auswertung mit pandas in StringGrid und Chart,
+  Würfelspiel-Highscore als HTML im Browser
+
+## M6 – Konsolen-Feinschliff
+
+- [ ] `pcl.crt` (optionales Hilfsmodul für den Umstieg aus CRT-Unterricht)
+- [ ] Abnahme: Konsolen-/CRT-Übungen laufen
+
+## M7 – Design-Prüfer, Paketverwaltung
+
+- [ ] Design-Prüfer (regelbasiert, Abschnitt 14)
+- [ ] Paketverwaltung (pip über die IDE)
+- [ ] Abnahme: alle Prüfregeln erkennen ihre Testformulare, Paket über das
+  Menü installierbar
+
+## M8 – Lazarus-Import, Exe-Export, Verteilung
+
+- [ ] `.lfm`-Import (Parser, Zuordnungstabelle, Abschnitt 15) – jetzt mit
+  echten `.lfm`-Dateien aus `referenz/lazarus/` testbar
+- [ ] Exe-Export (PyInstaller-Pipeline)
+- [ ] portables ZIP-Paket mit Starter, Prüfsummen-Manifest, Signatur
+  (S5/S6 aus `prototypes/` hier tatsächlich einsetzen)
+- [ ] Abnahme: ein Lazarus-Übungsprojekt importieren, fertigstellen, als
+  Exe starten; ZIP auf Rechner ohne Python entpacken und vollständig
+  nutzen; veränderte Datei wird erkannt
+
+## M9 – Diagramm-Editor
+
+- [ ] Fenster, Palette, Klassendiagramm, Struktogramm, Entscheidungstabelle
+- [ ] danach Use-Case, Aktivität, Zustand, Sequenz
+- [ ] Stilvorlagen, Export, Druck
+- [ ] Abnahme: UML-Klassendiagramm `TAmpel`, Struktogramm
+  `ampel_zeichnen` und Entscheidungstabelle der Ampel von Hand erstellen
+  und als PDF exportieren
+
+## Nächster konkreter Schritt
+
+**M1, Schritt 1:** `pcl/properties.py` mit `Prop`/`Event`-Kern anlegen,
+reine Python-Logik ohne Qt, mit pytest abgesichert (siehe oben).

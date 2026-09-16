@@ -10,9 +10,11 @@ Repository-Struktur, Teststrategie und Umsetzungsphasen (M0–M9).
 
 ## Status
 
-Phase **M0** – Repository, CI, Schemas, Design-Tokens. Siehe
-[`docs/arbeitspakete/M0.md`](docs/arbeitspakete/M0.md) für den aktuellen
-Stand und die offenen Punkte.
+M0 (Repository, CI, Schemas, Design-Tokens, Referenzmaterial) ist im
+Wesentlichen abgeschlossen, M1 (`pcl`-Eigenschaften-System und erste
+Komponenten) beginnt. Der vollständige, laufend aktualisierte Ablaufplan
+mit Checkliste steht in [`docs/PLAN.md`](docs/PLAN.md) – dort auch immer
+der aktuelle Punkt unter „Wo wir stehen“.
 
 ## Aufbau des Repositories
 

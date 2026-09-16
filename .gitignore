@@ -33,3 +33,11 @@ web/monaco/
 prototypes/s6_signatur/*.pem
 prototypes/s6_signatur/*.pfx
 prototypes/s6_signatur/manifest.signiert.json
+
+# Lazarus-Referenzprojekte (referenz/): nur Quelltext + Bilder, keine
+# Kompilate/Sessiondaten (sonst mehrere hundert MB)
+referenz/**/lib/
+referenz/**/backup/
+referenz/**/*.exe
+referenz/**/*.res
+referenz/**/*.lps
