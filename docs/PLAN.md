@@ -16,7 +16,7 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M2, Schritt 1: Hauptfenster-Grundgerüst (`ide/shell/`)** – siehe
+→ **M2, Schritt 2: Aktionsregister (`ide/actions/`)** – siehe
 [`docs/arbeitspakete/M2.md`](arbeitspakete/M2.md)
 
 ## Referenzmaterial
