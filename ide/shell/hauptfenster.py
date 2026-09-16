@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QDockWidget,
     QFileDialog,
+    QListWidget,
     QMainWindow,
     QPlainTextEdit,
     QTabWidget,
@@ -29,7 +30,7 @@ from ide.inspector import Objektinspektor
 from ide.palette import Komponentenpalette
 from ide.palette.palette import TYP_ROLLE
 from ide.project import Projekt
-from ide.run import projekt_starten
+from ide.run import projekt_pruefen, projekt_starten
 from ide.shell.explorer import PFAD_ROLLE, ProjektExplorer
 from ide.shell.quelltexteditor import QuelltextEditor
 from ide.shell.schnellauswahl import SchnellAuswahl
@@ -102,8 +103,10 @@ class HauptFenster(QMainWindow):
         self.editor_tabs.currentChanged.connect(self._bei_tab_wechsel)
 
         self.panels = QTabWidget()
+        self.meldungen_liste = QListWidget()
         for reiter in PANEL_REITER:
-            self.panels.addTab(QWidget(), reiter)
+            inhalt = self.meldungen_liste if reiter == "Meldungen" else QWidget()
+            self.panels.addTab(inhalt, reiter)
         self.panels_dock = self._dock_erzeugen(
             "Panels", Qt.DockWidgetArea.BottomDockWidgetArea, inhalt=self.panels
         )
@@ -355,12 +358,24 @@ class HauptFenster(QMainWindow):
         """„Starten ohne Debugger“ (Strg+F5, Abschnitt 7.8). Standardmäßig
         nur eine laufende Instanz pro Projekt (Abschnitt 7.8); ein
         erneuter Start bei bereits laufendem Programm wird abgelehnt statt
-        eine weitere Instanz zu starten."""
+        eine weitere Instanz zu starten. Vor dem Start prüft Ruff das
+        Projekt (Abschnitt 8.2); bei Funden wird nicht gestartet."""
         if self.projekt is None:
             self.statusBar().showMessage("Kein Projekt offen.")
             return
         if self.laufender_prozess is not None and self.laufender_prozess.poll() is None:
             self.statusBar().showMessage(f"{self.projekt.name} läuft bereits.")
             return
+
+        funde = projekt_pruefen(self.projekt)
+        self.meldungen_liste.clear()
+        if funde:
+            self.meldungen_liste.addItems([str(fund) for fund in funde])
+            self.panels.setCurrentWidget(self.meldungen_liste)
+            self.statusBar().showMessage(
+                f"{len(funde)} Fund(e) vor dem Start - nicht gestartet."
+            )
+            return
+
         self.laufender_prozess = projekt_starten(self.projekt)
         self.statusBar().showMessage(f"{self.projekt.name} gestartet")

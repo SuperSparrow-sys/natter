@@ -46,6 +46,36 @@ def test_start_setzt_laufenden_prozess_und_zeigt_status(tmp_path: Path) -> None:
     assert (tmp_path / "lief.txt").exists()
 
 
+def test_start_mit_ruff_fund_startet_nicht_und_fuellt_die_meldungen(tmp_path: Path) -> None:
+    natter_pfad = _projekt_ordner_schreiben(
+        tmp_path, "def f():\n    return nicht_definiert\n"
+    )
+    fenster = HauptFenster()
+    fenster.projekt_oeffnen(natter_pfad)
+
+    fenster._projekt_starten_aktion()
+
+    assert fenster.laufender_prozess is None
+    assert fenster.meldungen_liste.count() >= 1
+    assert "F821" in fenster.meldungen_liste.item(0).text()
+    assert "Fund" in fenster.statusBar().currentMessage()
+
+
+def test_sauberer_start_leert_vorherige_meldungen(tmp_path: Path) -> None:
+    natter_pfad = _projekt_ordner_schreiben(
+        tmp_path,
+        'from pathlib import Path\nPath("lief.txt").write_text("ja", encoding="utf-8")\n',
+    )
+    fenster = HauptFenster()
+    fenster.projekt_oeffnen(natter_pfad)
+    fenster.meldungen_liste.addItem("alte Meldung")
+
+    fenster._projekt_starten_aktion()
+    fenster.laufender_prozess.wait(timeout=10)
+
+    assert fenster.meldungen_liste.count() == 0
+
+
 def test_erneuter_start_waehrend_das_programm_noch_laeuft_wird_abgelehnt(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
