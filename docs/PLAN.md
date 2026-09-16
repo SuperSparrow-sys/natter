@@ -16,8 +16,9 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M2, Schritt 5: „Projekt öffnen …“ / „Öffnen …“** – siehe
-[`docs/arbeitspakete/M2.md`](arbeitspakete/M2.md)
+→ **M2, Schritt 8: „Unit öffnen …“ (Schnellauswahl, Strg+P)** – siehe
+[`docs/arbeitspakete/M2.md`](arbeitspakete/M2.md). Schritte 5–7 wurden
+zusammen mit Schritt 6 umgesetzt (eng gekoppelt).
 
 ## Referenzmaterial
 

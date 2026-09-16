@@ -48,3 +48,12 @@ def test_panels_haben_alle_reiter() -> None:
 def test_statusleiste_zeigt_bereit() -> None:
     fenster = HauptFenster()
     assert fenster.statusBar().currentMessage() == "bereit"
+
+
+def test_oeffnen_aktionen_stehen_in_den_richtigen_menues() -> None:
+    fenster = HauptFenster()
+    datei_eintraege = [a.text() for a in fenster.menue("Datei").actions()]
+    projekt_eintraege = [a.text() for a in fenster.menue("Projekt").actions()]
+    assert "Öffnen …" in datei_eintraege
+    assert "Projekt öffnen …" in projekt_eintraege
+    assert fenster.aktionen["datei.oeffnen"].qaction.shortcut().toString() == "Ctrl+O"
