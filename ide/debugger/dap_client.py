@@ -348,3 +348,10 @@ class DapClient:
         return self.anfrage(
             "evaluate", {"expression": ausdruck, "frameId": frame_id, "context": "watch"}
         )
+
+    def exceptioninfo_lesen(self, thread_id: int) -> dict[str, Any]:
+        """Details zur unbehandelten Ausnahme, die `thread_id` gerade
+        angehalten hat (DAP `exceptionInfo`) – u. a. `exceptionId`,
+        `description`, `details.message`/`stackTrace`. Grundlage für
+        `ide.debugger.fehlerkatalog.fehlermeldung_aus_dap_erzeugen()`."""
+        return self.anfrage("exceptionInfo", {"threadId": thread_id})

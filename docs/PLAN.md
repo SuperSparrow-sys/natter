@@ -16,8 +16,7 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M4, Schritt 6 (Rest): Fehlerkatalog bei unbehandelter Ausnahme im
-Debugger anzeigen** – siehe
+→ **M4, Schritt 7: Test-Explorer** – siehe
 [`docs/arbeitspakete/M4.md`](arbeitspakete/M4.md). M1, M2 und M3 sind
 funktional abgeschlossen (M3-Abnahme bestanden: Ampel vollständig über
 Designer/Inspektor/Palette nachgebaut, siehe
@@ -48,7 +47,10 @@ Starten“ (F5) startet stattdessen mit echtem Debugger: ein per
 Rand-Klick im Editor gesetzter Breakpoint hält den laufenden Prozess an,
 Panel „Aufrufstapel“ zeigt den Aufrufstapel und „Variablen“ die lokalen
 Werte an der Haltestelle, Pause/Fortsetzen/Stopp/Einzelschritt/
-Prozedurschritt/bis Rücksprung sind eigene Aktionen im Start-Menü.
+Prozedurschritt/bis Rücksprung sind eigene Aktionen im Start-Menü. Eine
+unbehandelte Ausnahme im laufenden Programm zeigt automatisch die
+Wo/Was/Prüfe-Fehlerkatalog-Meldung im Panel „Meldungen“ und springt im
+Editor zur Fehlerzeile.
 
 ## Referenzmaterial
 

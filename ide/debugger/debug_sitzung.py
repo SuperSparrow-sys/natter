@@ -35,6 +35,7 @@ class DebugSitzung(QObject):
     bereiche_bereit = Signal(list)
     variablen_bereit = Signal(list)
     ausgewertet = Signal(dict)
+    exceptioninfo_bereit = Signal(dict)
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -89,6 +90,9 @@ class DebugSitzung(QObject):
 
     def auswerten(self, ausdruck: str, frame_id: int) -> None:
         self._befehle.put(("_auswerten", (ausdruck, frame_id)))
+
+    def exceptioninfo_lesen(self, thread_id: int) -> None:
+        self._befehle.put(("_exceptioninfo_lesen", (thread_id,)))
 
     def beenden(self) -> None:
         """Beendet die Sitzung sofort (z. B. „Stopp“ in der IDE) statt auf
@@ -156,6 +160,8 @@ class DebugSitzung(QObject):
                 self.variablen_bereit.emit(ergebnis)
             elif name == "_auswerten":
                 self.ausgewertet.emit(self.client.auswerten(*argumente))
+            elif name == "_exceptioninfo_lesen":
+                self.exceptioninfo_bereit.emit(self.client.exceptioninfo_lesen(*argumente))
             else:
                 getattr(self.client, name)(*argumente)
         except DapFehler as fehler:

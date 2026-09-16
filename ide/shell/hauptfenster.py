@@ -9,6 +9,7 @@ Statusleiste. `projekt_oeffnen`/`datei_oeffnen` sind die Grundlage für
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt
@@ -27,7 +28,7 @@ from PySide6.QtWidgets import (
 
 from ide.actions import Aktion, Aktionsregister
 from ide.assets import symbol
-from ide.debugger import DebugSitzung
+from ide.debugger import DebugSitzung, fehlermeldung_aus_dap_erzeugen
 from ide.designer import DesignerCanvas, formular_fuer_designer_laden
 from ide.inspector import Objektinspektor
 from ide.palette import Komponentenpalette
@@ -501,6 +502,7 @@ class HauptFenster(QMainWindow):
         self.debug_sitzung.aufrufstapel_bereit.connect(self._debugger_aufrufstapel_bereit)
         self.debug_sitzung.bereiche_bereit.connect(self._debugger_bereiche_bereit)
         self.debug_sitzung.variablen_bereit.connect(self._debugger_variablen_bereit)
+        self.debug_sitzung.exceptioninfo_bereit.connect(self._debugger_exceptioninfo_bereit)
         self.debug_sitzung.starten(
             self.projekt.haupt_datei,
             arbeitsordner=self.projekt.ordner,
@@ -512,8 +514,42 @@ class HauptFenster(QMainWindow):
         self._aktueller_thread_id = ereignis.get("threadId")
         grund = ereignis.get("reason", "?")
         self.statusBar().showMessage(f"Angehalten ({grund})")
-        if self._aktueller_thread_id is not None:
-            self.debug_sitzung.aufrufstapel_lesen(self._aktueller_thread_id)
+        if self._aktueller_thread_id is None or self.debug_sitzung is None:
+            return
+        self.debug_sitzung.aufrufstapel_lesen(self._aktueller_thread_id)
+        if grund == "exception":
+            self.debug_sitzung.exceptioninfo_lesen(self._aktueller_thread_id)
+
+    def _debugger_exceptioninfo_bereit(self, exception_info: dict) -> None:
+        """Unbehandelte Ausnahme im laufenden Schülerprogramm: Fehler-
+        katalog-Meldung im Panel „Meldungen“, Editor springt zur
+        Fehlerzeile (Abschnitt 8.1)."""
+        meldung = fehlermeldung_aus_dap_erzeugen(exception_info)
+        if meldung is None:
+            return
+        self.meldungen_liste.addItem(meldung.als_text())
+        self.panels.setCurrentWidget(self.meldungen_liste)
+        self._zu_wo_springen(meldung.wo)
+
+    def _zu_wo_springen(self, wo: str) -> None:
+        """Öffnet die Datei aus einer Fehlermeldungs-`wo`-Zeile
+        („datei.py, Zeile N, in methode“) im aktiven Projektordner und
+        springt zur genannten Zeile."""
+        if self.projekt is None:
+            return
+        dateiname = wo.split(",", 1)[0].strip()
+        zeilen_treffer = re.search(r"Zeile (\d+)", wo)
+        if not zeilen_treffer:
+            return
+        zeile = int(zeilen_treffer.group(1))
+        pfad = self.projekt.ordner / dateiname
+        if not pfad.exists():
+            return
+        editor = self.datei_oeffnen(pfad)
+        cursor = editor.textCursor()
+        cursor.movePosition(cursor.MoveOperation.Start)
+        cursor.movePosition(cursor.MoveOperation.Down, cursor.MoveMode.MoveAnchor, zeile - 1)
+        editor.setTextCursor(cursor)
 
     def _debugger_beendet(self, exitcode: int) -> None:
         self.statusBar().showMessage(f"Debugger beendet (Exitcode {exitcode})")

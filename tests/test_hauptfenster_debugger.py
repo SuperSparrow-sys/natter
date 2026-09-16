@@ -83,3 +83,27 @@ def test_fortsetzen_laesst_das_programm_zu_ende_laufen(qtbot, tmp_path: Path) ->
     qtbot.waitUntil(lambda: fenster.debug_sitzung is None, timeout=15000)
 
     assert (tmp_path / "marker.txt").read_text(encoding="utf-8") == "fertig"
+
+
+def test_unbehandelte_ausnahme_zeigt_die_fehlerkatalog_meldung_und_springt_hin(
+    qtbot, tmp_path: Path
+) -> None:
+    fenster = HauptFenster()
+    _projekt_oeffnen(
+        fenster, tmp_path, "def f():\n    return 1 / 0\n\nf()\n"
+    )
+
+    fenster._projekt_mit_debugger_starten_aktion()
+    qtbot.waitUntil(lambda: fenster.meldungen_liste.count() > 0, timeout=15000)
+
+    try:
+        text = fenster.meldungen_liste.item(0).text()
+        assert "ZeroDivisionError" in text
+        assert "Zeile 2" in text
+
+        editor = fenster.editor_tabs.currentWidget()
+        assert editor.property("pfad") == str(fenster.projekt.haupt_datei)
+        assert editor.textCursor().blockNumber() == 1  # Zeile 2, 0-indiziert
+    finally:
+        if fenster.debug_sitzung is not None:
+            fenster._debugger_stoppen_aktion()
