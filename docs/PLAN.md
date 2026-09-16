@@ -16,16 +16,18 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M8, Schritt 3: IDE-Verdrahtung, Pascal-Rumpf-Übernahme,
-Bild-Extraktion** (zurückgestellt, siehe unten) – kleinteilig
-aufgeschlüsselt in [`docs/arbeitspakete/M8.md`](arbeitspakete/M8.md)
-(wie M1–M7). Schritt 1 (`.lfm`-Parser, 27 Tests) und Schritt 2
-(Klassen-/Eigenschaftszuordnung nach `.pfm`, 19 Tests) sind erledigt –
-578 Tests grün insgesamt, gegen alle 19 echten `referenz/lazarus/*.lfm`-
-Dateien geprüft. Schritt 3 sowie Schritt 4 (Exe-Export, portables ZIP,
-Starter/Launcher, Signatur, Abschnitt 16/17) brauchen weitere
-Vorarbeiten bzw. zwingend einen echten Windows-Rechner und werden in
-dieser Entwicklungsumgebung nicht simuliert, siehe M8.md. M1–M7 sind
+→ **M8, Schritt 4: Exe-Export, Verteilung** (zurückgestellt, braucht
+einen echten Windows-Rechner, siehe unten) – kleinteilig aufgeschlüsselt
+in [`docs/arbeitspakete/M8.md`](arbeitspakete/M8.md) (wie M1–M7).
+Schritt 1 (`.lfm`-Parser), Schritt 2 (Klassen-/Eigenschaftszuordnung
+nach `.pfm`) und Schritt 3 (IDE-Verdrahtung „Werkzeuge → Lazarus-
+Formular importieren …“, per Screenshot gegen das echte `k_Ampel`-`.lfm`
+geprüft; Pascal-Rumpf-Übernahme und Bild-Extraktion daraus
+zurückgestellt) sind erledigt – 583 Tests grün insgesamt, gegen alle 19
+echten `referenz/lazarus/*.lfm`-Dateien geprüft. Schritt 4 (Exe-Export,
+portables ZIP, Starter/Launcher, Signatur, Abschnitt 16/17) braucht
+zwingend einen echten Windows-Rechner und wird in dieser
+Entwicklungsumgebung nicht simuliert, siehe M8.md. M1–M7 sind
 funktional abgeschlossen (M3-Abnahme bestanden: Ampel vollständig über
 Designer/Inspektor/Palette nachgebaut, siehe
 [`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md), Schritt 8; M4-Abnahme

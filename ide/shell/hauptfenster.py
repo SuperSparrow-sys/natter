@@ -9,6 +9,7 @@ Statusleiste. `projekt_oeffnen`/`datei_oeffnen` sind die Grundlage für
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -39,6 +40,7 @@ from ide.debugger import DebugSitzung, fehlermeldung_aus_dap_erzeugen
 from ide.designer import DesignerCanvas, formular_fuer_designer_laden
 from ide.designer.pfm_schreiben import pfm_aus_formular
 from ide.env import PaketFehler, installierte_pakete, paket_installieren, paketliste_exportieren
+from ide.import_lfm import LfmParserError, lfm_zu_pfm, parse_lfm
 from ide.inspector import Objektinspektor
 from ide.lint import pruefen
 from ide.palette import Komponentenpalette
@@ -272,6 +274,14 @@ class HauptFenster(QMainWindow):
                 "Design-Prüfung beim Speichern automatisch",
                 menue="Werkzeuge",
                 callback=lambda: None,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "werkzeuge.lazarus_formular_importieren",
+                "Lazarus-Formular importieren …",
+                menue="Werkzeuge",
+                callback=self._lazarus_formular_importieren_aktion,
             )
         )
         self._design_pruefung_automatisch_aktion.qaction.setCheckable(True)
@@ -707,6 +717,50 @@ class HauptFenster(QMainWindow):
             if index != -1:
                 self.editor_tabs.setCurrentIndex(index)
             canvas._auswaehlen(komponente)
+
+    def _lazarus_formular_importieren_aktion(self) -> None:
+        """„Werkzeuge → Lazarus-Formular importieren …“ (Abschnitt 15):
+        `.lfm` wählen, in `.pfm` umwandeln, unter einem gewählten Pfad
+        speichern, im Designer öffnen und direkt durch den Design-Prüfer
+        aus M7 laufen lassen. Nicht unterstützte Komponenten/
+        Eigenschaften landen als Hinweis im Importbericht (Panel
+        „Meldungen“), zusammen mit den Design-Prüfer-Funden."""
+        quelle, _ = QFileDialog.getOpenFileName(
+            self, "Lazarus-Formular importieren", filter="Lazarus-Formulare (*.lfm)"
+        )
+        if not quelle:
+            return
+        try:
+            lfm_objekt = parse_lfm(Path(quelle).read_text(encoding="utf-8"))
+        except LfmParserError as fehler:
+            self.statusBar().showMessage(f"Import fehlgeschlagen: {fehler}")
+            return
+        ergebnis = lfm_zu_pfm(lfm_objekt)
+
+        ziel, _ = QFileDialog.getSaveFileName(
+            self,
+            "Formular speichern unter",
+            str(Path(quelle).with_suffix(".pfm").name),
+            filter="Natter-Formulare (*.pfm)",
+        )
+        if not ziel:
+            return
+        Path(ziel).write_text(
+            json.dumps(ergebnis.pfm, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
+
+        formular = self.designer_oeffnen(Path(ziel))
+        canvas = self._widget_zu_canvas[formular._qwidget]
+        self._design_pruefen(canvas)
+        for warnung in ergebnis.warnungen:
+            self.meldungen_liste.addItem(f"[Lazarus-Import] {warnung}")
+        if ergebnis.warnungen:
+            self.panels.setCurrentWidget(self.meldungen_liste)
+
+        self.statusBar().showMessage(
+            f"{Path(quelle).name} importiert: {len(ergebnis.warnungen)} Hinweis(e) im "
+            "Importbericht."
+        )
 
     # -- Paketverwaltung (Abschnitt 7.2, 18: ide/env/) -----------------------
 
