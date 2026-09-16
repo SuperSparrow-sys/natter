@@ -61,7 +61,13 @@ def test_fortsetzen_laesst_das_programm_zu_ende_laufen(tmp_path: Path) -> None:
     assert client.prozess.returncode == 0
 
 
-def test_einzelschritt_fuehrt_genau_eine_zeile_aus(tmp_path: Path) -> None:
+def test_prozedurschritt_fuehrt_genau_eine_zeile_aus_ohne_hineinzusteigen(
+    tmp_path: Path,
+) -> None:
+    # Abschnitt 7.9: nur "Einzelschritt" steigt in Funktionsaufrufe hinein
+    # ("öffnet eine andere Unit automatisch") - "Prozedurschritt"
+    # überspringt sie, bleibt also auf derselben Zeilenebene, obwohl
+    # Path(...).write_text(...) selbst ein echter Funktionsaufruf ist.
     skript = _skript_schreiben(
         tmp_path,
         'from pathlib import Path\n'
@@ -76,13 +82,42 @@ def test_einzelschritt_fuehrt_genau_eine_zeile_aus(tmp_path: Path) -> None:
         thread_id = ereignis["threadId"]
         assert _marker(tmp_path) is None
 
-        client.einzelschritt(thread_id)
+        client.prozedurschritt(thread_id)
         client.angehalten_abwarten()
         assert _marker(tmp_path) == "1"
 
-        client.einzelschritt(thread_id)
+        client.prozedurschritt(thread_id)
         client.angehalten_abwarten()
         assert _marker(tmp_path) == "2"
+    finally:
+        if client.prozess is not None:
+            client.prozess.kill()
+        client.beenden()
+
+
+def test_einzelschritt_steigt_in_den_funktionsaufruf_hinein(tmp_path: Path) -> None:
+    # Abschnitt 7.9: "Einzelschritt in eine andere Unit öffnet diese
+    # automatisch" - Einzelschritt muss also tatsächlich in f() hinein-
+    # steigen (Zeile 2), nicht bei "f()" (Zeile 4) stehen bleiben.
+    skript = _skript_schreiben(
+        tmp_path,
+        "def f():\n"
+        "    marker = 1\n"
+        "    return marker\n\n"
+        "f()\n",
+    )
+    client = DapClient()
+    try:
+        client.starten(skript, arbeitsordner=tmp_path, anfangs_breakpoints={skript: [5]})
+        ereignis = client.angehalten_abwarten()
+        thread_id = ereignis["threadId"]
+
+        client.einzelschritt(thread_id)
+        ereignis = client.angehalten_abwarten()
+
+        stapel = client.aufrufstapel_lesen(thread_id)
+        assert stapel[0]["name"] == "f"
+        assert stapel[0]["line"] == 2
     finally:
         if client.prozess is not None:
             client.prozess.kill()

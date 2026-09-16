@@ -279,12 +279,15 @@ class DapClient:
         self.anfrage("pause", {"threadId": thread_id})
 
     def einzelschritt(self, thread_id: int) -> None:
-        """Ein Schritt innerhalb derselben Funktion (DAP: `next`)."""
-        self.anfrage("next", {"threadId": thread_id})
+        """Steigt in einen Funktionsaufruf hinein, öffnet dabei bei Bedarf
+        automatisch eine andere Unit (DAP: `stepIn`, F11, Abschnitt 7.9:
+        „Einzelschritt in eine andere Unit öffnet diese automatisch“)."""
+        self.anfrage("stepIn", {"threadId": thread_id})
 
     def prozedurschritt(self, thread_id: int) -> None:
-        """Steigt in einen Funktionsaufruf hinein (DAP: `stepIn`)."""
-        self.anfrage("stepIn", {"threadId": thread_id})
+        """Ein Schritt innerhalb derselben Funktion, überspringt
+        Funktionsaufrufe ohne hineinzusteigen (DAP: `next`, F10)."""
+        self.anfrage("next", {"threadId": thread_id})
 
     def bis_ruecksprung(self, thread_id: int) -> None:
         """Läuft bis zum Ende der aktuellen Funktion (DAP: `stepOut`)."""
