@@ -1,13 +1,14 @@
 """DesignerCanvas: zeigt ein Formular mit echten `pcl`-Komponenten,
 Klick/Ziehen/Tastatur bearbeiten es statt die echte Interaktion
-auszulösen.
+auszulösen. Jede Änderung läuft über ein Kommando (Undo/Redo).
 
 Siehe konzept-natter.md, Abschnitt 7.7: „Der Designer rendert echte
-pcl-Komponenten.“ Tastenkürzel wie dort beschrieben: Pfeiltasten
-(Rasterschritt), Alt+Pfeil (1 px), Umschalt+Pfeil (Größe), Entf
-(löschen), Strg+D (duplizieren). Platzieren aus der Palette folgt mit
-Schritt 6; Größenanfasser zum Ziehen (statt nur Tastatur) sind als
-spätere Verfeinerung offen.
+pcl-Komponenten“, Tastenkürzel wie dort beschrieben (Pfeiltasten =
+Rasterschritt, Alt+Pfeil = 1 px, Umschalt+Pfeil = Größe, Entf = löschen,
+Strg+D = duplizieren, dazu Strg+Z/Strg+Umschalt+Z bzw. Strg+Y für
+Rückgängig/Wiederholen, Command-Pattern). Platzieren aus der Palette
+folgt mit Schritt 6; sichtbare Größenanfasser zum Ziehen (statt nur
+Tastatur) sind eine spätere Verfeinerung.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from typing import Any
 from PySide6.QtCore import QEvent, QObject, QPoint, Qt
 from PySide6.QtWidgets import QWidget
 
+from ide.designer.kommando import EigenschaftKommando, Kommandostapel
 from ide.designer.pfm_schreiben import formular_als_pfm_speichern
 from ide.inspector.komponentenbaum import kind_komponenten
 from pcl.form import Form
@@ -32,16 +34,57 @@ _MARKIERUNGS_EIGENSCHAFT = "design_ausgewaehlt"
 RASTER = 8
 
 
+class _LoeschenKommando:
+    def __init__(self, canvas: DesignerCanvas, komponente: Any, name: str | None) -> None:
+        self.canvas = canvas
+        self.komponente = komponente
+        self.name = name
+
+    def tun(self) -> None:
+        self.canvas._komponente_entfernen(self.komponente)
+
+    def rueckgaengig(self) -> None:
+        if self.name is not None:
+            self.canvas._komponente_wiederherstellen(self.name, self.komponente)
+
+
+class _DuplizierenKommando:
+    def __init__(self, canvas: DesignerCanvas, urspruenglich: Any) -> None:
+        self.canvas = canvas
+        basis = canvas._attributname(urspruenglich) or type(urspruenglich).__name__.lower()
+        self.name = canvas._eindeutigen_namen_finden(f"{basis}_kopie")
+
+        self.neue_komponente = type(urspruenglich)(canvas.formular)
+        for eigenschaft_name in eigenschaften(type(urspruenglich)):
+            setattr(
+                self.neue_komponente, eigenschaft_name, getattr(urspruenglich, eigenschaft_name)
+            )
+        self.neue_komponente.left = urspruenglich.left + RASTER
+        self.neue_komponente.top = urspruenglich.top + RASTER
+
+        canvas._ueberwachung_einrichten(self.neue_komponente)
+        # sofort wieder lösen: tun() fügt sie (erneut) ein - symmetrisch zu rueckgaengig()
+        canvas._komponente_entfernen(self.neue_komponente)
+
+    def tun(self) -> None:
+        self.canvas._komponente_wiederherstellen(self.name, self.neue_komponente)
+
+    def rueckgaengig(self) -> None:
+        self.canvas._komponente_entfernen(self.neue_komponente)
+
+
 class DesignerCanvas(QObject):
     def __init__(self, formular: Form, pfm_pfad: Path | None = None) -> None:
         super().__init__()
         self.formular = formular
         self.pfm_pfad = Path(pfm_pfad) if pfm_pfad is not None else None
+        self.kommandos = Kommandostapel()
         self.ausgewaehlte_komponente: Any = None
         self._auswahl_beobachter: list[Callable[[Any], None]] = []
         self._widget_zu_komponente: dict[QWidget, Any] = {}
         self._ziehen_komponente: Any = None
         self._ziehen_start: QPoint | None = None
+        self._ziehen_start_werte: dict[str, Any] | None = None
 
         formular._qwidget.setStyleSheet(formular._qwidget.styleSheet() + _AUSWAHL_REGEL)
         self._ueberwachung_einrichten(formular)
@@ -65,21 +108,21 @@ class DesignerCanvas(QObject):
                 if komponente is not self.formular:
                     self._ziehen_komponente = komponente
                     self._ziehen_start = ereignis.globalPosition().toPoint()
+                    self._ziehen_start_werte = {"left": komponente.left, "top": komponente.top}
                 return True  # Klick abfangen: keine echte Interaktion im Designer
 
         elif typ == QEvent.Type.MouseMove and self._ziehen_komponente is not None:
             aktuell = ereignis.globalPosition().toPoint()
             delta = aktuell - self._ziehen_start
             if delta.x() or delta.y():
+                # Live-Vorschau während des Ziehens, noch kein Kommando
                 self._ziehen_komponente.left += delta.x()
                 self._ziehen_komponente.top += delta.y()
                 self._ziehen_start = aktuell
             return True
 
         elif typ == QEvent.Type.MouseButtonRelease and self._ziehen_komponente is not None:
-            self._nach_aenderung(self._ziehen_komponente)
-            self._ziehen_komponente = None
-            self._ziehen_start = None
+            self._ziehen_beenden()
             return True
 
         elif typ == QEvent.Type.KeyPress and self._tastatur_verarbeiten(ereignis):
@@ -87,13 +130,41 @@ class DesignerCanvas(QObject):
 
         return False
 
+    def _ziehen_beenden(self) -> None:
+        komponente = self._ziehen_komponente
+        endwerte = {"left": komponente.left, "top": komponente.top}
+        startwerte = self._ziehen_start_werte
+
+        self._ziehen_komponente = None
+        self._ziehen_start = None
+        self._ziehen_start_werte = None
+
+        if endwerte == startwerte:
+            return  # keine tatsächliche Bewegung, kein Kommando nötig
+
+        komponente.left, komponente.top = startwerte["left"], startwerte["top"]
+        self.kommandos.ausfuehren(
+            EigenschaftKommando(komponente, endwerte, alte_werte=startwerte)
+        )
+        self._nach_aenderung(komponente)
+
     def _tastatur_verarbeiten(self, ereignis) -> bool:
+        taste = ereignis.key()
+        modifikatoren = ereignis.modifiers()
+
+        if taste == Qt.Key.Key_Z and modifikatoren & Qt.KeyboardModifier.ControlModifier:
+            if modifikatoren & Qt.KeyboardModifier.ShiftModifier:
+                self.wiederholen()
+            else:
+                self.rueckgaengig()
+            return True
+        if taste == Qt.Key.Key_Y and modifikatoren & Qt.KeyboardModifier.ControlModifier:
+            self.wiederholen()
+            return True
+
         komponente = self.ausgewaehlte_komponente
         if komponente is None or komponente is self.formular:
             return False
-
-        taste = ereignis.key()
-        modifikatoren = ereignis.modifiers()
 
         if taste == Qt.Key.Key_Delete:
             self.loeschen()
@@ -119,6 +190,16 @@ class DesignerCanvas(QObject):
         else:
             self.verschieben(dx * RASTER, dy * RASTER)
         return True
+
+    # -- Undo/Redo ----------------------------------------------------------
+
+    def rueckgaengig(self) -> None:
+        self.kommandos.rueckgaengig()
+        self._benachrichtigen(self.ausgewaehlte_komponente or self.formular)
+
+    def wiederholen(self) -> None:
+        self.kommandos.wiederholen()
+        self._benachrichtigen(self.ausgewaehlte_komponente or self.formular)
 
     # -- Auswahl ----------------------------------------------------------
 
@@ -151,51 +232,57 @@ class DesignerCanvas(QObject):
 
     def verschieben(self, dx: int, dy: int, komponente: Any = None) -> None:
         ziel = komponente if komponente is not None else self.ausgewaehlte_komponente
-        ziel.left = ziel.left + dx
-        ziel.top = ziel.top + dy
+        self.kommandos.ausfuehren(
+            EigenschaftKommando(ziel, {"left": ziel.left + dx, "top": ziel.top + dy})
+        )
         self._nach_aenderung(ziel)
 
     def groesse_aendern(self, dw: int, dh: int, komponente: Any = None) -> None:
         ziel = komponente if komponente is not None else self.ausgewaehlte_komponente
-        ziel.width = max(1, ziel.width + dw)
-        ziel.height = max(1, ziel.height + dh)
+        self.kommandos.ausfuehren(
+            EigenschaftKommando(
+                ziel,
+                {"width": max(1, ziel.width + dw), "height": max(1, ziel.height + dh)},
+            )
+        )
         self._nach_aenderung(ziel)
 
     def loeschen(self, komponente: Any = None) -> None:
         ziel = komponente if komponente is not None else self.ausgewaehlte_komponente
         if ziel is None or ziel is self.formular:
             return
-
         name = self._attributname(ziel)
-        if name is not None:
-            delattr(self.formular, name)
-
-        del self._widget_zu_komponente[ziel._qwidget]
-        ziel._qwidget.setParent(None)
-        ziel._qwidget.deleteLater()
-
-        self.ausgewaehlte_komponente = None
-        self._auswaehlen(self.formular)
+        self.kommandos.ausfuehren(_LoeschenKommando(self, ziel, name))
+        self._nach_aenderung(self.formular)
 
     def duplizieren(self, komponente: Any = None) -> Any:
         ziel = komponente if komponente is not None else self.ausgewaehlte_komponente
         if ziel is None or ziel is self.formular:
             return None
+        kommando = _DuplizierenKommando(self, ziel)
+        self.kommandos.ausfuehren(kommando)
+        self._nach_aenderung(kommando.neue_komponente)
+        return kommando.neue_komponente
 
-        urspruenglicher_name = self._attributname(ziel) or type(ziel).__name__.lower()
-        neuer_name = self._eindeutigen_namen_finden(f"{urspruenglicher_name}_kopie")
+    # -- Struktur-Hilfsmethoden (auch von den Kommandos oben genutzt) -------
 
-        neue_komponente = type(ziel)(self.formular)
-        for name in eigenschaften(type(ziel)):
-            setattr(neue_komponente, name, getattr(ziel, name))
-        neue_komponente.left = ziel.left + RASTER
-        neue_komponente.top = ziel.top + RASTER
+    def _komponente_entfernen(self, komponente: Any) -> None:
+        name = self._attributname(komponente)
+        if name is not None:
+            delattr(self.formular, name)
+        self._widget_zu_komponente.pop(komponente._qwidget, None)
+        komponente._qwidget.hide()
+        komponente._qwidget.setParent(None)
+        if self.ausgewaehlte_komponente is komponente:
+            self.ausgewaehlte_komponente = None
+            self._auswaehlen(self.formular)
 
-        setattr(self.formular, neuer_name, neue_komponente)
-        self._ueberwachung_einrichten(neue_komponente)
-        self._auswaehlen(neue_komponente)
-        self._nach_aenderung(neue_komponente)
-        return neue_komponente
+    def _komponente_wiederherstellen(self, name: str, komponente: Any) -> None:
+        komponente._qwidget.setParent(self.formular._qwidget)
+        komponente._qwidget.show()
+        setattr(self.formular, name, komponente)
+        self._widget_zu_komponente[komponente._qwidget] = komponente
+        self._auswaehlen(komponente)
 
     def _attributname(self, komponente: Any) -> str | None:
         for name, wert in vars(self.formular).items():
