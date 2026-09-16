@@ -87,6 +87,27 @@ Wird während M1 verfeinert (genaue Komponentenliste je Projekt), sobald die
   M1 nicht.
 - [ ] `design/referenz/` (freigegebene UI-Mockups): setzt erste
   Bildschirmentwürfe voraus, folgt mit M2/M3.
+- [ ] **Visueller Feinschliff der IDE** (Nutzer-Feedback nach dem ersten
+  echten Anschauen des Programms, September 2026): wirkt insgesamt noch
+  zu farblos/grau. Sammelpunkt für alle folgenden Einzelschritte, jeweils
+  eigene kleine Aufgabe statt einer großen:
+  - [x] Fenster-/Taskleisten-Symbol (`ide/assets/icons/app.svg`)
+  - [x] Werkzeugleiste mit Symbolen (Neu/Öffnen/Speichern/Projekt öffnen/
+    Start), bisher nur diese fünf Aktionen
+  - [x] Zeilennummern im Quelltexteditor (`ide/shell/quelltexteditor.py`)
+  - [ ] Symbole (SVG) für Palette-Einträge und Komponentenbaum je
+    Komponententyp (Button/Label/Edit/…, bisher nur Text)
+  - [ ] Farbiges Theme/Akzentfarben über das ganze Programm konsequent
+    angewendet (Docks, Reiter, Tabellen) statt nur im Designer-
+    Auswahlrahmen; Referenz `design/tokens.json`
+  - [ ] Syntax-Hervorhebung im Quelltexteditor (hängt an der Monaco-
+    Entscheidung, siehe `prototypes/s2`)
+  - [ ] Konsistentes Spacing/Ausrichtung in Objektinspektor, Explorer,
+    Palette geprüft und ggf. nachgezogen
+  - [ ] Icon für die spätere `.exe` und für `.natter`-Dateien im Windows-
+    Explorer (Datei-Verknüpfung) – braucht den Packaging/Installer-
+    Schritt aus M8, Icon-Quelle liegt schon als
+    `ide/assets/icons/app.svg` bereit
 
 ## M0 – Repository, CI, Schemas, Design-Tokens (Rest)
 
@@ -359,7 +380,9 @@ Ampel vollständig in der IDE nachbauen als Abnahme.
 
 - [ ] `.lfm`-Import (Parser, Zuordnungstabelle, Abschnitt 15) – jetzt mit
   echten `.lfm`-Dateien aus `referenz/lazarus/` testbar
-- [ ] Exe-Export (PyInstaller-Pipeline)
+- [ ] Exe-Export (PyInstaller-Pipeline), Icon `ide/assets/icons/app.svg`
+  (als `.ico` konvertiert) für die `.exe` und die `.natter`-Dateizuordnung
+  im Windows-Explorer verwenden (siehe „Zurückgestellt“ oben)
 - [ ] portables ZIP-Paket mit Starter, Prüfsummen-Manifest, Signatur
   (S5/S6 aus `prototypes/` hier tatsächlich einsetzen)
 - [ ] Abnahme: ein Lazarus-Übungsprojekt importieren, fertigstellen, als

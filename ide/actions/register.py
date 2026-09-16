@@ -31,6 +31,7 @@ class Aktion:
         tastenkuerzel: str = "",
         bereich: str = "überall",
         symbol: str = "",
+        trennlinie_davor: bool = False,
         callback: Callable[[], Any] | None = None,
     ) -> None:
         self.id = id
@@ -39,6 +40,9 @@ class Aktion:
         self.tastenkuerzel = tastenkuerzel
         self.bereich = bereich
         self.symbol = symbol
+        # nur für die Werkzeugleiste: gruppiert z. B. "Start" optisch von
+        # den Datei-Aktionen ab (Abschnitt 7.3, wie in Lazarus üblich)
+        self.trennlinie_davor = trennlinie_davor
 
         self.qaction = QAction(name)
         if tastenkuerzel:
@@ -85,6 +89,8 @@ class Aktionsregister:
             if aktion.menue:
                 hauptfenster.menue(aktion.menue).addAction(aktion.qaction)
             if aktion.symbol:
+                if aktion.trennlinie_davor:
+                    hauptfenster.werkzeugleiste.addSeparator()
                 hauptfenster.werkzeugleiste.addAction(aktion.qaction)
 
     def __getitem__(self, id: str) -> Aktion:

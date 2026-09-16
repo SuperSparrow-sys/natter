@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QDialog,
     QDockWidget,
@@ -69,6 +69,7 @@ class HauptFenster(QMainWindow):
 
         self.werkzeugleiste = self.addToolBar("Haupt-Werkzeugleiste")
         self.werkzeugleiste.setMovable(False)
+        self.werkzeugleiste.setIconSize(QSize(22, 22))
 
         self.editor_tabs = QTabWidget()
         self.editor_tabs.setTabsClosable(True)
@@ -165,6 +166,7 @@ class HauptFenster(QMainWindow):
                 menue="Start",
                 tastenkuerzel="Ctrl+F5",
                 symbol="start",
+                trennlinie_davor=True,
                 callback=self._projekt_starten_aktion,
             )
         )

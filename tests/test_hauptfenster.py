@@ -23,10 +23,24 @@ def test_werkzeugleiste_enthaelt_die_aktionen_mit_symbol() -> None:
     fenster = HauptFenster()
     erwartet = [aktion.name for aktion in fenster.aktionen if aktion.symbol]
 
-    vorhanden = [aktion.text() for aktion in fenster.werkzeugleiste.actions()]
+    vorhanden = [a.text() for a in fenster.werkzeugleiste.actions() if not a.isSeparator()]
 
     assert vorhanden == erwartet
     assert "Starten ohne Debugger" in vorhanden
+
+
+def test_start_aktion_ist_durch_eine_trennlinie_von_den_dateiaktionen_abgesetzt() -> None:
+    fenster = HauptFenster()
+    eintraege = fenster.werkzeugleiste.actions()
+    start_index = next(i for i, a in enumerate(eintraege) if a.text() == "Starten ohne Debugger")
+    assert eintraege[start_index - 1].isSeparator()
+
+
+def test_werkzeugleiste_hat_eine_sichtbare_symbolgroesse() -> None:
+    fenster = HauptFenster()
+    groesse = fenster.werkzeugleiste.iconSize()
+    assert groesse.width() >= 20
+    assert groesse.height() >= 20
 
 
 def test_aktionen_mit_symbol_tragen_ein_icon() -> None:
