@@ -16,11 +16,11 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M7, Schritt 3: Paketverwaltung** – kleinteilig aufgeschlüsselt in
+→ **M7, Schritt 4: Abnahme** – kleinteilig aufgeschlüsselt in
 [`docs/arbeitspakete/M7.md`](arbeitspakete/M7.md) (wie M1–M6). Schritt 1
-(Design-Prüfer-Regeln) und Schritt 2 (IDE-Verdrahtung, per Screenshot
-geprüft) sind erledigt – 520 Tests grün insgesamt. M1–M6 sind
-funktional
+(Design-Prüfer-Regeln), Schritt 2 (IDE-Verdrahtung, per Screenshot
+geprüft) und Schritt 3 (Paketverwaltung über `pip`) sind erledigt – 530
+Tests grün insgesamt. M1–M6 sind funktional
 abgeschlossen (M3-Abnahme bestanden: Ampel vollständig über Designer/
 Inspektor/Palette nachgebaut, siehe
 [`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md), Schritt 8; M4-Abnahme

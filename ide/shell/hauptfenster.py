@@ -18,13 +18,17 @@ from PySide6.QtWidgets import (
     QDialog,
     QDockWidget,
     QFileDialog,
+    QInputDialog,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
     QPlainTextEdit,
+    QTableWidget,
+    QTableWidgetItem,
     QTabWidget,
     QTreeWidget,
     QTreeWidgetItem,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -34,6 +38,7 @@ from ide.database import DatenbankPanel
 from ide.debugger import DebugSitzung, fehlermeldung_aus_dap_erzeugen
 from ide.designer import DesignerCanvas, formular_fuer_designer_laden
 from ide.designer.pfm_schreiben import pfm_aus_formular
+from ide.env import PaketFehler, installierte_pakete, paket_installieren, paketliste_exportieren
 from ide.inspector import Objektinspektor
 from ide.lint import pruefen
 from ide.palette import Komponentenpalette
@@ -271,6 +276,30 @@ class HauptFenster(QMainWindow):
         )
         self._design_pruefung_automatisch_aktion.qaction.setCheckable(True)
         self._design_pruefung_automatisch_aktion.qaction.setChecked(True)
+        self.aktionen.registrieren(
+            Aktion(
+                "pakete.anzeigen",
+                "Paketverwaltung anzeigen",
+                menue="Pakete",
+                callback=self._pakete_anzeigen_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "pakete.installieren",
+                "Paket installieren …",
+                menue="Pakete",
+                callback=self._paket_installieren_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "pakete.liste_exportieren",
+                "Paketliste exportieren …",
+                menue="Pakete",
+                callback=self._paketliste_exportieren_aktion,
+            )
+        )
         self.aktionen.registrieren(
             Aktion(
                 "datei.unit_oeffnen",
@@ -678,6 +707,53 @@ class HauptFenster(QMainWindow):
             if index != -1:
                 self.editor_tabs.setCurrentIndex(index)
             canvas._auswaehlen(komponente)
+
+    # -- Paketverwaltung (Abschnitt 7.2, 18: ide/env/) -----------------------
+
+    def _pakete_anzeigen_aktion(self) -> None:
+        """„Pakete → Paketverwaltung anzeigen“: Liste der installierten
+        Pakete des aktuell aktiven Python-Interpreters."""
+        try:
+            pakete = installierte_pakete()
+        except OSError as fehler:
+            self.statusBar().showMessage(f"Paketliste nicht lesbar: {fehler}")
+            return
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Paketverwaltung")
+        tabelle = QTableWidget(len(pakete), 2)
+        tabelle.setHorizontalHeaderLabels(["Paket", "Version"])
+        for zeile, paket in enumerate(pakete):
+            tabelle.setItem(zeile, 0, QTableWidgetItem(paket.name))
+            tabelle.setItem(zeile, 1, QTableWidgetItem(paket.version))
+        layout = QVBoxLayout(dialog)
+        layout.addWidget(tabelle)
+        dialog.resize(400, 500)
+        dialog.exec()
+
+    def _paket_installieren_aktion(self) -> None:
+        """„Pakete → Paket installieren …“: Name abfragen, per `pip`
+        installieren, Ergebnis in der Statuszeile anzeigen."""
+        name, ok = QInputDialog.getText(self, "Paket installieren", "Paketname:")
+        if not ok or not name:
+            return
+        try:
+            paket_installieren(name)
+        except PaketFehler as fehler:
+            self.statusBar().showMessage(f"Installation fehlgeschlagen: {fehler}")
+            return
+        self.statusBar().showMessage(f"{name} installiert.")
+
+    def _paketliste_exportieren_aktion(self) -> None:
+        """„Pakete → Paketliste exportieren …“: `pip freeze` in eine
+        `requirements.txt`."""
+        pfad, _ = QFileDialog.getSaveFileName(
+            self, "Paketliste exportieren", "requirements.txt", "Text (*.txt)"
+        )
+        if not pfad:
+            return
+        paketliste_exportieren(pfad)
+        self.statusBar().showMessage(f"Paketliste exportiert nach {pfad}.")
 
     def _bei_explorer_doppelklick(self, eintrag, spalte: int) -> None:
         pfad = eintrag.data(0, PFAD_ROLLE)
