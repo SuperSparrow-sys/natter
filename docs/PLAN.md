@@ -16,15 +16,13 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M5, Schritt 8: Datenbank-Panel in der IDE** – kleinteilig
-aufgeschlüsselt in [`docs/arbeitspakete/M5.md`](arbeitspakete/M5.md)
-(wie M1–M4). Schritt 1 (SQLdb-Kern gegen SQLite), Schritt 2 (SQLdb-Kern
-für MySQL/MariaDB, echter Verbindungstest gegen MariaDB zurückgestellt),
-Schritt 3 (pandas-Anbindung), Schritt 4 (Chart-Komponente, per Screenshot
-geprüft), Schritt 5 (Data Controls, Designzeit-Vorschau im Designer
-zurückgestellt), Schritt 6 (`open_url`) und Schritt 7 (IDE-Betrachter
-CSV/Bild/HTML, per Screenshot geprüft) sind erledigt: 63 Tests grün,
-siehe M5.md. M1–M4 sind funktional
+→ **M5, Schritt 9: Abnahme** (Kontoverwaltung, CSV-Auswertung,
+Würfelspiel-Highscore als HTML) – kleinteilig aufgeschlüsselt in
+[`docs/arbeitspakete/M5.md`](arbeitspakete/M5.md) (wie M1–M4). Schritte
+1–8 (SQLdb-Kern SQLite/MySQL, pandas-Anbindung, Chart-Komponente, Data
+Controls, `open_url`, IDE-Betrachter, Datenbank-Panel – alle per
+Screenshot geprüft, wo visuell) sind erledigt: 71 Tests grün, siehe
+M5.md. M1–M4 sind funktional
 abgeschlossen (M3-Abnahme bestanden: Ampel vollständig über Designer/
 Inspektor/Palette nachgebaut, siehe
 [`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md), Schritt 8; M4-Abnahme

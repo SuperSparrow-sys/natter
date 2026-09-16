@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
 
 from ide.actions import Aktion, Aktionsregister
 from ide.assets import symbol
+from ide.database import DatenbankPanel
 from ide.debugger import DebugSitzung, fehlermeldung_aus_dap_erzeugen
 from ide.designer import DesignerCanvas, formular_fuer_designer_laden
 from ide.inspector import Objektinspektor
@@ -129,6 +130,11 @@ class HauptFenster(QMainWindow):
             "Komponentenpalette", Qt.DockWidgetArea.TopDockWidgetArea, inhalt=self.palette
         )
 
+        self.datenbank_panel = DatenbankPanel()
+        self.datenbank_dock = self._dock_erzeugen(
+            "Datenbank", Qt.DockWidgetArea.BottomDockWidgetArea, inhalt=self.datenbank_panel
+        )
+
         self.projekt: Projekt | None = None
         self.laufender_prozess = None
         self._offene_canvases: list[DesignerCanvas] = []
@@ -225,6 +231,14 @@ class HauptFenster(QMainWindow):
                 "Neue Test-Unit",
                 menue="Datei",
                 callback=self._neue_test_unit_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "werkzeuge.csv_in_datenbank_importieren",
+                "CSV in Datenbank importieren …",
+                menue="Werkzeuge",
+                callback=self.datenbank_panel._csv_importieren_dialog,
             )
         )
         self.aktionen.registrieren(
