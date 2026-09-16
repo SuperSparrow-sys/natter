@@ -16,8 +16,8 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M4 – Debugger, Fehlerkatalog, Tests** (noch nicht kleinteilig
-aufgeschlüsselt, siehe Stichwortliste unten). M1, M2 und M3 sind
+→ **M4, Schritt 1: Ruff-Prüfung vor Start** – siehe
+[`docs/arbeitspakete/M4.md`](arbeitspakete/M4.md). M1, M2 und M3 sind
 funktional abgeschlossen (M3-Abnahme bestanden: Ampel vollständig über
 Designer/Inspektor/Palette nachgebaut, siehe
 [`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md), Schritt 8); die
@@ -83,8 +83,11 @@ Wird während M1 verfeinert (genaue Komponentenliste je Projekt), sobald die
 - [ ] `prototypes/s1`–`s7` (Machbarkeitsprüfungen, Abschnitt 23.3): Code
   liegt bereit (siehe `prototypes/README.md`), wird aber erst kurz vor dem
   jeweils betroffenen Meilenstein tatsächlich ausgeführt statt jetzt:
-  S1/S4 vor M2, S2 vor M2, S3 vor M4, S5/S6 vor M8, S7 vor M9. Blockiert
-  M1 nicht.
+  S1/S4 vor M2, S2 vor M2, S5/S6 vor M8, S7 vor M9. Blockiert M1 nicht.
+  S3 (debugpy mit VS Code als DAP-Frontend) entfällt: der echte
+  DAP-Client aus M4 wird gegen echtes `debugpy` automatisiert getestet
+  (`docs/arbeitspakete/M4.md`, Schritt 3–5) – das prüft dieselbe Frage
+  rigoroser und wiederholbar, ganz ohne VS Code.
 - [ ] `design/referenz/` (freigegebene UI-Mockups): setzt erste
   Bildschirmentwürfe voraus, folgt mit M2/M3.
 - [ ] **Visueller Feinschliff der IDE** (Nutzer-Feedback nach dem ersten
@@ -347,10 +350,14 @@ Ampel vollständig in der IDE nachbauen als Abnahme.
 
 ## M4 – Debugger, Fehlerkatalog, Tests
 
-- [ ] Ruff-Prüfung vor Start
-- [ ] Debugger (DAP-Client auf debugpy) inkl. Tabellenansicht für Variablen
-- [ ] Fehlerkatalog vollständig verdrahtet (Wo/Was/Prüfe)
-- [ ] Test-Explorer
+Kleinteilig aufgeschlüsselt in
+[`docs/arbeitspakete/M4.md`](arbeitspakete/M4.md). Reihenfolge:
+Ruff-Prüfung vor Start (trivial, eigenständig), Fehlerkatalog (braucht
+keinen Debugger), dann der DAP-Client selbst (Grundgerüst, Breakpoints/
+Ausführungssteuerung, Variablen/Aufrufstapel, jeweils gegen echtes
+`debugpy` getestet statt manuell mit VS Code wie ursprünglich in S3
+vorgesehen), IDE-Verdrahtung, Test-Explorer, zuletzt die Abnahme.
+
 - [ ] Abnahme: Fehlerbeispiele liefern korrekte Meldungen,
   Breakpoints/Step funktionieren, Tests mit Soll/Ist-Anzeige
 
