@@ -1,19 +1,30 @@
-"""Standard-Komponenten: Button, Label, Edit, CheckBox, RadioButton.
+"""Standard-Komponenten: Button, Label, Edit, CheckBox, RadioButton, Memo,
+ListBox, ComboBox.
 
 Siehe konzept-natter.md, Abschnitt 5.2 (Palette „Standard“). Weitere
-Standard-Komponenten (RadioGroup, Memo, ComboBox, ListBox, ScrollBar,
-GroupBox, Panel, MainMenu, PopupMenu) folgen später in M1, Schritt 6
-(brauchen die noch fehlende `Strings`-Sammlung bzw. Menüstruktur).
+Standard-Komponenten (RadioGroup, ScrollBar, GroupBox, Panel, MainMenu,
+PopupMenu) folgen später in M1, Schritt 6.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtWidgets import QCheckBox, QLabel, QLineEdit, QPushButton, QRadioButton, QWidget
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QPlainTextEdit,
+    QPushButton,
+    QRadioButton,
+    QWidget,
+)
 
 from pcl.control import Control
 from pcl.properties import Event, Prop
+from pcl.strings import Strings
 
 
 class Button(Control):
@@ -106,6 +117,101 @@ class CheckBox(Control):
             self._qwidget.setText(wert)
         elif name == "checked":
             self._qwidget.setChecked(wert)
+
+
+class Memo(Control):
+    """Mehrzeiliges Textfeld. Qt-Basis: `QPlainTextEdit`.
+
+    `lines` ist eine aufklappbare `Strings`-Untereigenschaft (Abschnitt
+    5.0, 11.2), kein eigenständiges `Prop` – wie `Shape.brush`.
+    """
+
+    def __init__(self, parent: Control) -> None:
+        self._lines = Strings(self._lines_geaendert)
+        super().__init__(parent)
+
+    @property
+    def lines(self) -> Strings:
+        return self._lines
+
+    def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
+        return QPlainTextEdit(eltern_widget)
+
+    def _lines_geaendert(self) -> None:
+        self._qwidget.setPlainText("\n".join(self._lines))
+
+
+class ListBox(Control):
+    """Einfache Auswahlliste. Qt-Basis: `QListWidget`."""
+
+    item_index = Prop(
+        int, -1, kategorie="Verhalten", doc="Index des ausgewählten Eintrags, -1 = keine Auswahl"
+    )
+
+    def __init__(self, parent: Control) -> None:
+        self._items = Strings(self._items_geaendert)
+        super().__init__(parent)
+
+    @property
+    def items(self) -> Strings:
+        return self._items
+
+    def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
+        widget = QListWidget(eltern_widget)
+        widget.currentRowChanged.connect(self._bei_zeilenwechsel)
+        return widget
+
+    def _items_geaendert(self) -> None:
+        self._qwidget.clear()
+        self._qwidget.addItems(list(self._items))
+
+    def _bei_zeilenwechsel(self, zeile: int) -> None:
+        self.item_index = zeile
+
+    def _bei_prop_aenderung(self, name: str, wert: Any) -> None:
+        super()._bei_prop_aenderung(name, wert)
+        if name == "item_index":
+            self._qwidget.setCurrentRow(wert)
+
+
+class ComboBox(Control):
+    """Dropdown-Auswahl. Qt-Basis: `QComboBox`."""
+
+    item_index = Prop(
+        int, -1, kategorie="Verhalten", doc="Index des ausgewählten Eintrags, -1 = keine Auswahl"
+    )
+    text = Prop(str, "", kategorie="Darstellung", doc="Angezeigter bzw. ausgewählter Text")
+
+    def __init__(self, parent: Control) -> None:
+        self._items = Strings(self._items_geaendert)
+        super().__init__(parent)
+
+    @property
+    def items(self) -> Strings:
+        return self._items
+
+    def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
+        widget = QComboBox(eltern_widget)
+        widget.currentIndexChanged.connect(self._bei_index_wechsel)
+        widget.currentTextChanged.connect(self._bei_text_wechsel)
+        return widget
+
+    def _items_geaendert(self) -> None:
+        self._qwidget.clear()
+        self._qwidget.addItems(list(self._items))
+
+    def _bei_index_wechsel(self, index: int) -> None:
+        self.item_index = index
+
+    def _bei_text_wechsel(self, text: str) -> None:
+        self.text = text
+
+    def _bei_prop_aenderung(self, name: str, wert: Any) -> None:
+        super()._bei_prop_aenderung(name, wert)
+        if name == "item_index":
+            self._qwidget.setCurrentIndex(wert)
+        elif name == "text":
+            self._qwidget.setCurrentText(wert)
 
 
 class RadioButton(Control):

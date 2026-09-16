@@ -5,13 +5,13 @@ Eigenschaft (Name, Typ, Standardwert, Kategorie, deutscher Hilfetext) und
 jedem Ereignis (Name, Signatur, Auslöser) dokumentiert, bevor sie in `pcl`
 umgesetzt wird. Siehe konzept-natter.md, Abschnitt 5 und 23.2.
 
-Status: `Form`, `Button`, `Label`, `Shape`, `Edit`, `CheckBox`, `RadioButton`
-sind umgesetzt (M1, Schritt 2/3/6). Rest folgt später in Schritt 6
-(`RadioGroup`, `Memo`, `ComboBox`, `ListBox`, `ScrollBar`, `GroupBox`,
-`Panel`, `MainMenu`, `PopupMenu`, `StringGrid`, `Image`, `SpinEdit`,
-`FloatSpinEdit`, `MaskEdit`, `PaintBox`, `HtmlViewer`, `TrackBar`,
-`ProgressBar`, `DateEdit`, `TimeEdit`, `Calendar`, Dialoge, `Timer`,
-`Sound`).
+Status: `Form`, `Button`, `Label`, `Shape`, `Edit`, `CheckBox`,
+`RadioButton`, `Memo`, `ListBox`, `ComboBox` sind umgesetzt (M1, Schritt
+2/3/6). Rest folgt später in Schritt 6 (`RadioGroup`, `ScrollBar`,
+`GroupBox`, `Panel`, `MainMenu`, `PopupMenu`, `StringGrid`, `Image`,
+`SpinEdit`, `FloatSpinEdit`, `MaskEdit`, `PaintBox`, `HtmlViewer`,
+`TrackBar`, `ProgressBar`, `DateEdit`, `TimeEdit`, `Calendar`, Dialoge,
+`Timer`, `Sound`).
 
 ## Form
 
@@ -115,6 +115,47 @@ Qt-Basis: `QRadioButton` (`pcl/components/standard.py`)
 Hinweis: gruppiert sich aktuell nur visuell durch gemeinsame Platzierung;
 eine echte `RadioGroup`-Komponente mit automatischer gegenseitiger
 Exklusivität folgt später in Schritt 6.
+
+## Memo
+
+Qt-Basis: `QPlainTextEdit` (`pcl/components/standard.py`)
+
+| Eigenschaft | Typ | Standardwert | Kategorie | Hilfetext |
+|---|---|---|---|---|
+| left, top, width, height, enabled | wie `Control` | – | – | geerbt von `Control` |
+| lines | `Strings` | leer | – | mehrzeiliger Text; aufklappbare Untereigenschaft wie `Shape.brush`, kein eigenständiges `Prop` |
+
+Keine eigenen Ereignisse. `lines` synchronisiert bisher nur in eine
+Richtung (Zuweisung/`add`/`clear` → Anzeige); von Benutzern eingetippter
+Text wird nicht in `lines` zurückgeschrieben (kein Referenzprojekt braucht
+das bisher, siehe `referenz/lazarus/*` – nur `.Lines.Add`/`.Clear`).
+
+## ListBox
+
+Qt-Basis: `QListWidget` (`pcl/components/standard.py`)
+
+| Eigenschaft | Typ | Standardwert | Kategorie | Hilfetext |
+|---|---|---|---|---|
+| left, top, width, height, enabled | wie `Control` | – | – | geerbt von `Control` |
+| items | `Strings` | leer | – | Einträge; aufklappbare Untereigenschaft, kein eigenständiges `Prop` |
+| item_index | int | -1 | Verhalten | Index des ausgewählten Eintrags, -1 = keine Auswahl |
+
+Keine eigenen Ereignisse (kein Referenzprojekt braucht bisher eines,
+`item_index` wird bei Bedarf ausgelesen statt auf Änderung zu reagieren).
+
+## ComboBox
+
+Qt-Basis: `QComboBox` (`pcl/components/standard.py`)
+
+| Eigenschaft | Typ | Standardwert | Kategorie | Hilfetext |
+|---|---|---|---|---|
+| left, top, width, height, enabled | wie `Control` | – | – | geerbt von `Control` |
+| items | `Strings` | leer | – | Einträge; aufklappbare Untereigenschaft, kein eigenständiges `Prop` |
+| item_index | int | -1 | Verhalten | Index des ausgewählten Eintrags, -1 = keine Auswahl |
+| text | str | "" | Darstellung | Angezeigter bzw. ausgewählter Text, folgt `item_index` |
+
+Keine eigenen Ereignisse. `item_index` und `text` halten sich in beide
+Richtungen synchron (Zuweisung ↔ Auswahl über das Widget).
 
 **Bekannte Lücke:** `on_click`/`on_double_click` gelten laut Abschnitt 5.4
 für „alle sichtbaren“ Komponenten. Bisher ist `on_click` nur bei `Button`

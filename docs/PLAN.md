@@ -16,9 +16,9 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M1, Schritt 6 (läuft): `Strings`-Sammlung bauen (Grundlage für
-`RadioGroup`/`Memo`/`ComboBox`/`ListBox`), dann diese vier Komponenten**
-(siehe unten)
+→ **M1, Schritt 6 (läuft): `StringGrid`, `Image`, `SpinEdit`,
+`FloatSpinEdit`, `MaskEdit`, `PaintBox`, `HtmlViewer` (Additional-
+Komponenten)** (siehe unten)
 
 ## Referenzmaterial
 
@@ -178,11 +178,18 @@ zerlegt, jeder Schritt für sich mit `pytest` abgesichert.
   `on_change`), `RadioButton` (`caption`/`checked`, `on_change`) –
   `tests/test_components_eingabe.py`, 9 Tests, u. a. Eingabe über das
   echte `QWidget` aktualisiert die Prop und feuert `on_change`
-- [ ] `RadioGroup`, `Memo`, `ComboBox`, `ListBox`, `ScrollBar`, `GroupBox`,
-  `Panel`, `MainMenu`, `PopupMenu` – `RadioGroup`/`Memo`/`ComboBox`/
-  `ListBox` brauchen vorher eine `Strings`-Sammlung (`items`/`lines` mit
-  `.add()`, `.load_from_file()` usw., Abschnitt 5.0/11.2), noch nicht
-  gebaut
+- [x] `pcl/strings.py`: `Strings`-Sammlung (`add`, `clear`,
+  `load_from_file`/`save_to_file`, Indizierung, Iteration) –
+  `tests/test_strings.py`, 7 Tests
+- [x] `Memo` (`lines`), `ListBox` (`items`, `item_index`), `ComboBox`
+  (`items`, `item_index`, `text`, beidseitig synchron) –
+  `tests/test_components_listen.py`, 9 Tests, gegen echte Nutzung in
+  `f_Pizza`/`m_Gaestebuch`/`n_abstrakte_Klasse` u. a. geprüft
+  (`.Lines.Add`, `.items.add`, `.itemindex`, `.Text`)
+- [ ] `RadioGroup`, `ScrollBar`, `GroupBox`, `Panel`, `MainMenu`,
+  `PopupMenu` – `RadioGroup1` in `f_Pizza` ist nur deklariert, nicht
+  funktional genutzt, daher niedrigere Priorität als die bereits
+  erledigten Komponenten
 - **Bekannte Lücke, bewusst zurückgestellt:** `on_click`/`on_double_click`
   sollten laut Abschnitt 5.4 für „alle sichtbaren“ Komponenten gelten,
   sind bisher aber nur bei `Button` verdrahtet (natives Qt-Signal). Ein
