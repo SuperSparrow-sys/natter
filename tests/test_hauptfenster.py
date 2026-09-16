@@ -5,6 +5,7 @@ docs/arbeitspakete/M2.md, Schritt 1.
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QTabWidget
 
+from ide.inspector import Objektinspektor
 from ide.shell.hauptfenster import MENUETITEL, PANEL_REITER, HauptFenster
 
 
@@ -59,3 +60,9 @@ def test_oeffnen_aktionen_stehen_in_den_richtigen_menues() -> None:
     assert "Projekt öffnen …" in projekt_eintraege
     assert fenster.aktionen["datei.oeffnen"].qaction.shortcut().toString() == "Ctrl+O"
     assert fenster.aktionen["datei.unit_oeffnen"].qaction.shortcut().toString() == "Ctrl+P"
+
+
+def test_objektinspektor_haengt_im_dock() -> None:
+    fenster = HauptFenster()
+    assert isinstance(fenster.objektinspektor, Objektinspektor)
+    assert fenster.inspektor_dock.widget() is fenster.objektinspektor

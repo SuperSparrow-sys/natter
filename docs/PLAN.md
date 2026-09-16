@@ -16,18 +16,19 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M3, Schritt 2: Objektinspektor – Reiter und Komponentenbaum** –
-siehe [`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md). M1 und M2 sind
+→ **M3, Schritt 3: Designer-Canvas – Anzeige und Auswahl** – siehe
+[`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md). M1 und M2 sind
 funktional abgeschlossen; M2-„Zurückgestellt“-Punkte
 (`docs/arbeitspakete/M2.md`) werden bei Bedarf zwischen M3-Schritten
 nachgeholt.
 
 **IDE-Einstiegspunkt (`ide/main.py`, `python -m ide`) hinzugefügt**, auf
-ausdrücklichen Wunsch: die IDE lässt sich jetzt auf einem Windows-Rechner
-mit Bildschirm tatsächlich starten und benutzen (siehe README, Abschnitt
-„Die IDE starten“) – nicht nur headless testen. Ab jetzt wird nach jedem
-Arbeitsschritt weiter committet, bis auch der Designer/Objektinspektor
-sichtbar etwas zu bedienen bieten.
+ausdrücklichen Wunsch: die IDE lässt sich auf einem Windows-Rechner mit
+Bildschirm tatsächlich starten und benutzen (siehe README, Abschnitt
+„Die IDE starten“) – nicht nur headless testen. Der Objektinspektor
+(Komponentenbaum + Eigenschaften/Ereignisse) hängt jetzt im
+Hauptfenster; er zeigt aber erst etwas an, sobald Schritt 3
+(Designer-Canvas) ein Formular tatsächlich anzeigt und auswählbar macht.
 
 ## Referenzmaterial
 

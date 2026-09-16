@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from ide.actions import Aktion, Aktionsregister
+from ide.inspector import Objektinspektor
 from ide.project import Projekt
 from ide.run import projekt_starten
 from ide.shell.explorer import PFAD_ROLLE, ProjektExplorer
@@ -69,8 +70,9 @@ class HauptFenster(QMainWindow):
         self.explorer_dock = self._dock_erzeugen(
             "Projekt-Explorer", Qt.DockWidgetArea.LeftDockWidgetArea, inhalt=self.explorer
         )
+        self.objektinspektor = Objektinspektor()
         self.inspektor_dock = self._dock_erzeugen(
-            "Objektinspektor", Qt.DockWidgetArea.RightDockWidgetArea
+            "Objektinspektor", Qt.DockWidgetArea.RightDockWidgetArea, inhalt=self.objektinspektor
         )
 
         self.projekt: Projekt | None = None
