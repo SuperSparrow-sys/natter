@@ -32,6 +32,10 @@ class Objektinspektor(QWidget):
         layout.addWidget(self.baum, 1)
         layout.addWidget(self.reiter, 2)
 
+    @property
+    def formular(self) -> Form | None:
+        return self._formular
+
     def formular_anzeigen(self, formular: Form) -> None:
         self._formular = formular
         self.baum.formular_anzeigen(formular)

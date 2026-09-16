@@ -22,7 +22,7 @@ from pcl.form import Form
 KOMPONENTE_ROLLE = Qt.ItemDataRole.UserRole
 
 
-def _kind_komponenten(objekt: Any) -> list[tuple[str, Control]]:
+def kind_komponenten(objekt: Any) -> list[tuple[str, Control]]:
     return [(name, wert) for name, wert in vars(objekt).items() if isinstance(wert, Control)]
 
 
@@ -40,7 +40,7 @@ class Komponentenbaum(QTreeWidget):
         self.expandAll()
 
     def _kinder_hinzufuegen(self, eltern_element: QTreeWidgetItem, objekt: Any) -> None:
-        for name, komponente in _kind_komponenten(objekt):
+        for name, komponente in kind_komponenten(objekt):
             element = QTreeWidgetItem([f"{name}: {type(komponente).__name__}"])
             element.setData(0, KOMPONENTE_ROLLE, komponente)
             eltern_element.addChild(element)

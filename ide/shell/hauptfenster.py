@@ -23,11 +23,13 @@ from PySide6.QtWidgets import (
 )
 
 from ide.actions import Aktion, Aktionsregister
+from ide.designer import DesignerCanvas, formular_fuer_designer_laden
 from ide.inspector import Objektinspektor
 from ide.project import Projekt
 from ide.run import projekt_starten
 from ide.shell.explorer import PFAD_ROLLE, ProjektExplorer
 from ide.shell.schnellauswahl import SchnellAuswahl
+from pcl.form import Form
 
 MENUETITEL = (
     "Datei",
@@ -77,6 +79,8 @@ class HauptFenster(QMainWindow):
 
         self.projekt: Projekt | None = None
         self.laufender_prozess = None
+        self._offene_canvases: list[DesignerCanvas] = []
+        self._pfad_zu_formular: dict[str, Form] = {}
 
         self.panels = QTabWidget()
         for reiter in PANEL_REITER:
@@ -252,19 +256,58 @@ class HauptFenster(QMainWindow):
         self.editor_tabs.setTabText(index, f"{basisname} ●" if geaendert else basisname)
 
     def _aktuelle_datei_speichern(self) -> None:
-        """„Speichern“ (Strg+S, Abschnitt 7.2, 7.9)."""
+        """„Speichern“ (Strg+S, Abschnitt 7.2, 7.9). Wirkt nur auf
+        Text-Editor-Tabs; ein Designer-Tab hat hier (noch) nichts zu
+        speichern (Eigenschaftsänderungen im Designer landen erst mit
+        dem Kommando-Pattern aus Schritt 5 zurück in der `.pfm`)."""
         index = self.editor_tabs.currentIndex()
         if index == -1:
             return
         editor = self.editor_tabs.widget(index)
+        if not isinstance(editor, QPlainTextEdit):
+            return
         pfad = Path(editor.property(_PFAD_EIGENSCHAFT))
         pfad.write_text(editor.toPlainText(), encoding="utf-8")
         editor.document().setModified(False)
 
+    def designer_oeffnen(self, pfad: Path) -> Form:
+        """Öffnet eine `.pfm`-Datei im Formular-Designer statt als
+        Rohtext (Abschnitt 4.2, 7.7): der Designer rendert echte
+        `pcl`-Komponenten, kein Nachbau. Bereits offene Formulare werden
+        nur aktiviert statt erneut geladen."""
+        pfad = Path(pfad)
+        schluessel = str(pfad)
+        if schluessel in self._pfad_zu_formular:
+            formular = self._pfad_zu_formular[schluessel]
+            index = self.editor_tabs.indexOf(formular._qwidget)
+            if index != -1:
+                self.editor_tabs.setCurrentIndex(index)
+            return formular
+
+        formular = formular_fuer_designer_laden(pfad)
+        canvas = DesignerCanvas(formular)
+        canvas.auswahl_beobachten(self._designer_auswahl_geaendert)
+        self._offene_canvases.append(canvas)
+        self._pfad_zu_formular[schluessel] = formular
+
+        index = self.editor_tabs.addTab(formular._qwidget, f"{pfad.stem} (Designer)")
+        self.editor_tabs.setCurrentIndex(index)
+        self.objektinspektor.formular_anzeigen(formular)
+        return formular
+
+    def _designer_auswahl_geaendert(self, komponente) -> None:
+        self.objektinspektor.eigenschaften_tabelle.komponente_anzeigen(komponente)
+        self.objektinspektor.ereignisse_tabelle.anzeigen(komponente, self.objektinspektor.formular)
+
     def _bei_explorer_doppelklick(self, eintrag, spalte: int) -> None:
         pfad = eintrag.data(0, PFAD_ROLLE)
-        if pfad is not None:
-            self.datei_oeffnen(Path(pfad))
+        if pfad is None:
+            return
+        pfad = Path(pfad)
+        if pfad.suffix == ".pfm":
+            self.designer_oeffnen(pfad)
+        else:
+            self.datei_oeffnen(pfad)
 
     def _projekt_starten_aktion(self) -> None:
         """„Starten ohne Debugger“ (Strg+F5, Abschnitt 7.8). Standardmäßig

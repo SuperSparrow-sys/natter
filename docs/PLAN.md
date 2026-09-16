@@ -16,19 +16,19 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M3, Schritt 3: Designer-Canvas – Anzeige und Auswahl** – siehe
-[`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md). M1 und M2 sind
-funktional abgeschlossen; M2-„Zurückgestellt“-Punkte
+→ **M3, Schritt 4: Designer-Canvas – Platzieren, Verschieben, Größe
+ändern** – siehe [`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md). M1
+und M2 sind funktional abgeschlossen; M2-„Zurückgestellt“-Punkte
 (`docs/arbeitspakete/M2.md`) werden bei Bedarf zwischen M3-Schritten
 nachgeholt.
 
-**IDE-Einstiegspunkt (`ide/main.py`, `python -m ide`) hinzugefügt**, auf
-ausdrücklichen Wunsch: die IDE lässt sich auf einem Windows-Rechner mit
-Bildschirm tatsächlich starten und benutzen (siehe README, Abschnitt
-„Die IDE starten“) – nicht nur headless testen. Der Objektinspektor
-(Komponentenbaum + Eigenschaften/Ereignisse) hängt jetzt im
-Hauptfenster; er zeigt aber erst etwas an, sobald Schritt 3
-(Designer-Canvas) ein Formular tatsächlich anzeigt und auswählbar macht.
+**Sichtbar und bedienbar:** `uv run python -m ide` öffnet die IDE;
+„Projekt öffnen …“ → `beispielprojekte/Ampel/ampel.natter` → Doppelklick
+auf `u_main` im Explorer öffnet den echten Formular-Designer als Tab;
+Klick auf ein Ampellicht/einen Button wählt es aus und füllt den
+Objektinspektor rechts; Eigenschaften dort ändern wirkt sofort auf die
+Anzeige. „Start → Starten ohne Debugger“ startet das Programm zusätzlich
+als eigenes Fenster.
 
 ## Referenzmaterial
 

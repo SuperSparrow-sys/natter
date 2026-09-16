@@ -34,7 +34,9 @@ class ProjektExplorer(QTreeWidget):
         formular_stems = {pfad.stem for pfad in projekt.formulare()}
 
         for pfad in projekt.formulare():
-            self._eintrag_hinzufuegen(self.formulare_gruppe, pfad.stem, pfad.with_suffix(".py"))
+            # öffnet den Designer (Abschnitt 7.7), nicht den Rohtext;
+            # "Formular/Code umschalten" (Abschnitt 7.9) folgt später
+            self._eintrag_hinzufuegen(self.formulare_gruppe, pfad.stem, pfad)
 
         for pfad in projekt.units():
             if pfad.stem in formular_stems:
