@@ -1,7 +1,7 @@
 """DapClient: Debug Adapter Protocol (DAP)-Client gegen ein per `debugpy`
-gestartetes Schülerprogramm (Abschnitt 8.1, 7.8). Grundgerüst: Prozess
-starten, Socket-Verbindung, Handshake. Breakpoints/Ausführungssteuerung
-und Variablen/Aufrufstapel folgen in M4, Schritt 4–5.
+gestartetes Schülerprogramm (Abschnitt 8.1, 7.8). Prozess starten,
+Socket-Verbindung, Handshake, Breakpoints und Ausführungssteuerung.
+Variablen/Aufrufstapel folgen in M4, Schritt 5.
 
 Nachrichtenrahmen: `Content-Length: N\\r\\n\\r\\n` + N Bytes JSON (DAP-
 Standard), siehe `_naechste_nachricht`.
@@ -51,19 +51,24 @@ class DapClient:
         self._puffer = b""
         self._naechste_seq = 1
         self._aufgehobene_antworten: dict[int, dict[str, Any]] = {}
+        self._breakpoints: dict[str, list[int]] = {}
 
     def starten(
         self,
         skriptpfad: Path,
         *,
         arbeitsordner: Path,
+        anfangs_breakpoints: dict[Path, list[int]] | None = None,
         zeitlimit: float = _STANDARD_ZEITLIMIT,
     ) -> None:
         """Startet `skriptpfad` als eigenen Prozess unter `debugpy`
         (`--listen`/`--wait-for-client`), verbindet sich und führt den
-        `initialize`/`attach`-Handshake durch. Nach Rückkehr ist die
+        `initialize`/`attach`-Handshake durch. `anfangs_breakpoints`
+        (Datei → Zeilennummern) wird noch während der Konfigurations-
+        phase gesetzt, damit ein Breakpoint auf der allerersten
+        ausgeführten Zeile nicht verpasst wird. Nach Rückkehr ist die
         Sitzung konfiguriert (`configurationDone` bereits gesendet) und
-        der Debuggee läuft."""
+        der Debuggee läuft (bzw. steht bereits an einem Breakpoint)."""
         port = _freien_port_finden()
         self.prozess = subprocess.Popen(
             [
@@ -79,7 +84,7 @@ class DapClient:
         )
         self._socket = self._verbinden(port, zeitlimit)
         self._socket.settimeout(zeitlimit)
-        self._handshake()
+        self._handshake(anfangs_breakpoints or {})
 
     def _verbinden(self, port: int, zeitlimit: float) -> socket.socket:
         ende = time.monotonic() + zeitlimit
@@ -92,13 +97,20 @@ class DapClient:
                 time.sleep(0.1)
         raise DapFehler(f"Konnte nicht mit debugpy auf Port {port} verbinden.") from letzter_fehler
 
-    def _handshake(self) -> None:
+    def _handshake(self, anfangs_breakpoints: dict[Path, list[int]]) -> None:
         self.anfrage(
             "initialize",
             {"adapterID": "natter", "linesStartAt1": True, "columnsStartAt1": True},
         )
         attach_seq = self._senden("attach", {"justMyCode": False})
         self._ereignis_abwarten("initialized")
+
+        for pfad, zeilen in anfangs_breakpoints.items():
+            self.breakpoints_setzen(pfad, zeilen)
+        # unbehandelte Ausnahmen halten immer an (Abschnitt 8.1), auch
+        # innerhalb von Ereignis-Handlern
+        self.anfrage("setExceptionBreakpoints", {"filters": ["uncaught"]})
+
         self.anfrage("configurationDone")
         if attach_seq not in self._aufgehobene_antworten:
             self._antwort_abwarten(attach_seq)  # sonst bereits eingetroffen
@@ -190,3 +202,60 @@ class DapClient:
             self._socket = None
         if self.prozess is not None:
             self.prozess.wait(timeout=zeitlimit)
+
+    # -- Breakpoints und Ausführungssteuerung (Abschnitt 8.1) ---------------
+
+    def breakpoints_setzen(self, pfad: Path, zeilen: list[int]) -> list[dict[str, Any]]:
+        """Ersetzt die Breakpoints für `pfad` durch `zeilen` (DAP-Standard:
+        `setBreakpoints` ersetzt immer die vollständige Menge für eine
+        Datei). Jederzeit nach `starten()` aufrufbar, nicht nur während der
+        Konfigurationsphase."""
+        self._breakpoints[str(pfad)] = list(zeilen)
+        body = self.anfrage(
+            "setBreakpoints",
+            {"source": {"path": str(pfad)}, "breakpoints": [{"line": z} for z in zeilen]},
+        )
+        return body.get("breakpoints", [])
+
+    def angehalten_abwarten(self) -> dict[str, Any]:
+        """Wartet auf das Event `stopped` (Breakpoint, Schritt oder
+        unbehandelte Ausnahme) und liefert dessen Inhalt, u. a. `threadId`
+        und `reason` (`"breakpoint"`/`"step"`/`"exception"`)."""
+        return self._ereignis_abwarten("stopped")
+
+    def thread_id_abwarten(self) -> int:
+        """Wartet auf das Event `thread` (`reason: "started"`) und liefert
+        dessen `threadId` – nötig, um ein frei laufendes (noch nicht an
+        einem Breakpoint angehaltenes) Programm gezielt zu pausieren."""
+        return self._ereignis_abwarten("thread")["threadId"]
+
+    def fortsetzen(self, thread_id: int) -> None:
+        self.anfrage("continue", {"threadId": thread_id})
+
+    def pausieren(self, thread_id: int) -> None:
+        self.anfrage("pause", {"threadId": thread_id})
+
+    def einzelschritt(self, thread_id: int) -> None:
+        """Ein Schritt innerhalb derselben Funktion (DAP: `next`)."""
+        self.anfrage("next", {"threadId": thread_id})
+
+    def prozedurschritt(self, thread_id: int) -> None:
+        """Steigt in einen Funktionsaufruf hinein (DAP: `stepIn`)."""
+        self.anfrage("stepIn", {"threadId": thread_id})
+
+    def bis_ruecksprung(self, thread_id: int) -> None:
+        """Läuft bis zum Ende der aktuellen Funktion (DAP: `stepOut`)."""
+        self.anfrage("stepOut", {"threadId": thread_id})
+
+    def bis_cursor_ausfuehren(self, pfad: Path, zeile: int, thread_id: int) -> dict[str, Any]:
+        """„Ausführen bis Cursor“ (Abschnitt 8.1): kein eigener DAP-Request
+        (Standard kennt nur echte Breakpoints) – setzt vorübergehend einen
+        zusätzlichen Breakpoint bei `zeile`, läuft weiter, entfernt ihn nach
+        dem Anhalten wieder, ohne die übrigen Breakpoints der Datei zu
+        verändern."""
+        vorherige = list(self._breakpoints.get(str(pfad), []))
+        self.breakpoints_setzen(pfad, sorted(set(vorherige) | {zeile}))
+        self.fortsetzen(thread_id)
+        ereignis = self.angehalten_abwarten()
+        self.breakpoints_setzen(pfad, vorherige)
+        return ereignis
