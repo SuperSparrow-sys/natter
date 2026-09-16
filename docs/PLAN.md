@@ -16,14 +16,16 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M4, Schritt 8: Abnahme** (Fehlerbeispiele, Breakpoints/Step, Tests
-mit Soll-/Ist-Anzeige) – siehe
-[`docs/arbeitspakete/M4.md`](arbeitspakete/M4.md). M1, M2 und M3 sind
-funktional abgeschlossen (M3-Abnahme bestanden: Ampel vollständig über
-Designer/Inspektor/Palette nachgebaut, siehe
-[`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md), Schritt 8); die
-„Zurückgestellt“-Punkte aus M2 und M3 werden bei Bedarf zwischen
-M4-Schritten nachgeholt.
+→ **M5 – Datenbank, pandas, Charts** (noch nicht kleinteilig
+aufgeschlüsselt, siehe Stichwortliste unten). M1–M4 sind funktional
+abgeschlossen (M3-Abnahme bestanden: Ampel vollständig über Designer/
+Inspektor/Palette nachgebaut, siehe
+[`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md), Schritt 8; M4-Abnahme
+bestanden: Fehlerkatalog-Beispiele, Ampel-Breakpoint mit Variablenanzeige,
+Test-Explorer mit Soll-/Ist-Anzeige, siehe
+[`docs/arbeitspakete/M4.md`](arbeitspakete/M4.md), Schritt 8); die
+„Zurückgestellt“-Punkte aus M2–M4 werden bei Bedarf zwischen M5-Schritten
+nachgeholt.
 
 **Sichtbar und bedienbar:** `uv run python -m ide` öffnet die IDE;
 „Projekt öffnen …“ → `beispielprojekte/Ampel/ampel.natter` → Doppelklick
@@ -391,7 +393,7 @@ Ausführungssteuerung, Variablen/Aufrufstapel, jeweils gegen echtes
 `debugpy` getestet statt manuell mit VS Code wie ursprünglich in S3
 vorgesehen), IDE-Verdrahtung, Test-Explorer, zuletzt die Abnahme.
 
-- [ ] Abnahme: Fehlerbeispiele liefern korrekte Meldungen,
+- [x] Abnahme: Fehlerbeispiele liefern korrekte Meldungen,
   Breakpoints/Step funktionieren, Tests mit Soll/Ist-Anzeige
 
 ## M5 – Datenbank, pandas, Charts
