@@ -16,8 +16,9 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M5 – Datenbank, pandas, Charts** (noch nicht kleinteilig
-aufgeschlüsselt, siehe Stichwortliste unten). M1–M4 sind funktional
+→ **M5, Schritt 1: SQLdb-Kern gegen SQLite** – kleinteilig
+aufgeschlüsselt in [`docs/arbeitspakete/M5.md`](arbeitspakete/M5.md)
+(wie M1–M4). M1–M4 sind funktional
 abgeschlossen (M3-Abnahme bestanden: Ampel vollständig über Designer/
 Inspektor/Palette nachgebaut, siehe
 [`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md), Schritt 8; M4-Abnahme
@@ -398,10 +399,15 @@ vorgesehen), IDE-Verdrahtung, Test-Explorer, zuletzt die Abnahme.
 
 ## M5 – Datenbank, pandas, Charts
 
-- [ ] SQLdb- und Data-Control-Komponenten
-- [ ] DB-Panel mit CSV-Import/-Export
-- [ ] pandas-Anbindung, Chart-Komponente (matplotlib)
-- [ ] CSV-/Bild-/HTML-Ansichten in der IDE
+Kleinteilig aufgeschlüsselt in
+[`docs/arbeitspakete/M5.md`](arbeitspakete/M5.md). Reihenfolge: SQLdb-
+Kern gegen SQLite zuerst (reine Python-Logik, keine Qt-Abhängigkeit),
+dann MySQL/MariaDB-Unterstützung (echter Verbindungstest gegen eine
+laufende MariaDB-Instanz zurückgestellt, siehe M5.md), pandas-Anbindung
+und Chart-Komponente (beide unabhängig von der Datenbank), `open_url`,
+Data Controls, IDE-Betrachter (CSV/Bild/HTML), Datenbank-Panel, zuletzt
+die Abnahme.
+
 - [ ] Abnahme: Kontoverwaltung (`referenz/lazarus/n_konto`) mit
   MariaDB/SQLite, CSV-Auswertung mit pandas in StringGrid und Chart,
   Würfelspiel-Highscore als HTML im Browser
