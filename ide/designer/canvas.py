@@ -38,6 +38,13 @@ _MARKIERUNGS_EIGENSCHAFT = "design_ausgewaehlt"
 RASTER = 8
 
 
+def _ereignis_kurzname(ereignis_name: str) -> str:
+    """Methodenname nutzt `<ereignis>` ohne das `on_`-Präfix des
+    Attributnamens (Abschnitt 4.4/9: `on_click` -> `b_ein_click`, nicht
+    `b_ein_on_click`, wie in allen Beispielprojekten von Hand benannt)."""
+    return ereignis_name.removeprefix("on_")
+
+
 def _standard_ereignis(typ: type) -> str | None:
     """Das Ereignis, das ein Doppelklick verknüpft (Abschnitt 4.4).
     Nur eindeutig, wenn der Komponententyp genau ein Ereignis hat -
@@ -338,7 +345,7 @@ class DesignerCanvas(QObject):
             return vorhandener_handler.__name__
 
         komponenten_name = self._attributname(komponente) or type(komponente).__name__.lower()
-        methodenname = f"{komponenten_name}_{ereignis_name}"
+        methodenname = f"{komponenten_name}_{_ereignis_kurzname(ereignis_name)}"
 
         klassenname = type(self.formular).__name__
         quelltext = self.unit_pfad.read_text(encoding="utf-8")

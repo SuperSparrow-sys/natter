@@ -65,9 +65,9 @@ def test_erzeugt_methode_in_der_datei_und_verknuepft_sie(tmp_path: Path) -> None
 
     ergebnis = canvas.ereignis_handler_erzeugen(formular.b_ein)
 
-    assert ergebnis == "b_ein_on_click"
-    assert "def b_ein_on_click(self, sender):" in unit_pfad.read_text(encoding="utf-8")
-    assert formular.b_ein.on_click.__name__ == "b_ein_on_click"
+    assert ergebnis == "b_ein_click"
+    assert "def b_ein_click(self, sender):" in unit_pfad.read_text(encoding="utf-8")
+    assert formular.b_ein.on_click.__name__ == "b_ein_click"
     # aufrufbar, ohne einen Fehler auszulösen (reine Platzhalterwirkung)
     formular.b_ein.on_click(formular.b_ein)
 
@@ -81,7 +81,7 @@ def test_bereits_verknuepftes_ereignis_wird_nicht_neu_erzeugt(tmp_path: Path) ->
 
     ergebnis = canvas.ereignis_handler_erzeugen(formular.b_ein)
 
-    assert ergebnis == "b_ein_on_click"
+    assert ergebnis == "b_ein_click"
     assert unit_pfad.read_text(encoding="utf-8") == inhalt_danach_erstem_mal
 
 
@@ -97,7 +97,7 @@ def test_pfm_wird_mit_dem_verknuepften_ereignis_gespeichert(tmp_path: Path) -> N
 
     daten = json.loads(pfm_pfad.read_text(encoding="utf-8"))
     kind = next(k for k in daten["children"] if k["name"] == "b_ein")
-    assert kind["events"] == {"on_click": "b_ein_on_click"}
+    assert kind["events"] == {"on_click": "b_ein_click"}
 
 
 def test_rueckgaengig_entfernt_die_verknuepfung_aber_nicht_die_methode(tmp_path: Path) -> None:
@@ -109,7 +109,7 @@ def test_rueckgaengig_entfernt_die_verknuepfung_aber_nicht_die_methode(tmp_path:
     canvas.rueckgaengig()
 
     assert formular.b_ein.on_click is None
-    assert "def b_ein_on_click(self, sender):" in unit_pfad.read_text(encoding="utf-8")
+    assert "def b_ein_click(self, sender):" in unit_pfad.read_text(encoding="utf-8")
 
 
 def test_echter_doppelklick_erzeugt_den_handler(tmp_path: Path) -> None:
@@ -130,7 +130,7 @@ def test_echter_doppelklick_erzeugt_den_handler(tmp_path: Path) -> None:
     canvas.eventFilter(widget, druck)
     canvas.eventFilter(widget, doppelklick)
 
-    assert "def b_ein_on_click(self, sender):" in unit_pfad.read_text(encoding="utf-8")
-    assert formular.b_ein.on_click.__name__ == "b_ein_on_click"
+    assert "def b_ein_click(self, sender):" in unit_pfad.read_text(encoding="utf-8")
+    assert formular.b_ein.on_click.__name__ == "b_ein_click"
     # der Doppelklick darf keinen Ziehvorgang hinterlassen
     assert canvas._ziehen_komponente is None
