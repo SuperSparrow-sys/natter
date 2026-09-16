@@ -6,7 +6,7 @@ symbol` in `ide/actions/register.py`.
 
 from __future__ import annotations
 
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
 
 # Muss vor der ersten QIcon(...)-Erstellung aus einer .svg-Datei importiert
@@ -18,7 +18,7 @@ from PySide6.QtGui import QIcon
 _ICON_ORDNER = Path(__file__).resolve().parent / "icons"
 
 
-@lru_cache(maxsize=None)
+@cache
 def symbol(name: str) -> QIcon:
     """Liefert das Symbol `name` (Dateiname ohne `.svg`). Unbekannter Name
     liefert ein leeres `QIcon` statt eines Fehlers – Aufrufer müssen kein

@@ -29,7 +29,7 @@ class Brush:
     selbst zugewiesen zu werden – nur `color` ist veränderlich.
     """
 
-    def __init__(self, besitzer: "Shape") -> None:
+    def __init__(self, besitzer: Shape) -> None:
         self._besitzer = besitzer
         self._farbe = "#000000"
 
@@ -49,7 +49,7 @@ class Brush:
 
 
 class _ShapeQWidget(QWidget):
-    def __init__(self, eltern_widget: QWidget, shape: "Shape") -> None:
+    def __init__(self, eltern_widget: QWidget, shape: Shape) -> None:
         super().__init__(eltern_widget)
         self._shape = shape
 
@@ -98,7 +98,7 @@ class Cells:
     """Aufklappbare Untereigenschaft eines `StringGrid`, Zugriff über
     ``self.sg_tabelle.cells[spalte, zeile]`` (Abschnitt 5.1)."""
 
-    def __init__(self, besitzer: "StringGrid") -> None:
+    def __init__(self, besitzer: StringGrid) -> None:
         self._besitzer = besitzer
 
     def __getitem__(self, index: tuple[int, int]) -> str:
@@ -154,7 +154,7 @@ class Picture:
     ``self.i_bild.picture.load_from_file("assets/cookie.png")``
     (Abschnitt 5.0, 11.4)."""
 
-    def __init__(self, besitzer: "Image") -> None:
+    def __init__(self, besitzer: Image) -> None:
         self._besitzer = besitzer
         self._pfad: str | None = None
 

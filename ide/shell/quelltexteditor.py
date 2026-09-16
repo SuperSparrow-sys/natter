@@ -20,7 +20,7 @@ _AKTUELLE_ZEILE_FARBE = QColor("#eaf2fc")
 
 
 class _ZeilenNummernRand(QWidget):
-    def __init__(self, editor: "QuelltextEditor") -> None:
+    def __init__(self, editor: QuelltextEditor) -> None:
         super().__init__(editor)
         self._editor = editor
 

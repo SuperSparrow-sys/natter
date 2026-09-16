@@ -95,7 +95,7 @@ def _ampel_in_der_ide_nachbauen(canvas: DesignerCanvas) -> None:
 
 
 def test_ampel_laesst_sich_vollstaendig_ueber_die_ide_nachbauen(tmp_path: Path) -> None:
-    unit_pfad = _unit_datei_vorbereiten(tmp_path)
+    _unit_datei_vorbereiten(tmp_path)
     formular = Form1()
     canvas = DesignerCanvas(formular, pfm_pfad=tmp_path / "u_main.pfm")
 

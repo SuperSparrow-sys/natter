@@ -4,7 +4,7 @@ docs/arbeitspakete/M2.md, Schritt 2.
 
 import pytest
 
-from ide.actions import Aktion, Aktionsregister, AktionsKonfliktError
+from ide.actions import Aktion, AktionsKonfliktError, Aktionsregister
 from ide.shell.hauptfenster import HauptFenster
 
 
