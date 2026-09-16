@@ -30,6 +30,7 @@ from pcl.components.standard import (
 )
 from pcl.control import Control
 from pcl.dialogs import input_box, show_message
+from pcl.files import open_url
 from pcl.form import Form
 from pcl.properties import Event, Prop
 from pcl.strings import Strings
@@ -65,5 +66,6 @@ __all__ = [
     "Strings",
     "StringGrid",
     "input_box",
+    "open_url",
     "show_message",
 ]
