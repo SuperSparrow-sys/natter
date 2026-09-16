@@ -16,9 +16,8 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M1 vollständig abgeschlossen. M2 (IDE-Grundgerüst) beginnt** – siehe
-Abschnitt „M2“ unten, wird vor dem nächsten Schritt noch kleinteilig
-aufgeschlüsselt wie M1.
+→ **M2, Schritt 1: Hauptfenster-Grundgerüst (`ide/shell/`)** – siehe
+[`docs/arbeitspakete/M2.md`](arbeitspakete/M2.md)
 
 ## Referenzmaterial
 
@@ -271,15 +270,18 @@ am Ende.
   statt erst am Ende (Pflicht laut `AGENTS.md`, Definition of Done) –
   aktueller Stand: alle bisher gebauten Komponenten dokumentiert
 
-## M2 – IDE-Grundgerüst (Stichworte aus Abschnitt 20, Details folgen in `docs/arbeitspakete/M2.md`)
+## M2 – IDE-Grundgerüst
 
-- [ ] Aktionsregister, alle Menüs/Werkzeugleisten, SVG-Symbole
-- [ ] Monaco-Einbindung, Themes
-- [ ] Explorer, Neu-Dialog
-- [ ] Units (Tabs, geteilte Ansicht, Einbinden)
-- [ ] portable Laufzeit mit getrennten Paketordnern
-- [ ] Ausführung in eigenen Fenstern (GUI + Konsole)
-- [ ] Tastenkürzel-Tab
+Jetzt kleinteilig aufgeschlüsselt in
+[`docs/arbeitspakete/M2.md`](arbeitspakete/M2.md) (wie M1 oben), da M1
+abgeschlossen ist. Reihenfolge dort: zuerst Hauptfenster-Grundgerüst,
+Aktionsregister, Projektmodell, „Neues Projekt …“/„Projekt öffnen …“,
+Explorer, Platzhalter-Editor, „Unit öffnen …“ – der Teil, den der
+Projektinhaber konkret nachgefragt hat und der headless testbar ist.
+Monaco, vollständige Menüs, Units-Feinschliff, portable Laufzeit,
+Ausführung in eigenen Fenstern und Tastenkürzel-Tab folgen danach
+innerhalb M2 (dort im Detail zurückgestellt begründet).
+
 - [ ] Abnahme: Projekt aus M1 in der IDE öffnen, alle Datei-Menüfunktionen,
   `u_pflanzen`/`u_garten`-Projekt anlegen und starten, Konsolenprogramm mit
   `input()` im eigenen Fenster
