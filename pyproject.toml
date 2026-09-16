@@ -10,6 +10,8 @@ dependencies = [
     "jsonschema>=4.23",
     "libcst>=1.4",
     "debugpy>=1.8",
+    "pymysql>=1.2.0",
+    "sqlalchemy>=2.0.54",
 ]
 
 [dependency-groups]

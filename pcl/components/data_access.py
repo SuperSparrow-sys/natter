@@ -1,6 +1,6 @@
 """SQLdb-Komponenten (Abschnitt 10.1): Verbindung, Transaktion, Abfrage,
-Datenquelle – zunächst der SQLite-Treiber (M5, Schritt 1); MySQL/MariaDB
-folgt in Schritt 2 über dieselbe Schnittstelle.
+Datenquelle – SQLite (M5, Schritt 1) und MySQL/MariaDB über PyMySQL (M5,
+Schritt 2) hinter derselben Schnittstelle.
 
 Objektverweise zwischen den Komponenten (``SQLQuery.database``,
 ``SQLTransaction.database``, ``DataSource.dataset``) sind bewusst
@@ -16,19 +16,20 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
+import pymysql
+
 from pcl.db import uebersetze_platzhalter
 from pcl.errors import NatterDatenbankError
 from pcl.properties import Komponente, Prop
 
 
-class SQLite3Connection(Komponente):
-    """Verbindung zu einer SQLite-Datenbank (entspricht
-    ``TSQLite3Connection`` in Lazarus). ``database_name`` ist ein
-    Dateipfad oder ``":memory:"``."""
+class _Datenbankverbindung(Komponente):
+    """Gemeinsame Basis für `SQLite3Connection` und `MySQLConnection`:
+    öffnet/schließt die eigentliche DB-API-Verbindung über die
+    `connected`-Prop. `SQLQuery` kennt nur diese Schnittstelle (samt
+    `_platzhalterstil`/`_treiber_fehler`) und nie `sqlite3`/`PyMySQL`
+    direkt."""
 
-    database_name = Prop(
-        str, "", kategorie="Datenbank", doc='Pfad zur Datenbankdatei oder ":memory:"'
-    )
     connected = Prop(
         bool,
         False,
@@ -36,16 +37,25 @@ class SQLite3Connection(Komponente):
         doc="Verbindung öffnen (True) bzw. schließen (False)",
     )
 
+    _platzhalterstil = "named"
+    _treiber_fehler: type[Exception] = Exception
+
     def __init__(self) -> None:
-        self._verbindung: sqlite3.Connection | None = None
+        self._verbindung: Any = None
 
     @property
-    def verbindung(self) -> sqlite3.Connection:
+    def verbindung(self) -> Any:
         if self._verbindung is None:
             raise NatterDatenbankError(
                 f"{type(self).__name__}: keine offene Verbindung (connected = True setzen)."
             )
         return self._verbindung
+
+    def _neue_verbindung(self) -> Any:
+        raise NotImplementedError
+
+    def _verbindungsziel_text(self) -> str:
+        raise NotImplementedError
 
     def _bei_prop_aenderung(self, name: str, wert: Any) -> None:
         if name != "connected":
@@ -57,15 +67,15 @@ class SQLite3Connection(Komponente):
 
     def _verbindung_oeffnen(self) -> None:
         try:
-            self._verbindung = sqlite3.connect(self.database_name or ":memory:")
-        except sqlite3.Error as fehler:
+            self._verbindung = self._neue_verbindung()
+        except self._treiber_fehler as fehler:
             # connected wurde von Prop.__set__ bereits auf True gesetzt,
             # bevor dieser Hook lief - bei Fehlschlag zurücksetzen, damit
             # `connected` nicht fälschlich True bleibt (siehe
             # Prop._speicher_name in pcl/properties.py).
             self.__dict__["_prop_connected"] = False
             raise NatterDatenbankError(
-                f"Verbindung zu {self.database_name!r} fehlgeschlagen: {fehler}"
+                f"Verbindung zu {self._verbindungsziel_text()} fehlgeschlagen: {fehler}"
             ) from fehler
 
     def _verbindung_schliessen(self) -> None:
@@ -74,13 +84,65 @@ class SQLite3Connection(Komponente):
             self._verbindung = None
 
 
+class SQLite3Connection(_Datenbankverbindung):
+    """Verbindung zu einer SQLite-Datenbank (entspricht
+    ``TSQLite3Connection`` in Lazarus). ``database_name`` ist ein
+    Dateipfad oder ``":memory:"``."""
+
+    database_name = Prop(
+        str, "", kategorie="Datenbank", doc='Pfad zur Datenbankdatei oder ":memory:"'
+    )
+
+    _platzhalterstil = "named"
+    _treiber_fehler = sqlite3.Error
+
+    def _neue_verbindung(self) -> sqlite3.Connection:
+        return sqlite3.connect(self.database_name or ":memory:")
+
+    def _verbindungsziel_text(self) -> str:
+        return repr(self.database_name or ":memory:")
+
+
+class MySQLConnection(_Datenbankverbindung):
+    """Verbindung zu MySQL/MariaDB über PyMySQL (entspricht
+    ``TMySQLConnection``/``TSQLConnector`` in Lazarus).
+
+    **Zurückgestellt (siehe docs/arbeitspakete/M5.md, „Stolperstein
+    MariaDB“):** hier nur gegen die reine Parameter-Übersetzung und
+    Fehlerbehandlung bei fehlgeschlagener Verbindung getestet, nicht
+    gegen eine echte laufende MariaDB-Instanz – der dafür vorgesehene
+    Homeserver-Docker-Container existiert in dieser Entwicklungsumgebung
+    nicht."""
+
+    host_name = Prop(str, "localhost", kategorie="Datenbank", doc="Servername oder IP-Adresse")
+    port = Prop(int, 3306, kategorie="Datenbank", doc="TCP-Port des Servers")
+    database_name = Prop(str, "", kategorie="Datenbank", doc="Name der Datenbank")
+    user_name = Prop(str, "", kategorie="Datenbank", doc="Benutzername")
+    password = Prop(str, "", kategorie="Datenbank", doc="Passwort")
+
+    _platzhalterstil = "pyformat"
+    _treiber_fehler = pymysql.MySQLError
+
+    def _neue_verbindung(self) -> pymysql.connections.Connection:
+        return pymysql.connect(
+            host=self.host_name,
+            port=self.port,
+            database=self.database_name,
+            user=self.user_name,
+            password=self.password,
+        )
+
+    def _verbindungsziel_text(self) -> str:
+        return f"{self.host_name}/{self.database_name}"
+
+
 class SQLTransaction(Komponente):
     """Wirkt auf die Verbindung ihrer zugehörigen Connection (Abschnitt
     10.1: ``transaction.commit()`` / ``.rollback()``)."""
 
     neue_attribute_erlaubt = True
 
-    def __init__(self, database: SQLite3Connection) -> None:
+    def __init__(self, database: _Datenbankverbindung) -> None:
         self.database = database
 
     def commit(self) -> None:
@@ -128,10 +190,10 @@ class SQLQuery(Komponente):
 
     sql = Prop(str, "", kategorie="Datenbank", doc="SQL-Anweisung mit :name-Platzhaltern")
 
-    def __init__(self, database: SQLite3Connection) -> None:
+    def __init__(self, database: _Datenbankverbindung) -> None:
         self.database = database
         self.params: dict[str, Any] = {}
-        self._cursor: sqlite3.Cursor | None = None
+        self._cursor: Any = None
         self._zeile: tuple[Any, ...] | None = None
         self._spalten: list[str] = []
 
@@ -177,11 +239,11 @@ class SQLQuery(Komponente):
         self._spalten = []
 
     def _ausfuehren(self) -> None:
-        sql = uebersetze_platzhalter(self.sql, "named")
+        sql = uebersetze_platzhalter(self.sql, self.database._platzhalterstil)
         try:
             cursor = self.database.verbindung.cursor()
             cursor.execute(sql, dict(self.params))
-        except sqlite3.Error as fehler:
+        except self.database._treiber_fehler as fehler:
             raise NatterDatenbankError(f"SQL-Fehler: {fehler}") from fehler
         self._cursor = cursor
         self._spalten = [beschreibung[0] for beschreibung in cursor.description or []]
