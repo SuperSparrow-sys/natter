@@ -16,13 +16,10 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M7, Schritt 4: Abnahme** – kleinteilig aufgeschlüsselt in
-[`docs/arbeitspakete/M7.md`](arbeitspakete/M7.md) (wie M1–M6). Schritt 1
-(Design-Prüfer-Regeln), Schritt 2 (IDE-Verdrahtung, per Screenshot
-geprüft) und Schritt 3 (Paketverwaltung über `pip`) sind erledigt – 530
-Tests grün insgesamt. M1–M6 sind funktional
-abgeschlossen (M3-Abnahme bestanden: Ampel vollständig über Designer/
-Inspektor/Palette nachgebaut, siehe
+→ **M8 – Lazarus-Import, Exe-Export, Verteilung** (noch nicht
+kleinteilig aufgeschlüsselt, siehe Stichwortliste unten). M1–M7 sind
+funktional abgeschlossen (M3-Abnahme bestanden: Ampel vollständig über
+Designer/Inspektor/Palette nachgebaut, siehe
 [`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md), Schritt 8; M4-Abnahme
 bestanden: Fehlerkatalog-Beispiele, Ampel-Breakpoint mit Variablenanzeige,
 Test-Explorer mit Soll-/Ist-Anzeige, siehe
@@ -34,8 +31,12 @@ Browser, siehe [`docs/arbeitspakete/M5.md`](arbeitspakete/M5.md), Schritt
 zurückgestellt); M6-Abnahme bestanden: `pcl.crt` mit ANSI-
 Cursorsteuerung/-Farben, Tastatureingabe über `msvcrt`, Piepton über
 `winsound`, siehe [`docs/arbeitspakete/M6.md`](arbeitspakete/M6.md),
-Schritt 2 – 498 Tests grün); die „Zurückgestellt“-Punkte aus M2–M6
-werden bei Bedarf zwischen M7-Schritten nachgeholt.
+Schritt 2; M7-Abnahme bestanden: Design-Prüfer (14 Regeln über
+Geometrie/Lesbarkeit/Konsistenz/Bedienbarkeit/Namenskonvention,
+Größenänderung/Skalierung zurückgestellt) und Paketverwaltung über `pip`,
+siehe [`docs/arbeitspakete/M7.md`](arbeitspakete/M7.md), Schritt 4 – 532
+Tests grün); die „Zurückgestellt“-Punkte aus M2–M7 werden bei Bedarf
+zwischen M8-Schritten nachgeholt.
 
 **Sichtbar und bedienbar:** `uv run python -m ide` öffnet die IDE;
 „Projekt öffnen …“ → `beispielprojekte/Ampel/ampel.natter` → Doppelklick
@@ -80,7 +81,13 @@ Tabelle, Bilder als skalierte Vorschau mit Abmessungen und `.html`-
 Dateien als automatisch aktualisierende Vorschau mit „Im Browser
 öffnen“; das neue Dock „Datenbank“ verbindet sich mit SQLite/MySQL,
 zeigt Tabellen/Spalten, führt SQL-Abfragen aus und importiert/exportiert
-Tabellen als CSV bzw. SQL-Dump.
+Tabellen als CSV bzw. SQL-Dump. „Werkzeuge → Design prüfen“ (und
+automatisch nach jeder Designer-Änderung, abschaltbar) zeigt Hinweise/
+Warnungen zu Geometrie, Lesbarkeit, Konsistenz, Bedienbarkeit und
+Namenskonvention im Panel „Meldungen“; ein Klick auf einen Befund
+markiert die betroffene Komponente im Designer. Das neue Menü „Pakete“
+zeigt installierte Pakete, installiert ein neues per `pip` und
+exportiert die Paketliste als `requirements.txt`.
 
 ## Referenzmaterial
 
@@ -449,9 +456,9 @@ Skalierung (brauchen ein Anker-System bzw. eine DPI-Simulation, die
 `pcl` noch nicht hat) und Teile von Lesbarkeit (Schriftgröße/-art gibt
 es als Prop noch nicht) bewusst zurückgestellt, siehe M7.md.
 
-- [ ] Design-Prüfer (regelbasiert, Abschnitt 14)
-- [ ] Paketverwaltung (pip über die IDE)
-- [ ] Abnahme: alle Prüfregeln erkennen ihre Testformulare, Paket über das
+- [x] Design-Prüfer (regelbasiert, Abschnitt 14)
+- [x] Paketverwaltung (pip über die IDE)
+- [x] Abnahme: alle Prüfregeln erkennen ihre Testformulare, Paket über das
   Menü installierbar
 
 ## M8 – Lazarus-Import, Exe-Export, Verteilung
