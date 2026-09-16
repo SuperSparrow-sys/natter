@@ -16,8 +16,8 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M3, Schritt 7: Ereignis-Codegenerierung (libcst)** – siehe
-[`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md). M1 und M2 sind
+→ **M3, Schritt 8: Abnahme – Ampel vollständig in der IDE erstellen** –
+siehe [`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md). M1 und M2 sind
 funktional abgeschlossen; M2-„Zurückgestellt“-Punkte
 (`docs/arbeitspakete/M2.md`) werden bei Bedarf zwischen M3-Schritten
 nachgeholt.
@@ -29,7 +29,10 @@ Klick auf ein Ampellicht/einen Button wählt es aus und füllt den
 Objektinspektor rechts; Eigenschaften dort ändern wirkt sofort auf die
 Anzeige. Im Designer selbst: Ziehen mit der Maus verschiebt, Pfeiltasten/
 Alt+Pfeil/Umschalt+Pfeil bewegen bzw. skalieren rasterweise, Entf löscht,
-Strg+D dupliziert, Strg+Z/Strg+Umschalt+Z machen rückgängig/wiederholen –
+Strg+D dupliziert, Doppelklick auf der Palette platziert eine neue
+Komponente mittig, Doppelklick auf einer Komponente im Designer erzeugt
+(per `libcst`) ihre Standard-Ereignismethode in der `.py`-Unit und
+verknüpft sie, Strg+Z/Strg+Umschalt+Z machen rückgängig/wiederholen –
 jede Änderung wird automatisch in die `.pfm` zurückgeschrieben. „Start →
 Starten ohne Debugger“ startet das Programm zusätzlich als eigenes
 Fenster.

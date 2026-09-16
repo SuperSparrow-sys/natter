@@ -8,6 +8,7 @@ license = { file = "LICENSE" }
 dependencies = [
     "pyside6>=6.8",
     "jsonschema>=4.23",
+    "libcst>=1.4",
 ]
 
 [dependency-groups]

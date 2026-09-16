@@ -26,7 +26,7 @@ def _referenzierte_handler(pfm: dict[str, Any]) -> set[str]:
     return handler
 
 
-def _platzhalter_erzeugen(name: str):
+def platzhalter_erzeugen(name: str):
     # eigene Funktion statt Lambda im Dict-Comprehension, damit
     # `__name__` den echten Handlernamen trägt statt "<lambda>" -
     # sonst schlägt das spätere Zurückschreiben in die .pfm
@@ -48,6 +48,6 @@ def formular_fuer_designer_laden(pfm_pfad: Path) -> Form:
     exec(compile(quelltext, str(pfm_pfad), "exec"), namensraum)
     design_klasse = namensraum[f"{pfm['class']}Design"]
 
-    platzhalter = {name: _platzhalter_erzeugen(name) for name in _referenzierte_handler(pfm)}
+    platzhalter = {name: platzhalter_erzeugen(name) for name in _referenzierte_handler(pfm)}
     vorschau_klasse = type(pfm["class"], (design_klasse,), platzhalter)
     return vorschau_klasse()

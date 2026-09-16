@@ -14,6 +14,7 @@ Verfeinerung.
 
 from __future__ import annotations
 
+import types
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -21,11 +22,13 @@ from typing import Any
 from PySide6.QtCore import QEvent, QObject, QPoint, Qt
 from PySide6.QtWidgets import QWidget
 
+from ide.codegen.ereignis import handler_methode_einfuegen
 from ide.designer.kommando import EigenschaftKommando, Kommandostapel
+from ide.designer.laden import platzhalter_erzeugen
 from ide.designer.pfm_schreiben import formular_als_pfm_speichern
 from ide.inspector.komponentenbaum import kind_komponenten
 from pcl.form import Form
-from pcl.properties import eigenschaften
+from pcl.properties import eigenschaften, ereignisse
 
 # Wird einmal an das Stylesheet des Formulars angehängt (kaskadiert zu
 # allen Kindern, Abschnitt 6) statt einzelne Widget-Stylesheets zu
@@ -33,6 +36,14 @@ from pcl.properties import eigenschaften
 _AUSWAHL_REGEL = '\n*[design_ausgewaehlt="true"] { border: 2px solid #0067c0; }'
 _MARKIERUNGS_EIGENSCHAFT = "design_ausgewaehlt"
 RASTER = 8
+
+
+def _standard_ereignis(typ: type) -> str | None:
+    """Das Ereignis, das ein Doppelklick verknüpft (Abschnitt 4.4).
+    Nur eindeutig, wenn der Komponententyp genau ein Ereignis hat -
+    Komponenten ohne oder mit mehreren Ereignissen liefern `None`."""
+    events = ereignisse(typ)
+    return next(iter(events)) if len(events) == 1 else None
 
 
 class _LoeschenKommando:
@@ -101,6 +112,8 @@ class DesignerCanvas(QObject):
         super().__init__()
         self.formular = formular
         self.pfm_pfad = Path(pfm_pfad) if pfm_pfad is not None else None
+        # Namenskonvention aus Abschnitt 4.1: u_main.pfm <-> u_main.py
+        self.unit_pfad = self.pfm_pfad.with_suffix(".py") if self.pfm_pfad is not None else None
         self.kommandos = Kommandostapel()
         self.ausgewaehlte_komponente: Any = None
         self._auswahl_beobachter: list[Callable[[Any], None]] = []
@@ -123,6 +136,17 @@ class DesignerCanvas(QObject):
 
     def eventFilter(self, beobachtetes_objekt: QObject, ereignis: QEvent) -> bool:
         typ = ereignis.type()
+
+        if typ == QEvent.Type.MouseButtonDblClick:
+            # Qt schickt vor dem Doppelklick bereits einen normalen Press,
+            # der einen Ziehvorgang gestartet haben könnte - den verwerfen.
+            self._ziehen_komponente = None
+            self._ziehen_start = None
+            self._ziehen_start_werte = None
+            komponente = self._widget_zu_komponente.get(beobachtetes_objekt)
+            if komponente is not None and komponente is not self.formular:
+                self.ereignis_handler_erzeugen(komponente)
+            return True
 
         if typ == QEvent.Type.MouseButtonPress:
             komponente = self._widget_zu_komponente.get(beobachtetes_objekt)
@@ -295,6 +319,40 @@ class DesignerCanvas(QObject):
         self.kommandos.ausfuehren(kommando)
         self._nach_aenderung(kommando.neue_komponente)
         return kommando.neue_komponente
+
+    def ereignis_handler_erzeugen(self, komponente: Any) -> str | None:
+        """Doppelklick auf `komponente` (Abschnitt 4.4): erzeugt bei
+        Bedarf die Standard-Ereignis-Methode in der Formular-Unit (per
+        `libcst`, ohne Formatierungsverlust) und verknüpft sie. Ohne
+        zugrunde liegende `.pfm`-Datei oder ohne eindeutiges Standard-
+        ereignis passiert nichts (`None`). Bereits verknüpfte Ereignisse
+        werden nicht erneut erzeugt, nur der vorhandene Name geliefert."""
+        if self.unit_pfad is None:
+            return None
+        ereignis_name = _standard_ereignis(type(komponente))
+        if ereignis_name is None:
+            return None
+
+        vorhandener_handler = getattr(komponente, ereignis_name)
+        if vorhandener_handler is not None:
+            return vorhandener_handler.__name__
+
+        komponenten_name = self._attributname(komponente) or type(komponente).__name__.lower()
+        methodenname = f"{komponenten_name}_{ereignis_name}"
+
+        klassenname = type(self.formular).__name__
+        quelltext = self.unit_pfad.read_text(encoding="utf-8")
+        neuer_quelltext = handler_methode_einfuegen(quelltext, klassenname, methodenname)
+        self.unit_pfad.write_text(neuer_quelltext, encoding="utf-8")
+
+        gebundene_methode = types.MethodType(platzhalter_erzeugen(methodenname), self.formular)
+        setattr(self.formular, methodenname, gebundene_methode)
+
+        self.kommandos.ausfuehren(
+            EigenschaftKommando(komponente, {ereignis_name: gebundene_methode})
+        )
+        self._nach_aenderung(komponente)
+        return methodenname
 
     # -- Struktur-Hilfsmethoden (auch von den Kommandos oben genutzt) -------
 
