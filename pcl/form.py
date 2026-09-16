@@ -12,6 +12,7 @@ from typing import Any
 from PySide6.QtWidgets import QWidget
 
 from pcl.properties import Event, Komponente, Prop
+from pcl.theme import qss_erzeugen
 
 
 class Form(Komponente):
@@ -37,6 +38,7 @@ class Form(Komponente):
         self._qwidget = QWidget()
         self._qwidget.setWindowTitle(self.caption)
         self._qwidget.resize(self.width, self.height)
+        self._qwidget.setStyleSheet(qss_erzeugen(self.theme))
         self.create_components()
         if self.on_create is not None:
             self.on_create(self)
@@ -50,6 +52,8 @@ class Form(Komponente):
             self._qwidget.setWindowTitle(wert)
         elif name in ("width", "height"):
             self._qwidget.resize(self.width, self.height)
+        elif name == "theme":
+            self._qwidget.setStyleSheet(qss_erzeugen(wert))
 
     def show(self) -> None:
         self._qwidget.show()

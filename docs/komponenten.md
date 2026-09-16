@@ -23,7 +23,7 @@ Qt-Basis: `QWidget` (`pcl/form.py`)
 | caption | str | "Form1" | Darstellung | Fenstertitel |
 | width | int | 480 | Layout | Fensterbreite in Pixeln |
 | height | int | 360 | Layout | Fensterhöhe in Pixeln |
-| theme | str | "system" | Darstellung | Farbschema: system, light oder dark |
+| theme | str | "system" | Darstellung | Farbschema: system, light oder dark; wendet das QSS aus `pcl/theme/` (Quelle: `design/tokens.json`) sofort auf das Formular an |
 
 | Ereignis | Signatur | Auslöser |
 |---|---|---|

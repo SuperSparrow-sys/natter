@@ -16,9 +16,9 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M1, Schritt 7 (nachholen): Theme – `design/tokens.json` →
-QSS-Generator für hell/dunkel** (siehe unten). Funktionales
-M1-Abnahmekriterium ist bereits erfüllt (Schritt 8 fertig).
+→ **M1 vollständig abgeschlossen. M2 (IDE-Grundgerüst) beginnt** – siehe
+Abschnitt „M2“ unten, wird vor dem nächsten Schritt noch kleinteilig
+aufgeschlüsselt wie M1.
 
 ## Referenzmaterial
 
@@ -224,16 +224,22 @@ zerlegt, jeder Schritt für sich mit `pytest` abgesichert.
   `referenz/lazarus/` bisher, `.html`-Ausgabe kommt erst in M5/M6-nahen
   Übungen vor)
 
-### 7. Theme
+### 7. Theme — erledigt
 
-- [ ] `design/tokens.json` → QSS-Generator für `pcl`-Programme, hell/dunkel,
-  `theme`-Eigenschaft des Formulars (`system`/`light`/`dark`)
-- **Reihenfolge bewusst getauscht:** Schritt 8 (Abnahmeprojekte) zuerst
-  bearbeitet, da alle dafür nötigen Komponenten mit Schritt 6 bereits
-  fertig waren und Theme rein optisch ist (blockiert die funktionale
-  M1-Abnahme laut Konzept nicht: „Ampel, Würfelspiel, StringGrid-Übung
-  laufen mit `python main.py`“ verlangt kein Theming). Wird nachgeholt,
-  bevor M1 als Ganzes abgeschlossen gilt.
+- [x] `pcl/theme/__init__.py`: `design/tokens.json` → QSS-Generator für
+  `pcl`-Programme, hell/dunkel; `theme_aufloesen` löst `system` über
+  `QStyleHints.colorScheme()` auf (Ausweich-Standard `light`, falls
+  unbekannt/keine `QApplication`)
+- [x] `Form.theme` wendet das QSS beim Erzeugen und bei jeder Änderung
+  sofort auf `self._qwidget` an (Qt-Stylesheet-Vererbung erreicht alle
+  Kind-Komponenten automatisch)
+- [x] Tests (`tests/test_theme.py`, 6 Tests)
+- (Reihenfolge zu Schritt 8 bewusst getauscht: Abnahmeprojekte zuerst,
+  da Theme rein optisch ist und die funktionale M1-Abnahme nicht
+  blockiert)
+
+**M1 ist damit vollständig abgeschlossen** (alle neun Schritte erledigt,
+106 Tests grün). Weiter mit M2.
 
 ### 8. Zweites/drittes Abnahmeprojekt — erledigt
 
