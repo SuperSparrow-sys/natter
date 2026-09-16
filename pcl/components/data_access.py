@@ -238,6 +238,17 @@ class SQLQuery(Komponente):
         self._zeile = None
         self._spalten = []
 
+    def to_dataframe(self) -> Any:
+        """Führt ``sql`` aus (SELECT) und liefert das vollständige
+        Ergebnis als pandas-`DataFrame` (Abschnitt 11.6)."""
+        import pandas as pd
+
+        self._ausfuehren()
+        zeilen = self._cursor.fetchall()
+        spalten = list(self._spalten)
+        self.close()
+        return pd.DataFrame(zeilen, columns=spalten)
+
     def _ausfuehren(self) -> None:
         sql = uebersetze_platzhalter(self.sql, self.database._platzhalterstil)
         try:

@@ -151,6 +151,18 @@ class StringGrid(Control):
         elif name == "col_count":
             self._qwidget.setColumnCount(wert)
 
+    def load_dataframe(self, df: Any) -> None:
+        """Zeigt einen pandas-`DataFrame` an (Abschnitt 11.6)."""
+        from pcl.dataframe import load_dataframe
+
+        load_dataframe(self, df)
+
+    def to_dataframe(self) -> Any:
+        """Liest den Inhalt als pandas-`DataFrame` zurück (Abschnitt 11.6)."""
+        from pcl.dataframe import to_dataframe
+
+        return to_dataframe(self)
+
 
 class Picture:
     """Aufklappbare Untereigenschaft eines `Image`, z. B.

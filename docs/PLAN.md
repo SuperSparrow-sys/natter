@@ -16,11 +16,13 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M5, Schritt 3: pandas-Anbindung** – kleinteilig aufgeschlüsselt in
-[`docs/arbeitspakete/M5.md`](arbeitspakete/M5.md) (wie M1–M4). Schritt 1
-(SQLdb-Kern gegen SQLite) und Schritt 2 (SQLdb-Kern für MySQL/MariaDB,
-echter Verbindungstest gegen MariaDB zurückgestellt) sind erledigt: 21
-Tests grün, siehe M5.md. M1–M4 sind funktional
+→ **M5, Schritt 4: Chart-Komponente (matplotlib)** – kleinteilig
+aufgeschlüsselt in [`docs/arbeitspakete/M5.md`](arbeitspakete/M5.md)
+(wie M1–M4). Schritt 1 (SQLdb-Kern gegen SQLite), Schritt 2 (SQLdb-Kern
+für MySQL/MariaDB, echter Verbindungstest gegen MariaDB zurückgestellt)
+und Schritt 3 (pandas-Anbindung, `StringGrid`↔`DataFrame`,
+`SQLQuery.to_dataframe()`) sind erledigt: 27 Tests grün, siehe M5.md.
+M1–M4 sind funktional
 abgeschlossen (M3-Abnahme bestanden: Ampel vollständig über Designer/
 Inspektor/Palette nachgebaut, siehe
 [`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md), Schritt 8; M4-Abnahme
