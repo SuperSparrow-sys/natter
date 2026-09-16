@@ -17,14 +17,21 @@ ausgerichtet, ohne sie selbst nachzubauen.
 
 from __future__ import annotations
 
+import builtins
+import importlib
 import re
 import traceback
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from types import TracebackType
+from typing import Any
 
 from ide.debugger.eigener_code import ist_eigener_code
+
+_STAPEL_ZEILE_MUSTER = re.compile(
+    r'^  File "(?P<datei>[^"]+)", line (?P<zeile>\d+), in (?P<name>.+)$'
+)
 
 
 @dataclass(frozen=True)
@@ -153,26 +160,32 @@ def _key_error(exc: KeyError) -> tuple[str, str, str]:
 
 
 def _file_not_found(exc: FileNotFoundError) -> tuple[str, str, str]:
+    # exc.filename ist nur gesetzt, wenn Python die Ausnahme selbst
+    # erzeugt hat - beim DAP-Nachbau (fehlermeldung_aus_dap_erzeugen())
+    # fehlt es, str(exc) enthält den Pfad aber ohnehin schon als Text.
+    was = f"Die Datei {exc.filename!r} wurde nicht gefunden." if exc.filename else str(exc)
     return (
         "Datei nicht gefunden",
-        f"Die Datei {exc.filename!r} wurde nicht gefunden.",
+        was,
         "Stimmt der Pfad? Ist er relativ zum aktuellen Arbeitsverzeichnis gemeint?",
     )
 
 
 def _permission_error(exc: PermissionError) -> tuple[str, str, str]:
+    was = f"Auf {exc.filename!r} besteht kein Zugriff." if exc.filename else str(exc)
     return (
         "Kein Zugriff auf die Datei",
-        f"Auf {exc.filename!r} besteht kein Zugriff.",
+        was,
         "Ist die Datei noch in einem anderen Programm (z. B. Excel) geöffnet? Sind "
         "die Schreibrechte vorhanden?",
     )
 
 
 def _unicode_decode_error(exc: UnicodeDecodeError) -> tuple[str, str, str]:
+    was = f"Die Datei lässt sich nicht als {exc.encoding} lesen." if exc.encoding else str(exc)
     return (
         "Datei mit falschem Zeichensatz gelesen",
-        f"Die Datei lässt sich nicht als {exc.encoding} lesen.",
+        was,
         "Welchen Zeichensatz hat die Datei wirklich (z. B. Windows-1252 statt UTF-8)?",
     )
 
@@ -206,13 +219,19 @@ _KATALOG: dict[type[BaseException], Callable[[BaseException], tuple[str, str, st
 }
 
 
+def _katalog_eintrag_fuer_klasse(
+    klasse: type[BaseException],
+) -> Callable[[BaseException], tuple[str, str, str]] | None:
+    for basisklasse in klasse.__mro__:
+        if basisklasse in _KATALOG:
+            return _KATALOG[basisklasse]
+    return None
+
+
 def _katalog_eintrag(
     exc: BaseException,
 ) -> Callable[[BaseException], tuple[str, str, str]] | None:
-    for klasse in type(exc).__mro__:
-        if klasse in _KATALOG:
-            return _KATALOG[klasse]
-    return None
+    return _katalog_eintrag_fuer_klasse(type(exc))
 
 
 def _wo_quelltext_markierung(tb: TracebackType | None) -> tuple[str, str | None, str | None]:
@@ -243,6 +262,129 @@ def fehlermeldung_erzeugen(exc: BaseException) -> Fehlermeldung | None:
 
     art = "Syntaxfehler" if isinstance(exc, SyntaxError) else "Laufzeitfehler"
     ueberschrift = f"{art}: {kurz} ({type(exc).__name__})"
+
+    return Fehlermeldung(
+        ueberschrift=ueberschrift,
+        wo=wo,
+        quelltext=quelltext,
+        markierung=markierung,
+        was=was,
+        pruefe=pruefe,
+    )
+
+
+class _DapAusnahme:
+    """Attrappe für eine Ausnahme aus einer DAP-`exceptionInfo`-Antwort
+    (Abschnitt 8.1: unbehandelte Ausnahme im per DAP verbundenen
+    Schülerprogramm-Prozess – dort gibt es kein lokales Exception-Objekt,
+    nur Text). Trägt nur die Felder, die die Katalogfunktionen oben
+    tatsächlich lesen (`str(exc)`, `.name`, `.filename`, `.encoding`,
+    `.args`, `.msg`), ohne über den – bei manchen Typen wie
+    `UnicodeDecodeError` mehrargumentigen – echten Exception-Konstruktor
+    zu gehen."""
+
+    def __init__(self, nachricht: str) -> None:
+        self._nachricht = nachricht
+        self.name: str | None = None
+        self.filename: str | None = None
+        self.encoding: str | None = None
+        self.args = (nachricht,)
+        self.msg = nachricht
+
+    def __str__(self) -> str:
+        return self._nachricht
+
+
+def _exception_klasse_aufloesen(exception_id: str) -> type[BaseException] | None:
+    """Löst einen DAP-`exceptionId`-String (z. B. `"ZeroDivisionError"`
+    oder `"json.decoder.JSONDecodeError"`) auf die tatsächliche Klasse
+    auf, damit dieselbe MRO-Katalogsuche wie bei echten Ausnahmen greift
+    (auch unregistrierte Unterklassen finden über ihre Basisklasse einen
+    Eintrag, siehe `fehlermeldung_erzeugen`)."""
+    eingebaut = getattr(builtins, exception_id, None)
+    if isinstance(eingebaut, type) and issubclass(eingebaut, BaseException):
+        return eingebaut
+    if "." not in exception_id:
+        return None
+    modulname, _, klassenname = exception_id.rpartition(".")
+    try:
+        modul = importlib.import_module(modulname)
+    except ImportError:
+        return None
+    klasse = getattr(modul, klassenname, None)
+    return klasse if isinstance(klasse, type) and issubclass(klasse, BaseException) else None
+
+
+def _dap_stapel_parsen(
+    text: str,
+) -> list[tuple[str, int, str, str | None, str | None]]:
+    """Zerlegt den von `debugpy` gelieferten Text-Stacktrace
+    (`exceptionInfo`-Antwort, `details.stackTrace`) in (Datei, Zeile,
+    Methode, Quelltext, Karett-Markierung)-Tupel – dasselbe, was
+    `traceback.extract_tb()`/`format_frame_summary()` für eine lokale
+    Ausnahme liefern, nur aus reinem Text statt einem echten Traceback-
+    Objekt gewonnen. Jeder „File …“-Zeile folgt im selben Format wie
+    Pythons eigene Ausgabe die Quellzeile, optional darunter eine
+    `^`/`~`-Karett-Zeile (Python 3.11+)."""
+    zeilen = text.split("\n")
+    frames: list[tuple[str, int, str, str | None, str | None]] = []
+    i = 0
+    while i < len(zeilen):
+        treffer = _STAPEL_ZEILE_MUSTER.match(zeilen[i])
+        if treffer is None:
+            i += 1
+            continue
+        quelltext = zeilen[i + 1].strip() if i + 1 < len(zeilen) else None
+        markierung = None
+        naechste = zeilen[i + 2] if i + 2 < len(zeilen) else ""
+        if naechste.strip() and set(naechste.strip()) <= set("^~"):
+            markierung = naechste
+        frames.append(
+            (
+                treffer.group("datei"),
+                int(treffer.group("zeile")),
+                treffer.group("name"),
+                quelltext,
+                markierung,
+            )
+        )
+        i += 3 if markierung else 2
+    return frames
+
+
+def fehlermeldung_aus_dap_erzeugen(exception_info: dict[str, Any]) -> Fehlermeldung | None:
+    """Wie `fehlermeldung_erzeugen()`, aber für eine unbehandelte Ausnahme
+    im per DAP verbundenen Schülerprogramm-Prozess: `exception_info` ist
+    die Antwort auf den DAP-`exceptionInfo`-Request (Abschnitt 8.1).
+    `None`, wenn `exceptionId` keiner bekannten Klasse zugeordnet werden
+    kann oder kein Katalogeintrag passt."""
+    exception_id = exception_info.get("exceptionId", "")
+    klasse = _exception_klasse_aufloesen(exception_id)
+    if klasse is None:
+        return None
+    eintrag = _katalog_eintrag_fuer_klasse(klasse)
+    if eintrag is None:
+        return None
+
+    details = exception_info.get("details") or {}
+    nachricht = details.get("message") or exception_info.get("description") or ""
+    kurz, was, pruefe = eintrag(_DapAusnahme(nachricht))
+
+    # Achtung, anders herum als traceback.extract_tb(): debugpys
+    # exceptionInfo-Stacktrace listet den tiefsten (innersten) Frame
+    # zuerst, nicht zuletzt - "eigener Code" ist deshalb der erste
+    # Treffer, nicht der letzte.
+    stapel = _dap_stapel_parsen(details.get("stackTrace") or "")
+    eigene = [f for f in stapel if ist_eigener_code(f[0])]
+    ziel = eigene[0] if eigene else (stapel[0] if stapel else None)
+    if ziel is not None:
+        datei, zeile, methode, quelltext, markierung = ziel
+        wo = f"{Path(datei).name}, Zeile {zeile}, in {methode}"
+    else:
+        wo, quelltext, markierung = "?", None, None
+
+    art = "Syntaxfehler" if issubclass(klasse, SyntaxError) else "Laufzeitfehler"
+    ueberschrift = f"{art}: {kurz} ({klasse.__name__})"
 
     return Fehlermeldung(
         ueberschrift=ueberschrift,
