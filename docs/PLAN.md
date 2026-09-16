@@ -16,9 +16,9 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M3, Schritt 1: Objektinspektor – Eigenschaften lesen/setzen** – siehe
-[`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md). M1 und M2 sind
-funktional abgeschlossen (164 Tests grün); M2-„Zurückgestellt“-Punkte
+→ **M3, Schritt 2: Objektinspektor – Reiter und Komponentenbaum** –
+siehe [`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md). M1 und M2 sind
+funktional abgeschlossen; M2-„Zurückgestellt“-Punkte
 (`docs/arbeitspakete/M2.md`) werden bei Bedarf zwischen M3-Schritten
 nachgeholt.
 
