@@ -29,6 +29,16 @@ def test_referenzierte_handler_existieren_als_wirkungslose_platzhalter() -> None
     formular.b_einschalten.on_click(formular.b_einschalten)
 
 
+def test_platzhalter_tragen_den_echten_handlernamen() -> None:
+    """Regressionstest: die Platzhalter waren zuerst anonyme Lambdas mit
+    `__name__ == "<lambda>"`, das brach das Zurückschreiben in die .pfm
+    (ide/designer/pfm_schreiben.py liest `handler.__name__` aus)."""
+    formular = formular_fuer_designer_laden(_AMPEL_PFM)
+
+    assert formular.on_create.__name__ == "form_create"
+    assert formular.b_einschalten.on_click.__name__ == "b_einschalten_click"
+
+
 def test_kann_in_einen_designer_canvas_eingehaengt_werden() -> None:
     formular = formular_fuer_designer_laden(_AMPEL_PFM)
     canvas = DesignerCanvas(formular)
