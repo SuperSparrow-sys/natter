@@ -52,15 +52,34 @@ class Button(Control):
             self._qwidget.setText(wert)
 
 
+class _KlickbaresLabel(QLabel):
+    """`QLabel`, das Mausklicks an das besitzende `Label` weiterreicht
+    (Abschnitt 5.1: `on_click` – z. B. für Cookie-Klicker-artige
+    Übungen, in denen ein Label statt eines Buttons angeklickt wird)."""
+
+    def __init__(self, eltern_widget: QWidget, label: Label) -> None:
+        super().__init__(eltern_widget)
+        self._label = label
+
+    def mousePressEvent(self, event: Any) -> None:
+        super().mousePressEvent(event)
+        self._label._bei_klick()
+
+
 class Label(Control):
-    """Textanzeige ohne eigene Bedienung. Qt-Basis: `QLabel`."""
+    """Textanzeige, per `on_click` auch anklickbar. Qt-Basis: `QLabel`."""
 
     caption = Prop(str, "Label1", kategorie="Darstellung", doc="Anzeigetext")
+    on_click = Event(doc="Wird beim Klicken ausgelöst")
 
     def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
-        widget = QLabel(eltern_widget)
+        widget = _KlickbaresLabel(eltern_widget, self)
         widget.setText(self.caption)
         return widget
+
+    def _bei_klick(self) -> None:
+        if self.on_click is not None:
+            self.on_click(self)
 
     def _bei_prop_aenderung(self, name: str, wert: Any) -> None:
         super()._bei_prop_aenderung(name, wert)
@@ -72,11 +91,16 @@ class Edit(Control):
     """Einzeiliges Eingabefeld. Qt-Basis: `QLineEdit`."""
 
     text = Prop(str, "", kategorie="Darstellung", doc="Eingegebener bzw. angezeigter Text")
+    read_only = Prop(bool, False, kategorie="Verhalten", doc="Wenn wahr, nicht bearbeitbar")
+    color = Prop(
+        str, "", kategorie="Darstellung", doc="Hintergrundfarbe als #RRGGBB, leer = Theme-Standard"
+    )
     on_change = Event(doc="Wird bei jeder Änderung des Textes ausgelöst")
 
     def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
         widget = QLineEdit(eltern_widget)
         widget.setText(self.text)
+        widget.setReadOnly(self.read_only)
         widget.textChanged.connect(self._bei_textaenderung)
         return widget
 
@@ -91,6 +115,10 @@ class Edit(Control):
         super()._bei_prop_aenderung(name, wert)
         if name == "text":
             self._qwidget.setText(wert)
+        elif name == "read_only":
+            self._qwidget.setReadOnly(wert)
+        elif name == "color":
+            self._qwidget.setStyleSheet(f"background-color: {wert};" if wert else "")
 
 
 class CheckBox(Control):

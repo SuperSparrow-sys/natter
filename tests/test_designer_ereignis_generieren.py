@@ -9,7 +9,7 @@ from PySide6.QtCore import QEvent, QPointF, Qt
 from PySide6.QtGui import QMouseEvent
 
 from ide.designer.canvas import DesignerCanvas
-from pcl import Button, Form, Label
+from pcl import Button, Form, Shape
 
 
 class _Formular(Form):
@@ -18,7 +18,7 @@ class _Formular(Form):
         self.b_ein.left = 10
         self.b_ein.top = 10
 
-        self.l_titel = Label(self)  # kein Ereignis
+        self.s_rahmen = Shape(self)  # kein Ereignis
 
 
 _STARTINHALT = '''"""Testdatei."""
@@ -53,7 +53,7 @@ def test_komponente_ohne_ereignis_liefert_none(tmp_path: Path) -> None:
     formular = _Formular()
     canvas = DesignerCanvas(formular, pfm_pfad=tmp_path / "test.pfm")
 
-    ergebnis = canvas.ereignis_handler_erzeugen(formular.l_titel)
+    ergebnis = canvas.ereignis_handler_erzeugen(formular.s_rahmen)
 
     assert ergebnis is None
 

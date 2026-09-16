@@ -18,7 +18,8 @@ from pcl.control import Control
 from pcl.errors import NatterPropertyError
 from pcl.properties import Prop, typ_beschreibung
 
-_FORMEN = ("rectangle", "circle")
+_FORMEN = ("rectangle", "circle", "rounded_rectangle")
+_ECKENRADIUS = 12
 
 
 class Brush:
@@ -62,6 +63,8 @@ class _ShapeQWidget(QWidget):
         flaeche = self.rect().adjusted(0, 0, -1, -1)
         if self._shape.shape == "circle":
             maler.drawEllipse(flaeche)
+        elif self._shape.shape == "rounded_rectangle":
+            maler.drawRoundedRect(flaeche, _ECKENRADIUS, _ECKENRADIUS)
         else:
             maler.drawRect(flaeche)
 

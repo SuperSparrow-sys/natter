@@ -116,6 +116,20 @@ Wird während M1 verfeinert (genaue Komponentenliste je Projekt), sobald die
     Explorer (Datei-Verknüpfung) – braucht den Packaging/Installer-
     Schritt aus M8, Icon-Quelle liegt schon als
     `ide/assets/icons/app.svg` bereit
+- [x] **Eigenschaften-Abgleich mit Lazarus** (Nutzer-Frage „Habe ich die
+  Attribute genau wie in Lazarus?“, September 2026): systematischer
+  Abgleich aller `pcl`-`Prop`/`Event`-Namen gegen jede tatsächlich in
+  `referenz/lazarus/*/unit1.lfm` verwendete Eigenschaft. Ergebnis: alle
+  in den Referenzprojekten genutzten Komponententypen haben eine
+  `pcl`-Entsprechung; vier echte Eigenschaftslücken gefunden und behoben:
+  `Label.on_click` (Lazarus `TLabel.OnClick`, für Cookie-Klicker-artige
+  Übungen), `Form.color`/`Edit.color` (Lazarus `Color`, z. B.
+  `clSilver`/`clYellow` in `a_GUI_Komponenten`), `Edit.read_only`
+  (Lazarus `ReadOnly`, `f_Pizza`), `Shape.shape = "rounded_rectangle"`
+  (Lazarus `stRoundSquare`, `b_schneefigur`). Kleinere, unkritische Lücken
+  zurückgestellt: `ScrollBar.page_size`, `StringGrid.fixed_cols`/
+  `col_widths`, `Image.stretch`, `ListBox.item_height` – keine davon
+  verhindert, dass ein Referenzprojekt läuft
 
 ## M0 – Repository, CI, Schemas, Design-Tokens (Rest)
 

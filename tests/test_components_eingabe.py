@@ -41,6 +41,34 @@ def test_edit_on_change_wird_bei_eingabe_ausgeloest() -> None:
     assert empfangen == ["7"]
 
 
+def test_edit_read_only_standardwert_ist_false() -> None:
+    formular = _Formular()
+    assert formular.e_zahl1.read_only is False
+    assert formular.e_zahl1._qwidget.isReadOnly() is False
+
+
+def test_edit_read_only_wirkt_sofort_auf_qwidget() -> None:
+    # Entspricht Lazarus TEdit.ReadOnly = True (referenz/lazarus/f_Pizza).
+    formular = _Formular()
+    formular.e_zahl1.read_only = True
+    assert formular.e_zahl1._qwidget.isReadOnly() is True
+
+
+def test_edit_color_setzt_hintergrundfarbe() -> None:
+    # Entspricht Lazarus TEdit.Color = clYellow
+    # (referenz/lazarus/a_GUI_Komponenten).
+    formular = _Formular()
+    formular.e_zahl1.color = "#ffff00"
+    assert "background-color: #ffff00" in formular.e_zahl1._qwidget.styleSheet()
+
+
+def test_edit_color_leer_entfernt_das_lokale_stylesheet() -> None:
+    formular = _Formular()
+    formular.e_zahl1.color = "#ffff00"
+    formular.e_zahl1.color = ""
+    assert formular.e_zahl1._qwidget.styleSheet() == ""
+
+
 def test_checkbox_standardwert() -> None:
     formular = _Formular()
     assert formular.c_kaese.caption == "CheckBox1"

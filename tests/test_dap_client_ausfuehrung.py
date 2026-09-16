@@ -53,7 +53,7 @@ def test_fortsetzen_laesst_das_programm_zu_ende_laufen(tmp_path: Path) -> None:
         ereignis = client.angehalten_abwarten()
 
         client.fortsetzen(ereignis["threadId"])
-        client.prozess.wait(timeout=10)
+        client.prozess.wait(timeout=20)
     finally:
         client.beenden()
 

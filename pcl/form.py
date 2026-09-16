@@ -31,6 +31,9 @@ class Form(Komponente):
     theme = Prop(
         str, "system", kategorie="Darstellung", doc="Farbschema: system, light oder dark"
     )
+    color = Prop(
+        str, "", kategorie="Darstellung", doc="Hintergrundfarbe als #RRGGBB, leer = Theme-Standard"
+    )
 
     on_create = Event(doc="Wird unmittelbar vor der ersten Anzeige ausgelöst")
 
@@ -38,10 +41,20 @@ class Form(Komponente):
         self._qwidget = QWidget()
         self._qwidget.setWindowTitle(self.caption)
         self._qwidget.resize(self.width, self.height)
-        self._qwidget.setStyleSheet(qss_erzeugen(self.theme))
+        self._stylesheet_aktualisieren()
         self.create_components()
         if self.on_create is not None:
             self.on_create(self)
+
+    def _stylesheet_aktualisieren(self) -> None:
+        # `color` wird als zweiter, für "QWidget" spezifischerer Regelblock
+        # angehängt statt die Eigenschaft in qss_erzeugen() einzumischen -
+        # überschreibt bei Bedarf nur background-color, der Rest des
+        # Theme-Stylesheets bleibt unangetastet.
+        stylesheet = qss_erzeugen(self.theme)
+        if self.color:
+            stylesheet += f"\nQWidget {{ background-color: {self.color}; }}"
+        self._qwidget.setStyleSheet(stylesheet)
 
     def create_components(self) -> None:
         """Erzeugt die Kind-Komponenten. Wird vom generierten
@@ -52,8 +65,8 @@ class Form(Komponente):
             self._qwidget.setWindowTitle(wert)
         elif name in ("width", "height"):
             self._qwidget.resize(self.width, self.height)
-        elif name == "theme":
-            self._qwidget.setStyleSheet(qss_erzeugen(wert))
+        elif name in ("theme", "color"):
+            self._stylesheet_aktualisieren()
 
     def show(self) -> None:
         self._qwidget.show()

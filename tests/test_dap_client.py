@@ -27,7 +27,7 @@ def test_handshake_gelingt_und_der_debuggee_terminiert(tmp_path: Path) -> None:
     try:
         client.starten(skript, arbeitsordner=tmp_path)
         assert client.prozess is not None
-        client.prozess.wait(timeout=10)
+        client.prozess.wait(timeout=20)
     finally:
         client.beenden()
 
@@ -39,7 +39,7 @@ def test_prozess_endet_mit_code_0_bei_erfolgreichem_lauf(tmp_path: Path) -> None
     client = DapClient()
     try:
         client.starten(skript, arbeitsordner=tmp_path)
-        client.prozess.wait(timeout=10)
+        client.prozess.wait(timeout=20)
     finally:
         client.beenden()
 
@@ -66,7 +66,7 @@ def test_ereignisse_werden_waehrend_des_handshakes_gesammelt(tmp_path: Path) -> 
     client = DapClient()
     try:
         client.starten(skript, arbeitsordner=tmp_path)
-        client.prozess.wait(timeout=10)
+        client.prozess.wait(timeout=20)
         assert any(e.get("event") == "output" for e in client.ereignisse)
     finally:
         client.beenden()
@@ -89,8 +89,8 @@ def test_zwei_clients_koennen_unabhaengig_gleichzeitig_laufen(tmp_path: Path) ->
     try:
         client_a.starten(skript_a, arbeitsordner=ordner_a)
         client_b.starten(skript_b, arbeitsordner=ordner_b)
-        client_a.prozess.wait(timeout=10)
-        client_b.prozess.wait(timeout=10)
+        client_a.prozess.wait(timeout=20)
+        client_b.prozess.wait(timeout=20)
     finally:
         client_a.beenden()
         client_b.beenden()

@@ -47,3 +47,25 @@ def test_form_theme_aenderung_wirkt_sofort() -> None:
     assert "#1e1e1e" in formular._qwidget.styleSheet()
     formular.theme = "light"
     assert "#ffffff" in formular._qwidget.styleSheet()
+
+
+def test_form_color_ueberschreibt_die_theme_hintergrundfarbe() -> None:
+    # Entspricht Lazarus TForm.Color = clSilver
+    # (referenz/lazarus/a_GUI_Komponenten).
+    formular = Form()
+    formular.color = "#c0c0c0"
+    assert "background-color: #c0c0c0" in formular._qwidget.styleSheet()
+
+
+def test_form_color_leer_faellt_auf_das_theme_zurueck() -> None:
+    formular = Form()
+    formular.color = "#c0c0c0"
+    formular.color = ""
+    assert "background-color: #c0c0c0" not in formular._qwidget.styleSheet()
+
+
+def test_form_theme_wechsel_behaelt_die_color_ueberschreibung() -> None:
+    formular = Form()
+    formular.color = "#c0c0c0"
+    formular.theme = "dark"
+    assert "background-color: #c0c0c0" in formular._qwidget.styleSheet()
