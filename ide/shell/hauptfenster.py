@@ -40,7 +40,11 @@ from ide.shell.explorer import PFAD_ROLLE, ProjektExplorer
 from ide.shell.quelltexteditor import QuelltextEditor
 from ide.shell.schnellauswahl import SchnellAuswahl
 from ide.testrunner import Testergebnis, ergebnisse_als_html, tests_ausfuehren
+from ide.viewers import BildVorschau, CsvAnsicht, HtmlVorschau
 from pcl.form import Form
+
+_BILD_ENDUNGEN = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".svg"}
+_HTML_ENDUNGEN = {".html", ".htm"}
 
 MENUETITEL = (
     "Datei",
@@ -593,10 +597,35 @@ class HauptFenster(QMainWindow):
         if pfad is None:
             return
         pfad = Path(pfad)
-        if pfad.suffix == ".pfm":
+        endung = pfad.suffix.lower()
+        if endung == ".pfm":
             self.designer_oeffnen(pfad)
+        elif endung == ".csv":
+            self.datei_ansicht_oeffnen(pfad, lambda: CsvAnsicht(pfad))
+        elif endung in _BILD_ENDUNGEN:
+            self.datei_ansicht_oeffnen(pfad, lambda: BildVorschau(pfad))
+        elif endung in _HTML_ENDUNGEN:
+            self.datei_ansicht_oeffnen(pfad, lambda: HtmlVorschau(pfad))
         else:
             self.datei_oeffnen(pfad)
+
+    def datei_ansicht_oeffnen(self, pfad: Path, fabrik) -> QWidget:
+        """Öffnet eine CSV-/Bild-/HTML-Datei in ihrem passenden
+        Betrachter-Tab (Abschnitt 11.4, 11.5, 11.3) statt im
+        Quelltexteditor. Bereits offene Betrachter werden nur aktiviert
+        statt erneut geöffnet, wie bei `datei_oeffnen()`."""
+        pfad = Path(pfad)
+        for index in range(self.editor_tabs.count()):
+            widget = self.editor_tabs.widget(index)
+            if widget.property(_PFAD_EIGENSCHAFT) == str(pfad):
+                self.editor_tabs.setCurrentIndex(index)
+                return widget
+
+        widget = fabrik()
+        widget.setProperty(_PFAD_EIGENSCHAFT, str(pfad))
+        index = self.editor_tabs.addTab(widget, pfad.name)
+        self.editor_tabs.setCurrentIndex(index)
+        return widget
 
     def _projekt_starten_aktion(self) -> None:
         """„Starten ohne Debugger“ (Strg+F5, Abschnitt 7.8). Standardmäßig

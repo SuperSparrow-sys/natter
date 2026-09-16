@@ -16,13 +16,14 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M5, Schritt 7: IDE-Betrachter (CSV/Bild/HTML)** – kleinteilig
+→ **M5, Schritt 8: Datenbank-Panel in der IDE** – kleinteilig
 aufgeschlüsselt in [`docs/arbeitspakete/M5.md`](arbeitspakete/M5.md)
 (wie M1–M4). Schritt 1 (SQLdb-Kern gegen SQLite), Schritt 2 (SQLdb-Kern
 für MySQL/MariaDB, echter Verbindungstest gegen MariaDB zurückgestellt),
 Schritt 3 (pandas-Anbindung), Schritt 4 (Chart-Komponente, per Screenshot
 geprüft), Schritt 5 (Data Controls, Designzeit-Vorschau im Designer
-zurückgestellt) und Schritt 6 (`open_url`) sind erledigt: 48 Tests grün,
+zurückgestellt), Schritt 6 (`open_url`) und Schritt 7 (IDE-Betrachter
+CSV/Bild/HTML, per Screenshot geprüft) sind erledigt: 63 Tests grün,
 siehe M5.md. M1–M4 sind funktional
 abgeschlossen (M3-Abnahme bestanden: Ampel vollständig über Designer/
 Inspektor/Palette nachgebaut, siehe
