@@ -16,21 +16,19 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M5, Schritt 9: Abnahme** (Kontoverwaltung, CSV-Auswertung,
-Würfelspiel-Highscore als HTML) – kleinteilig aufgeschlüsselt in
-[`docs/arbeitspakete/M5.md`](arbeitspakete/M5.md) (wie M1–M4). Schritte
-1–8 (SQLdb-Kern SQLite/MySQL, pandas-Anbindung, Chart-Komponente, Data
-Controls, `open_url`, IDE-Betrachter, Datenbank-Panel – alle per
-Screenshot geprüft, wo visuell) sind erledigt: 71 Tests grün, siehe
-M5.md. M1–M4 sind funktional
-abgeschlossen (M3-Abnahme bestanden: Ampel vollständig über Designer/
-Inspektor/Palette nachgebaut, siehe
-[`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md), Schritt 8; M4-Abnahme
-bestanden: Fehlerkatalog-Beispiele, Ampel-Breakpoint mit Variablenanzeige,
-Test-Explorer mit Soll-/Ist-Anzeige, siehe
-[`docs/arbeitspakete/M4.md`](arbeitspakete/M4.md), Schritt 8); die
-„Zurückgestellt“-Punkte aus M2–M4 werden bei Bedarf zwischen M5-Schritten
-nachgeholt.
+→ **M6 – Konsolen-Feinschliff** (noch nicht kleinteilig aufgeschlüsselt,
+siehe Stichwortliste unten). M1–M5 sind funktional abgeschlossen
+(M3-Abnahme bestanden: Ampel vollständig über Designer/Inspektor/Palette
+nachgebaut, siehe [`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md),
+Schritt 8; M4-Abnahme bestanden: Fehlerkatalog-Beispiele, Ampel-
+Breakpoint mit Variablenanzeige, Test-Explorer mit Soll-/Ist-Anzeige,
+siehe [`docs/arbeitspakete/M4.md`](arbeitspakete/M4.md), Schritt 8;
+M5-Abnahme bestanden: Kontoverwaltung mit echter SQLite-Persistenz,
+CSV-Auswertung mit pandas in StringGrid und Chart, Würfelspiel-Highscore
+als HTML im Browser, siehe [`docs/arbeitspakete/M5.md`](arbeitspakete/M5.md),
+Schritt 9 – 484 Tests grün; MariaDB-Verbindungstest gegen eine echte
+Instanz bleibt zurückgestellt, siehe M5.md); die „Zurückgestellt“-Punkte
+aus M2–M5 werden bei Bedarf zwischen M6-Schritten nachgeholt.
 
 **Sichtbar und bedienbar:** `uv run python -m ide` öffnet die IDE;
 „Projekt öffnen …“ → `beispielprojekte/Ampel/ampel.natter` → Doppelklick
@@ -64,6 +62,18 @@ bestanden/fehlgeschlagen/Fehler-Status; Doppelklick auf einen einzelnen
 Test, eine Klasse oder eine ganze Datei führt genau diesen Teil erneut
 aus, fehlgeschlagene `assertEqual`-Vergleiche zeigen Soll/Ist als
 Tooltip, „Testergebnisse als HTML exportieren“ schreibt ein Protokoll.
+Programme können jetzt `SQLite3Connection`/`MySQLConnection`,
+`SQLQuery`/`SQLTransaction`/`DataSource` sowie die daran gebundenen
+`DBGrid`/`DBEdit`/`DBText`/`DBNavigator`/`DBComboBox` verwenden;
+`StringGrid.load_dataframe()`/`.to_dataframe()` und `SQLQuery.to_dataframe()`
+verbinden Tabellen mit `pandas`, `Chart` zeigt Balken-/Linien-/Kreis-/
+Punktdiagramme über eingebettetes `matplotlib`. In der IDE öffnet ein
+Doppelklick im Explorer `.csv`-Dateien als sortierbare/filterbare
+Tabelle, Bilder als skalierte Vorschau mit Abmessungen und `.html`-
+Dateien als automatisch aktualisierende Vorschau mit „Im Browser
+öffnen“; das neue Dock „Datenbank“ verbindet sich mit SQLite/MySQL,
+zeigt Tabellen/Spalten, führt SQL-Abfragen aus und importiert/exportiert
+Tabellen als CSV bzw. SQL-Dump.
 
 ## Referenzmaterial
 
@@ -412,9 +422,10 @@ und Chart-Komponente (beide unabhängig von der Datenbank), `open_url`,
 Data Controls, IDE-Betrachter (CSV/Bild/HTML), Datenbank-Panel, zuletzt
 die Abnahme.
 
-- [ ] Abnahme: Kontoverwaltung (`referenz/lazarus/n_konto`) mit
-  MariaDB/SQLite, CSV-Auswertung mit pandas in StringGrid und Chart,
-  Würfelspiel-Highscore als HTML im Browser
+- [x] Abnahme: Kontoverwaltung (`referenz/lazarus/n_konto`) mit SQLite,
+  CSV-Auswertung mit pandas in StringGrid und Chart, Würfelspiel-
+  Highscore als HTML im Browser – MariaDB-Teil zurückgestellt (siehe
+  M5.md, „Stolperstein MariaDB“)
 
 ## M6 – Konsolen-Feinschliff
 

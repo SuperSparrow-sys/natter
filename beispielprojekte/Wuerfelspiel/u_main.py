@@ -4,7 +4,7 @@ referenz/lazarus/q_Würfelspiel/unit1.pas.
 
 import random
 
-from pcl import input_box
+from pcl import input_box, open_url
 from u_main_design import Form1Design
 
 
@@ -47,3 +47,20 @@ class Form1(Form1Design):
         self.l_zahl.caption = f"Gewürfelte Zahl: {self.zahl}"
         self.l_punkte.caption = f"Punkte: {self.punkte}"
         self.l_leben.caption = f"Leben: {self.leben}"
+
+    def b_html_exportieren_click(self, sender) -> None:
+        """M5, Schritt 9 (Abnahme): Highscore als HTML im Browser
+        (Abschnitt 11.3), originalgetreu nach dem Beispielcode dort."""
+        zeilen_html = "\n".join(
+            f"<tr><td>{self.sg_tabelle.cells[0, zeile]}</td>"
+            f"<td>{self.sg_tabelle.cells[1, zeile]}</td></tr>"
+            for zeile in range(1, self.sg_tabelle.row_count)
+        )
+        with open("highscore.html", "w", encoding="utf-8") as datei:
+            datei.write("<!DOCTYPE html>\n<html><body>\n")
+            datei.write("<h1>Highscore</h1>\n")
+            datei.write("<table border='1'><tr><th>Name</th><th>Punkte</th></tr>\n")
+            datei.write(zeilen_html + "\n")
+            datei.write("</table>\n</body></html>\n")
+
+        open_url("highscore.html")

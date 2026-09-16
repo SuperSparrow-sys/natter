@@ -10,6 +10,7 @@ class Form1Design(Form):
     l_leben: Label
     sg_tabelle: StringGrid
     b_speichern: Button
+    b_html_exportieren: Button
 
     def create_components(self):
         self.caption = "Würfelspiel"
@@ -68,3 +69,11 @@ class Form1Design(Form):
         self.b_speichern.top = 448
         self.b_speichern.width = 232
         self.b_speichern.height = 32
+
+        self.b_html_exportieren = Button(self)
+        self.b_html_exportieren.caption = "Highscore als HTML exportieren"
+        self.b_html_exportieren.left = 88
+        self.b_html_exportieren.top = 496
+        self.b_html_exportieren.width = 280
+        self.b_html_exportieren.height = 32
+        self.b_html_exportieren.on_click = self.b_html_exportieren_click

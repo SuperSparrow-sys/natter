@@ -8,6 +8,7 @@ für die Begründung, warum nicht `python main.py` direkt läuft.
 """
 
 import importlib
+import shutil
 import sys
 from pathlib import Path
 
@@ -29,6 +30,27 @@ def form1_klasse():
         yield modul.Form1
     finally:
         sys.path.remove(str(_PROJEKT_ORDNER))
+        for name in _PROJEKT_MODULE:
+            sys.modules.pop(name, None)
+
+
+@pytest.fixture
+def form1_klasse_isoliert(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Wie `form1_klasse`, aber aus einer Kopie in `tmp_path` mit dorthin
+    verändertem Arbeitsverzeichnis - nötig für Tests, die (wie der
+    HTML-Export, M5 Schritt 9) tatsächlich eine Datei schreiben, siehe
+    AGENTS.md und tests/test_beispiel_kontoverwaltung.py."""
+    projekt_kopie = tmp_path / "Wuerfelspiel"
+    shutil.copytree(_PROJEKT_ORDNER, projekt_kopie)
+    monkeypatch.chdir(projekt_kopie)
+    sys.path.insert(0, str(projekt_kopie))
+    for name in _PROJEKT_MODULE:
+        sys.modules.pop(name, None)
+    try:
+        modul = importlib.import_module("u_main")
+        yield modul.Form1
+    finally:
+        sys.path.remove(str(projekt_kopie))
         for name in _PROJEKT_MODULE:
             sys.modules.pop(name, None)
 
@@ -95,3 +117,36 @@ def test_drei_sechsen_fragen_namen_ab_und_tragen_ergebnis_ein(
     assert formular.l_punkte.caption == "Punkte: 0"
     assert formular.l_leben.caption == "Leben: 3"
     assert formular.b_wuerfeln.enabled is True
+
+
+def test_highscore_als_html_exportieren_schreibt_datei_und_oeffnet_sie(
+    form1_klasse_isoliert, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """M5, Schritt 9 (Abnahme): Würfelspiel-Highscore als HTML im
+    Browser."""
+    formular = form1_klasse_isoliert()
+    _wuerfeln_mit(monkeypatch, [3, 6, 6, 6])
+
+    def namen_eingeben() -> None:
+        dialog = QApplication.activeModalWidget()
+        dialog.setTextValue("Max")
+        dialog.accept()
+
+    formular.b_wuerfeln._qwidget.click()
+    formular.b_wuerfeln._qwidget.click()
+    formular.b_wuerfeln._qwidget.click()
+    QTimer.singleShot(0, namen_eingeben)
+    formular.b_wuerfeln._qwidget.click()
+
+    aufgerufen = []
+    monkeypatch.setattr("u_main.open_url", lambda ziel: aufgerufen.append(ziel))
+
+    formular.b_html_exportieren._qwidget.click()
+
+    datei = Path("highscore.html")
+    assert datei.exists()
+    inhalt = datei.read_text(encoding="utf-8")
+    assert "<h1>Highscore</h1>" in inhalt
+    assert "<td>Max</td>" in inhalt
+    assert "<td>3</td>" in inhalt
+    assert aufgerufen == ["highscore.html"]

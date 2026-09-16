@@ -1,0 +1,7 @@
+{
+  "format": "natter-project/1",
+  "name": "Kontoverwaltung",
+  "type": "gui_db",
+  "main": "main.py",
+  "database": { "driver": "sqlite3" }
+}

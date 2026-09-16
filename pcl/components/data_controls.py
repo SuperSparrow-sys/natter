@@ -209,14 +209,19 @@ class DBNavigator(Control):
         widget = QWidget(eltern_widget)
         layout = QHBoxLayout(widget)
         layout.setContentsMargins(0, 0, 0, 0)
-        self.knopf_erster = self._knopf(layout, "|<", self._erster)
+        # Einfache ASCII-Beschriftungen statt Pfeil-/Glyphen-Symbolen -
+        # unter QT_QPA_PLATFORM=offscreen rendern manche Einzelzeichen
+        # (z. B. "|") mit falscher Glyphe (siehe AGENTS.md, Abschnitt
+        # "Tests"); eigene SVG-Symbole wie beim Rest der IDE folgen mit
+        # dem "Visueller Feinschliff"-Sammelpunkt aus docs/PLAN.md.
+        self.knopf_erster = self._knopf(layout, "<<", self._erster)
         self.knopf_zurueck = self._knopf(layout, "<", self._zurueck)
         self.knopf_vor = self._knopf(layout, ">", self._vor)
-        self.knopf_letzter = self._knopf(layout, ">|", self._letzter)
+        self.knopf_letzter = self._knopf(layout, ">>", self._letzter)
         self.knopf_einfuegen = self._knopf(layout, "+", self._einfuegen)
         self.knopf_loeschen = self._knopf(layout, "-", self._loeschen)
-        self.knopf_speichern = self._knopf(layout, "OK", self._speichern)
-        self.knopf_abbrechen = self._knopf(layout, "X", self._abbrechen)
+        self.knopf_speichern = self._knopf(layout, "Speichern", self._speichern)
+        self.knopf_abbrechen = self._knopf(layout, "Abbrechen", self._abbrechen)
         return widget
 
     def _knopf(self, layout: QHBoxLayout, text: str, handler: Any) -> QPushButton:

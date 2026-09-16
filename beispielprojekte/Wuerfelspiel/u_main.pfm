@@ -33,6 +33,11 @@
     {
       "name": "b_speichern", "type": "Button",
       "properties": { "caption": "Speichern und Beenden", "left": 112, "top": 448, "width": 232, "height": 32 }
+    },
+    {
+      "name": "b_html_exportieren", "type": "Button",
+      "properties": { "caption": "Highscore als HTML exportieren", "left": 88, "top": 496, "width": 280, "height": 32 },
+      "events": { "on_click": "b_html_exportieren_click" }
     }
   ]
 }
