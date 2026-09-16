@@ -55,5 +55,7 @@ def test_oeffnen_aktionen_stehen_in_den_richtigen_menues() -> None:
     datei_eintraege = [a.text() for a in fenster.menue("Datei").actions()]
     projekt_eintraege = [a.text() for a in fenster.menue("Projekt").actions()]
     assert "Öffnen …" in datei_eintraege
+    assert "Unit öffnen …" in datei_eintraege
     assert "Projekt öffnen …" in projekt_eintraege
     assert fenster.aktionen["datei.oeffnen"].qaction.shortcut().toString() == "Ctrl+O"
+    assert fenster.aktionen["datei.unit_oeffnen"].qaction.shortcut().toString() == "Ctrl+P"

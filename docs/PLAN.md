@@ -16,9 +16,10 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M2, Schritt 8: „Unit öffnen …“ (Schnellauswahl, Strg+P)** – siehe
-[`docs/arbeitspakete/M2.md`](arbeitspakete/M2.md). Schritte 5–7 wurden
-zusammen mit Schritt 6 umgesetzt (eng gekoppelt).
+→ **M2: Ausführung in eigenen Fenstern (GUI + Konsole)** – letzter Teil
+des M2-Abnahmekriteriums, siehe „Zurückgestellt“ in
+[`docs/arbeitspakete/M2.md`](arbeitspakete/M2.md). Schritte 1–9 sind
+erledigt (158 Tests grün).
 
 ## Referenzmaterial
 

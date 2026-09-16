@@ -13,6 +13,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QDialog,
     QDockWidget,
     QFileDialog,
     QMainWindow,
@@ -24,6 +25,7 @@ from PySide6.QtWidgets import (
 from ide.actions import Aktion, Aktionsregister
 from ide.project import Projekt
 from ide.shell.explorer import PFAD_ROLLE, ProjektExplorer
+from ide.shell.schnellauswahl import SchnellAuswahl
 
 MENUETITEL = (
     "Datei",
@@ -108,6 +110,24 @@ class HauptFenster(QMainWindow):
                 callback=self._aktuelle_datei_speichern,
             )
         )
+        self.aktionen.registrieren(
+            Aktion(
+                "datei.unit_oeffnen",
+                "Unit öffnen …",
+                menue="Datei",
+                tastenkuerzel="Ctrl+P",
+                callback=self._unit_oeffnen_dialog,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "datei.neue_unit",
+                "Neue Unit",
+                menue="Datei",
+                tastenkuerzel="Ctrl+N",
+                callback=self._neue_unit_aktion,
+            )
+        )
         self.aktionen.an_hauptfenster_anhaengen(self)
 
     def _datei_oeffnen_dialog(self) -> None:
@@ -121,6 +141,54 @@ class HauptFenster(QMainWindow):
         )
         if pfad:
             self.projekt_oeffnen(Path(pfad))
+
+    def projekt_dateien(self) -> list[Path]:
+        """Alle Units und Formulare des offenen Projekts, für „Unit
+        öffnen …“ (Abschnitt 7.4). Leer, wenn kein Projekt offen ist."""
+        if self.projekt is None:
+            return []
+        return sorted(self.projekt.units() + self.projekt.formulare())
+
+    def _unit_oeffnen_dialog(self) -> None:
+        """„Unit öffnen …“ (Strg+P, Abschnitt 7.4, 7.9)."""
+        dateien = self.projekt_dateien()
+        if not dateien:
+            return
+        dialog = SchnellAuswahl(dateien, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.ausgewaehlte_datei is not None:
+            self.datei_oeffnen(dialog.ausgewaehlte_datei)
+
+    def unit_erzeugen(self, name: str | None = None) -> Path:
+        """„Neue Unit“ (Abschnitt 7.2, 7.4): legt `u_neu<n>.py` an (oder
+        mit gegebenem `name`), fügt sie dem Projekt-Explorer hinzu und
+        öffnet sie im Editor."""
+        if self.projekt is None:
+            raise RuntimeError("Kein Projekt offen.")
+
+        if name is None:
+            name = self._naechster_unit_name()
+
+        pfad = self.projekt.ordner / f"{name}.py"
+        if pfad.exists():
+            raise FileExistsError(f"{pfad} existiert bereits.")
+
+        pfad.write_text("", encoding="utf-8")
+        self.explorer.projekt_anzeigen(self.projekt)
+        self.datei_oeffnen(pfad)
+        return pfad
+
+    def _naechster_unit_name(self) -> str:
+        vorhandene = {p.stem for p in self.projekt.units()}
+        zaehler = 1
+        while f"u_neu{zaehler}" in vorhandene:
+            zaehler += 1
+        return f"u_neu{zaehler}"
+
+    def _neue_unit_aktion(self) -> None:
+        if self.projekt is None:
+            self.statusBar().showMessage("Kein Projekt offen.")
+            return
+        self.unit_erzeugen()
 
     def _dock_erzeugen(
         self, titel: str, bereich: Qt.DockWidgetArea, inhalt: QWidget | None = None
