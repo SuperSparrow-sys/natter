@@ -16,7 +16,8 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M1, Schritt 6: restliche Standard-/Additional-/Common-Komponenten**
+→ **M1, Schritt 6 (läuft): `Strings`-Sammlung bauen (Grundlage für
+`RadioGroup`/`Memo`/`ComboBox`/`ListBox`), dann diese vier Komponenten**
 (siehe unten)
 
 ## Referenzmaterial
@@ -171,10 +172,24 @@ zerlegt, jeder Schritt für sich mit `pytest` abgesichert.
   Gesamtabnahme auf einem echten Windows-Rechner vorbehalten, siehe
   Abschnitt 19, letzte Zeile)
 
-### 6. Restliche Standard-/Additional-/Common-Komponenten
+### 6. Restliche Standard-/Additional-/Common-Komponenten (läuft)
 
-- [ ] `Edit`, `CheckBox`, `RadioButton`, `RadioGroup`, `Memo`, `ComboBox`,
-  `ListBox`, `ScrollBar`, `GroupBox`, `Panel`, `MainMenu`, `PopupMenu`
+- [x] `Edit` (`text`, `on_change`), `CheckBox` (`caption`/`checked`,
+  `on_change`), `RadioButton` (`caption`/`checked`, `on_change`) –
+  `tests/test_components_eingabe.py`, 9 Tests, u. a. Eingabe über das
+  echte `QWidget` aktualisiert die Prop und feuert `on_change`
+- [ ] `RadioGroup`, `Memo`, `ComboBox`, `ListBox`, `ScrollBar`, `GroupBox`,
+  `Panel`, `MainMenu`, `PopupMenu` – `RadioGroup`/`Memo`/`ComboBox`/
+  `ListBox` brauchen vorher eine `Strings`-Sammlung (`items`/`lines` mit
+  `.add()`, `.load_from_file()` usw., Abschnitt 5.0/11.2), noch nicht
+  gebaut
+- **Bekannte Lücke, bewusst zurückgestellt:** `on_click`/`on_double_click`
+  sollten laut Abschnitt 5.4 für „alle sichtbaren“ Komponenten gelten,
+  sind bisher aber nur bei `Button` verdrahtet (natives Qt-Signal). Ein
+  komponentenübergreifendes `on_click` über `Control` bräuchte eigene
+  Maus-Ereignis-Behandlung für Komponenten ohne natives Klick-Signal
+  (`Label`, `Shape`); kein Referenzprojekt braucht es bisher (siehe
+  `docs/komponenten.md`).
 - [ ] `StringGrid`, `Image`, `SpinEdit`, `FloatSpinEdit`, `MaskEdit`,
   `PaintBox` (inkl. Canvas: `line_to`, `rectangle`, `ellipse`, `text_out`),
   `HtmlViewer`
