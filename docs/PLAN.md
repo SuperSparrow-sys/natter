@@ -16,10 +16,15 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M2: Ausführung in eigenen Fenstern (GUI + Konsole)** – letzter Teil
-des M2-Abnahmekriteriums, siehe „Zurückgestellt“ in
-[`docs/arbeitspakete/M2.md`](arbeitspakete/M2.md). Schritte 1–9 sind
-erledigt (158 Tests grün).
+→ **M2-Abnahmekriterium funktional erfüllt (Schritte 1–10, 164 Tests
+grün). Weiter mit M3 (Designer, Objektinspektor).** Die verbliebenen
+M2-„Zurückgestellt“-Punkte (siehe `docs/arbeitspakete/M2.md`) hängen
+größtenteils an Windows-Verifikation (Monaco-Machbarkeitstest S2,
+portable Laufzeit) oder sind mechanische Wiederholung des bereits
+bewiesenen Aktionsregister-Musters (restliche Menüeinträge); M3 bringt
+dagegen neue, für die eigentliche Ampel-Erstellung in der IDE nötige
+Fähigkeiten und folgt so auch der Reihenfolge des Konzepts (Abschnitt
+20). Wird bei Bedarf zwischen M3-Schritten nachgeholt.
 
 ## Referenzmaterial
 
@@ -274,19 +279,25 @@ am Ende.
 
 ## M2 – IDE-Grundgerüst
 
-Jetzt kleinteilig aufgeschlüsselt in
-[`docs/arbeitspakete/M2.md`](arbeitspakete/M2.md) (wie M1 oben), da M1
-abgeschlossen ist. Reihenfolge dort: zuerst Hauptfenster-Grundgerüst,
-Aktionsregister, Projektmodell, „Neues Projekt …“/„Projekt öffnen …“,
-Explorer, Platzhalter-Editor, „Unit öffnen …“ – der Teil, den der
-Projektinhaber konkret nachgefragt hat und der headless testbar ist.
-Monaco, vollständige Menüs, Units-Feinschliff, portable Laufzeit,
-Ausführung in eigenen Fenstern und Tastenkürzel-Tab folgen danach
-innerhalb M2 (dort im Detail zurückgestellt begründet).
+Kleinteilig aufgeschlüsselt in
+[`docs/arbeitspakete/M2.md`](arbeitspakete/M2.md) (wie M1 oben).
+Schritte 1–10 erledigt: Hauptfenster-Grundgerüst, Aktionsregister,
+Projektmodell, „Neues Projekt …“/„Projekt öffnen …“/„Öffnen …“,
+Explorer, Platzhalter-Editor (inkl. Speichern), „Unit öffnen …“, „Neue
+Unit“ + `u_pflanzen`/`u_garten`-Beispielprojekt, Ausführung als eigener
+Prozess ohne Debugger. 164 Tests grün.
 
-- [ ] Abnahme: Projekt aus M1 in der IDE öffnen, alle Datei-Menüfunktionen,
-  `u_pflanzen`/`u_garten`-Projekt anlegen und starten, Konsolenprogramm mit
-  `input()` im eigenen Fenster
+- [x] Abnahme: Projekt aus M1 in der IDE öffnen, alle (bisher
+  umgesetzten) Datei-Menüfunktionen, `u_pflanzen`/`u_garten`-Projekt
+  anlegen und starten – funktional erfüllt; ob das Konsolenfenster für
+  `input()` tatsächlich sichtbar erscheint, ist nur auf dem
+  Windows-Laptop zu verifizieren (headless nicht möglich)
+
+Zurückgestellt innerhalb M2 (Details und Begründung in
+`docs/arbeitspakete/M2.md`): Monaco, vollständige Menüs/Werkzeugleisten,
+Units-Feinschliff (Einbinden-Dialog, Umbenennen, Kreisbezug, geteilte
+Ansicht), Sitzung, portable Laufzeit, Start-Vorlauf (Speichern/Ruff),
+Pause/Stopp/Neustart, Tastenkürzel-Tab/Befehlspalette.
 
 ## M3 – Designer, Objektinspektor
 

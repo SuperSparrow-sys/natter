@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 
 from ide.actions import Aktion, Aktionsregister
 from ide.project import Projekt
+from ide.run import projekt_starten
 from ide.shell.explorer import PFAD_ROLLE, ProjektExplorer
 from ide.shell.schnellauswahl import SchnellAuswahl
 
@@ -73,6 +74,7 @@ class HauptFenster(QMainWindow):
         )
 
         self.projekt: Projekt | None = None
+        self.laufender_prozess = None
 
         self.panels = QTabWidget()
         for reiter in PANEL_REITER:
@@ -126,6 +128,15 @@ class HauptFenster(QMainWindow):
                 menue="Datei",
                 tastenkuerzel="Ctrl+N",
                 callback=self._neue_unit_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "start.ohne_debugger",
+                "Starten ohne Debugger",
+                menue="Start",
+                tastenkuerzel="Ctrl+F5",
+                callback=self._projekt_starten_aktion,
             )
         )
         self.aktionen.an_hauptfenster_anhaengen(self)
@@ -252,3 +263,17 @@ class HauptFenster(QMainWindow):
         pfad = eintrag.data(0, PFAD_ROLLE)
         if pfad is not None:
             self.datei_oeffnen(Path(pfad))
+
+    def _projekt_starten_aktion(self) -> None:
+        """„Starten ohne Debugger“ (Strg+F5, Abschnitt 7.8). Standardmäßig
+        nur eine laufende Instanz pro Projekt (Abschnitt 7.8); ein
+        erneuter Start bei bereits laufendem Programm wird abgelehnt statt
+        eine weitere Instanz zu starten."""
+        if self.projekt is None:
+            self.statusBar().showMessage("Kein Projekt offen.")
+            return
+        if self.laufender_prozess is not None and self.laufender_prozess.poll() is None:
+            self.statusBar().showMessage(f"{self.projekt.name} läuft bereits.")
+            return
+        self.laufender_prozess = projekt_starten(self.projekt)
+        self.statusBar().showMessage(f"{self.projekt.name} gestartet")
