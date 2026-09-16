@@ -1,0 +1,6 @@
+{
+  "format": "natter-project/1",
+  "name": "{{name}}",
+  "type": "console",
+  "main": "main.py"
+}

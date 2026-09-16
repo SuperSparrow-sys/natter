@@ -1,0 +1,7 @@
+{
+  "format": "pfm/1",
+  "class": "Form1",
+  "type": "Form",
+  "properties": { "caption": "{{name}}", "width": 480, "height": 360, "theme": "system" },
+  "children": []
+}

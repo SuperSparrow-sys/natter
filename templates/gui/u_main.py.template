@@ -1,0 +1,5 @@
+from u_main_design import Form1Design
+
+
+class Form1(Form1Design):
+    pass

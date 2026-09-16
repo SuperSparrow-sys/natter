@@ -1,0 +1,7 @@
+{
+  "format": "natter-project/1",
+  "name": "{{name}}",
+  "type": "gui",
+  "main": "main.py",
+  "main_form": "u_main"
+}

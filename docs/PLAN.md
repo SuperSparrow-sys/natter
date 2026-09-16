@@ -16,7 +16,7 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M2, Schritt 4: Neu-Dialog „Neues Projekt …“ (`templates/`)** – siehe
+→ **M2, Schritt 5: „Projekt öffnen …“ / „Öffnen …“** – siehe
 [`docs/arbeitspakete/M2.md`](arbeitspakete/M2.md)
 
 ## Referenzmaterial
