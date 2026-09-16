@@ -16,7 +16,8 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M4, Schritt 7: Test-Explorer** – siehe
+→ **M4, Schritt 8: Abnahme** (Fehlerbeispiele, Breakpoints/Step, Tests
+mit Soll-/Ist-Anzeige) – siehe
 [`docs/arbeitspakete/M4.md`](arbeitspakete/M4.md). M1, M2 und M3 sind
 funktional abgeschlossen (M3-Abnahme bestanden: Ampel vollständig über
 Designer/Inspektor/Palette nachgebaut, siehe
@@ -50,7 +51,12 @@ Werte an der Haltestelle, Pause/Fortsetzen/Stopp/Einzelschritt/
 Prozedurschritt/bis Rücksprung sind eigene Aktionen im Start-Menü. Eine
 unbehandelte Ausnahme im laufenden Programm zeigt automatisch die
 Wo/Was/Prüfe-Fehlerkatalog-Meldung im Panel „Meldungen“ und springt im
-Editor zur Fehlerzeile.
+Editor zur Fehlerzeile. „Projekt → Alle Tests ausführen“ entdeckt
+`test_*.py`-Dateien und zeigt sie im Panel „Tests“ als Baum mit
+bestanden/fehlgeschlagen/Fehler-Status; Doppelklick auf einen einzelnen
+Test, eine Klasse oder eine ganze Datei führt genau diesen Teil erneut
+aus, fehlgeschlagene `assertEqual`-Vergleiche zeigen Soll/Ist als
+Tooltip, „Testergebnisse als HTML exportieren“ schreibt ein Protokoll.
 
 ## Referenzmaterial
 

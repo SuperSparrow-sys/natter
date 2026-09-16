@@ -13,6 +13,7 @@ import re
 from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QDialog,
     QDockWidget,
@@ -38,6 +39,7 @@ from ide.run import projekt_pruefen, projekt_starten
 from ide.shell.explorer import PFAD_ROLLE, ProjektExplorer
 from ide.shell.quelltexteditor import QuelltextEditor
 from ide.shell.schnellauswahl import SchnellAuswahl
+from ide.testrunner import Testergebnis, ergebnisse_als_html, tests_ausfuehren
 from pcl.form import Form
 
 MENUETITEL = (
@@ -54,12 +56,37 @@ MENUETITEL = (
     "Hilfe",
 )
 
-PANEL_REITER = ("Meldungen", "Ausgabe", "Variablen", "Aufrufstapel")
+PANEL_REITER = ("Meldungen", "Ausgabe", "Variablen", "Aufrufstapel", "Tests")
+
+_TEST_ID_ROLLE = Qt.ItemDataRole.UserRole
+_STATUS_FARBE = {
+    "bestanden": "#1e8e3e",
+    "fehlgeschlagen": "#c0392b",
+    "fehler": "#c0392b",
+}
 
 # Name der dynamischen QWidget-Eigenschaft, die den Dateipfad eines
 # Editor-Tabs trägt (nicht zu verwechseln mit PFAD_ROLLE, das ist die
 # Qt.ItemDataRole für Explorer-Einträge).
 _PFAD_EIGENSCHAFT = "pfad"
+
+# Vorlage „Test-Unit“ im Neu-Dialog (Abschnitt 8.6): unittest, reines
+# Python wie bei jeder anderen Unit.
+_TEST_UNIT_VORLAGE = '''\
+"""Tests. Ausführen über „Projekt → Alle Tests ausführen“ oder das
+Panel „Tests“."""
+
+import unittest
+
+
+class MeinTest(unittest.TestCase):
+    def test_beispiel(self) -> None:
+        self.assertEqual(1 + 1, 2)
+
+
+if __name__ == "__main__":
+    unittest.main()
+'''
 
 
 class HauptFenster(QMainWindow):
@@ -111,10 +138,14 @@ class HauptFenster(QMainWindow):
         self.variablen_baum = QTreeWidget()
         self.variablen_baum.setHeaderLabels(["Eigenschaft", "Wert"])
         self.aufrufstapel_liste = QListWidget()
+        self.tests_baum = QTreeWidget()
+        self.tests_baum.setHeaderLabels(["Test", "Status", "Dauer (s)"])
+        self.tests_baum.itemDoubleClicked.connect(self._bei_test_doppelklick)
         panel_widgets = {
             "Meldungen": self.meldungen_liste,
             "Variablen": self.variablen_baum,
             "Aufrufstapel": self.aufrufstapel_liste,
+            "Tests": self.tests_baum,
         }
         for reiter in PANEL_REITER:
             self.panels.addTab(panel_widgets.get(reiter, QWidget()), reiter)
@@ -122,6 +153,7 @@ class HauptFenster(QMainWindow):
             "Panels", Qt.DockWidgetArea.BottomDockWidgetArea, inhalt=self.panels
         )
 
+        self._letzte_testergebnisse: list[Testergebnis] = []
         self.debug_sitzung: DebugSitzung | None = None
         self._aktueller_thread_id: int | None = None
 
@@ -165,6 +197,30 @@ class HauptFenster(QMainWindow):
                 menue="Projekt",
                 symbol="projekt_oeffnen",
                 callback=self._projekt_oeffnen_dialog,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "projekt.alle_tests_ausfuehren",
+                "Alle Tests ausführen",
+                menue="Projekt",
+                callback=self._alle_tests_ausfuehren_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "projekt.testergebnisse_exportieren",
+                "Testergebnisse als HTML exportieren …",
+                menue="Projekt",
+                callback=self._testergebnisse_exportieren_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "datei.neue_test_unit",
+                "Neue Test-Unit",
+                menue="Datei",
+                callback=self._neue_test_unit_aktion,
             )
         )
         self.aktionen.registrieren(
@@ -279,10 +335,10 @@ class HauptFenster(QMainWindow):
         if dialog.exec() == QDialog.DialogCode.Accepted and dialog.ausgewaehlte_datei is not None:
             self.datei_oeffnen(dialog.ausgewaehlte_datei)
 
-    def unit_erzeugen(self, name: str | None = None) -> Path:
+    def unit_erzeugen(self, name: str | None = None, *, inhalt: str = "") -> Path:
         """„Neue Unit“ (Abschnitt 7.2, 7.4): legt `u_neu<n>.py` an (oder
-        mit gegebenem `name`), fügt sie dem Projekt-Explorer hinzu und
-        öffnet sie im Editor."""
+        mit gegebenem `name`/`inhalt`), fügt sie dem Projekt-Explorer hinzu
+        und öffnet sie im Editor."""
         if self.projekt is None:
             raise RuntimeError("Kein Projekt offen.")
 
@@ -293,7 +349,7 @@ class HauptFenster(QMainWindow):
         if pfad.exists():
             raise FileExistsError(f"{pfad} existiert bereits.")
 
-        pfad.write_text("", encoding="utf-8")
+        pfad.write_text(inhalt, encoding="utf-8")
         self.explorer.projekt_anzeigen(self.projekt)
         self.datei_oeffnen(pfad)
         return pfad
@@ -304,6 +360,118 @@ class HauptFenster(QMainWindow):
         while f"u_neu{zaehler}" in vorhandene:
             zaehler += 1
         return f"u_neu{zaehler}"
+
+    def _neue_test_unit_aktion(self) -> None:
+        """„Neue Test-Unit“ (Abschnitt 8.6): legt `test_neu<n>.py` mit
+        einer `unittest`-Grundstruktur an."""
+        if self.projekt is None:
+            self.statusBar().showMessage("Kein Projekt offen.")
+            return
+        vorhandene = {p.stem for p in self.projekt.units()}
+        zaehler = 1
+        while f"test_neu{zaehler}" in vorhandene:
+            zaehler += 1
+        name = f"test_neu{zaehler}"
+        self.unit_erzeugen(name, inhalt=_TEST_UNIT_VORLAGE)
+
+    # -- Test-Explorer (Abschnitt 8.6) ---------------------------------------
+
+    def _alle_tests_ausfuehren_aktion(self) -> None:
+        if self.projekt is None:
+            self.statusBar().showMessage("Kein Projekt offen.")
+            return
+        ergebnisse = tests_ausfuehren(self.projekt.ordner)
+        self._letzte_testergebnisse = ergebnisse
+        self._tests_baum_befuellen(ergebnisse)
+        anzahl_fehlgeschlagen = sum(1 for e in ergebnisse if e.status != "bestanden")
+        self.statusBar().showMessage(
+            f"{len(ergebnisse)} Test(s), {anzahl_fehlgeschlagen} nicht bestanden"
+        )
+        self.panels.setCurrentWidget(self.tests_baum)
+
+    def _testergebnisse_exportieren_aktion(self) -> None:
+        """„Testergebnisse als HTML exportieren“ (Abschnitt 8.6) – nutzt
+        die Ergebnisse des letzten „Alle Tests ausführen“-Laufs."""
+        if not self._letzte_testergebnisse:
+            self.statusBar().showMessage("Noch keine Testergebnisse zum Exportieren.")
+            return
+        pfad, _ = QFileDialog.getSaveFileName(
+            self, "Testergebnisse exportieren", filter="HTML-Datei (*.html)"
+        )
+        if not pfad:
+            return
+        titel = self.projekt.name if self.projekt is not None else "Testprotokoll"
+        html = ergebnisse_als_html(self._letzte_testergebnisse, titel=titel)
+        Path(pfad).write_text(html, encoding="utf-8")
+        self.statusBar().showMessage(f"Testprotokoll gespeichert: {pfad}")
+
+    def _tests_baum_befuellen(self, ergebnisse: list[Testergebnis]) -> None:
+        self.tests_baum.clear()
+        baum: dict[str, dict[str, list[Testergebnis]]] = {}
+        for ergebnis in ergebnisse:
+            teile = ergebnis.id.split(".")
+            modul = teile[0] if teile else ergebnis.id
+            klasse = teile[1] if len(teile) > 1 else ""
+            baum.setdefault(modul, {}).setdefault(klasse, []).append(ergebnis)
+
+        for modul, klassen in sorted(baum.items()):
+            modul_eintrag = QTreeWidgetItem(self.tests_baum, [modul])
+            modul_eintrag.setData(0, _TEST_ID_ROLLE, modul)
+            for klasse, tests in sorted(klassen.items()):
+                if klasse:
+                    klassen_eintrag = QTreeWidgetItem(modul_eintrag, [klasse])
+                    klassen_eintrag.setData(0, _TEST_ID_ROLLE, f"{modul}.{klasse}")
+                else:
+                    klassen_eintrag = modul_eintrag
+                for ergebnis in tests:
+                    self._test_eintrag_erzeugen(klassen_eintrag, ergebnis)
+        self.tests_baum.expandAll()
+        self.tests_baum.resizeColumnToContents(0)
+
+    def _test_eintrag_erzeugen(self, eltern: QTreeWidgetItem, ergebnis: Testergebnis) -> None:
+        methode = ergebnis.id.rsplit(".", 1)[-1]
+        eintrag = QTreeWidgetItem(eltern, [methode])
+        eintrag.setData(0, _TEST_ID_ROLLE, ergebnis.id)
+        self._test_eintrag_aktualisieren(eintrag, ergebnis)
+
+    def _bei_test_doppelklick(self, eintrag: QTreeWidgetItem, _spalte: int) -> None:
+        """Doppelklick führt den Test/die Datei/die Klasse unter diesem
+        Baumeintrag erneut aus (Abschnitt 8.6: „Einzelnen Test, eine
+        Datei oder alle Tests ausführen“) und aktualisiert nur die
+        betroffenen Blatt-Einträge, ohne den ganzen Baum neu aufzubauen."""
+        test_id = eintrag.data(0, _TEST_ID_ROLLE)
+        if test_id is None or self.projekt is None:
+            return
+        ergebnisse = tests_ausfuehren(self.projekt.ordner, ziel=test_id)
+        blaetter = self._blatt_eintraege_sammeln(eintrag)
+        for ergebnis in ergebnisse:
+            ziel_eintrag = blaetter.get(ergebnis.id, eintrag if eintrag.childCount() == 0 else None)
+            if ziel_eintrag is not None:
+                self._test_eintrag_aktualisieren(ziel_eintrag, ergebnis)
+
+    def _blatt_eintraege_sammeln(self, eintrag: QTreeWidgetItem) -> dict[str, QTreeWidgetItem]:
+        """Test-ID → Baumeintrag für alle Blätter (Testmethoden) unter
+        `eintrag` (auch `eintrag` selbst, falls es schon ein Blatt ist)."""
+        if eintrag.childCount() == 0:
+            test_id = eintrag.data(0, _TEST_ID_ROLLE)
+            return {test_id: eintrag} if test_id else {}
+        ergebnis: dict[str, QTreeWidgetItem] = {}
+        for i in range(eintrag.childCount()):
+            ergebnis.update(self._blatt_eintraege_sammeln(eintrag.child(i)))
+        return ergebnis
+
+    def _test_eintrag_aktualisieren(self, eintrag: QTreeWidgetItem, ergebnis: Testergebnis) -> None:
+        eintrag.setText(1, ergebnis.status)
+        eintrag.setText(2, f"{ergebnis.dauer:.3f}")
+        farbe = QColor(_STATUS_FARBE.get(ergebnis.status, "#000000"))
+        for spalte in range(3):
+            eintrag.setForeground(spalte, farbe)
+        if ergebnis.status == "fehlgeschlagen" and ergebnis.soll is not None:
+            eintrag.setToolTip(1, f"Soll: {ergebnis.soll} · Ist: {ergebnis.ist}")
+        elif ergebnis.nachricht:
+            eintrag.setToolTip(1, ergebnis.nachricht)
+        else:
+            eintrag.setToolTip(1, "")
 
     def _neue_unit_aktion(self) -> None:
         if self.projekt is None:

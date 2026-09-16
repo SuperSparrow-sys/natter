@@ -16,6 +16,10 @@ _STANDARD_ZEITLIMIT = 60.0
 
 @dataclass(frozen=True)
 class Testergebnis:
+    # Reiner Namenszufall mit pytests Standard-Sammelmuster ("Test*") -
+    # das hier ist eine Datenklasse, kein Testfall.
+    __test__ = False
+
     id: str
     status: str  # "bestanden" | "fehlgeschlagen" | "fehler"
     dauer: float
