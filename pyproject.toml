@@ -15,6 +15,7 @@ dependencies = [
     "pandas>=3.0.5",
     "numpy>=2.5.3",
     "openpyxl>=3.1.5",
+    "matplotlib>=3.11.2",
 ]
 
 [dependency-groups]

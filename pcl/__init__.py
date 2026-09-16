@@ -8,6 +8,7 @@ Siehe konzept-natter.md, Abschnitt 5. Beispiel (Abschnitt 4.3):
 
 from pcl.application import Application
 from pcl.components.additional import Image, Shape, StringGrid
+from pcl.components.chart import Chart
 from pcl.components.data_access import (
     DataSource,
     MySQLConnection,
@@ -36,6 +37,7 @@ __all__ = [
     "Application",
     "Button",
     "CheckBox",
+    "Chart",
     "ComboBox",
     "Control",
     "DataSource",
