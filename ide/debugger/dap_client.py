@@ -135,7 +135,12 @@ class DapClient:
         self._socket.sendall(kopf + daten)
         return seq
 
-    def _naechste_nachricht(self) -> dict[str, Any]:
+    def _naechste_nachricht(self, *, nachsichtig: bool = False) -> dict[str, Any] | None:
+        """Liest eine vollständige DAP-Nachricht. Bei `nachsichtig=True`
+        liefert eine Zeitüberschreitung `None` statt `DapFehler` auszulösen
+        – genutzt von `naechstes_ereignis_abfragen()` für kurze,
+        nicht-blockierende Abfragen (Abschnitt 8.1: DAP-Client darf die
+        GUI nicht einfrieren)."""
         assert self._socket is not None
         try:
             while b"\r\n\r\n" not in self._puffer:
@@ -151,6 +156,8 @@ class DapClient:
                     raise DapFehler("Verbindung zu debugpy wurde geschlossen.")
                 rest += stueck
         except TimeoutError as fehler:
+            if nachsichtig:
+                return None
             raise DapFehler("Zeitüberschreitung beim Warten auf debugpy.") from fehler
 
         self._puffer = rest[laenge:]
@@ -202,7 +209,36 @@ class DapClient:
                 if andere_seq is not None:
                     self._aufgehobene_antworten[andere_seq] = nachricht
 
-    def beenden(self, zeitlimit: float = 10.0) -> None:
+    def naechstes_ereignis_abfragen(self, zeitlimit: float) -> dict[str, Any] | None:
+        """Nicht-blockierend (bis zu `zeitlimit` Sekunden): liefert das
+        nächste Event (volles DAP-Objekt, u. a. `event`/`body`) oder
+        `None`, wenn nichts ankam. Erst bereits gesammelte Events aus
+        `self.ereignisse` (FIFO), erst danach neue vom Socket – für die
+        Warteschlangen-Verarbeitung in `DebugSitzung` (Abschnitt 8.1):
+        die GUI darf nicht einfrieren, während das Schülerprogramm frei
+        läuft."""
+        if self.ereignisse:
+            return self.ereignisse.pop(0)
+
+        assert self._socket is not None
+        urspruengliches_zeitlimit = self._socket.gettimeout()
+        self._socket.settimeout(zeitlimit)
+        try:
+            nachricht = self._naechste_nachricht(nachsichtig=True)
+        finally:
+            self._socket.settimeout(urspruengliches_zeitlimit)
+
+        if nachricht is None:
+            return None
+        if nachricht.get("type") == "event":
+            return nachricht
+        if nachricht.get("type") == "response":
+            seq = nachricht.get("request_seq")
+            if seq is not None:
+                self._aufgehobene_antworten[seq] = nachricht
+        return None
+
+    def beenden(self, zeitlimit: float = _STANDARD_ZEITLIMIT) -> None:
         """Schließt die Verbindung und wartet auf das Prozessende."""
         if self._socket is not None:
             self._socket.close()
