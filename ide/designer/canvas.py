@@ -92,6 +92,26 @@ class _DuplizierenKommando:
         self.canvas._komponente_entfernen(self.neue_komponente)
 
 
+class _UmbenennenKommando:
+    """Benennt das Form-Attribut einer Komponente um (Abschnitt 7.6: die
+    Eigenschaft „Name“ ist kein `Prop` der Komponente, sondern der
+    Attributname im Formular selbst)."""
+
+    def __init__(self, canvas: DesignerCanvas, komponente: Any, neuer_name: str) -> None:
+        self.canvas = canvas
+        self.komponente = komponente
+        self.neuer_name = neuer_name
+        self.alter_name = canvas._attributname(komponente)
+
+    def tun(self) -> None:
+        delattr(self.canvas.formular, self.alter_name)
+        setattr(self.canvas.formular, self.neuer_name, self.komponente)
+
+    def rueckgaengig(self) -> None:
+        delattr(self.canvas.formular, self.neuer_name)
+        setattr(self.canvas.formular, self.alter_name, self.komponente)
+
+
 class _PlatzierenKommando:
     """Wie `_DuplizierenKommando`, aber mit einer frischen Komponente in
     Standardwerten statt einer Kopie (Abschnitt 7.3: Palette → Formular)."""
@@ -326,6 +346,26 @@ class DesignerCanvas(QObject):
         self.kommandos.ausfuehren(kommando)
         self._nach_aenderung(kommando.neue_komponente)
         return kommando.neue_komponente
+
+    def komponente_umbenennen(self, komponente: Any, neuer_name: str) -> None:
+        """Ändert den Namen (Form-Attribut) von `komponente` – die
+        Eigenschaft „Name“ im Objektinspektor (Abschnitt 7.6), noch ohne
+        eigene Tabellenzeile (Zurückgestellt). Löst `ValueError` bei
+        ungültigem Bezeichner oder bereits vergebenem Namen."""
+        if komponente is self.formular:
+            raise ValueError("Das Formular selbst kann nicht umbenannt werden.")
+        if not neuer_name.isidentifier():
+            raise ValueError(f"{neuer_name!r} ist kein gültiger Bezeichner.")
+
+        alter_name = self._attributname(komponente)
+        if neuer_name == alter_name:
+            return
+        if neuer_name in vars(self.formular):
+            raise ValueError(f"Der Name {neuer_name!r} wird bereits verwendet.")
+
+        kommando = _UmbenennenKommando(self, komponente, neuer_name)
+        self.kommandos.ausfuehren(kommando)
+        self._nach_aenderung(komponente)
 
     def ereignis_handler_erzeugen(self, komponente: Any) -> str | None:
         """Doppelklick auf `komponente` (Abschnitt 4.4): erzeugt bei
