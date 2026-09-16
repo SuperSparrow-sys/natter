@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    html, body, #editor { height: 100%; margin: 0; }
+    #leiste { position: fixed; top: 0; right: 0; z-index: 10; padding: 4px; }
+  </style>
+</head>
+<body>
+  <div id="leiste">
+    <button onclick="themaSetzen('vs')">Hell</button>
+    <button onclick="themaSetzen('vs-dark')">Dunkel</button>
+  </div>
+  <div id="editor"></div>
+
+  <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+  <script src="../monaco/vs/loader.js"></script>
+  <script>
+    let editor;
+    let bruecke;
+
+    new QWebChannel(qt.webChannelTransport, function (kanal) {
+      bruecke = kanal.objects.bruecke;
+    });
+
+    require.config({ paths: { vs: "../monaco/vs" } });
+    require(["vs/editor/editor.main"], function () {
+      editor = monaco.editor.create(document.getElementById("editor"), {
+        value: "def gruss(name):\n    print(f\"Hallo {name}\")\n\ngruss(\"Welt\")\n",
+        language: "python",
+        theme: "vs",
+        automaticLayout: true,
+      });
+
+      monaco.languages.registerCompletionItemProvider("python", {
+        provideCompletionItems: function (model, position) {
+          return new Promise(function (resolve) {
+            bruecke.vervollstaendigen(
+              model.getValue(),
+              position.lineNumber,
+              position.column - 1,
+              function (vorschlaege) {
+                resolve({
+                  suggestions: vorschlaege.map(function (v) {
+                    return {
+                      label: v.label,
+                      kind: monaco.languages.CompletionItemKind.Function,
+                      detail: v.detail,
+                      insertText: v.label,
+                    };
+                  }),
+                });
+              }
+            );
+          });
+        },
+      });
+    });
+
+    function themaSetzen(name) {
+      monaco.editor.setTheme(name);
+    }
+  </script>
+</body>
+</html>

@@ -12,6 +12,13 @@ dev = [
     "pytest>=8.0",
     "jsonschema>=4.23",
 ]
+prototypes = [
+    "pyside6>=6.8",
+    "jedi>=0.19",
+    "debugpy>=1.8",
+    "pandas>=2.2",
+    "cryptography>=42",
+]
 
 [build-system]
 requires = ["hatchling"]

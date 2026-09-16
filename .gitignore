@@ -28,3 +28,8 @@ Thumbs.db
 
 # Natter-spezifisch
 *.natter-session
+prototypes/s2_monaco_jedi/monaco/
+web/monaco/
+prototypes/s6_signatur/*.pem
+prototypes/s6_signatur/*.pfx
+prototypes/s6_signatur/manifest.signiert.json
