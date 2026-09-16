@@ -16,8 +16,7 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M1, Schritt 3: erste Komponenten (`Button`, `Label`, `Shape`), reichen
-für `k_Ampel`** (siehe unten)
+→ **M1, Schritt 4: `.pfm` → `u_*_design.py`-Generator** (siehe unten)
 
 ## Referenzmaterial
 
@@ -123,11 +122,22 @@ zerlegt, jeder Schritt für sich mit `pytest` abgesichert.
   Qt-Systembibliotheken (`libegl1`, `libxkbcommon0` u. a.) auf dem
   Ubuntu-Runner
 
-### 3. Erste Komponenten (reichen für `k_Ampel`)
+### 3. Erste Komponenten (reichen für `k_Ampel`) — erledigt
 
-- [ ] `Button`, `Label`, `Shape` (inkl. `brush.color`, `shape` = circle/…)
-- [ ] `Form`-Events: `on_create`
-- [ ] `Button`-Event: `on_click`
+- [x] `pcl/components/standard.py`: `Button` (`caption`, Event `on_click`),
+  `Label` (`caption`)
+- [x] `pcl/components/additional.py`: `Shape` (`shape` = rectangle/circle,
+  `brush.color` als aufklappbare Untereigenschaft, eigenes `QPainter`-
+  Painting)
+- [x] `Form`-Event `on_create` bereits in Schritt 2 umgesetzt,
+  `Button`-Event `on_click` jetzt dazu
+- [x] `pcl/__init__.py` exportiert `Application`, `Button`, `Control`,
+  `Event`, `Form`, `Label`, `Prop`, `Shape` (Abschnitt 4.3:
+  `from pcl import Form, Button, Shape`)
+- [x] Tests (`tests/test_components.py`, 10 Tests, headless): Standardwerte,
+  Live-Wirkung, echter Klick löst `on_click` mit `sender` aus, Typprüfung
+  von `brush.color`, Tippfehlerschutz
+- [x] `docs/komponenten.md` für `Form`, `Button`, `Label`, `Shape` ausgefüllt
 
 ### 4. `.pfm` → `u_*_design.py`
 

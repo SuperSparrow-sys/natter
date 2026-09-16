@@ -21,7 +21,7 @@ _TYPNAMEN: dict[type, tuple[str, str]] = {
 }
 
 
-def _beschreibung(typ: type) -> str:
+def typ_beschreibung(typ: type) -> str:
     name, artikel = _TYPNAMEN.get(typ, (typ.__name__, "ein"))
     return f"{artikel} {name} ({typ.__name__})"
 
@@ -63,7 +63,7 @@ class Prop:
         if not self._passt_typ(wert):
             raise NatterPropertyError(
                 f"{type(instance).__name__}.{self.name} erwartet "
-                f"{_beschreibung(self.typ)}, erhalten wurde {_beschreibung(type(wert))}."
+                f"{typ_beschreibung(self.typ)}, erhalten wurde {typ_beschreibung(type(wert))}."
             )
         instance.__dict__[self._speicher_name()] = wert
         # Live-Wirkung (Abschnitt 5.0): Unterklassen mit Qt-Anbindung
@@ -108,7 +108,7 @@ class Event:
         if wert is not None and not callable(wert):
             raise NatterPropertyError(
                 f"{type(instance).__name__}.{self.name} erwartet einen aufrufbaren "
-                f"Ereignis-Handler, erhalten wurde {_beschreibung(type(wert))}."
+                f"Ereignis-Handler, erhalten wurde {typ_beschreibung(type(wert))}."
             )
         instance.__dict__[self._speicher_name()] = wert
 
