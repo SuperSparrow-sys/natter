@@ -13,3 +13,10 @@ class NatterPropertyError(TypeError):
 class NatterUnbekannteEigenschaftError(AttributeError):
     """Eine Komponente hat keine Eigenschaft mit diesem Namen (Tippfehler,
     z. B. ``self.b_ok.captoin = "OK"``)."""
+
+
+class NatterDatenbankError(RuntimeError):
+    """Eine Datenbankverbindung oder SQL-Anweisung ist fehlgeschlagen
+    (Abschnitt 8.5: „Datenbankverbindung, SQL-Fehler“). Ersetzt die rohe
+    Treiberausnahme (z. B. ``sqlite3.OperationalError``), damit Schüler
+    nicht die Treiberbibliothek kennen müssen."""
