@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://natter.local/schemas/project.schema.json",
+  "title": "Natter Projektdatei (.natter)",
+  "description": "Name, Typ, Hauptformular, DB-Einstellungen und Export-Optionen eines Schülerprojekts. Siehe konzept-natter.md, Abschnitt 4.1. Entwurf – wird in M0/M1 anhand des ersten Beispielprojekts geprüft und ggf. angepasst.",
+  "type": "object",
+  "required": ["format", "name", "type", "main"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "natter-project/1" },
+    "name": { "type": "string", "minLength": 1 },
+    "type": {
+      "enum": ["gui", "console", "gui_db"],
+      "description": "gui: nur Komponenten-I/O, console: input()/print(), gui_db: gui mit Datenbankanbindung"
+    },
+    "main": { "type": "string", "minLength": 1, "description": "Einstiegspunkt, z. B. main.py" },
+    "main_form": { "type": "string", "description": "Unit des Hauptformulars ohne .py, nur bei type gui/gui_db" },
+    "database": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "driver": { "enum": ["sqlite3", "mysql"] },
+        "connection_ref": {
+          "type": "string",
+          "description": "Verweis auf verschlüsselt gespeicherte Zugangsdaten (Windows Credential Store), siehe Abschnitt 10.2"
+        }
+      },
+      "required": ["driver"]
+    },
+    "export": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "product_name": { "type": "string" },
+        "version": { "type": "string" },
+        "icon": { "type": "string" },
+        "include_data_dir": { "type": "boolean", "default": false },
+        "target": { "enum": ["folder", "zip"], "default": "zip" }
+      }
+    }
+  }
+}

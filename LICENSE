@@ -1,0 +1,34 @@
+Natter – Private Lizenz
+
+Copyright (c) 2026 SuperSparrow-sys. Alle Rechte vorbehalten.
+
+Dies ist ein privates, nicht öffentlich lizenziertes Projekt.
+
+1. Nutzung
+   Die Nutzung dieser Software (Quelltext, Dokumentation und mitgelieferte
+   Materialien) ist im Rahmen des vorgesehenen Zwecks – der Entwicklung und
+   dem Einsatz von Natter als Lehr- und Lernwerkzeug – gestattet.
+
+2. Weitergabe
+   Eine Weitergabe, Veröffentlichung, Verbreitung oder sonstige Zugänglich-
+   machung dieser Software oder abgeleiteter Werke an Dritte, ganz oder in
+   Teilen, ist ohne vorherige schriftliche Zustimmung des Rechteinhabers
+   nicht gestattet. Dies umfasst insbesondere das Einstellen in öffentliche
+   oder private Repositories Dritter, Dateiaustauschdienste und ähnliche
+   Kanäle.
+
+3. Keine Gewährleistung
+   Die Software wird ohne jegliche Gewährleistung bereitgestellt. Der
+   Rechteinhaber haftet nicht für Schäden, die aus der Nutzung der Software
+   entstehen, soweit gesetzlich zulässig.
+
+4. Fremdkomponenten
+   Diese Software bindet Fremdkomponenten unter eigenen Lizenzen ein (u. a.
+   PySide6/Qt unter LGPLv3). Deren Lizenzbedingungen bleiben von dieser
+   Lizenz unberührt und sind in `lizenzen/` bzw. im Über-Dialog der IDE
+   aufgeführt. Mit „Exe erstellen“ erzeugte Schülerprogramme unterliegen
+   dieser Lizenz nicht; für sie gilt keine Einschränkung durch dieses
+   Dokument (siehe konzept-natter.md, Abschnitt 17.7).
+
+Hinweis: Dieses Dokument ist eine technische Planungsgrundlage und keine
+Rechtsberatung.

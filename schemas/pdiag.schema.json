@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://natter.local/schemas/pdiag.schema.json",
+  "title": "Natter Diagrammdatei (.pdiag)",
+  "description": "UML-Diagramme und Entscheidungstabellen. Struktogramme speichern einen Blockbaum statt Formen/Koordinaten. Siehe konzept-natter.md, Abschnitt 13.7. Entwurf – Blockbaum- und Entscheidungstabellen-Varianten folgen in M9.",
+  "type": "object",
+  "required": ["format", "type", "page", "style"],
+  "properties": {
+    "format": { "const": "pdiag/1" },
+    "type": {
+      "enum": ["class", "use_case", "activity", "state", "sequence", "struktogramm", "entscheidungstabelle"]
+    },
+    "page": {
+      "type": "object",
+      "required": ["size", "orientation"],
+      "properties": {
+        "size": { "type": "string", "examples": ["A4"] },
+        "orientation": { "enum": ["portrait", "landscape"] }
+      }
+    },
+    "style": { "enum": ["modern-light", "modern-dark", "black-white"] },
+    "shapes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/shape" }
+    },
+    "connectors": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/connector" }
+    }
+  },
+  "$defs": {
+    "shape": {
+      "type": "object",
+      "required": ["id", "kind", "x", "y", "w", "h"],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "type": "string" },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "w": { "type": "number" },
+        "h": { "type": "number" },
+        "text": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "attributes": { "type": "array", "items": { "type": "string" } },
+            "methods": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "abstract": { "type": "boolean" }
+      }
+    },
+    "connector": {
+      "type": "object",
+      "required": ["id", "kind", "from", "to"],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "type": "string" },
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "waypoints": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": { "type": "number" },
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "labels": {
+          "type": "object",
+          "properties": {
+            "from": { "type": "string" },
+            "to": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

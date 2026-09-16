@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://natter.local/schemas/pfm.schema.json",
+  "title": "Natter Formularbeschreibung (.pfm)",
+  "description": "Einzige Quelle für den Formular-Designer. Siehe konzept-natter.md, Abschnitt 4.2.",
+  "type": "object",
+  "required": ["format", "class", "type", "properties"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "pfm/1" },
+    "class": { "type": "string", "minLength": 1 },
+    "type": { "type": "string", "minLength": 1 },
+    "properties": { "type": "object" },
+    "events": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "children": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/component" }
+    }
+  },
+  "$defs": {
+    "component": {
+      "type": "object",
+      "required": ["name", "type", "properties"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "minLength": 1 },
+        "properties": { "type": "object" },
+        "events": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "children": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/component" }
+        }
+      }
+    }
+  }
+}

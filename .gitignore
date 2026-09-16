@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Virtuelle Umgebungen / uv
+.venv/
+venv/
+uv.lock.tmp
+
+# Build-/Paketausgabe
+dist/
+build_out/
+runtime/
+*.zip
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Natter-spezifisch
+*.natter-session
