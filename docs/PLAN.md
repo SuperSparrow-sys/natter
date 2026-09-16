@@ -16,7 +16,8 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M1, Schritt 1: `Prop`/`Event`-Kern in `pcl`** (siehe unten)
+→ **M1, Schritt 2: Anbindung an Qt (`pcl.control`, `pcl.form`,
+`pcl.application`)** (siehe unten)
 
 ## Referenzmaterial
 
@@ -83,17 +84,22 @@ Abnahmekriterium laut Konzept: Ampel, Würfelspiel, StringGrid-Übung laufen
 mit `python main.py`. Hier in einzelne, unabhängig testbare Schritte
 zerlegt, jeder Schritt für sich mit `pytest` abgesichert.
 
-### 1. Eigenschaften-System (ohne Qt, reine Python-Logik)
+### 1. Eigenschaften-System (ohne Qt, reine Python-Logik) — erledigt
 
-- [ ] `pcl/properties.py`: `Prop`-Deskriptor (Typ, Standardwert, Kategorie,
+- [x] `pcl/properties.py`: `Prop`-Deskriptor (Typ, Standardwert, Kategorie,
   `doc`), `Event`-Deskriptor
-- [ ] Typprüfung beim Setzen, Fehlertext exakt wie im Fehlerkatalog
-  (`docs/fehlerkatalog.yaml`, Eintrag `pcl_property_error`)
-- [ ] unbekannte Eigenschaft (Tippfehler) löst Fehler aus statt still ein
-  neues Attribut anzulegen; eigene Attribute (`self.ampel = Ampel()`)
-  bleiben weiter erlaubt
-- [ ] Tests: Standardwert, Typprüfung, Tippfehler-Erkennung, Lesen liefert
-  aktuellen Wert
+- [x] Typprüfung beim Setzen, Fehlertext exakt wie im Fehlerkatalog
+  (`docs/fehlerkatalog.yaml`, Eintrag `pcl_property_error`);
+  `pcl/errors.py` mit `NatterPropertyError`/`NatterUnbekannteEigenschaftError`
+- [x] unbekannte Eigenschaft (Tippfehler) löst Fehler aus statt still ein
+  neues Attribut anzulegen (`Komponente.__setattr__`); eigene Attribute
+  (`self.ampel = Ampel()`) bleiben über `neue_attribute_erlaubt = True`
+  erlaubt (wird von `Form` in Schritt 2 gesetzt)
+- [x] Tests (`tests/test_properties.py`, 14 Tests): Standardwert,
+  Zuweisung/Lesen, Vererbung, Typprüfung (inkl. bool vs. int/float
+  getrennt gehalten), Tippfehler-Erkennung, Event-Zuweisung, Sperre vs.
+  `neue_attribute_erlaubt`, `eigenschaften()`/`ereignisse()`-Helfer für
+  den späteren Objektinspektor
 
 ### 2. Anbindung an Qt
 
