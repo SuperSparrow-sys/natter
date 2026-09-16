@@ -134,3 +134,15 @@ def test_echter_doppelklick_erzeugt_den_handler(tmp_path: Path) -> None:
     assert formular.b_ein.on_click.__name__ == "b_ein_click"
     # der Doppelklick darf keinen Ziehvorgang hinterlassen
     assert canvas._ziehen_komponente is None
+
+
+def test_doppelklick_auf_das_formular_erzeugt_form_create(tmp_path: Path) -> None:
+    unit_pfad = _unit_datei_vorbereiten(tmp_path)
+    formular = _Formular()
+    canvas = DesignerCanvas(formular, pfm_pfad=tmp_path / "test.pfm")
+
+    ergebnis = canvas.ereignis_handler_erzeugen(formular)
+
+    assert ergebnis == "form_create"
+    assert "def form_create(self, sender):" in unit_pfad.read_text(encoding="utf-8")
+    assert formular.on_create.__name__ == "form_create"

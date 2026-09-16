@@ -151,7 +151,7 @@ class DesignerCanvas(QObject):
             self._ziehen_start = None
             self._ziehen_start_werte = None
             komponente = self._widget_zu_komponente.get(beobachtetes_objekt)
-            if komponente is not None and komponente is not self.formular:
+            if komponente is not None:
                 self.ereignis_handler_erzeugen(komponente)
             return True
 
@@ -344,7 +344,12 @@ class DesignerCanvas(QObject):
         if vorhandener_handler is not None:
             return vorhandener_handler.__name__
 
-        komponenten_name = self._attributname(komponente) or type(komponente).__name__.lower()
+        if komponente is self.formular:
+            # das Formular selbst heißt im generierten Code nicht nach der
+            # Klasse, sondern immer "form" (Abschnitt 4.4: form_create)
+            komponenten_name = "form"
+        else:
+            komponenten_name = self._attributname(komponente) or type(komponente).__name__.lower()
         methodenname = f"{komponenten_name}_{_ereignis_kurzname(ereignis_name)}"
 
         klassenname = type(self.formular).__name__
