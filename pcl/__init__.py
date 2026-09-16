@@ -7,7 +7,7 @@ Siehe konzept-natter.md, Abschnitt 5. Beispiel (Abschnitt 4.3):
 """
 
 from pcl.application import Application
-from pcl.components.additional import Shape
+from pcl.components.additional import Image, Shape, StringGrid
 from pcl.components.standard import (
     Button,
     CheckBox,
@@ -17,8 +17,10 @@ from pcl.components.standard import (
     ListBox,
     Memo,
     RadioButton,
+    ScrollBar,
 )
 from pcl.control import Control
+from pcl.dialogs import input_box, show_message
 from pcl.form import Form
 from pcl.properties import Event, Prop
 from pcl.strings import Strings
@@ -32,11 +34,16 @@ __all__ = [
     "Edit",
     "Event",
     "Form",
+    "Image",
     "Label",
     "ListBox",
     "Memo",
     "Prop",
     "RadioButton",
+    "ScrollBar",
     "Shape",
     "Strings",
+    "StringGrid",
+    "input_box",
+    "show_message",
 ]

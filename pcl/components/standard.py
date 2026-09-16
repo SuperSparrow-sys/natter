@@ -1,15 +1,17 @@
 """Standard-Komponenten: Button, Label, Edit, CheckBox, RadioButton, Memo,
-ListBox, ComboBox.
+ListBox, ComboBox, ScrollBar.
 
 Siehe konzept-natter.md, Abschnitt 5.2 (Palette „Standard“). Weitere
-Standard-Komponenten (RadioGroup, ScrollBar, GroupBox, Panel, MainMenu,
-PopupMenu) folgen später in M1, Schritt 6.
+Standard-Komponenten (RadioGroup, GroupBox, Panel, MainMenu, PopupMenu)
+sind in keinem der 18 Referenzprojekte tatsächlich genutzt (`RadioGroup1`
+in `f_Pizza` ist nur deklariert) und daher zurückgestellt.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -19,6 +21,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QRadioButton,
+    QScrollBar,
     QWidget,
 )
 
@@ -242,3 +245,35 @@ class RadioButton(Control):
             self._qwidget.setText(wert)
         elif name == "checked":
             self._qwidget.setChecked(wert)
+
+
+class ScrollBar(Control):
+    """Bildlaufleiste, im Unterricht oft zur Eingabe eines Zahlenwerts
+    genutzt. Qt-Basis: `QScrollBar` (horizontal)."""
+
+    minimum = Prop(int, 0, kategorie="Verhalten", doc="Kleinster möglicher Wert")
+    maximum = Prop(int, 100, kategorie="Verhalten", doc="Größter möglicher Wert")
+    position = Prop(int, 0, kategorie="Verhalten", doc="Aktueller Wert")
+    on_change = Event(doc="Wird bei Änderung der Position ausgelöst")
+
+    def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
+        widget = QScrollBar(Qt.Orientation.Horizontal, eltern_widget)
+        widget.setMinimum(self.minimum)
+        widget.setMaximum(self.maximum)
+        widget.setValue(self.position)
+        widget.valueChanged.connect(self._bei_wertaenderung)
+        return widget
+
+    def _bei_wertaenderung(self, wert: int) -> None:
+        self.position = wert
+        if self.on_change is not None:
+            self.on_change(self)
+
+    def _bei_prop_aenderung(self, name: str, wert: Any) -> None:
+        super()._bei_prop_aenderung(name, wert)
+        if name == "minimum":
+            self._qwidget.setMinimum(wert)
+        elif name == "maximum":
+            self._qwidget.setMaximum(wert)
+        elif name == "position":
+            self._qwidget.setValue(wert)

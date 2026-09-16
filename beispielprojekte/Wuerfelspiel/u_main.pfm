@@ -1,0 +1,38 @@
+{
+  "format": "pfm/1",
+  "class": "Form1",
+  "type": "Form",
+  "properties": { "caption": "Würfelspiel", "width": 469, "height": 611, "theme": "system" },
+  "events": { "on_create": "form_create" },
+  "children": [
+    {
+      "name": "l_titel", "type": "Label",
+      "properties": { "caption": "Würfelspiel", "left": 88, "top": 64, "width": 101, "height": 25 }
+    },
+    {
+      "name": "b_wuerfeln", "type": "Button",
+      "properties": { "caption": "Würfeln", "left": 264, "top": 128, "width": 75, "height": 25 },
+      "events": { "on_click": "b_wuerfeln_click" }
+    },
+    {
+      "name": "l_zahl", "type": "Label",
+      "properties": { "caption": "Gewürfelte Zahl:", "left": 72, "top": 133, "width": 116, "height": 20 }
+    },
+    {
+      "name": "l_punkte", "type": "Label",
+      "properties": { "caption": "Punkte: ", "left": 132, "top": 176, "width": 57, "height": 20 }
+    },
+    {
+      "name": "l_leben", "type": "Label",
+      "properties": { "caption": "Leben:", "left": 132, "top": 216, "width": 46, "height": 20 }
+    },
+    {
+      "name": "sg_tabelle", "type": "StringGrid",
+      "properties": { "left": 64, "top": 272, "width": 312, "height": 144, "row_count": 1, "col_count": 2 }
+    },
+    {
+      "name": "b_speichern", "type": "Button",
+      "properties": { "caption": "Speichern und Beenden", "left": 112, "top": 448, "width": 232, "height": 32 }
+    }
+  ]
+}

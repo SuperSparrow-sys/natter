@@ -6,12 +6,13 @@ jedem Ereignis (Name, Signatur, Auslöser) dokumentiert, bevor sie in `pcl`
 umgesetzt wird. Siehe konzept-natter.md, Abschnitt 5 und 23.2.
 
 Status: `Form`, `Button`, `Label`, `Shape`, `Edit`, `CheckBox`,
-`RadioButton`, `Memo`, `ListBox`, `ComboBox` sind umgesetzt (M1, Schritt
-2/3/6). Rest folgt später in Schritt 6 (`RadioGroup`, `ScrollBar`,
-`GroupBox`, `Panel`, `MainMenu`, `PopupMenu`, `StringGrid`, `Image`,
-`SpinEdit`, `FloatSpinEdit`, `MaskEdit`, `PaintBox`, `HtmlViewer`,
-`TrackBar`, `ProgressBar`, `DateEdit`, `TimeEdit`, `Calendar`, Dialoge,
-`Timer`, `Sound`).
+`RadioButton`, `Memo`, `ListBox`, `ComboBox`, `StringGrid`, `Image`,
+`ScrollBar` sind umgesetzt (M1, Schritt 2/3/6). Rest folgt später in
+Schritt 6 – nur deklariert/nicht genutzt oder in keinem Referenzprojekt
+vorhanden, daher niedrigere Priorität: `RadioGroup`, `GroupBox`, `Panel`,
+`MainMenu`, `PopupMenu`, `SpinEdit`, `FloatSpinEdit`, `MaskEdit`,
+`PaintBox`, `HtmlViewer`, `TrackBar`, `ProgressBar`, `DateEdit`, `TimeEdit`,
+`Calendar`, Dialoge, `Timer`, `Sound`.
 
 ## Form
 
@@ -157,6 +158,33 @@ Qt-Basis: `QComboBox` (`pcl/components/standard.py`)
 Keine eigenen Ereignisse. `item_index` und `text` halten sich in beide
 Richtungen synchron (Zuweisung ↔ Auswahl über das Widget).
 
+## StringGrid
+
+Qt-Basis: `QTableWidget` (`pcl/components/additional.py`)
+
+| Eigenschaft | Typ | Standardwert | Kategorie | Hilfetext |
+|---|---|---|---|---|
+| left, top, width, height, enabled | wie `Control` | – | – | geerbt von `Control` |
+| row_count | int | 5 | Daten | Anzahl der Zeilen |
+| col_count | int | 5 | Daten | Anzahl der Spalten |
+| cells\[spalte, zeile\] | str | "" | – | Zellinhalt; aufklappbare Untereigenschaft, kein eigenständiges `Prop` |
+
+Keine eigenen Ereignisse (`on_select_cell`/`on_edit_cell` aus Abschnitt
+5.4 sind noch offen, kein Referenzprojekt braucht sie bisher).
+
+## Image
+
+Qt-Basis: `QLabel` mit `QPixmap` (`pcl/components/additional.py`)
+
+| Eigenschaft | Typ | Standardwert | Kategorie | Hilfetext |
+|---|---|---|---|---|
+| left, top, width, height, enabled | wie `Control` | – | – | geerbt von `Control` |
+| picture.load_from_file(pfad) / picture.clear() | Methoden | – | – | aufklappbare Untereigenschaft, kein eigenständiges `Prop` |
+
+Keine eigenen Ereignisse. `stretch`/`proportional`/`center` aus Abschnitt
+11.4 sind noch offen (kein Referenzprojekt braucht sie bisher; alle drei
+Bild-Projekte zeigen ein Bild einfach in Originalgröße an).
+
 **Bekannte Lücke:** `on_click`/`on_double_click` gelten laut Abschnitt 5.4
 für „alle sichtbaren“ Komponenten. Bisher ist `on_click` nur bei `Button`
 umgesetzt (dort über das native Qt-`clicked`-Signal). Ein komponenten-
@@ -164,6 +192,40 @@ umgesetzt (dort über das native Qt-`clicked`-Signal). Ein komponenten-
 Behandlung für Komponenten ohne natives Klick-Signal wie `Label`/`Shape`)
 ist noch offen und wird nachgezogen, sobald ein Referenzprojekt es
 tatsächlich braucht (bisher nutzt keines der Übungsprojekte das).
+
+## ScrollBar
+
+Qt-Basis: `QScrollBar`, horizontal (`pcl/components/standard.py`)
+
+| Eigenschaft | Typ | Standardwert | Kategorie | Hilfetext |
+|---|---|---|---|---|
+| left, top, width, height, enabled | wie `Control` | – | – | geerbt von `Control` |
+| minimum | int | 0 | Verhalten | Kleinster möglicher Wert |
+| maximum | int | 100 | Verhalten | Größter möglicher Wert |
+| position | int | 0 | Verhalten | Aktueller Wert |
+
+| Ereignis | Signatur | Auslöser |
+|---|---|---|
+| on_change | (self, sender) | Änderung der Position (Ziehen oder Code) |
+
+Gegen die echte Nutzung in `f_Pizza` geprüft (`sb_behinderung.position`
+steuert dort die Schriftgröße eines Memos, Min=5/Max=50).
+
+## Dialogfunktionen
+
+`pcl/dialogs.py`. Keine Komponenten, sondern modale Funktionen auf
+Modulebene (Abschnitt 5.1, 5.2), analog `ShowMessage`/`InputBox` in der
+LCL. `message_dlg`, `OpenDialog`, `SaveDialog`, `SelectDirectoryDialog`,
+`ColorDialog`, `FontDialog` sind in keinem Referenzprojekt genutzt und
+daher zurückgestellt.
+
+| Funktion | Signatur | Entspricht |
+|---|---|---|
+| show_message | (text: str) -> None | `ShowMessage` |
+| input_box | (titel: str, frage: str, standard: str = "") -> str | `InputBox`, liefert bei Abbruch `standard` |
+
+Gegen die echte Nutzung in `g_StringGrid`/`j_komplexeLeistung`/`l_Pet`/
+`m_Gaestebuch` (`show_message`) und `q_Würfelspiel` (`input_box`) geprüft.
 
 ## Vorlage pro Komponente
 

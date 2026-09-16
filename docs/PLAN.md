@@ -16,9 +16,8 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M1, Schritt 6 (läuft): `StringGrid`, `Image`, `SpinEdit`,
-`FloatSpinEdit`, `MaskEdit`, `PaintBox`, `HtmlViewer` (Additional-
-Komponenten)** (siehe unten)
+→ **M1, Schritt 8: StringGrid-Übung als drittes Abnahmeprojekt**
+(siehe unten)
 
 ## Referenzmaterial
 
@@ -186,10 +185,18 @@ zerlegt, jeder Schritt für sich mit `pytest` abgesichert.
   `tests/test_components_listen.py`, 9 Tests, gegen echte Nutzung in
   `f_Pizza`/`m_Gaestebuch`/`n_abstrakte_Klasse` u. a. geprüft
   (`.Lines.Add`, `.items.add`, `.itemindex`, `.Text`)
-- [ ] `RadioGroup`, `ScrollBar`, `GroupBox`, `Panel`, `MainMenu`,
-  `PopupMenu` – `RadioGroup1` in `f_Pizza` ist nur deklariert, nicht
-  funktional genutzt, daher niedrigere Priorität als die bereits
-  erledigten Komponenten
+- [x] `StringGrid` (`row_count`/`col_count`, `cells[spalte, zeile]`),
+  `Image` (`picture.load_from_file`/`.clear()`) –
+  `tests/test_components_additional.py`, 8 Tests, gegen echte Nutzung in
+  `g_StringGrid`/`d_Cookie_klicker`/`l_Pet` geprüft
+- [x] `ScrollBar` (`minimum`/`maximum`/`position`, `on_change`) – einzige
+  der restlichen Komponenten mit tatsächlicher funktionaler Nutzung
+  (`f_Pizza`: `sb_behinderung.position` steuert eine Schriftgröße) –
+  3 weitere Tests in `tests/test_components_eingabe.py`
+- [ ] `RadioGroup`, `GroupBox`, `Panel`, `MainMenu`, `PopupMenu` – in
+  keinem Referenzprojekt funktional genutzt (`RadioGroup1` in `f_Pizza`
+  nur deklariert), daher niedrigste Priorität; werden nachgezogen, wenn
+  M2 (Menüs/Komponentenpalette) sie ohnehin braucht
 - **Bekannte Lücke, bewusst zurückgestellt:** `on_click`/`on_double_click`
   sollten laut Abschnitt 5.4 für „alle sichtbaren“ Komponenten gelten,
   sind bisher aber nur bei `Button` verdrahtet (natives Qt-Signal). Ein
@@ -197,25 +204,45 @@ zerlegt, jeder Schritt für sich mit `pytest` abgesichert.
   Maus-Ereignis-Behandlung für Komponenten ohne natives Klick-Signal
   (`Label`, `Shape`); kein Referenzprojekt braucht es bisher (siehe
   `docs/komponenten.md`).
-- [ ] `StringGrid`, `Image`, `SpinEdit`, `FloatSpinEdit`, `MaskEdit`,
-  `PaintBox` (inkl. Canvas: `line_to`, `rectangle`, `ellipse`, `text_out`),
-  `HtmlViewer`
-- [ ] `TrackBar`, `ProgressBar`, `DateEdit`, `TimeEdit`, `Calendar`
-- [ ] Dialoge: `show_message`, `input_box`, `message_dlg`, `OpenDialog`,
-  `SaveDialog`, `SelectDirectoryDialog`, `ColorDialog`, `FontDialog`
-- [ ] `Timer`, `Sound`
-- [ ] Datei-Methoden der Komponenten (`lines.load_from_file` usw.,
-  Abschnitt 11.2), `open_url`
+- [ ] `SpinEdit`, `FloatSpinEdit`, `MaskEdit`, `PaintBox` (inkl. Canvas:
+  `line_to`, `rectangle`, `ellipse`, `text_out`), `HtmlViewer` – keine
+  Nutzung in `referenz/lazarus/`
+- [ ] `TrackBar`, `ProgressBar`, `DateEdit`, `TimeEdit`, `Calendar` – keine
+  Nutzung in `referenz/lazarus/`
+- [x] Dialoge: `pcl/dialogs.py` mit `show_message`, `input_box` –
+  `tests/test_dialogs.py`, 3 Tests (modale Dialoge headless über
+  `QTimer.singleShot` + `QApplication.activeModalWidget()` bedient),
+  gegen echte Nutzung in `g_StringGrid`/`j_komplexeLeistung`/`l_Pet`/
+  `m_Gaestebuch` (`show_message`) und `q_Würfelspiel` (`input_box`)
+  geprüft; `message_dlg`, `OpenDialog`, `SaveDialog`,
+  `SelectDirectoryDialog`, `ColorDialog`, `FontDialog` ungenutzt,
+  zurückgestellt
+- [ ] `Timer`, `Sound` – keine Nutzung in `referenz/lazarus/`
+- [x] Datei-Methoden für Listen-Komponenten (`Strings.load_from_file`/
+  `.save_to_file`, siehe oben); `open_url` noch offen (keine Nutzung in
+  `referenz/lazarus/` bisher, `.html`-Ausgabe kommt erst in M5/M6-nahen
+  Übungen vor)
 
 ### 7. Theme
 
 - [ ] `design/tokens.json` → QSS-Generator für `pcl`-Programme, hell/dunkel,
   `theme`-Eigenschaft des Formulars (`system`/`light`/`dark`)
+- **Reihenfolge bewusst getauscht:** Schritt 8 (Abnahmeprojekte) zuerst
+  bearbeitet, da alle dafür nötigen Komponenten mit Schritt 6 bereits
+  fertig waren und Theme rein optisch ist (blockiert die funktionale
+  M1-Abnahme laut Konzept nicht: „Ampel, Würfelspiel, StringGrid-Übung
+  laufen mit `python main.py`“ verlangt kein Theming). Wird nachgeholt,
+  bevor M1 als Ganzes abgeschlossen gilt.
 
 ### 8. Zweites/drittes Abnahmeprojekt
 
-- [ ] Würfelspiel mit Highscore (`referenz/lazarus/q_Würfelspiel` als
-  Vorlage) läuft mit `python main.py`
+- [x] Würfelspiel mit Highscore (`referenz/lazarus/q_Würfelspiel` als
+  Vorlage) → `beispielprojekte/Wuerfelspiel/`; alle benötigten
+  Komponenten (`Button`, `Label`, `StringGrid`, `input_box`) waren bereits
+  aus Schritt 6 vorhanden. Abnahme: `tests/test_beispiel_wuerfelspiel.py`,
+  4 Tests über echte Qt-Klicks, Zufall kontrolliert über
+  `monkeypatch("random.randint", ...)`, Namensabfrage beim Verlieren über
+  `QTimer.singleShot` bedient wie in `tests/test_dialogs.py`
 - [ ] StringGrid-Übung (`referenz/lazarus/g_StringGrid` als Vorlage) läuft
   mit `python main.py`
 

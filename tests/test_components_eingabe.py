@@ -1,8 +1,8 @@
-"""Tests für pcl/components/standard.py: Edit, CheckBox, RadioButton.
-Headless. Siehe docs/PLAN.md, M1 Schritt 6.
+"""Tests für pcl/components/standard.py: Edit, CheckBox, RadioButton,
+ScrollBar. Headless. Siehe docs/PLAN.md, M1 Schritt 6.
 """
 
-from pcl import CheckBox, Edit, Form, RadioButton
+from pcl import CheckBox, Edit, Form, RadioButton, ScrollBar
 
 
 class _Formular(Form):
@@ -10,6 +10,7 @@ class _Formular(Form):
         self.e_zahl1 = Edit(self)
         self.c_kaese = CheckBox(self)
         self.rb_small = RadioButton(self)
+        self.sb_behinderung = ScrollBar(self)
 
 
 def test_edit_standardwert_ist_leer() -> None:
@@ -74,3 +75,32 @@ def test_radiobutton_checked_zuweisung_wirkt_sofort() -> None:
     formular = _Formular()
     formular.rb_small.checked = True
     assert formular.rb_small._qwidget.isChecked() is True
+
+
+def test_scrollbar_standardwerte() -> None:
+    formular = _Formular()
+    assert (formular.sb_behinderung.minimum, formular.sb_behinderung.maximum) == (0, 100)
+    assert formular.sb_behinderung.position == 0
+
+
+def test_scrollbar_min_max_position_wie_in_f_pizza() -> None:
+    formular = _Formular()
+    formular.sb_behinderung.minimum = 5
+    formular.sb_behinderung.maximum = 50
+    formular.sb_behinderung.position = 5
+
+    assert formular.sb_behinderung._qwidget.minimum() == 5
+    assert formular.sb_behinderung._qwidget.maximum() == 50
+    assert formular.sb_behinderung._qwidget.value() == 5
+
+
+def test_scrollbar_bewegen_aktualisiert_position_und_loest_on_change_aus() -> None:
+    formular = _Formular()
+    formular.sb_behinderung.maximum = 50
+    empfangen = []
+    formular.sb_behinderung.on_change = lambda sender: empfangen.append(sender.position)
+
+    formular.sb_behinderung._qwidget.setValue(20)
+
+    assert formular.sb_behinderung.position == 20
+    assert empfangen == [20]
