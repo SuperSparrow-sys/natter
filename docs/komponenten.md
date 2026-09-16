@@ -29,6 +29,8 @@ Qt-Basis: `QWidget` (`pcl/form.py`)
 |---|---|---|
 | on_create | (self, sender) | unmittelbar vor der ersten Anzeige |
 
+Methoden: `show()`, `close()` (entspricht `Close` aus der LCL).
+
 Besonderheit: einziger Komponententyp mit `neue_attribute_erlaubt = True`
 (Abschnitt 5.0) – eigene Attribute wie `self.ampel = Ampel()` bleiben
 erlaubt.

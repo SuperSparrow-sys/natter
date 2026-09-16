@@ -53,3 +53,7 @@ class Form(Komponente):
 
     def show(self) -> None:
         self._qwidget.show()
+
+    def close(self) -> None:
+        """Entspricht `Close` aus der LCL."""
+        self._qwidget.close()

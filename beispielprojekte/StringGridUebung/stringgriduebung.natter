@@ -1,0 +1,7 @@
+{
+  "format": "natter-project/1",
+  "name": "StringGrid-Übung",
+  "type": "gui",
+  "main": "main.py",
+  "main_form": "u_main"
+}

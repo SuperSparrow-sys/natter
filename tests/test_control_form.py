@@ -45,6 +45,14 @@ def test_form_caption_aenderung_wirkt_sofort() -> None:
     assert formular._qwidget.windowTitle() == "Neuer Titel"
 
 
+def test_form_close_schliesst_das_qwidget() -> None:
+    formular = LeeresFormular()
+    formular.show()
+    assert formular._qwidget.isVisible() is True
+    formular.close()
+    assert formular._qwidget.isVisible() is False
+
+
 def test_create_components_wird_beim_erzeugen_aufgerufen() -> None:
     formular = FormularMitFeld()
     assert formular._qwidget.windowTitle() == "Testformular"

@@ -16,8 +16,9 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M1, Schritt 8: StringGrid-Übung als drittes Abnahmeprojekt**
-(siehe unten)
+→ **M1, Schritt 7 (nachholen): Theme – `design/tokens.json` →
+QSS-Generator für hell/dunkel** (siehe unten). Funktionales
+M1-Abnahmekriterium ist bereits erfüllt (Schritt 8 fertig).
 
 ## Referenzmaterial
 
@@ -234,7 +235,7 @@ zerlegt, jeder Schritt für sich mit `pytest` abgesichert.
   laufen mit `python main.py`“ verlangt kein Theming). Wird nachgeholt,
   bevor M1 als Ganzes abgeschlossen gilt.
 
-### 8. Zweites/drittes Abnahmeprojekt
+### 8. Zweites/drittes Abnahmeprojekt — erledigt
 
 - [x] Würfelspiel mit Highscore (`referenz/lazarus/q_Würfelspiel` als
   Vorlage) → `beispielprojekte/Wuerfelspiel/`; alle benötigten
@@ -243,13 +244,26 @@ zerlegt, jeder Schritt für sich mit `pytest` abgesichert.
   4 Tests über echte Qt-Klicks, Zufall kontrolliert über
   `monkeypatch("random.randint", ...)`, Namensabfrage beim Verlieren über
   `QTimer.singleShot` bedient wie in `tests/test_dialogs.py`
-- [ ] StringGrid-Übung (`referenz/lazarus/g_StringGrid` als Vorlage) läuft
-  mit `python main.py`
+- [x] StringGrid-Übung (`referenz/lazarus/g_StringGrid` als Vorlage) →
+  `beispielprojekte/StringGridUebung/`; dafür `Form.close()` ergänzt
+  (entspricht `Close` aus der LCL, für `b_schliessen`). Abnahme:
+  `tests/test_beispiel_stringgriduebung.py`, 5 Tests, inkl. der
+  originalgetreu nachgebildeten Eigenart des Originals (zu lange Eingabe
+  wird abgelehnt, aber `row_count` wächst trotzdem schon vorher, sodass
+  die nächste gültige Eingabe die freigebliebene Zeile überschreibt)
 
-### 9. Dokumentation nachziehen
+**M1-Abnahmekriterium aus dem Konzept damit funktional erfüllt:** Ampel,
+Würfelspiel und StringGrid-Übung laufen (headless nachgewiesen über echte
+Qt-Interaktionen, siehe Begründung in `tests/test_beispiel_ampel.py`).
+Offen bis M1 vollständig abgeschlossen ist: Schritt 7 (Theme) nachholen,
+Schritt 9 (Dokumentation) ist durchgehend parallel mitgelaufen statt erst
+am Ende.
 
-- [ ] `docs/komponenten.md` für jede in M1 entstandene Komponente ausfüllen
-  (Pflicht laut `AGENTS.md`, Definition of Done)
+### 9. Dokumentation nachziehen — läuft durchgehend mit
+
+- [x] `docs/komponenten.md` wird nach jeder Komponente sofort ausgefüllt
+  statt erst am Ende (Pflicht laut `AGENTS.md`, Definition of Done) –
+  aktueller Stand: alle bisher gebauten Komponenten dokumentiert
 
 ## M2 – IDE-Grundgerüst (Stichworte aus Abschnitt 20, Details folgen in `docs/arbeitspakete/M2.md`)
 

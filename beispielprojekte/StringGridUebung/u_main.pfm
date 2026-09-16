@@ -1,0 +1,52 @@
+{
+  "format": "pfm/1",
+  "class": "Form1",
+  "type": "Form",
+  "properties": { "caption": "StringGrid-Übung", "width": 738, "height": 753, "theme": "system" },
+  "events": { "on_create": "form_create" },
+  "children": [
+    {
+      "name": "sg_tabelle", "type": "StringGrid",
+      "properties": { "left": 256, "top": 56, "width": 344, "height": 492, "row_count": 2, "col_count": 4 }
+    },
+    {
+      "name": "l_name", "type": "Label",
+      "properties": { "caption": "Name:", "left": 57, "top": 72, "width": 35, "height": 15 }
+    },
+    {
+      "name": "l_vorname", "type": "Label",
+      "properties": { "caption": "Vorname:", "left": 42, "top": 98, "width": 50, "height": 15 }
+    },
+    {
+      "name": "l_geburtsdatum", "type": "Label",
+      "properties": { "caption": "Geburtsdatum:", "left": 13, "top": 128, "width": 79, "height": 15 }
+    },
+    {
+      "name": "b_uebernehmen", "type": "Button",
+      "properties": { "caption": "Daten in Tabelle übernehmen", "left": 24, "top": 176, "width": 187, "height": 25 },
+      "events": { "on_click": "b_uebernehmen_click" }
+    },
+    {
+      "name": "b_zuruecksetzen", "type": "Button",
+      "properties": { "caption": "Tabelle zurücksetzen", "left": 24, "top": 208, "width": 185, "height": 25 },
+      "events": { "on_click": "b_zuruecksetzen_click" }
+    },
+    {
+      "name": "e_name", "type": "Edit",
+      "properties": { "left": 96, "top": 67, "width": 120, "height": 23 }
+    },
+    {
+      "name": "e_vorname", "type": "Edit",
+      "properties": { "left": 96, "top": 98, "width": 120, "height": 23 }
+    },
+    {
+      "name": "e_datum", "type": "Edit",
+      "properties": { "left": 96, "top": 128, "width": 120, "height": 23 }
+    },
+    {
+      "name": "b_schliessen", "type": "Button",
+      "properties": { "caption": "Tabelle schließen", "left": 24, "top": 264, "width": 184, "height": 25 },
+      "events": { "on_click": "b_schliessen_click" }
+    }
+  ]
+}
