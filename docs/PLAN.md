@@ -16,9 +16,9 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M3, Schritt 4: Designer-Canvas – Platzieren, Verschieben, Größe
-ändern** – siehe [`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md). M1
-und M2 sind funktional abgeschlossen; M2-„Zurückgestellt“-Punkte
+→ **M3, Schritt 5: Undo/Redo (Command-Pattern)** – siehe
+[`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md). M1 und M2 sind
+funktional abgeschlossen; M2-„Zurückgestellt“-Punkte
 (`docs/arbeitspakete/M2.md`) werden bei Bedarf zwischen M3-Schritten
 nachgeholt.
 
@@ -27,8 +27,11 @@ nachgeholt.
 auf `u_main` im Explorer öffnet den echten Formular-Designer als Tab;
 Klick auf ein Ampellicht/einen Button wählt es aus und füllt den
 Objektinspektor rechts; Eigenschaften dort ändern wirkt sofort auf die
-Anzeige. „Start → Starten ohne Debugger“ startet das Programm zusätzlich
-als eigenes Fenster.
+Anzeige. Im Designer selbst: Ziehen mit der Maus verschiebt, Pfeiltasten/
+Alt+Pfeil/Umschalt+Pfeil bewegen bzw. skalieren rasterweise, Entf löscht,
+Strg+D dupliziert – jede Änderung wird automatisch in die `.pfm`
+zurückgeschrieben. „Start → Starten ohne Debugger“ startet das Programm
+zusätzlich als eigenes Fenster.
 
 ## Referenzmaterial
 

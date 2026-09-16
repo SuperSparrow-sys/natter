@@ -285,7 +285,7 @@ class HauptFenster(QMainWindow):
             return formular
 
         formular = formular_fuer_designer_laden(pfad)
-        canvas = DesignerCanvas(formular)
+        canvas = DesignerCanvas(formular, pfm_pfad=pfad)
         canvas.auswahl_beobachten(self._designer_auswahl_geaendert)
         self._offene_canvases.append(canvas)
         self._pfad_zu_formular[schluessel] = formular
