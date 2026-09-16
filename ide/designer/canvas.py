@@ -174,6 +174,7 @@ class DesignerCanvas(QObject):
         self.kommandos = Kommandostapel()
         self.ausgewaehlte_komponente: Any = None
         self._auswahl_beobachter: list[Callable[[Any], None]] = []
+        self._aenderung_beobachter: list[Callable[[], None]] = []
         self._widget_zu_komponente: dict[QWidget, Any] = {}
         self._ziehen_komponente: Any = None
         self._ziehen_start: QPoint | None = None
@@ -434,6 +435,13 @@ class DesignerCanvas(QObject):
     def auswahl_beobachten(self, beobachter: Callable[[Any], None]) -> None:
         self._auswahl_beobachter.append(beobachter)
 
+    def aenderung_beobachten(self, beobachter: Callable[[], None]) -> None:
+        """Registriert `beobachter`, aufgerufen nach jeder in die `.pfm`
+        zurückgeschriebenen Änderung (Abschnitt 14: „automatisch beim
+        Speichern eines Formulars“ – hier gibt es keine eigene
+        Speichern-Aktion, jede Änderung schreibt sofort zurück)."""
+        self._aenderung_beobachter.append(beobachter)
+
     def _auswaehlen(self, komponente: Any) -> None:
         if self.ausgewaehlte_komponente is not None:
             self._markierung_setzen(self.ausgewaehlte_komponente._qwidget, False)
@@ -594,3 +602,5 @@ class DesignerCanvas(QObject):
         if self.pfm_pfad is not None:
             formular_als_pfm_speichern(self.formular, self.pfm_pfad)
         self._benachrichtigen(komponente)
+        for beobachter in self._aenderung_beobachter:
+            beobachter()

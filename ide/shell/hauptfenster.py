@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QDockWidget,
     QFileDialog,
     QListWidget,
+    QListWidgetItem,
     QMainWindow,
     QPlainTextEdit,
     QTabWidget,
@@ -32,7 +33,9 @@ from ide.assets import symbol
 from ide.database import DatenbankPanel
 from ide.debugger import DebugSitzung, fehlermeldung_aus_dap_erzeugen
 from ide.designer import DesignerCanvas, formular_fuer_designer_laden
+from ide.designer.pfm_schreiben import pfm_aus_formular
 from ide.inspector import Objektinspektor
+from ide.lint import pruefen
 from ide.palette import Komponentenpalette
 from ide.palette.palette import TYP_ROLLE
 from ide.project import Projekt
@@ -74,6 +77,12 @@ _STATUS_FARBE = {
 # Editor-Tabs trägt (nicht zu verwechseln mit PFAD_ROLLE, das ist die
 # Qt.ItemDataRole für Explorer-Einträge).
 _PFAD_EIGENSCHAFT = "pfad"
+
+# Qt.ItemDataRole für Einträge in meldungen_liste: trägt (canvas,
+# komponenten_name) für Design-Prüfer-Befunde, damit ein Klick die
+# betroffene Komponente im Designer markiert (Abschnitt 14). Ruff-Funde
+# (reiner Text über addItems()) tragen hier nichts.
+_MELDUNG_ROLLE = Qt.ItemDataRole.UserRole
 
 # Vorlage „Test-Unit“ im Neu-Dialog (Abschnitt 8.6): unittest, reines
 # Python wie bei jeder anderen Unit.
@@ -143,8 +152,11 @@ class HauptFenster(QMainWindow):
         self._aktueller_canvas: DesignerCanvas | None = None
         self.editor_tabs.currentChanged.connect(self._bei_tab_wechsel)
 
+        self._design_pruefer_abgeschaltete_regeln: set[str] = set()
+
         self.panels = QTabWidget()
         self.meldungen_liste = QListWidget()
+        self.meldungen_liste.itemClicked.connect(self._bei_meldung_geklickt)
         self.variablen_baum = QTreeWidget()
         self.variablen_baum.setHeaderLabels(["Eigenschaft", "Wert"])
         self.aufrufstapel_liste = QListWidget()
@@ -241,6 +253,24 @@ class HauptFenster(QMainWindow):
                 callback=self.datenbank_panel._csv_importieren_dialog,
             )
         )
+        self.aktionen.registrieren(
+            Aktion(
+                "werkzeuge.design_pruefen",
+                "Design prüfen",
+                menue="Werkzeuge",
+                callback=self._design_pruefen_aktion,
+            )
+        )
+        self._design_pruefung_automatisch_aktion = self.aktionen.registrieren(
+            Aktion(
+                "werkzeuge.design_pruefung_automatisch",
+                "Design-Prüfung beim Speichern automatisch",
+                menue="Werkzeuge",
+                callback=lambda: None,
+            )
+        )
+        self._design_pruefung_automatisch_aktion.qaction.setCheckable(True)
+        self._design_pruefung_automatisch_aktion.qaction.setChecked(True)
         self.aktionen.registrieren(
             Aktion(
                 "datei.unit_oeffnen",
@@ -577,6 +607,7 @@ class HauptFenster(QMainWindow):
         formular = formular_fuer_designer_laden(pfad)
         canvas = DesignerCanvas(formular, pfm_pfad=pfad)
         canvas.auswahl_beobachten(self._designer_auswahl_geaendert)
+        canvas.aenderung_beobachten(lambda: self._design_pruefen_automatisch(canvas))
         self._offene_canvases.append(canvas)
         self._pfad_zu_formular[schluessel] = formular
         self._widget_zu_canvas[formular._qwidget] = canvas
@@ -605,6 +636,48 @@ class HauptFenster(QMainWindow):
     def _designer_auswahl_geaendert(self, komponente) -> None:
         self.objektinspektor.eigenschaften_tabelle.komponente_anzeigen(komponente)
         self.objektinspektor.ereignisse_tabelle.anzeigen(komponente, self.objektinspektor.formular)
+
+    # -- Design-Prüfer (Abschnitt 14) ----------------------------------------
+
+    def _design_pruefen_aktion(self) -> None:
+        """„Werkzeuge → Design prüfen“: prüft das im Designer aktive
+        Formular (nicht das ganze Projekt auf einmal)."""
+        if self._aktueller_canvas is None:
+            self.statusBar().showMessage("Kein Formular-Designer geöffnet.")
+            return
+        self._design_pruefen(self._aktueller_canvas)
+
+    def _design_pruefen_automatisch(self, canvas: DesignerCanvas) -> None:
+        if self._design_pruefung_automatisch_aktion.qaction.isChecked():
+            self._design_pruefen(canvas)
+
+    def _design_pruefen(self, canvas: DesignerCanvas) -> None:
+        pfm = pfm_aus_formular(canvas.formular)
+        befunde = pruefen(pfm, abgeschaltete_regeln=self._design_pruefer_abgeschaltete_regeln)
+        self.meldungen_liste.clear()
+        for befund in befunde:
+            eintrag = QListWidgetItem(f"[{befund.kategorie}] {befund.meldung}")
+            if befund.komponente is not None:
+                eintrag.setData(_MELDUNG_ROLLE, (canvas, befund.komponente))
+            self.meldungen_liste.addItem(eintrag)
+        if befunde:
+            self.panels.setCurrentWidget(self.meldungen_liste)
+        self.statusBar().showMessage(f"Design-Prüfung: {len(befunde)} Fund(e).")
+
+    def _bei_meldung_geklickt(self, eintrag: QListWidgetItem) -> None:
+        """Klick auf einen Design-Prüfer-Befund markiert die betroffene
+        Komponente im Designer (Abschnitt 14). Ruff-Funde tragen keine
+        Daten unter `_MELDUNG_ROLLE` und werden hier ignoriert."""
+        daten = eintrag.data(_MELDUNG_ROLLE)
+        if daten is None:
+            return
+        canvas, komponenten_name = daten
+        komponente = getattr(canvas.formular, komponenten_name, None)
+        if komponente is not None:
+            index = self.editor_tabs.indexOf(canvas.formular._qwidget)
+            if index != -1:
+                self.editor_tabs.setCurrentIndex(index)
+            canvas._auswaehlen(komponente)
 
     def _bei_explorer_doppelklick(self, eintrag, spalte: int) -> None:
         pfad = eintrag.data(0, PFAD_ROLLE)
