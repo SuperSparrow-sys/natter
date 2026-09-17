@@ -105,3 +105,24 @@ def test_objektinspektor_haengt_im_dock() -> None:
     fenster = HauptFenster()
     assert isinstance(fenster.objektinspektor, Objektinspektor)
     assert fenster.inspektor_dock.widget() is fenster.objektinspektor
+
+
+def test_editor_behaelt_seine_monospace_schrift_unter_dem_ide_weiten_stylesheet(
+    tmp_path,
+) -> None:
+    """Real gefunden (Nutzer-Feedback September 2026): ein bloßes
+    `QuelltextEditor()` ohne Eltern-Stylesheet zeigte die richtige
+    Schrift, aber sobald der Editor als Tab in der echten `HauptFenster`
+    hängt, gewann die allgemeine `QWidget { font-family: ... }`-Regel
+    aus dem IDE-weiten Stylesheet gegen `setFont()` - nicht nur optisch,
+    `editor.font().family()`/`.pointSize()` waren selbst falsch
+    (Segoe UI Variable, 10pt statt Consolas, 11pt)."""
+    fenster = HauptFenster()
+    pfad = tmp_path / "u_main.py"
+    pfad.write_text("x = 1\n", encoding="utf-8")
+
+    editor = fenster.datei_oeffnen(pfad)
+
+    assert editor.font().family() == "Consolas"
+    assert editor.font().pointSize() == 11
+    assert editor.font().fixedPitch() is True

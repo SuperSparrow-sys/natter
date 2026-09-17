@@ -20,6 +20,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from ide.shell.quelltexteditor import _CODE_SCHRIFTARTEN, _CODE_SCHRIFTGROESSE
 from pcl.theme import _tokens_laden, theme_aufloesen
 
 _TAB_SCHLIESSEN_SYMBOL = (
@@ -64,6 +65,17 @@ QWidget {{
     color: {farben["text"]};
     font-family: "{schrift["family"]}", "{schrift["family_fallback"]}";
     font-size: {basis_pt}pt;
+}}
+
+/* Real gefunden (Nutzer-Feedback September 2026): die obige generische
+   QWidget-Regel gewinnt in Qt gegen `QuelltextEditor.setFont(...)` -
+   `editor.font().family()` lieferte tatsächlich "Segoe UI Variable"
+   statt der angeforderten Monospace-Schrift, nicht nur ein optisches
+   Problem. Eine konkretere, auf den Klassennamen zielende Regel
+   gewinnt gegen die allgemeine QWidget-Regel und setzt sich durch. */
+QuelltextEditor {{
+    font-family: {", ".join(f'"{f}"' for f in _CODE_SCHRIFTARTEN)};
+    font-size: {_CODE_SCHRIFTGROESSE}pt;
 }}
 
 QMenuBar {{
