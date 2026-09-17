@@ -359,16 +359,39 @@ class HauptFenster(QMainWindow):
                 callback=self._aktuelle_datei_speichern,
             )
         )
-        for aktion_id, name, tastenkuerzel, callback in (
-            ("bearbeiten.rueckgaengig", "Rückgängig", "Ctrl+Z", self._bearbeiten_rueckgaengig),
-            ("bearbeiten.wiederholen", "Wiederholen", "Ctrl+Y", self._bearbeiten_wiederholen),
-            ("bearbeiten.ausschneiden", "Ausschneiden", "Ctrl+X", self._bearbeiten_ausschneiden),
-            ("bearbeiten.kopieren", "Kopieren", "Ctrl+C", self._bearbeiten_kopieren),
-            ("bearbeiten.einfuegen", "Einfügen", "Ctrl+V", self._bearbeiten_einfuegen),
+        # Rückgängig/Wiederholen tragen als einzige Bearbeiten-Aktionen ein
+        # Symbol und erscheinen damit auch in der Werkzeugleiste (Abschnitt
+        # 7.3, Nutzer-Feedback September 2026: „Ich sehe die Buttons nicht
+        # zum rückgängig machen“ - sie gab es bis dahin nur im Menü).
+        for aktion_id, name, tastenkuerzel, symbol_name, callback in (
+            (
+                "bearbeiten.rueckgaengig",
+                "Rückgängig",
+                "Ctrl+Z",
+                "rueckgaengig",
+                self._bearbeiten_rueckgaengig,
+            ),
+            (
+                "bearbeiten.wiederholen",
+                "Wiederholen",
+                "Ctrl+Y",
+                "wiederholen",
+                self._bearbeiten_wiederholen,
+            ),
+            (
+                "bearbeiten.ausschneiden",
+                "Ausschneiden",
+                "Ctrl+X",
+                "",
+                self._bearbeiten_ausschneiden,
+            ),
+            ("bearbeiten.kopieren", "Kopieren", "Ctrl+C", "", self._bearbeiten_kopieren),
+            ("bearbeiten.einfuegen", "Einfügen", "Ctrl+V", "", self._bearbeiten_einfuegen),
             (
                 "bearbeiten.alles_auswaehlen",
                 "Alles auswählen",
                 "Ctrl+A",
+                "",
                 self._bearbeiten_alles_auswaehlen,
             ),
         ):
@@ -378,6 +401,8 @@ class HauptFenster(QMainWindow):
                     name,
                     menue="Bearbeiten",
                     tastenkuerzel=tastenkuerzel,
+                    symbol=symbol_name,
+                    trennlinie_davor=aktion_id == "bearbeiten.rueckgaengig",
                     callback=callback,
                 )
             )
@@ -464,6 +489,7 @@ class HauptFenster(QMainWindow):
                 "Projekt öffnen …",
                 menue="Projekt",
                 symbol="projekt_oeffnen",
+                trennlinie_davor=True,
                 callback=self._projekt_oeffnen_dialog,
             )
         )
