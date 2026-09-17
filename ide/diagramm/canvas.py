@@ -7,8 +7,10 @@ einem einzigen Widget: Diagrammformen sind keine bedienbaren
 Steuerelemente, es können sehr viele werden, und Verbindungen (Schritt
 4) lassen sich ohnehin nur frei zeichnen.
 
-Stand M9, Schritt 3: anzeigen, platzieren, auswählen, verschieben,
-Größe ändern, löschen, duplizieren – alles über den Kommando-Stapel,
+Stand M9, Schritt 4: anzeigen, platzieren, auswählen, verschieben,
+Größe ändern, löschen, duplizieren und verbinden (sieben UML-
+Verbindungsarten, Enden folgen beim Verschieben automatisch, weil sie
+beim Zeichnen aus den Formen berechnet werden) – alles über den Kommando-Stapel,
 also unbegrenzt rückgängig machbar (Abschnitt 13.3). Beim Ziehen wird
 am Raster **und** an Kanten/Mitten anderer Formen eingerastet, mit
 Hilfslinien als Rückmeldung.
@@ -23,10 +25,23 @@ from PySide6.QtGui import QColor, QKeyEvent, QMouseEvent, QPainter, QPaintEvent,
 from PySide6.QtWidgets import QWidget
 
 from ide.diagramm.datei import Diagramm
-from ide.diagramm.formen import MINDESTGROESSE, form_art
-from ide.diagramm.kommandos import EinfuegenKommando, LoeschenKommando, WerteKommando
+from ide.diagramm.formen import MINDESTGROESSE, form_art, verbindungs_art
+from ide.diagramm.kommandos import (
+    EinfuegenKommando,
+    LoeschenKommando,
+    SammelKommando,
+    WerteKommando,
+)
 from ide.diagramm.stil import stil as stil_zu_namen
-from ide.diagramm.zeichnen import anfasser_punkte, form_rechteck, form_zeichnen, mindesthoehe
+from ide.diagramm.zeichnen import (
+    abstand_zur_verbindung,
+    anfasser_punkte,
+    form_rechteck,
+    form_zeichnen,
+    mindesthoehe,
+    verbindung_zeichnen,
+    verbindungsbeschriftungen_zeichnen,
+)
 from ide.kommando import Kommandostapel
 
 RASTER = 8
@@ -73,7 +88,10 @@ class DiagrammCanvas(QWidget):
         self.ausgewaehlte_form: dict[str, Any] | None = None
         self.raster_sichtbar = True
 
+        self.ausgewaehlte_verbindung: dict[str, Any] | None = None
         self._platzierungs_kind: str | None = None
+        self._verbindungs_kind: str | None = None
+        self._verbindungs_quelle: dict[str, Any] | None = None
         self._zieh_form: dict[str, Any] | None = None
         self._zieh_start: QPoint | None = None
         self._zieh_startwerte: dict[str, Any] | None = None
@@ -90,12 +108,39 @@ class DiagrammCanvas(QWidget):
     def formen(self) -> list[dict[str, Any]]:
         return self.diagramm.daten.setdefault("shapes", [])
 
+    @property
+    def verbindungen(self) -> list[dict[str, Any]]:
+        return self.diagramm.daten.setdefault("connectors", [])
+
     def _neue_id(self) -> str:
         vorhandene = {form.get("id") for form in self.formen}
         nummer = 1
         while f"s{nummer}" in vorhandene:
             nummer += 1
         return f"s{nummer}"
+
+    def _neue_verbindungs_id(self) -> str:
+        vorhandene = {verbindung.get("id") for verbindung in self.verbindungen}
+        nummer = 1
+        while f"c{nummer}" in vorhandene:
+            nummer += 1
+        return f"c{nummer}"
+
+    def form_mit_id(self, kennung: str) -> dict[str, Any] | None:
+        for form in self.formen:
+            if form.get("id") == kennung:
+                return form
+        return None
+
+    def verbindungen_von(self, form: dict[str, Any]) -> list[dict[str, Any]]:
+        """Alle Verbindungen, die an `form` hängen – beim Löschen einer
+        Form müssen sie mit weg, sonst blieben Verweise ins Leere."""
+        kennung = form.get("id")
+        return [
+            verbindung
+            for verbindung in self.verbindungen
+            if kennung in (verbindung.get("from"), verbindung.get("to"))
+        ]
 
     def _nach_aenderung(self, auswahl: dict[str, Any] | None = None) -> None:
         if auswahl is not None:
@@ -110,6 +155,9 @@ class DiagrammCanvas(QWidget):
         (Abschnitt 13.3) – gleiches Muster wie die Komponentenpalette im
         Formular-Designer. `None` bricht ab."""
         self._platzierungs_kind = kind
+        if kind is not None:
+            self._verbindungs_kind = None
+            self._verbindungs_quelle = None
         self.setCursor(Qt.CursorShape.CrossCursor if kind else Qt.CursorShape.ArrowCursor)
 
     def form_platzieren(self, kind: str, x: float, y: float) -> dict[str, Any]:
@@ -133,6 +181,62 @@ class DiagrammCanvas(QWidget):
         self.kommandos.ausfuehren(EinfuegenKommando(self.formen, form))
         self._nach_aenderung(form)
         return form
+
+    # -- Verbinden ------------------------------------------------------
+
+    def verbindungsmodus_setzen(self, kind: str | None) -> None:
+        """„Verbindung aus der Palette wählen, von Form zu Form ziehen“
+        (Abschnitt 13.3) – hier als zwei Klicks umgesetzt: erst Quelle,
+        dann Ziel, passend zum Platzieren von Formen."""
+        self._verbindungs_kind = kind
+        self._verbindungs_quelle = None
+        if kind is not None:
+            self._platzierungs_kind = None
+        self.setCursor(Qt.CursorShape.CrossCursor if kind else Qt.CursorShape.ArrowCursor)
+
+    def verbindung_erstellen(
+        self, kind: str, quelle: dict[str, Any], ziel: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        """Legt eine Verbindung zwischen zwei Formen an. Eine Form mit
+        sich selbst zu verbinden ergibt hier keine sinnvolle
+        Darstellung und wird abgelehnt."""
+        verbindungs_art(kind)  # prüft die Art, wirft bei Unbekanntem
+        if quelle is ziel:
+            return None
+
+        verbindung: dict[str, Any] = {
+            "id": self._neue_verbindungs_id(),
+            "kind": kind,
+            "from": quelle["id"],
+            "to": ziel["id"],
+        }
+        self.kommandos.ausfuehren(EinfuegenKommando(self.verbindungen, verbindung))
+        self._verbindung_auswaehlen(verbindung)
+        self.geaendert.emit()
+        self.update()
+        return verbindung
+
+    def verbindung_bei(self, x: float, y: float) -> dict[str, Any] | None:
+        """Verbindung nahe (x, y) – Linien sind dünn, deshalb mit einem
+        Toleranzabstand statt exaktem Treffer."""
+        from PySide6.QtCore import QPointF
+
+        punkt = QPointF(x, y)
+        for verbindung in reversed(self.verbindungen):
+            quelle = self.form_mit_id(verbindung.get("from"))
+            ziel = self.form_mit_id(verbindung.get("to"))
+            if quelle is None or ziel is None:
+                continue
+            if abstand_zur_verbindung(punkt, verbindung, quelle, ziel) <= ANFASSER_RADIUS:
+                return verbindung
+        return None
+
+    def _verbindung_auswaehlen(self, verbindung: dict[str, Any] | None) -> None:
+        if verbindung is not None and self.ausgewaehlte_form is not None:
+            self.ausgewaehlte_form = None
+            self.auswahl_geaendert.emit(None)
+        self.ausgewaehlte_verbindung = verbindung
+        self.update()
 
     def hoehe_anpassen(self, form: dict[str, Any]) -> None:
         """Vergrößert `form`, bis ihr Text vollständig hineinpasst
@@ -172,10 +276,27 @@ class DiagrammCanvas(QWidget):
         )
 
     def loeschen(self, form: dict[str, Any] | None = None) -> None:
+        """Löscht die angegebene bzw. ausgewählte Form – zusammen mit
+        allen Verbindungen, die an ihr hängen, als **ein** Undo-Schritt.
+        Ohne ausgewählte Form wird eine ausgewählte Verbindung
+        gelöscht."""
         ziel = form or self.ausgewaehlte_form
         if ziel is None:
+            if self.ausgewaehlte_verbindung is not None:
+                self.kommandos.ausfuehren(
+                    LoeschenKommando(self.verbindungen, self.ausgewaehlte_verbindung)
+                )
+                self._verbindung_auswaehlen(None)
+                self._nach_aenderung()
             return
-        self.kommandos.ausfuehren(LoeschenKommando(self.formen, ziel))
+
+        kommandos = [
+            LoeschenKommando(self.verbindungen, verbindung)
+            for verbindung in self.verbindungen_von(ziel)
+        ]
+        kommandos.append(LoeschenKommando(self.formen, ziel))
+        self.kommandos.ausfuehren(SammelKommando(kommandos))
+
         if self.ausgewaehlte_form is ziel:
             self.ausgewaehlte_form = None
             self.auswahl_geaendert.emit(None)
@@ -239,6 +360,9 @@ class DiagrammCanvas(QWidget):
         return None
 
     def _auswaehlen(self, form: dict[str, Any] | None) -> None:
+        if form is not None:
+            # Form und Verbindung schließen sich als Auswahl gegenseitig aus
+            self.ausgewaehlte_verbindung = None
         if form is self.ausgewaehlte_form:
             return
         self.ausgewaehlte_form = form
@@ -246,7 +370,9 @@ class DiagrammCanvas(QWidget):
         self.update()
 
     def auswahl_aufheben(self) -> None:
+        self.ausgewaehlte_verbindung = None
         self._auswaehlen(None)
+        self.update()
 
     # -- Einrasten ------------------------------------------------------
 
@@ -293,6 +419,10 @@ class DiagrammCanvas(QWidget):
             self.form_platzieren(kind, punkt.x(), punkt.y())
             return
 
+        if self._verbindungs_kind is not None:
+            self._verbindungsklick(punkt)
+            return
+
         anfasser = self.anfasser_bei(punkt.x(), punkt.y())
         if anfasser is not None:
             self._anfasser = anfasser
@@ -304,11 +434,38 @@ class DiagrammCanvas(QWidget):
             return
 
         getroffen = self.form_bei(punkt.x(), punkt.y())
+        if getroffen is None:
+            # Linien sind dünn und liegen zwischen Formen - erst wenn keine
+            # Form getroffen wurde, eine Verbindung in der Nähe suchen.
+            verbindung = self.verbindung_bei(punkt.x(), punkt.y())
+            if verbindung is not None:
+                self._verbindung_auswaehlen(verbindung)
+                return
         self._auswaehlen(getroffen)
+        if getroffen is None:
+            self.auswahl_aufheben()
         if getroffen is not None:
             self._zieh_form = getroffen
             self._zieh_start = punkt
             self._zieh_startwerte = {name: getroffen[name] for name in ("x", "y", "w", "h")}
+
+    def _verbindungsklick(self, punkt: QPoint) -> None:
+        """Erster Klick wählt die Quelle, zweiter das Ziel. Ein Klick ins
+        Leere bricht ab, statt eine halbe Verbindung stehen zu lassen."""
+        getroffen = self.form_bei(punkt.x(), punkt.y())
+        if getroffen is None:
+            self.verbindungsmodus_setzen(None)
+            self.update()
+            return
+        if self._verbindungs_quelle is None:
+            self._verbindungs_quelle = getroffen
+            self._auswaehlen(getroffen)
+            return
+
+        kind = self._verbindungs_kind
+        quelle = self._verbindungs_quelle
+        self.verbindungsmodus_setzen(None)
+        self.verbindung_erstellen(kind, quelle, getroffen)
 
     def mouseMoveEvent(self, ereignis: QMouseEvent) -> None:
         punkt = ereignis.position().toPoint()
@@ -409,6 +566,7 @@ class DiagrammCanvas(QWidget):
             return True
         if taste == Qt.Key.Key_Escape:
             self.platzierungsmodus_setzen(None)
+            self.verbindungsmodus_setzen(None)
             self.auswahl_aufheben()
             return True
 
@@ -439,8 +597,25 @@ class DiagrammCanvas(QWidget):
         if self.raster_sichtbar:
             self._raster_zeichnen(maler, stil.raster)
 
+        # Verbindungen zuerst: sie enden am Formrand, Formen liegen darüber
+        for verbindung in self.verbindungen:
+            quelle = self.form_mit_id(verbindung.get("from"))
+            ziel = self.form_mit_id(verbindung.get("to"))
+            if quelle is None or ziel is None:
+                continue  # verwaiste Verbindung aus einer von Hand bearbeiteten Datei
+            verbindung_zeichnen(
+                maler, verbindung, quelle, ziel, stil,
+                ausgewaehlt=verbindung is self.ausgewaehlte_verbindung,
+            )
+
         for form in self.formen:
             form_zeichnen(maler, form, stil, ausgewaehlt=form is self.ausgewaehlte_form)
+
+        for verbindung in self.verbindungen:
+            quelle = self.form_mit_id(verbindung.get("from"))
+            ziel = self.form_mit_id(verbindung.get("to"))
+            if quelle is not None and ziel is not None:
+                verbindungsbeschriftungen_zeichnen(maler, verbindung, quelle, ziel, stil)
 
         self._hilfslinien_zeichnen(maler, stil.akzent)
 

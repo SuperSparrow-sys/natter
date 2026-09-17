@@ -71,3 +71,20 @@ class LoeschenKommando:
 
     def rueckgaengig(self) -> None:
         self.formen.insert(self._index, self.form)
+
+
+class SammelKommando:
+    """Mehrere Kommandos als ein einziger Undo-Schritt – z. B. eine Form
+    zusammen mit ihren Verbindungen löschen, die sonst als Verweise ins
+    Leere zurückblieben."""
+
+    def __init__(self, kommandos: list[Any]) -> None:
+        self.kommandos = list(kommandos)
+
+    def tun(self) -> None:
+        for kommando in self.kommandos:
+            kommando.tun()
+
+    def rueckgaengig(self) -> None:
+        for kommando in reversed(self.kommandos):
+            kommando.rueckgaengig()

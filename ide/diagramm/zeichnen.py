@@ -13,9 +13,10 @@ kursiv.
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
-from PySide6.QtCore import QRectF, Qt
+from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QFontMetricsF, QPainter, QPainterPath, QPen
 
 from ide.diagramm.stil import Stil
@@ -239,6 +240,216 @@ def _auswahl_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
     maler.setBrush(QBrush(QColor(stil.akzent)))
     for x, y in anfasser_punkte(shape):
         maler.drawEllipse(QRectF(x - 3.5, y - 3.5, 7, 7))
+
+
+def _rand_punkt(rechteck: QRectF, richtung_auf: QPointF) -> QPointF:
+    """Schnittpunkt der Linie Mitte→`richtung_auf` mit dem Rand von
+    `rechteck` – damit Verbindungen am Formrand enden statt in der
+    Mitte zu verschwinden."""
+    mitte = rechteck.center()
+    dx = richtung_auf.x() - mitte.x()
+    dy = richtung_auf.y() - mitte.y()
+    if dx == 0 and dy == 0:
+        return mitte
+
+    halbe_breite = rechteck.width() / 2
+    halbe_hoehe = rechteck.height() / 2
+    # Skalierung, bei der die Linie zuerst eine der vier Kanten trifft
+    skalierungen = []
+    if dx != 0:
+        skalierungen.append(halbe_breite / abs(dx))
+    if dy != 0:
+        skalierungen.append(halbe_hoehe / abs(dy))
+    skalierung = min(skalierungen)
+    return QPointF(mitte.x() + dx * skalierung, mitte.y() + dy * skalierung)
+
+
+def verbindungs_punkte(
+    verbindung: dict[str, Any], quelle: dict[str, Any], ziel: dict[str, Any]
+) -> list[QPointF]:
+    """Alle Stützpunkte der Linie: Rand der Quelle, gesetzte
+    Knickpunkte, Rand des Ziels."""
+    zwischen = [QPointF(x, y) for x, y in (verbindung.get("waypoints") or [])]
+    quell_rechteck = form_rechteck(quelle)
+    ziel_rechteck = form_rechteck(ziel)
+
+    erster_blick = zwischen[0] if zwischen else ziel_rechteck.center()
+    letzter_blick = zwischen[-1] if zwischen else quell_rechteck.center()
+    start = _rand_punkt(quell_rechteck, erster_blick)
+    ende = _rand_punkt(ziel_rechteck, letzter_blick)
+    return [start, *zwischen, ende]
+
+
+def verbindung_zeichnen(
+    maler: QPainter,
+    verbindung: dict[str, Any],
+    quelle: dict[str, Any],
+    ziel: dict[str, Any],
+    stil: Stil,
+    ausgewaehlt: bool = False,
+) -> None:
+    """Malt eine Verbindung samt UML-Enden und Beschriftungen
+    (Abschnitt 13.4, 13.6)."""
+    from ide.diagramm.formen import verbindungs_art
+
+    art = verbindungs_art(verbindung["kind"])
+    punkte = verbindungs_punkte(verbindung, quelle, ziel)
+
+    maler.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+    farbe = QColor(stil.akzent if ausgewaehlt else stil.linie)
+    stift = QPen(farbe)
+    stift.setWidthF(LINIENBREITE * (2 if ausgewaehlt else 1))
+    if art.gestrichelt:
+        stift.setStyle(Qt.PenStyle.DashLine)
+    maler.setPen(stift)
+    maler.setBrush(Qt.BrushStyle.NoBrush)
+    for vorher, nachher in zip(punkte, punkte[1:], strict=False):
+        maler.drawLine(vorher, nachher)
+
+    # Enden: durchgezogener Stift, damit Pfeilspitze/Raute auch bei
+    # gestrichelter Linie sauber aussehen.
+    stift.setStyle(Qt.PenStyle.SolidLine)
+    maler.setPen(stift)
+    if art.spitze_am_ziel != "keine":
+        _spitze_zeichnen(maler, punkte[-2], punkte[-1], art.spitze_am_ziel, stil)
+    if art.raute_an_quelle != "keine":
+        _raute_zeichnen(maler, punkte[1], punkte[0], art.raute_an_quelle, stil, farbe)
+
+
+
+def _winkel_punkte(spitze: QPointF, von: QPointF, laenge: float, breite: float):
+    """Zwei Punkte, die mit `spitze` ein gleichschenkliges Dreieck
+    bilden, ausgerichtet entlang `von`→`spitze`."""
+    winkel = math.atan2(spitze.y() - von.y(), spitze.x() - von.x())
+    basis = QPointF(
+        spitze.x() - laenge * math.cos(winkel), spitze.y() - laenge * math.sin(winkel)
+    )
+    normal_x = -math.sin(winkel) * breite / 2
+    normal_y = math.cos(winkel) * breite / 2
+    return (
+        QPointF(basis.x() + normal_x, basis.y() + normal_y),
+        QPointF(basis.x() - normal_x, basis.y() - normal_y),
+    )
+
+
+def _spitze_zeichnen(
+    maler: QPainter, von: QPointF, spitze: QPointF, art: str, stil: Stil
+) -> None:
+    links, rechts = _winkel_punkte(spitze, von, 12, 10)
+    if art == "offen":
+        maler.drawLine(spitze, links)
+        maler.drawLine(spitze, rechts)
+        return
+
+    pfad = QPainterPath()
+    pfad.moveTo(spitze)
+    pfad.lineTo(links)
+    pfad.lineTo(rechts)
+    pfad.closeSubpath()
+    maler.setBrush(QBrush(QColor(stil.hintergrund)))  # leeres Dreieck
+    maler.drawPath(pfad)
+    maler.setBrush(Qt.BrushStyle.NoBrush)
+
+
+def _raute_zeichnen(
+    maler: QPainter, von: QPointF, spitze: QPointF, art: str, stil: Stil, farbe: QColor
+) -> None:
+    links, rechts = _winkel_punkte(spitze, von, 14, 10)
+    winkel = math.atan2(spitze.y() - von.y(), spitze.x() - von.x())
+    hinten = QPointF(
+        spitze.x() - 28 * math.cos(winkel), spitze.y() - 28 * math.sin(winkel)
+    )
+
+    pfad = QPainterPath()
+    pfad.moveTo(spitze)
+    pfad.lineTo(links)
+    pfad.lineTo(hinten)
+    pfad.lineTo(rechts)
+    pfad.closeSubpath()
+    maler.setBrush(QBrush(farbe if art == "gefuellt" else QColor(stil.hintergrund)))
+    maler.drawPath(pfad)
+    maler.setBrush(Qt.BrushStyle.NoBrush)
+
+
+def verbindungsbeschriftungen_zeichnen(
+    maler: QPainter,
+    verbindung: dict[str, Any],
+    quelle: dict[str, Any],
+    ziel: dict[str, Any],
+    stil: Stil,
+) -> None:
+    """Multiplizitäten/Rollen an den Enden (Abschnitt 13.3).
+
+    Eigene Funktion, die **nach** den Formen gezeichnet wird: vorher lag
+    die Beschriftung halb in der Zielform und wurde von ihr überdeckt
+    („0..*“ erschien als „0..“), und an Aggregation/Komposition saß sie
+    unter der Raute (beides im Screenshot aufgefallen). Jetzt steht sie
+    entlang der Linie von der Form weg – hinter einer Raute oder
+    Pfeilspitze weiter entfernt – und seitlich neben der Linie.
+    """
+    from ide.diagramm.formen import verbindungs_art
+
+    labels = verbindung.get("labels") or {}
+    if not any(str(wert).strip() for wert in labels.values()):
+        return
+
+    art = verbindungs_art(verbindung["kind"])
+    punkte = verbindungs_punkte(verbindung, quelle, ziel)
+    schrift = _namensschrift(fett=False)
+    metrik = QFontMetricsF(schrift)
+    maler.setFont(schrift)
+    maler.setPen(QColor(stil.text))
+
+    for schluessel, punkt, nachbar, hat_ende in (
+        ("from", punkte[0], punkte[1], art.raute_an_quelle != "keine"),
+        ("to", punkte[-1], punkte[-2], art.spitze_am_ziel != "keine"),
+    ):
+        text = str(labels.get(schluessel, "")).strip()
+        if not text:
+            continue
+        dx, dy = nachbar.x() - punkt.x(), nachbar.y() - punkt.y()
+        laenge = math.hypot(dx, dy) or 1.0
+        ex, ey = dx / laenge, dy / laenge
+        abstand = (32 if hat_ende else 12) + metrik.horizontalAdvance(text) / 2
+        # senkrecht zur Linie, immer auf dieselbe Seite (oben bzw. links)
+        nx, ny = ey, -ex
+        if ny > 0 or (ny == 0 and nx > 0):
+            nx, ny = -nx, -ny
+        mitte_x = punkt.x() + ex * abstand + nx * (metrik.height() * 0.8)
+        mitte_y = punkt.y() + ey * abstand + ny * (metrik.height() * 0.8)
+        breite = metrik.horizontalAdvance(text) + 4
+        hoehe = metrik.height()
+        maler.drawText(
+            QRectF(mitte_x - breite / 2, mitte_y - hoehe / 2, breite, hoehe),
+            Qt.AlignmentFlag.AlignCenter,
+            text,
+        )
+
+
+def abstand_zur_verbindung(
+    punkt: QPointF, verbindung: dict[str, Any], quelle: dict, ziel: dict
+) -> float:
+    """Kürzester Abstand von `punkt` zur Linie – für das Anklicken einer
+    Verbindung."""
+    punkte = verbindungs_punkte(verbindung, quelle, ziel)
+    kleinster = float("inf")
+    for a, b in zip(punkte, punkte[1:], strict=False):
+        dx, dy = b.x() - a.x(), b.y() - a.y()
+        laenge_quadrat = dx * dx + dy * dy
+        if laenge_quadrat == 0:
+            abstand = math.hypot(punkt.x() - a.x(), punkt.y() - a.y())
+        else:
+            t = max(
+                0.0,
+                min(
+                    1.0,
+                    ((punkt.x() - a.x()) * dx + (punkt.y() - a.y()) * dy) / laenge_quadrat,
+                ),
+            )
+            nah_x, nah_y = a.x() + t * dx, a.y() + t * dy
+            abstand = math.hypot(punkt.x() - nah_x, punkt.y() - nah_y)
+        kleinster = min(kleinster, abstand)
+    return kleinster
 
 
 def anfasser_punkte(shape: dict[str, Any]) -> list[tuple[float, float]]:

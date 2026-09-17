@@ -7,8 +7,9 @@ unabhängig vom Hauptfenster verschoben werden kann (z. B. auf einen
 zweiten Bildschirm) – kein Dock und kein Tab in der IDE
 (Nutzer-Entscheidung September 2026, siehe docs/arbeitspakete/M9.md).
 
-Stand M9, Schritt 2: Formen-Palette links, Zeichenfläche in der Mitte,
-Eigenschaften-Bereich rechts (noch leer, folgt in Schritt 6). Die
+Stand M9, Schritt 4: Formen- und Verbindungs-Palette links,
+Zeichenfläche in der Mitte, Eigenschaften-Bereich rechts (noch leer,
+folgt in Schritt 6). Die
 Menüeinträge aus Abschnitt 13.2 sind vollständig angelegt, aber nur
 die bereits umgesetzten sind aktiv – der Rest ist ausgegraut, statt
 ein Verhalten vorzutäuschen, das noch nicht existiert.
@@ -124,6 +125,9 @@ class DiagrammFenster(QMainWindow):
         if formen_fuer(self.diagramm.typ):
             self.palette = FormenPalette(self.diagramm.typ)
             self.palette.form_gewaehlt.connect(self.zeichenflaeche.platzierungsmodus_setzen)
+            self.palette.verbindung_gewaehlt.connect(
+                self.zeichenflaeche.verbindungsmodus_setzen
+            )
             self.palette_dock = self._dock(
                 "Formen", self.palette, Qt.DockWidgetArea.LeftDockWidgetArea
             )

@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ide.diagramm.formen import FORMEN_JE_TYP, formen_fuer
+from ide.diagramm.formen import FORMEN_JE_TYP, formen_fuer, ist_verbindungsart, verbindungen_fuer
 from ide.diagramm.neu import TYP_BESCHRIFTUNGEN
 
 KIND_ROLLE = Qt.ItemDataRole.UserRole
@@ -28,6 +28,8 @@ KIND_ROLLE = Qt.ItemDataRole.UserRole
 class FormenPalette(QWidget):
     #: `shape["kind"]` der angeklickten Form
     form_gewaehlt = Signal(str)
+    #: `connector["kind"]` der angeklickten Verbindungsart
+    verbindung_gewaehlt = Signal(str)
 
     def __init__(self, diagrammtyp: str) -> None:
         super().__init__()
@@ -57,6 +59,9 @@ class FormenPalette(QWidget):
         eigene = formen_fuer(self.diagrammtyp)
         if eigene:
             self._gruppe_anlegen(TYP_BESCHRIFTUNGEN[self.diagrammtyp], eigene, aufgeklappt=True)
+        verbindungen = verbindungen_fuer(self.diagrammtyp)
+        if verbindungen:
+            self._gruppe_anlegen("Verbindungen", verbindungen, aufgeklappt=True)
 
         for typ, formen in FORMEN_JE_TYP.items():
             if typ != self.diagrammtyp:
@@ -74,7 +79,11 @@ class FormenPalette(QWidget):
 
     def _bei_klick(self, eintrag: QTreeWidgetItem, spalte: int) -> None:
         kind = eintrag.data(0, KIND_ROLLE)
-        if kind:
+        if not kind:
+            return
+        if ist_verbindungsart(kind):
+            self.verbindung_gewaehlt.emit(kind)
+        else:
             self.form_gewaehlt.emit(kind)
 
     def _filtern(self, text: str) -> None:

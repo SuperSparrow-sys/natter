@@ -17,17 +17,53 @@ def _eintraege(palette: FormenPalette) -> dict[str, object]:
     return gefunden
 
 
+def _gruppe(palette: FormenPalette, titel: str) -> list[str]:
+    for i in range(palette.baum.topLevelItemCount()):
+        gruppe = palette.baum.topLevelItem(i)
+        if gruppe.text(0) == titel:
+            return [gruppe.child(j).text(0) for j in range(gruppe.childCount())]
+    raise AssertionError(f"Gruppe {titel!r} fehlt")
+
+
 def test_klassendiagramm_palette_enthaelt_alle_formen_aus_dem_konzept() -> None:
     """Abschnitt 13.4: Klasse, abstrakte Klasse, Interface, Notiz, Paket."""
     palette = FormenPalette("class")
 
-    assert set(_eintraege(palette)) == {
+    assert set(_gruppe(palette, "Klassendiagramm")) == {
         "Klasse",
         "Abstrakte Klasse",
         "Interface",
         "Notiz",
         "Paket",
     }
+
+
+def test_klassendiagramm_palette_enthaelt_alle_verbindungsarten_aus_dem_konzept() -> None:
+    """Abschnitt 13.4: Assoziation, gerichtete Assoziation, Aggregation,
+    Komposition, Vererbung, Abhängigkeit, Realisierung."""
+    palette = FormenPalette("class")
+
+    assert _gruppe(palette, "Verbindungen") == [
+        "Assoziation",
+        "Gerichtete Assoziation",
+        "Aggregation",
+        "Komposition",
+        "Vererbung",
+        "Abhängigkeit",
+        "Realisierung",
+    ]
+
+
+def test_klick_auf_eine_verbindungsart_meldet_verbindung_statt_form() -> None:
+    palette = FormenPalette("class")
+    formen, verbindungen = [], []
+    palette.form_gewaehlt.connect(formen.append)
+    palette.verbindung_gewaehlt.connect(verbindungen.append)
+
+    palette._bei_klick(_eintraege(palette)["Komposition"], 0)
+
+    assert verbindungen == ["composition"]
+    assert formen == []
 
 
 def test_eintraege_haben_tooltip_mit_kurzbeschreibung() -> None:
