@@ -32,7 +32,28 @@ mit einem **echten** PyInstaller-Bau des Ampel-Beispielprojekts geprüft
 gegen alle 19 echten `referenz/lazarus/*.lfm`-Dateien geprüft. Offen
 bleibt nur noch die optionale Authenticode-Signatur/das
 Prüfsummen-Manifest (Abschnitt 17), da beides ein gekauftes Zertifikat
-braucht, das ein Schulprojekt normalerweise nicht hat. M1–M7 sind
+braucht, das ein Schulprojekt normalerweise nicht hat. Seither ein
+weiterer Visueller-Feinschliff-Durchgang (Nutzer-Feedback September
+2026): Designer-Eigenschaften mit Lazarus abgeglichen (Shape
+`pen_color`/`transparent`/Z-Ebene, Label `color`/`transparent`),
+Dunkelmodus-Tabellenzellen (StringGrid, komplett schwarz statt
+themagerecht) behoben, ein kritischer Fund dabei – `u_..._design.py`
+wurde nach der ersten Projekterzeugung nie wieder aktualisiert, jede
+Designer-Änderung wirkte nur optisch im Designer, nie im echten
+generierten Code – behoben; alle Beispielprojekte durchgetestet
+(mehrere abgeschnittene Button-/Label-Beschriftungen durch
+Qt/Lazarus-Schriftmetrik-Unterschiede gefunden und behoben), erstes
+portiertes Lazarus-Referenzprojekt (`GuiKomponenten`) sowie ein neues
+Konsolenrechner-Beispielprojekt (Projekttyp „console“ end-to-end
+geprüft, inkl. echtem Exe-Export und Probestart); Projekt-Explorer
+bereinigt (keine Rahmen/Hover-Schattierungen, kein versehentliches
+Qt-Umbenennen mehr, solider Auswahlbalken statt Baum-Artefakt);
+Editor-Schriftart jetzt mit echter Schriftdatei mitgeliefert
+(Cascadia Code) und über „Ansicht → Schriftart“ wählbar
+(Consolas/Cascadia Code/Courier New), dabei einen echten Fund
+gemacht – das IDE-weite Stylesheet überschrieb `setFont()` auf dem
+Editor komplett, eine spezifischere QSS-Regel behebt es. 721 Tests
+grün. M1–M7 sind
 funktional abgeschlossen (M3-Abnahme bestanden: Ampel vollständig über
 Designer/Inspektor/Palette nachgebaut, siehe
 [`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md), Schritt 8; M4-Abnahme
@@ -209,9 +230,10 @@ Wird während M1 verfeinert (genaue Komponentenliste je Projekt), sobald die
     vertikalen Textliste (Nutzer-Feedback, September 2026, mit
     Lazarus-Screenshot belegt) – Komponentenbaum-Symbole (Objektinspektor)
     noch offen
-  - [ ] Farbiges Theme/Akzentfarben über das ganze Programm konsequent
+  - [x] Farbiges Theme/Akzentfarben über das ganze Programm konsequent
     angewendet (Docks, Reiter, Tabellen) statt nur im Designer-
-    Auswahlrahmen; Referenz `design/tokens.json`
+    Auswahlrahmen; Referenz `design/tokens.json` (`ide_qss_erzeugen`,
+    inkl. Dunkelmodus-Fix für Tabellenzellen)
   - [x] Syntax-Hervorhebung im Quelltexteditor
     (`ide/shell/python_hervorhebung.py`, Nutzer-Feedback September 2026:
     Schriftart/Farben sollen zu VS Code passen) – regelbasiert, an VS
