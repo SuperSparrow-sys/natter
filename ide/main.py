@@ -22,7 +22,26 @@ from pathlib import Path
 import jsonschema
 from PySide6.QtWidgets import QApplication, QMessageBox
 
+from ide.integritaet.start_pruefung import installation_pruefen
 from ide.shell.hauptfenster import HauptFenster
+
+
+def integritaet_bestaetigen(fenster: HauptFenster) -> bool:
+    """Prüft die Installation gegen ihr signiertes Prüfsummen-Manifest
+    (Abschnitt 17.8). Bei Abweichung entscheidet die Nutzerin, ob Natter
+    trotzdem startet; im Entwicklungsbaum passiert nichts."""
+    ergebnis = installation_pruefen()
+    if ergebnis is None or ergebnis.in_ordnung:
+        return True
+
+    antwort = QMessageBox.warning(
+        fenster,
+        "Natter wurde verändert",
+        f"{ergebnis.als_meldung()}\n\nTrotzdem starten?",
+        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        QMessageBox.StandardButton.No,
+    )
+    return antwort == QMessageBox.StandardButton.Yes
 
 
 def erstellen() -> tuple[QApplication, HauptFenster]:
@@ -46,6 +65,8 @@ def _projekt_aus_argv_oeffnen(fenster: HauptFenster, argv: list[str]) -> None:
 
 def main() -> int:
     app, fenster = erstellen()
+    if not integritaet_bestaetigen(fenster):
+        return 1
     _projekt_aus_argv_oeffnen(fenster, sys.argv)
     fenster.show()
     return app.exec()

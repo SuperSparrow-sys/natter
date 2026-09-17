@@ -48,6 +48,7 @@ from ide.env import PaketFehler, installierte_pakete, paket_installieren, paketl
 from ide.export import exe_exportieren
 from ide.import_lfm import LfmParserError, lfm_zu_pfm, parse_lfm
 from ide.inspector import Objektinspektor
+from ide.integritaet.start_pruefung import installation_pruefen
 from ide.lint import pruefen
 from ide.palette import Komponentenpalette
 from ide.palette.palette import TYP_ROLLE
@@ -540,6 +541,14 @@ class HauptFenster(QMainWindow):
                 "Design prüfen",
                 menue="Werkzeuge",
                 callback=self._design_pruefen_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "werkzeuge.umgebung_pruefen",
+                "Umgebung prüfen",
+                menue="Werkzeuge",
+                callback=self._umgebung_pruefen_aktion,
             )
         )
         self._design_pruefung_automatisch_aktion = self.aktionen.registrieren(
@@ -1342,6 +1351,28 @@ class HauptFenster(QMainWindow):
             if index != -1:
                 self.editor_tabs.setCurrentIndex(index)
             canvas._auswaehlen(komponente)
+
+    def _umgebung_pruefen_aktion(self) -> None:
+        """„Werkzeuge → Umgebung prüfen“ (Abschnitt 17.8): vollständige
+        Prüfung aller Programmdateien gegen das signierte
+        Prüfsummen-Manifest – im Unterschied zur schnellen Prüfung der
+        Kerndateien bei jedem Start. Jede betroffene Datei erscheint
+        einzeln im Panel „Meldungen“."""
+        ergebnis = installation_pruefen(vollstaendig=True)
+        if ergebnis is None:
+            self.statusBar().showMessage(
+                "Keine Prüfung möglich: Natter läuft nicht aus einer gebauten Installation."
+            )
+            return
+        if ergebnis.in_ordnung:
+            self.statusBar().showMessage("Umgebung geprüft: alle Programmdateien unverändert.")
+            return
+
+        self.meldungen_liste.clear()
+        for datei in ergebnis.betroffene_dateien:
+            self.meldungen_liste.addItem(f"[Umgebung] {datei}")
+        self.panels.setCurrentWidget(self.meldungen_liste)
+        self.statusBar().showMessage(ergebnis.als_meldung())
 
     def _lazarus_formular_importieren_aktion(self) -> None:
         """„Werkzeuge → Lazarus-Formular importieren …“ (Abschnitt 15):

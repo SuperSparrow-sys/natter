@@ -622,6 +622,7 @@ name = "natter"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "cryptography" },
     { name = "debugpy" },
     { name = "jsonschema" },
     { name = "libcst" },
@@ -649,6 +650,7 @@ prototypes = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cryptography", specifier = ">=42" },
     { name = "debugpy", specifier = ">=1.8" },
     { name = "jsonschema", specifier = ">=4.23" },
     { name = "libcst", specifier = ">=1.4" },

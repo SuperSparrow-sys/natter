@@ -18,6 +18,9 @@ dependencies = [
     "matplotlib>=3.11.2",
     "pyinstaller>=6.11",
     "pip>=24.0",
+    # Prüft beim Start die Signatur des Prüfsummen-Manifests
+    # (Abschnitt 17.8) - muss deshalb in der gebauten Exe stecken.
+    "cryptography>=42",
 ]
 
 [dependency-groups]

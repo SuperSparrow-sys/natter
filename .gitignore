@@ -60,3 +60,7 @@ referenz/**/backup/
 referenz/**/*.exe
 referenz/**/*.res
 referenz/**/*.lps
+
+# Privater Ed25519-Schlüssel des Prüfsummen-Manifests (Abschnitt 17.8:
+# „privater Schlüssel … niemals im Repository“)
+tools/signieren/manifest-privat.pem

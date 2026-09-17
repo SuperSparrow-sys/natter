@@ -37,6 +37,8 @@ import sys
 from importlib.metadata import distributions
 from pathlib import Path
 
+from ide.integritaet import manifest_schreiben
+
 _PROJEKT_WURZEL = Path(__file__).resolve().parent.parent
 _DESIGN_ORDNER = _PROJEKT_WURZEL / "design"
 _SCHEMAS_ORDNER = _PROJEKT_WURZEL / "schemas"
@@ -49,6 +51,7 @@ _BUILD_ORDNER = _PROJEKT_WURZEL / "_pyinstaller_build_ide"
 _SPEC_ORDNER = _PROJEKT_WURZEL / "_pyinstaller_spec_ide"
 _LIZENZ_VORLAGEN = Path(__file__).resolve().parent / "lizenz_vorlagen"
 _SIGNIER_SKRIPT = Path(__file__).resolve().parent / "signieren" / "datei_signieren.ps1"
+_MANIFEST_SCHLUESSEL = Path(__file__).resolve().parent / "signieren" / "manifest-privat.pem"
 
 # Nur diese Laufzeit-Abhängigkeiten interessieren (nicht pytest/ruff/
 # pyinstaller selbst - die stecken nicht in der gebauten Exe).
@@ -178,11 +181,28 @@ def _exe_signieren(datei: Path) -> None:
     print(ergebnis.stdout.strip())
 
 
+def _manifest_schreiben(ordner: Path) -> None:
+    """Signiertes Prüfsummen-Manifest über den fertigen Programmordner
+    (Abschnitt 17.8). Muss nach dem Signieren laufen, weil die
+    Authenticode-Signatur die Bytes von `Natter.exe` verändert - sonst
+    meldet schon der erste Start eine veränderte Datei. Ohne privaten
+    Schlüssel nur eine Warnung, wie beim Signieren auch."""
+    if not _MANIFEST_SCHLUESSEL.exists():
+        print(
+            f"Warnung: Prüfsummen-Manifest übersprungen ({_MANIFEST_SCHLUESSEL.name} fehlt - "
+            "einmalig mit tools/signieren/manifest_schluessel_erzeugen.py anlegen)"
+        )
+        return
+    ziel = manifest_schreiben(ordner, _MANIFEST_SCHLUESSEL)
+    print(f"Prüfsummen-Manifest geschrieben: {ziel}")
+
+
 def paketieren(*, signieren: bool = True) -> Path:
     _pyinstaller_bauen()
     _lizenzen_sammeln(_AUSGABE / "Lizenzen")
     if signieren:
         _exe_signieren(_AUSGABE / "Natter.exe")
+    _manifest_schreiben(_AUSGABE)
     return _AUSGABE
 
 
