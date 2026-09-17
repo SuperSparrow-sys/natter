@@ -70,11 +70,11 @@ _RAND_FARBEN = {
     "dark": {"hintergrund": "#252526", "zeilennummer": "#858585", "aktuelle_zeile": "#2a2d2e"},
 }
 
-# Deckt sich mit design/tokens.json ("family_mono": "Cascadia Code") -
-# Consolas/Courier New als Ausweich, falls Cascadia Code auf dem Rechner
-# fehlt (Windows bringt Cascadia Code seit Terminal/VS Code meist schon
-# mit, ist aber kein garantierter Systemfont wie Consolas).
-_CODE_SCHRIFTARTEN = ["Cascadia Code", "Consolas", "Courier New"]
+# Nutzer-Feedback (September 2026): Cascadia Code wirkte auf dem
+# echten Rechner trotz mitgelieferter Schriftdatei weiterhin wie die
+# Standardschrift - Consolas (ein garantierter Windows-Systemfont,
+# kein Bundling nötig) als direkter, zuverlässiger Test/Ausweich davor.
+_CODE_SCHRIFTARTEN = ["Consolas", "Cascadia Code", "Courier New"]
 _CODE_SCHRIFTGROESSE = 11
 
 

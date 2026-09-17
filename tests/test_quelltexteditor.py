@@ -151,11 +151,21 @@ def test_tab_fuegt_leerzeichen_statt_eines_tabulatorzeichens_ein() -> None:
     assert "\t" not in editor.toPlainText()
 
 
-def test_cascadia_code_wird_ohne_systeminstallation_gefunden() -> None:
-    """Nutzer-Feedback: „wenn Schriftart nicht installiert, soll diese
-    installiert werden“ - die Schriftdatei wird direkt aus
-    ide/assets/fonts/ in Qts Anwendungsschrift-Datenbank geladen, ganz
-    ohne Windows-Systeminstallation (portable Natter-Philosophie)."""
+def test_editor_verwendet_consolas() -> None:
+    """Nutzer-Feedback (September 2026): Cascadia Code wirkte auf dem
+    echten Rechner weiterhin wie die Standardschrift - Consolas (ein
+    garantierter Windows-Systemfont) steht deshalb an erster Stelle."""
     editor = QuelltextEditor()
     aufgeloest = QFontInfo(editor.font()).family()
-    assert aufgeloest == "Cascadia Code"
+    assert aufgeloest == "Consolas"
+
+
+def test_cascadia_code_ist_ohne_systeminstallation_verfuegbar() -> None:
+    """Die mitgelieferte Schriftdatei (ide/assets/fonts/) bleibt als
+    zweite Wahl nutzbar, falls Consolas einmal nicht zur Verfügung
+    steht - hier direkt über die Qt-Schriftdatenbank geprüft, unabhängig
+    von der Reihenfolge in `_CODE_SCHRIFTARTEN`."""
+    from PySide6.QtGui import QFontDatabase
+
+    QuelltextEditor()  # stellt sicher, dass die Schrift geladen wurde
+    assert "Cascadia Code" in QFontDatabase.families()

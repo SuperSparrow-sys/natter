@@ -5,6 +5,16 @@ sein, daher hier auf Modulebene."""
 import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+# Ohne dies findet die "offscreen"-Plattform KEINE echten Windows-
+# Systemschriften (auch nicht Consolas!) und weicht auf irgendeine
+# zufällig verfügbare Ersatzschrift aus - Tests, die Schriftmetriken
+# prüfen (z. B. "passt diese Beschriftung in den Button?"), maßen dann
+# gegen eine andere Schrift als die echte App auf dem Bildschirm nutzt
+# (real gefunden: Nutzer-Feedback zur Editor-Schriftart, September
+# 2026 - `QFontInfo` löste ohne dies fälschlich auf die mitgelieferte
+# Cascadia-Code-Datei statt auf das eigentlich angeforderte Consolas
+# auf, weil Consolas selbst gar nicht auffindbar war).
+os.environ.setdefault("QT_QPA_FONTDIR", r"C:\Windows\Fonts")
 
 import pytest  # noqa: E402
 from PySide6.QtCore import QSettings  # noqa: E402
