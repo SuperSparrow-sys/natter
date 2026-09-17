@@ -220,7 +220,9 @@ Wird während M1 verfeinert (genaue Komponentenliste je Projekt), sobald die
   echten Anschauen des Programms, September 2026): wirkt insgesamt noch
   zu farblos/grau. Sammelpunkt für alle folgenden Einzelschritte, jeweils
   eigene kleine Aufgabe statt einer großen:
-  - [x] Fenster-/Taskleisten-Symbol (`ide/assets/icons/app.svg`)
+  - [x] Fenster-/Taskleisten-Symbol (`ide/assets/icons/app.png` – seit
+    September 2026 das von Hand gezeichnete Natter-Maskottchen statt
+    des ursprünglichen Vektor-Platzhalters)
   - [x] Werkzeugleiste mit Symbolen (Neu/Öffnen/Speichern/Projekt öffnen/
     Start), bisher nur diese fünf Aktionen
   - [x] Zeilennummern im Quelltexteditor (`ide/shell/quelltexteditor.py`)
