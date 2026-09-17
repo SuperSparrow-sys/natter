@@ -28,6 +28,13 @@ Thumbs.db
 
 # Natter-spezifisch
 *.natter-session
+# Laufzeit-Datenbanken, die gui_db-Beispielprojekte beim echten Start
+# selbst anlegen (z. B. beispielprojekte/Kontoverwaltung/konten.sqlite) -
+# kein eingecheckter Inhalt, sonst kopieren Tests versehentlich echte,
+# durch manuelles Ausprobieren veränderte Datenbankstände statt eines
+# frischen Zustands.
+*.sqlite
+*.sqlite3
 prototypes/s2_monaco_jedi/monaco/
 web/monaco/
 prototypes/s6_signatur/*.pem

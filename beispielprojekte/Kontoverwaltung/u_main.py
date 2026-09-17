@@ -31,6 +31,7 @@ from pcl import (
     SQLite3Connection,
     SQLQuery,
     SQLTransaction,
+    input_box,
 )
 
 
@@ -68,6 +69,8 @@ class Form1(Form):
         self.dbn_konten.top = 192
         self.dbn_konten.width = 620
         self.dbn_konten.height = 28
+        self.dbn_konten.on_insert = self.dbn_konten_on_insert
+        self.dbn_konten.on_delete = self.dbn_konten_on_delete
         self.dbn_konten.on_save = self.dbn_konten_on_save
 
         self.l_besitzer = Label(self)
@@ -193,6 +196,54 @@ class Form1(Form):
         self.transaktion.commit()
         self._aktuelles_konto_neu_laden(kontonr)
         self.l_meldung.caption = ""
+
+    def dbn_konten_on_insert(self, sender) -> None:
+        """„+" im DBNavigator (Nutzer-Feedback: „Person neu anlegen"
+        funktionierte nicht - `on_insert` war bisher gar nicht
+        verknüpft, der Knopf tat nichts). Anders als in Lazarus erzeugt
+        `DBNavigator` keinen automatischen Leerdatensatz (Abschnitt
+        10.1) - die Kontonummer wird deshalb direkt erfragt und die
+        neue Zeile sofort in die Datenbank geschrieben; „Speichern"
+        editiert sie danach ganz normal weiter."""
+        kontonr = input_box("Neues Konto", "Kontonummer:")
+        if not kontonr:
+            return
+
+        pruefen = SQLQuery(self.verbindung)
+        pruefen.sql = "SELECT COUNT(*) AS anzahl FROM konten WHERE kontonr = :kontonr"
+        pruefen.params["kontonr"] = kontonr
+        pruefen.open()
+        if pruefen.field_by_name("anzahl").as_integer > 0:
+            self.l_meldung.caption = f"Kontonummer {kontonr} gibt es schon."
+            return
+
+        einfuegen = SQLQuery(self.verbindung)
+        einfuegen.sql = (
+            "INSERT INTO konten (kontonr, besitzer, kontostand) "
+            "VALUES (:kontonr, :besitzer, :kontostand)"
+        )
+        einfuegen.params["kontonr"] = kontonr
+        einfuegen.params["besitzer"] = ""
+        einfuegen.params["kontostand"] = 0.0
+        einfuegen.exec_sql()
+        self.transaktion.commit()
+        self._aktuelles_konto_neu_laden(kontonr)
+        self.l_meldung.caption = f"Konto {kontonr} angelegt."
+
+    def dbn_konten_on_delete(self, sender) -> None:
+        """„-" im DBNavigator - war wie „+" bisher unverknüpft."""
+        if self.abfrage.eof:
+            self.l_meldung.caption = "Kein Konto ausgewählt."
+            return
+        kontonr = self.abfrage.field_by_name("kontonr").as_string
+        loeschen = SQLQuery(self.verbindung)
+        loeschen.sql = "DELETE FROM konten WHERE kontonr = :kontonr"
+        loeschen.params["kontonr"] = kontonr
+        loeschen.exec_sql()
+        self.transaktion.commit()
+        self.abfrage.open()
+        self.ds_konten.aktualisieren()
+        self.l_meldung.caption = f"Konto {kontonr} gelöscht."
 
     def dbn_konten_on_save(self, sender) -> None:
         if self.abfrage.eof:

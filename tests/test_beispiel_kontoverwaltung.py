@@ -17,6 +17,8 @@ import sys
 from pathlib import Path
 
 import pytest
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QApplication
 
 _PROJEKT_ORDNER = Path(__file__).resolve().parent.parent / "beispielprojekte" / "Kontoverwaltung"
 _PROJEKT_MODULE = ("main", "u_main", "u_konto")
@@ -112,3 +114,71 @@ def test_navigator_vor_wechselt_zum_zweiten_konto(form1_klasse) -> None:
 
     assert formular.abfrage.field_by_name("besitzer").as_string == "Bo Beispiel"
     assert formular.abfrage.field_by_name("kontostand").as_float == 250.0
+
+
+def test_neues_konto_ueber_einfuegen_anlegen(form1_klasse) -> None:
+    """Nutzer-Feedback: „funktioniert noch nicht richtig mit Person neu
+    anlegen" - `on_insert` war bisher gar nicht mit `dbn_konten`
+    verknüpft, der „+"-Knopf tat nichts."""
+    formular = form1_klasse()
+
+    def eingeben() -> None:
+        dialog = QApplication.activeModalWidget()
+        dialog.setTextValue("1003")
+        dialog.accept()
+
+    QTimer.singleShot(0, eingeben)
+    formular.dbn_konten.knopf_einfuegen.click()
+
+    assert "1003" in formular.l_meldung.caption
+    assert formular.dbg_konten._qwidget.rowCount() == 3
+    verbindung = sqlite3.connect("konten.sqlite")
+    zeile = verbindung.execute(
+        "SELECT besitzer, kontostand FROM konten WHERE kontonr = '1003'"
+    ).fetchone()
+    verbindung.close()
+    assert zeile == ("", 0.0)
+
+
+def test_neues_konto_mit_bestehender_kontonummer_wird_abgelehnt(form1_klasse) -> None:
+    formular = form1_klasse()
+
+    def eingeben() -> None:
+        dialog = QApplication.activeModalWidget()
+        dialog.setTextValue("1001")  # existiert schon
+        dialog.accept()
+
+    QTimer.singleShot(0, eingeben)
+    formular.dbn_konten.knopf_einfuegen.click()
+
+    assert "gibt es schon" in formular.l_meldung.caption
+    assert formular.dbg_konten._qwidget.rowCount() == 2
+
+
+def test_einfuegen_ohne_eingabe_bricht_ab(form1_klasse) -> None:
+    formular = form1_klasse()
+
+    def abbrechen() -> None:
+        dialog = QApplication.activeModalWidget()
+        dialog.reject()
+
+    QTimer.singleShot(0, abbrechen)
+    formular.dbn_konten.knopf_einfuegen.click()
+
+    assert formular.dbg_konten._qwidget.rowCount() == 2
+
+
+def test_konto_ueber_loeschen_entfernen(form1_klasse) -> None:
+    """Wie „+" war auch „-" (`on_delete`) bisher nicht verknüpft."""
+    formular = form1_klasse()
+
+    formular.dbn_konten.knopf_loeschen.click()
+
+    assert "1001" in formular.l_meldung.caption
+    assert formular.dbg_konten._qwidget.rowCount() == 1
+    verbindung = sqlite3.connect("konten.sqlite")
+    anzahl = verbindung.execute(
+        "SELECT COUNT(*) FROM konten WHERE kontonr = '1001'"
+    ).fetchone()[0]
+    verbindung.close()
+    assert anzahl == 0
