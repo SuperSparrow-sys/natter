@@ -47,6 +47,34 @@ def test_begruessung_ohne_namen_zeigt_hinweis(form1_klasse) -> None:
     assert formular.l_ausgabe.caption == "Bitte Namen im Eingabefeld eingeben."
 
 
+def test_begruessung_mit_langem_namen_passt_noch_ins_label(form1_klasse) -> None:
+    formular = form1_klasse()
+    formular.e_namenseingabe.text = "Alexandra-Sophie"
+
+    formular.b_begruessung._qwidget.click()
+
+    metriken = formular.l_ausgabe._qwidget.fontMetrics()
+    benoetigt = metriken.horizontalAdvance(formular.l_ausgabe.caption)
+    assert benoetigt <= formular.l_ausgabe.width
+
+
+def test_alle_buttons_sind_breit_genug_fuer_ihre_beschriftung(form1_klasse) -> None:
+    formular = form1_klasse()
+    for button in (
+        formular.b_begruessung,
+        formular.button1,
+        formular.button2,
+        formular.button3,
+        formular.button4,
+        formular.b_schliessen,
+    ):
+        metriken = button._qwidget.fontMetrics()
+        benoetigt = metriken.horizontalAdvance(button.caption)
+        assert benoetigt <= button.width, (
+            f"{button.caption!r} braucht {benoetigt}px, Button ist nur {button.width}px breit"
+        )
+
+
 def test_alle_komponenten_haben_die_richtige_groesse_und_position(form1_klasse) -> None:
     # Direkt gegen die Werte aus referenz/lazarus/a_GUI_Komponenten/unit1.lfm
     # geprüft (Nutzer-Feedback: "Buttons passen von Größe und Position").

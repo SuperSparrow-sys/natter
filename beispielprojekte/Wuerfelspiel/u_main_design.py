@@ -38,21 +38,21 @@ class Form1Design(Form):
         self.l_zahl.caption = "Gewürfelte Zahl:"
         self.l_zahl.left = 72
         self.l_zahl.top = 133
-        self.l_zahl.width = 116
+        self.l_zahl.width = 260
         self.l_zahl.height = 20
 
         self.l_punkte = Label(self)
         self.l_punkte.caption = "Punkte: "
         self.l_punkte.left = 132
         self.l_punkte.top = 176
-        self.l_punkte.width = 57
+        self.l_punkte.width = 140
         self.l_punkte.height = 20
 
         self.l_leben = Label(self)
         self.l_leben.caption = "Leben:"
         self.l_leben.left = 132
         self.l_leben.top = 216
-        self.l_leben.width = 46
+        self.l_leben.width = 120
         self.l_leben.height = 20
 
         self.sg_tabelle = StringGrid(self)

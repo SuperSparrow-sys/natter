@@ -16,7 +16,7 @@ class Form1Design(Form):
 
     def create_components(self):
         self.caption = "GUI-Komponenten"
-        self.width = 466
+        self.width = 520
         self.height = 340
 
         self.l_ueberschrift = Label(self)
@@ -43,7 +43,7 @@ class Form1Design(Form):
         self.l_ausgabe = Label(self)
         self.l_ausgabe.left = 62
         self.l_ausgabe.top = 128
-        self.l_ausgabe.width = 260
+        self.l_ausgabe.width = 420
         self.l_ausgabe.height = 15
         self.l_ausgabe.caption = "Bitte Namen im Eingabefeld eingeben."
 

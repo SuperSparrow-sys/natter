@@ -45,6 +45,20 @@ def test_ampel_startet_eingeschaltet_bei_gruen(form1_klasse) -> None:
     assert _farben(formular) == ("#008000", "#000000", "#000000")
 
 
+def test_buttons_sind_breit_genug_fuer_ihre_beschriftung(form1_klasse) -> None:
+    """Real per Screenshot gefunden: Lazarus' 75px-Standardbreite passt
+    unter Qt/Segoe UI nicht zu Beschriftungen wie "Einschalten" - ein
+    grundsätzlicher Zeichenbreiten-Unterschied zwischen den Toolkits,
+    keine Schriftgrößenfrage (siehe docs/PLAN.md)."""
+    formular = form1_klasse()
+    for button in (formular.b_einschalten, formular.b_wechseln, formular.b_auschalten):
+        metriken = button._qwidget.fontMetrics()
+        benoetigt = metriken.horizontalAdvance(button.caption)
+        assert benoetigt <= button.width, (
+            f"{button.caption!r} braucht {benoetigt}px, Button ist nur {button.width}px breit"
+        )
+
+
 def test_ampel_wechseln_durchlaeuft_gruen_gelb_rot_gelb(form1_klasse) -> None:
     formular = form1_klasse()
 

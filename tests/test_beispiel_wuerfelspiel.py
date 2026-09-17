@@ -71,6 +71,22 @@ def test_start_zustand(form1_klasse) -> None:
     )
 
 
+def test_leben_zahl_und_punkte_label_sind_breit_genug_fuer_ihren_text(form1_klasse) -> None:
+    """Real per Screenshot gefunden: `l_leben` war für "Leben:" (Design-
+    Zeit-Beschriftung) bemessen, nicht für "Leben: 3" (die tatsächliche
+    Laufzeit-Beschriftung aus `_anzeige_aktualisieren()`) - der Text
+    wurde abgeschnitten. Gilt für alle drei Labels mit dynamischem
+    Text."""
+    formular = form1_klasse()
+    metriken = formular.l_leben._qwidget.fontMetrics()
+
+    for label in (formular.l_zahl, formular.l_punkte, formular.l_leben):
+        benoetigt = metriken.horizontalAdvance(label.caption)
+        assert benoetigt <= label.width, (
+            f"{label.caption!r} braucht {benoetigt}px, Label ist nur {label.width}px breit"
+        )
+
+
 def test_normaler_wurf_erhoeht_punkte(form1_klasse, monkeypatch: pytest.MonkeyPatch) -> None:
     formular = form1_klasse()
     _wuerfeln_mit(monkeypatch, [4])
