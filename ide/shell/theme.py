@@ -20,7 +20,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ide.shell.quelltexteditor import _CODE_SCHRIFTARTEN, _CODE_SCHRIFTGROESSE
+from ide.shell.quelltexteditor import _CODE_SCHRIFTGROESSE, _schriftart_kette
 from pcl.theme import _tokens_laden, theme_aufloesen
 
 _TAB_SCHLIESSEN_SYMBOL = (
@@ -40,9 +40,15 @@ def _mit_alpha(farbe_hex: str, alpha: float) -> str:
     return f"rgba({r}, {g}, {b}, {alpha})"
 
 
-def ide_qss_erzeugen(theme: str = "system", tokens: dict[str, Any] | None = None) -> str:
+def ide_qss_erzeugen(
+    theme: str = "system",
+    tokens: dict[str, Any] | None = None,
+    code_schriftart: str = "Consolas",
+) -> str:
     """Erzeugt das QSS-Stylesheet für das IDE-Hauptfenster (`system`/
-    `light`/`dark`, wie `pcl.theme.qss_erzeugen`)."""
+    `light`/`dark`, wie `pcl.theme.qss_erzeugen`). `code_schriftart` ist
+    die im Menü „Ansicht → Schriftart“ gewählte Editor-Schrift
+    (Nutzer-Feedback September 2026)."""
     aufgeloest = theme_aufloesen(theme)
     daten = tokens if tokens is not None else _tokens_laden()
     farben = daten["color"][aufgeloest]
@@ -74,7 +80,7 @@ QWidget {{
    Problem. Eine konkretere, auf den Klassennamen zielende Regel
    gewinnt gegen die allgemeine QWidget-Regel und setzt sich durch. */
 QuelltextEditor {{
-    font-family: {", ".join(f'"{f}"' for f in _CODE_SCHRIFTARTEN)};
+    font-family: {", ".join(f'"{f}"' for f in _schriftart_kette(code_schriftart))};
     font-size: {_CODE_SCHRIFTGROESSE}pt;
 }}
 

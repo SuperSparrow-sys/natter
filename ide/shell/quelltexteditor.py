@@ -73,9 +73,17 @@ _RAND_FARBEN = {
 # Nutzer-Feedback (September 2026): Cascadia Code wirkte auf dem
 # echten Rechner trotz mitgelieferter Schriftdatei weiterhin wie die
 # Standardschrift - Consolas (ein garantierter Windows-Systemfont,
-# kein Bundling nötig) als direkter, zuverlässiger Test/Ausweich davor.
-_CODE_SCHRIFTARTEN = ["Consolas", "Cascadia Code", "Courier New"]
+# kein Bundling nötig) steht deshalb an erster Stelle. Zusätzlich
+# als Auswahl im Menü „Ansicht → Schriftart“ angeboten (Nutzer-Feedback:
+# „soll bei Ansicht eine Auswahl der Schriftarten zum Auswählen“).
+SCHRIFTART_OPTIONEN = ("Consolas", "Cascadia Code", "Courier New")
 _CODE_SCHRIFTGROESSE = 11
+
+
+def _schriftart_kette(schriftart: str) -> list[str]:
+    """Baut die Ausweich-Kette für `QFont`/die QSS-Regel: die gewählte
+    Schrift zuerst, alle übrigen `SCHRIFTART_OPTIONEN` als Ausweich."""
+    return [schriftart] + [f for f in SCHRIFTART_OPTIONEN if f != schriftart]
 
 
 class _ZeilenNummernRand(QWidget):
@@ -96,13 +104,19 @@ class _ZeilenNummernRand(QWidget):
 class QuelltextEditor(QPlainTextEdit):
     breakpoint_umgeschaltet = Signal(int, bool)  # (Zeile ab 1, jetzt gesetzt?)
 
-    def __init__(self, parent: QWidget | None = None, thema: str = "light") -> None:
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        thema: str = "light",
+        schriftart: str = "Consolas",
+    ) -> None:
         super().__init__(parent)
         _cascadia_code_bereitstellen()
-        schriftart = QFont(_CODE_SCHRIFTARTEN)
-        schriftart.setPointSize(_CODE_SCHRIFTGROESSE)
-        schriftart.setFixedPitch(True)
-        self.setFont(schriftart)
+        self._schriftart = schriftart
+        qfont = QFont(_schriftart_kette(schriftart))
+        qfont.setPointSize(_CODE_SCHRIFTGROESSE)
+        qfont.setFixedPitch(True)
+        self.setFont(qfont)
         self._thema = thema
         self._rand_farben = _RAND_FARBEN.get(thema, _RAND_FARBEN["light"])
         self._hervorhebung = PythonHervorhebung(self.document(), thema)
@@ -206,6 +220,21 @@ class QuelltextEditor(QPlainTextEdit):
         self._hervorhebung.thema_setzen(thema)
         self._rand.update()
         self._aktuelle_zeile_hervorheben()
+
+    def schriftart_setzen(self, schriftart: str) -> None:
+        """„Ansicht → Schriftart“: wechselt die Editor-Schriftart sofort.
+        Das IDE-weite Stylesheet (`ide_qss_erzeugen`) setzt dieselbe
+        Schrift ohnehin per QSS-Regel durch, die gegen einen bloßen
+        `setFont()`-Aufruf gewinnt (siehe theme.py) - hier trotzdem
+        explizit gesetzt, damit der Editor auch außerhalb einer
+        HauptFenster-Instanz (z. B. in Tests) korrekt reagiert."""
+        if schriftart == self._schriftart:
+            return
+        self._schriftart = schriftart
+        qfont = QFont(_schriftart_kette(schriftart))
+        qfont.setPointSize(_CODE_SCHRIFTGROESSE)
+        qfont.setFixedPitch(True)
+        self.setFont(qfont)
 
     def _zeilennummern_zeichnen(self, event: QPaintEvent) -> None:
         maler = QPainter(self._rand)

@@ -54,7 +54,7 @@ from ide.project import Projekt, projekt_erzeugen
 from ide.project.neu_dialog import NeuesProjektDialog
 from ide.run import projekt_pruefen, projekt_starten
 from ide.shell.explorer import PFAD_ROLLE, ProjektExplorer
-from ide.shell.quelltexteditor import QuelltextEditor
+from ide.shell.quelltexteditor import SCHRIFTART_OPTIONEN, QuelltextEditor
 from ide.shell.schnellauswahl import SchnellAuswahl
 from ide.shell.suchen_dialog import SuchenErsetzenDialog
 from ide.shell.theme import ide_qss_erzeugen
@@ -164,7 +164,12 @@ class HauptFenster(QMainWindow):
             QSettings.Format.IniFormat, QSettings.Scope.UserScope, "Natter", "Natter-IDE"
         )
         self._design_thema = self._design_einstellungen.value("design/thema", "system")
-        self.setStyleSheet(ide_qss_erzeugen(self._design_thema))
+        self._code_schriftart = self._design_einstellungen.value(
+            "editor/schriftart", "Consolas"
+        )
+        self.setStyleSheet(
+            ide_qss_erzeugen(self._design_thema, code_schriftart=self._code_schriftart)
+        )
 
         self._menues: dict[str, object] = {}
         for titel in MENUETITEL:
@@ -273,6 +278,21 @@ class HauptFenster(QMainWindow):
             aktion.setChecked(wert == self._design_thema)
             aktion.triggered.connect(lambda checked, wert=wert: self._design_wechseln(wert))
             design_gruppe.addAction(aktion)
+
+        # „Ansicht → Schriftart“ (Nutzer-Feedback September 2026: „soll
+        # bei Ansicht eine Auswahl der Schriftarten zum Auswählen“).
+        # Gleiches Muster wie „Design“ direkt darüber.
+        schriftart_menue = self._menues["Ansicht"].addMenu("Schriftart")
+        schriftart_gruppe = QActionGroup(self)
+        schriftart_gruppe.setExclusive(True)
+        for schrift in SCHRIFTART_OPTIONEN:
+            aktion = schriftart_menue.addAction(schrift)
+            aktion.setCheckable(True)
+            aktion.setChecked(schrift == self._code_schriftart)
+            aktion.triggered.connect(
+                lambda checked, schrift=schrift: self._code_schriftart_wechseln(schrift)
+            )
+            schriftart_gruppe.addAction(aktion)
 
         # Nutzer-Feedback (September 2026): der Quelltexteditor wirkte zu
         # klein, weil Palette/Datenbank/Panels standardmäßig zu viel
@@ -940,7 +960,9 @@ class HauptFenster(QMainWindow):
                 self.editor_tabs.setCurrentIndex(index)
                 return editor
 
-        editor = QuelltextEditor(thema=theme_aufloesen(self._design_thema))
+        editor = QuelltextEditor(
+            thema=theme_aufloesen(self._design_thema), schriftart=self._code_schriftart
+        )
         editor.setPlainText(pfad.read_text(encoding="utf-8"))
         editor.setProperty(_PFAD_EIGENSCHAFT, str(pfad))
         editor.document().modificationChanged.connect(
@@ -1088,7 +1110,7 @@ class HauptFenster(QMainWindow):
         sofort an (inkl. bereits offener Editor-Tabs, Abschnitt 7.5) und
         merkt sich die Wahl für den nächsten Start."""
         self._design_thema = thema
-        self.setStyleSheet(ide_qss_erzeugen(thema))
+        self.setStyleSheet(ide_qss_erzeugen(thema, code_schriftart=self._code_schriftart))
         self._design_einstellungen.setValue("design/thema", thema)
 
         aufgeloest = theme_aufloesen(thema)
@@ -1096,6 +1118,19 @@ class HauptFenster(QMainWindow):
             editor = self.editor_tabs.widget(index)
             if isinstance(editor, QuelltextEditor):
                 editor.thema_setzen(aufgeloest)
+
+    def _code_schriftart_wechseln(self, schriftart: str) -> None:
+        """„Ansicht → Schriftart“: wendet die gewählte Editor-Schrift
+        sofort an (auch auf bereits offene Editor-Tabs) und merkt sich
+        die Wahl für den nächsten Start."""
+        self._code_schriftart = schriftart
+        self.setStyleSheet(ide_qss_erzeugen(self._design_thema, code_schriftart=schriftart))
+        self._design_einstellungen.setValue("editor/schriftart", schriftart)
+
+        for index in range(self.editor_tabs.count()):
+            editor = self.editor_tabs.widget(index)
+            if isinstance(editor, QuelltextEditor):
+                editor.schriftart_setzen(schriftart)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Merkt sich Größe/Sichtbarkeit aller Docks für den nächsten
