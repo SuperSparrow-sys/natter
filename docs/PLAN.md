@@ -158,13 +158,24 @@ Wird während M1 verfeinert (genaue Komponentenliste je Projekt), sobald die
   - [x] Werkzeugleiste mit Symbolen (Neu/Öffnen/Speichern/Projekt öffnen/
     Start), bisher nur diese fünf Aktionen
   - [x] Zeilennummern im Quelltexteditor (`ide/shell/quelltexteditor.py`)
-  - [ ] Symbole (SVG) für Palette-Einträge und Komponentenbaum je
-    Komponententyp (Button/Label/Edit/…, bisher nur Text)
+  - [x] Symbole (SVG) für Palette-Einträge je Komponententyp (Button/
+    Label/Edit/…): `ide/assets/icons/komponente_*.svg`, Palette jetzt ein
+    einzeiliger horizontaler Symbolstreifen wie in Lazarus statt einer
+    vertikalen Textliste (Nutzer-Feedback, September 2026, mit
+    Lazarus-Screenshot belegt) – Komponentenbaum-Symbole (Objektinspektor)
+    noch offen
   - [ ] Farbiges Theme/Akzentfarben über das ganze Programm konsequent
     angewendet (Docks, Reiter, Tabellen) statt nur im Designer-
     Auswahlrahmen; Referenz `design/tokens.json`
-  - [ ] Syntax-Hervorhebung im Quelltexteditor (hängt an der Monaco-
-    Entscheidung, siehe `prototypes/s2`)
+  - [x] Syntax-Hervorhebung im Quelltexteditor
+    (`ide/shell/python_hervorhebung.py`, Nutzer-Feedback September 2026:
+    Schriftart/Farben sollen zu VS Code passen) – regelbasiert, an VS
+    Codes Light+-Farben angelehnt (Schlüsselwörter/Zeichenketten/
+    Kommentare/Zahlen/eingebaute Funktionen wie `print` unterscheidbar);
+    echte Monaco-Integration mit vollständiger Grammatik bleibt trotzdem
+    ein eigener, späterer Schritt (`prototypes/s2`). Editor-Schriftart
+    jetzt `Cascadia Code`/`Consolas`/`Courier New` (wie
+    `design/tokens.json`, `family_mono`) statt der UI-Schriftart
   - [ ] Konsistentes Spacing/Ausrichtung in Objektinspektor, Explorer,
     Palette geprüft und ggf. nachgezogen
   - [ ] Icon für die spätere `.exe` und für `.natter`-Dateien im Windows-

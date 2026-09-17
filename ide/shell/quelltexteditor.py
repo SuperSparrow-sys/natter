@@ -1,18 +1,30 @@
 """QuelltextEditor: `QPlainTextEdit` mit Zeilennummernrand,
-hervorgehobener aktueller Zeile und klickbaren Breakpoints im Rand (wie
-in den meisten IDEs, Abschnitt 8.1).
+hervorgehobener aktueller Zeile, klickbaren Breakpoints im Rand (wie in
+den meisten IDEs, Abschnitt 8.1) und Python-Syntax-Hervorhebung
+(`ide.shell.python_hervorhebung`).
 
 Standardmuster aus der Qt-Dokumentation („Code Editor Example“), mit
-deutschen Bezeichnern. Syntax-Hervorhebung und Monaco-Integration
-(Abschnitt 7.5) sind eigene, spätere Schritte – dieser Editor ist der
-Zwischenstand, bis dahin nicht mehr blank wie ein reines `QPlainTextEdit`.
+deutschen Bezeichnern. Eine echte Monaco-Integration (Abschnitt 7.5) ist
+ein eigener, späterer Schritt (siehe `prototypes/s2`); die
+Syntax-Hervorhebung selbst ist bereits echt, nur regelbasiert statt über
+eine vollständige Grammatik.
 """
 
 from __future__ import annotations
 
 from PySide6.QtCore import QRect, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent, QResizeEvent, QTextFormat
+from PySide6.QtGui import (
+    QColor,
+    QFont,
+    QMouseEvent,
+    QPainter,
+    QPaintEvent,
+    QResizeEvent,
+    QTextFormat,
+)
 from PySide6.QtWidgets import QPlainTextEdit, QTextEdit, QWidget
+
+from ide.shell.python_hervorhebung import PythonHervorhebung
 
 _RAND_ABSTAND = 12
 _RAND_HINTERGRUND = QColor("#f0f0f0")
@@ -21,6 +33,13 @@ _AKTUELLE_ZEILE_FARBE = QColor("#eaf2fc")
 _BREAKPOINT_FARBE = QColor("#c0392b")
 _BREAKPOINT_DURCHMESSER = 10
 _BREAKPOINT_SPALTE_BREITE = _BREAKPOINT_DURCHMESSER + 6
+
+# Deckt sich mit design/tokens.json ("family_mono": "Cascadia Code") -
+# Consolas/Courier New als Ausweich, falls Cascadia Code auf dem Rechner
+# fehlt (Windows bringt Cascadia Code seit Terminal/VS Code meist schon
+# mit, ist aber kein garantierter Systemfont wie Consolas).
+_CODE_SCHRIFTARTEN = ["Cascadia Code", "Consolas", "Courier New"]
+_CODE_SCHRIFTGROESSE = 11
 
 
 class _ZeilenNummernRand(QWidget):
@@ -43,6 +62,12 @@ class QuelltextEditor(QPlainTextEdit):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        schriftart = QFont(_CODE_SCHRIFTARTEN)
+        schriftart.setPointSize(_CODE_SCHRIFTGROESSE)
+        schriftart.setFixedPitch(True)
+        self.setFont(schriftart)
+        self._hervorhebung = PythonHervorhebung(self.document())
+
         self.breakpoints: set[int] = set()
         self._rand = _ZeilenNummernRand(self)
         self.blockCountChanged.connect(self._breite_aktualisieren)
