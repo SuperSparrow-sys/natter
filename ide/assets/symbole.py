@@ -21,14 +21,17 @@ _ICON_ORDNER = Path(__file__).resolve().parent / "icons"
 @cache
 def symbol(name: str) -> QIcon:
     """Liefert das Symbol `name` (Dateiname ohne Endung) – zuerst als
-    `.svg` gesucht, sonst als `.png` (z. B. das Natter-Maskottchen
-    `app.png`, ein von Hand gezeichnetes Bild statt eines Vektor-
-    Symbols, Nutzer-Feedback September 2026). Unbekannter Name liefert
-    ein leeres `QIcon` statt eines Fehlers – Aufrufer müssen kein
-    Symbol angeben (`Aktion.symbol` ist standardmäßig leer)."""
+    `.svg`, dann als `.ico` (mehrere von Hand für kleine Größen
+    nachgeschärfte Stufen, z. B. `app.ico` - eine einzelne PNG-Quelle
+    roh herunterskaliert verwäscht bei 16-32px die dünne schwarze
+    Kontur zu einem Farbklumpen, Nutzer-Feedback September 2026 anhand
+    eines Zoom-Screenshots), zuletzt als `.png` gesucht. Unbekannter
+    Name liefert ein leeres `QIcon` statt eines Fehlers – Aufrufer
+    müssen kein Symbol angeben (`Aktion.symbol` ist standardmäßig
+    leer)."""
     if not name:
         return QIcon()
-    for endung in (".svg", ".png"):
+    for endung in (".svg", ".ico", ".png"):
         pfad = _ICON_ORDNER / f"{name}{endung}"
         if pfad.exists():
             return QIcon(str(pfad))
