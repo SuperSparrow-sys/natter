@@ -39,6 +39,7 @@ from PySide6.QtWidgets import (
 
 from ide.actions import Aktion, Aktionsregister
 from ide.assets import symbol
+from ide.codegen.design import design_code_erzeugen
 from ide.database import DatenbankPanel
 from ide.debugger import DebugSitzung, fehlermeldung_aus_dap_erzeugen
 from ide.designer import DesignerCanvas, formular_fuer_designer_laden
@@ -1200,6 +1201,7 @@ class HauptFenster(QMainWindow):
 
         formular = formular_fuer_designer_laden(pfad)
         canvas = DesignerCanvas(formular, pfm_pfad=pfad)
+        self._design_datei_abgleichen(pfad)
         canvas.auswahl_beobachten(self._designer_auswahl_geaendert)
         canvas.aenderung_beobachten(lambda: self._design_pruefen_automatisch(canvas))
         self._offene_canvases.append(canvas)
@@ -1210,6 +1212,23 @@ class HauptFenster(QMainWindow):
         self.editor_tabs.setCurrentIndex(index)
         self.objektinspektor.formular_anzeigen(formular, canvas)
         return formular
+
+    def _design_datei_abgleichen(self, pfm_pfad: Path) -> None:
+        """Bringt `u_*_design.py` auf den Stand der `.pfm` beim Öffnen.
+
+        Der Designer selbst kompiliert den erzeugten Code nur im
+        Speicher. Real gefunden beim Lazarus-Import: das importierte
+        Formular erschien vollständig im Designer, aber die `.pfm` war
+        die einzige Datei, die geschrieben wurde - `u_main_design.py`
+        blieb das leere Vorlagenformular, das gestartete Programm zeigte
+        also weiter ein leeres Fenster. Dasselbe gilt für jede von außen
+        geänderte `.pfm`."""
+        ziel = pfm_pfad.parent / f"{pfm_pfad.stem}_design.py"
+        quelltext = design_code_erzeugen(
+            json.loads(pfm_pfad.read_text(encoding="utf-8")), pfm_pfad.name
+        )
+        if not ziel.exists() or ziel.read_text(encoding="utf-8") != quelltext:
+            ziel.write_text(quelltext, encoding="utf-8")
 
     def _bei_tab_wechsel(self, index: int) -> None:
         widget = self.editor_tabs.widget(index)

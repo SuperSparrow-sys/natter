@@ -107,3 +107,16 @@ def test_form_theme_wechsel_behaelt_die_color_ueberschreibung() -> None:
     formular.color = "#c0c0c0"
     formular.theme = "dark"
     assert "background-color: #c0c0c0" in formular._qwidget.styleSheet()
+
+
+def test_qss_zeichnet_kaestchen_optionsfelder_und_bildlaufleisten() -> None:
+    """Sobald ein Stylesheet gesetzt ist, zeichnet Qt diese Sub-Controls
+    nicht mehr nativ. Ohne eigene Regeln fehlte der Markierungszustand
+    komplett - im Designer sah dieselbe Komponente korrekt aus, erst das
+    echte Programm auf dem Windows-Ziel zeigte es (docs/arbeitspakete/
+    M8.md, Schritt 6)."""
+    qss = qss_erzeugen("light")
+
+    assert "QCheckBox::indicator:checked" in qss
+    assert "QRadioButton::indicator:checked" in qss
+    assert "QScrollBar::handle:horizontal" in qss

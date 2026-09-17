@@ -122,4 +122,69 @@ QHeaderView::section {{
 QLabel {{
     background-color: transparent;
 }}
+
+/* Sobald überhaupt ein Stylesheet gesetzt ist, zeichnet Qt Kästchen und
+   Optionsfelder nicht mehr über den nativen Windows-Stil, sondern aus dem
+   Stylesheet - ohne diese Regeln blieb der Markierungspunkt einfach weg.
+   Real erst beim Start eines echten Programms auf dem Windows-Ziel
+   sichtbar geworden (im Designer sah dieselbe Komponente korrekt aus),
+   siehe docs/arbeitspakete/M8.md, Schritt 6. */
+QCheckBox::indicator, QRadioButton::indicator {{
+    width: 14px;
+    height: 14px;
+    background-color: {farben["bg"]};
+    border: 1px solid {farben["border"]};
+}}
+QCheckBox::indicator {{
+    border-radius: 3px;
+}}
+QRadioButton::indicator {{
+    border-radius: 8px;
+}}
+QCheckBox::indicator:hover, QRadioButton::indicator:hover {{
+    border: 1px solid {farben["focus"]};
+}}
+QCheckBox::indicator:checked, QRadioButton::indicator:checked {{
+    background-color: {farben["accent"]};
+    border: 1px solid {farben["accent"]};
+}}
+QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {{
+    background-color: {farben["surface"]};
+    border-color: {farben["text_muted"]};
+}}
+
+QScrollBar:horizontal {{
+    background: {farben["surface"]};
+    height: 14px;
+    border-radius: 7px;
+    margin: 0;
+}}
+QScrollBar::handle:horizontal {{
+    background: {farben["border"]};
+    border-radius: 5px;
+    min-width: 24px;
+    margin: 2px;
+}}
+QScrollBar::handle:horizontal:hover {{
+    background: {farben["accent"]};
+}}
+QScrollBar:vertical {{
+    background: {farben["surface"]};
+    width: 14px;
+    border-radius: 7px;
+    margin: 0;
+}}
+QScrollBar::handle:vertical {{
+    background: {farben["border"]};
+    border-radius: 5px;
+    min-height: 24px;
+    margin: 2px;
+}}
+QScrollBar::handle:vertical:hover {{
+    background: {farben["accent"]};
+}}
+QScrollBar::add-line, QScrollBar::sub-line {{
+    width: 0;
+    height: 0;
+}}
 """

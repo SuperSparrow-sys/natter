@@ -15,7 +15,7 @@ from typing import Any
 import jsonschema
 
 from ide.pfade import daten_ordner
-from pcl.properties import VERSCHACHTELTE_EIGENSCHAFTEN
+from pcl.properties import SAMMLUNGS_EIGENSCHAFTEN, VERSCHACHTELTE_EIGENSCHAFTEN
 
 _EINRUECKUNG = "    "
 
@@ -43,9 +43,16 @@ def _python_literal(wert: Any) -> str:
 
 
 def _eigenschaften_zeilen(ziel: str, eigenschaften: dict[str, Any]) -> list[str]:
+    # Sammlungen (`items`/`lines`) zuerst: sie füllen das Qt-Widget neu und
+    # setzen dabei dessen Auswahl zurück. Stünde `items` hinter
+    # `item_index`, ginge eine im Designer gesetzte Vorauswahl beim Start
+    # wieder verloren - real an der Mehrwertsteuer-Auswahl des
+    # Pizza-Beispielprojekts aufgefallen.
+    namen = sorted(eigenschaften, key=lambda name: name not in SAMMLUNGS_EIGENSCHAFTEN)
     return [
-        f"{_EINRUECKUNG * 2}{ziel}.{_eigenschaft_pfad(name)} = {_python_literal(wert)}"
-        for name, wert in eigenschaften.items()
+        f"{_EINRUECKUNG * 2}{ziel}.{_eigenschaft_pfad(name)} = "
+        f"{_python_literal(eigenschaften[name])}"
+        for name in namen
     ]
 
 

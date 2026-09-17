@@ -184,6 +184,8 @@ class Memo(Control):
     5.0, 11.2), kein eigenständiges `Prop` – wie `Shape.brush`.
     """
 
+    read_only = Prop(bool, False, kategorie="Verhalten", doc="Wenn wahr, nicht bearbeitbar")
+
     def __init__(self, parent: Control) -> None:
         self._lines = Strings(self._lines_geaendert)
         super().__init__(parent)
@@ -197,7 +199,14 @@ class Memo(Control):
         self._lines.zuweisen(werte)
 
     def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
-        return QPlainTextEdit(eltern_widget)
+        widget = QPlainTextEdit(eltern_widget)
+        widget.setReadOnly(self.read_only)
+        return widget
+
+    def _bei_prop_aenderung(self, name: str, wert: Any) -> None:
+        super()._bei_prop_aenderung(name, wert)
+        if name == "read_only":
+            self._qwidget.setReadOnly(wert)
 
     def _lines_geaendert(self) -> None:
         self._qwidget.setPlainText("\n".join(self._lines))

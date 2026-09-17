@@ -21,6 +21,9 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+import pcl
+from pcl.properties import VERSCHACHTELTE_EIGENSCHAFTEN
+
 # Lazarus-Klasse -> pcl-Komponente. Nur die im Kursmaterial
 # (referenz/lazarus/) tatsächlich verwendeten Typen (siehe
 # docs/komponenten.md).
@@ -199,6 +202,24 @@ def _handler_konvertieren(ereignis_schluessel: str, handler: str) -> str:
     return f"{_schlange(praefix)}_{suffix.lower()}"
 
 
+def _eigenschaft_moeglich(pcl_klasse: str, pcl_name: str) -> bool:
+    """Ob die Zielkomponente diese Eigenschaft überhaupt besitzt.
+
+    Die Zuordnungstabelle oben ist bewusst klassenunabhängig (`Caption`
+    heißt überall `caption`). Ohne diese Prüfung entstand daraus eine
+    `.pfm`, die beim Öffnen abstürzt - real passiert mit `TMemo.ReadOnly`
+    aus `f_Pizza`: `read_only` gab es nur an `Edit`, und der Designer
+    brach mit `NatterUnbekannteEigenschaftError` ab, statt den Import
+    einfach im Bericht zu vermerken."""
+    klasse = getattr(pcl, pcl_klasse, None)
+    if klasse is None:
+        return False
+    verschachtelt = VERSCHACHTELTE_EIGENSCHAFTEN.get(pcl_name)
+    if verschachtelt is not None:
+        return hasattr(klasse, verschachtelt.attribut)
+    return hasattr(klasse, pcl_name)
+
+
 @dataclass
 class LfmImportErgebnis:
     pfm: dict[str, Any]
@@ -239,7 +260,7 @@ def _kind_umwandeln(lfm_kind: dict[str, Any], warnungen: list[str]) -> dict[str,
         )
         return None
     eigenschaften, ereignisse = _eigenschaften_umwandeln(
-        lfm_kind["properties"], warnungen, name=lfm_kind["name"]
+        lfm_kind["properties"], warnungen, name=lfm_kind["name"], pcl_klasse=pcl_klasse
     )
     eintrag: dict[str, Any] = {
         "name": lfm_kind["name"],
@@ -257,6 +278,7 @@ def _eigenschaften_umwandeln(
     *,
     ist_form: bool = False,
     name: str = "Formular",
+    pcl_klasse: str = "Form",
 ) -> tuple[dict[str, Any], dict[str, str]]:
     eigenschaften: dict[str, Any] = {}
     ereignisse: dict[str, str] = {}
@@ -270,20 +292,26 @@ def _eigenschaften_umwandeln(
             continue
         if ist_form and schluessel in ("Left", "Top"):
             continue  # Formulare haben in pcl keine left/top-Prop
-        if ist_form and schluessel.startswith("Font."):
-            # `font` gibt es nur an `Control`, nicht am Formular selbst -
-            # ohne diese Ausnahme erzeugte der Codegenerator ein
-            # `self.font.name = ...`, das beim Laden fehlschlägt.
-            warnungen.append(f"{name}: Eigenschaft {schluessel} wird nicht unterstützt.")
-            continue
         if schluessel == "Font.Style":
-            eigenschaften.update(_schriftstil_konvertieren(wert, name, warnungen))
+            stile = _schriftstil_konvertieren(wert, name, warnungen)
+            eigenschaften.update(
+                {
+                    stil_name: stil_wert
+                    for stil_name, stil_wert in stile.items()
+                    if _eigenschaft_moeglich(pcl_klasse, stil_name)
+                }
+            )
             continue
         zuordnung = _EIGENSCHAFTEN.get(schluessel)
         if zuordnung is None:
             warnungen.append(f"{name}: Eigenschaft {schluessel} wird nicht unterstützt.")
             continue
         pcl_name, konverter = zuordnung
+        if not _eigenschaft_moeglich(pcl_klasse, pcl_name):
+            warnungen.append(
+                f"{name}: Eigenschaft {schluessel} gibt es bei {pcl_klasse} nicht."
+            )
+            continue
         try:
             eigenschaften[pcl_name] = konverter(wert)
         except LfmZuordnungError as fehler:
