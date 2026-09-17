@@ -16,18 +16,23 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M8, Schritt 4: Exe-Export, Verteilung** (zurückgestellt, braucht
-einen echten Windows-Rechner, siehe unten) – kleinteilig aufgeschlüsselt
-in [`docs/arbeitspakete/M8.md`](arbeitspakete/M8.md) (wie M1–M7).
-Schritt 1 (`.lfm`-Parser), Schritt 2 (Klassen-/Eigenschaftszuordnung
-nach `.pfm`) und Schritt 3 (IDE-Verdrahtung „Werkzeuge → Lazarus-
-Formular importieren …“, per Screenshot gegen das echte `k_Ampel`-`.lfm`
-geprüft; Pascal-Rumpf-Übernahme und Bild-Extraktion daraus
-zurückgestellt) sind erledigt – 630 Tests grün insgesamt, gegen alle 19
-echten `referenz/lazarus/*.lfm`-Dateien geprüft. Schritt 4 (Exe-Export,
-portables ZIP, Starter/Launcher, Signatur, Abschnitt 16/17) braucht
-zwingend einen echten Windows-Rechner und wird in dieser
-Entwicklungsumgebung nicht simuliert, siehe M8.md. M1–M7 sind
+→ **M8, Schritt 4 (Rest): Signatur/Prüfsummen-Manifest** – jetzt auf
+einem echten Windows-Rechner statt in der Entwicklungs-Sandbox,
+kleinteilig aufgeschlüsselt in
+[`docs/arbeitspakete/M8.md`](arbeitspakete/M8.md) (wie M1–M7). Schritt 1
+(`.lfm`-Parser), Schritt 2 (Klassen-/Eigenschaftszuordnung nach `.pfm`),
+Schritt 3 (IDE-Verdrahtung „Werkzeuge → Lazarus-Formular importieren …“,
+per Screenshot gegen das echte `k_Ampel`-`.lfm` geprüft; Pascal-Rumpf-
+Übernahme und Bild-Extraktion daraus zurückgestellt) und der Kern von
+Schritt 4 (PyInstaller-Export über „Projekt → Als Exe exportieren …“,
+mit einem **echten** PyInstaller-Bau des Ampel-Beispielprojekts geprüft
+– dabei einen echten Absturz gefunden und behoben: `pcl.theme` fand
+`design/tokens.json` in der gebauten Exe nicht, betraf jedes
+`pcl`-Programm, siehe M8.md) sind erledigt – 655 Tests grün insgesamt,
+gegen alle 19 echten `referenz/lazarus/*.lfm`-Dateien geprüft. Offen
+bleibt nur noch die optionale Authenticode-Signatur/das
+Prüfsummen-Manifest (Abschnitt 17), da beides ein gekauftes Zertifikat
+braucht, das ein Schulprojekt normalerweise nicht hat. M1–M7 sind
 funktional abgeschlossen (M3-Abnahme bestanden: Ampel vollständig über
 Designer/Inspektor/Palette nachgebaut, siehe
 [`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md), Schritt 8; M4-Abnahme
@@ -113,7 +118,15 @@ Quelltext/Fenster/Hilfe, die zwar vorhanden aber wirkungslos waren, sind
 jetzt vollständig verdrahtet: Rückgängig/Wiederholen/Ausschneiden/
 Kopieren/Einfügen/Alles auswählen, ein nicht-modaler Suchen-und-Ersetzen-
 Dialog samt Gehe-zu-Zeile, Kommentar umschalten (Strg+#), Tab-Navigation
-und Layout zurücksetzen, sowie Komponenten-Referenz/Über Natter.
+und Layout zurücksetzen, sowie Komponenten-Referenz/Über Natter. Ein
+Editor-Tab schließen (das „×“ auf dem Tab) war dabei ebenfalls
+verdrahtet, aber tot – jetzt fragt es bei ungespeicherten Änderungen
+nach. Units im Projekt-Explorer lassen sich über einen „⋮“-Knopf
+umbenennen und löschen (inkl. Synchronisierung eines offenen
+Editor-Tabs). „Projekt → Als Exe exportieren …“ baut das Projekt mit
+PyInstaller (`ide/export`) zu einem eigenständigen, portablen Ordner
+oder ZIP – mit einem echten Bau und Probestart des Ampel-
+Beispielprojekts geprüft (siehe `docs/arbeitspakete/M8.md`, Schritt 4).
 
 ## Referenzmaterial
 
@@ -159,11 +172,14 @@ Wird während M1 verfeinert (genaue Komponentenliste je Projekt), sobald die
 - [ ] `prototypes/s1`–`s7` (Machbarkeitsprüfungen, Abschnitt 23.3): Code
   liegt bereit (siehe `prototypes/README.md`), wird aber erst kurz vor dem
   jeweils betroffenen Meilenstein tatsächlich ausgeführt statt jetzt:
-  S1/S4 vor M2, S2 vor M2, S5/S6 vor M8, S7 vor M9. Blockiert M1 nicht.
+  S1/S4 vor M2, S2 vor M2, S6 vor M8, S7 vor M9. Blockiert M1 nicht.
   S3 (debugpy mit VS Code als DAP-Frontend) entfällt: der echte
   DAP-Client aus M4 wird gegen echtes `debugpy` automatisiert getestet
   (`docs/arbeitspakete/M4.md`, Schritt 3–5) – das prüft dieselbe Frage
-  rigoroser und wiederholbar, ganz ohne VS Code.
+  rigoroser und wiederholbar, ganz ohne VS Code. S5 (PyInstaller aus
+  portablem Python) ist durch den echten Export in M8 Schritt 4 überholt
+  – dort direkt mit dem echten Ampel-Beispielprojekt statt dem
+  Prototyp-Testprogramm geprüft, siehe `docs/arbeitspakete/M8.md`.
 - [ ] `design/referenz/` (freigegebene UI-Mockups): setzt erste
   Bildschirmentwürfe voraus, folgt mit M2/M3.
 - [ ] **Visueller Feinschliff der IDE** (Nutzer-Feedback nach dem ersten

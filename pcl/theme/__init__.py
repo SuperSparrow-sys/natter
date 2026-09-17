@@ -8,12 +8,26 @@ selbst folgt in M2.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
 from pcl.errors import NatterPropertyError
 
-_TOKENS_PFAD = Path(__file__).resolve().parent.parent.parent / "design" / "tokens.json"
+
+def _tokens_pfad_ermitteln() -> Path:
+    """In einer mit PyInstaller gebauten Exe (Abschnitt 16) liegt
+    `design/tokens.json` nicht mehr drei Ebenen über dieser Datei,
+    sondern im Bundle-Ordner (`sys._MEIPASS`) – der Exporter bindet den
+    `design`-Ordner dafür über `--add-data` ein, siehe
+    `ide/export/exporter.py`."""
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass is not None:
+        return Path(meipass) / "design" / "tokens.json"
+    return Path(__file__).resolve().parent.parent.parent / "design" / "tokens.json"
+
+
+_TOKENS_PFAD = _tokens_pfad_ermitteln()
 
 
 def _tokens_laden() -> dict[str, Any]:

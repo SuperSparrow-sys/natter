@@ -2,11 +2,13 @@
 docs/PLAN.md, M1 Schritt 7.
 """
 
+from pathlib import Path
+
 import pytest
 
 from pcl import Form
 from pcl.errors import NatterPropertyError
-from pcl.theme import qss_erzeugen, theme_aufloesen
+from pcl.theme import _tokens_pfad_ermitteln, qss_erzeugen, theme_aufloesen
 
 
 def test_theme_aufloesen_light_und_dark_bleiben_unveraendert() -> None:
@@ -21,6 +23,28 @@ def test_theme_aufloesen_system_liefert_gueltigen_wert() -> None:
 def test_theme_aufloesen_lehnt_unbekannten_wert_ab() -> None:
     with pytest.raises(NatterPropertyError):
         theme_aufloesen("knallpink")
+
+
+def test_tokens_pfad_normal_zeigt_auf_das_design_verzeichnis_im_repo() -> None:
+    pfad = _tokens_pfad_ermitteln()
+    assert pfad.name == "tokens.json"
+    assert pfad.exists()
+
+
+def test_tokens_pfad_in_einer_pyinstaller_exe_zeigt_in_meipass(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Real mit einem echten PyInstaller-Bau gefunden (siehe
+    `docs/arbeitspakete/M8.md`): ohne diese Fallunterscheidung sucht
+    `pcl.theme` in der Exe am falschen Ort und jedes exportierte
+    Programm stürzt schon beim Start ab."""
+    import sys
+
+    monkeypatch.setattr(sys, "_MEIPASS", r"C:\irgendwo\_internal", raising=False)
+
+    pfad = _tokens_pfad_ermitteln()
+
+    assert pfad == Path(r"C:\irgendwo\_internal") / "design" / "tokens.json"
 
 
 def test_qss_enthaelt_die_tokens_des_gewaehlten_themes() -> None:

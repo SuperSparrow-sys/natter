@@ -10,12 +10,15 @@ Statusleiste. `projekt_oeffnen`/`datei_oeffnen` sind die Grundlage für
 from __future__ import annotations
 
 import json
+import os
 import re
+import sys
 from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QColor, QTextCursor
 from PySide6.QtWidgets import (
+    QApplication,
     QDialog,
     QDockWidget,
     QFileDialog,
@@ -41,6 +44,7 @@ from ide.debugger import DebugSitzung, fehlermeldung_aus_dap_erzeugen
 from ide.designer import DesignerCanvas, formular_fuer_designer_laden
 from ide.designer.pfm_schreiben import pfm_aus_formular
 from ide.env import PaketFehler, installierte_pakete, paket_installieren, paketliste_exportieren
+from ide.export import exe_exportieren
 from ide.import_lfm import LfmParserError, lfm_zu_pfm, parse_lfm
 from ide.inspector import Objektinspektor
 from ide.lint import pruefen
@@ -404,6 +408,14 @@ class HauptFenster(QMainWindow):
         )
         self.aktionen.registrieren(
             Aktion(
+                "projekt.als_exe_exportieren",
+                "Als Exe exportieren …",
+                menue="Projekt",
+                callback=self._als_exe_exportieren_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
                 "datei.neue_test_unit",
                 "Neue Test-Unit",
                 menue="Datei",
@@ -670,6 +682,33 @@ class HauptFenster(QMainWindow):
         html = ergebnisse_als_html(self._letzte_testergebnisse, titel=titel)
         Path(pfad).write_text(html, encoding="utf-8")
         self.statusBar().showMessage(f"Testprotokoll gespeichert: {pfad}")
+
+    def _als_exe_exportieren_aktion(self) -> None:
+        """„Projekt → Als Exe exportieren …“ (Abschnitt 16, 17;
+        M8 Schritt 4): baut das Projekt mit PyInstaller. Läuft
+        blockierend, wie „Alle Tests ausführen“ – ein Export dauert für
+        ein Schulprojekt typischerweise 15-40 Sekunden."""
+        if self.projekt is None:
+            self.statusBar().showMessage("Kein Projekt offen.")
+            return
+
+        self.statusBar().showMessage("Exe wird erstellt … (kann etwas dauern)")
+        QApplication.processEvents()
+
+        ergebnis = exe_exportieren(self.projekt)
+
+        if not ergebnis.erfolgreich:
+            self.meldungen_liste.clear()
+            self.meldungen_liste.addItems(
+                ["[Exe-Export fehlgeschlagen]", *ergebnis.protokoll.splitlines()[-40:]]
+            )
+            self.panels.setCurrentWidget(self.meldungen_liste)
+            self.statusBar().showMessage("Exe-Export fehlgeschlagen, siehe Meldungen.")
+            return
+
+        self.statusBar().showMessage(f"Exe erstellt: {ergebnis.ausgabe_pfad}")
+        if sys.platform == "win32":
+            os.startfile(ergebnis.ausgabe_pfad.parent)
 
     def _tests_baum_befuellen(self, ergebnisse: list[Testergebnis]) -> None:
         self.tests_baum.clear()
