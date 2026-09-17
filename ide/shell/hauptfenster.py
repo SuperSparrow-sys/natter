@@ -14,7 +14,7 @@ import re
 from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QTextCursor
 from PySide6.QtWidgets import (
     QDialog,
     QDockWidget,
@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QMessageBox,
     QPlainTextEdit,
     QTableWidget,
     QTableWidgetItem,
@@ -51,9 +52,11 @@ from ide.run import projekt_pruefen, projekt_starten
 from ide.shell.explorer import PFAD_ROLLE, ProjektExplorer
 from ide.shell.quelltexteditor import QuelltextEditor
 from ide.shell.schnellauswahl import SchnellAuswahl
+from ide.shell.suchen_dialog import SuchenErsetzenDialog
 from ide.shell.theme import ide_qss_erzeugen
 from ide.testrunner import Testergebnis, ergebnisse_als_html, tests_ausfuehren
 from ide.viewers import BildVorschau, CsvAnsicht, HtmlVorschau
+from pcl import open_url
 from pcl.form import Form
 
 _BILD_ENDUNGEN = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".svg"}
@@ -93,6 +96,35 @@ _PFAD_EIGENSCHAFT = "pfad"
 # (reiner Text über addItems()) tragen hier nichts.
 _MELDUNG_ROLLE = Qt.ItemDataRole.UserRole
 
+
+def _kommentar_umschalten_zeilen(zeilen: list[str]) -> list[str]:
+    """Reine Logik für „Quelltext → Kommentar umschalten“ (Abschnitt 7.2,
+    wie VS Codes Strg+#): entfernt `# ` (oder `#` ohne Leerzeichen) von
+    jeder nicht-leeren Zeile, wenn ALLE nicht-leeren Zeilen bereits so
+    beginnen – sonst wird bei jeder nicht-leeren Zeile `# ` ergänzt.
+    Leere Zeilen bleiben unverändert und zählen nicht mit."""
+    inhaltszeilen = [z for z in zeilen if z.strip()]
+    alle_kommentiert = bool(inhaltszeilen) and all(
+        z.lstrip().startswith("#") for z in inhaltszeilen
+    )
+    ergebnis = []
+    for zeile in zeilen:
+        if not zeile.strip():
+            ergebnis.append(zeile)
+            continue
+        rest = zeile.lstrip()
+        einzug = zeile[: len(zeile) - len(rest)]
+        if alle_kommentiert:
+            if rest.startswith("# "):
+                rest = rest[2:]
+            elif rest.startswith("#"):
+                rest = rest[1:]
+            ergebnis.append(einzug + rest)
+        else:
+            ergebnis.append(einzug + "# " + rest)
+    return ergebnis
+
+
 # Vorlage „Test-Unit“ im Neu-Dialog (Abschnitt 8.6): unittest, reines
 # Python wie bei jeder anderen Unit.
 _TEST_UNIT_VORLAGE = '''\
@@ -124,6 +156,7 @@ class HauptFenster(QMainWindow):
             self._menues[titel] = self.menuBar().addMenu(titel)
 
         self.werkzeugleiste = self.addToolBar("Haupt-Werkzeugleiste")
+        self.werkzeugleiste.setObjectName("Haupt-Werkzeugleiste")
         self.werkzeugleiste.setMovable(False)
         self.werkzeugleiste.setIconSize(QSize(22, 22))
 
@@ -200,6 +233,11 @@ class HauptFenster(QMainWindow):
         ):
             self._menues["Ansicht"].addAction(dock.toggleViewAction())
 
+        # „Fenster → Layout zurücksetzen“ (Abschnitt 7.2): merkt sich die
+        # ursprüngliche Dock-/Werkzeugleisten-Anordnung, sobald alle
+        # Docks platziert sind.
+        self._urspruengliches_layout = self.saveState()
+
         self._letzte_testergebnisse: list[Testergebnis] = []
         self.debug_sitzung: DebugSitzung | None = None
         self._aktueller_thread_id: int | None = None
@@ -235,6 +273,97 @@ class HauptFenster(QMainWindow):
                 tastenkuerzel="Ctrl+S",
                 symbol="speichern",
                 callback=self._aktuelle_datei_speichern,
+            )
+        )
+        for aktion_id, name, tastenkuerzel, callback in (
+            ("bearbeiten.rueckgaengig", "Rückgängig", "Ctrl+Z", self._bearbeiten_rueckgaengig),
+            ("bearbeiten.wiederholen", "Wiederholen", "Ctrl+Y", self._bearbeiten_wiederholen),
+            ("bearbeiten.ausschneiden", "Ausschneiden", "Ctrl+X", self._bearbeiten_ausschneiden),
+            ("bearbeiten.kopieren", "Kopieren", "Ctrl+C", self._bearbeiten_kopieren),
+            ("bearbeiten.einfuegen", "Einfügen", "Ctrl+V", self._bearbeiten_einfuegen),
+            (
+                "bearbeiten.alles_auswaehlen",
+                "Alles auswählen",
+                "Ctrl+A",
+                self._bearbeiten_alles_auswaehlen,
+            ),
+        ):
+            self.aktionen.registrieren(
+                Aktion(
+                    aktion_id,
+                    name,
+                    menue="Bearbeiten",
+                    tastenkuerzel=tastenkuerzel,
+                    callback=callback,
+                )
+            )
+        self.aktionen.registrieren(
+            Aktion(
+                "suchen.suchen",
+                "Suchen …",
+                menue="Suchen",
+                tastenkuerzel="Ctrl+F",
+                callback=self._suchen_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "suchen.gehe_zu_zeile",
+                "Gehe zu Zeile …",
+                menue="Suchen",
+                tastenkuerzel="Ctrl+G",
+                callback=self._gehe_zu_zeile_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "quelltext.kommentar_umschalten",
+                "Kommentar umschalten",
+                menue="Quelltext",
+                tastenkuerzel="Ctrl+#",
+                callback=self._kommentar_umschalten_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "fenster.naechster_tab",
+                "Nächster Tab",
+                menue="Fenster",
+                tastenkuerzel="Ctrl+Tab",
+                callback=self._naechster_tab_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "fenster.vorheriger_tab",
+                "Vorheriger Tab",
+                menue="Fenster",
+                tastenkuerzel="Ctrl+Shift+Tab",
+                callback=self._vorheriger_tab_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "fenster.layout_zuruecksetzen",
+                "Layout zurücksetzen",
+                menue="Fenster",
+                callback=self._layout_zuruecksetzen_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "hilfe.komponenten_referenz",
+                "Komponenten-Referenz",
+                menue="Hilfe",
+                callback=self._komponenten_referenz_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "hilfe.ueber",
+                "Über Natter",
+                menue="Hilfe",
+                callback=self._ueber_aktion,
             )
         )
         self.aktionen.registrieren(
@@ -617,6 +746,7 @@ class HauptFenster(QMainWindow):
         self, titel: str, bereich: Qt.DockWidgetArea, inhalt: QWidget | None = None
     ) -> QDockWidget:
         dock = QDockWidget(titel, self)
+        dock.setObjectName(titel)  # von QMainWindow.saveState()/restoreState() benötigt
         dock.setWidget(inhalt if inhalt is not None else QWidget())
         self.addDockWidget(bereich, dock)
         return dock
@@ -675,6 +805,134 @@ class HauptFenster(QMainWindow):
         pfad = Path(editor.property(_PFAD_EIGENSCHAFT))
         pfad.write_text(editor.toPlainText(), encoding="utf-8")
         editor.document().setModified(False)
+
+    # -- Bearbeiten (Abschnitt 7.2) -------------------------------------------
+
+    def _aktueller_editor(self) -> QPlainTextEdit | None:
+        """Der aktive Editor-Tab, falls es einer ist (nicht z. B. ein
+        Designer- oder CSV-/Bild-/HTML-Betrachter-Tab)."""
+        widget = self.editor_tabs.currentWidget()
+        return widget if isinstance(widget, QPlainTextEdit) else None
+
+    def _bearbeiten_rueckgaengig(self) -> None:
+        editor = self._aktueller_editor()
+        if editor is not None:
+            editor.undo()
+
+    def _bearbeiten_wiederholen(self) -> None:
+        editor = self._aktueller_editor()
+        if editor is not None:
+            editor.redo()
+
+    def _bearbeiten_ausschneiden(self) -> None:
+        editor = self._aktueller_editor()
+        if editor is not None:
+            editor.cut()
+
+    def _bearbeiten_kopieren(self) -> None:
+        editor = self._aktueller_editor()
+        if editor is not None:
+            editor.copy()
+
+    def _bearbeiten_einfuegen(self) -> None:
+        editor = self._aktueller_editor()
+        if editor is not None:
+            editor.paste()
+
+    def _bearbeiten_alles_auswaehlen(self) -> None:
+        editor = self._aktueller_editor()
+        if editor is not None:
+            editor.selectAll()
+
+    # -- Suchen (Abschnitt 7.2) -----------------------------------------------
+
+    def _suchen_aktion(self) -> None:
+        editor = self._aktueller_editor()
+        if editor is None:
+            self.statusBar().showMessage("Kein Editor-Tab aktiv.")
+            return
+        self._suchen_dialog = SuchenErsetzenDialog(editor, self)
+        self._suchen_dialog.show()
+        self._suchen_dialog.raise_()
+        self._suchen_dialog.activateWindow()
+
+    def _gehe_zu_zeile_aktion(self) -> None:
+        editor = self._aktueller_editor()
+        if editor is None:
+            self.statusBar().showMessage("Kein Editor-Tab aktiv.")
+            return
+        maximum = editor.document().blockCount()
+        zeile, ok = QInputDialog.getInt(self, "Gehe zu Zeile", "Zeile:", 1, 1, maximum)
+        if not ok:
+            return
+        block = editor.document().findBlockByNumber(zeile - 1)
+        cursor = editor.textCursor()
+        cursor.setPosition(block.position())
+        editor.setTextCursor(cursor)
+        editor.ensureCursorVisible()
+        editor.setFocus()
+
+    # -- Quelltext (Abschnitt 7.2) ---------------------------------------------
+
+    def _kommentar_umschalten_aktion(self) -> None:
+        """„Quelltext → Kommentar umschalten“ (Strg+#, wie in VS Code auf
+        deutschen Tastaturen): kommentiert die aktuelle Zeile bzw. jede
+        Zeile der Auswahl mit `# ` aus oder ein."""
+        editor = self._aktueller_editor()
+        if editor is None:
+            return
+        cursor = editor.textCursor()
+        dokument = editor.document()
+        start_block = dokument.findBlock(cursor.selectionStart()).blockNumber()
+        ende_position = cursor.selectionEnd()
+        if cursor.hasSelection() and ende_position > cursor.selectionStart():
+            ende_position -= 1  # Zeilenumbruch am Selektionsende nicht mitzählen
+        end_block = dokument.findBlock(ende_position).blockNumber()
+
+        zeilen = [dokument.findBlockByNumber(n).text() for n in range(start_block, end_block + 1)]
+        neue_zeilen = _kommentar_umschalten_zeilen(zeilen)
+
+        erster = dokument.findBlockByNumber(start_block)
+        letzter = dokument.findBlockByNumber(end_block)
+        ersetz_cursor = QTextCursor(dokument)
+        ersetz_cursor.setPosition(erster.position())
+        ersetz_cursor.setPosition(
+            letzter.position() + letzter.length() - 1, QTextCursor.MoveMode.KeepAnchor
+        )
+        ersetz_cursor.insertText("\n".join(neue_zeilen))
+
+    # -- Fenster (Abschnitt 7.2) -----------------------------------------------
+
+    def _naechster_tab_aktion(self) -> None:
+        anzahl = self.editor_tabs.count()
+        if anzahl:
+            self.editor_tabs.setCurrentIndex((self.editor_tabs.currentIndex() + 1) % anzahl)
+
+    def _vorheriger_tab_aktion(self) -> None:
+        anzahl = self.editor_tabs.count()
+        if anzahl:
+            self.editor_tabs.setCurrentIndex((self.editor_tabs.currentIndex() - 1) % anzahl)
+
+    def _layout_zuruecksetzen_aktion(self) -> None:
+        if self._urspruengliches_layout is not None:
+            self.restoreState(self._urspruengliches_layout)
+
+    # -- Hilfe (Abschnitt 7.2) -------------------------------------------------
+
+    def _komponenten_referenz_aktion(self) -> None:
+        pfad = Path(__file__).resolve().parent.parent.parent / "docs" / "komponenten.md"
+        if not pfad.exists():
+            self.statusBar().showMessage("Komponenten-Referenz nicht gefunden.")
+            return
+        open_url(str(pfad))
+
+    def _ueber_aktion(self) -> None:
+        QMessageBox.about(
+            self,
+            "Über Natter",
+            "<h3>Natter</h3><p>Eine Lazarus-artige IDE für Python – "
+            "Umstieg von Pascal/Lazarus auf Python.</p>",
+        )
 
     def designer_oeffnen(self, pfad: Path) -> Form:
         """Öffnet eine `.pfm`-Datei im Formular-Designer statt als
