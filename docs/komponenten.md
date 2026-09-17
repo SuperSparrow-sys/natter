@@ -57,6 +57,8 @@ Qt-Basis: `QLabel` (`pcl/components/standard.py`)
 |---|---|---|---|---|
 | left, top, width, height, enabled | wie `Control` | – | – | geerbt von `Control` |
 | caption | str | "Label1" | Darstellung | Anzeigetext |
+| color | str (Hex) | "" | Darstellung | Hintergrundfarbe (nur bei transparent=False), wie Lazarus `TLabel.Color` |
+| transparent | bool | True | Darstellung | Wenn wahr (Standard), kein eigener Hintergrund, wie Lazarus `TLabel.Transparent` |
 
 Keine eigenen Ereignisse.
 
@@ -69,10 +71,17 @@ Qt-Basis: eigenes Painting (`QPainter` auf `QWidget`, `pcl/components/additional
 | left, top, width, height, enabled | wie `Control` | – | – | geerbt von `Control` |
 | shape | str | "rectangle" | Darstellung | Form der Zeichnung: rectangle oder circle |
 | brush.color | str (Hex) | "#c0c0c0" | Darstellung | Füllfarbe; aufklappbare Untereigenschaft, kein eigenständiges `Prop` |
+| pen_color | str (Hex) | "#000000" | Darstellung | Randfarbe, unabhängig von `brush.color` (wie Lazarus `Pen.Color`) |
+| transparent | bool | False | Darstellung | Wenn wahr, keine Füllung - nur der Rand (wie Lazarus `Brush.Style=bsClear`) |
 
 Keine eigenen Ereignisse. `shape` ist aktuell ein einfacher `str` ohne
 Aufzählungs-Editor im Inspektor (Abschnitt 5.0 sieht dafür später einen
 echten Enum-Typ vor, sobald `Align`/`BorderStyle` u. Ä. eingeführt werden).
+
+`Control` (alle Komponenten) hat außerdem `nach_vorne_bringen()`/
+`nach_hinten_schicken()` (Z-Ebene, wie Lazarus `BringToFront`/
+`SendToBack`) - keine Inspektor-Zeile, da eine Aktion statt einer
+Eigenschaft (Nutzer-Feedback September 2026: „Z-Ebene“).
 
 ## Edit
 

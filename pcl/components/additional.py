@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPainter, QPixmap
 from PySide6.QtWidgets import QLabel, QTableWidget, QTableWidgetItem, QWidget
 
@@ -21,11 +22,11 @@ from pcl.properties import Prop, typ_beschreibung
 _FORMEN = ("rectangle", "circle", "rounded_rectangle")
 _ECKENRADIUS = 12
 
-# Hellgrau statt Schwarz: da Pen und Brush hier dieselbe Farbe nutzen
-# (keine eigene Randfarbe), sah eine frisch aus der Palette gezogene
-# Shape vorher wie ein solider schwarzer Block aus statt wie eine
-# erkennbare, noch unbenutzte Form (beim Rundgang durch alle
-# Palettentypen gefunden). Kein eigenständiger `Prop`
+# Hellgrau statt Schwarz: eine frisch aus der Palette gezogene Shape sah
+# vorher wie ein solider schwarzer Block aus statt wie eine erkennbare,
+# noch unbenutzte Form (beim Rundgang durch alle Palettentypen
+# gefunden; seit dem eigenen `pen_color` unten betrifft das nur noch
+# die Füllung, nicht mehr auch den Rand). Kein eigenständiger `Prop`
 # (`brush.color` ist eine verschachtelte Untereigenschaft, siehe
 # `Brush` unten), daher muss `ide/designer/pfm_schreiben.py` denselben
 # Wert kennen, um ihn beim Speichern weglassen zu können - dort als
@@ -69,9 +70,11 @@ class _ShapeQWidget(QWidget):
     def paintEvent(self, event: Any) -> None:  # noqa: N802 (Qt-Konvention)
         maler = QPainter(self)
         maler.setRenderHint(QPainter.RenderHint.Antialiasing)
-        farbe = QColor(self._shape.brush.color)
-        maler.setBrush(farbe)
-        maler.setPen(farbe)
+        if self._shape.transparent:
+            maler.setBrush(Qt.BrushStyle.NoBrush)
+        else:
+            maler.setBrush(QColor(self._shape.brush.color))
+        maler.setPen(QColor(self._shape.pen_color))
         flaeche = self.rect().adjusted(0, 0, -1, -1)
         if self._shape.shape == "circle":
             maler.drawEllipse(flaeche)
@@ -83,13 +86,25 @@ class _ShapeQWidget(QWidget):
 
 class Shape(Control):
     """Einfache geometrische Form zum Zeichnen. Qt-Basis: eigenes Painting
-    (`QPainter` auf einem `QWidget`)."""
+    (`QPainter` auf einem `QWidget`). Wie in Lazarus sind Füllung
+    (`brush.color`) und Rand (`pen_color`) unabhängig voneinander -
+    Nutzer-Feedback September 2026: „Rahmen, Rahmenfarbe“ fehlte bisher,
+    Rand und Füllung nutzten dieselbe Farbe."""
 
     shape = Prop(
         str,
         "rectangle",
         kategorie="Darstellung",
         doc=f"Form der Zeichnung: {' oder '.join(_FORMEN)}",
+    )
+    pen_color = Prop(
+        str, "#000000", kategorie="Darstellung", doc="Randfarbe als #RRGGBB (wie Lazarus Pen.Color)"
+    )
+    transparent = Prop(
+        bool,
+        False,
+        kategorie="Darstellung",
+        doc="Wenn wahr, keine Füllung - nur der Rand (wie Lazarus Brush.Style=bsClear)",
     )
 
     def __init__(self, parent: Control) -> None:
@@ -105,7 +120,7 @@ class Shape(Control):
 
     def _bei_prop_aenderung(self, name: str, wert: Any) -> None:
         super()._bei_prop_aenderung(name, wert)
-        if name == "shape":
+        if name in ("shape", "pen_color", "transparent"):
             self._qwidget.update()
 
 

@@ -67,9 +67,22 @@ class _KlickbaresLabel(QLabel):
 
 
 class Label(Control):
-    """Textanzeige, per `on_click` auch anklickbar. Qt-Basis: `QLabel`."""
+    """Textanzeige, per `on_click` auch anklickbar. Qt-Basis: `QLabel`.
+
+    `color`/`transparent` wie Lazarus' `TLabel` (Nutzer-Feedback
+    September 2026): ein Label kann eine eigene Hintergrundfarbe zeigen
+    - nützlich, um es sichtbar über einer `Shape` zu platzieren."""
 
     caption = Prop(str, "Label1", kategorie="Darstellung", doc="Anzeigetext")
+    color = Prop(
+        str,
+        "",
+        kategorie="Darstellung",
+        doc="Hintergrundfarbe als #RRGGBB (nur bei transparent=False)",
+    )
+    transparent = Prop(
+        bool, True, kategorie="Darstellung", doc="Wenn wahr (Standard), kein eigener Hintergrund"
+    )
     on_click = Event(doc="Wird beim Klicken ausgelöst")
 
     def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
@@ -85,6 +98,14 @@ class Label(Control):
         super()._bei_prop_aenderung(name, wert)
         if name == "caption":
             self._qwidget.setText(wert)
+        elif name in ("color", "transparent"):
+            self._hintergrund_anwenden()
+
+    def _hintergrund_anwenden(self) -> None:
+        if self.transparent or not self.color:
+            self._qwidget.setStyleSheet("")
+        else:
+            self._qwidget.setStyleSheet(f"background-color: {self.color};")
 
 
 class Edit(Control):

@@ -118,6 +118,58 @@ def test_shape_rounded_rectangle_ist_eine_gueltige_form() -> None:
     assert formular.s_rot.shape == "rounded_rectangle"
 
 
+# -- Rand/Füllung/Z-Ebene (Nutzer-Feedback September 2026, wie Lazarus) ----
+
+
+def test_shape_pen_color_ist_unabhaengig_von_brush_color() -> None:
+    formular = _Formular()
+    assert formular.s_rot.pen_color == "#000000"
+
+    formular.s_rot.pen_color = "#2962ff"
+    formular.s_rot.brush.color = "#e53935"
+
+    assert formular.s_rot.pen_color == "#2962ff"
+    assert formular.s_rot.brush.color == "#e53935"
+
+
+def test_shape_transparent_standardwert_ist_falsch() -> None:
+    formular = _Formular()
+    assert formular.s_rot.transparent is False
+
+
+def test_shape_transparent_umschaltbar() -> None:
+    formular = _Formular()
+    formular.s_rot.transparent = True
+    assert formular.s_rot.transparent is True
+
+
+def test_control_nach_vorne_bringen_und_nach_hinten_schicken_ohne_fehler() -> None:
+    # Reine Delegation an QWidget.raise_()/lower() (Z-Ebene wie Lazarus
+    # BringToFront/SendToBack) - hier nur geprüft, dass beides ohne
+    # Fehler funktioniert; die tatsächliche Stapelreihenfolge ist Qt-
+    # intern und nicht sinnvoll headless abfragbar.
+    formular = _Formular()
+    formular.s_rot.nach_vorne_bringen()
+    formular.s_rot.nach_hinten_schicken()
+    formular.l_titel.nach_vorne_bringen()
+
+
+def test_label_ist_standardmaessig_transparent_ohne_eigene_farbe() -> None:
+    formular = _Formular()
+    assert formular.l_titel.transparent is True
+    assert formular.l_titel.color == ""
+
+
+def test_label_farbe_wirkt_nur_wenn_nicht_transparent() -> None:
+    formular = _Formular()
+    formular.l_titel.color = "#ffeb3b"
+    formular.l_titel.transparent = False
+    assert "#ffeb3b" in formular.l_titel._qwidget.styleSheet()
+
+    formular.l_titel.transparent = True
+    assert formular.l_titel._qwidget.styleSheet() == ""
+
+
 def test_tippfehler_auf_echten_komponenten_wird_gemeldet() -> None:
     formular = _Formular()
     with pytest.raises(NatterUnbekannteEigenschaftError):

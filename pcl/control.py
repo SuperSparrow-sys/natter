@@ -46,3 +46,14 @@ class Control(Komponente):
             self._geometrie_anwenden()
         elif name == "enabled":
             self._qwidget.setEnabled(wert)
+
+    def nach_vorne_bringen(self) -> None:
+        """Holt die Komponente vor alle überlappenden Geschwister-
+        Komponenten (Z-Ebene, wie Lazarus' `BringToFront`) - z. B. ein
+        `Label`, das über einer `Shape` liegen soll."""
+        self._qwidget.raise_()
+
+    def nach_hinten_schicken(self) -> None:
+        """Schickt die Komponente hinter alle überlappenden Geschwister-
+        Komponenten (wie Lazarus' `SendToBack`)."""
+        self._qwidget.lower()
