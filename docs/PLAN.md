@@ -627,6 +627,15 @@ Verteilung brauchen einen echten Windows-Rechner, siehe M8.md.
 
 ## M9 – Diagramm-Editor
 
+Kleinteilig aufgeschlüsselt in
+[`docs/arbeitspakete/M9.md`](arbeitspakete/M9.md) (wie M1–M8).
+Reihenfolge (Nutzer-Feedback September 2026): erst die MVP-Dreiergruppe
+aus dem Abnahmekriterium (Klassendiagramm, Struktogramm,
+Entscheidungstabelle, jeweils inkl. PNG/SVG/PDF-Export und Drucken von
+Anfang an), danach Use-Case-, Aktivitäts-, Zustands- und
+Sequenzdiagramm. Eigenes Top-Level-Fenster mit eigenem
+Taskleisten-Eintrag statt Dock/Tab in der IDE (Abschnitt 13.1).
+
 - [ ] Fenster, Palette, Klassendiagramm, Struktogramm, Entscheidungstabelle
 - [ ] danach Use-Case, Aktivität, Zustand, Sequenz
 - [ ] Stilvorlagen, Export, Druck
@@ -636,5 +645,7 @@ Verteilung brauchen einen echten Windows-Rechner, siehe M8.md.
 
 ## Nächster konkreter Schritt
 
-**M1, Schritt 1:** `pcl/properties.py` mit `Prop`/`Event`-Kern anlegen,
-reine Python-Logik ohne Qt, mit pytest abgesichert (siehe oben).
+**M9, Schritt 1:** `.pdiag`-Datenmodell und Fenster-Grundgerüst anlegen
+(`schemas/pdiag.schema.json` für die MVP-Dreiergruppe erweitern,
+eigenständiges `QMainWindow` mit Projekt-Explorer-Integration), siehe
+[`docs/arbeitspakete/M9.md`](arbeitspakete/M9.md), Schritt 1.
