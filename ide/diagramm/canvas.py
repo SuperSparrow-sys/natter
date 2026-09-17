@@ -7,10 +7,11 @@ einem einzigen Widget: Diagrammformen sind keine bedienbaren
 Steuerelemente, es können sehr viele werden, und Verbindungen (Schritt
 4) lassen sich ohnehin nur frei zeichnen.
 
-Stand M9, Schritt 4: anzeigen, platzieren, auswählen, verschieben,
+Stand M9, Schritt 5: anzeigen, platzieren, auswählen, verschieben,
 Größe ändern, löschen, duplizieren und verbinden (sieben UML-
 Verbindungsarten, Enden folgen beim Verschieben automatisch, weil sie
-beim Zeichnen aus den Formen berechnet werden) – alles über den Kommando-Stapel,
+beim Zeichnen aus den Formen berechnet werden) und beschriften
+(Doppelklick, Eingabefelder direkt in der Form) – alles über den Kommando-Stapel,
 also unbegrenzt rückgängig machbar (Abschnitt 13.3). Beim Ziehen wird
 am Raster **und** an Kanten/Mitten anderer Formen eingerastet, mit
 Hilfslinien als Rückmeldung.
@@ -33,6 +34,7 @@ from ide.diagramm.kommandos import (
     WerteKommando,
 )
 from ide.diagramm.stil import stil as stil_zu_namen
+from ide.diagramm.textbearbeitung import FormEditor
 from ide.diagramm.zeichnen import (
     abstand_zur_verbindung,
     anfasser_punkte,
@@ -97,6 +99,7 @@ class DiagrammCanvas(QWidget):
         self._zieh_startwerte: dict[str, Any] | None = None
         self._anfasser: str | None = None
         self._hilfslinien: list[tuple[str, float]] = []
+        self._editor: FormEditor | None = None
 
         self.setMinimumSize(640, 480)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
@@ -467,6 +470,51 @@ class DiagrammCanvas(QWidget):
         self.verbindungsmodus_setzen(None)
         self.verbindung_erstellen(kind, quelle, getroffen)
 
+    def mouseDoubleClickEvent(self, ereignis: QMouseEvent) -> None:
+        """Doppelklick beschriftet die Form direkt (Abschnitt 13.3)."""
+        punkt = ereignis.position().toPoint()
+        getroffen = self.form_bei(punkt.x(), punkt.y())
+        if getroffen is not None:
+            self._auswaehlen(getroffen)
+            self.bearbeiten_starten(getroffen)
+
+    # -- Beschriften ----------------------------------------------------
+
+    def bearbeiten_starten(self, form: dict[str, Any] | None = None) -> FormEditor | None:
+        ziel = form or self.ausgewaehlte_form
+        if ziel is None:
+            return None
+        self.bearbeiten_beenden()
+
+        editor = FormEditor(ziel, self)
+        editor.fertig.connect(lambda text, f=ziel: self._text_uebernehmen(f, text))
+        editor.abgebrochen.connect(self.bearbeiten_beenden)
+        editor.show()
+        editor.setFocus()
+        self._editor = editor
+        return editor
+
+    def bearbeiten_beenden(self) -> None:
+        if self._editor is not None:
+            editor, self._editor = self._editor, None
+            editor.stilllegen()
+            editor.hide()
+            editor.setParent(None)
+            editor.deleteLater()
+            self.setFocus()
+
+    def _text_uebernehmen(self, form: dict[str, Any], text: dict[str, Any]) -> None:
+        self.bearbeiten_beenden()
+        if text == (form.get("text") or {}):
+            return
+        # Höhe gleich mit anpassen, damit neue Zeilen nicht abgeschnitten
+        # werden - beides zusammen als ein Undo-Schritt.
+        probe = dict(form)
+        probe["text"] = text
+        neue_hoehe = max(form["h"], _raster_aufrunden(mindesthoehe(probe)))
+        self.kommandos.ausfuehren(WerteKommando(form, {"text": text, "h": neue_hoehe}))
+        self._nach_aenderung()
+
     def mouseMoveEvent(self, ereignis: QMouseEvent) -> None:
         punkt = ereignis.position().toPoint()
 
@@ -563,6 +611,9 @@ class DiagrammCanvas(QWidget):
             return True
         if taste == Qt.Key.Key_Delete:
             self.loeschen()
+            return True
+        if taste == Qt.Key.Key_F2:
+            self.bearbeiten_starten()
             return True
         if taste == Qt.Key.Key_Escape:
             self.platzierungsmodus_setzen(None)

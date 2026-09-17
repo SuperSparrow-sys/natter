@@ -79,6 +79,38 @@ def mindesthoehe(shape: dict[str, Any]) -> float:
     return kopf + (attribute + methoden) * zeilenhoehe + 2 * INNENABSTAND
 
 
+def klassen_bereiche(shape: dict[str, Any]) -> dict[str, QRectF]:
+    """Die drei Bereiche einer Klasse (Name, Attribute, Methoden) als
+    Rechtecke. Wird sowohl beim Zeichnen als auch beim Bearbeiten
+    benutzt, damit die Eingabefelder exakt dort liegen, wo der Text
+    steht (Abschnitt 13.3: „bearbeitet direkt in der Form“)."""
+    rechteck = form_rechteck(shape)
+    kind = shape.get("kind", "class")
+    if kind not in ("class", "abstract_class", "interface"):
+        return {"name": rechteck}
+
+    text = shape.get("text") or {}
+    zeilenhoehe = QFontMetricsF(_mono_schrift()).height()
+    kopf_unten = rechteck.top() + KOPFHOEHE * (2 if kind == "interface" else 1)
+    attribute = max(1, len(text.get("attributes") or []))
+    attribut_unten = kopf_unten + attribute * zeilenhoehe + INNENABSTAND
+
+    return {
+        "name": QRectF(
+            rechteck.left(), kopf_unten - KOPFHOEHE, rechteck.width(), KOPFHOEHE
+        ),
+        "attributes": QRectF(
+            rechteck.left(), kopf_unten, rechteck.width(), attribut_unten - kopf_unten
+        ),
+        "methods": QRectF(
+            rechteck.left(),
+            attribut_unten,
+            rechteck.width(),
+            max(zeilenhoehe, rechteck.bottom() - attribut_unten),
+        ),
+    }
+
+
 def form_zeichnen(
     maler: QPainter, shape: dict[str, Any], stil: Stil, ausgewaehlt: bool = False
 ) -> None:
@@ -147,7 +179,7 @@ def _klasse_zeichnen(maler: QPainter, shape: dict, stil: Stil, kind: str) -> Non
     attribute = [str(zeile) for zeile in (text.get("attributes") or [])]
     methoden = [str(zeile) for zeile in (text.get("methods") or [])]
 
-    attribut_unten = kopf_unten + max(1, len(attribute)) * zeilenhoehe + INNENABSTAND
+    attribut_unten = klassen_bereiche(shape)["methods"].top()
     _zeilen_zeichnen(maler, rechteck, kopf_unten, attribute, stil, zeilenhoehe)
 
     maler.setPen(_stift(stil, stil.trennlinie))
