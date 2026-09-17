@@ -9,7 +9,12 @@
 ;
 ; Kompilieren (Inno Setup 6):
 ;   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" tools\natter.iss
-; Ergebnis: dist\installer\Natter-Setup.exe
+; Ergebnis: dist\installer\Natter-Setup.exe (noch unsigniert - Natter.exe
+; darin ist bereits signiert, weil tools/ide_paketieren.py das vor dem
+; Kompilieren erledigt). Den Installer selbst danach separat signieren:
+;   powershell -NoProfile -ExecutionPolicy Bypass -File tools\signieren\datei_signieren.ps1 -Datei dist\installer\Natter-Setup.exe
+; (Beides zusammen automatisiert tools/signieren/README.md, Abschnitt
+; "Kompletter Bau".)
 
 #define MyAppName "Natter"
 #define MyAppVersion "0.1.0"

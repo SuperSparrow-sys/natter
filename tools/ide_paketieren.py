@@ -15,6 +15,15 @@ einen `Lizenzen`-Ordner neben `Natter.exe` (Abschnitt „Lizenz" der
 Nutzeranfrage: PySide6/Qt steht unter LGPL-3.0, das verlangt u. a.
 den Lizenztext beizulegen - siehe `tools/lizenz_vorlagen/`).
 
+Signiert `Natter.exe` anschließend mit dem selbst erstellten Code-
+Signing-Zertifikat (Nutzer-Feedback: „Weg A" gegen Windows Smart App
+Control, siehe `tools/signieren/`) - ohne vorher per
+`zertifikat_einrichten.ps1` erzeugtes Zertifikat wird das Signieren
+übersprungen (Warnung statt Abbruch), damit ein Bau auch auf einem
+Rechner ohne dieses Zertifikat funktioniert. Der Installer
+(`tools/natter.iss`) muss danach separat signiert werden, siehe
+`tools/signieren/README.md`.
+
 Beispiel:
     uv run python -m tools.ide_paketieren
 """
@@ -39,6 +48,7 @@ _AUSGABE = _DIST_ORDNER / "Natter"
 _BUILD_ORDNER = _PROJEKT_WURZEL / "_pyinstaller_build_ide"
 _SPEC_ORDNER = _PROJEKT_WURZEL / "_pyinstaller_spec_ide"
 _LIZENZ_VORLAGEN = Path(__file__).resolve().parent / "lizenz_vorlagen"
+_SIGNIER_SKRIPT = Path(__file__).resolve().parent / "signieren" / "datei_signieren.ps1"
 
 # Nur diese Laufzeit-Abhängigkeiten interessieren (nicht pytest/ruff/
 # pyinstaller selbst - die stecken nicht in der gebauten Exe).
@@ -141,9 +151,38 @@ def _lizenzen_sammeln(ziel: Path) -> None:
         print(f"Warnung: keine Lizenzinformation gefunden für: {sorted(fehlend)}")
 
 
-def paketieren() -> Path:
+def _exe_signieren(datei: Path) -> None:
+    """Signiert `datei` mit dem selbst erstellten Zertifikat (siehe
+    `tools/signieren/zertifikat_einrichten.ps1`). Kein Abbruch des
+    Baus, falls kein Zertifikat vorhanden ist - nur eine Warnung, die
+    unsignierte Exe funktioniert weiterhin (nur ggf. von Windows Smart
+    App Control blockiert, siehe `tools/signieren/README.md`)."""
+    ergebnis = subprocess.run(
+        [
+            "powershell",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(_SIGNIER_SKRIPT),
+            "-Datei",
+            str(datei),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if ergebnis.returncode != 0:
+        meldung = ergebnis.stderr.strip() or ergebnis.stdout.strip()
+        print(f"Warnung: Signieren übersprungen ({meldung})")
+        return
+    print(ergebnis.stdout.strip())
+
+
+def paketieren(*, signieren: bool = True) -> Path:
     _pyinstaller_bauen()
     _lizenzen_sammeln(_AUSGABE / "Lizenzen")
+    if signieren:
+        _exe_signieren(_AUSGABE / "Natter.exe")
     return _AUSGABE
 
 
