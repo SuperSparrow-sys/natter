@@ -202,6 +202,8 @@ class HauptFenster(QMainWindow):
         self.palette = Komponentenpalette()
         self.palette.standard_liste.itemDoubleClicked.connect(self._bei_palette_doppelklick)
         self.palette.zusaetzlich_liste.itemDoubleClicked.connect(self._bei_palette_doppelklick)
+        self.palette.standard_liste.itemClicked.connect(self._bei_palette_klick)
+        self.palette.zusaetzlich_liste.itemClicked.connect(self._bei_palette_klick)
         self.palette_dock = self._dock_erzeugen(
             "Komponentenpalette", Qt.DockWidgetArea.TopDockWidgetArea, inhalt=self.palette
         )
@@ -1180,7 +1182,7 @@ class HauptFenster(QMainWindow):
 
         index = self.editor_tabs.addTab(formular._qwidget, f"{pfad.stem} (Designer)")
         self.editor_tabs.setCurrentIndex(index)
-        self.objektinspektor.formular_anzeigen(formular)
+        self.objektinspektor.formular_anzeigen(formular, canvas)
         return formular
 
     def _bei_tab_wechsel(self, index: int) -> None:
@@ -1231,13 +1233,28 @@ class HauptFenster(QMainWindow):
             return
         typ = eintrag.data(TYP_ROLLE)
         formular = self._aktueller_canvas.formular
+        # Ein vorheriger einfacher Klick (siehe _bei_palette_klick) hat
+        # ggf. bereits einen Platzierungsmodus scharf gemacht - der
+        # Doppelklick platziert hier sofort selbst, also wieder abbrechen.
+        self._aktueller_canvas.platzierungsmodus_setzen(None)
         self._aktueller_canvas.komponente_platzieren(
             typ, formular.width // 2, formular.height // 2
         )
 
+    def _bei_palette_klick(self, eintrag) -> None:
+        """Einfacher Klick in der Palette (Nutzer-Feedback September
+        2026: „ich möchte per Klick neue Objekte auf der GUI
+        hinzufügen"): macht die Komponente „scharf" (Fadenkreuz-Cursor
+        im Designer, wie in Lazarus) - der nächste Klick auf das
+        Formular platziert sie genau dort, automatisch in `.pfm` und den
+        generierten Code übernommen (`_nach_aenderung`)."""
+        if self._aktueller_canvas is None:
+            return
+        typ = eintrag.data(TYP_ROLLE)
+        self._aktueller_canvas.platzierungsmodus_setzen(typ)
+
     def _designer_auswahl_geaendert(self, komponente) -> None:
-        self.objektinspektor.eigenschaften_tabelle.komponente_anzeigen(komponente)
-        self.objektinspektor.ereignisse_tabelle.anzeigen(komponente, self.objektinspektor.formular)
+        self.objektinspektor._eigenschaften_anzeigen(komponente)
 
     # -- Design-Prüfer (Abschnitt 14) ----------------------------------------
 
@@ -1332,7 +1349,7 @@ class HauptFenster(QMainWindow):
         Pakete des aktuell aktiven Python-Interpreters."""
         try:
             pakete = installierte_pakete()
-        except OSError as fehler:
+        except (OSError, PaketFehler) as fehler:
             self.statusBar().showMessage(f"Paketliste nicht lesbar: {fehler}")
             return
 
@@ -1369,7 +1386,11 @@ class HauptFenster(QMainWindow):
         )
         if not pfad:
             return
-        paketliste_exportieren(pfad)
+        try:
+            paketliste_exportieren(pfad)
+        except (OSError, PaketFehler) as fehler:
+            self.statusBar().showMessage(f"Paketliste exportieren fehlgeschlagen: {fehler}")
+            return
         self.statusBar().showMessage(f"Paketliste exportiert nach {pfad}.")
 
     def _bei_explorer_doppelklick(self, eintrag, spalte: int) -> None:

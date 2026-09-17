@@ -2,10 +2,24 @@
 (Abschnitt 7.3). Headless. Siehe docs/arbeitspakete/M3.md, Schritt 6.
 """
 
+from PySide6.QtCore import QEvent, QPointF, Qt
+from PySide6.QtGui import QMouseEvent
+
 from ide.designer.canvas import DesignerCanvas
 from pcl import Button, Form
 from pcl.components.additional import StringGrid
 from pcl.components.standard import ScrollBar
+
+
+def _klick(x: float, y: float) -> QMouseEvent:
+    return QMouseEvent(
+        QEvent.Type.MouseButtonPress,
+        QPointF(x, y),
+        QPointF(x, y),
+        Qt.MouseButton.LeftButton,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
 
 
 class _LeeresFormular(Form):
@@ -93,3 +107,60 @@ def test_scrollbar_bekommt_beim_platzieren_eine_breite_flache_startgroesse() -> 
     komponente = canvas.komponente_platzieren(ScrollBar, 40, 60)
 
     assert (komponente.width, komponente.height) == (150, 17)
+
+
+def test_platzierungsmodus_platziert_beim_naechsten_klick_auf_das_formular() -> None:
+    """Nutzer-Feedback (September 2026): „ich möchte per Klick neue
+    Objekte auf der GUI hinzufügen" - Klick auf ein Palettensymbol
+    (`platzierungsmodus_setzen`), dann Klick auf das Formular platziert
+    dort, wie in Lazarus. Ergänzung zum bisherigen Doppelklick (immer
+    mittig)."""
+    formular = _LeeresFormular()
+    canvas = DesignerCanvas(formular)
+
+    canvas.platzierungsmodus_setzen(Button)
+    getroffen = canvas.eventFilter(formular._qwidget, _klick(40, 60))
+
+    assert getroffen is True
+    assert isinstance(formular.button, Button)
+    assert (formular.button.left, formular.button.top) == (40, 60)
+
+
+def test_platzierungsmodus_endet_automatisch_nach_dem_klick() -> None:
+    formular = _LeeresFormular()
+    canvas = DesignerCanvas(formular)
+    canvas.platzierungsmodus_setzen(Button)
+
+    canvas.eventFilter(formular._qwidget, _klick(40, 60))
+    # ein zweiter Klick soll nicht nochmal platzieren, sondern nur noch
+    # normal auswählen/ziehen (Klick trifft nichts -> kein Fehler)
+    canvas.eventFilter(formular._qwidget, _klick(200, 200))
+
+    assert not hasattr(formular, "button2")
+
+
+def test_platzierungsmodus_ohne_typ_bricht_ab() -> None:
+    formular = _LeeresFormular()
+    canvas = DesignerCanvas(formular)
+    canvas.platzierungsmodus_setzen(Button)
+
+    canvas.platzierungsmodus_setzen(None)
+    canvas.eventFilter(formular._qwidget, _klick(40, 60))
+
+    assert not hasattr(formular, "button")
+
+
+def test_platzierung_auf_einer_bestehenden_komponente_rechnet_die_position_um() -> None:
+    """Ein Klick während des Platzierungsmodus kann auch ein bereits
+    vorhandenes Widget treffen (z. B. ein größeres, das den Klickpunkt
+    überdeckt) - die neue Komponente landet trotzdem an der richtigen
+    Formular-Koordinate, nicht an (0, 0) relativ zum getroffenen
+    Widget."""
+    formular = _LeeresFormular()
+    canvas = DesignerCanvas(formular)
+    bestehend = canvas.komponente_platzieren(Button, 100, 100)
+
+    canvas.platzierungsmodus_setzen(Button)
+    canvas.eventFilter(bestehend._qwidget, _klick(5, 5))
+
+    assert (formular.button2.left, formular.button2.top) == (105, 105)

@@ -208,6 +208,7 @@ class DesignerCanvas(QObject):
         self._anfasser_ziehen: str | None = None
         self._anfasser_start: QPoint | None = None
         self._anfasser_start_werte: dict[str, int] | None = None
+        self._platzierungs_typ: type | None = None
 
         formular._qwidget.setStyleSheet(formular._qwidget.styleSheet() + _AUSWAHL_REGEL)
         self._ueberwachung_einrichten(formular)
@@ -278,6 +279,10 @@ class DesignerCanvas(QObject):
             komponente = self._widget_zu_komponente.get(beobachtetes_objekt)
             if komponente is not None:
                 self.ereignis_handler_erzeugen(komponente)
+            return True
+
+        if typ == QEvent.Type.MouseButtonPress and self._platzierungs_typ is not None:
+            self._platzierung_bei_klick_ausfuehren(beobachtetes_objekt, ereignis)
             return True
 
         if typ == QEvent.Type.MouseButtonPress:
@@ -524,11 +529,40 @@ class DesignerCanvas(QObject):
         self._nach_aenderung(kommando.neue_komponente)
         return kommando.neue_komponente
 
+    def platzierungsmodus_setzen(self, typ: type | None) -> None:
+        """„Klick auf ein Palettensymbol, dann Klick auf das Formular“
+        (Abschnitt 7.3, wie in Lazarus) – Ergänzung zum bisherigen
+        Doppelklick (der immer mittig platziert). `typ=None` bricht den
+        Modus ab (z. B. Escape). Der nächste Klick auf das Formular oder
+        eine seiner Komponenten platziert `typ` genau dort und beendet
+        den Modus wieder automatisch (kein „Anheften“, wie in Lazarus'
+        einfachem Modus ohne Reißnadel-Symbol)."""
+        self._platzierungs_typ = typ
+        cursor = Qt.CursorShape.CrossCursor if typ is not None else Qt.CursorShape.ArrowCursor
+        self.formular._qwidget.setCursor(cursor)
+
+    def _platzierung_bei_klick_ausfuehren(
+        self, beobachtetes_objekt: QObject, ereignis: Any
+    ) -> None:
+        typ = self._platzierungs_typ
+        self.platzierungsmodus_setzen(None)
+        if typ is None:
+            return
+
+        position = ereignis.position().toPoint()
+        komponente = self._widget_zu_komponente.get(beobachtetes_objekt)
+        if komponente is not None and komponente is not self.formular:
+            x, y = komponente.left + position.x(), komponente.top + position.y()
+        else:
+            x, y = position.x(), position.y()
+
+        self.komponente_platzieren(typ, x, y)
+
     def komponente_umbenennen(self, komponente: Any, neuer_name: str) -> None:
         """Ändert den Namen (Form-Attribut) von `komponente` – die
-        Eigenschaft „Name“ im Objektinspektor (Abschnitt 7.6), noch ohne
-        eigene Tabellenzeile (Zurückgestellt). Löst `ValueError` bei
-        ungültigem Bezeichner oder bereits vergebenem Namen."""
+        Eigenschaft „Name“ im Objektinspektor (Abschnitt 7.6). Löst
+        `ValueError` bei ungültigem Bezeichner oder bereits vergebenem
+        Namen aus."""
         if komponente is self.formular:
             raise ValueError("Das Formular selbst kann nicht umbenannt werden.")
         if not neuer_name.isidentifier():
@@ -602,6 +636,13 @@ class DesignerCanvas(QObject):
         setattr(self.formular, name, komponente)
         self._widget_zu_komponente[komponente._qwidget] = komponente
         self._auswaehlen(komponente)
+
+    def name_von(self, komponente: Any) -> str | None:
+        """Der Name (Formular-Attribut) von `komponente`, z. B.
+        `"b_anmelden"` – für den Objektinspektor (Abschnitt 7.6), der
+        `caption`/`text` (Anzeigetext) und `name` (Bezeichner im Code)
+        auseinanderhält, wie in Lazarus."""
+        return self._attributname(komponente)
 
     def _attributname(self, komponente: Any) -> str | None:
         for name, wert in vars(self.formular).items():
