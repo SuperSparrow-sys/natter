@@ -183,11 +183,23 @@ QTreeView::item:hover, QListView::item:hover, QTableView::item:hover {{
 QTreeView::item:selected, QListView::item:selected, QTableView::item:selected {{
     background-color: {_mit_alpha(farben["accent"], 0.16)};
     color: {farben["text"]};
+    outline: none;
+    border: none;
+}}
+QTreeView::item:focus, QListView::item:focus, QTableView::item:focus {{
+    outline: none;
+    border: none;
 }}
 QTreeView::branch {{
     background-color: transparent;
     border-image: none;
     image: none;
+}}
+QTreeView::branch:selected {{
+    background-color: {_mit_alpha(farben["accent"], 0.16)};
+}}
+QTreeView::branch:hover {{
+    background-color: {_mit_alpha(farben["accent"], 0.08)};
 }}
 QHeaderView::section {{
     background-color: {farben["surface"]};

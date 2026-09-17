@@ -10,6 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QHeaderView, QMenu, QToolButton, QTreeWidget, QTreeWidgetItem
 
 from ide.project import Projekt
@@ -38,9 +39,21 @@ class ProjektExplorer(QTreeWidget):
         # unstyled, mitten im Baum eingeblendetes Eingabefeld, das gar
         # nicht unsere eigene Umbenennen-Funktion war).
         self.setEditTriggers(QTreeWidget.EditTrigger.NoEditTriggers)
+        # Qts eingebaute Baum-Einrückung malt die Auswahlfarbe für den
+        # Einrückungsbereich eines ausgewählten Kind-Elements nicht über
+        # QSS steuerbar, sondern als deckenden, unpassenden Balken
+        # (Nutzer-Screenshot: „die zwei blauen Balken“) - unabhängig von
+        # der Einrückungstiefe. Ohne Einrückung tritt das nicht auf; die
+        # Gruppenüberschriften sind stattdessen fett, das reicht als
+        # Hierarchie-Hinweis für die nur zwei Ebenen hier.
+        self.setIndentation(0)
 
         self.formulare_gruppe = QTreeWidgetItem(["Formulare"])
         self.units_gruppe = QTreeWidgetItem(["Units"])
+        fett = QFont()
+        fett.setBold(True)
+        for gruppe in (self.formulare_gruppe, self.units_gruppe):
+            gruppe.setFont(0, fett)
         self.addTopLevelItem(self.formulare_gruppe)
         self.addTopLevelItem(self.units_gruppe)
 
@@ -81,9 +94,18 @@ class ProjektExplorer(QTreeWidget):
         knopf.setAutoRaise(True)
         knopf.setFixedSize(22, 22)
         knopf.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        # Qt zeichnet sonst zusätzlich einen kleinen Dropdown-Pfeil neben
-        # dem „⋮“ – bei einem reinen Symbolknopf unnötig.
-        knopf.setStyleSheet("QToolButton::menu-indicator { image: none; width: 0px; }")
+        # Als `setItemWidget` eingebettetes Widget bekommt sonst die
+        # deckende QWidget-Standardhintergrundfarbe aus dem IDE-Theme -
+        # die stimmt bei einer ausgewählten/gehoverten Zeile nicht mehr
+        # mit deren (halbtransparenter) Hervorhebungsfarbe überein und
+        # wirkt wie ein zu dunkler Fleck (Nutzer-Screenshot). Ohne
+        # eigenen Hintergrund scheint die Zeilenfarbe immer durch. Der
+        # Dropdown-Pfeil neben dem „⋮“ wird ebenfalls unterdrückt – bei
+        # einem reinen Symbolknopf unnötig.
+        knopf.setStyleSheet(
+            "QToolButton { background: transparent; border: none; }"
+            "QToolButton::menu-indicator { image: none; width: 0px; }"
+        )
 
         menue = QMenu(knopf)
         menue.addAction("Umbenennen …", lambda: self.umbenennen_angefordert.emit(pfad))
