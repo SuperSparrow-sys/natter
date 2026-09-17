@@ -140,6 +140,7 @@ class PythonHervorhebung(QSyntaxHighlighter):
     _DECORATOR_MUSTER = QRegularExpression(r"@\w+")
     _DEF_NAME_MUSTER = QRegularExpression(r"\b(?:def|class)\s+(\w+)")
     _KOMMENTAR_MUSTER = QRegularExpression(r"#[^\n]*")
+    _RAUTE_MUSTER = QRegularExpression(r"#")
     _STRING_MUSTER = QRegularExpression(
         r"(\"[^\"\\\n]*(?:\\.[^\"\\\n]*)*\")|('[^'\\\n]*(?:\\.[^'\\\n]*)*')"
     )
@@ -180,13 +181,19 @@ class PythonHervorhebung(QSyntaxHighlighter):
         # Zeichenketten/Kommentare zuletzt: überschreiben Wortfarben, die
         # zufällig innerhalb einer Zeichenkette/eines Kommentars liegen
         # (z. B. "if" im String "if du das liest").
-        self._alle_treffer_formatieren(text, self._STRING_MUSTER, self._formate["string"])
-        kommentar_treffer = self._KOMMENTAR_MUSTER.match(text)
-        if kommentar_treffer.hasMatch():
+        string_bereiche = self._string_bereiche_ermitteln(text)
+        for start, ende in string_bereiche:
+            self.setFormat(start, ende - start, self._formate["string"])
+
+        # Ein "#" INNERHALB einer Zeichenkette (z. B. "#000000" für eine
+        # Farbe) ist kein Kommentarbeginn - sonst würde die (korrekte)
+        # Zeichenkettenfarbe ab diesem "#" bis Zeilenende wieder mit der
+        # Kommentarfarbe überschrieben (real gefunden: Nutzer-Screenshot
+        # von `_FARBE_AUS = "#000000"`, grün statt orange/rotbraun).
+        kommentar_start = self._kommentar_start_finden(text, string_bereiche)
+        if kommentar_start >= 0:
             self.setFormat(
-                kommentar_treffer.capturedStart(),
-                kommentar_treffer.capturedLength(),
-                self._formate["comment"],
+                kommentar_start, len(text) - kommentar_start, self._formate["comment"]
             )
 
         self._dreifach_zeichenketten_verarbeiten(text)
@@ -198,6 +205,24 @@ class PythonHervorhebung(QSyntaxHighlighter):
         while treffer_iterator.hasNext():
             treffer = treffer_iterator.next()
             self.setFormat(treffer.capturedStart(), treffer.capturedLength(), zeichenformat)
+
+    def _string_bereiche_ermitteln(self, text: str) -> list[tuple[int, int]]:
+        bereiche = []
+        treffer_iterator = self._STRING_MUSTER.globalMatch(text)
+        while treffer_iterator.hasNext():
+            treffer = treffer_iterator.next()
+            bereiche.append((treffer.capturedStart(), treffer.capturedEnd()))
+        return bereiche
+
+    def _kommentar_start_finden(self, text: str, string_bereiche: list[tuple[int, int]]) -> int:
+        """Liefert die Position der ersten `#` außerhalb jeder bekannten
+        Zeichenkette, oder -1, wenn es keine gibt."""
+        treffer_iterator = self._RAUTE_MUSTER.globalMatch(text)
+        while treffer_iterator.hasNext():
+            position = treffer_iterator.next().capturedStart()
+            if not any(start <= position < ende for start, ende in string_bereiche):
+                return position
+        return -1
 
     def _dreifach_zeichenketten_verarbeiten(self, text: str) -> None:
         """`\"\"\"`/`'''`-Zeichenketten über mehrere Zeilen hinweg, nach

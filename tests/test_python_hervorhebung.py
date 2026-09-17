@@ -114,6 +114,26 @@ def test_mehrzeilige_zeichenkette_wird_auf_beiden_zeilen_erkannt() -> None:
     assert zweite_zeile_format.farbe == "#a31515"
 
 
+def test_raute_innerhalb_einer_zeichenkette_ist_kein_kommentarbeginn() -> None:
+    # Real per Nutzer-Screenshot gefunden: `_FARBE_AUS = "#000000"` wurde
+    # ab dem "#" grün/kursiv (Kommentarfarbe) statt rotbraun eingefärbt.
+    text = '_FARBE_AUS = "#000000"\n'
+    dokument = _dokument(text)
+    index = text.index("#000000")
+    formatierung = _format_bei(dokument, index)
+    assert formatierung.farbe == "#a31515"
+    assert formatierung.kursiv is False
+
+
+def test_echter_kommentar_nach_einer_zeichenkette_bleibt_ein_kommentar() -> None:
+    text = 'x = "#000000"  # das ist eine Farbe\n'
+    dokument = _dokument(text)
+    index = text.index("# das")
+    formatierung = _format_bei(dokument, index)
+    assert formatierung.farbe == "#008000"
+    assert formatierung.kursiv is True
+
+
 # -- Dunkles Design (VS Code "Dark+", Nutzer-Feedback September 2026) -----
 
 
