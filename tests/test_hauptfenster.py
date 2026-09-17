@@ -37,10 +37,13 @@ def test_start_aktion_ist_durch_eine_trennlinie_von_den_dateiaktionen_abgesetzt(
 
 
 def test_werkzeugleiste_hat_eine_sichtbare_symbolgroesse() -> None:
+    # 18px seit dem kompakteren Chrome (Nutzer-Feedback September 2026:
+    # „die obere Leiste kann kleiner sein“) - immer noch deutlich über
+    # der Grenze, ab der Symbole unkenntlich würden.
     fenster = HauptFenster()
     groesse = fenster.werkzeugleiste.iconSize()
-    assert groesse.width() >= 20
-    assert groesse.height() >= 20
+    assert groesse.width() >= 16
+    assert groesse.height() >= 16
 
 
 def test_aktionen_mit_symbol_tragen_ein_icon() -> None:

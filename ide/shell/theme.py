@@ -47,7 +47,11 @@ def ide_qss_erzeugen(theme: str = "system", tokens: dict[str, Any] | None = None
     farben = daten["color"][aufgeloest]
     radius = daten["radius"]
     schrift = daten["font"]
-    basis_pt = schrift["sizes_pt"][1]
+    # Nutzer-Feedback (September 2026): 12pt (sizes_pt[1]) wirkte über die
+    # ganze IDE hinweg zu groß/klobig für ein dichtes, professionelles
+    # Werkzeug wie Lazarus/VS Code - 10pt (sizes_pt[0]) ist die
+    # eigentliche Fließtextgröße aus den Design-Tokens.
+    basis_pt = schrift["sizes_pt"][0]
 
     return f"""\
 QMainWindow, QDialog {{
@@ -65,10 +69,10 @@ QWidget {{
 QMenuBar {{
     background-color: {farben["surface"]};
     border-bottom: 1px solid {farben["border"]};
-    padding: 2px 4px;
+    padding: 0px 2px;
 }}
 QMenuBar::item {{
-    padding: 4px 10px;
+    padding: 3px 8px;
     border-radius: {radius["button"]}px;
     background: transparent;
 }}
@@ -80,10 +84,10 @@ QMenuBar::item:selected, QMenuBar::item:pressed {{
 QMenu {{
     background-color: {farben["bg"]};
     border: 1px solid {farben["border"]};
-    padding: 4px;
+    padding: 3px;
 }}
 QMenu::item {{
-    padding: 5px 24px 5px 12px;
+    padding: 4px 20px 4px 10px;
     border-radius: {radius["button"]}px;
 }}
 QMenu::item:selected {{
@@ -96,20 +100,20 @@ QMenu::item:disabled {{
 QMenu::separator {{
     height: 1px;
     background: {farben["border"]};
-    margin: 4px 8px;
+    margin: 3px 6px;
 }}
 
 QToolBar {{
     background-color: {farben["surface"]};
     border: none;
     border-bottom: 1px solid {farben["border"]};
-    spacing: 2px;
-    padding: 3px;
+    spacing: 1px;
+    padding: 2px;
 }}
 QToolButton {{
     border: none;
     border-radius: {radius["button"]}px;
-    padding: 4px;
+    padding: 3px;
 }}
 QToolButton:hover {{
     background-color: {farben["border"]};
@@ -125,7 +129,7 @@ QDockWidget {{
 QDockWidget::title {{
     background-color: {farben["surface"]};
     border-bottom: 1px solid {farben["border"]};
-    padding: 5px 8px;
+    padding: 3px 6px;
 }}
 
 QTabWidget::pane {{
@@ -136,7 +140,7 @@ QTabBar::tab {{
     background-color: {farben["surface"]};
     border: 1px solid {farben["border"]};
     border-bottom: none;
-    padding: 6px 14px;
+    padding: 4px 10px;
     margin-right: 1px;
 }}
 QTabBar::tab:selected {{
@@ -197,7 +201,7 @@ QPushButton {{
     background-color: {farben["surface"]};
     border: 1px solid {farben["border"]};
     border-radius: {radius["button"]}px;
-    padding: 5px 14px;
+    padding: 4px 12px;
 }}
 QPushButton:hover {{
     background-color: {farben["accent"]};

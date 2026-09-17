@@ -30,8 +30,10 @@ from pcl.components.standard import (
 )
 
 TYP_ROLLE = Qt.ItemDataRole.UserRole
-_SYMBOL_GROESSE = QSize(28, 28)
-_KACHEL_GROESSE = QSize(40, 40)
+# Nutzer-Feedback (September 2026): insgesamt kompakter, näher an
+# Lazarus' eigener, schmaler Symbolleiste (~24px Symbole).
+_SYMBOL_GROESSE = QSize(22, 22)
+_KACHEL_GROESSE = QSize(32, 32)
 
 STANDARD_KOMPONENTEN = (
     Button,

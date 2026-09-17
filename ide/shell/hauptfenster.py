@@ -173,7 +173,9 @@ class HauptFenster(QMainWindow):
         self.werkzeugleiste = self.addToolBar("Haupt-Werkzeugleiste")
         self.werkzeugleiste.setObjectName("Haupt-Werkzeugleiste")
         self.werkzeugleiste.setMovable(False)
-        self.werkzeugleiste.setIconSize(QSize(22, 22))
+        # Nutzer-Feedback (September 2026): die obere Leiste sollte
+        # insgesamt kompakter sein, wie in Lazarus/VS Code.
+        self.werkzeugleiste.setIconSize(QSize(18, 18))
 
         self.editor_tabs = QTabWidget()
         self.editor_tabs.setTabsClosable(True)
@@ -271,6 +273,16 @@ class HauptFenster(QMainWindow):
             aktion.setChecked(wert == self._design_thema)
             aktion.triggered.connect(lambda checked, wert=wert: self._design_wechseln(wert))
             design_gruppe.addAction(aktion)
+
+        # Nutzer-Feedback (September 2026): der Quelltexteditor wirkte zu
+        # klein, weil Palette/Datenbank/Panels standardmäßig zu viel
+        # Höhe beanspruchten. Qt verteilt neue Docks sonst ungefähr
+        # gleichmäßig - hier bewusst zugunsten des Editors (Zentral-
+        # Widget) eingeschränkt. Bleibt per Maus frei verschiebbar.
+        self.resizeDocks([self.palette_dock], [88], Qt.Orientation.Vertical)
+        self.resizeDocks(
+            [self.datenbank_dock, self.panels_dock], [200, 200], Qt.Orientation.Vertical
+        )
 
         # „Fenster → Layout zurücksetzen“ (Abschnitt 7.2): merkt sich die
         # ursprüngliche Dock-/Werkzeugleisten-Anordnung, sobald alle
