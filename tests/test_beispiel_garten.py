@@ -33,6 +33,18 @@ def form1_klasse():
             sys.modules.pop(name, None)
 
 
+def test_eingabefelder_haben_beschriftungen_die_ins_label_passen(form1_klasse) -> None:
+    # Nutzer-Feedback: ohne Beschriftung war nicht erkennbar, wofür die
+    # beiden Eingabefelder gedacht sind.
+    formular = form1_klasse()
+    for label in (formular.l_name, formular.l_wasserbedarf):
+        metriken = label._qwidget.fontMetrics()
+        benoetigt = metriken.horizontalAdvance(label.caption)
+        assert benoetigt <= label.width, (
+            f"{label.caption!r} braucht {benoetigt}px, Label ist nur {label.width}px breit"
+        )
+
+
 def test_pflanzen_hinzufuegen_aktualisiert_garten_und_liste(form1_klasse) -> None:
     formular = form1_klasse()
 

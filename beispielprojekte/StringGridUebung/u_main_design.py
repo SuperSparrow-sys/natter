@@ -33,21 +33,21 @@ class Form1Design(Form):
         self.l_name.caption = "Name:"
         self.l_name.left = 57
         self.l_name.top = 72
-        self.l_name.width = 35
+        self.l_name.width = 90
         self.l_name.height = 15
 
         self.l_vorname = Label(self)
         self.l_vorname.caption = "Vorname:"
         self.l_vorname.left = 42
         self.l_vorname.top = 98
-        self.l_vorname.width = 50
+        self.l_vorname.width = 110
         self.l_vorname.height = 15
 
         self.l_geburtsdatum = Label(self)
         self.l_geburtsdatum.caption = "Geburtsdatum:"
         self.l_geburtsdatum.left = 13
         self.l_geburtsdatum.top = 128
-        self.l_geburtsdatum.width = 79
+        self.l_geburtsdatum.width = 190
         self.l_geburtsdatum.height = 15
 
         self.b_uebernehmen = Button(self)

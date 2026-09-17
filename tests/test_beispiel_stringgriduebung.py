@@ -37,6 +37,18 @@ def _eingeben(formular, name: str, vorname: str, datum: str) -> None:
     formular.e_datum.text = datum
 
 
+def test_eingabefeld_beschriftungen_sind_breit_genug(form1_klasse) -> None:
+    # Real per Screenshot gefunden: "Geburtsdatum:" wurde abgeschnitten
+    # ("Geburtsdatun" ohne das "m" am Ende).
+    formular = form1_klasse()
+    for label in (formular.l_name, formular.l_vorname, formular.l_geburtsdatum):
+        metriken = label._qwidget.fontMetrics()
+        benoetigt = metriken.horizontalAdvance(label.caption)
+        assert benoetigt <= label.width, (
+            f"{label.caption!r} braucht {benoetigt}px, Label ist nur {label.width}px breit"
+        )
+
+
 def test_kopfzeile_steht_nach_dem_start(form1_klasse) -> None:
     formular = form1_klasse()
     kopf = [formular.sg_tabelle.cells[spalte, 0] for spalte in range(4)]

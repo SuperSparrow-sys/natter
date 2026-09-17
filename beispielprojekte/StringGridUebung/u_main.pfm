@@ -11,15 +11,15 @@
     },
     {
       "name": "l_name", "type": "Label",
-      "properties": { "caption": "Name:", "left": 57, "top": 72, "width": 35, "height": 15 }
+      "properties": { "caption": "Name:", "left": 57, "top": 72, "width": 90, "height": 15 }
     },
     {
       "name": "l_vorname", "type": "Label",
-      "properties": { "caption": "Vorname:", "left": 42, "top": 98, "width": 50, "height": 15 }
+      "properties": { "caption": "Vorname:", "left": 42, "top": 98, "width": 110, "height": 15 }
     },
     {
       "name": "l_geburtsdatum", "type": "Label",
-      "properties": { "caption": "Geburtsdatum:", "left": 13, "top": 128, "width": 79, "height": 15 }
+      "properties": { "caption": "Geburtsdatum:", "left": 13, "top": 128, "width": 190, "height": 15 }
     },
     {
       "name": "b_uebernehmen", "type": "Button",
