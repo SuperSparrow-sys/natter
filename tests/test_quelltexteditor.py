@@ -70,3 +70,21 @@ def test_klick_in_den_rand_schaltet_den_breakpoint_der_richtigen_zeile_um() -> N
     )
 
     assert editor.breakpoints == {3}
+
+
+# -- Dunkles Design (Nutzer-Feedback September 2026) -----------------------
+
+
+def test_editor_kann_direkt_im_dunklen_thema_erzeugt_werden() -> None:
+    editor = QuelltextEditor(thema="dark")
+    assert editor._rand_farben["hintergrund"] == "#252526"  # noqa: SLF001
+
+
+def test_thema_setzen_wechselt_rand_und_hervorhebung() -> None:
+    editor = QuelltextEditor()
+    hell_hintergrund = editor._rand_farben["hintergrund"]  # noqa: SLF001
+
+    editor.thema_setzen("dark")
+
+    assert editor._rand_farben["hintergrund"] != hell_hintergrund  # noqa: SLF001
+    assert editor._hervorhebung._thema == "dark"  # noqa: SLF001

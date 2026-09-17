@@ -12,10 +12,10 @@ from PySide6.QtGui import QFont, QTextDocument
 from ide.shell.python_hervorhebung import PythonHervorhebung
 
 
-def _dokument(text: str) -> QTextDocument:
+def _dokument(text: str, thema: str = "light") -> QTextDocument:
     dokument = QTextDocument()
     dokument.setPlainText(text)
-    hervorhebung = PythonHervorhebung(dokument)
+    hervorhebung = PythonHervorhebung(dokument, thema)
     hervorhebung.rehighlight()
     return dokument
 
@@ -112,3 +112,57 @@ def test_mehrzeilige_zeichenkette_wird_auf_beiden_zeilen_erkannt() -> None:
     zweite_zeile_format = _format_bei(dokument, zweite_block.position() + 1)  # "z" von "zweite"
     assert erste_zeile_format.farbe == "#a31515"
     assert zweite_zeile_format.farbe == "#a31515"
+
+
+# -- Dunkles Design (VS Code "Dark+", Nutzer-Feedback September 2026) -----
+
+
+def test_dark_control_schluesselwort_ist_rosa() -> None:
+    dokument = _dokument('from x import y\n', thema="dark")
+    formatierung = _format_bei(dokument, 0)  # "f" von "from"
+    assert formatierung.farbe == "#c586c0"
+
+
+def test_dark_def_schluesselwort_ist_blau() -> None:
+    dokument = _dokument("def f():\n    pass\n", thema="dark")
+    formatierung = _format_bei(dokument, 0)  # "d" von "def"
+    assert formatierung.farbe == "#569cd6"
+
+
+def test_dark_zeichenkette_ist_orange() -> None:
+    dokument = _dokument('x = "hallo"\n', thema="dark")
+    formatierung = _format_bei(dokument, 5)
+    assert formatierung.farbe == "#ce9178"
+
+
+def test_dark_kommentar_ist_gruen_und_kursiv() -> None:
+    dokument = _dokument("x = 1  # ein Kommentar\n", thema="dark")
+    formatierung = _format_bei(dokument, 9)
+    assert formatierung.farbe == "#6a9955"
+    assert formatierung.kursiv is True
+
+
+def test_dark_zahl_hat_helles_gruen() -> None:
+    dokument = _dokument("x = 42\n", thema="dark")
+    formatierung = _format_bei(dokument, 4)
+    assert formatierung.farbe == "#b5cea8"
+
+
+def test_dark_self_ist_hellblau() -> None:
+    text = "class X:\n    def f(self):\n        self.x = 1\n"
+    dokument = _dokument(text, thema="dark")
+    index = text.rindex("self")
+    formatierung = _format_bei(dokument, index)
+    assert formatierung.farbe == "#9cdcfe"
+
+
+def test_thema_wechseln_faerbt_sofort_neu_ein() -> None:
+    dokument = QTextDocument()
+    dokument.setPlainText("def f():\n    pass\n")
+    hervorhebung = PythonHervorhebung(dokument, "light")
+    hervorhebung.rehighlight()
+    assert _format_bei(dokument, 0).farbe == "#0000ff"
+
+    hervorhebung.thema_setzen("dark")
+
+    assert _format_bei(dokument, 0).farbe == "#569cd6"

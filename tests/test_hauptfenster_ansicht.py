@@ -10,12 +10,15 @@ from ide.shell.hauptfenster import HauptFenster
 def test_ansicht_menue_listet_alle_docks() -> None:
     fenster = HauptFenster()
     titel = {aktion.text() for aktion in fenster.menue("Ansicht").actions()}
+    # "Design" ist das Hell/Dunkel/System-Untermenü (eigener Test in
+    # test_hauptfenster_design_wechsel.py), keine Dock-Umschaltung.
     assert titel == {
         "Projekt-Explorer",
         "Objektinspektor",
         "Komponentenpalette",
         "Datenbank",
         "Panels",
+        "Design",
     }
 
 

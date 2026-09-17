@@ -27,12 +27,19 @@ from PySide6.QtWidgets import QPlainTextEdit, QTextEdit, QWidget
 from ide.shell.python_hervorhebung import PythonHervorhebung
 
 _RAND_ABSTAND = 12
-_RAND_HINTERGRUND = QColor("#f0f0f0")
-_ZEILENNUMMER_FARBE = QColor("#8a8a8a")
-_AKTUELLE_ZEILE_FARBE = QColor("#eaf2fc")
 _BREAKPOINT_FARBE = QColor("#c0392b")
 _BREAKPOINT_DURCHMESSER = 10
 _BREAKPOINT_SPALTE_BREITE = _BREAKPOINT_DURCHMESSER + 6
+
+# Rand-/Zeilenhervorhebungsfarben je Thema (Abschnitt 6, „Ansicht →
+# Design“, Nutzer-Feedback September 2026: Dark-Mode-Farben sollen zum
+# VS-Code-Standardschema passen). Dark+-Zeilennummernfarbe `#858585` und
+# Hervorhebung `#2a2d2e` sind VS Codes echte Standardwerte; Hell bleibt
+# beim bisherigen, etwas kräftigeren Grauton (kein VS-Code-Feedback dazu).
+_RAND_FARBEN = {
+    "light": {"hintergrund": "#f0f0f0", "zeilennummer": "#8a8a8a", "aktuelle_zeile": "#eaf2fc"},
+    "dark": {"hintergrund": "#252526", "zeilennummer": "#858585", "aktuelle_zeile": "#2a2d2e"},
+}
 
 # Deckt sich mit design/tokens.json ("family_mono": "Cascadia Code") -
 # Consolas/Courier New als Ausweich, falls Cascadia Code auf dem Rechner
@@ -60,13 +67,15 @@ class _ZeilenNummernRand(QWidget):
 class QuelltextEditor(QPlainTextEdit):
     breakpoint_umgeschaltet = Signal(int, bool)  # (Zeile ab 1, jetzt gesetzt?)
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None = None, thema: str = "light") -> None:
         super().__init__(parent)
         schriftart = QFont(_CODE_SCHRIFTARTEN)
         schriftart.setPointSize(_CODE_SCHRIFTGROESSE)
         schriftart.setFixedPitch(True)
         self.setFont(schriftart)
-        self._hervorhebung = PythonHervorhebung(self.document())
+        self._thema = thema
+        self._rand_farben = _RAND_FARBEN.get(thema, _RAND_FARBEN["light"])
+        self._hervorhebung = PythonHervorhebung(self.document(), thema)
 
         self.breakpoints: set[int] = set()
         self._rand = _ZeilenNummernRand(self)
@@ -130,9 +139,20 @@ class QuelltextEditor(QPlainTextEdit):
             unten = oben + round(self.blockBoundingRect(block).height())
             blocknummer += 1
 
+    def thema_setzen(self, thema: str) -> None:
+        """„Ansicht → Design“: Rand-/Zeilenhervorhebungsfarben und die
+        Syntax-Hervorhebung sofort auf das neue Thema umstellen."""
+        if thema == self._thema:
+            return
+        self._thema = thema
+        self._rand_farben = _RAND_FARBEN.get(thema, _RAND_FARBEN["light"])
+        self._hervorhebung.thema_setzen(thema)
+        self._rand.update()
+        self._aktuelle_zeile_hervorheben()
+
     def _zeilennummern_zeichnen(self, event: QPaintEvent) -> None:
         maler = QPainter(self._rand)
-        maler.fillRect(event.rect(), _RAND_HINTERGRUND)
+        maler.fillRect(event.rect(), QColor(self._rand_farben["hintergrund"]))
         maler.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         hoehe = self.fontMetrics().height()
@@ -151,7 +171,7 @@ class QuelltextEditor(QPlainTextEdit):
                         _BREAKPOINT_DURCHMESSER,
                     )
                 )
-            maler.setPen(_ZEILENNUMMER_FARBE)
+            maler.setPen(QColor(self._rand_farben["zeilennummer"]))
             maler.drawText(
                 0,
                 oben,
@@ -172,7 +192,7 @@ class QuelltextEditor(QPlainTextEdit):
         auswahlen: list[QTextEdit.ExtraSelection] = []
         if not self.isReadOnly():
             auswahl = QTextEdit.ExtraSelection()
-            auswahl.format.setBackground(_AKTUELLE_ZEILE_FARBE)
+            auswahl.format.setBackground(QColor(self._rand_farben["aktuelle_zeile"]))
             auswahl.format.setProperty(QTextFormat.Property.FullWidthSelection, True)
             auswahl.cursor = self.textCursor()
             auswahl.cursor.clearSelection()

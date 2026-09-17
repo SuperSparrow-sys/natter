@@ -15,8 +15,8 @@ import re
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QColor, QTextCursor
+from PySide6.QtCore import QSettings, QSize, Qt
+from PySide6.QtGui import QActionGroup, QColor, QTextCursor
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -62,6 +62,7 @@ from ide.testrunner import Testergebnis, ergebnisse_als_html, tests_ausfuehren
 from ide.viewers import BildVorschau, CsvAnsicht, HtmlVorschau
 from pcl import open_url
 from pcl.form import Form
+from pcl.theme import theme_aufloesen
 
 _BILD_ENDUNGEN = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".svg"}
 _HTML_ENDUNGEN = {".html", ".htm"}
@@ -153,7 +154,17 @@ class HauptFenster(QMainWindow):
         super().__init__()
         self.setWindowTitle("Natter")
         self.setWindowIcon(symbol("app"))
-        self.setStyleSheet(ide_qss_erzeugen("system"))
+        # Explizit IniFormat statt der Windows-Registry (Standard beim
+        # organisation/application-Konstruktor): passt zur portablen,
+        # installationsfreien Natter-Philosophie (Abschnitt 17) und lässt
+        # sich in Tests über `QSettings.setPath()` sauber umleiten - der
+        # organisation/application-Konstruktor ignoriert
+        # `setDefaultFormat()` unter Windows.
+        self._design_einstellungen = QSettings(
+            QSettings.Format.IniFormat, QSettings.Scope.UserScope, "Natter", "Natter-IDE"
+        )
+        self._design_thema = self._design_einstellungen.value("design/thema", "system")
+        self.setStyleSheet(ide_qss_erzeugen(self._design_thema))
 
         self._menues: dict[str, object] = {}
         for titel in MENUETITEL:
@@ -239,6 +250,26 @@ class HauptFenster(QMainWindow):
             self.panels_dock,
         ):
             self._menues["Ansicht"].addAction(dock.toggleViewAction())
+
+        # „Ansicht → Design“ (Nutzer-Feedback, September 2026: „Hast du
+        # den Darkmode schon implementiert?“) – Hell/Dunkel/System,
+        # gemerkt über QSettings. Bewusst keine eigene `Aktion`-Hülle
+        # (wie bei den Dock-Umschaltern oben): eine sich gegenseitig
+        # ausschließende Dreiergruppe passt nicht ins einfache
+        # Menü-Callback-Schema des Aktionsregisters.
+        design_menue = self._menues["Ansicht"].addMenu("Design")
+        design_gruppe = QActionGroup(self)
+        design_gruppe.setExclusive(True)
+        for wert, beschriftung in (
+            ("system", "System (automatisch)"),
+            ("light", "Hell"),
+            ("dark", "Dunkel"),
+        ):
+            aktion = design_menue.addAction(beschriftung)
+            aktion.setCheckable(True)
+            aktion.setChecked(wert == self._design_thema)
+            aktion.triggered.connect(lambda checked, wert=wert: self._design_wechseln(wert))
+            design_gruppe.addAction(aktion)
 
         # „Fenster → Layout zurücksetzen“ (Abschnitt 7.2): merkt sich die
         # ursprüngliche Dock-/Werkzeugleisten-Anordnung, sobald alle
@@ -885,7 +916,7 @@ class HauptFenster(QMainWindow):
                 self.editor_tabs.setCurrentIndex(index)
                 return editor
 
-        editor = QuelltextEditor()
+        editor = QuelltextEditor(thema=theme_aufloesen(self._design_thema))
         editor.setPlainText(pfad.read_text(encoding="utf-8"))
         editor.setProperty(_PFAD_EIGENSCHAFT, str(pfad))
         editor.document().modificationChanged.connect(
@@ -1027,6 +1058,20 @@ class HauptFenster(QMainWindow):
     def _layout_zuruecksetzen_aktion(self) -> None:
         if self._urspruengliches_layout is not None:
             self.restoreState(self._urspruengliches_layout)
+
+    def _design_wechseln(self, thema: str) -> None:
+        """„Ansicht → Design → Hell/Dunkel/System“: wendet das IDE-Theme
+        sofort an (inkl. bereits offener Editor-Tabs, Abschnitt 7.5) und
+        merkt sich die Wahl für den nächsten Start."""
+        self._design_thema = thema
+        self.setStyleSheet(ide_qss_erzeugen(thema))
+        self._design_einstellungen.setValue("design/thema", thema)
+
+        aufgeloest = theme_aufloesen(thema)
+        for index in range(self.editor_tabs.count()):
+            editor = self.editor_tabs.widget(index)
+            if isinstance(editor, QuelltextEditor):
+                editor.thema_setzen(aufgeloest)
 
     # -- Hilfe (Abschnitt 7.2) -------------------------------------------------
 

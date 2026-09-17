@@ -3,10 +3,14 @@
 Regelbasiert (keine echte Grammatik, kein Jedi) – reicht für den
 Schulunterricht; eine echte Spracherkennung über Monaco/Jedi ist ein
 eigener, späterer Schritt (siehe `prototypes/s2`, `docs/PLAN.md`).
-Farben angelehnt an VS Codes Standard-Theme „Light+“, damit Schüler, die
-VS Code aus dem Unterricht kennen, dieselbe Farbsprache wiedererkennen
-(Schlüsselwörter blau, Zeichenketten rotbraun, Kommentare grün,
-Funktionsnamen/eingebaute Funktionen bräunlich).
+Farben angelehnt an VS Codes Standard-Themes „Light+“/„Dark+“, damit
+Schüler, die VS Code aus dem Unterricht kennen, dieselbe Farbsprache
+wiedererkennen (Nutzer-Feedback September 2026: Farben sollen exakt zum
+VS-Code-Standardschema passen, in Hell **und** Dunkel). Schlüsselwörter
+sind dafür in zwei Gruppen aufgeteilt, weil Dark+ sie unterschiedlich
+einfärbt (`import`/`from`/... rosa, `def`/`class` blau) - in Light+
+haben beide Gruppen zufällig dieselbe Farbe, daher dort kein
+sichtbarer Unterschied.
 """
 
 from __future__ import annotations
@@ -68,6 +72,37 @@ _BUILTINS = {
     "object",
 }
 
+# Storage-Schlüsselwörter (Dark+: blau `#569cd6`) vs. Kontrollfluss-
+# Schlüsselwörter (Dark+: rosa `#c586c0`); in Light+ sind beide `#0000ff`.
+_STORAGE_KEYWORDS = {"def", "class", "True", "False", "None"}
+_CONTROL_KEYWORDS = sorted(set(keyword.kwlist) - _STORAGE_KEYWORDS)
+
+# Echte VS-Code-Standardfarben (Light+/Dark+), keine Annäherung.
+_FARBEN = {
+    "light": {
+        "keyword": "#0000ff",
+        "keyword_storage": "#0000ff",
+        "builtin": "#795e26",
+        "string": "#a31515",
+        "comment": "#008000",
+        "number": "#098658",
+        "def_name": "#795e26",
+        "decorator": "#af00db",
+        "self": "#001080",
+    },
+    "dark": {
+        "keyword": "#c586c0",
+        "keyword_storage": "#569cd6",
+        "builtin": "#dcdcaa",
+        "string": "#ce9178",
+        "comment": "#6a9955",
+        "number": "#b5cea8",
+        "def_name": "#dcdcaa",
+        "decorator": "#dcdcaa",
+        "self": "#9cdcfe",
+    },
+}
+
 
 def _format(farbe: str, *, fett: bool = False, kursiv: bool = False) -> QTextCharFormat:
     zeichenformat = QTextCharFormat()
@@ -79,18 +114,26 @@ def _format(farbe: str, *, fett: bool = False, kursiv: bool = False) -> QTextCha
     return zeichenformat
 
 
-_KEYWORD_FORMAT = _format("#0000ff")
-_BUILTIN_FORMAT = _format("#795e26")
-_STRING_FORMAT = _format("#a31515")
-_COMMENT_FORMAT = _format("#008000", kursiv=True)
-_NUMBER_FORMAT = _format("#098658")
-_DEF_NAME_FORMAT = _format("#795e26", fett=True)
-_DECORATOR_FORMAT = _format("#af00db")
-_SELF_FORMAT = _format("#001080")
+def _formate_fuer_thema(thema: str) -> dict[str, QTextCharFormat]:
+    farben = _FARBEN.get(thema, _FARBEN["light"])
+    return {
+        "keyword": _format(farben["keyword"]),
+        "keyword_storage": _format(farben["keyword_storage"]),
+        "builtin": _format(farben["builtin"]),
+        "string": _format(farben["string"]),
+        "comment": _format(farben["comment"], kursiv=True),
+        "number": _format(farben["number"]),
+        "def_name": _format(farben["def_name"], fett=True),
+        "decorator": _format(farben["decorator"]),
+        "self": _format(farben["self"]),
+    }
 
 
 class PythonHervorhebung(QSyntaxHighlighter):
-    _KEYWORD_MUSTER = QRegularExpression(r"\b(" + "|".join(sorted(keyword.kwlist)) + r")\b")
+    _KEYWORD_MUSTER = QRegularExpression(r"\b(" + "|".join(_CONTROL_KEYWORDS) + r")\b")
+    _KEYWORD_STORAGE_MUSTER = QRegularExpression(
+        r"\b(" + "|".join(sorted(_STORAGE_KEYWORDS)) + r")\b"
+    )
     _BUILTIN_MUSTER = QRegularExpression(r"\b(" + "|".join(sorted(_BUILTINS)) + r")\b")
     _SELF_MUSTER = QRegularExpression(r"\b(self|cls)\b")
     _ZAHL_MUSTER = QRegularExpression(r"\b\d+\.?\d*\b")
@@ -102,31 +145,48 @@ class PythonHervorhebung(QSyntaxHighlighter):
     )
     _DREIFACH_ANFUEHRUNG = QRegularExpression(r"(\"\"\"|''')")
 
+    def __init__(self, document, thema: str = "light") -> None:
+        super().__init__(document)
+        self._thema = thema
+        self._formate = _formate_fuer_thema(thema)
+
+    def thema_setzen(self, thema: str) -> None:
+        """Wechselt die Farbpalette (Abschnitt 6: „Ansicht → Design“) und
+        färbt den bereits sichtbaren Text sofort neu ein."""
+        if thema == self._thema:
+            return
+        self._thema = thema
+        self._formate = _formate_fuer_thema(thema)
+        self.rehighlight()
+
     def highlightBlock(self, text: str) -> None:
-        for muster, zeichenformat in (
-            (self._KEYWORD_MUSTER, _KEYWORD_FORMAT),
-            (self._BUILTIN_MUSTER, _BUILTIN_FORMAT),
-            (self._SELF_MUSTER, _SELF_FORMAT),
-            (self._ZAHL_MUSTER, _NUMBER_FORMAT),
-            (self._DECORATOR_MUSTER, _DECORATOR_FORMAT),
+        for muster, formatname in (
+            (self._KEYWORD_MUSTER, "keyword"),
+            (self._KEYWORD_STORAGE_MUSTER, "keyword_storage"),
+            (self._BUILTIN_MUSTER, "builtin"),
+            (self._SELF_MUSTER, "self"),
+            (self._ZAHL_MUSTER, "number"),
+            (self._DECORATOR_MUSTER, "decorator"),
         ):
-            self._alle_treffer_formatieren(text, muster, zeichenformat)
+            self._alle_treffer_formatieren(text, muster, self._formate[formatname])
 
         treffer_iterator = self._DEF_NAME_MUSTER.globalMatch(text)
         while treffer_iterator.hasNext():
             treffer = treffer_iterator.next()
-            self.setFormat(treffer.capturedStart(1), treffer.capturedLength(1), _DEF_NAME_FORMAT)
+            self.setFormat(
+                treffer.capturedStart(1), treffer.capturedLength(1), self._formate["def_name"]
+            )
 
         # Zeichenketten/Kommentare zuletzt: überschreiben Wortfarben, die
         # zufällig innerhalb einer Zeichenkette/eines Kommentars liegen
         # (z. B. "if" im String "if du das liest").
-        self._alle_treffer_formatieren(text, self._STRING_MUSTER, _STRING_FORMAT)
+        self._alle_treffer_formatieren(text, self._STRING_MUSTER, self._formate["string"])
         kommentar_treffer = self._KOMMENTAR_MUSTER.match(text)
         if kommentar_treffer.hasMatch():
             self.setFormat(
                 kommentar_treffer.capturedStart(),
                 kommentar_treffer.capturedLength(),
-                _COMMENT_FORMAT,
+                self._formate["comment"],
             )
 
         self._dreifach_zeichenketten_verarbeiten(text)
@@ -167,7 +227,7 @@ class PythonHervorhebung(QSyntaxHighlighter):
             else:
                 self.setCurrentBlockState(1)
                 laenge = len(text) - start_index
-            self.setFormat(start_index, laenge, _STRING_FORMAT)
+            self.setFormat(start_index, laenge, self._formate["string"])
             fortsetzung = False
             naechster_treffer = self._DREIFACH_ANFUEHRUNG.match(text, start_index + laenge)
             start_index = naechster_treffer.capturedStart() if naechster_treffer.hasMatch() else -1
