@@ -50,3 +50,37 @@ def test_ansicht_eintrag_ist_angekreuzt_wenn_das_dock_sichtbar_ist() -> None:
     fenster.explorer_dock.close()
 
     assert eintrag.isChecked() is False
+
+
+def test_geschlossenes_dock_bleibt_nach_einem_neustart_der_ide_zu() -> None:
+    """Nutzer-Feedback (September 2026): „Datenbank soll, wenn es zu
+    gemacht wurde, beim nächsten Mal auch zu bleiben. Das Ganze auch bei
+    den anderen Feldern.“"""
+    fenster = HauptFenster()
+    fenster.show()
+    fenster.datenbank_dock.close()
+
+    fenster.close()  # löst closeEvent aus, speichert die Anordnung
+
+    neues_fenster = HauptFenster()
+    neues_fenster.show()
+
+    assert neues_fenster.datenbank_dock.isVisible() is False
+
+
+def test_layout_zuruecksetzen_ignoriert_die_gespeicherte_anordnung() -> None:
+    # "Layout zurücksetzen" muss zum echten Ausgangszustand zurückkehren,
+    # nicht nur zur zuletzt gespeicherten (sonst gäbe es keinen Ausweg,
+    # wenn man sich "verklickt" hat).
+    fenster = HauptFenster()
+    fenster.show()
+    fenster.datenbank_dock.close()
+    fenster.close()
+
+    neues_fenster = HauptFenster()
+    neues_fenster.show()
+    assert neues_fenster.datenbank_dock.isVisible() is False
+
+    neues_fenster._layout_zuruecksetzen_aktion()
+
+    assert neues_fenster.datenbank_dock.isVisible() is True

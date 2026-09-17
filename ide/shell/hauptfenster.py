@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import QSettings, QSize, Qt
-from PySide6.QtGui import QActionGroup, QColor, QTextCursor
+from PySide6.QtGui import QActionGroup, QCloseEvent, QColor, QTextCursor
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -286,8 +286,18 @@ class HauptFenster(QMainWindow):
 
         # „Fenster → Layout zurücksetzen“ (Abschnitt 7.2): merkt sich die
         # ursprüngliche Dock-/Werkzeugleisten-Anordnung, sobald alle
-        # Docks platziert sind.
+        # Docks platziert sind - VOR dem Wiederherstellen der zuletzt
+        # gespeicherten Anordnung unten, damit „Zurücksetzen“ wirklich
+        # zum echten Ausgangszustand zurückkehrt statt nur zur zuletzt
+        # gespeicherten.
         self._urspruengliches_layout = self.saveState()
+
+        # Nutzer-Feedback (September 2026): ein geschlossenes Dock (z. B.
+        # „Datenbank“) soll beim nächsten Start auch geschlossen bleiben
+        # - Größe/Sichtbarkeit aller Docks wird deshalb gemerkt.
+        gespeichertes_layout = self._design_einstellungen.value("fenster/layout")
+        if gespeichertes_layout is not None:
+            self.restoreState(gespeichertes_layout)
 
         self._letzte_testergebnisse: list[Testergebnis] = []
         self.debug_sitzung: DebugSitzung | None = None
@@ -1086,6 +1096,13 @@ class HauptFenster(QMainWindow):
             editor = self.editor_tabs.widget(index)
             if isinstance(editor, QuelltextEditor):
                 editor.thema_setzen(aufgeloest)
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Merkt sich Größe/Sichtbarkeit aller Docks für den nächsten
+        Start (Nutzer-Feedback September 2026: ein geschlossenes Dock
+        wie „Datenbank“ soll auch beim nächsten Mal zu bleiben)."""
+        self._design_einstellungen.setValue("fenster/layout", self.saveState())
+        super().closeEvent(event)
 
     # -- Hilfe (Abschnitt 7.2) -------------------------------------------------
 
