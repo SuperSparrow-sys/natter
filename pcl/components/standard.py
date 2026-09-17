@@ -99,13 +99,13 @@ class Label(Control):
         if name == "caption":
             self._qwidget.setText(wert)
         elif name in ("color", "transparent"):
-            self._hintergrund_anwenden()
+            self._eigenes_qss_anwenden()
 
-    def _hintergrund_anwenden(self) -> None:
-        if self.transparent or not self.color:
-            self._qwidget.setStyleSheet("")
-        else:
-            self._qwidget.setStyleSheet(f"background-color: {self.color};")
+    def _qss_teile(self) -> list[str]:
+        teile = super()._qss_teile()
+        if not self.transparent and self.color:
+            teile.append(f"background-color: {self.color};")
+        return teile
 
 
 class Edit(Control):
@@ -139,7 +139,13 @@ class Edit(Control):
         elif name == "read_only":
             self._qwidget.setReadOnly(wert)
         elif name == "color":
-            self._qwidget.setStyleSheet(f"background-color: {wert};" if wert else "")
+            self._eigenes_qss_anwenden()
+
+    def _qss_teile(self) -> list[str]:
+        teile = super()._qss_teile()
+        if self.color:
+            teile.append(f"background-color: {self.color};")
+        return teile
 
 
 class CheckBox(Control):
@@ -186,6 +192,10 @@ class Memo(Control):
     def lines(self) -> Strings:
         return self._lines
 
+    @lines.setter
+    def lines(self, werte: list[str]) -> None:
+        self._lines.zuweisen(werte)
+
     def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
         return QPlainTextEdit(eltern_widget)
 
@@ -207,6 +217,10 @@ class ListBox(Control):
     @property
     def items(self) -> Strings:
         return self._items
+
+    @items.setter
+    def items(self, werte: list[str]) -> None:
+        self._items.zuweisen(werte)
 
     def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
         widget = QListWidget(eltern_widget)
@@ -241,6 +255,10 @@ class ComboBox(Control):
     @property
     def items(self) -> Strings:
         return self._items
+
+    @items.setter
+    def items(self, werte: list[str]) -> None:
+        self._items.zuweisen(werte)
 
     def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
         widget = QComboBox(eltern_widget)

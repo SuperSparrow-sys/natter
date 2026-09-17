@@ -7,7 +7,7 @@ eigenständiges `Prop`. Siehe auch Abschnitt 11.2 (Datei-Methoden).
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
 
 from pcl.errors import NatterPropertyError
@@ -30,6 +30,22 @@ class Strings:
 
     def clear(self) -> None:
         self._zeilen.clear()
+        self._aendern()
+
+    def zuweisen(self, werte: Iterable[str]) -> None:
+        """Ersetzt den gesamten Inhalt auf einmal (wie `Items.Assign` in
+        Lazarus). Der Setter von `ListBox.items`/`Memo.lines` ruft das
+        auf, damit sowohl der erzeugte Formularcode
+        (``self.lb.items = ["a", "b"]``) als auch der Objektinspektor die
+        Sammlung in einem Schritt setzen können."""
+        neu = list(werte)
+        for zeile in neu:
+            if not isinstance(zeile, str):
+                raise NatterPropertyError(
+                    f"Strings erwartet {typ_beschreibung(str)} je Zeile, "
+                    f"erhalten wurde {typ_beschreibung(type(zeile))}."
+                )
+        self._zeilen = neu
         self._aendern()
 
     def load_from_file(self, pfad: str | Path, encoding: str = "utf-8") -> None:

@@ -443,12 +443,17 @@ class DesignerCanvas(QObject):
     # -- Undo/Redo ----------------------------------------------------------
 
     def rueckgaengig(self) -> None:
+        """Real gefunden: beide Richtungen meldeten die Änderung nur an
+        die Beobachter, schrieben sie aber nicht zurück. Der Designer
+        zeigte nach Strg+Z also den zurückgenommenen Stand, `.pfm` und
+        `u_*_design.py` behielten den zurückgenommenen Schritt trotzdem -
+        das Programm lief weiter mit der rückgängig gemachten Änderung."""
         self.kommandos.rueckgaengig()
-        self._benachrichtigen(self.ausgewaehlte_komponente or self.formular)
+        self._nach_aenderung(self.ausgewaehlte_komponente or self.formular)
 
     def wiederholen(self) -> None:
         self.kommandos.wiederholen()
-        self._benachrichtigen(self.ausgewaehlte_komponente or self.formular)
+        self._nach_aenderung(self.ausgewaehlte_komponente or self.formular)
 
     # -- Auswahl ----------------------------------------------------------
 
@@ -557,6 +562,24 @@ class DesignerCanvas(QObject):
             x, y = position.x(), position.y()
 
         self.komponente_platzieren(typ, x, y)
+
+    def eigenschaft_uebernehmen(
+        self, komponente: Any, name: str, alter_wert: Any, neuer_wert: Any
+    ) -> None:
+        """Übernimmt eine im Objektinspektor bereits live gesetzte
+        Eigenschaft: Undo-Eintrag anlegen und `.pfm` samt generiertem Code
+        neu schreiben.
+
+        Real gefunden: der Objektinspektor setzte den Wert nur am
+        Live-Objekt. Die Anzeige im Designer stimmte damit sofort (und
+        jeder Screenshot sah richtig aus), aber weder die `.pfm` noch
+        `u_*_design.py` erfuhren je davon - jede allein über den
+        Inspektor gesetzte Eigenschaft war nach dem nächsten Öffnen
+        wieder weg und erreichte das laufende Programm nie."""
+        self.kommandos.ausfuehren(
+            EigenschaftKommando(komponente, {name: neuer_wert}, {name: alter_wert})
+        )
+        self._nach_aenderung(komponente)
 
     def komponente_umbenennen(self, komponente: Any, neuer_name: str) -> None:
         """Ändert den Namen (Form-Attribut) von `komponente` – die

@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
+from pcl.properties import wert_lesen, wert_setzen
+
 
 class Kommando(Protocol):
     def tun(self) -> None: ...
@@ -38,16 +40,16 @@ class EigenschaftKommando:
         self._alte_werte = (
             dict(alte_werte)
             if alte_werte is not None
-            else {name: getattr(komponente, name) for name in neue_werte}
+            else {name: wert_lesen(komponente, name) for name in neue_werte}
         )
 
     def tun(self) -> None:
         for name, wert in self._neue_werte.items():
-            setattr(self.komponente, name, wert)
+            wert_setzen(self.komponente, name, wert)
 
     def rueckgaengig(self) -> None:
         for name, wert in self._alte_werte.items():
-            setattr(self.komponente, name, wert)
+            wert_setzen(self.komponente, name, wert)
 
 
 class Kommandostapel:

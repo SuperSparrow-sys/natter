@@ -17,22 +17,10 @@ from PySide6.QtWidgets import QLabel, QTableWidget, QTableWidgetItem, QWidget
 
 from pcl.control import Control
 from pcl.errors import NatterPropertyError
-from pcl.properties import Prop, typ_beschreibung
+from pcl.properties import STANDARD_BRUSH_FARBE, Prop, typ_beschreibung
 
 _FORMEN = ("rectangle", "circle", "rounded_rectangle")
 _ECKENRADIUS = 12
-
-# Hellgrau statt Schwarz: eine frisch aus der Palette gezogene Shape sah
-# vorher wie ein solider schwarzer Block aus statt wie eine erkennbare,
-# noch unbenutzte Form (beim Rundgang durch alle Palettentypen
-# gefunden; seit dem eigenen `pen_color` unten betrifft das nur noch
-# die Füllung, nicht mehr auch den Rand). Kein eigenständiger `Prop`
-# (`brush.color` ist eine verschachtelte Untereigenschaft, siehe
-# `Brush` unten), daher muss `ide/designer/pfm_schreiben.py` denselben
-# Wert kennen, um ihn beim Speichern weglassen zu können - dort als
-# `_STANDARD_BRUSH_FARBE` importiert statt ein zweites Mal hartkodiert,
-# nachdem genau dieses Auseinanderlaufen real zu einem Testfehler führte.
-_STANDARD_BRUSH_FARBE = "#c0c0c0"
 
 
 class Brush:
@@ -45,7 +33,7 @@ class Brush:
 
     def __init__(self, besitzer: Shape) -> None:
         self._besitzer = besitzer
-        self._farbe = _STANDARD_BRUSH_FARBE
+        self._farbe = STANDARD_BRUSH_FARBE
 
     @property
     def color(self) -> str:

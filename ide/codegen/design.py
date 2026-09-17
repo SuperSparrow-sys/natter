@@ -24,9 +24,9 @@ _PFM_SCHEMA = json.loads((_SCHEMAS_DIR / "pfm.schema.json").read_text(encoding="
 
 
 def _eigenschaft_pfad(name: str) -> str:
-    if name in VERSCHACHTELTE_EIGENSCHAFTEN:
-        attribut, unter_attribut = VERSCHACHTELTE_EIGENSCHAFTEN[name]
-        return f"{attribut}.{unter_attribut}"
+    verschachtelt = VERSCHACHTELTE_EIGENSCHAFTEN.get(name)
+    if verschachtelt is not None:
+        return f"{verschachtelt.attribut}.{verschachtelt.unter_attribut}"
     return name
 
 
@@ -34,6 +34,11 @@ def _python_literal(wert: Any) -> str:
     if isinstance(wert, str):
         escaped = wert.replace("\\", "\\\\").replace('"', '\\"')
         return f'"{escaped}"'
+    if isinstance(wert, list):
+        # Sammlungen (`items`/`lines`, pcl.properties.SAMMLUNGS_EIGENSCHAFTEN)
+        # stehen in der .pfm als Liste und werden im erzeugten Code am
+        # Stück zugewiesen; der Setter überträgt sie in die Strings-Sammlung.
+        return "[" + ", ".join(_python_literal(eintrag) for eintrag in wert) + "]"
     return repr(wert)
 
 

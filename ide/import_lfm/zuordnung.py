@@ -7,13 +7,12 @@ Wandelt das Ergebnis von `ide.import_lfm.parser.parse_lfm()` in ein
 **Umfang, bewusst eingeschränkt** (siehe docs/arbeitspakete/M8.md,
 Schritt 2): nicht unterstützte Komponenten/Eigenschaften werden nur im
 Importbericht vermerkt, nicht als Platzhalter angelegt (es gibt noch
-keine generische Platzhalter-Komponente in `pcl`). `Items.Strings`/
-`Cells`-Sammlungen werden ebenfalls nur gemeldet – das `.pfm`-Format
-selbst kann solche Sammlungen bisher gar nicht abbilden (`items` ist bei
-`ComboBox`/`ListBox`/`Memo` eine reine Python-`@property`, kein `Prop`,
-und fehlt deshalb auch beim Designer selbst, nicht nur beim Import).
-Bilder aus `Picture.Data` werden nicht dekodiert. Pascal-Rumpf-
-Übernahme aus der `.pas`-Datei ist nicht Teil dieses Moduls.
+keine generische Platzhalter-Komponente in `pcl`). Container-Komponenten
+(`TRadioGroup`, `TGroupBox`, `TPanel`) haben in `pcl` keine Entsprechung;
+sie und ihre Kinder landen im Importbericht. `Cells`-Sammlungen eines
+`TStringGrid` werden ebenfalls nur gemeldet. Bilder aus `Picture.Data`
+werden nicht dekodiert. Pascal-Rumpf-Übernahme aus der `.pas`-Datei ist
+nicht Teil dieses Moduls.
 """
 
 from __future__ import annotations
@@ -112,6 +111,39 @@ def _form_konvertieren(wert: Any) -> str:
     return _FORMEN[wert]
 
 
+def _sammlung_konvertieren(wert: Any) -> list[str]:
+    """`Items.Strings = ('7' '19')` -> `["7", "19"]` (der Parser liefert
+    solche Sammlungen bereits als Liste)."""
+    if not isinstance(wert, list) or not all(isinstance(zeile, str) for zeile in wert):
+        raise LfmZuordnungError(f"Keine Zeichenkettenliste: {wert!r}")
+    return wert
+
+
+def _schriftgroesse_aus_hoehe(wert: Any) -> int:
+    """Lazarus' `Font.Height` ist eine negative Pixelhöhe; `pcl` rechnet
+    wie Lazarus' `Font.Size` in Punkt (bei 96 dpi: 1 pt = 4/3 px)."""
+    if not isinstance(wert, int):
+        raise LfmZuordnungError(f"Keine Schrifthöhe: {wert!r}")
+    return round(abs(wert) * 0.75)
+
+
+# Lazarus-Eigenschaften, die auf mehrere pcl-Eigenschaften zugleich
+# abbilden (`Font.Style = [fsBold, fsItalic]` -> `font_bold`/`font_italic`).
+_SCHRIFTSTILE: dict[str, str] = {"fsBold": "font_bold", "fsItalic": "font_italic"}
+
+
+def _schriftstil_konvertieren(wert: Any, name: str, warnungen: list[str]) -> dict[str, bool]:
+    stile = wert if isinstance(wert, list) else [wert]
+    ergebnis: dict[str, bool] = {}
+    for stil in stile:
+        pcl_name = _SCHRIFTSTILE.get(stil)
+        if pcl_name is None:
+            warnungen.append(f"{name}: Schriftstil {stil} wird nicht unterstützt.")
+            continue
+        ergebnis[pcl_name] = True
+    return ergebnis
+
+
 # Lazarus-Eigenschaft -> (pcl-Eigenschaft, Konverter). Klassenunabhängig
 # (Namen wie "Caption" bedeuten in jeder Klasse dasselbe pcl-Prop).
 _EIGENSCHAFTEN: dict[str, tuple[str, Any]] = {
@@ -130,6 +162,14 @@ _EIGENSCHAFTEN: dict[str, tuple[str, Any]] = {
     "Color": ("color", _farbe_konvertieren),
     "Brush.Color": ("brush_color", _farbe_konvertieren),
     "Shape": ("shape", _form_konvertieren),
+    "Min": ("minimum", int),
+    "Max": ("maximum", int),
+    "Position": ("position", int),
+    "Items.Strings": ("items", _sammlung_konvertieren),
+    "Lines.Strings": ("lines", _sammlung_konvertieren),
+    "Font.Name": ("font_name", str),
+    "Font.Height": ("font_size", _schriftgroesse_aus_hoehe),
+    "Font.Size": ("font_size", int),
 }
 
 _EREIGNISSE: dict[str, str] = {
@@ -230,6 +270,15 @@ def _eigenschaften_umwandeln(
             continue
         if ist_form and schluessel in ("Left", "Top"):
             continue  # Formulare haben in pcl keine left/top-Prop
+        if ist_form and schluessel.startswith("Font."):
+            # `font` gibt es nur an `Control`, nicht am Formular selbst -
+            # ohne diese Ausnahme erzeugte der Codegenerator ein
+            # `self.font.name = ...`, das beim Laden fehlschlägt.
+            warnungen.append(f"{name}: Eigenschaft {schluessel} wird nicht unterstützt.")
+            continue
+        if schluessel == "Font.Style":
+            eigenschaften.update(_schriftstil_konvertieren(wert, name, warnungen))
+            continue
         zuordnung = _EIGENSCHAFTEN.get(schluessel)
         if zuordnung is None:
             warnungen.append(f"{name}: Eigenschaft {schluessel} wird nicht unterstützt.")

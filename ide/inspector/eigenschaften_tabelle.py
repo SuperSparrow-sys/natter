@@ -18,8 +18,15 @@ from typing import Any
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QTableWidget, QTableWidgetItem
 
+from ide.inspector.sammlung_dialog import SammlungDialog
 from pcl.errors import NatterPropertyError
-from pcl.properties import VERSCHACHTELTE_EIGENSCHAFTEN, eigenschaften
+from pcl.properties import (
+    SAMMLUNGS_EIGENSCHAFTEN,
+    VERSCHACHTELTE_EIGENSCHAFTEN,
+    eigenschaften,
+    wert_lesen,
+    wert_setzen,
+)
 
 _SPALTE_NAME = 0
 _SPALTE_WERT = 1
@@ -37,10 +44,12 @@ class EigenschaftenTabelle(QTableWidget):
         self.setHorizontalHeaderLabels(["Eigenschaft", "Wert"])
         self.fehlertext = ""
         self._komponente: Any = None
+        self._bei_aenderung: Callable[[Any, str, Any, Any], None] | None = None
         self._name_setzen: Callable[[str], None] | None = None
         self._aktueller_name: str | None = None
         self._aktualisierung_laeuft = False
         self.itemChanged.connect(self._bei_zellenaenderung)
+        self.itemDoubleClicked.connect(self._bei_doppelklick)
 
     def komponente_anzeigen(
         self,
@@ -48,6 +57,7 @@ class EigenschaftenTabelle(QTableWidget):
         *,
         name: str | None = None,
         name_setzen: Callable[[str], None] | None = None,
+        bei_aenderung: Callable[[Any, str, Any, Any], None] | None = None,
     ) -> None:
         """Füllt die Tabelle mit allen `Prop`-Eigenschaften von
         `komponente`, alphabetisch (Abschnitt 7.6: „alphabetisch oder
@@ -68,15 +78,17 @@ class EigenschaftenTabelle(QTableWidget):
         gibt."""
         self._aktualisierung_laeuft = True
         self._komponente = komponente
+        self._bei_aenderung = bei_aenderung
         self._name_setzen = name_setzen
         self._aktueller_name = name
         props = eigenschaften(type(komponente))
         verschachtelt = [
             eigenschaft_name
-            for eigenschaft_name, (attribut, _) in VERSCHACHTELTE_EIGENSCHAFTEN.items()
-            if hasattr(komponente, attribut)
+            for eigenschaft_name, eintrag in VERSCHACHTELTE_EIGENSCHAFTEN.items()
+            if hasattr(komponente, eintrag.attribut)
         ]
-        namen = sorted([*props, *verschachtelt])
+        sammlungen = [name for name in SAMMLUNGS_EIGENSCHAFTEN if hasattr(komponente, name)]
+        namen = sorted([*props, *verschachtelt, *sammlungen])
         zeigt_name_zeile = name is not None and name_setzen is not None
         self.setRowCount(len(namen) + (1 if zeigt_name_zeile else 0))
 
@@ -88,15 +100,21 @@ class EigenschaftenTabelle(QTableWidget):
 
         for eigenschaft_name in namen:
             self._zeile_anlegen(zeile, eigenschaft_name, eigenschaft_name)
-            if eigenschaft_name in VERSCHACHTELTE_EIGENSCHAFTEN:
-                typ = str
-            else:
-                typ = props[eigenschaft_name].typ
             wert_element = self.item(zeile, _SPALTE_WERT)
-            self._zelle_aus_komponente_fuellen(wert_element, typ, eigenschaft_name)
+            self._zelle_aus_komponente_fuellen(
+                wert_element, self._typ_von(eigenschaft_name), eigenschaft_name
+            )
             zeile += 1
 
         self._aktualisierung_laeuft = False
+
+    def _typ_von(self, name: str) -> type:
+        if name in SAMMLUNGS_EIGENSCHAFTEN:
+            return list
+        verschachtelt = VERSCHACHTELTE_EIGENSCHAFTEN.get(name)
+        if verschachtelt is not None:
+            return verschachtelt.typ
+        return eigenschaften(type(self._komponente))[name].typ
 
     def _zeile_anlegen(self, zeile: int, anzeige_name: str, rollen_wert: Any) -> None:
         name_element = QTableWidgetItem(anzeige_name)
@@ -108,17 +126,20 @@ class EigenschaftenTabelle(QTableWidget):
         self.setItem(zeile, _SPALTE_WERT, wert_element)
 
     def _wert_lesen(self, name: str) -> Any:
-        if name in VERSCHACHTELTE_EIGENSCHAFTEN:
-            attribut, unter_attribut = VERSCHACHTELTE_EIGENSCHAFTEN[name]
-            return getattr(getattr(self._komponente, attribut), unter_attribut)
-        return getattr(self._komponente, name)
+        return wert_lesen(self._komponente, name)
 
     def _wert_setzen(self, name: str, wert: Any) -> None:
-        if name in VERSCHACHTELTE_EIGENSCHAFTEN:
-            attribut, unter_attribut = VERSCHACHTELTE_EIGENSCHAFTEN[name]
-            setattr(getattr(self._komponente, attribut), unter_attribut, wert)
-            return
-        setattr(self._komponente, name, wert)
+        """Setzt den Wert live und meldet die Änderung weiter, damit der
+        Designer sie in die `.pfm` und den generierten Code übernimmt.
+
+        Ohne diese Meldung änderte eine Eingabe im Objektinspektor real
+        nur das Live-Objekt: die Anzeige stimmte sofort, die `.pfm` und
+        `u_*_design.py` blieben aber unverändert – die Änderung war nach
+        dem nächsten Öffnen weg und erreichte das laufende Programm nie."""
+        alter_wert = wert_lesen(self._komponente, name)
+        wert_setzen(self._komponente, name, wert)
+        if self._bei_aenderung is not None:
+            self._bei_aenderung(self._komponente, name, alter_wert, wert)
 
     def _zelle_aus_komponente_fuellen(
         self, element: QTableWidgetItem, typ: type, name: str
@@ -130,6 +151,11 @@ class EigenschaftenTabelle(QTableWidget):
                 & ~Qt.ItemFlag.ItemIsEditable
             )
             element.setCheckState(Qt.CheckState.Checked if wert else Qt.CheckState.Unchecked)
+        elif typ is list:
+            # Wie in Lazarus nicht direkt in der Zelle bearbeitbar, sondern
+            # per Doppelklick über `SammlungDialog` (dort „…“-Knopf).
+            element.setFlags(element.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            element.setText(f"({len(wert)} Einträge)" if wert else "(leer)")
         else:
             element.setText(str(wert))
 
@@ -142,10 +168,9 @@ class EigenschaftenTabelle(QTableWidget):
             self._name_zeile_bearbeiten(element)
             return
 
-        if name in VERSCHACHTELTE_EIGENSCHAFTEN:
-            typ = str
-        else:
-            typ = eigenschaften(type(self._komponente))[name].typ
+        typ = self._typ_von(name)
+        if typ is list:
+            return  # nur über den Doppelklick-Dialog änderbar
 
         if typ is bool:
             neuer_wert: Any = element.checkState() == Qt.CheckState.Checked
@@ -164,6 +189,19 @@ class EigenschaftenTabelle(QTableWidget):
             self._zelle_zuruecksetzen(element, typ, name)
             return
 
+        self.fehlertext = ""
+
+    def _bei_doppelklick(self, element: QTableWidgetItem) -> None:
+        """Öffnet für Sammlungs-Eigenschaften (`items`, `lines`) den
+        Zeileneditor – wie der „…“-Knopf im Lazarus-Objektinspektor."""
+        name = element.data(_NAME_ROLLE)
+        if name not in SAMMLUNGS_EIGENSCHAFTEN:
+            return
+        dialog = SammlungDialog(name, self._wert_lesen(name), self)
+        if dialog.exec() != SammlungDialog.DialogCode.Accepted:
+            return
+        self._wert_setzen(name, dialog.zeilen())
+        self._zelle_zuruecksetzen(element, list, name)
         self.fehlertext = ""
 
     def _name_zeile_bearbeiten(self, element: QTableWidgetItem) -> None:

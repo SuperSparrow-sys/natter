@@ -12,6 +12,7 @@ from typing import Any
 
 from PySide6.QtWidgets import QWidget
 
+from pcl.font import Font
 from pcl.properties import Komponente, Prop
 
 
@@ -28,10 +29,31 @@ class Control(Komponente):
 
     def __init__(self, parent: Komponente) -> None:
         eltern_widget: QWidget = parent._qwidget
+        self._font = Font(self)
         self._qwidget: QWidget = self._qwidget_erzeugen(eltern_widget)
         self._geometrie_anwenden()
         self._qwidget.setEnabled(self.enabled)
         self._qwidget.show()
+
+    @property
+    def font(self) -> Font:
+        """Schriftart der Komponente (wie `TFont` in Lazarus), z. B.
+        ``self.m_zettel.font.size = 12``."""
+        return self._font
+
+    def _eigenes_qss_anwenden(self) -> None:
+        """Setzt das komponenteneigene Stylesheet aus allen Beiträgen neu.
+
+        Bündelt Schrift (`font`) und Hintergrundfarbe (`Label.color`,
+        `Edit.color`) an einer Stelle: beide schreiben auf dasselbe
+        `setStyleSheet` der Komponente und hätten sich sonst gegenseitig
+        gelöscht."""
+        self._qwidget.setStyleSheet(" ".join(self._qss_teile()))
+
+    def _qss_teile(self) -> list[str]:
+        """QSS-Anweisungen dieser Komponente. Unterklassen mit eigener
+        Darstellung (z. B. `Label.color`) hängen ihre Anweisungen an."""
+        return self._font.qss_teile()
 
     def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
         """Erzeugt das zugehörige QWidget. Von konkreten Komponenten

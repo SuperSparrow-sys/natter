@@ -20,17 +20,16 @@ import jsonschema
 
 from ide.inspector.komponentenbaum import kind_komponenten
 from ide.pfade import daten_ordner
-from pcl.components.additional import _STANDARD_BRUSH_FARBE
 from pcl.form import Form
-from pcl.properties import VERSCHACHTELTE_EIGENSCHAFTEN, eigenschaften, ereignisse
+from pcl.properties import (
+    SAMMLUNGS_EIGENSCHAFTEN,
+    VERSCHACHTELTE_EIGENSCHAFTEN,
+    eigenschaften,
+    ereignisse,
+)
 
 _SCHEMAS_DIR = daten_ordner("schemas")
 _PFM_SCHEMA = json.loads((_SCHEMAS_DIR / "pfm.schema.json").read_text(encoding="utf-8"))
-
-# Standardwerte der verschachtelten Eigenschaften aus
-# `pcl.properties.VERSCHACHTELTE_EIGENSCHAFTEN`, um sie beim Speichern
-# weglassen zu können, wenn sie unverändert sind (Abschnitt 4.2).
-_STANDARDWERTE_VERSCHACHTELT = {"brush_color": _STANDARD_BRUSH_FARBE}
 
 
 def _eigenschaften_werte(komponente: Any) -> dict[str, Any]:
@@ -40,12 +39,17 @@ def _eigenschaften_werte(komponente: Any) -> dict[str, Any]:
         if wert != prop.standardwert:
             werte[name] = wert
 
-    for flacher_name, (attribut, unter_attribut) in VERSCHACHTELTE_EIGENSCHAFTEN.items():
-        if not hasattr(komponente, attribut):
+    for flacher_name, verschachtelt in VERSCHACHTELTE_EIGENSCHAFTEN.items():
+        if not hasattr(komponente, verschachtelt.attribut):
             continue
-        wert = getattr(getattr(komponente, attribut), unter_attribut)
-        if wert != _STANDARDWERTE_VERSCHACHTELT.get(flacher_name):
+        wert = getattr(getattr(komponente, verschachtelt.attribut), verschachtelt.unter_attribut)
+        if wert != verschachtelt.standardwert:
             werte[flacher_name] = wert
+
+    for name in SAMMLUNGS_EIGENSCHAFTEN:
+        sammlung = getattr(komponente, name, None)
+        if sammlung:
+            werte[name] = list(sammlung)
 
     return werte
 

@@ -63,7 +63,8 @@ class Objektinspektor(QWidget):
             if self._canvas is not None
             else None
         )
+        bei_aenderung = self._canvas.eigenschaft_uebernehmen if self._canvas is not None else None
         self.eigenschaften_tabelle.komponente_anzeigen(
-            komponente, name=name, name_setzen=name_setzen
+            komponente, name=name, name_setzen=name_setzen, bei_aenderung=bei_aenderung
         )
         self.ereignisse_tabelle.anzeigen(komponente, self._formular)

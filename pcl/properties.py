@@ -6,7 +6,7 @@ Anbindung an echte Widgets kommt mit `pcl.control` (M1, Schritt 2).
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, NamedTuple
 
 from pcl.errors import NatterPropertyError, NatterUnbekannteEigenschaftError
 
@@ -115,19 +115,74 @@ class Event:
 
 def _ist_deklariert(cls: type, name: str) -> bool:
     wert = getattr(cls, name, None)
-    return isinstance(wert, (Prop, Event))
+    # `property` gehört dazu, weil Sammlungen wie `ListBox.items` als
+    # echte Python-`property` mit Setter deklariert sind (siehe
+    # SAMMLUNGS_EIGENSCHAFTEN) - ein deklariertes Attribut ist nie ein
+    # Tippfehler, die Sperre unten soll nur unbekannte Namen abfangen.
+    return isinstance(wert, (Prop, Event, property))
 
+
+class VerschachtelteEigenschaft(NamedTuple):
+    attribut: str
+    unter_attribut: str
+    typ: type
+    standardwert: Any
+
+
+# Standardfüllung einer frisch gezogenen `Shape` (hier statt in
+# `pcl.components.additional`, damit Komponente, `.pfm`-Schreiber und
+# Objektinspektor denselben Wert aus einer Quelle lesen - ein früher
+# verstreutes Duplikat führte real zu einem Testfehler).
+STANDARD_BRUSH_FARBE = "#c0c0c0"
 
 # Eigenschaften, die nur als aufklappbare Untereigenschaft existieren
-# (z. B. ``Shape.brush.color``, Abschnitt 5.0), aber unter einem flachen
-# Namen in der `.pfm`, im generierten Code und im Objektinspektor
-# behandelt werden - eine einzige Quelle für alle drei Stellen
-# (`ide/designer/pfm_schreiben.py`, `ide/codegen/design.py`,
-# `ide/inspector/eigenschaften_tabelle.py`), nachdem eine frühere,
-# verstreute Kopie real zu einem Testfehler geführt hatte.
-VERSCHACHTELTE_EIGENSCHAFTEN: dict[str, tuple[str, str]] = {
-    "brush_color": ("brush", "color"),
+# (z. B. ``Shape.brush.color`` oder ``Label.font.size``, Abschnitt 5.0),
+# aber unter einem flachen Namen in der `.pfm`, im generierten Code und
+# im Objektinspektor behandelt werden - eine einzige Quelle für alle drei
+# Stellen (`ide/designer/pfm_schreiben.py`, `ide/codegen/design.py`,
+# `ide/inspector/eigenschaften_tabelle.py`).
+VERSCHACHTELTE_EIGENSCHAFTEN: dict[str, VerschachtelteEigenschaft] = {
+    "brush_color": VerschachtelteEigenschaft("brush", "color", str, STANDARD_BRUSH_FARBE),
+    "font_name": VerschachtelteEigenschaft("font", "name", str, ""),
+    "font_size": VerschachtelteEigenschaft("font", "size", int, 0),
+    "font_bold": VerschachtelteEigenschaft("font", "bold", bool, False),
+    "font_italic": VerschachtelteEigenschaft("font", "italic", bool, False),
 }
+
+# Eigenschaften, die statt eines Einzelwerts eine `pcl.strings.Strings`-
+# Sammlung tragen (`Memo.lines`, `ListBox.items`, `ComboBox.items`).
+# In der `.pfm` stehen sie als Liste von Zeichenketten; im generierten
+# Code als Zuweisung einer Liste, die der Setter in die vorhandene
+# `Strings`-Sammlung überträgt.
+SAMMLUNGS_EIGENSCHAFTEN: tuple[str, ...] = ("items", "lines")
+
+
+def wert_lesen(komponente: Any, name: str) -> Any:
+    """Liest eine Eigenschaft unter ihrem flachen Namen – egal ob echter
+    `Prop` (`caption`), verschachtelte Untereigenschaft (`font_size`) oder
+    Sammlung (`items`).
+
+    Eine Quelle für Objektinspektor, Undo-Kommandos und `.pfm`-Schreiber:
+    diese drei hatten die Fallunterscheidung vorher jeweils selbst, was
+    Sammlungen und Schrift-Untereigenschaften an einzelnen Stellen
+    stillschweigend übersprungen hat."""
+    verschachtelt = VERSCHACHTELTE_EIGENSCHAFTEN.get(name)
+    if verschachtelt is not None:
+        return getattr(getattr(komponente, verschachtelt.attribut), verschachtelt.unter_attribut)
+    if name in SAMMLUNGS_EIGENSCHAFTEN:
+        return list(getattr(komponente, name))
+    return getattr(komponente, name)
+
+
+def wert_setzen(komponente: Any, name: str, wert: Any) -> None:
+    """Gegenstück zu `wert_lesen`."""
+    verschachtelt = VERSCHACHTELTE_EIGENSCHAFTEN.get(name)
+    if verschachtelt is not None:
+        setattr(
+            getattr(komponente, verschachtelt.attribut), verschachtelt.unter_attribut, wert
+        )
+        return
+    setattr(komponente, name, wert)
 
 
 def eigenschaften(cls: type) -> dict[str, Prop]:
