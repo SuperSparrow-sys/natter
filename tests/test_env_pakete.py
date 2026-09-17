@@ -35,6 +35,22 @@ def test_installierte_pakete_parst_echte_pip_list_json_ausgabe(
     assert pakete[1].name == "ruff"
 
 
+def test_installierte_pakete_bei_pip_fehler_loest_paketfehler_statt_abzustuerzen(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Echter Absturz (Nutzer-Feedback): `check=True` ließ eine
+    unbehandelte `subprocess.CalledProcessError` bis zur IDE
+    durchschlagen, wenn `pip list` fehlschlug - jetzt wie
+    `paket_installieren` ein sauberer `PaketFehler`."""
+    monkeypatch.setattr(
+        "ide.env.pakete.subprocess.run",
+        lambda *a, **k: _ergebnis(returncode=1, stderr="ERROR: pip ist kaputt"),
+    )
+
+    with pytest.raises(PaketFehler, match="pip ist kaputt"):
+        installierte_pakete()
+
+
 def test_paket_installieren_ruft_pip_install_mit_dem_richtigen_namen_auf(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -64,6 +80,18 @@ def test_paket_installieren_bei_fehler_loest_paketfehler_aus(
 
     with pytest.raises(PaketFehler, match="No matching distribution"):
         paket_installieren("nicht_vorhanden_xyz")
+
+
+def test_paketliste_exportieren_bei_pip_fehler_loest_paketfehler_aus(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "ide.env.pakete.subprocess.run",
+        lambda *a, **k: _ergebnis(returncode=1, stderr="ERROR: pip ist kaputt"),
+    )
+
+    with pytest.raises(PaketFehler, match="pip ist kaputt"):
+        paketliste_exportieren(tmp_path / "requirements.txt")
 
 
 def test_paketliste_exportieren_schreibt_pip_freeze_ausgabe(

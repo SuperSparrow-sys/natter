@@ -31,13 +31,19 @@ class PaketFehler(RuntimeError):
 
 
 def installierte_pakete() -> list[Paket]:
-    """Liste aller installierten Pakete (`pip list --format=json`)."""
+    """Liste aller installierten Pakete (`pip list --format=json`).
+    Löst `PaketFehler` aus, wenn `pip` fehlschlägt (Nutzer-Feedback,
+    echter Absturz: `check=True` ließ eine unbehandelte
+    `CalledProcessError` bis zur IDE durchschlagen, statt wie
+    `paket_installieren()` einen sauberen Fehler mit `pip`s eigener
+    Meldung zu liefern)."""
     ergebnis = subprocess.run(
         [sys.executable, "-m", "pip", "list", "--format=json"],
         capture_output=True,
         text=True,
-        check=True,
     )
+    if ergebnis.returncode != 0:
+        raise PaketFehler(ergebnis.stderr.strip() or ergebnis.stdout.strip())
     daten = json.loads(ergebnis.stdout)
     return [Paket(eintrag["name"], eintrag["version"]) for eintrag in daten]
 
@@ -57,11 +63,13 @@ def paket_installieren(name: str) -> str:
 
 def paketliste_exportieren(pfad: str | Path) -> None:
     """Schreibt `pip freeze` nach `pfad` (Abschnitt 7.2: „Paketliste
-    exportieren (requirements.txt)“)."""
+    exportieren (requirements.txt)“). Löst `PaketFehler` aus, wenn `pip`
+    fehlschlägt (siehe `installierte_pakete`)."""
     ergebnis = subprocess.run(
         [sys.executable, "-m", "pip", "freeze"],
         capture_output=True,
         text=True,
-        check=True,
     )
+    if ergebnis.returncode != 0:
+        raise PaketFehler(ergebnis.stderr.strip() or ergebnis.stdout.strip())
     Path(pfad).write_text(ergebnis.stdout, encoding="utf-8")
