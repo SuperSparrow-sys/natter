@@ -21,15 +21,15 @@ import jsonschema
 from ide.inspector.komponentenbaum import kind_komponenten
 from pcl.components.additional import _STANDARD_BRUSH_FARBE
 from pcl.form import Form
-from pcl.properties import eigenschaften, ereignisse
+from pcl.properties import VERSCHACHTELTE_EIGENSCHAFTEN, eigenschaften, ereignisse
 
 _SCHEMAS_DIR = Path(__file__).resolve().parent.parent.parent / "schemas"
 _PFM_SCHEMA = json.loads((_SCHEMAS_DIR / "pfm.schema.json").read_text(encoding="utf-8"))
 
-# Gegenstück zur Abbildung in ide/codegen/design.py: manche Eigenschaften
-# werden in der .pfm als flacher Schlüssel gespeichert, obwohl sie zur
-# Laufzeit eine verschachtelte Untereigenschaft sind (Abschnitt 5.0).
-_VERSCHACHTELTE_EIGENSCHAFTEN = {"brush_color": ("brush", "color", _STANDARD_BRUSH_FARBE)}
+# Standardwerte der verschachtelten Eigenschaften aus
+# `pcl.properties.VERSCHACHTELTE_EIGENSCHAFTEN`, um sie beim Speichern
+# weglassen zu können, wenn sie unverändert sind (Abschnitt 4.2).
+_STANDARDWERTE_VERSCHACHTELT = {"brush_color": _STANDARD_BRUSH_FARBE}
 
 
 def _eigenschaften_werte(komponente: Any) -> dict[str, Any]:
@@ -39,11 +39,11 @@ def _eigenschaften_werte(komponente: Any) -> dict[str, Any]:
         if wert != prop.standardwert:
             werte[name] = wert
 
-    for flacher_name, (attribut, unter_attribut, standard) in _VERSCHACHTELTE_EIGENSCHAFTEN.items():
+    for flacher_name, (attribut, unter_attribut) in VERSCHACHTELTE_EIGENSCHAFTEN.items():
         if not hasattr(komponente, attribut):
             continue
         wert = getattr(getattr(komponente, attribut), unter_attribut)
-        if wert != standard:
+        if wert != _STANDARDWERTE_VERSCHACHTELT.get(flacher_name):
             werte[flacher_name] = wert
 
     return werte

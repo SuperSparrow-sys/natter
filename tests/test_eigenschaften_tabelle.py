@@ -6,12 +6,14 @@ from PySide6.QtCore import Qt
 
 from ide.inspector import EigenschaftenTabelle
 from pcl import Button, CheckBox, Form
+from pcl.components.additional import Shape
 
 
 class _Formular(Form):
     def create_components(self) -> None:
         self.b_ein = Button(self)
         self.c_kaese = CheckBox(self)
+        self.s_form = Shape(self)
 
 
 def _zeile_finden(tabelle: EigenschaftenTabelle, name: str) -> int:
@@ -83,6 +85,32 @@ def test_bool_eigenschaft_als_kontrollkaestchen() -> None:
 
     assert formular.c_kaese.checked is True
     assert formular.c_kaese._qwidget.isChecked() is True
+
+
+def test_verschachtelte_untereigenschaft_wird_angezeigt() -> None:
+    """Nutzer-Feedback (September 2026): „alle Eigenschaften inklusive
+    Farbe usw. sollen im Objektinspektor angezeigt werden“ -
+    `Shape.brush.color` war bisher komplett unsichtbar, weil es kein
+    echter `Prop` ist, sondern eine aufklappbare Untereigenschaft
+    (`pcl.properties.VERSCHACHTELTE_EIGENSCHAFTEN`)."""
+    formular = _Formular()
+    tabelle = EigenschaftenTabelle()
+
+    tabelle.komponente_anzeigen(formular.s_form)
+
+    zeile = _zeile_finden(tabelle, "brush_color")
+    assert tabelle.item(zeile, 1).text() == formular.s_form.brush.color
+
+
+def test_verschachtelte_untereigenschaft_bearbeiten_aendert_sie_live() -> None:
+    formular = _Formular()
+    tabelle = EigenschaftenTabelle()
+    tabelle.komponente_anzeigen(formular.s_form)
+
+    zeile = _zeile_finden(tabelle, "brush_color")
+    tabelle.item(zeile, 1).setText("#e53935")
+
+    assert formular.s_form.brush.color == "#e53935"
 
 
 def test_komponente_wechseln_zeigt_die_neue_komponente() -> None:

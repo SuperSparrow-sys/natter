@@ -118,6 +118,18 @@ def _ist_deklariert(cls: type, name: str) -> bool:
     return isinstance(wert, (Prop, Event))
 
 
+# Eigenschaften, die nur als aufklappbare Untereigenschaft existieren
+# (z. B. ``Shape.brush.color``, Abschnitt 5.0), aber unter einem flachen
+# Namen in der `.pfm`, im generierten Code und im Objektinspektor
+# behandelt werden - eine einzige Quelle für alle drei Stellen
+# (`ide/designer/pfm_schreiben.py`, `ide/codegen/design.py`,
+# `ide/inspector/eigenschaften_tabelle.py`), nachdem eine frühere,
+# verstreute Kopie real zu einem Testfehler geführt hatte.
+VERSCHACHTELTE_EIGENSCHAFTEN: dict[str, tuple[str, str]] = {
+    "brush_color": ("brush", "color"),
+}
+
+
 def eigenschaften(cls: type) -> dict[str, Prop]:
     """Alle `Prop`-Eigenschaften einer Klasse inkl. Basisklassen, für den
     Objektinspektor."""

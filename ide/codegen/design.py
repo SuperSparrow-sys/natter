@@ -14,21 +14,19 @@ from typing import Any
 
 import jsonschema
 
+from pcl.properties import VERSCHACHTELTE_EIGENSCHAFTEN
+
 _EINRUECKUNG = "    "
 
 _SCHEMAS_DIR = Path(__file__).resolve().parent.parent.parent / "schemas"
 _PFM_SCHEMA = json.loads((_SCHEMAS_DIR / "pfm.schema.json").read_text(encoding="utf-8"))
 
-# Property-Namen, die in der .pfm als flacher Schlüssel gespeichert werden,
-# im erzeugten Code aber eine verschachtelte Untereigenschaft ansprechen
-# (Abschnitt 5.0, z. B. Shape.brush.color).
-_VERSCHACHTELTE_EIGENSCHAFTEN: dict[str, str] = {
-    "brush_color": "brush.color",
-}
-
 
 def _eigenschaft_pfad(name: str) -> str:
-    return _VERSCHACHTELTE_EIGENSCHAFTEN.get(name, name)
+    if name in VERSCHACHTELTE_EIGENSCHAFTEN:
+        attribut, unter_attribut = VERSCHACHTELTE_EIGENSCHAFTEN[name]
+        return f"{attribut}.{unter_attribut}"
+    return name
 
 
 def _python_literal(wert: Any) -> str:
