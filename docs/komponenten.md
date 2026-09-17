@@ -68,7 +68,7 @@ Qt-Basis: eigenes Painting (`QPainter` auf `QWidget`, `pcl/components/additional
 |---|---|---|---|---|
 | left, top, width, height, enabled | wie `Control` | – | – | geerbt von `Control` |
 | shape | str | "rectangle" | Darstellung | Form der Zeichnung: rectangle oder circle |
-| brush.color | str (Hex) | "#000000" | Darstellung | Füllfarbe; aufklappbare Untereigenschaft, kein eigenständiges `Prop` |
+| brush.color | str (Hex) | "#c0c0c0" | Darstellung | Füllfarbe; aufklappbare Untereigenschaft, kein eigenständiges `Prop` |
 
 Keine eigenen Ereignisse. `shape` ist aktuell ein einfacher `str` ohne
 Aufzählungs-Editor im Inspektor (Abschnitt 5.0 sieht dafür später einen

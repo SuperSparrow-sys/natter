@@ -75,16 +75,19 @@ def _ampel_in_der_ide_nachbauen(canvas: DesignerCanvas) -> None:
     s_rot = canvas.komponente_platzieren(Shape, 170, 176)
     s_rot.width, s_rot.height = 96, 89
     s_rot.shape = "circle"
+    s_rot.brush.color = "#000000"
     canvas.komponente_umbenennen(s_rot, "s_rot")
 
     s_gelb = canvas.komponente_platzieren(Shape, 169, 272)
     s_gelb.width, s_gelb.height = 97, 89
     s_gelb.shape = "circle"
+    s_gelb.brush.color = "#000000"
     canvas.komponente_umbenennen(s_gelb, "s_gelb")
 
     s_gruen = canvas.komponente_platzieren(Shape, 176, 376)
     s_gruen.width, s_gruen.height = 90, 80
     s_gruen.shape = "circle"
+    s_gruen.brush.color = "#000000"
     canvas.komponente_umbenennen(s_gruen, "s_gruen")
 
     # Doppelklick-Äquivalent: erzeugt die Ereignismethoden in u_main.py

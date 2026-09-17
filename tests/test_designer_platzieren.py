@@ -4,6 +4,8 @@
 
 from ide.designer.canvas import DesignerCanvas
 from pcl import Button, Form
+from pcl.components.additional import StringGrid
+from pcl.components.standard import ScrollBar
 
 
 class _LeeresFormular(Form):
@@ -60,3 +62,34 @@ def test_platzierte_komponente_laesst_sich_direkt_anklicken() -> None:
     getroffen = canvas.klick_bei(45, 70)
 
     assert getroffen is formular.button
+
+
+def test_button_behaelt_den_control_standard_75x25() -> None:
+    # Kompakte Komponenten wie Button brauchen keine eigene Startgröße.
+    formular = _LeeresFormular()
+    canvas = DesignerCanvas(formular)
+
+    komponente = canvas.komponente_platzieren(Button, 40, 60)
+
+    assert (komponente.width, komponente.height) == (75, 25)
+
+
+def test_stringgrid_bekommt_beim_platzieren_eine_groessere_startflaeche() -> None:
+    # Der einheitliche 75x25-Standard ließ eine 5x5-StringGrid beim
+    # Rundgang durch alle Palettentypen nur verzerrt/zusammengequetscht
+    # aussehen (siehe ide/designer/canvas.py, _STANDARDGROESSEN).
+    formular = _LeeresFormular()
+    canvas = DesignerCanvas(formular)
+
+    komponente = canvas.komponente_platzieren(StringGrid, 40, 60)
+
+    assert (komponente.width, komponente.height) == (220, 150)
+
+
+def test_scrollbar_bekommt_beim_platzieren_eine_breite_flache_startgroesse() -> None:
+    formular = _LeeresFormular()
+    canvas = DesignerCanvas(formular)
+
+    komponente = canvas.komponente_platzieren(ScrollBar, 40, 60)
+
+    assert (komponente.width, komponente.height) == (150, 17)

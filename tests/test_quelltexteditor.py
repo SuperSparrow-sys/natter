@@ -88,3 +88,63 @@ def test_thema_setzen_wechselt_rand_und_hervorhebung() -> None:
 
     assert editor._rand_farben["hintergrund"] != hell_hintergrund  # noqa: SLF001
     assert editor._hervorhebung._thema == "dark"  # noqa: SLF001
+
+
+# -- Automatischer Einzug (Nutzer-Feedback September 2026) -----------------
+
+
+def test_enter_uebernimmt_den_einzug_der_vorzeile() -> None:
+    editor = QuelltextEditor()
+    editor.setPlainText("    x = 1")
+    cursor = editor.textCursor()
+    cursor.movePosition(cursor.MoveOperation.End)
+    editor.setTextCursor(cursor)
+
+    QTest.keyClick(editor, Qt.Key.Key_Return)
+
+    assert editor.toPlainText() == "    x = 1\n    "
+
+
+def test_enter_nach_doppelpunkt_erhoeht_den_einzug() -> None:
+    editor = QuelltextEditor()
+    editor.setPlainText("def f():")
+    cursor = editor.textCursor()
+    cursor.movePosition(cursor.MoveOperation.End)
+    editor.setTextCursor(cursor)
+
+    QTest.keyClick(editor, Qt.Key.Key_Return)
+
+    assert editor.toPlainText() == "def f():\n    "
+
+
+def test_enter_nach_eingerueckter_zeile_mit_doppelpunkt_erhoeht_weiter() -> None:
+    editor = QuelltextEditor()
+    editor.setPlainText("class X:\n    def f(self):")
+    cursor = editor.textCursor()
+    cursor.movePosition(cursor.MoveOperation.End)
+    editor.setTextCursor(cursor)
+
+    QTest.keyClick(editor, Qt.Key.Key_Return)
+
+    assert editor.toPlainText() == "class X:\n    def f(self):\n        "
+
+
+def test_enter_ohne_doppelpunkt_am_zeilenende_behaelt_einzug() -> None:
+    editor = QuelltextEditor()
+    editor.setPlainText("    return 1  # kommentar mit : darin")
+    cursor = editor.textCursor()
+    cursor.movePosition(cursor.MoveOperation.End)
+    editor.setTextCursor(cursor)
+
+    QTest.keyClick(editor, Qt.Key.Key_Return)
+
+    assert editor.toPlainText().endswith("\n    ")
+
+
+def test_tab_fuegt_leerzeichen_statt_eines_tabulatorzeichens_ein() -> None:
+    editor = QuelltextEditor()
+
+    QTest.keyClick(editor, Qt.Key.Key_Tab)
+
+    assert editor.toPlainText() == "    "
+    assert "\t" not in editor.toPlainText()

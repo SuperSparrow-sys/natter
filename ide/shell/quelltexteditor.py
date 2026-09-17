@@ -12,10 +12,13 @@ eine vollständige Grammatik.
 
 from __future__ import annotations
 
+import re
+
 from PySide6.QtCore import QRect, QSize, Qt, Signal
 from PySide6.QtGui import (
     QColor,
     QFont,
+    QKeyEvent,
     QMouseEvent,
     QPainter,
     QPaintEvent,
@@ -28,6 +31,8 @@ from ide.shell.python_hervorhebung import PythonHervorhebung
 
 _RAND_ABSTAND = 12
 _BREAKPOINT_FARBE = QColor("#c0392b")
+_EINZUG = "    "
+_EINZUG_MUSTER = re.compile(r"[ \t]*")
 _BREAKPOINT_DURCHMESSER = 10
 _BREAKPOINT_SPALTE_BREITE = _BREAKPOINT_DURCHMESSER + 6
 
@@ -115,6 +120,33 @@ class QuelltextEditor(QPlainTextEdit):
             self._rand.update(0, bereich.y(), self._rand.width(), bereich.height())
         if bereich.contains(self.viewport().rect()):
             self._breite_aktualisieren()
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        """Automatischer Einzug (Nutzer-Feedback September 2026: „was
+        passiert wenn ich in einer Funktion Enter drücke“ – bisher
+        nichts, jede Zeile begann bei Spalte 0). Kein echtes
+        Grammatik-Wissen wie bei einer vollständigen Monaco-Integration
+        (`prototypes/s2`, noch offen) – nur zwei einfache, zuverlässige
+        Regeln wie in den meisten schlanken Editoren: Einzug der
+        Vorzeile übernehmen, nach einem ":" am Zeilenende eine Ebene
+        mehr einrücken. Tab fügt vier Leerzeichen statt eines
+        Tabulatorzeichens ein - sonst mischen sich in Python schnell
+        Tabs und Leerzeichen (`TabError`)."""
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and not event.modifiers():
+            self._einrueckende_neue_zeile_einfuegen()
+            return
+        if event.key() == Qt.Key.Key_Tab and not event.modifiers():
+            self.textCursor().insertText(_EINZUG)
+            return
+        super().keyPressEvent(event)
+
+    def _einrueckende_neue_zeile_einfuegen(self) -> None:
+        cursor = self.textCursor()
+        zeile_bis_cursor = cursor.block().text()[: cursor.positionInBlock()]
+        einzug = _EINZUG_MUSTER.match(zeile_bis_cursor).group()
+        if zeile_bis_cursor.rstrip().endswith(":"):
+            einzug += _EINZUG
+        cursor.insertText("\n" + einzug)
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)

@@ -17,9 +17,15 @@ Feinschliff“).
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from pcl.theme import _tokens_laden, theme_aufloesen
+
+_TAB_SCHLIESSEN_SYMBOL = (
+    (Path(__file__).resolve().parent.parent / "assets" / "icons" / "tab_schliessen.svg")
+    .as_posix()
+)
 
 
 def _mit_alpha(farbe_hex: str, alpha: float) -> str:
@@ -141,6 +147,14 @@ QTabBar::tab:selected {{
 }}
 QTabBar::tab:!selected:hover {{
     background-color: {farben["border"]};
+}}
+QTabBar::close-button {{
+    image: url({_TAB_SCHLIESSEN_SYMBOL});
+    padding: 2px;
+}}
+QTabBar::close-button:hover {{
+    background-color: {farben["border"]};
+    border-radius: {radius["button"]}px;
 }}
 
 QTreeWidget, QListWidget, QTableWidget {{

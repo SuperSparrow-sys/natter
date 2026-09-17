@@ -21,6 +21,18 @@ from pcl.properties import Prop, typ_beschreibung
 _FORMEN = ("rectangle", "circle", "rounded_rectangle")
 _ECKENRADIUS = 12
 
+# Hellgrau statt Schwarz: da Pen und Brush hier dieselbe Farbe nutzen
+# (keine eigene Randfarbe), sah eine frisch aus der Palette gezogene
+# Shape vorher wie ein solider schwarzer Block aus statt wie eine
+# erkennbare, noch unbenutzte Form (beim Rundgang durch alle
+# Palettentypen gefunden). Kein eigenständiger `Prop`
+# (`brush.color` ist eine verschachtelte Untereigenschaft, siehe
+# `Brush` unten), daher muss `ide/designer/pfm_schreiben.py` denselben
+# Wert kennen, um ihn beim Speichern weglassen zu können - dort als
+# `_STANDARD_BRUSH_FARBE` importiert statt ein zweites Mal hartkodiert,
+# nachdem genau dieses Auseinanderlaufen real zu einem Testfehler führte.
+_STANDARD_BRUSH_FARBE = "#c0c0c0"
+
 
 class Brush:
     """Aufklappbare Untereigenschaft eines `Shape`, z. B.
@@ -32,7 +44,7 @@ class Brush:
 
     def __init__(self, besitzer: Shape) -> None:
         self._besitzer = besitzer
-        self._farbe = "#000000"
+        self._farbe = _STANDARD_BRUSH_FARBE
 
     @property
     def color(self) -> str:

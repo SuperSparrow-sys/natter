@@ -142,6 +142,26 @@ class _UmbenennenKommando:
         setattr(self.canvas.formular, self.alter_name, self.komponente)
 
 
+# Sinnvolle Startgrößen je Komponententyp beim Ablegen aus der Palette
+# (wie in Lazarus - dort bekommt z. B. ein frisches TStringGrid ebenfalls
+# eine größere Startfläche als ein TCheckBox). Der einheitliche
+# `Control`-Standard 75×25 (`pcl/control.py`) passt nur für die
+# kompakten Komponenten; bei einer 5×5-StringGrid oder einer
+# horizontalen ScrollBar sah er beim Rundgang durch alle Palettentypen
+# nur verzerrt/zusammengequetscht aus. Wirkt sich NUR auf das
+# interaktive Platzieren aus, nicht auf den `Control.width/height`-Prop-
+# Standard selbst (den nutzt z. B. auch generierter `_design.py`-Code).
+_STANDARDGROESSEN: dict[str, tuple[int, int]] = {
+    "CheckBox": (110, 25),
+    "RadioButton": (110, 25),
+    "Memo": (180, 90),
+    "ListBox": (140, 90),
+    "ScrollBar": (150, 17),
+    "StringGrid": (220, 150),
+    "Image": (100, 100),
+}
+
+
 class _PlatzierenKommando:
     """Wie `_DuplizierenKommando`, aber mit einer frischen Komponente in
     Standardwerten statt einer Kopie (Abschnitt 7.3: Palette → Formular)."""
@@ -153,6 +173,10 @@ class _PlatzierenKommando:
         self.neue_komponente = typ(canvas.formular)
         self.neue_komponente.left = x
         self.neue_komponente.top = y
+        breite, hoehe = _STANDARDGROESSEN.get(typ.__name__, (None, None))
+        if breite is not None:
+            self.neue_komponente.width = breite
+            self.neue_komponente.height = hoehe
 
         canvas._ueberwachung_einrichten(self.neue_komponente)
         canvas._komponente_entfernen(self.neue_komponente)

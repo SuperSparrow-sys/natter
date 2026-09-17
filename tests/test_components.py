@@ -89,7 +89,7 @@ def test_label_ohne_handler_klickt_ohne_fehler() -> None:
 def test_shape_standardwert() -> None:
     formular = _Formular()
     assert formular.s_rot.shape == "rectangle"
-    assert formular.s_rot.brush.color == "#000000"
+    assert formular.s_rot.brush.color == "#c0c0c0"
 
 
 def test_shape_brush_color_aenderung() -> None:

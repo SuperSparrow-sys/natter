@@ -19,6 +19,7 @@ from typing import Any
 import jsonschema
 
 from ide.inspector.komponentenbaum import kind_komponenten
+from pcl.components.additional import _STANDARD_BRUSH_FARBE
 from pcl.form import Form
 from pcl.properties import eigenschaften, ereignisse
 
@@ -28,7 +29,7 @@ _PFM_SCHEMA = json.loads((_SCHEMAS_DIR / "pfm.schema.json").read_text(encoding="
 # Gegenstück zur Abbildung in ide/codegen/design.py: manche Eigenschaften
 # werden in der .pfm als flacher Schlüssel gespeichert, obwohl sie zur
 # Laufzeit eine verschachtelte Untereigenschaft sind (Abschnitt 5.0).
-_VERSCHACHTELTE_EIGENSCHAFTEN = {"brush_color": ("brush", "color", "#000000")}
+_VERSCHACHTELTE_EIGENSCHAFTEN = {"brush_color": ("brush", "color", _STANDARD_BRUSH_FARBE)}
 
 
 def _eigenschaften_werte(komponente: Any) -> dict[str, Any]:
