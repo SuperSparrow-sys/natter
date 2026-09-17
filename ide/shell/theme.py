@@ -22,6 +22,17 @@ from typing import Any
 from pcl.theme import _tokens_laden, theme_aufloesen
 
 
+def _mit_alpha(farbe_hex: str, alpha: float) -> str:
+    """Wandelt eine `#rrggbb`-Farbe in `rgba(...)` mit gegebener Deckkraft
+    um – für sanfte, helle Auswahl-/Hover-Flächen (wie in Lazarus/Windows
+    11), bei denen farbige Symbole lesbar bleiben müssen, statt einer
+    deckenden Akzentfarbe wie bei Menüs/Tabs."""
+    r = int(farbe_hex[1:3], 16)
+    g = int(farbe_hex[3:5], 16)
+    b = int(farbe_hex[5:7], 16)
+    return f"rgba({r}, {g}, {b}, {alpha})"
+
+
 def ide_qss_erzeugen(theme: str = "system", tokens: dict[str, Any] | None = None) -> str:
     """Erzeugt das QSS-Stylesheet für das IDE-Hauptfenster (`system`/
     `light`/`dark`, wie `pcl.theme.qss_erzeugen`)."""
@@ -141,11 +152,16 @@ QTreeWidget, QListWidget, QTableWidget {{
 }}
 QTreeWidget::item, QListWidget::item {{
     padding: 3px 2px;
-    border: none;
+    border: 1px solid transparent;
+    border-radius: {radius["input"]}px;
+}}
+QTreeView::item:hover, QListView::item:hover, QTableView::item:hover {{
+    background-color: {_mit_alpha(farben["accent"], 0.08)};
 }}
 QTreeView::item:selected, QListView::item:selected, QTableView::item:selected {{
-    background-color: {farben["accent"]};
-    color: #ffffff;
+    background-color: {_mit_alpha(farben["accent"], 0.18)};
+    color: {farben["text"]};
+    border: 1px solid {_mit_alpha(farben["accent"], 0.45)};
 }}
 QTreeView::branch {{
     background-color: transparent;

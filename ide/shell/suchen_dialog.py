@@ -6,9 +6,9 @@ wäre „In Dateien suchen …“, ein eigener, größerer Schritt).
 
 from __future__ import annotations
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import (
-    QDialogButtonBox,
     QFormLayout,
     QHBoxLayout,
     QLineEdit,
@@ -25,7 +25,7 @@ class SuchenErsetzenDialog(QWidget):
     „Weitersuchen“-Klicks weiter im Editor gearbeitet werden."""
 
     def __init__(self, editor: QPlainTextEdit, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
+        super().__init__(parent, Qt.WindowType.Tool)
         self.setWindowTitle("Suchen und Ersetzen")
         self._editor = editor
 
@@ -48,14 +48,16 @@ class SuchenErsetzenDialog(QWidget):
         knopfzeile.addWidget(self.ersetzen_knopf)
         knopfzeile.addWidget(self.alle_ersetzen_knopf)
 
-        schliessen = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        schliessen.rejected.connect(self.close)
-        schliessen.button(QDialogButtonBox.StandardButton.Close).clicked.connect(self.close)
+        schliessen_knopf = QPushButton("Schließen")
+        schliessen_knopf.clicked.connect(self.close)
+        schliessen = QHBoxLayout()
+        schliessen.addStretch()
+        schliessen.addWidget(schliessen_knopf)
 
         layout = QVBoxLayout(self)
         layout.addLayout(formular)
         layout.addLayout(knopfzeile)
-        layout.addWidget(schliessen)
+        layout.addLayout(schliessen)
 
     def suchen(self) -> bool:
         """Sucht vorwärts ab der aktuellen Cursorposition; springt bei

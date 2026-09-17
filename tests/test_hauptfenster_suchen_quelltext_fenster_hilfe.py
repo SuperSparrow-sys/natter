@@ -35,6 +35,9 @@ def test_suchen_oeffnet_den_dialog_fuer_den_aktiven_editor(tmp_path: Path) -> No
     fenster._suchen_aktion()
 
     assert isinstance(fenster._suchen_dialog, SuchenErsetzenDialog)
+    # Ein eigenes schwebendes Werkzeugfenster statt in die Hauptfenster-
+    # Fläche eingebettet zu werden (sonst verschwindet es hinter den Docks).
+    assert fenster._suchen_dialog.isWindow() is True
 
 
 def test_suchen_dialog_findet_text_und_laeuft_um(tmp_path: Path) -> None:

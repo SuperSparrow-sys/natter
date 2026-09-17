@@ -167,6 +167,8 @@ class HauptFenster(QMainWindow):
 
         self.explorer = ProjektExplorer()
         self.explorer.itemDoubleClicked.connect(self._bei_explorer_doppelklick)
+        self.explorer.umbenennen_angefordert.connect(self._unit_umbenennen)
+        self.explorer.loeschen_angefordert.connect(self._unit_loeschen)
         self.explorer_dock = self._dock_erzeugen(
             "Projekt-Explorer", Qt.DockWidgetArea.LeftDockWidgetArea, inhalt=self.explorer
         )
@@ -194,6 +196,7 @@ class HauptFenster(QMainWindow):
         self._widget_zu_canvas: dict[QWidget, DesignerCanvas] = {}
         self._aktueller_canvas: DesignerCanvas | None = None
         self.editor_tabs.currentChanged.connect(self._bei_tab_wechsel)
+        self.editor_tabs.tabCloseRequested.connect(self._tab_schliessen)
 
         self._design_pruefer_abgeschaltete_regeln: set[str] = set()
 
@@ -742,6 +745,75 @@ class HauptFenster(QMainWindow):
             return
         self.unit_erzeugen()
 
+    def _unit_umbenennen(self, pfad: Path) -> None:
+        """„⋮ → Umbenennen …“ im Projekt-Explorer (Nutzer-Feedback,
+        September 2026): benennt die Datei auf der Platte um und hält
+        einen ggf. offenen Editor-Tab dabei synchron."""
+        neuer_name, ok = QInputDialog.getText(
+            self, "Unit umbenennen", "Neuer Dateiname:", text=pfad.name
+        )
+        if not ok or not neuer_name or neuer_name == pfad.name:
+            return
+        if not neuer_name.endswith(".py"):
+            neuer_name += ".py"
+        ziel = pfad.parent / neuer_name
+        if ziel.exists():
+            self.statusBar().showMessage(f"„{neuer_name}“ existiert bereits.")
+            return
+
+        try:
+            pfad.rename(ziel)
+        except OSError as fehler:
+            self.statusBar().showMessage(f"Umbenennen fehlgeschlagen: {fehler}")
+            return
+
+        self._offenen_tab_pfad_aktualisieren(pfad, ziel)
+        if self.projekt is not None:
+            self.explorer.projekt_anzeigen(self.projekt)
+        self.statusBar().showMessage(f"„{pfad.name}“ zu „{neuer_name}“ umbenannt.")
+
+    def _unit_loeschen(self, pfad: Path) -> None:
+        """„⋮ → Löschen …“ im Projekt-Explorer: fragt nach, schließt
+        einen ggf. offenen Editor-Tab und löscht die Datei."""
+        antwort = QMessageBox.question(
+            self,
+            "Unit löschen",
+            f"„{pfad.name}“ wirklich unwiderruflich löschen?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if antwort != QMessageBox.StandardButton.Yes:
+            return
+
+        for index in range(self.editor_tabs.count()):
+            editor = self.editor_tabs.widget(index)
+            if (
+                isinstance(editor, QPlainTextEdit)
+                and editor.property(_PFAD_EIGENSCHAFT) == str(pfad)
+            ):
+                self.editor_tabs.removeTab(index)
+                break
+
+        try:
+            pfad.unlink()
+        except OSError as fehler:
+            self.statusBar().showMessage(f"Löschen fehlgeschlagen: {fehler}")
+            return
+
+        if self.projekt is not None:
+            self.explorer.projekt_anzeigen(self.projekt)
+        self.statusBar().showMessage(f"„{pfad.name}“ gelöscht.")
+
+    def _offenen_tab_pfad_aktualisieren(self, alt: Path, neu: Path) -> None:
+        for index in range(self.editor_tabs.count()):
+            editor = self.editor_tabs.widget(index)
+            if (
+                isinstance(editor, QPlainTextEdit)
+                and editor.property(_PFAD_EIGENSCHAFT) == str(alt)
+            ):
+                editor.setProperty(_PFAD_EIGENSCHAFT, str(neu))
+                self.editor_tabs.setTabText(index, neu.name)
+                break
+
     def _dock_erzeugen(
         self, titel: str, bereich: Qt.DockWidgetArea, inhalt: QWidget | None = None
     ) -> QDockWidget:
@@ -964,6 +1036,42 @@ class HauptFenster(QMainWindow):
     def _bei_tab_wechsel(self, index: int) -> None:
         widget = self.editor_tabs.widget(index)
         self._aktueller_canvas = self._widget_zu_canvas.get(widget)
+
+    def _tab_schliessen(self, index: int) -> None:
+        """„×“ auf einem Editor-/Designer-Tab (Abschnitt 7.9): bislang war
+        `tabCloseRequested` gar nicht verbunden – der Knopf tat nichts.
+        Fragt bei ungespeicherten Textänderungen nach; Designer-Tabs
+        schreiben laufend automatisch in die `.pfm` zurück und haben
+        daher nichts zu bestätigen."""
+        widget = self.editor_tabs.widget(index)
+        if widget is None:
+            return
+        if isinstance(widget, QPlainTextEdit) and widget.document().isModified():
+            antwort = QMessageBox.question(
+                self,
+                "Ungespeicherte Änderungen",
+                "Änderungen vor dem Schließen speichern?",
+                QMessageBox.StandardButton.Save
+                | QMessageBox.StandardButton.Discard
+                | QMessageBox.StandardButton.Cancel,
+            )
+            if antwort == QMessageBox.StandardButton.Cancel:
+                return
+            if antwort == QMessageBox.StandardButton.Save:
+                self.editor_tabs.setCurrentIndex(index)
+                self._aktuelle_datei_speichern()
+
+        canvas = self._widget_zu_canvas.pop(widget, None)
+        if canvas is not None:
+            if canvas in self._offene_canvases:
+                self._offene_canvases.remove(canvas)
+            for schluessel, formular in list(self._pfad_zu_formular.items()):
+                if formular._qwidget is widget:
+                    del self._pfad_zu_formular[schluessel]
+            if self._aktueller_canvas is canvas:
+                self._aktueller_canvas = None
+
+        self.editor_tabs.removeTab(index)
 
     def _bei_palette_doppelklick(self, eintrag) -> None:
         """Doppelklick in der Palette platziert die Komponente mittig im
