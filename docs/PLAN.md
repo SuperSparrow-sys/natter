@@ -28,7 +28,7 @@ Schritt 4 (PyInstaller-Export über „Projekt → Als Exe exportieren …“,
 mit einem **echten** PyInstaller-Bau des Ampel-Beispielprojekts geprüft
 – dabei einen echten Absturz gefunden und behoben: `pcl.theme` fand
 `design/tokens.json` in der gebauten Exe nicht, betraf jedes
-`pcl`-Programm, siehe M8.md) sind erledigt – 655 Tests grün insgesamt,
+`pcl`-Programm, siehe M8.md) sind erledigt – 675 Tests grün insgesamt,
 gegen alle 19 echten `referenz/lazarus/*.lfm`-Dateien geprüft. Offen
 bleibt nur noch die optionale Authenticode-Signatur/das
 Prüfsummen-Manifest (Abschnitt 17), da beides ein gekauftes Zertifikat
@@ -127,6 +127,19 @@ Editor-Tabs). „Projekt → Als Exe exportieren …“ baut das Projekt mit
 PyInstaller (`ide/export`) zu einem eigenständigen, portablen Ordner
 oder ZIP – mit einem echten Bau und Probestart des Ampel-
 Beispielprojekts geprüft (siehe `docs/arbeitspakete/M8.md`, Schritt 4).
+„Ansicht → Design“ schaltet zwischen Hell/Dunkel/System um (per
+QSettings gemerkt) – der Quelltexteditor (Syntax-Hervorhebung,
+Zeilennummernrand, aktuelle Zeile) folgt sofort mit echten
+VS-Code-Dark+/Light+-Farben statt einer bloßen Annäherung, gegen ein
+echtes VS-Code-Referenzbild geprüft. Dabei auch einen Fehler gefunden
+und behoben: eine Raute innerhalb einer Zeichenkette (z. B.
+`"#000000"`) wurde fälschlich als Kommentarbeginn eingefärbt. Ein
+gezieltes Durchspielen aller Menüs/Funktionen (Nutzer-Feedback: „schaue
+ob jede Funktion auch funktioniert“) deckte auf, dass der Editor bei
+einem normalen Debugger-Halt (Breakpoint/Einzelschritt/Pause) nicht zur
+aktuellen Zeile sprang, nur bei einer unbehandelten Ausnahme – jetzt
+behoben, zusätzlich lässt sich jeder Aufrufstapel-Eintrag anklicken, um
+dorthin zu springen.
 
 ## Referenzmaterial
 
