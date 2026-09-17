@@ -56,6 +56,20 @@ def test_qss_enthaelt_die_tokens_des_gewaehlten_themes() -> None:
     assert hell != dunkel
 
 
+def test_tabellenzellen_haben_im_dunkelmodus_eine_eigene_hintergrundfarbe() -> None:
+    """Real per Nutzer-Screenshot gefunden: eine StringGrid ohne eigene
+    ::item-Regel erschien im Dunkelmodus komplett schwarz statt zum
+    Formularhintergrund zu passen - ein `background-color` auf dem
+    Widget selbst reicht bei Qt nicht für jede einzelne Tabellenzelle."""
+    dunkel = qss_erzeugen("dark")
+    assert "QTableWidget::item" in dunkel
+    # Direkt nach der Selektorzeile muss dieselbe dunkle Hintergrundfarbe
+    # wie das restliche Formular stehen, nicht Schwarz oder undefiniert.
+    start = dunkel.index("QTableWidget::item")
+    regelblock = dunkel[start : start + 120]
+    assert "#1e1e1e" in regelblock
+
+
 def test_form_wendet_stylesheet_beim_erzeugen_an() -> None:
     class FormularDunkel(Form):
         def create_components(self) -> None:

@@ -173,6 +173,10 @@ QTreeWidget::item, QListWidget::item {{
     border: 1px solid transparent;
     border-radius: {radius["input"]}px;
 }}
+QTableWidget::item {{
+    background-color: {farben["bg"]};
+    color: {farben["text"]};
+}}
 QTreeView::item:hover, QListView::item:hover, QTableView::item:hover {{
     background-color: {_mit_alpha(farben["accent"], 0.08)};
 }}

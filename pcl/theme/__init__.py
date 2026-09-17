@@ -97,6 +97,21 @@ QLineEdit:focus, QPlainTextEdit:focus, QComboBox:focus {{
     border: 1px solid {farben["focus"]};
 }}
 
+QTableWidget::item, QListWidget::item {{
+    background-color: {farben["bg"]};
+    color: {farben["text"]};
+}}
+QTableWidget::item:selected, QListWidget::item:selected {{
+    background-color: {farben["accent"]};
+    color: {farben["bg"]};
+}}
+QHeaderView::section {{
+    background-color: {farben["surface"]};
+    color: {farben["text"]};
+    border: 1px solid {farben["border"]};
+    padding: 2px 4px;
+}}
+
 QLabel {{
     background-color: transparent;
 }}
