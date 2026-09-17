@@ -30,9 +30,10 @@ mit einem **echten** PyInstaller-Bau des Ampel-Beispielprojekts geprüft
 `design/tokens.json` in der gebauten Exe nicht, betraf jedes
 `pcl`-Programm, siehe M8.md) sind erledigt – 675 Tests grün insgesamt,
 gegen alle 19 echten `referenz/lazarus/*.lfm`-Dateien geprüft. Offen
-bleibt nur noch die optionale Authenticode-Signatur/das
-Prüfsummen-Manifest (Abschnitt 17), da beides ein gekauftes Zertifikat
-braucht, das ein Schulprojekt normalerweise nicht hat. Seither ein
+bleibt nur noch ein optionales, gekauftes (statt selbst erstelltes)
+Authenticode-Zertifikat für Verteilung an unbekannte Rechner außerhalb
+der Schule, sowie das signierte Prüfsummen-Manifest (Abschnitt 17,
+Details siehe M8.md, Schritt 4). Seither ein
 weiterer Visueller-Feinschliff-Durchgang (Nutzer-Feedback September
 2026): Designer-Eigenschaften mit Lazarus abgeglichen (Shape
 `pen_color`/`transparent`/Z-Ebene, Label `color`/`transparent`),
@@ -52,8 +53,23 @@ Editor-Schriftart jetzt mit echter Schriftdatei mitgeliefert
 (Cascadia Code) und über „Ansicht → Schriftart“ wählbar
 (Consolas/Cascadia Code/Courier New), dabei einen echten Fund
 gemacht – das IDE-weite Stylesheet überschrieb `setFont()` auf dem
-Editor komplett, eine spezifischere QSS-Regel behebt es. 721 Tests
-grün. M1–M7 sind
+Editor komplett, eine spezifischere QSS-Regel behebt es. Danach
+weitere echte Funde und Nutzerwünsche: `pip` fehlte im `uv`-venv
+(Absturz bei „Pakete anzeigen“, jetzt als Abhängigkeit ergänzt plus
+saubere Fehlerbehandlung), Kontoverwaltung-Beispielprojekt „+“/„-“
+im `DBNavigator` waren nie verknüpft (jetzt Konto anlegen/löschen
+möglich), Designer-Klick-Platzierung (Palette-Klick → Fadenkreuz →
+Klick aufs Formular platziert dort, wie in Lazarus, zusätzlich zum
+bisherigen Doppelklick) und eine „name“-Zeile im Objektinspektor
+(Bezeichner im Code getrennt von `caption`, frei umbenennbar). Dann
+M8 Schritt 4 vollständig abgeschlossen (siehe M8.md, Schritt 4/5):
+Natter selbst (nicht nur Schülerprojekte) lässt sich jetzt als
+eigenständige, signierte Exe samt Windows-Installationsassistenten
+bauen (`tools/ide_paketieren.py`, `tools/natter.iss`) mit echter
+`.natter`-Dateizuordnung; kostenloses selbstsigniertes Code-Signing-
+Zertifikat gegen Windows Smart App Control eingerichtet und am
+echten, wieder aktivierten Smart App Control verifiziert
+(`tools/signieren/`). 746 Tests grün. M1–M7 sind
 funktional abgeschlossen (M3-Abnahme bestanden: Ampel vollständig über
 Designer/Inspektor/Palette nachgebaut, siehe
 [`docs/arbeitspakete/M3.md`](arbeitspakete/M3.md), Schritt 8; M4-Abnahme
@@ -247,10 +263,11 @@ Wird während M1 verfeinert (genaue Komponentenliste je Projekt), sobald die
     `design/tokens.json`, `family_mono`) statt der UI-Schriftart
   - [ ] Konsistentes Spacing/Ausrichtung in Objektinspektor, Explorer,
     Palette geprüft und ggf. nachgezogen
-  - [ ] Icon für die spätere `.exe` und für `.natter`-Dateien im Windows-
-    Explorer (Datei-Verknüpfung) – braucht den Packaging/Installer-
-    Schritt aus M8, Icon-Quelle liegt schon als
-    `ide/assets/icons/app.svg` bereit
+  - [x] Icon für die `.exe` und für `.natter`-Dateien im Windows-
+    Explorer (Datei-Verknüpfung) – über `tools/natter.iss`
+    (`SetupIconFile`, Registry-`DefaultIcon`), Icon-Quelle jetzt
+    `ide/assets/icons/app.ico` (aus dem Natter-Maskottchen erzeugt,
+    siehe unten)
 - [x] **Eigenschaften-Abgleich mit Lazarus** (Nutzer-Frage „Habe ich die
   Attribute genau wie in Lazarus?“, September 2026): systematischer
   Abgleich aller `pcl`-`Prop`/`Event`-Namen gegen jede tatsächlich in
@@ -557,16 +574,25 @@ Kleinteilig aufgeschlüsselt in
 [`docs/arbeitspakete/M8.md`](arbeitspakete/M8.md). Exe-Export/
 Verteilung brauchen einen echten Windows-Rechner, siehe M8.md.
 
-- [ ] `.lfm`-Import (Parser, Zuordnungstabelle, Abschnitt 15) – jetzt mit
-  echten `.lfm`-Dateien aus `referenz/lazarus/` testbar
-- [ ] Exe-Export (PyInstaller-Pipeline), Icon `ide/assets/icons/app.svg`
-  (als `.ico` konvertiert) für die `.exe` und die `.natter`-Dateizuordnung
-  im Windows-Explorer verwenden (siehe „Zurückgestellt“ oben)
-- [ ] portables ZIP-Paket mit Starter, Prüfsummen-Manifest, Signatur
-  (S5/S6 aus `prototypes/` hier tatsächlich einsetzen)
+- [x] `.lfm`-Import (Parser, Zuordnungstabelle, Abschnitt 15) – mit
+  echten `.lfm`-Dateien aus `referenz/lazarus/` getestet
+- [x] Exe-Export (PyInstaller-Pipeline) – sowohl für Schülerprojekte
+  (`ide/export/exporter.py`) als auch für Natter selbst
+  (`tools/ide_paketieren.py`), Icon `ide/assets/icons/app.ico` für die
+  `.exe` und die `.natter`-Dateizuordnung im Windows-Explorer
+  verwendet (`tools/natter.iss`)
+- [x] portables ZIP-Paket mit Starter (S5 aus `prototypes/`
+  eingesetzt), Signatur mit kostenlosem selbst erstelltem Zertifikat
+  gegen Windows Smart App Control (S6, Teil 1, `tools/signieren/`) –
+  signiertes Prüfsummen-Manifest (S6, Teil 2) weiterhin zurückgestellt,
+  ebenso ein gekauftes, öffentlich vertrautes Zertifikat für
+  Verteilung außerhalb bekannter Rechner
 - [ ] Abnahme: ein Lazarus-Übungsprojekt importieren, fertigstellen, als
   Exe starten; ZIP auf Rechner ohne Python entpacken und vollständig
-  nutzen; veränderte Datei wird erkannt
+  nutzen; veränderte Datei wird erkannt – Natter selbst ist jetzt so
+  installierbar und geprüft (siehe M8.md, Schritt 5), ein komplett
+  per Lazarus-Import fertiggestelltes Übungsprojekt als Abnahme steht
+  noch aus
 
 ## M9 – Diagramm-Editor
 
