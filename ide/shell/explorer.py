@@ -74,6 +74,9 @@ class ProjektExplorer(QTreeWidget):
         knopf.setAutoRaise(True)
         knopf.setFixedSize(22, 22)
         knopf.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        # Qt zeichnet sonst zusätzlich einen kleinen Dropdown-Pfeil neben
+        # dem „⋮“ – bei einem reinen Symbolknopf unnötig.
+        knopf.setStyleSheet("QToolButton::menu-indicator { image: none; width: 0px; }")
 
         menue = QMenu(knopf)
         menue.addAction("Umbenennen …", lambda: self.umbenennen_angefordert.emit(pfad))
