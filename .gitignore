@@ -19,6 +19,12 @@ dist/
 build_out/
 runtime/
 *.zip
+# PyInstaller-Zwischenstände (ide/export/exporter.py, tools/ide_paketieren.py)
+# - werden nach einem erfolgreichen Bau automatisch entfernt, aber bei
+# einem abgebrochenen/abgestürzten Bau bleiben sie sonst als
+# Repo-Müll liegen (real passiert, siehe Session-Historie).
+_pyinstaller_build*/
+_pyinstaller_spec*/
 
 # Editor / OS
 .vscode/

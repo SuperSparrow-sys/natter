@@ -1,0 +1,152 @@
+"""Baut Natter selbst (nicht ein Schülerprojekt) mit PyInstaller zu
+einer eigenständigen Exe - Vorstufe für den Installer aus
+`tools/natter.iss` (Nutzer-Feedback September 2026: „Natter als Exe
+nur zum Download auf z. B. einer Website, man installiert die Exe").
+
+Anders als `ide/export/exporter.py` (baut ein in der laufenden IDE
+offenes Schülerprojekt, Menü „Projekt → Als Exe exportieren") baut
+dieses Skript die IDE selbst und läuft nie aus der laufenden IDE
+heraus - reines Entwicklungswerkzeug für den Maintainer, siehe
+`tools/README.md`-Konvention (kein Teil des gebauten `pcl`/`ide`-
+Pakets, siehe `pyproject.toml`).
+
+Sammelt zusätzlich die Lizenztexte der mitgelieferten Bibliotheken in
+einen `Lizenzen`-Ordner neben `Natter.exe` (Abschnitt „Lizenz" der
+Nutzeranfrage: PySide6/Qt steht unter LGPL-3.0, das verlangt u. a.
+den Lizenztext beizulegen - siehe `tools/lizenz_vorlagen/`).
+
+Beispiel:
+    uv run python -m tools.ide_paketieren
+"""
+
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+import sys
+from importlib.metadata import distributions
+from pathlib import Path
+
+_PROJEKT_WURZEL = Path(__file__).resolve().parent.parent
+_DESIGN_ORDNER = _PROJEKT_WURZEL / "design"
+_SCHEMAS_ORDNER = _PROJEKT_WURZEL / "schemas"
+_ICONS_ORDNER = _PROJEKT_WURZEL / "ide" / "assets" / "icons"
+_ICON = _ICONS_ORDNER / "app.ico"
+_HAUPTSKRIPT = _PROJEKT_WURZEL / "ide" / "__main__.py"
+_DIST_ORDNER = _PROJEKT_WURZEL / "dist"
+_AUSGABE = _DIST_ORDNER / "Natter"
+_BUILD_ORDNER = _PROJEKT_WURZEL / "_pyinstaller_build_ide"
+_SPEC_ORDNER = _PROJEKT_WURZEL / "_pyinstaller_spec_ide"
+_LIZENZ_VORLAGEN = Path(__file__).resolve().parent / "lizenz_vorlagen"
+
+# Nur diese Laufzeit-Abhängigkeiten interessieren (nicht pytest/ruff/
+# pyinstaller selbst - die stecken nicht in der gebauten Exe).
+_LAUFZEIT_PAKETE = (
+    "pyside6",
+    "pyside6-essentials",
+    "pyside6-addons",
+    "jsonschema",
+    "libcst",
+    "debugpy",
+    "pymysql",
+    "sqlalchemy",
+    "pandas",
+    "numpy",
+    "openpyxl",
+    "matplotlib",
+)
+
+
+def _pyinstaller_bauen() -> None:
+    befehl = [
+        sys.executable,
+        "-m",
+        "PyInstaller",
+        "--noconfirm",
+        "--windowed",
+        "--name",
+        "Natter",
+        "--icon",
+        str(_ICON),
+        "--distpath",
+        str(_DIST_ORDNER),
+        "--workpath",
+        str(_BUILD_ORDNER),
+        "--specpath",
+        str(_SPEC_ORDNER),
+        "--add-data",
+        f"{_DESIGN_ORDNER}{os.pathsep}design",
+        "--add-data",
+        f"{_SCHEMAS_ORDNER}{os.pathsep}schemas",
+        # ide/assets/symbole.py liest Symbole über einen quellcode-
+        # relativen Pfad (Path(__file__).resolve().parent / "icons"),
+        # nicht über einen Import - PyInstaller bindet solche
+        # Datendateien nie automatisch ein (dieselbe Art Fund wie bei
+        # design/tokens.json und schemas/*.json). Ziel entspricht
+        # exakt dem Paketpfad, damit __file__ im gebauten Bundle
+        # weiterhin dorthin zeigt.
+        "--add-data",
+        f"{_ICONS_ORDNER}{os.pathsep}ide/assets/icons",
+        str(_HAUPTSKRIPT),
+    ]
+    ergebnis = subprocess.run(befehl, cwd=_PROJEKT_WURZEL)
+    shutil.rmtree(_BUILD_ORDNER, ignore_errors=True)
+    shutil.rmtree(_SPEC_ORDNER, ignore_errors=True)
+    if ergebnis.returncode != 0:
+        raise RuntimeError("PyInstaller-Build fehlgeschlagen, siehe Ausgabe oben.")
+
+
+def _lizenzen_sammeln(ziel: Path) -> None:
+    """Kopiert LGPL-3.0-Text + Qt-Hinweis sowie die von jedem Paket
+    selbst mitgelieferten Lizenzdateien (`dist-info/licenses/…` bzw.
+    `LICENSE*`/`COPYING*` im Paketordner) in `ziel`."""
+    ziel.mkdir(parents=True, exist_ok=True)
+    for datei in _LIZENZ_VORLAGEN.iterdir():
+        shutil.copy2(datei, ziel / datei.name)
+
+    gesehen: set[str] = set()
+    for dist in distributions():
+        name = (dist.metadata["Name"] or "").strip()
+        normalisiert = name.lower().replace("_", "-")
+        if not name or normalisiert in gesehen or normalisiert not in _LAUFZEIT_PAKETE:
+            continue
+        gesehen.add(normalisiert)
+
+        paket_ordner = ziel / name
+        dateien = dist.files or []
+        gefunden = False
+        for eintrag in dateien:
+            dateiname = Path(str(eintrag)).name
+            if not dateiname.upper().startswith(("LICENSE", "LICENCE", "COPYING", "NOTICE")):
+                continue
+            quelle = dist.locate_file(eintrag)
+            if quelle is None or not Path(quelle).is_file():
+                continue
+            paket_ordner.mkdir(exist_ok=True)
+            shutil.copy2(Path(quelle), paket_ordner / dateiname)
+            gefunden = True
+        if not gefunden:
+            lizenzfeld = dist.metadata.get("License", "unbekannt")
+            paket_ordner.mkdir(exist_ok=True)
+            (paket_ordner / "LIZENZ_HINWEIS.txt").write_text(
+                f"{name}: keine eigene Lizenzdatei im Paket gefunden.\n"
+                f"Laut Paket-Metadaten: {lizenzfeld}\n"
+                f"Siehe https://pypi.org/project/{name}/ für Details.\n",
+                encoding="utf-8",
+            )
+
+    fehlend = set(_LAUFZEIT_PAKETE) - gesehen
+    if fehlend:
+        print(f"Warnung: keine Lizenzinformation gefunden für: {sorted(fehlend)}")
+
+
+def paketieren() -> Path:
+    _pyinstaller_bauen()
+    _lizenzen_sammeln(_AUSGABE / "Lizenzen")
+    return _AUSGABE
+
+
+if __name__ == "__main__":
+    ausgabe_ordner = paketieren()
+    print(f"Natter gebaut nach: {ausgabe_ordner}")

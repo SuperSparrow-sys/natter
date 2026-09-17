@@ -15,7 +15,9 @@ from typing import Any
 
 import jsonschema
 
-_SCHEMAS_DIR = Path(__file__).resolve().parent.parent.parent / "schemas"
+from ide.pfade import daten_ordner
+
+_SCHEMAS_DIR = daten_ordner("schemas")
 _PROJECT_SCHEMA = json.loads((_SCHEMAS_DIR / "project.schema.json").read_text(encoding="utf-8"))
 
 

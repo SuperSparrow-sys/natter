@@ -14,11 +14,12 @@ from typing import Any
 
 import jsonschema
 
+from ide.pfade import daten_ordner
 from pcl.properties import VERSCHACHTELTE_EIGENSCHAFTEN
 
 _EINRUECKUNG = "    "
 
-_SCHEMAS_DIR = Path(__file__).resolve().parent.parent.parent / "schemas"
+_SCHEMAS_DIR = daten_ordner("schemas")
 _PFM_SCHEMA = json.loads((_SCHEMAS_DIR / "pfm.schema.json").read_text(encoding="utf-8"))
 
 

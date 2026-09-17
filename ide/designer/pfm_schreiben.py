@@ -19,11 +19,12 @@ from typing import Any
 import jsonschema
 
 from ide.inspector.komponentenbaum import kind_komponenten
+from ide.pfade import daten_ordner
 from pcl.components.additional import _STANDARD_BRUSH_FARBE
 from pcl.form import Form
 from pcl.properties import VERSCHACHTELTE_EIGENSCHAFTEN, eigenschaften, ereignisse
 
-_SCHEMAS_DIR = Path(__file__).resolve().parent.parent.parent / "schemas"
+_SCHEMAS_DIR = daten_ordner("schemas")
 _PFM_SCHEMA = json.loads((_SCHEMAS_DIR / "pfm.schema.json").read_text(encoding="utf-8"))
 
 # Standardwerte der verschachtelten Eigenschaften aus

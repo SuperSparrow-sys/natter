@@ -1,0 +1,72 @@
+; Installer für Natter selbst (nicht ein Schülerprojekt) - Nutzer-
+; Feedback September 2026: "Programm als exe nur zum Download auf z. B.
+; einer Website, man installiert die exe und kann dann auch eine
+; .natter-Datei einfach öffnen". Baut auf dem Ordner auf, den
+; tools/ide_paketieren.py mit PyInstaller erzeugt (dist\Natter).
+;
+; Voraussetzung: dist\Natter muss bereits existieren, siehe
+;   uv run python -m tools.ide_paketieren
+;
+; Kompilieren (Inno Setup 6):
+;   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" tools\natter.iss
+; Ergebnis: dist\installer\Natter-Setup.exe
+
+#define MyAppName "Natter"
+#define MyAppVersion "0.1.0"
+#define MyAppPublisher "Natter-Projekt"
+#define MyAppExeName "Natter.exe"
+#define MyAppIcon "..\ide\assets\icons\app.ico"
+
+[Setup]
+; Feste, projekteigene AppId (nicht neu würfeln - sonst behandelt
+; Windows spätere Versionen als komplett neue Anwendung statt als
+; Update, siehe Inno-Setup-Dokumentation zu AppId).
+AppId={{961DA420-CA63-4436-9023-9CA411B620DA}
+AppName={#MyAppName}
+AppVersion={#MyAppVersion}
+AppPublisher={#MyAppPublisher}
+DefaultDirName={autopf}\{#MyAppName}
+DefaultGroupName={#MyAppName}
+DisableProgramGroupPage=yes
+OutputDir=..\dist\installer
+OutputBaseFilename=Natter-Setup
+SetupIconFile={#MyAppIcon}
+Compression=lzma2
+SolidCompression=yes
+WizardStyle=modern
+; PySide6 liefert nur 64-Bit-DLLs.
+ArchitecturesInstallIn64BitMode=x64compatible
+UninstallDisplayIcon={app}\{#MyAppExeName}
+; HKA statt HKLM/HKCU: installiert je nach Adminrechten passend
+; systemweit oder nur für den aktuellen Nutzer - praktisch für
+; Schulrechner mit unterschiedlichen Berechtigungen.
+PrivilegesRequired=lowest
+PrivilegesRequiredOverridesAllowed=dialog
+
+[Languages]
+Name: "german"; MessagesFile: "compiler:Languages\German.isl"
+Name: "english"; MessagesFile: "compiler:Default.isl"
+
+[Tasks]
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
+
+[Files]
+Source: "..\dist\Natter\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+[Icons]
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+
+[Registry]
+; .natter-Dateiendung mit Natter verknüpfen - Doppelklick im Explorer
+; öffnet das Projekt direkt (Nutzer-Feedback: "kann dann auch eine
+; .natter Datei auch einfach öffnen"). ide/main.py liest den Pfad aus
+; sys.argv[1] (siehe _projekt_aus_argv_oeffnen).
+Root: HKA; Subkey: "Software\Classes\.natter"; ValueType: string; ValueName: ""; ValueData: "NatterProjekt"; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\NatterProjekt"; ValueType: string; ValueName: ""; ValueData: "Natter-Projekt"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\NatterProjekt\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#MyAppExeName},0"
+Root: HKA; Subkey: "Software\Classes\NatterProjekt\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""
+
+[Run]
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
