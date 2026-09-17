@@ -76,6 +76,54 @@ def test_speichern_schreibt_aenderungen_auf_die_platte(tmp_path: Path) -> None:
     assert Diagramm.laden(tmp_path / "class.pdiag").daten["shapes"][0]["id"] == "s1"
 
 
+def test_klassendiagramm_hat_eine_formen_palette(tmp_path: Path) -> None:
+    fenster = _fenster(tmp_path, "class")
+
+    assert fenster.palette is not None
+    assert fenster.palette_dock.windowTitle() == "Formen"
+
+
+def test_struktogramm_hat_keine_formen_palette(tmp_path: Path) -> None:
+    """Struktogramme arbeiten mit einem Blockbaum, nicht mit frei
+    platzierten Formen (Abschnitt 13.5) – eine Formen-Palette wäre dort
+    irreführend."""
+    fenster = _fenster(tmp_path, "struktogramm")
+
+    assert fenster.palette is None
+    assert fenster.palette_dock is None
+
+
+def test_palettenklick_macht_die_form_auf_der_flaeche_scharf(tmp_path: Path) -> None:
+    fenster = _fenster(tmp_path, "class")
+
+    fenster.palette.form_gewaehlt.emit("interface")
+
+    assert fenster.zeichenflaeche._platzierungs_kind == "interface"
+
+
+def test_statusleiste_zaehlt_formen_und_zeigt_die_auswahl(tmp_path: Path) -> None:
+    fenster = _fenster(tmp_path, "class")
+
+    fenster.zeichenflaeche.form_platzieren("class", 200, 200)
+    assert "Klasse ausgewählt" in fenster.statusBar().currentMessage()
+
+    fenster.zeichenflaeche.auswahl_aufheben()
+    fenster._statusleiste_aktualisieren()
+    assert "1 Formen" in fenster.statusBar().currentMessage()
+
+
+def test_aenderung_markiert_den_titel_und_speichern_raeumt_ihn_wieder_ab(
+    tmp_path: Path,
+) -> None:
+    fenster = _fenster(tmp_path, "class")
+
+    fenster.zeichenflaeche.form_platzieren("class", 200, 200)
+    assert fenster.windowTitle().startswith("*")
+
+    fenster.speichern()
+    assert not fenster.windowTitle().startswith("*")
+
+
 def test_speichern_unter_wechselt_pfad_und_titel(tmp_path: Path) -> None:
     fenster = _fenster(tmp_path)
     ziel = tmp_path / "kopie.pdiag"

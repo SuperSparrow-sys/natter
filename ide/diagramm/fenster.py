@@ -7,11 +7,11 @@ unabhängig vom Hauptfenster verschoben werden kann (z. B. auf einen
 zweiten Bildschirm) – kein Dock und kein Tab in der IDE
 (Nutzer-Entscheidung September 2026, siehe docs/arbeitspakete/M9.md).
 
-Stand M9, Schritt 1: Grundgerüst mit Menüs, Statusleiste und leerer
-Zeichenfläche. Die Menüeinträge aus Abschnitt 13.2 sind vollständig
-angelegt, aber nur die bereits umgesetzten sind aktiv – der Rest ist
-ausgegraut, statt ein Verhalten vorzutäuschen, das noch nicht existiert
-(Zeichenfläche/Formen folgen in Schritt 2).
+Stand M9, Schritt 2: Formen-Palette links, Zeichenfläche in der Mitte,
+Eigenschaften-Bereich rechts (noch leer, folgt in Schritt 6). Die
+Menüeinträge aus Abschnitt 13.2 sind vollständig angelegt, aber nur
+die bereits umgesetzten sind aktiv – der Rest ist ausgegraut, statt
+ein Verhalten vorzutäuschen, das noch nicht existiert.
 """
 
 from __future__ import annotations
@@ -19,11 +19,20 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QSettings, Qt
-from PySide6.QtWidgets import QFileDialog, QLabel, QMainWindow, QMenu, QWidget
+from PySide6.QtWidgets import (
+    QDockWidget,
+    QFileDialog,
+    QLabel,
+    QMainWindow,
+    QMenu,
+    QWidget,
+)
 
 from ide.assets import symbol
+from ide.diagramm.canvas import DiagrammCanvas
 from ide.diagramm.datei import Diagramm
-from ide.diagramm.neu import TYP_BESCHRIFTUNGEN
+from ide.diagramm.formen import formen_fuer
+from ide.diagramm.palette import FormenPalette
 from ide.shell.theme import ide_qss_erzeugen
 
 #: Menüaufbau aus Abschnitt 13.2. `True` = in diesem Schritt bereits
@@ -78,6 +87,7 @@ class DiagrammFenster(QMainWindow):
     def __init__(self, diagramm: Diagramm) -> None:
         super().__init__()
         self.diagramm = diagramm
+        self._geaendert = False
         self.setWindowIcon(symbol("app"))
         self._titel_setzen()
 
@@ -99,15 +109,52 @@ class DiagrammFenster(QMainWindow):
         self.aktionen: dict[str, object] = {}
         self._menues_aufbauen()
 
-        # Platzhalter bis Schritt 2 (Zeichenfläche mit Formen).
-        self.zeichenflaeche: QWidget = QLabel(
-            f"{TYP_BESCHRIFTUNGEN.get(diagramm.typ, diagramm.typ)}: {diagramm.name}"
-        )
-        self.zeichenflaeche.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setCentralWidget(self.zeichenflaeche)
-
+        self._bereiche_aufbauen()
         self._statusleiste_aktualisieren()
         self.resize(1100, 750)
+
+    def _bereiche_aufbauen(self) -> None:
+        """Aufteilung nach Abschnitt 13.2: Formen links, Zeichenfläche in
+        der Mitte, Eigenschaften rechts."""
+        self.zeichenflaeche = DiagrammCanvas(self.diagramm)
+        self.zeichenflaeche.auswahl_geaendert.connect(self._bei_auswahl)
+        self.zeichenflaeche.geaendert.connect(self._bei_aenderung)
+        self.setCentralWidget(self.zeichenflaeche)
+
+        if formen_fuer(self.diagramm.typ):
+            self.palette = FormenPalette(self.diagramm.typ)
+            self.palette.form_gewaehlt.connect(self.zeichenflaeche.platzierungsmodus_setzen)
+            self.palette_dock = self._dock(
+                "Formen", self.palette, Qt.DockWidgetArea.LeftDockWidgetArea
+            )
+        else:
+            # Struktogramm/Entscheidungstabelle arbeiten nicht mit frei
+            # platzierten Formen (Abschnitt 13.5) - sie bekommen ihre
+            # eigenen Bedienelemente in Schritt 9/10.
+            self.palette = None
+            self.palette_dock = None
+
+        self.eigenschaften = QLabel("Eigenschaften folgen in Schritt 6")
+        self.eigenschaften.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.eigenschaften.setWordWrap(True)
+        self.eigenschaften_dock = self._dock(
+            "Eigenschaften", self.eigenschaften, Qt.DockWidgetArea.RightDockWidgetArea
+        )
+
+    def _dock(self, titel: str, inhalt: QWidget, bereich: Qt.DockWidgetArea) -> QDockWidget:
+        dock = QDockWidget(titel, self)
+        dock.setObjectName(titel)
+        dock.setWidget(inhalt)
+        self.addDockWidget(bereich, dock)
+        return dock
+
+    def _bei_auswahl(self, form: dict | None) -> None:
+        self._statusleiste_aktualisieren()
+
+    def _bei_aenderung(self) -> None:
+        self._geaendert = True
+        self._titel_setzen()
+        self._statusleiste_aktualisieren()
 
     # -- Aufbau ---------------------------------------------------------
 
@@ -128,17 +175,25 @@ class DiagrammFenster(QMainWindow):
         return self._menues[name]
 
     def _titel_setzen(self) -> None:
-        self.setWindowTitle(f"{self.diagramm.pfad.name} – Diagramm-Editor – Natter")
+        markierung = "*" if self._geaendert else ""
+        self.setWindowTitle(
+            f"{markierung}{self.diagramm.pfad.name} – Diagramm-Editor – Natter"
+        )
 
     def _statusleiste_aktualisieren(self) -> None:
         """Statusleiste nach Abschnitt 13.2 (Auswahl, Raster, Einrasten,
-        Seitenformat, Stilvorlage). Auswahl/Raster/Einrasten zeigen
-        vorerst den Ausgangszustand – sie bekommen mit der Zeichenfläche
-        in Schritt 2 echte Werte."""
+        Seitenformat, Stilvorlage)."""
         seite = self.diagramm.daten["page"]
         ausrichtung = "quer" if seite["orientation"] == "landscape" else "hoch"
+        anzahl = len(self.diagramm.daten.get("shapes", []))
+        ausgewaehlt = getattr(self.zeichenflaeche, "ausgewaehlte_form", None)
+        auswahl = (
+            f"{(ausgewaehlt.get('text') or {}).get('name', ausgewaehlt['kind'])} ausgewählt"
+            if ausgewaehlt
+            else f"{anzahl} Formen"
+        )
         self.statusBar().showMessage(
-            f"0 Formen  │  Raster 8 px  │  Einrasten ein  │  "
+            f"{auswahl}  │  Raster 8 px  │  Einrasten ein  │  "
             f"{seite['size']} {ausrichtung}  │  Stil: {self.diagramm.stil}"
         )
 
@@ -146,6 +201,8 @@ class DiagrammFenster(QMainWindow):
 
     def speichern(self) -> None:
         self.diagramm.speichern()
+        self._geaendert = False
+        self._titel_setzen()
         self.statusBar().showMessage(f"{self.diagramm.pfad.name} gespeichert", 3000)
 
     def speichern_unter(self, pfad: Path | None = None) -> Path | None:
@@ -160,5 +217,6 @@ class DiagrammFenster(QMainWindow):
             pfad = Path(gewaehlt)
 
         self.diagramm.speichern(Path(pfad))
+        self._geaendert = False
         self._titel_setzen()
         return self.diagramm.pfad
