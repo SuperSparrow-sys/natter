@@ -23,6 +23,7 @@ from typing import Any
 from PySide6.QtCore import QEvent, QObject, QPoint, Qt
 from PySide6.QtWidgets import QWidget
 
+from ide.codegen.design import design_datei_erzeugen
 from ide.codegen.ereignis import handler_methode_einfuegen
 from ide.designer.kommando import EigenschaftKommando, Kommandostapel
 from ide.designer.laden import platzhalter_erzeugen
@@ -625,6 +626,20 @@ class DesignerCanvas(QObject):
     def _nach_aenderung(self, komponente: Any) -> None:
         if self.pfm_pfad is not None:
             formular_als_pfm_speichern(self.formular, self.pfm_pfad)
+            # Real gefunden (beim Nachbauen eines Referenzprojekts):
+            # ohne dies blieb `u_..._design.py` nach der ersten
+            # Projekterzeugung für immer auf dem allerersten Stand
+            # stehen - der Designer selbst zeigte jede Änderung korrekt
+            # (er rendert direkt aus dem Live-Formular), aber das
+            # tatsächlich laufende Schülerprogramm (`create_components()`
+            # in der generierten Design-Datei) sah neue/verschobene/
+            # geänderte Komponenten nie.
+            design_datei_erzeugen(self.pfm_pfad, self._design_pfad())
         self._benachrichtigen(komponente)
         for beobachter in self._aenderung_beobachter:
             beobachter()
+
+    def _design_pfad(self) -> Path:
+        """`u_main.pfm` -> `u_main_design.py` (Namenskonvention aus
+        `ide/project/neu.py`)."""
+        return self.pfm_pfad.parent / f"{self.pfm_pfad.stem}_design.py"

@@ -212,6 +212,36 @@ def test_automatisches_pfm_speichern_nach_verschieben(tmp_path: Path) -> None:
     assert kind["properties"]["left"] == 100 + RASTER
 
 
+def test_automatische_design_py_regeneration_nach_verschieben(tmp_path: Path) -> None:
+    """Real beim Nachbauen eines Referenzprojekts gefunden: der Designer
+    selbst zeigte jede Änderung korrekt (rendert direkt aus dem
+    Live-Formular), aber `u_..._design.py` - das, was das tatsächlich
+    laufende Schülerprogramm benutzt - blieb für immer auf dem Stand
+    der ersten Projekterzeugung stehen."""
+    formular = _Formular()
+    pfm_pfad = tmp_path / "u_main.pfm"
+    design_pfad = tmp_path / "u_main_design.py"
+    canvas = DesignerCanvas(formular, pfm_pfad=pfm_pfad)
+    canvas.klick_bei(105, 105)
+
+    canvas.verschieben(RASTER, 0)
+
+    quelltext = design_pfad.read_text(encoding="utf-8")
+    assert f"self.b_ein.left = {100 + RASTER}" in quelltext
+
+
+def test_automatische_design_py_regeneration_nach_neuer_komponente(tmp_path: Path) -> None:
+    formular = _Formular()
+    pfm_pfad = tmp_path / "u_main.pfm"
+    design_pfad = tmp_path / "u_main_design.py"
+    canvas = DesignerCanvas(formular, pfm_pfad=pfm_pfad)
+
+    canvas.komponente_platzieren(Button, 10, 10)
+
+    quelltext = design_pfad.read_text(encoding="utf-8")
+    assert "self.button = Button(self)" in quelltext
+
+
 def test_ohne_pfm_pfad_wird_nichts_geschrieben(tmp_path: Path) -> None:
     formular = _Formular()
     canvas = DesignerCanvas(formular)  # kein pfm_pfad
