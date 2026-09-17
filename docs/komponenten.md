@@ -135,7 +135,8 @@ Qt-Basis: `QPlainTextEdit` (`pcl/components/standard.py`)
 | Eigenschaft | Typ | Standardwert | Kategorie | Hilfetext |
 |---|---|---|---|---|
 | left, top, width, height, enabled | wie `Control` | – | – | geerbt von `Control` |
-| lines | `Strings` | leer | – | mehrzeiliger Text; aufklappbare Untereigenschaft wie `Shape.brush`, kein eigenständiges `Prop` |
+| lines | `Strings` | leer | Daten | mehrzeiliger Text; Sammlungs-Eigenschaft (siehe „Schrift und Sammlungen“ unten) |
+| read_only | bool | False | Verhalten | Wenn wahr, nicht bearbeitbar (wie Lazarus `TMemo.ReadOnly`) |
 
 Keine eigenen Ereignisse. `lines` synchronisiert bisher nur in eine
 Richtung (Zuweisung/`add`/`clear` → Anzeige); von Benutzern eingetippter
@@ -149,7 +150,7 @@ Qt-Basis: `QListWidget` (`pcl/components/standard.py`)
 | Eigenschaft | Typ | Standardwert | Kategorie | Hilfetext |
 |---|---|---|---|---|
 | left, top, width, height, enabled | wie `Control` | – | – | geerbt von `Control` |
-| items | `Strings` | leer | – | Einträge; aufklappbare Untereigenschaft, kein eigenständiges `Prop` |
+| items | `Strings` | leer | Daten | Einträge; Sammlungs-Eigenschaft (siehe „Schrift und Sammlungen“ unten) |
 | item_index | int | -1 | Verhalten | Index des ausgewählten Eintrags, -1 = keine Auswahl |
 
 Keine eigenen Ereignisse (kein Referenzprojekt braucht bisher eines,
@@ -162,7 +163,7 @@ Qt-Basis: `QComboBox` (`pcl/components/standard.py`)
 | Eigenschaft | Typ | Standardwert | Kategorie | Hilfetext |
 |---|---|---|---|---|
 | left, top, width, height, enabled | wie `Control` | – | – | geerbt von `Control` |
-| items | `Strings` | leer | – | Einträge; aufklappbare Untereigenschaft, kein eigenständiges `Prop` |
+| items | `Strings` | leer | Daten | Einträge; Sammlungs-Eigenschaft (siehe „Schrift und Sammlungen“ unten) |
 | item_index | int | -1 | Verhalten | Index des ausgewählten Eintrags, -1 = keine Auswahl |
 | text | str | "" | Darstellung | Angezeigter bzw. ausgewählter Text, folgt `item_index` |
 
@@ -237,6 +238,45 @@ daher zurückgestellt.
 
 Gegen die echte Nutzung in `g_StringGrid`/`j_komplexeLeistung`/`l_Pet`/
 `m_Gaestebuch` (`show_message`) und `q_Würfelspiel` (`input_box`) geprüft.
+
+## Schrift und Sammlungen
+
+Zwei Eigenschaftsarten gelten quer über die Komponenten hinweg und
+tauchen deshalb nicht in jeder Tabelle oben einzeln auf.
+
+### font (jede `Control`-Komponente)
+
+Entspricht `TFont` in Lazarus (`pcl/font.py`), aufklappbare
+Untereigenschaft wie `Shape.brush`:
+
+| Untereigenschaft | Typ | Standardwert | Hilfetext |
+|---|---|---|---|
+| font.name | str | "" | Schriftart; leer = Schriftart des Themes |
+| font.size | int | 0 | Schriftgröße in Punkt; 0 = Größe des Themes |
+| font.bold | bool | False | Fettschrift (Lazarus `Font.Style = [fsBold]`) |
+| font.italic | bool | False | Kursivschrift (Lazarus `fsItalic`) |
+
+In der `.pfm`, im erzeugten Code und im Objektinspektor erscheinen sie
+flach als `font_name`, `font_size`, `font_bold`, `font_italic`
+(`pcl.properties.VERSCHACHTELTE_EIGENSCHAFTEN`). Sie wirken über ein
+komponenteneigenes Stylesheet, nicht über `QWidget.setFont()`: das Theme
+setzt `font-family`/`font-size` per QSS, und ein Stylesheet schlägt in Qt
+immer `setFont()`.
+
+### items / lines (`ListBox`, `ComboBox`, `Memo`)
+
+Zeilenweise `Strings`-Sammlungen (`pcl/strings.py`). Neben `add`,
+`clear`, `load_from_file`, `save_to_file`, Indizierung und Iteration
+lässt sich der ganze Inhalt auf einmal zuweisen:
+
+    self.lb_sorten.items = ["Hawaii", "Napoli"]
+
+In der `.pfm` stehen sie als Liste von Zeichenketten; im
+Objektinspektor öffnet ein Doppelklick auf die Zeile einen Zeileneditor
+(wie der „…“-Knopf in Lazarus). Der Codegenerator schreibt sie **vor**
+allen anderen Eigenschaften, weil das Füllen der Sammlung die Auswahl im
+Qt-Widget zurücksetzt und eine im Designer gesetzte `item_index`-
+Vorauswahl sonst wieder verloren ginge.
 
 ## Vorlage pro Komponente
 

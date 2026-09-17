@@ -16,10 +16,30 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M8, Schritt 4 (Rest): Signatur/Prüfsummen-Manifest** – jetzt auf
-einem echten Windows-Rechner statt in der Entwicklungs-Sandbox,
-kleinteilig aufgeschlüsselt in
-[`docs/arbeitspakete/M8.md`](arbeitspakete/M8.md) (wie M1–M7). Schritt 1
+→ **M9, Schritt 1: Diagramm-Editor beginnen** – der einzige noch nicht
+begonnene Meilenstein; er wird vor dem Start wie M1–M8 in einer eigenen
+`docs/arbeitspakete/M9.md` kleinteilig aufgeschlüsselt.
+
+**M8 ist abgeschlossen** (September 2026): Abnahme bestanden mit
+`beispielprojekte/Pizza` – aus `referenz/lazarus/f_Pizza` über
+„Werkzeuge → Lazarus-Formular importieren …“ übernommen, im Designer
+fertiggestellt, als ZIP gebaut und aus einem frischen Ordner gestartet
+– sowie dem signierten Prüfsummen-Manifest, das eine manipulierte
+`Natter.exe`-Installation beim Start erkennt (Details in
+[`docs/arbeitspakete/M8.md`](arbeitspakete/M8.md), Schritt 4 und 6).
+Dafür waren zwei Lücken in der `.pfm`-Pipeline zu schließen
+(Strings-Sammlungen `items`/`lines` und eine echte
+`font`-Untereigenschaft); dabei kamen vier Fehler ans Licht, die alle
+erst beim tatsächlichen Ausführen sichtbar wurden – Objektinspektor und
+Rückgängig schrieben nie in die `.pfm` zurück, der Lazarus-Import
+erzeugte eine beim Öffnen abstürzende `.pfm` und ließ
+`u_main_design.py` auf dem leeren Vorlagenstand, und Kästchen/
+Optionsfelder/Bildlaufleisten hatten im `pcl`-Theme keine QSS-Regeln,
+sodass in **jedem** Schülerprogramm der Markierungszustand fehlte.
+790 Tests grün.
+
+Der bisherige Verlauf von M8, kleinteilig aufgeschlüsselt in
+[`docs/arbeitspakete/M8.md`](arbeitspakete/M8.md) (wie M1–M7): Schritt 1
 (`.lfm`-Parser), Schritt 2 (Klassen-/Eigenschaftszuordnung nach `.pfm`),
 Schritt 3 (IDE-Verdrahtung „Werkzeuge → Lazarus-Formular importieren …“,
 per Screenshot gegen das echte `k_Ampel`-`.lfm` geprüft; Pascal-Rumpf-
@@ -28,12 +48,11 @@ Schritt 4 (PyInstaller-Export über „Projekt → Als Exe exportieren …“,
 mit einem **echten** PyInstaller-Bau des Ampel-Beispielprojekts geprüft
 – dabei einen echten Absturz gefunden und behoben: `pcl.theme` fand
 `design/tokens.json` in der gebauten Exe nicht, betraf jedes
-`pcl`-Programm, siehe M8.md) sind erledigt – 675 Tests grün insgesamt,
-gegen alle 19 echten `referenz/lazarus/*.lfm`-Dateien geprüft. Offen
-bleibt nur noch ein optionales, gekauftes (statt selbst erstelltes)
-Authenticode-Zertifikat für Verteilung an unbekannte Rechner außerhalb
-der Schule, sowie das signierte Prüfsummen-Manifest (Abschnitt 17,
-Details siehe M8.md, Schritt 4). Seither ein
+`pcl`-Programm, siehe M8.md) sind erledigt – 675 Tests grün zu dem
+Zeitpunkt, gegen alle 19 echten `referenz/lazarus/*.lfm`-Dateien
+geprüft. Offen bleibt aus M8 nur noch ein optionales, gekauftes (statt
+selbst erstelltes) Authenticode-Zertifikat für Verteilung an unbekannte
+Rechner außerhalb der Schule. Seither ein
 weiterer Visueller-Feinschliff-Durchgang (Nutzer-Feedback September
 2026): Designer-Eigenschaften mit Lazarus abgeglichen (Shape
 `pen_color`/`transparent`/Z-Ebene, Label `color`/`transparent`),
@@ -222,7 +241,10 @@ Wird während M1 verfeinert (genaue Komponentenliste je Projekt), sobald die
 - [ ] `prototypes/s1`–`s7` (Machbarkeitsprüfungen, Abschnitt 23.3): Code
   liegt bereit (siehe `prototypes/README.md`), wird aber erst kurz vor dem
   jeweils betroffenen Meilenstein tatsächlich ausgeführt statt jetzt:
-  S1/S4 vor M2, S2 vor M2, S6 vor M8, S7 vor M9. Blockiert M1 nicht.
+  S1/S4 vor M2, S2 vor M2, S7 vor M9. Blockiert M1 nicht.
+  S6 ist erledigt und vollständig produktiv gemacht: Teil 1
+  (Authenticode mit selbst erstelltem Zertifikat) in `tools/signieren/`,
+  Teil 2 (signiertes Prüfsummen-Manifest) in `ide/integritaet/`.
   S3 (debugpy mit VS Code als DAP-Frontend) entfällt: der echte
   DAP-Client aus M4 wird gegen echtes `debugpy` automatisiert getestet
   (`docs/arbeitspakete/M4.md`, Schritt 3–5) – das prüft dieselbe Frage
@@ -261,6 +283,11 @@ Wird während M1 verfeinert (genaue Komponentenliste je Projekt), sobald die
     ein eigener, späterer Schritt (`prototypes/s2`). Editor-Schriftart
     jetzt `Cascadia Code`/`Consolas`/`Courier New` (wie
     `design/tokens.json`, `family_mono`) statt der UI-Schriftart
+  - [x] Knöpfe für Rückgängig/Wiederholen in der Werkzeugleiste
+    (`ide/assets/icons/rueckgaengig.svg`/`wiederholen.svg`,
+    Nutzer-Feedback September 2026: „Ich sehe die Buttons nicht zum
+    rückgängig machen“) – beide Aktionen waren vorhanden und verdrahtet,
+    hatten aber kein `symbol` und erschienen deshalb nur im Menü
   - [ ] Konsistentes Spacing/Ausrichtung in Objektinspektor, Explorer,
     Palette geprüft und ggf. nachgezogen
   - [x] Icon für die `.exe` und für `.natter`-Dateien im Windows-
@@ -583,16 +610,20 @@ Verteilung brauchen einen echten Windows-Rechner, siehe M8.md.
   verwendet (`tools/natter.iss`)
 - [x] portables ZIP-Paket mit Starter (S5 aus `prototypes/`
   eingesetzt), Signatur mit kostenlosem selbst erstelltem Zertifikat
-  gegen Windows Smart App Control (S6, Teil 1, `tools/signieren/`) –
-  signiertes Prüfsummen-Manifest (S6, Teil 2) weiterhin zurückgestellt,
-  ebenso ein gekauftes, öffentlich vertrautes Zertifikat für
-  Verteilung außerhalb bekannter Rechner
-- [ ] Abnahme: ein Lazarus-Übungsprojekt importieren, fertigstellen, als
+  gegen Windows Smart App Control (S6, Teil 1, `tools/signieren/`)
+- [x] signiertes Prüfsummen-Manifest (S6, Teil 2, Abschnitt 17.8):
+  `ide/integritaet/` erzeugt beim Paketieren ein Ed25519-signiertes
+  `manifest.json` und prüft es beim Start; „Werkzeuge → Umgebung
+  prüfen“ prüft alle Dateien. Ein gekauftes, öffentlich vertrautes
+  Zertifikat für Verteilung außerhalb bekannter Rechner bleibt
+  optional und zurückgestellt
+- [x] Abnahme: ein Lazarus-Übungsprojekt importieren, fertigstellen, als
   Exe starten; ZIP auf Rechner ohne Python entpacken und vollständig
-  nutzen; veränderte Datei wird erkannt – Natter selbst ist jetzt so
-  installierbar und geprüft (siehe M8.md, Schritt 5), ein komplett
-  per Lazarus-Import fertiggestelltes Übungsprojekt als Abnahme steht
-  noch aus
+  nutzen; veränderte Datei wird erkannt – erfüllt mit
+  `beispielprojekte/Pizza` (aus `referenz/lazarus/f_Pizza` importiert,
+  im Designer fertiggestellt, als ZIP gebaut und aus einem frischen
+  Ordner gestartet) und der Manipulationsprüfung an der echten
+  gebauten `Natter.exe`, siehe M8.md, Schritt 4 und 6
 
 ## M9 – Diagramm-Editor
 
