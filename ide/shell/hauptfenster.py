@@ -45,11 +45,13 @@ from ide.inspector import Objektinspektor
 from ide.lint import pruefen
 from ide.palette import Komponentenpalette
 from ide.palette.palette import TYP_ROLLE
-from ide.project import Projekt
+from ide.project import Projekt, projekt_erzeugen
+from ide.project.neu_dialog import NeuesProjektDialog
 from ide.run import projekt_pruefen, projekt_starten
 from ide.shell.explorer import PFAD_ROLLE, ProjektExplorer
 from ide.shell.quelltexteditor import QuelltextEditor
 from ide.shell.schnellauswahl import SchnellAuswahl
+from ide.shell.theme import ide_qss_erzeugen
 from ide.testrunner import Testergebnis, ergebnisse_als_html, tests_ausfuehren
 from ide.viewers import BildVorschau, CsvAnsicht, HtmlVorschau
 from pcl.form import Form
@@ -115,6 +117,7 @@ class HauptFenster(QMainWindow):
         super().__init__()
         self.setWindowTitle("Natter")
         self.setWindowIcon(symbol("app"))
+        self.setStyleSheet(ide_qss_erzeugen("system"))
 
         self._menues: dict[str, object] = {}
         for titel in MENUETITEL:
@@ -182,6 +185,21 @@ class HauptFenster(QMainWindow):
             "Panels", Qt.DockWidgetArea.BottomDockWidgetArea, inhalt=self.panels
         )
 
+        # Menü „Ansicht“ (Abschnitt 7.2): jedes Dock lässt sich hier
+        # wieder einblenden, nachdem es (z. B. über sein eigenes
+        # Schließen-Symbol) geschlossen wurde. `toggleViewAction()` ist
+        # eine fertige, ankreuzbare Qt-Aktion, die automatisch mit der
+        # tatsächlichen Sichtbarkeit des Docks synchron bleibt - dafür
+        # bewusst keine eigene `Aktion`-Hülle aus dem Aktionsregister.
+        for dock in (
+            self.explorer_dock,
+            self.inspektor_dock,
+            self.palette_dock,
+            self.datenbank_dock,
+            self.panels_dock,
+        ):
+            self._menues["Ansicht"].addAction(dock.toggleViewAction())
+
         self._letzte_testergebnisse: list[Testergebnis] = []
         self.debug_sitzung: DebugSitzung | None = None
         self._aktueller_thread_id: int | None = None
@@ -217,6 +235,14 @@ class HauptFenster(QMainWindow):
                 tastenkuerzel="Ctrl+S",
                 symbol="speichern",
                 callback=self._aktuelle_datei_speichern,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "projekt.neu",
+                "Neues Projekt …",
+                menue="Projekt",
+                callback=self._neues_projekt_dialog,
             )
         )
         self.aktionen.registrieren(
@@ -405,6 +431,27 @@ class HauptFenster(QMainWindow):
         )
         if pfad:
             self.projekt_oeffnen(Path(pfad))
+
+    def _neues_projekt_dialog(self) -> None:
+        """„Projekt → Neues Projekt …“ (Abschnitt 7.2): fragt Vorlage,
+        Name und Zielordner ab und legt das Projekt über
+        `projekt_erzeugen()` (seit M2) tatsächlich an."""
+        dialog = NeuesProjektDialog(self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        werte = dialog.werte()
+        if werte is None:
+            self.statusBar().showMessage("Name und Ordner werden benötigt.")
+            return
+        vorlage, projektordner, name = werte
+        try:
+            projekt = projekt_erzeugen(vorlage, projektordner, name)
+        except (ValueError, FileExistsError) as fehler:
+            self.statusBar().showMessage(f"Projekt konnte nicht angelegt werden: {fehler}")
+            return
+        self.projekt = projekt
+        self.explorer.projekt_anzeigen(projekt)
+        self.statusBar().showMessage(f"Projekt {projekt.name} angelegt")
 
     def projekt_dateien(self) -> list[Path]:
         """Alle Units und Formulare des offenen Projekts, für „Unit
