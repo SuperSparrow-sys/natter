@@ -13,11 +13,13 @@ eine vollständige Grammatik.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 from PySide6.QtCore import QRect, QSize, Qt, Signal
 from PySide6.QtGui import (
     QColor,
     QFont,
+    QFontDatabase,
     QKeyEvent,
     QMouseEvent,
     QPainter,
@@ -28,6 +30,28 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import QPlainTextEdit, QTextEdit, QWidget
 
 from ide.shell.python_hervorhebung import PythonHervorhebung
+
+_SCHRIFT_DATEI = (
+    Path(__file__).resolve().parent.parent / "assets" / "fonts" / "CascadiaCode-Regular.ttf"
+)
+_schriftart_geladen = False
+
+
+def _cascadia_code_bereitstellen() -> None:
+    """Lädt Cascadia Code aus der mitgelieferten Schriftdatei in die
+    Qt-Anwendungsschrift-Datenbank (Nutzer-Feedback September 2026:
+    „wenn Schriftart nicht installiert, soll diese installiert
+    werden“) - ganz ohne Windows-Systeminstallation, passend zur
+    portablen, installationsfreien Natter-Philosophie (Abschnitt 17).
+    Einmal pro Prozess, danach findet `QFont(["Cascadia Code", ...])`
+    sie zuverlässig, unabhängig davon, ob sie auf dem Rechner selbst
+    installiert ist."""
+    global _schriftart_geladen
+    if _schriftart_geladen:
+        return
+    if _SCHRIFT_DATEI.exists():
+        QFontDatabase.addApplicationFont(str(_SCHRIFT_DATEI))
+    _schriftart_geladen = True
 
 _RAND_ABSTAND = 12
 _BREAKPOINT_FARBE = QColor("#c0392b")
@@ -74,6 +98,7 @@ class QuelltextEditor(QPlainTextEdit):
 
     def __init__(self, parent: QWidget | None = None, thema: str = "light") -> None:
         super().__init__(parent)
+        _cascadia_code_bereitstellen()
         schriftart = QFont(_CODE_SCHRIFTARTEN)
         schriftart.setPointSize(_CODE_SCHRIFTGROESSE)
         schriftart.setFixedPitch(True)

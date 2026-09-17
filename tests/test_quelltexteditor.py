@@ -3,6 +3,7 @@ im Rand (Abschnitt 8.1). Headless.
 """
 
 from PySide6.QtCore import QPoint, Qt
+from PySide6.QtGui import QFontInfo
 from PySide6.QtTest import QTest
 
 from ide.shell.quelltexteditor import QuelltextEditor
@@ -148,3 +149,13 @@ def test_tab_fuegt_leerzeichen_statt_eines_tabulatorzeichens_ein() -> None:
 
     assert editor.toPlainText() == "    "
     assert "\t" not in editor.toPlainText()
+
+
+def test_cascadia_code_wird_ohne_systeminstallation_gefunden() -> None:
+    """Nutzer-Feedback: „wenn Schriftart nicht installiert, soll diese
+    installiert werden“ - die Schriftdatei wird direkt aus
+    ide/assets/fonts/ in Qts Anwendungsschrift-Datenbank geladen, ganz
+    ohne Windows-Systeminstallation (portable Natter-Philosophie)."""
+    editor = QuelltextEditor()
+    aufgeloest = QFontInfo(editor.font()).family()
+    assert aufgeloest == "Cascadia Code"
