@@ -2,13 +2,44 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://natter.local/schemas/pdiag.schema.json",
   "title": "Natter Diagrammdatei (.pdiag)",
-  "description": "UML-Diagramme und Entscheidungstabellen. Struktogramme speichern einen Blockbaum statt Formen/Koordinaten. Siehe konzept-natter.md, Abschnitt 13.7. Entwurf – Blockbaum- und Entscheidungstabellen-Varianten folgen in M9.",
+  "description": "UML-Diagramme, Struktogramme und Entscheidungstabellen. Siehe konzept-natter.md, Abschnitt 13.7. Formen-Diagramme (class/use_case/activity/state/sequence) nutzen shapes+connectors, Struktogramme einen Blockbaum (root), Entscheidungstabellen Bedingungs-/Aktionszeilen mit Regel-Spalten.",
   "type": "object",
   "required": ["format", "type", "page", "style"],
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "struktogramm" } }, "required": ["type"] },
+      "then": { "required": ["root"] }
+    },
+    {
+      "if": {
+        "properties": { "type": { "const": "entscheidungstabelle" } },
+        "required": ["type"]
+      },
+      "then": { "required": ["conditions", "actions"] }
+    }
+  ],
   "properties": {
     "format": { "const": "pdiag/1" },
     "type": {
       "enum": ["class", "use_case", "activity", "state", "sequence", "struktogramm", "entscheidungstabelle"]
+    },
+    "name": {
+      "type": "string",
+      "description": "Anzeigename, z. B. Name des Struktogramms/Unterprogramms (Abschnitt 13.5)."
+    },
+    "root": {
+      "$ref": "#/$defs/block",
+      "description": "Wurzelblock eines Struktogramms (immer kind=sequence)."
+    },
+    "conditions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/tabellenzeile" },
+      "description": "Bedingungsteil einer Entscheidungstabelle (Werte J/N/*/leer)."
+    },
+    "actions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/tabellenzeile" },
+      "description": "Aktionsteil einer Entscheidungstabelle (Werte X/leer)."
     },
     "page": {
       "type": "object",
@@ -29,6 +60,72 @@
     }
   },
   "$defs": {
+    "block": {
+      "type": "object",
+      "required": ["id", "kind"],
+      "description": "Struktogramm-Block (Nassi-Shneiderman, Abschnitt 13.5). Verschachtelung über children/then/else/cases statt über Koordinaten.",
+      "properties": {
+        "id": { "type": "string" },
+        "kind": {
+          "enum": [
+            "sequence",
+            "statement",
+            "branch",
+            "multi_branch",
+            "count_loop",
+            "head_loop",
+            "foot_loop",
+            "call",
+            "jump"
+          ]
+        },
+        "text": { "type": "string" },
+        "children": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/block" },
+          "description": "sequence: Blockfolge; count_loop/head_loop/foot_loop: Schleifenkörper."
+        },
+        "then": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/block" },
+          "description": "branch: Ja-Zweig."
+        },
+        "else": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/block" },
+          "description": "branch: Nein-Zweig."
+        },
+        "labels": {
+          "type": "object",
+          "description": "branch: abweichende Zweigbeschriftungen statt ja/nein.",
+          "properties": {
+            "then": { "type": "string" },
+            "else": { "type": "string" }
+          }
+        },
+        "cases": {
+          "type": "array",
+          "description": "multi_branch: Fälle der Mehrfachauswahl.",
+          "items": {
+            "type": "object",
+            "required": ["label", "children"],
+            "properties": {
+              "label": { "type": "string" },
+              "children": { "type": "array", "items": { "$ref": "#/$defs/block" } }
+            }
+          }
+        }
+      }
+    },
+    "tabellenzeile": {
+      "type": "object",
+      "required": ["text", "values"],
+      "description": "Eine Bedingungs- oder Aktionszeile; ein Eintrag in values je Regel-Spalte (Abschnitt 13.5).",
+      "properties": {
+        "text": { "type": "string" },
+        "values": { "type": "array", "items": { "type": "string" } }
+      }
+    },
     "shape": {
       "type": "object",
       "required": ["id", "kind", "x", "y", "w", "h"],

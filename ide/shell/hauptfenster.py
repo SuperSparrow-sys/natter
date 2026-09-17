@@ -44,6 +44,13 @@ from ide.database import DatenbankPanel
 from ide.debugger import DebugSitzung, fehlermeldung_aus_dap_erzeugen
 from ide.designer import DesignerCanvas, formular_fuer_designer_laden
 from ide.designer.pfm_schreiben import pfm_aus_formular
+from ide.diagramm import (
+    MVP_TYPEN,
+    TYP_BESCHRIFTUNGEN,
+    Diagramm,
+    DiagrammFenster,
+    diagramm_erzeugen,
+)
 from ide.env import PaketFehler, installierte_pakete, paket_installieren, paketliste_exportieren
 from ide.export import exe_exportieren
 from ide.import_lfm import LfmParserError, lfm_zu_pfm, parse_lfm
@@ -219,6 +226,9 @@ class HauptFenster(QMainWindow):
         self.laufender_prozess = None
         self._offene_canvases: list[DesignerCanvas] = []
         self._pfad_zu_formular: dict[str, Form] = {}
+        # Diagramme sind eigene Fenster (Abschnitt 13.1), keine Tabs -
+        # deshalb eine eigene Verwaltung statt `editor_tabs`.
+        self._offene_diagramme: dict[str, DiagrammFenster] = {}
         self._widget_zu_canvas: dict[QWidget, DesignerCanvas] = {}
         self._aktueller_canvas: DesignerCanvas | None = None
         self.editor_tabs.currentChanged.connect(self._bei_tab_wechsel)
@@ -525,6 +535,14 @@ class HauptFenster(QMainWindow):
                 "Neue Test-Unit",
                 menue="Datei",
                 callback=self._neue_test_unit_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "datei.neues_diagramm",
+                "Neues Diagramm …",
+                menue="Datei",
+                callback=self._neues_diagramm_aktion,
             )
         )
         self.aktionen.registrieren(
@@ -1222,6 +1240,57 @@ class HauptFenster(QMainWindow):
         self.objektinspektor.formular_anzeigen(formular, canvas)
         return formular
 
+    def diagramm_oeffnen(self, pfad: Path) -> DiagrammFenster:
+        """Öffnet eine `.pdiag`-Datei im Diagramm-Editor (Abschnitt 13.1):
+        eigenes Fenster mit eigenem Taskleisten-Eintrag, kein Tab.
+        Bereits offene Diagramme werden nur nach vorne geholt."""
+        pfad = Path(pfad)
+        schluessel = str(pfad)
+        vorhanden = self._offene_diagramme.get(schluessel)
+        if vorhanden is not None:
+            vorhanden.show()
+            vorhanden.raise_()
+            vorhanden.activateWindow()
+            return vorhanden
+
+        fenster = DiagrammFenster(Diagramm.laden(pfad))
+        fenster.destroyed.connect(lambda *_: self._offene_diagramme.pop(schluessel, None))
+        self._offene_diagramme[schluessel] = fenster
+        fenster.show()
+        return fenster
+
+    def _neues_diagramm_aktion(self) -> None:
+        """„Datei → Neues Diagramm …“ (Abschnitt 13.1): legt eine
+        `.pdiag` im Ordner `diagramme/` des offenen Projekts an und
+        öffnet sie im Diagramm-Editor."""
+        if self.projekt is None:
+            self.statusBar().showMessage("Kein Projekt offen.")
+            return
+
+        beschriftungen = [TYP_BESCHRIFTUNGEN[typ] for typ in MVP_TYPEN]
+        beschriftung, bestaetigt = QInputDialog.getItem(
+            self, "Neues Diagramm", "Diagrammtyp:", beschriftungen, 0, False
+        )
+        if not bestaetigt:
+            return
+        typ = MVP_TYPEN[beschriftungen.index(beschriftung)]
+
+        name, bestaetigt = QInputDialog.getText(
+            self, "Neues Diagramm", "Name:", text=self.projekt.name.lower()
+        )
+        if not bestaetigt or not name.strip():
+            return
+
+        pfad = self.projekt.diagramm_ordner / f"{name.strip()}.pdiag"
+        if pfad.exists():
+            self.statusBar().showMessage(f"{pfad.name} gibt es schon.")
+            return
+
+        pfad.parent.mkdir(parents=True, exist_ok=True)
+        diagramm_erzeugen(typ, pfad, name.strip())
+        self.explorer.projekt_anzeigen(self.projekt)
+        self.diagramm_oeffnen(pfad)
+
     def _design_datei_abgleichen(self, pfm_pfad: Path) -> None:
         """Bringt `u_*_design.py` auf den Stand der `.pfm` beim Öffnen.
 
@@ -1477,6 +1546,8 @@ class HauptFenster(QMainWindow):
         endung = pfad.suffix.lower()
         if endung == ".pfm":
             self.designer_oeffnen(pfad)
+        elif endung == ".pdiag":
+            self.diagramm_oeffnen(pfad)
         elif endung == ".csv":
             self.datei_ansicht_oeffnen(pfad, lambda: CsvAnsicht(pfad))
         elif endung in _BILD_ENDUNGEN:

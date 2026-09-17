@@ -50,16 +50,19 @@ class ProjektExplorer(QTreeWidget):
 
         self.formulare_gruppe = QTreeWidgetItem(["Formulare"])
         self.units_gruppe = QTreeWidgetItem(["Units"])
+        self.diagramme_gruppe = QTreeWidgetItem(["Diagramme"])
         fett = QFont()
         fett.setBold(True)
-        for gruppe in (self.formulare_gruppe, self.units_gruppe):
+        for gruppe in (self.formulare_gruppe, self.units_gruppe, self.diagramme_gruppe):
             gruppe.setFont(0, fett)
         self.addTopLevelItem(self.formulare_gruppe)
         self.addTopLevelItem(self.units_gruppe)
+        self.addTopLevelItem(self.diagramme_gruppe)
 
     def projekt_anzeigen(self, projekt: Projekt) -> None:
         self.formulare_gruppe.takeChildren()
         self.units_gruppe.takeChildren()
+        self.diagramme_gruppe.takeChildren()
 
         formular_stems = {pfad.stem for pfad in projekt.formulare()}
 
@@ -72,6 +75,11 @@ class ProjektExplorer(QTreeWidget):
             if pfad.stem in formular_stems:
                 continue  # gehört zu einem Formular, dort schon aufgeführt
             self._eintrag_hinzufuegen(self.units_gruppe, pfad.name, pfad, mit_menue=True)
+
+        for pfad in projekt.diagramme():
+            # öffnet den Diagramm-Editor in einem eigenen Fenster
+            # (Abschnitt 13.1), nicht den Rohtext
+            self._eintrag_hinzufuegen(self.diagramme_gruppe, pfad.stem, pfad)
 
         self.expandAll()
 

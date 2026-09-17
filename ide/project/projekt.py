@@ -71,3 +71,14 @@ class Projekt:
     def formulare(self) -> list[Path]:
         """Alle Formularbeschreibungen (`.pfm`) im Projektordner."""
         return sorted(self.ordner.glob("*.pfm"))
+
+    def diagramme(self) -> list[Path]:
+        """Alle Diagramme (`.pdiag`) im Unterordner `diagramme/`
+        (Abschnitt 13.1 – anders als Formulare/Units liegen sie nicht
+        im Projektwurzelordner)."""
+        ordner = self.diagramm_ordner
+        return sorted(ordner.glob("*.pdiag")) if ordner.is_dir() else []
+
+    @property
+    def diagramm_ordner(self) -> Path:
+        return self.ordner / "diagramme"

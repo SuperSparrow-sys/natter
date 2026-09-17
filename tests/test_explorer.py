@@ -12,11 +12,13 @@ from ide.shell.explorer import ProjektExplorer
 _AMPEL_ORDNER = Path(__file__).resolve().parent.parent / "beispielprojekte" / "Ampel"
 
 
-def test_leerer_explorer_hat_beide_gruppen_ohne_kinder() -> None:
+def test_leerer_explorer_hat_alle_gruppen_ohne_kinder() -> None:
     explorer = ProjektExplorer()
-    assert explorer.topLevelItemCount() == 2
+    # Formulare, Units, Diagramme (Diagramme seit M9, Schritt 1)
+    assert explorer.topLevelItemCount() == 3
     assert explorer.formulare_gruppe.childCount() == 0
     assert explorer.units_gruppe.childCount() == 0
+    assert explorer.diagramme_gruppe.childCount() == 0
 
 
 def test_doppelklick_loest_kein_natives_qt_umbenennen_aus() -> None:
