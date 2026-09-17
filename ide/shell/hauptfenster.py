@@ -221,6 +221,7 @@ class HauptFenster(QMainWindow):
         self.variablen_baum = QTreeWidget()
         self.variablen_baum.setHeaderLabels(["Eigenschaft", "Wert"])
         self.aufrufstapel_liste = QListWidget()
+        self.aufrufstapel_liste.itemClicked.connect(self._bei_aufrufstapel_klick)
         self.tests_baum = QTreeWidget()
         self.tests_baum.setHeaderLabels(["Test", "Status", "Dauer (s)"])
         self.tests_baum.itemDoubleClicked.connect(self._bei_test_doppelklick)
@@ -279,6 +280,7 @@ class HauptFenster(QMainWindow):
         self._letzte_testergebnisse: list[Testergebnis] = []
         self.debug_sitzung: DebugSitzung | None = None
         self._aktueller_thread_id: int | None = None
+        self._letzter_aufrufstapel: list[dict] = []
 
         self.statusBar().showMessage("bereit")
 
@@ -1466,6 +1468,7 @@ class HauptFenster(QMainWindow):
         self.statusBar().showMessage(f"Debugger beendet (Exitcode {exitcode})")
         self.debug_sitzung = None
         self._aktueller_thread_id = None
+        self._letzter_aufrufstapel = []
         self.variablen_baum.clear()
         self.aufrufstapel_liste.clear()
 
@@ -1474,6 +1477,13 @@ class HauptFenster(QMainWindow):
         self.panels.setCurrentWidget(self.meldungen_liste)
 
     def _debugger_aufrufstapel_bereit(self, stapel: list[dict]) -> None:
+        """Beim Anhalten (Breakpoint/Einzelschritt/Pause, Abschnitt 8.1):
+        füllt das Panel „Aufrufstapel“ UND springt im Editor zur
+        aktuellen Zeile des obersten Frames - vorher passierte das nur
+        bei einer unbehandelten Ausnahme (`_debugger_exceptioninfo_bereit`),
+        bei einem normalen Halt blieb der Cursor an seiner alten Stelle
+        stehen (beim Durchspielen der Bedienung gefunden)."""
+        self._letzter_aufrufstapel = stapel
         self.aufrufstapel_liste.clear()
         for frame in stapel:
             quelle = frame.get("source", {}).get("path", "")
@@ -1481,6 +1491,30 @@ class HauptFenster(QMainWindow):
             self.aufrufstapel_liste.addItem(f"{name}, Zeile {frame['line']}, in {frame['name']}")
         if stapel and self.debug_sitzung is not None:
             self.debug_sitzung.bereiche_lesen(stapel[0]["id"])
+            self._zu_frame_springen(stapel[0])
+
+    def _bei_aufrufstapel_klick(self, eintrag: QListWidgetItem) -> None:
+        index = self.aufrufstapel_liste.row(eintrag)
+        if 0 <= index < len(self._letzter_aufrufstapel):
+            self._zu_frame_springen(self._letzter_aufrufstapel[index])
+
+    def _zu_frame_springen(self, frame: dict) -> None:
+        """Öffnet die Quelldatei eines DAP-Stapelrahmens (`aufrufstapel_
+        lesen()`) und springt zur angegebenen Zeile."""
+        quelle = frame.get("source", {}).get("path", "")
+        if not quelle:
+            return
+        pfad = Path(quelle)
+        if not pfad.exists():
+            return
+        editor = self.datei_oeffnen(pfad)
+        cursor = editor.textCursor()
+        cursor.movePosition(cursor.MoveOperation.Start)
+        cursor.movePosition(
+            cursor.MoveOperation.Down, cursor.MoveMode.MoveAnchor, frame["line"] - 1
+        )
+        editor.setTextCursor(cursor)
+        editor.ensureCursorVisible()
 
     def _debugger_bereiche_bereit(self, bereiche: list[dict]) -> None:
         if not bereiche or self.debug_sitzung is None:

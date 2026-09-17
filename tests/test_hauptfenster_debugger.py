@@ -64,6 +64,59 @@ def test_f5_haelt_bei_einem_im_editor_gesetzten_breakpoint(qtbot, tmp_path: Path
             fenster._debugger_stoppen_aktion()
 
 
+def test_f5_springt_beim_anhalten_zur_breakpoint_zeile(qtbot, tmp_path: Path) -> None:
+    """Beim Durchspielen der Bedienung gefunden: bei einem normalen Halt
+    (Breakpoint/Einzelschritt/Pause) blieb der Editor-Cursor an seiner
+    alten Stelle stehen - nur eine unbehandelte Ausnahme sprang zur
+    richtigen Zeile. Für einen Schüler-Debugger ein zentrales Feature."""
+    fenster = HauptFenster()
+    _projekt_oeffnen(
+        fenster, tmp_path, "zahl = 42\nmarker = 1  # Zeile 2, Breakpoint\n"
+    )
+    editor = fenster.datei_oeffnen(fenster.projekt.haupt_datei)
+    editor.breakpoint_umschalten(2)
+    cursor = editor.textCursor()
+    cursor.movePosition(cursor.MoveOperation.Start)
+    editor.setTextCursor(cursor)
+
+    fenster._projekt_mit_debugger_starten_aktion()
+    qtbot.waitUntil(lambda: fenster._aktueller_thread_id is not None, timeout=15000)
+
+    try:
+        qtbot.waitUntil(lambda: fenster.aufrufstapel_liste.count() > 0, timeout=15000)
+        aktiver_editor = fenster.editor_tabs.currentWidget()
+        assert aktiver_editor is editor
+        assert editor.textCursor().blockNumber() == 1  # Zeile 2, 0-indiziert
+    finally:
+        if fenster.debug_sitzung is not None:
+            fenster._debugger_stoppen_aktion()
+
+
+def test_klick_auf_aufrufstapel_eintrag_springt_zu_dieser_zeile(qtbot, tmp_path: Path) -> None:
+    fenster = HauptFenster()
+    _projekt_oeffnen(
+        fenster,
+        tmp_path,
+        "def innen():\n    marker = 1  # Zeile 2, Breakpoint\n    return marker\n\n\ninnen()\n",
+    )
+    editor = fenster.datei_oeffnen(fenster.projekt.haupt_datei)
+    editor.breakpoint_umschalten(2)
+
+    fenster._projekt_mit_debugger_starten_aktion()
+    qtbot.waitUntil(lambda: fenster._aktueller_thread_id is not None, timeout=15000)
+
+    try:
+        qtbot.waitUntil(lambda: fenster.aufrufstapel_liste.count() >= 2, timeout=15000)
+        aeusserer_rahmen = fenster.aufrufstapel_liste.item(1)  # main.py, Zeile 6
+
+        fenster._bei_aufrufstapel_klick(aeusserer_rahmen)
+
+        assert editor.textCursor().blockNumber() == 5  # Zeile 6, 0-indiziert
+    finally:
+        if fenster.debug_sitzung is not None:
+            fenster._debugger_stoppen_aktion()
+
+
 def test_fortsetzen_laesst_das_programm_zu_ende_laufen(qtbot, tmp_path: Path) -> None:
     fenster = HauptFenster()
     _projekt_oeffnen(
