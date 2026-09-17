@@ -23,7 +23,7 @@ class Form1Design(Form):
         self.b_einschalten.caption = "Einschalten"
         self.b_einschalten.left = 392
         self.b_einschalten.top = 184
-        self.b_einschalten.width = 75
+        self.b_einschalten.width = 170
         self.b_einschalten.height = 25
         self.b_einschalten.on_click = self.b_einschalten_click
 
@@ -31,7 +31,7 @@ class Form1Design(Form):
         self.b_wechseln.caption = "Wechseln"
         self.b_wechseln.left = 400
         self.b_wechseln.top = 223
-        self.b_wechseln.width = 75
+        self.b_wechseln.width = 170
         self.b_wechseln.height = 25
         self.b_wechseln.on_click = self.b_wechseln_click
 
@@ -39,7 +39,7 @@ class Form1Design(Form):
         self.b_auschalten.caption = "Auschalten"
         self.b_auschalten.left = 413
         self.b_auschalten.top = 262
-        self.b_auschalten.width = 75
+        self.b_auschalten.width = 170
         self.b_auschalten.height = 25
         self.b_auschalten.on_click = self.b_auschalten_click
 

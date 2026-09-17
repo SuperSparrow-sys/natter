@@ -47,18 +47,23 @@ def _ampel_in_der_ide_nachbauen(canvas: DesignerCanvas) -> None:
     formular.width = 620
     formular.height = 736
 
+    # Breiter als Lazarus' 75px-Original: bei unserer (bewusst nicht zu
+    # kleinen) UI-Schriftgröße passte "Einschalten" u. Ä. sonst nicht in
+    # den Button (real per Screenshot gefunden - kein Lazarus-Fehler,
+    # sondern ein Unterschied in der Zeichenbreite zwischen den
+    # Toolkits, siehe docs/PLAN.md).
     b_ein = canvas.komponente_platzieren(Button, 392, 184)
-    b_ein.width, b_ein.height = 75, 25
+    b_ein.width, b_ein.height = 170, 25
     b_ein.caption = "Einschalten"
     canvas.komponente_umbenennen(b_ein, "b_einschalten")
 
     b_wechseln = canvas.komponente_platzieren(Button, 400, 223)
-    b_wechseln.width, b_wechseln.height = 75, 25
+    b_wechseln.width, b_wechseln.height = 170, 25
     b_wechseln.caption = "Wechseln"
     canvas.komponente_umbenennen(b_wechseln, "b_wechseln")
 
     b_aus = canvas.komponente_platzieren(Button, 413, 262)
-    b_aus.width, b_aus.height = 75, 25
+    b_aus.width, b_aus.height = 170, 25
     b_aus.caption = "Auschalten"
     canvas.komponente_umbenennen(b_aus, "b_auschalten")
 

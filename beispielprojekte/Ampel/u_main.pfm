@@ -7,17 +7,17 @@
   "children": [
     {
       "name": "b_einschalten", "type": "Button",
-      "properties": { "caption": "Einschalten", "left": 392, "top": 184, "width": 75, "height": 25 },
+      "properties": { "caption": "Einschalten", "left": 392, "top": 184, "width": 170, "height": 25 },
       "events": { "on_click": "b_einschalten_click" }
     },
     {
       "name": "b_wechseln", "type": "Button",
-      "properties": { "caption": "Wechseln", "left": 400, "top": 223, "width": 75, "height": 25 },
+      "properties": { "caption": "Wechseln", "left": 400, "top": 223, "width": 170, "height": 25 },
       "events": { "on_click": "b_wechseln_click" }
     },
     {
       "name": "b_auschalten", "type": "Button",
-      "properties": { "caption": "Auschalten", "left": 413, "top": 262, "width": 75, "height": 25 },
+      "properties": { "caption": "Auschalten", "left": 413, "top": 262, "width": 170, "height": 25 },
       "events": { "on_click": "b_auschalten_click" }
     },
     {

@@ -62,12 +62,19 @@ def qss_erzeugen(theme: str, tokens: dict[str, Any] | None = None) -> str:
     radius = daten["radius"]
     schrift = daten["font"]
 
+    # Nutzer-Feedback (September 2026): 12pt (sizes_pt[1]) wirkte zu groß
+    # - dieselbe Korrektur wie zuvor für die IDE-Hülle
+    # (ide/shell/theme.py). Real gefunden: bei 12pt passte "Button1"
+    # nicht mehr in einen 52px breiten Button (Lazarus-Referenzgröße),
+    # der Text wurde abgeschnitten.
+    basis_pt = schrift["sizes_pt"][0]
+
     return f"""\
 QWidget {{
     background-color: {farben["bg"]};
     color: {farben["text"]};
     font-family: "{schrift["family"]}", "{schrift["family_fallback"]}";
-    font-size: {schrift["sizes_pt"][1]}pt;
+    font-size: {basis_pt}pt;
 }}
 
 QPushButton {{
