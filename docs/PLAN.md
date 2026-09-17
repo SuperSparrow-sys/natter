@@ -23,7 +23,7 @@ Schritt 1 (`.lfm`-Parser), Schritt 2 (Klassen-/Eigenschaftszuordnung
 nach `.pfm`) und Schritt 3 (IDE-Verdrahtung „Werkzeuge → Lazarus-
 Formular importieren …“, per Screenshot gegen das echte `k_Ampel`-`.lfm`
 geprüft; Pascal-Rumpf-Übernahme und Bild-Extraktion daraus
-zurückgestellt) sind erledigt – 583 Tests grün insgesamt, gegen alle 19
+zurückgestellt) sind erledigt – 630 Tests grün insgesamt, gegen alle 19
 echten `referenz/lazarus/*.lfm`-Dateien geprüft. Schritt 4 (Exe-Export,
 portables ZIP, Starter/Launcher, Signatur, Abschnitt 16/17) braucht
 zwingend einen echten Windows-Rechner und wird in dieser
@@ -98,6 +98,22 @@ Namenskonvention im Panel „Meldungen“; ein Klick auf einen Befund
 markiert die betroffene Komponente im Designer. Das neue Menü „Pakete“
 zeigt installierte Pakete, installiert ein neues per `pip` und
 exportiert die Paketliste als `requirements.txt`.
+
+**Visueller Feinschliff (Nutzer-Feedback, September 2026):** die
+Komponentenpalette ist jetzt wie in Lazarus eine horizontale Leiste aus
+reinen Symbol-Kacheln (Name als Tooltip); der Quelltexteditor nutzt eine
+echte Programmierschriftart (Cascadia Code, mit Konsolas/Courier New als
+Ersatz) und eine VS-Code-artige Python-Syntaxhervorhebung
+(`PythonHervorhebung`). Die gesamte IDE-Hülle (Menüleiste, Symbolleiste,
+Docks, Tabs, Explorer, Panels) hat jetzt ein einheitliches, modernes
+Theme (`ide_qss_erzeugen`) statt Standard-Qt-Grau. Das Menü „Ansicht“
+bietet Ein-/Ausblenden für alle fünf Docks (auch Wiederherstellen nach
+Schließen) über `toggleViewAction()`. Die Menüs Bearbeiten/Suchen/
+Quelltext/Fenster/Hilfe, die zwar vorhanden aber wirkungslos waren, sind
+jetzt vollständig verdrahtet: Rückgängig/Wiederholen/Ausschneiden/
+Kopieren/Einfügen/Alles auswählen, ein nicht-modaler Suchen-und-Ersetzen-
+Dialog samt Gehe-zu-Zeile, Kommentar umschalten (Strg+#), Tab-Navigation
+und Layout zurücksetzen, sowie Komponenten-Referenz/Über Natter.
 
 ## Referenzmaterial
 
