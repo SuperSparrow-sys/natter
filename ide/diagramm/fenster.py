@@ -46,13 +46,13 @@ _MENUES: dict[str, tuple[tuple[str, bool], ...]] = {
         ("Schließen", True),
     ),
     "Bearbeiten": (
-        ("Rückgängig", False),
-        ("Wiederholen", False),
+        ("Rückgängig", True),
+        ("Wiederholen", True),
         ("Ausschneiden", False),
         ("Kopieren", False),
         ("Einfügen", False),
-        ("Duplizieren", False),
-        ("Löschen", False),
+        ("Duplizieren", True),
+        ("Löschen", True),
         ("Alles auswählen", False),
     ),
     "Ansicht": (
@@ -170,6 +170,20 @@ class DiagrammFenster(QMainWindow):
         self.aktionen["Datei/Speichern"].triggered.connect(self.speichern)
         self.aktionen["Datei/Speichern unter …"].triggered.connect(self.speichern_unter)
         self.aktionen["Datei/Schließen"].triggered.connect(self.close)
+
+        # Tastenkürzel doppelt zur Zeichenfläche: dort greifen sie nur
+        # bei Fokus auf der Fläche, über das Menü immer im Fenster.
+        for pfad, kuerzel, rueckruf in (
+            ("Bearbeiten/Rückgängig", "Ctrl+Z", lambda: self.zeichenflaeche.rueckgaengig()),
+            ("Bearbeiten/Wiederholen", "Ctrl+Shift+Z", lambda: self.zeichenflaeche.wiederholen()),
+            ("Bearbeiten/Duplizieren", "Ctrl+D", lambda: self.zeichenflaeche.duplizieren()),
+            ("Bearbeiten/Löschen", "Del", lambda: self.zeichenflaeche.loeschen()),
+            ("Datei/Speichern", "Ctrl+S", None),
+        ):
+            aktion = self.aktionen[pfad]
+            aktion.setShortcut(kuerzel)
+            if rueckruf is not None:
+                aktion.triggered.connect(rueckruf)
 
     def menue(self, name: str) -> QMenu:
         return self._menues[name]

@@ -46,9 +46,29 @@ def test_noch_nicht_umgesetzte_eintraege_sind_ausgegraut(tmp_path: Path) -> None
     fenster = _fenster(tmp_path)
 
     assert fenster.aktionen["Datei/Speichern"].isEnabled() is True
+    assert fenster.aktionen["Bearbeiten/Rückgängig"].isEnabled() is True
     assert fenster.aktionen["Datei/Drucken …"].isEnabled() is False
-    assert fenster.aktionen["Bearbeiten/Rückgängig"].isEnabled() is False
+    assert fenster.aktionen["Bearbeiten/Kopieren"].isEnabled() is False
     assert fenster.aktionen["Format/Stilvorlage …"].isEnabled() is False
+
+
+def test_bearbeiten_menue_wirkt_auf_die_zeichenflaeche(tmp_path: Path) -> None:
+    """Die Menüeinträge müssen dasselbe tun wie die Tastenkürzel auf der
+    Fläche – sonst hängt das Menü nur dekorativ daneben."""
+    fenster = _fenster(tmp_path, "class")
+    fenster.zeichenflaeche.form_platzieren("class", 200, 200)
+
+    fenster.aktionen["Bearbeiten/Duplizieren"].trigger()
+    assert len(fenster.zeichenflaeche.formen) == 2
+
+    fenster.aktionen["Bearbeiten/Rückgängig"].trigger()
+    assert len(fenster.zeichenflaeche.formen) == 1
+
+    fenster.aktionen["Bearbeiten/Wiederholen"].trigger()
+    assert len(fenster.zeichenflaeche.formen) == 2
+
+    fenster.aktionen["Bearbeiten/Löschen"].trigger()
+    assert len(fenster.zeichenflaeche.formen) == 1
 
 
 def test_statusleiste_zeigt_seitenformat_und_stil(tmp_path: Path) -> None:

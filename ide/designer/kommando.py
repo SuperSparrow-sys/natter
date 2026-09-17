@@ -1,24 +1,24 @@
-"""Kommando-Muster für Rückgängig/Wiederholen im Designer.
+"""Kommandos des Formular-Designers für Rückgängig/Wiederholen.
 
 Siehe konzept-natter.md, Abschnitt 7.7: „Kopieren/Einfügen, Rückgängig/
-Wiederholen (Command-Pattern)“. `Kommando` ist die gemeinsame
-Schnittstelle (`tun`/`rueckgaengig`); `Kommandostapel` verwaltet die
-beiden Stapel. `EigenschaftKommando` deckt reine Eigenschaftsänderungen
-(Verschieben, Größe ändern, …) generisch ab, indem es die vorherigen
-Werte selbst ermittelt statt Deltas zu verrechnen – robust auch dort, wo
-eine Änderung intern begrenzt wird (z. B. Mindestgröße 1 px).
+Wiederholen (Command-Pattern)“. Der Stapel selbst steht neutral in
+`ide/kommando.py`, weil ihn auch der Diagramm-Editor benutzt; hier
+stehen nur die Kommandos, die `pcl`-Komponenten verändern.
+
+`EigenschaftKommando` deckt reine Eigenschaftsänderungen (Verschieben,
+Größe ändern, …) generisch ab, indem es die vorherigen Werte selbst
+ermittelt statt Deltas zu verrechnen – robust auch dort, wo eine
+Änderung intern begrenzt wird (z. B. Mindestgröße 1 px).
 """
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import Any
 
+from ide.kommando import Kommando, Kommandostapel
 from pcl.properties import wert_lesen, wert_setzen
 
-
-class Kommando(Protocol):
-    def tun(self) -> None: ...
-    def rueckgaengig(self) -> None: ...
+__all__ = ["EigenschaftKommando", "Kommando", "Kommandostapel"]
 
 
 class EigenschaftKommando:
@@ -50,36 +50,3 @@ class EigenschaftKommando:
     def rueckgaengig(self) -> None:
         for name, wert in self._alte_werte.items():
             wert_setzen(self.komponente, name, wert)
-
-
-class Kommandostapel:
-    def __init__(self) -> None:
-        self._rueckgaengig_stapel: list[Kommando] = []
-        self._wiederholen_stapel: list[Kommando] = []
-
-    def ausfuehren(self, kommando: Kommando) -> None:
-        kommando.tun()
-        self._rueckgaengig_stapel.append(kommando)
-        self._wiederholen_stapel.clear()
-
-    def rueckgaengig(self) -> None:
-        if not self._rueckgaengig_stapel:
-            return
-        kommando = self._rueckgaengig_stapel.pop()
-        kommando.rueckgaengig()
-        self._wiederholen_stapel.append(kommando)
-
-    def wiederholen(self) -> None:
-        if not self._wiederholen_stapel:
-            return
-        kommando = self._wiederholen_stapel.pop()
-        kommando.tun()
-        self._rueckgaengig_stapel.append(kommando)
-
-    @property
-    def kann_rueckgaengig(self) -> bool:
-        return bool(self._rueckgaengig_stapel)
-
-    @property
-    def kann_wiederholen(self) -> bool:
-        return bool(self._wiederholen_stapel)
