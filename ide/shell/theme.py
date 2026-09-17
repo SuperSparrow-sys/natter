@@ -167,11 +167,11 @@ QTreeWidget, QListWidget, QTableWidget {{
     border-radius: {radius["input"]}px;
     font-size: {basis_pt}pt;
     show-decoration-selected: 1;
+    outline: none;
 }}
 QTreeWidget::item, QListWidget::item {{
     padding: 3px 2px;
-    border: 1px solid transparent;
-    border-radius: {radius["input"]}px;
+    border: none;
 }}
 QTableWidget::item {{
     background-color: {farben["bg"]};
@@ -181,12 +181,13 @@ QTreeView::item:hover, QListView::item:hover, QTableView::item:hover {{
     background-color: {_mit_alpha(farben["accent"], 0.08)};
 }}
 QTreeView::item:selected, QListView::item:selected, QTableView::item:selected {{
-    background-color: {_mit_alpha(farben["accent"], 0.18)};
+    background-color: {_mit_alpha(farben["accent"], 0.16)};
     color: {farben["text"]};
-    border: 1px solid {_mit_alpha(farben["accent"], 0.45)};
 }}
 QTreeView::branch {{
     background-color: transparent;
+    border-image: none;
+    image: none;
 }}
 QHeaderView::section {{
     background-color: {farben["surface"]};
@@ -227,6 +228,7 @@ QLineEdit, QPlainTextEdit, QComboBox, QSpinBox {{
     padding: 3px 6px;
     selection-background-color: {farben["accent"]};
     selection-color: #ffffff;
+    outline: none;
 }}
 QLineEdit:focus, QPlainTextEdit:focus, QComboBox:focus {{
     border: 1px solid {farben["focus"]};

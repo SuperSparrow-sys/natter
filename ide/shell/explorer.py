@@ -31,6 +31,13 @@ class ProjektExplorer(QTreeWidget):
         self.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.header().setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
         self.setColumnWidth(1, 26)
+        # QTreeWidgetItem ist standardmäßig per Doppelklick umbenennbar
+        # (Qt.ItemIsEditable gehört zu den Standard-Flags) - kollidierte
+        # mit unserem eigenen Doppelklick-zum-Öffnen und mit dem
+        # dedizierten „⋮ → Umbenennen …“ (Nutzer-Screenshot: ein
+        # unstyled, mitten im Baum eingeblendetes Eingabefeld, das gar
+        # nicht unsere eigene Umbenennen-Funktion war).
+        self.setEditTriggers(QTreeWidget.EditTrigger.NoEditTriggers)
 
         self.formulare_gruppe = QTreeWidgetItem(["Formulare"])
         self.units_gruppe = QTreeWidgetItem(["Units"])

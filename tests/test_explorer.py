@@ -4,6 +4,8 @@ docs/arbeitspakete/M2.md, Schritt 6.
 
 from pathlib import Path
 
+from PySide6.QtWidgets import QTreeWidget
+
 from ide.project import Projekt
 from ide.shell.explorer import ProjektExplorer
 
@@ -15,6 +17,16 @@ def test_leerer_explorer_hat_beide_gruppen_ohne_kinder() -> None:
     assert explorer.topLevelItemCount() == 2
     assert explorer.formulare_gruppe.childCount() == 0
     assert explorer.units_gruppe.childCount() == 0
+
+
+def test_doppelklick_loest_kein_natives_qt_umbenennen_aus() -> None:
+    # Nutzer-Screenshot: ein Doppelklick zum Öffnen einer Datei
+    # aktivierte gleichzeitig Qts eingebautes Inline-Umbenennen
+    # (Qt.ItemIsEditable gehört zu den Standard-Flags von
+    # QTreeWidgetItem) - ein unstyled, ungewolltes Eingabefeld mitten
+    # im Baum, unabhängig von unserer eigenen „⋮ → Umbenennen …“.
+    explorer = ProjektExplorer()
+    assert explorer.editTriggers() == QTreeWidget.EditTrigger.NoEditTriggers
 
 
 def test_formular_unit_erscheint_nur_bei_formularen() -> None:
