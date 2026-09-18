@@ -539,8 +539,7 @@ class DiagrammFenster(QMainWindow):
         ausgewaehlt = getattr(self.zeichenflaeche, "ausgewaehlte_form", None)
         if ausgewaehlt:
             return (
-                f"{(ausgewaehlt.get('text') or {}).get('name', ausgewaehlt['kind'])}"
-                " ausgewählt"
+                f"{formname(ausgewaehlt) or ausgewaehlt['kind']} ausgewählt"
             )
         return f"{len(self.diagramm.daten.get('shapes', []))} Formen"
 

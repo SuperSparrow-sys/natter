@@ -8,10 +8,12 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QEvent, QPointF, Qt
-from PySide6.QtGui import QKeyEvent, QMouseEvent
+from PySide6.QtGui import QImage, QKeyEvent, QMouseEvent, QPainter
 
 from ide.diagramm import DiagrammFenster, diagramm_erzeugen
 from ide.diagramm.bloecke import Einfuegestelle, alle_bloecke
+from ide.diagramm.stil import stil
+from ide.diagramm.struktogramm import BLOCK_BESCHRIFTUNGEN, struktogramm_zeichnen
 from ide.diagramm.struktogramm_canvas import VERSATZ, StruktogrammCanvas
 from ide.diagramm.struktogramm_palette import KIND_ROLLE, BlockPalette
 
@@ -266,7 +268,7 @@ def test_fall_nur_bei_der_mehrfachauswahl(flaeche: StruktogrammCanvas) -> None:
 # -- Palette -------------------------------------------------------------
 
 
-def test_palette_zeigt_alle_acht_blockarten() -> None:
+def test_palette_zeigt_jede_blockart() -> None:
     palette = BlockPalette()
 
     arten = []
@@ -274,8 +276,9 @@ def test_palette_zeigt_alle_acht_blockarten() -> None:
         gruppe = palette.baum.topLevelItem(i)
         arten.extend(gruppe.child(j).data(0, KIND_ROLLE) for j in range(gruppe.childCount()))
 
-    assert len(arten) == 8
-    assert "foot_loop" in arten and "multi_branch" in arten
+    # Die Wurzel (`sequence`) steht bewusst nicht in den Beschriftungen:
+    # sie entsteht mit dem Struktogramm und wird nie eingefügt.
+    assert set(arten) == set(BLOCK_BESCHRIFTUNGEN)
 
 
 def test_palette_meldet_die_gewaehlte_art() -> None:
@@ -394,3 +397,128 @@ def test_struktogramm_bekommt_im_pdf_einen_druckrand(fenster: DiagrammFenster) -
 
     assert (links, oben) == (erwartet_links, erwartet_oben)
     assert links > 0 and oben > 0
+
+
+# -- Endlosschleife, Parallelabschnitt, Try-Block (Schritt 14) -----------
+
+
+def test_endlosschleife_bietet_ihren_koerper_an(flaeche: StruktogrammCanvas) -> None:
+    schleife = flaeche.block_einfuegen("forever_loop", _wurzelstelle(flaeche))
+    kasten = next(k for k in flaeche._layout.alle() if k.block is schleife)
+
+    stellen = [(s, b) for s, b in flaeche.einfuegestellen() if s.eltern is schleife]
+
+    assert len(stellen) == 1
+    assert stellen[0][1].top() >= kasten.kopf.bottom() - 0.01
+
+
+def test_parallelabschnitt_bietet_jeden_strang_an(flaeche: StruktogrammCanvas) -> None:
+    abschnitt = flaeche.block_einfuegen("parallel", _wurzelstelle(flaeche))
+
+    stellen = [s for s, _ in flaeche.einfuegestellen() if s.eltern is abschnitt]
+
+    assert {s.fall for s in stellen} == {0, 1}
+    assert {s.schluessel for s in stellen} == {"branches"}
+
+
+def test_try_block_bietet_alle_drei_abschnitte_an(flaeche: StruktogrammCanvas) -> None:
+    versuch = flaeche.block_einfuegen("try", _wurzelstelle(flaeche))
+
+    schluessel = {
+        stelle.schluessel for stelle, _ in flaeche.einfuegestellen() if stelle.eltern is versuch
+    }
+
+    assert schluessel == {"children", "catch", "finally"}
+
+
+def test_block_im_strang_landet_im_richtigen_strang(flaeche: StruktogrammCanvas) -> None:
+    abschnitt = flaeche.block_einfuegen("parallel", _wurzelstelle(flaeche))
+
+    innen = flaeche.block_einfuegen(
+        "statement", Einfuegestelle(abschnitt, "branches", 0, fall=1)
+    )
+
+    assert abschnitt["branches"] == [[], [innen]]
+
+
+def test_neue_bloecke_bleiben_im_rahmen(flaeche: StruktogrammCanvas) -> None:
+    """Das Layout darf auch mit den drei neuen Arten nirgends
+    aufbrechen (Abschnitt 13.5)."""
+    verzweigung = flaeche.block_einfuegen("branch", _wurzelstelle(flaeche))
+    abschnitt = flaeche.block_einfuegen("parallel", Einfuegestelle(verzweigung, "then", 0))
+    flaeche.block_einfuegen("statement", Einfuegestelle(abschnitt, "branches", 0, fall=0))
+    versuch = flaeche.block_einfuegen("try", Einfuegestelle(verzweigung, "else", 0))
+    flaeche.block_einfuegen("forever_loop", Einfuegestelle(versuch, "catch", 0))
+
+    wurzel = flaeche._layout_erneuern()
+    aussen = wurzel.kinder[0]
+
+    for kasten in wurzel.alle():
+        assert kasten.rechteck.left() >= aussen.rechteck.left() - 0.01
+        assert kasten.rechteck.right() <= aussen.rechteck.right() + 0.01
+        assert kasten.rechteck.bottom() <= aussen.rechteck.bottom() + 0.01
+
+
+def test_rueckgaengig_und_wiederholen_im_strang(flaeche: StruktogrammCanvas) -> None:
+    abschnitt = flaeche.block_einfuegen("parallel", _wurzelstelle(flaeche))
+    innen = flaeche.block_einfuegen(
+        "statement", Einfuegestelle(abschnitt, "branches", 0, fall=1)
+    )
+
+    flaeche.rueckgaengig()
+    assert abschnitt["branches"] == [[], []]
+
+    flaeche.wiederholen()
+    assert abschnitt["branches"][1] == [innen]
+
+
+def test_geloeschter_block_kehrt_in_seinen_abschnitt_zurueck(
+    flaeche: StruktogrammCanvas,
+) -> None:
+    versuch = flaeche.block_einfuegen("try", _wurzelstelle(flaeche))
+    innen = flaeche.block_einfuegen("statement", Einfuegestelle(versuch, "finally", 0))
+
+    flaeche.loeschen(innen)
+    assert versuch["finally"] == []
+
+    flaeche.rueckgaengig()
+    assert versuch["finally"] == [innen]
+
+
+def test_enter_haengt_auch_in_einem_strang_an(flaeche: StruktogrammCanvas) -> None:
+    """Enter braucht den Schlüssel der Liste – bei einem Strang ist das
+    `branches` samt Nummer."""
+    abschnitt = flaeche.block_einfuegen("parallel", _wurzelstelle(flaeche))
+    erster = flaeche.block_einfuegen(
+        "statement", Einfuegestelle(abschnitt, "branches", 0, fall=1)
+    )
+    flaeche.auswaehlen(erster)
+
+    flaeche.keyPressEvent(
+        QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Return, Qt.KeyboardModifier.NoModifier)
+    )
+
+    assert len(abschnitt["branches"][1]) == 2
+    assert abschnitt["branches"][0] == []
+
+
+def test_alle_blockarten_lassen_sich_zeichnen(flaeche: StruktogrammCanvas) -> None:
+    """Gezeichnet wird sonst nur im Fenster – hier einmal auf ein Bild,
+    damit jeder neue Blocktyp wirklich durch seine Malroutine läuft."""
+    for art in sorted(set(BLOCK_BESCHRIFTUNGEN) - {"sequence"}):
+        flaeche.block_einfuegen(art, _wurzelstelle(flaeche))
+
+    bild = QImage(800, 2000, QImage.Format.Format_RGB32)
+    bild.fill("#ffffff")
+    maler = QPainter(bild)
+    wurzel = struktogramm_zeichnen(maler, flaeche.diagramm.daten, stil("modern-light"))
+    maler.end()
+
+    assert len(wurzel.kinder) == len(BLOCK_BESCHRIFTUNGEN)
+    # Irgendetwas muss auf dem weißen Blatt gelandet sein.
+    farben = {
+        QImage.pixelColor(bild, x, y).name()
+        for x in range(0, 600, 5)
+        for y in range(0, 900, 5)
+    }
+    assert len(farben) > 1

@@ -144,7 +144,10 @@ def test_platzieren_landet_bei_zoom_an_der_richtigen_stelle(
 
 
 def test_texteditor_liegt_bei_zoom_ueber_seiner_form(flaeche: DiagrammCanvas) -> None:
-    form = flaeche.form_platzieren("class", 300, 300)
+    """Eine Notiz, keine Klasse: Klassen öffnen seit Schritt 12 den
+    Eigenschaften-Dialog, und dessen `exec()` käme headless nie
+    zurück."""
+    form = flaeche.form_platzieren("note", 300, 300)
     flaeche.zoom_setzen(2.0)
 
     editor = flaeche.bearbeiten_starten(form)
@@ -230,7 +233,7 @@ def test_leertaste_beim_beschriften_bleibt_ein_leerzeichen(
     flaeche: DiagrammCanvas,
 ) -> None:
     """Sonst könnte man in einem Klassennamen keine Lücke tippen."""
-    form = flaeche.form_platzieren("class", 300, 300)
+    form = flaeche.form_platzieren("note", 300, 300)
     flaeche.bearbeiten_starten(form)
 
     flaeche.keyPressEvent(

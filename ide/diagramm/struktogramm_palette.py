@@ -20,7 +20,8 @@ KIND_ROLLE = Qt.ItemDataRole.UserRole
 GRUPPEN: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Folge", ("statement", "call", "jump")),
     ("Auswahl", ("branch", "multi_branch")),
-    ("Wiederholung", ("count_loop", "head_loop", "foot_loop")),
+    ("Wiederholung", ("count_loop", "head_loop", "foot_loop", "forever_loop")),
+    ("Sonderformen", ("parallel", "try")),
 )
 
 BESCHREIBUNGEN = {
@@ -32,6 +33,9 @@ BESCHREIBUNGEN = {
     "foot_loop": "Bedingung wird nach jedem Durchlauf geprüft.",
     "call": "Aufruf eines anderen Unterprogramms.",
     "jump": "Vorzeitiges Verlassen (Abbruch, Rücksprung).",
+    "forever_loop": "Läuft ohne Bedingung, bis ein Aussprung sie verlässt.",
+    "parallel": "Mehrere Stränge, die nebenläufig gedacht sind.",
+    "try": "Versuch, Behandlung des Fehlers und Abschluss.",
 }
 
 

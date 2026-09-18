@@ -22,7 +22,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from PySide6.QtWidgets import QColorDialog, QFileDialog, QInputDialog
+from PySide6.QtWidgets import QColorDialog, QDialog, QFileDialog, QInputDialog
 
 from ide.diagramm import DiagrammFenster, diagramm_erzeugen
 
@@ -42,6 +42,12 @@ def _dialoge_stilllegen(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     monkeypatch.setattr(QInputDialog, "getText", staticmethod(lambda *a, **k: ("", False)))
     monkeypatch.setattr(QColorDialog, "getColor", staticmethod(lambda *a, **k: None))
+    # Auch eigene modale Dialoge (Quelltext erzeugen, Klassen-
+    # eigenschaften): ihr `exec()` käme headless nie zurück und der
+    # ganze Testlauf bliebe stehen - real passiert.
+    monkeypatch.setattr(
+        QDialog, "exec", lambda self: QDialog.DialogCode.Rejected.value
+    )
 
 
 def _fenster(tmp_path: Path, typ: str) -> DiagrammFenster:

@@ -7,6 +7,10 @@ läuft aber headless.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
+import jsonschema
 import pytest
 
 from ide.diagramm.bloecke import (
@@ -339,3 +343,164 @@ def test_langer_text_macht_den_block_hoeher() -> None:
     lang = struktogramm_layout(daten).kinder[0].rechteck.height()
 
     assert lang > kurz
+
+
+# -- Endlosschleife, Parallelabschnitt, Try-Block (Schritt 14) -----------
+
+
+def test_neuer_parallelabschnitt_hat_zwei_straenge() -> None:
+    """Mit nur einem Strang wäre er nichts anderes als eine Folge."""
+    daten = _mit_bloecken("parallel")
+
+    assert daten["root"]["children"][0]["branches"] == [[], []]
+
+
+def test_neuer_try_block_hat_alle_drei_abschnitte() -> None:
+    daten = _mit_bloecken("try")
+    block = daten["root"]["children"][0]
+
+    assert block["children"] == [] and block["catch"] == [] and block["finally"] == []
+
+
+def test_in_einen_strang_eingefuegt_landet_der_block_dort() -> None:
+    daten = _mit_bloecken("parallel")
+    abschnitt = daten["root"]["children"][0]
+    neu = neuer_block(daten, "statement")
+
+    einfuegen(Einfuegestelle(abschnitt, "branches", 0, fall=1), neu)
+
+    assert abschnitt["branches"] == [[], [neu]]
+
+
+def test_kinder_sammelt_auch_aus_straengen_und_abschnitten() -> None:
+    daten = _leer()
+    abschnitt = neuer_block(daten, "parallel")
+    versuch = neuer_block(daten, "try")
+    links = neuer_block(daten, "statement")
+    behandlung = neuer_block(daten, "call")
+    einfuegen(Einfuegestelle(abschnitt, "branches", 0, fall=0), links)
+    einfuegen(Einfuegestelle(versuch, "catch", 0), behandlung)
+
+    assert kinder(abschnitt) == [links]
+    assert kinder(versuch) == [behandlung]
+
+
+def test_entfernen_findet_die_stelle_in_einem_strang_wieder() -> None:
+    daten = _mit_bloecken("parallel")
+    abschnitt = daten["root"]["children"][0]
+    neu = neuer_block(daten, "statement")
+    einfuegen(Einfuegestelle(abschnitt, "branches", 0, fall=1), neu)
+
+    stelle = entfernen(daten, neu)
+
+    assert stelle is not None and (stelle.schluessel, stelle.fall) == ("branches", 1)
+    einfuegen(stelle, neu)
+    assert abschnitt["branches"][1] == [neu]
+
+
+def test_entfernen_findet_die_stelle_im_abschluss_wieder() -> None:
+    daten = _mit_bloecken("try")
+    versuch = daten["root"]["children"][0]
+    neu = neuer_block(daten, "statement")
+    einfuegen(Einfuegestelle(versuch, "finally", 0), neu)
+
+    stelle = entfernen(daten, neu)
+
+    assert stelle is not None and (stelle.schluessel, stelle.fall) == ("finally", None)
+
+
+def test_endlosschleife_hat_den_kopf_oben_wie_die_kopfgesteuerte() -> None:
+    daten = _mit_bloecken("forever_loop")
+    schleife = daten["root"]["children"][0]
+    einfuegen(Einfuegestelle(schleife, "children", 0), neuer_block(daten, "statement"))
+
+    kasten = struktogramm_layout(daten).kinder[0]
+
+    assert kasten.kopf.top() == pytest.approx(kasten.rechteck.top())
+    assert kasten.kinder[0].rechteck.left() > kasten.rechteck.left()
+
+
+def test_straenge_liegen_nebeneinander_und_enden_buendig() -> None:
+    daten = _mit_bloecken("parallel")
+    abschnitt = daten["root"]["children"][0]
+    einfuegen(Einfuegestelle(abschnitt, "branches", 0, fall=0), neuer_block(daten, "statement"))
+    for _ in range(3):
+        einfuegen(
+            Einfuegestelle(abschnitt, "branches", 0, fall=1), neuer_block(daten, "statement")
+        )
+
+    kasten = struktogramm_layout(daten).kinder[0]
+    spalten: dict[float, float] = {}
+    for kind in kasten.kinder:
+        links = round(kind.rechteck.left(), 3)
+        spalten[links] = max(spalten.get(links, 0), kind.rechteck.bottom())
+
+    assert len(spalten) == 2
+    for unterkante in spalten.values():
+        assert unterkante == pytest.approx(kasten.rechteck.bottom())
+
+
+def test_try_abschnitte_liegen_uebereinander_im_rahmen() -> None:
+    daten = _mit_bloecken("try")
+    versuch = daten["root"]["children"][0]
+    for schluessel in ("children", "catch", "finally"):
+        einfuegen(Einfuegestelle(versuch, schluessel, 0), neuer_block(daten, "statement"))
+
+    kasten = struktogramm_layout(daten).kinder[0]
+    oberkanten = [kind.rechteck.top() for kind in kasten.kinder]
+
+    assert oberkanten == sorted(oberkanten)  # Versuch, Behandlung, Abschluss
+    for kind in kasten.kinder:
+        assert kind.rechteck.left() == pytest.approx(kasten.rechteck.left())
+        assert kind.rechteck.bottom() <= kasten.rechteck.bottom() + 0.01
+
+
+def test_gewachsener_try_block_bleibt_geschlossen() -> None:
+    """Der kürzere Zweig einer Verzweigung wird nach unten gezogen –
+    beim Try-Block gehört der Platz dem untersten Abschnitt."""
+    daten = _mit_bloecken("branch")
+    verzweigung = daten["root"]["children"][0]
+    versuch = neuer_block(daten, "try")
+    einfuegen(Einfuegestelle(verzweigung, "then", 0), versuch)
+    einfuegen(Einfuegestelle(versuch, "finally", 0), neuer_block(daten, "statement"))
+    for _ in range(4):
+        einfuegen(Einfuegestelle(verzweigung, "else", 0), neuer_block(daten, "statement"))
+
+    kasten = struktogramm_layout(daten).kinder[0]
+    (try_kasten,) = [k for k in kasten.alle() if k.block is versuch]
+    abschluss = try_kasten.kinder[-1]
+
+    assert try_kasten.rechteck.bottom() == pytest.approx(kasten.rechteck.bottom())
+    assert abschluss.rechteck.bottom() == pytest.approx(try_kasten.rechteck.bottom())
+
+
+def test_gewachsene_fussschleife_behaelt_ihren_fuss_unten() -> None:
+    """Wird sie auf die Höhe der Nachbarspalte gezogen, muss der
+    Schleifenfuß mitwandern – sonst stünde die Bedingung mitten im
+    Block."""
+    daten = _mit_bloecken("branch")
+    verzweigung = daten["root"]["children"][0]
+    schleife = neuer_block(daten, "foot_loop")
+    einfuegen(Einfuegestelle(verzweigung, "then", 0), schleife)
+    einfuegen(Einfuegestelle(schleife, "children", 0), neuer_block(daten, "statement"))
+    for _ in range(4):
+        einfuegen(Einfuegestelle(verzweigung, "else", 0), neuer_block(daten, "statement"))
+
+    kasten = struktogramm_layout(daten).kinder[0]
+    (schleifenkasten,) = [k for k in kasten.alle() if k.block is schleife]
+
+    assert schleifenkasten.kopf.bottom() == pytest.approx(schleifenkasten.rechteck.bottom())
+
+
+def test_neue_blockarten_passen_ins_schema() -> None:
+    """Das `.pdiag`-Schema ist die Schnittstelle zu Laden, Speichern und
+    Export – ein Block, den es nicht kennt, wäre beim nächsten Öffnen
+    weg."""
+    schema = json.loads(
+        (Path(__file__).resolve().parent.parent / "schemas" / "pdiag.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    daten = _mit_bloecken("forever_loop", "parallel", "try")
+
+    jsonschema.validate(daten, schema)

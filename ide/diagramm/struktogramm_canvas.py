@@ -20,6 +20,7 @@ from PySide6.QtGui import QColor, QKeyEvent, QMouseEvent, QPainter, QPaintEvent,
 from PySide6.QtWidgets import QInputDialog, QWidget
 
 from ide.diagramm.bloecke import (
+    KINDERSCHLUESSEL,
     Einfuegestelle,
     alle_bloecke,
     einfuegen,
@@ -32,7 +33,9 @@ from ide.diagramm.bloecke import (
 from ide.diagramm.datei import Diagramm
 from ide.diagramm.stil import stil as stil_zu_namen
 from ide.diagramm.struktogramm import (
+    KOPFSCHLEIFEN,
     STANDARDBREITE,
+    TRY_ABSCHNITTE,
     Kasten,
     struktogramm_layout,
     struktogramm_zeichnen,
@@ -220,7 +223,28 @@ class StruktogrammCanvas(QWidget):
                             block, schluessel, block.get(schluessel) or [], bereich, kasten
                         )
                     )
-            elif art in ("sequence", "count_loop", "head_loop", "foot_loop"):
+            elif art == "parallel":
+                for nummer, (_, bereich) in enumerate(kasten.zweige):
+                    stellen.extend(
+                        self._stellen_einer_liste(
+                            block,
+                            "branches",
+                            (block.get("branches") or [])[nummer] or [],
+                            bereich,
+                            kasten,
+                            fall=nummer,
+                        )
+                    )
+            elif art == "try":
+                for (schluessel, _), (_, bereich) in zip(
+                    TRY_ABSCHNITTE, kasten.zweige, strict=False
+                ):
+                    stellen.extend(
+                        self._stellen_einer_liste(
+                            block, schluessel, block.get(schluessel) or [], bereich, kasten
+                        )
+                    )
+            elif art in ("sequence", "foot_loop", *KOPFSCHLEIFEN):
                 bereich = kasten.rechteck if art == "sequence" else _koerperbereich(kasten)
                 stellen.extend(
                     self._stellen_einer_liste(
@@ -476,10 +500,13 @@ def _koerperbereich(kasten: Kasten) -> QRectF:
 
 
 def _schluessel(eltern: dict[str, Any], liste: list) -> tuple[str, int | None]:
-    for schluessel in ("children", "then", "else"):
+    for schluessel in KINDERSCHLUESSEL:
         if eltern.get(schluessel) is liste:
             return schluessel, None
     for nummer, fall in enumerate(eltern.get("cases") or []):
         if fall.get("children") is liste:
             return "children", nummer
+    for nummer, strang in enumerate(eltern.get("branches") or []):
+        if strang is liste:
+            return "branches", nummer
     return "children", None

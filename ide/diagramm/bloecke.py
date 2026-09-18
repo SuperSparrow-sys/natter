@@ -8,8 +8,9 @@ rückgängig machbar sind.
 
 Eine **Einfügestelle** beschreibt genau eine Lücke im Baum: die Liste,
 in die eingefügt wird, und der Index darin. Weil jede Liste im Baum zu
-genau einem Block gehört (`children`, `then`, `else` oder die
-`children` eines Falls), reicht dafür (Elternblock, Schlüssel, Index).
+genau einem Block gehört (`children`, `then`, `else`, `catch`,
+`finally`, die `children` eines Falls oder ein Strang eines
+Parallelabschnitts), reicht dafür (Elternblock, Schlüssel, Index).
 """
 
 from __future__ import annotations
@@ -26,9 +27,20 @@ STANDARDTEXTE = {
     "count_loop": "für i von 1 bis n",
     "head_loop": "solange Bedingung",
     "foot_loop": "wiederhole bis Bedingung",
+    "forever_loop": "endlos",
     "call": "Unterprogramm()",
     "jump": "Abbruch",
+    "parallel": "nebenläufig",
+    # Steht im Kopf des Behandlungszweigs und wandert unverändert in das
+    # `except` der Codeerzeugung – deshalb ausnahmsweise kein deutscher
+    # Text, sondern schon gültiges Python.
+    "try": "Exception",
 }
+
+#: Schlüssel, unter denen ein Block eine einfache Kinderliste führt.
+#: `cases` (Mehrfachauswahl) und `branches` (Parallelabschnitt) fehlen
+#: hier bewusst: dort steckt je eine Liste **von** Listen.
+KINDERSCHLUESSEL: tuple[str, ...] = ("children", "then", "else", "catch", "finally")
 
 #: Blocktypen, in die sich weitere Blöcke einfügen lassen, mit den
 #: Schlüsseln ihrer Kinderlisten.
@@ -38,13 +50,17 @@ LISTEN_JE_ART: dict[str, tuple[str, ...]] = {
     "count_loop": ("children",),
     "head_loop": ("children",),
     "foot_loop": ("children",),
+    "forever_loop": ("children",),
+    "parallel": ("branches",),
+    "try": ("children", "catch", "finally"),
 }
 
 
 @dataclass(frozen=True)
 class Einfuegestelle:
     """Eine Lücke im Baum. `fall` ist bei einer Mehrfachauswahl die
-    Nummer der Spalte, sonst `None`."""
+    Nummer der Spalte und bei einem Parallelabschnitt die Nummer des
+    Strangs, sonst `None`."""
 
     eltern: dict[str, Any]
     schluessel: str
@@ -52,9 +68,14 @@ class Einfuegestelle:
     fall: int | None = None
 
     def liste(self) -> list[dict[str, Any]]:
-        if self.fall is not None:
-            return (self.eltern.get("cases") or [])[self.fall].setdefault("children", [])
-        return self.eltern.setdefault(self.schluessel, [])
+        if self.fall is None:
+            return self.eltern.setdefault(self.schluessel, [])
+        if self.schluessel == "branches":
+            straenge = self.eltern.setdefault("branches", [])
+            while len(straenge) <= self.fall:
+                straenge.append([])
+            return straenge[self.fall]
+        return (self.eltern.get("cases") or [])[self.fall].setdefault("children", [])
 
 
 def neue_id(daten: dict[str, Any]) -> str:
@@ -80,8 +101,16 @@ def neuer_block(daten: dict[str, Any], art: str) -> dict[str, Any]:
             {"label": "Fall 1", "children": []},
             {"label": "Fall 2", "children": []},
         ]
-    elif art in ("count_loop", "head_loop", "foot_loop"):
+    elif art in ("count_loop", "head_loop", "foot_loop", "forever_loop"):
         block["children"] = []
+    elif art == "parallel":
+        # Zwei Stränge, weil ein Parallelabschnitt mit einem Strang
+        # nichts anderes wäre als eine Folge.
+        block["branches"] = [[], []]
+    elif art == "try":
+        block["children"] = []
+        block["catch"] = []
+        block["finally"] = []
     return block
 
 
@@ -101,10 +130,12 @@ def alle_bloecke(daten_oder_block: dict[str, Any]) -> list[dict[str, Any]]:
 def kinder(block: dict[str, Any]) -> list[dict[str, Any]]:
     """Alle direkten Kindblöcke, egal in welcher Liste sie stehen."""
     ergebnis: list[dict[str, Any]] = []
-    for schluessel in ("children", "then", "else"):
+    for schluessel in KINDERSCHLUESSEL:
         ergebnis.extend(block.get(schluessel) or [])
     for fall in block.get("cases") or []:
         ergebnis.extend(fall.get("children") or [])
+    for strang in block.get("branches") or []:
+        ergebnis.extend(strang or [])
     return ergebnis
 
 
@@ -121,11 +152,14 @@ def elternteil(
 
 
 def _listen(block: dict[str, Any]) -> list[list[dict[str, Any]]]:
-    listen = [block[s] for s in ("children", "then", "else") if isinstance(block.get(s), list)]
+    listen = [block[s] for s in KINDERSCHLUESSEL if isinstance(block.get(s), list)]
     listen.extend(
         fall["children"]
         for fall in block.get("cases") or []
         if isinstance(fall.get("children"), list)
+    )
+    listen.extend(
+        strang for strang in block.get("branches") or [] if isinstance(strang, list)
     )
     return listen
 
@@ -152,12 +186,15 @@ def entfernen(daten: dict[str, Any], block: dict[str, Any]) -> Einfuegestelle | 
 def _schluessel_von(
     eltern: dict[str, Any], liste: list[dict[str, Any]]
 ) -> tuple[str, int | None]:
-    for schluessel in ("children", "then", "else"):
+    for schluessel in KINDERSCHLUESSEL:
         if eltern.get(schluessel) is liste:
             return schluessel, None
     for nummer, fall in enumerate(eltern.get("cases") or []):
         if fall.get("children") is liste:
             return "children", nummer
+    for nummer, strang in enumerate(eltern.get("branches") or []):
+        if strang is liste:
+            return "branches", nummer
     raise ValueError("Liste gehört nicht zu diesem Block.")
 
 

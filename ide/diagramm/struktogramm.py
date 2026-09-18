@@ -37,7 +37,29 @@ STANDARDBREITE = 560
 _SCHRIFT = "Segoe UI"
 
 #: Blocktypen, die selbst wieder Blöcke enthalten können.
-BEHAELTER = ("sequence", "branch", "multi_branch", "count_loop", "head_loop", "foot_loop")
+BEHAELTER = (
+    "sequence",
+    "branch",
+    "multi_branch",
+    "count_loop",
+    "head_loop",
+    "foot_loop",
+    "forever_loop",
+    "parallel",
+    "try",
+)
+
+#: Blocktypen mit Schleifenkopf oben – die Endlosschleife unterscheidet
+#: sich nur dadurch, dass in ihrem Kopf keine Bedingung steht.
+KOPFSCHLEIFEN = ("count_loop", "head_loop", "forever_loop")
+
+#: Die drei Abschnitte eines Try-Blocks: Datenschlüssel und Aufschrift
+#: des Bandes, das darüber steht.
+TRY_ABSCHNITTE: tuple[tuple[str, str], ...] = (
+    ("children", "Versuch"),
+    ("catch", "Behandlung"),
+    ("finally", "Abschluss"),
+)
 
 BLOCK_BESCHRIFTUNGEN = {
     "statement": "Anweisung",
@@ -46,8 +68,11 @@ BLOCK_BESCHRIFTUNGEN = {
     "count_loop": "Zählschleife",
     "head_loop": "Kopfgesteuerte Schleife",
     "foot_loop": "Fußgesteuerte Schleife",
+    "forever_loop": "Endlosschleife",
     "call": "Unterprogrammaufruf",
     "jump": "Aussprung",
+    "parallel": "Parallelabschnitt",
+    "try": "Fehlerbehandlung",
 }
 
 
@@ -130,10 +155,14 @@ def layout(block: dict[str, Any], x: float, y: float, breite: float) -> Kasten:
         return _verzweigung_layout(block, x, y, breite)
     if art == "multi_branch":
         return _mehrfachauswahl_layout(block, x, y, breite)
-    if art in ("count_loop", "head_loop"):
+    if art in KOPFSCHLEIFEN:
         return _schleife_layout(block, x, y, breite, fuss=False)
     if art == "foot_loop":
         return _schleife_layout(block, x, y, breite, fuss=True)
+    if art == "parallel":
+        return _parallel_layout(block, x, y, breite)
+    if art == "try":
+        return _try_layout(block, x, y, breite)
 
     # statement, call, jump: ein einfacher Kasten
     hoehe = max(MINDESTHOEHE, texthoehe(block.get("text", ""), breite) + 2 * INNENABSTAND)
@@ -241,6 +270,77 @@ def _schleife_layout(
     return Kasten(block, QRectF(x, y, breite, kopfhoehe + koerperhoehe), kopf, kinder)
 
 
+def _bandhoehe(beschriftung: str, breite: float) -> float:
+    """Höhe des Bandes über einem Abschnitt des Try-Blocks. Das Zeichnen
+    rechnet sie aus derselben Aufschrift noch einmal aus, statt sie im
+    Kasten mitzuschleppen."""
+    return max(
+        _zeilenhoehe() + 2 * INNENABSTAND, texthoehe(beschriftung, breite) + 2 * INNENABSTAND
+    )
+
+
+def _parallel_layout(block: dict[str, Any], x: float, y: float, breite: float) -> Kasten:
+    """Kopfband, darunter die Stränge nebeneinander – wie eine
+    Mehrfachauswahl, nur ohne Beschriftung je Spalte, weil kein Strang
+    vor dem anderen ausgewählt wird."""
+    straenge = block.get("branches") or []
+    kopfhoehe = max(MINDESTHOEHE, texthoehe(block.get("text", ""), breite) + 2 * INNENABSTAND)
+    kopf = QRectF(x, y, breite, kopfhoehe)
+    if not straenge:
+        return Kasten(block, QRectF(x, y, breite, kopfhoehe + MINDESTHOEHE), kopf)
+
+    strangbreite = breite / len(straenge)
+    spalten = [
+        _folge_layout(strang or [], x + nummer * strangbreite, y + kopfhoehe, strangbreite)
+        for nummer, strang in enumerate(straenge)
+    ]
+    inhaltshoehe = max(hoehe for _, hoehe in spalten)
+
+    kinder: list[Kasten] = []
+    zweige: list[tuple[str, QRectF]] = []
+    for nummer, (kaesten, _) in enumerate(spalten):
+        _auf_hoehe_ziehen(kaesten, inhaltshoehe)
+        kinder.extend(kaesten)
+        zweige.append(
+            ("", QRectF(x + nummer * strangbreite, y + kopfhoehe, strangbreite, inhaltshoehe))
+        )
+
+    return Kasten(
+        block, QRectF(x, y, breite, kopfhoehe + inhaltshoehe), kopf, kinder, zweige
+    )
+
+
+def _try_layout(block: dict[str, Any], x: float, y: float, breite: float) -> Kasten:
+    """Drei Abschnitte übereinander, jeder mit einem Band darüber. Der
+    Behandlungszweig trägt zusätzlich den Blocktext, weil dort steht,
+    welcher Fehler abgefangen wird."""
+    kinder: list[Kasten] = []
+    zweige: list[tuple[str, QRectF]] = []
+    kopf = QRectF(x, y, breite, MINDESTHOEHE)
+    hoehe = 0.0
+    for nummer, (schluessel, name) in enumerate(TRY_ABSCHNITTE):
+        beschriftung = _try_aufschrift(block, schluessel, name)
+        bandhoehe = _bandhoehe(beschriftung, breite)
+        if nummer == 0:
+            # Das Band des Versuchs ist der Kopf des Blocks.
+            kopf = QRectF(x, y, breite, bandhoehe)
+        kaesten, koerperhoehe = _folge_layout(
+            _kinder(block, schluessel), x, y + hoehe + bandhoehe, breite
+        )
+        kinder.extend(kaesten)
+        zweige.append((beschriftung, QRectF(x, y + hoehe, breite, bandhoehe + koerperhoehe)))
+        hoehe += bandhoehe + koerperhoehe
+
+    return Kasten(block, QRectF(x, y, breite, hoehe), kopf, kinder, zweige)
+
+
+def _try_aufschrift(block: dict[str, Any], schluessel: str, name: str) -> str:
+    if schluessel != "catch":
+        return name
+    text = str(block.get("text", "")).strip()
+    return f"{name}: {text}" if text else name
+
+
 def _auf_hoehe_ziehen(kaesten: list[Kasten], hoehe: float) -> None:
     """Der letzte Block einer Spalte wird bis zur Höhe der Nachbarspalte
     verlängert, damit unten kein Loch im Rahmen bleibt."""
@@ -257,9 +357,17 @@ def _wachsen(kasten: Kasten, zusatz: float) -> None:
     letzten seiner Kinder, damit auch verschachtelte Rahmen dicht
     bleiben."""
     kasten.rechteck.setHeight(kasten.rechteck.height() + zusatz)
-    if kasten.block.get("kind") in ("statement", "call", "jump"):
+    art = kasten.block.get("kind")
+    if art in ("statement", "call", "jump"):
         kasten.kopf = QRectF(kasten.rechteck)
         return
+    if art == "try":
+        _try_wachsen(kasten, zusatz)
+        return
+    if art == "foot_loop":
+        # Der Schleifenfuß sitzt unten und muss mitwandern, sonst stünde
+        # die Bedingung nach dem Wachsen mitten im Block.
+        kasten.kopf.translate(0, zusatz)
     if kasten.kinder:
         for spalte in _spalten(kasten):
             _wachsen(spalte[-1], zusatz)
@@ -268,6 +376,20 @@ def _wachsen(kasten: Kasten, zusatz: float) -> None:
             text,
             QRectF(rechteck.x(), rechteck.y(), rechteck.width(), rechteck.height() + zusatz),
         )
+
+
+def _try_wachsen(kasten: Kasten, zusatz: float) -> None:
+    """Beim Try-Block liegen die Abschnitte übereinander statt
+    nebeneinander: der zusätzliche Platz gehört deshalb allein dem
+    untersten Abschnitt, nicht jeder Spalte."""
+    kasten.zweige[-1] = (
+        kasten.zweige[-1][0],
+        QRectF(kasten.zweige[-1][1]).adjusted(0, 0, 0, zusatz),
+    )
+    abschluss = _kinder(kasten.block, TRY_ABSCHNITTE[-1][0])
+    letzte = [k for k in kasten.kinder if any(k.block is block for block in abschluss)]
+    if letzte:
+        _wachsen(letzte[-1], zusatz)
 
 
 def _spalten(kasten: Kasten) -> list[list[Kasten]]:
@@ -312,8 +434,12 @@ def kasten_zeichnen(
         _verzweigung_zeichnen(maler, kasten, stil)
     elif art == "multi_branch":
         _mehrfachauswahl_zeichnen(maler, kasten, stil)
-    elif art in ("count_loop", "head_loop", "foot_loop"):
+    elif art in (*KOPFSCHLEIFEN, "foot_loop"):
         _schleife_zeichnen(maler, kasten, stil)
+    elif art == "parallel":
+        _parallel_zeichnen(maler, kasten, stil)
+    elif art == "try":
+        _try_zeichnen(maler, kasten, stil)
     elif art in ("statement", "call", "jump"):
         _anweisung_zeichnen(maler, kasten, stil, art)
 
@@ -437,6 +563,47 @@ def _mehrfachauswahl_zeichnen(maler: QPainter, kasten: Kasten, stil: Stil) -> No
             QRectF(bereich.left(), bereich.top(), bereich.width(), beschriftungshoehe),
             beschriftung,
             Qt.AlignmentFlag.AlignHCenter,
+        )
+
+
+def _parallel_zeichnen(maler: QPainter, kasten: Kasten, stil: Stil) -> None:
+    """Kopfband mit doppelter Linie – die zweite Linie unterscheidet den
+    Parallelabschnitt auf einen Blick von einer Mehrfachauswahl."""
+    kopf = kasten.kopf
+    _text_zeichnen(maler, stil, kopf, kasten.block.get("text", ""), Qt.AlignmentFlag.AlignHCenter)
+    maler.setPen(_stift(stil))
+    for versatz in (0, 3):
+        maler.drawLine(
+            QPointF(kopf.left(), kopf.bottom() - versatz),
+            QPointF(kopf.right(), kopf.bottom() - versatz),
+        )
+    for nummer, (_, bereich) in enumerate(kasten.zweige):
+        if nummer == 0:
+            continue  # die linke Kante ist schon der Rahmen des Blocks
+        maler.drawLine(
+            QPointF(bereich.left(), bereich.top()),
+            QPointF(bereich.left(), bereich.bottom()),
+        )
+
+
+def _try_zeichnen(maler: QPainter, kasten: Kasten, stil: Stil) -> None:
+    """Über jedem der drei Abschnitte ein Band mit seiner Aufschrift."""
+    for beschriftung, bereich in kasten.zweige:
+        bandhoehe = _bandhoehe(beschriftung, bereich.width())
+        _text_zeichnen(
+            maler,
+            stil,
+            QRectF(bereich.left(), bereich.top(), bereich.width(), bandhoehe),
+            beschriftung,
+        )
+        maler.setPen(_stift(stil))
+        maler.drawLine(
+            QPointF(bereich.left(), bereich.top()),
+            QPointF(bereich.right(), bereich.top()),
+        )
+        maler.drawLine(
+            QPointF(bereich.left(), bereich.top() + bandhoehe),
+            QPointF(bereich.right(), bereich.top() + bandhoehe),
         )
 
 

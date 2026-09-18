@@ -31,13 +31,12 @@ def fenster(tmp_path: Path) -> DiagrammFenster:
     fenster = DiagrammFenster(diagramm_erzeugen("class", tmp_path / "ampel.pdiag", "ampel"))
     flaeche = fenster.zeichenflaeche
     ampel = flaeche.form_platzieren("class", 240, 200)
-    ampel["text"] = {
-        "name": "TAmpel",
-        "attributes": ["-zustand: int"],
-        "methods": ["+umschalten()"],
-    }
+    ampel["name"] = "TAmpel"
+    ampel["attributes"] = [{"name": "zustand", "type": "int", "visibility": "private"}]
+    ampel["operations"] = [{"name": "umschalten", "visibility": "public"}]
     lampe = flaeche.form_platzieren("class", 620, 200)
-    lampe["text"] = {"name": "TLampe", "attributes": [], "methods": ["+setzen()"]}
+    lampe["name"] = "TLampe"
+    lampe["operations"] = [{"name": "setzen", "visibility": "public"}]
     verbindung = flaeche.verbindung_erstellen("composition", ampel, lampe)
     verbindung["labels"] = {"from": "1", "to": "3"}
     flaeche.auswahl_aufheben()

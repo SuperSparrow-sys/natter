@@ -70,17 +70,17 @@ def test_loeschen_entfernt_die_form_und_die_auswahl(canvas: DiagrammCanvas) -> N
 
 def test_duplizieren_erzeugt_eine_versetzte_kopie(canvas: DiagrammCanvas) -> None:
     form = canvas.form_platzieren("class", 200, 200)
-    form["text"]["name"] = "TAmpel"
+    form["name"] = "TAmpel"
 
     kopie = canvas.duplizieren()
 
     assert kopie is not form
     assert kopie["id"] != form["id"]
-    assert kopie["text"]["name"] == "TAmpel"
+    assert kopie["name"] == "TAmpel"
     assert (kopie["x"], kopie["y"]) == (form["x"] + RASTER, form["y"] + RASTER)
     # tiefe Kopie: Ändern der Kopie lässt das Original unberührt
-    kopie["text"]["name"] = "TAnders"
-    assert form["text"]["name"] == "TAmpel"
+    kopie["name"] = "TAnders"
+    assert form["name"] == "TAmpel"
 
 
 def test_ohne_auswahl_passiert_nichts(canvas: DiagrammCanvas) -> None:
