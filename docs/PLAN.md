@@ -56,6 +56,13 @@ Vier Gruppen, absteigend nach Nutzen für den Unterricht:
 **1. M9 zu Ende bringen** (die Teilschritte, die beim Zeichnen
 tatsächlich fehlen):
 
+- **UML-Klassen über einen Eigenschaften-Dialog bearbeiten statt
+  direkt auf der Zeichenfläche** (Schritt 12, Nutzer-Entscheidung
+  September 2026 nach dem Vorbild von Dia). Das ist der größte
+  verbliebene Brocken: Attribute und Operationen werden von freien
+  Textzeilen zu strukturierten Datensätzen mit Sichtbarkeit, Typ und
+  Parameterliste, das Schema wächst entsprechend, und die vorhandenen
+  `.pdiag` müssen beim Laden umgesetzt werden
 - Mehrfachauswahl, Ausrichten/Verteilen, Kopieren/Einfügen (3b) –
   das ist der spürbarste Mangel: wer zehn Klassen gesetzt hat, kann
   sie derzeit nur einzeln anfassen
@@ -726,13 +733,14 @@ Taskleisten-Eintrag statt Dock/Tab in der IDE (Abschnitt 13.1).
 
 ## Nächster konkreter Schritt
 
-**M9, Teilschritt 3b: Mehrfachauswahl und Anordnen.** Das ist der
-spürbarste Mangel im fertigen Diagramm-Editor – wer zehn Klassen
-gesetzt hat, kann sie bislang nur einzeln anfassen. Umfang: Rahmen
-ziehen und Strg+Klick, „Alles auswählen“, Ausrichten/Verteilen/Gleiche
-Größe im Menü „Anordnen“, Vordergrund/Hintergrund, Gruppieren und
-Kopieren/Ausschneiden/Einfügen.
+**M9, Schritt 12: Eigenschaften-Dialog für UML-Klassen.** Der Nutzer
+hat im September 2026 entschieden, dass die Inhalte einer UML-Klasse
+über einen Dialog mit Reitern bearbeitet werden (Vorbild: Dia) und
+**nicht** direkt auf der Zeichenfläche. Das zieht das Datenmodell mit:
+Attribute und Operationen werden strukturiert statt frei getippt.
+Ausführlich beschrieben in
+[`docs/arbeitspakete/M9.md`](arbeitspakete/M9.md), Schritt 12.
 
-Danach 4b (Knickpunkte, verschiebbare Beschriftungen) und der Rest von
-2b (Zoom für Struktogramm und Tabelle, Lineale, Minimap), siehe
-[`docs/arbeitspakete/M9.md`](arbeitspakete/M9.md).
+Danach 3b (Mehrfachauswahl und Anordnen), 4b (Knickpunkte,
+verschiebbare Beschriftungen) und der Rest von 2b (Zoom für
+Struktogramm und Tabelle, Lineale, Minimap).
