@@ -68,6 +68,14 @@ _LAUFZEIT_PAKETE = (
     "numpy",
     "openpyxl",
     "matplotlib",
+    # M10: scikit-learn liegt bei, damit Fortgeschrittene damit arbeiten
+    # können; Natter selbst rechnet die Regression über numpy. scipy,
+    # joblib und threadpoolctl kommen als seine Abhängigkeiten mit -
+    # alle vier stehen unter BSD-3 und müssen ihren Lizenztext beilegen.
+    "scikit-learn",
+    "scipy",
+    "joblib",
+    "threadpoolctl",
 )
 
 
@@ -101,6 +109,21 @@ def _pyinstaller_bauen() -> None:
         # weiterhin dorthin zeigt.
         "--add-data",
         f"{_ICONS_ORDNER}{os.pathsep}ide/assets/icons",
+        # scikit-learn kommt sonst gar nicht mit. Nachgemessen (M10):
+        # steht es nur in pyproject.toml, zieht PyInstaller allein
+        # `scipy` hinein - weil numpy/matplotlib es über ihre Hooks
+        # finden -, und die Exe wächst um 70 MB, ohne dass `import
+        # sklearn` im gebauten Programm funktioniert. Das wäre das
+        # Schlechteste aus beiden Welten: der Platz weg, der Nutzen
+        # nicht da. Natter selbst braucht sklearn nicht (die Regression
+        # rechnet über numpy.polyfit); es liegt für Fortgeschrittene
+        # bei, so wie im Arbeitspaket M10 entschieden.
+        "--collect-all",
+        "sklearn",
+        "--collect-all",
+        "joblib",
+        "--collect-all",
+        "threadpoolctl",
         str(_HAUPTSKRIPT),
     ]
     ergebnis = subprocess.run(befehl, cwd=_PROJEKT_WURZEL)

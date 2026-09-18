@@ -190,7 +190,24 @@ def test_grid_wirkt_sofort_und_sichtbar(diagramm: Chart) -> None:
     diagramm.grid = True
 
     assert diagramm._achse.xaxis.get_gridlines()[0].get_visible()
-    assert _pixel_in(diagramm, _RAHMENFARBE) > ohne * 2
+    # Deutlich mehr Linienpixel als ohne Gitter - die Schranke liegt
+    # bei 1,5 und nicht bei 2, weil das Gitter seit der Korrektur
+    # **hinter** den Balken liegt und dort verdeckt wird.
+    assert _pixel_in(diagramm, _RAHMENFARBE) > ohne * 1.5
+
+
+def test_das_gitter_liegt_hinter_den_balken(diagramm: Chart) -> None:
+    """Fund aus der Sichtprüfung: ohne `set_axisbelow(True)` zeichnet
+    matplotlib das Gitternetz über die Daten – durch jeden Balken lief
+    eine helle senkrechte Linie, als wäre er zerschnitten.
+
+    Geprüft wird das an der **Serienfarbe**: liegt das Gitter davor,
+    frisst es Balkenpixel weg."""
+    voll = _pixel_in(diagramm, _SERIENFARBE)
+
+    diagramm.grid = True
+
+    assert _pixel_in(diagramm, _SERIENFARBE) == voll
 
 
 def test_legend_wirkt_sofort_und_sichtbar(diagramm: Chart) -> None:
@@ -313,3 +330,54 @@ def test_geschlossenes_formular_wirft_keinen_traceback(formular: _Formular) -> N
     delete(diagramm._qwidget)  # was Qt beim Schließen des Fensters tut
 
     diagramm.title = "nach dem Schließen"  # darf nichts werfen
+
+
+def test_kreisdiagramm_bekommt_keine_legende(diagramm: Chart) -> None:
+    """Fund aus der Sichtprüfung: die Stücke eines Kreisdiagramms tragen
+    ihre Beschriftung schon selbst. Mit Legende standen die Kategorien
+    doppelt da, und der Kasten deckte ein Stück samt Beschriftung zu."""
+    diagramm.legend = True
+    diagramm.add_pie_series(["Mo", "Di", "Mi"], [3, 5, 2], title="Woche")
+
+    assert diagramm._achse.get_legend() is None
+
+
+def test_ein_saeulendiagramm_bekommt_seine_legende_weiterhin(diagramm: Chart) -> None:
+    """Gegenprobe: die Regel gilt nur für den Kreis."""
+    diagramm.legend = True
+    diagramm.add_bar_series(["Mo", "Di"], [3, 5], title="Woche")
+
+    assert diagramm._achse.get_legend() is not None
+
+
+def test_langer_titel_wird_umgebrochen_statt_abgeschnitten(diagramm: Chart) -> None:
+    """Fund aus der Sichtprüfung: aus „Schuhgröße nach Körpergröße"
+    wurde in einem 320 Pixel breiten Diagramm „Schuhgröße nach
+    Körpergroes". matplotlib kürzt einen Titel nicht und macht auch
+    keinen Platz dafür – es malt ihn über den Rand hinaus, und die Figur
+    schneidet ab."""
+    diagramm.title = "Zusammenhang zwischen Körpergröße und Schuhgröße"
+
+    gesetzt = diagramm._achse.get_title()
+
+    assert "\n" in gesetzt, "der Titel steht immer noch auf einer Zeile"
+    assert gesetzt.replace("\n", " ") == diagramm.title
+    assert max(len(zeile) for zeile in gesetzt.splitlines()) < len(diagramm.title)
+
+
+def test_kurzer_titel_bleibt_einzeilig(diagramm: Chart) -> None:
+    """Ein umgebrochener Kurztitel wäre eine verschenkte Zeile."""
+    diagramm.title = "Woche"
+
+    assert diagramm._achse.get_title() == "Woche"
+
+
+def test_der_titel_passt_in_die_figur(diagramm: Chart) -> None:
+    """Die eigentliche Prüfung: nicht „es gibt einen Umbruch", sondern
+    dass der gemalte Titel wirklich innerhalb der Figur liegt."""
+    diagramm.title = "Zusammenhang zwischen Körpergröße und Schuhgröße"
+    _gerendert(diagramm)
+
+    rahmen = diagramm._achse.title.get_window_extent()
+    assert rahmen.x0 >= -1
+    assert rahmen.x1 <= diagramm._figure.bbox.x1 + 1

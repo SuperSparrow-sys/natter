@@ -6,6 +6,8 @@ Siehe konzept-natter.md, Abschnitt 5. Beispiel (Abschnitt 4.3):
     from pcl import Application, Button, Form, Shape
 """
 
+from pcl import analyse
+from pcl.analyse import Regressionsergebnis, regression
 from pcl.application import Application
 from pcl.components.additional import Image, Shape, StringGrid
 from pcl.components.chart import Chart
@@ -58,6 +60,7 @@ __all__ = [
     "MySQLConnection",
     "Prop",
     "RadioButton",
+    "Regressionsergebnis",
     "SQLQuery",
     "SQLTransaction",
     "SQLite3Connection",
@@ -65,7 +68,9 @@ __all__ = [
     "Shape",
     "Strings",
     "StringGrid",
+    "analyse",
     "input_box",
     "open_url",
+    "regression",
     "show_message",
 ]

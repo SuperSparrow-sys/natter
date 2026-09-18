@@ -246,7 +246,7 @@ M10 (Regression mit scikit-learn).
 
 Keine Ereignisse.
 
-Methoden: `add_bar_series(kategorien, werte, *, title="")`,
+Methoden zum Zeichnen: `add_bar_series(kategorien, werte, *, title="")`,
 `add_line_series(x, y, *, title="")`,
 `add_pie_series(labels, werte, *, title="")`,
 `add_scatter_series(x, y, *, title="")`,
@@ -254,6 +254,31 @@ Methoden: `add_bar_series(kategorien, werte, *, title="")`,
 `add_boxplot_series(werte, *, title="")`, `clear()`. Alle nehmen Listen
 **und** pandas-Serien entgegen – matplotlib versteht beide Formen
 direkt.
+
+Methoden zum Laden von Daten (M10):
+
+| Methode | Woher |
+|---|---|
+| `load_csv(pfad, x, y, *, sep=None, decimal=None)` | CSV-Datei; `x`/`y` als Spaltenname **oder** Spaltennummer. Trennzeichen und Dezimalkomma werden ohne Angabe selbst erkannt |
+| `load_query(verbindung, sql, *, x=None, y=None)` | Datenbankabfrage über eine `SQLite3Connection`/`MySQLConnection` aus M5 |
+| `load_grid(stringgrid, *, x=None, y=None)` | `StringGrid` desselben Formulars – der häufigste Weg im Unterricht: Daten erst als Tabelle zeigen, dann als Diagramm |
+
+Alle drei enden in **einem** `pandas.DataFrame`, abrufbar über
+`Chart.dataframe`. So gibt es intern nur einen Datenweg, und Diagramm
+wie Regression müssen nichts über die Herkunft wissen. Ohne `x`/`y`
+nehmen `load_query` und `load_grid` die ersten beiden Spalten.
+
+Regression: `add_regression(x=None, y=None, art="linear", *, grad=2)`
+legt die Gerade bzw. Kurve über die vorhandenen Punkte, schreibt die
+Formel in die Legende und **gibt das Ergebnis zurück** (siehe
+`pcl.analyse` unten). Ohne `x` und `y` rechnet sie mit den zuletzt
+geladenen Daten.
+
+Ein Kreisdiagramm bekommt **keine** Legende, auch wenn `legend` gesetzt
+ist: seine Stücke tragen ihre Beschriftung schon selbst, und ein
+Legendenkasten deckte in der Sichtprüfung ein Stück samt Beschriftung
+zu. Ein zu langer `title` wird umgebrochen statt abgeschnitten –
+matplotlib kürzt einen Titel nicht von sich aus.
 
 Das Standardformat ist mit 320x240 größer als bei allen anderen
 Komponenten; mit den 75x25 aus `Control` wäre nach dem Ablegen aus der
@@ -274,6 +299,45 @@ Diagramm mit einer Serie so aussieht wie gewohnt. Ein Diagramm färbt
 sich beim Erzeugen einmalig nach dem aktuellen Theme ein; ein späterer
 Theme-Wechsel zur Laufzeit wirkt (wie bei allen `pcl`-Komponenten)
 nicht rückwirkend.
+
+## Auswertung: `pcl.analyse`
+
+`pcl/analyse.py`. Keine Komponente, sondern eine Funktion auf
+Modulebene – das Gegenstück zu `pcl.dialogs` für die Datenauswertung
+aus M10.
+
+```python
+ergebnis = pcl.analyse.regression(groessen, schuhgroessen, art="linear")
+self.l_steigung.caption = f"Steigung: {ergebnis.steigung:.2f}"
+```
+
+| Funktion | Signatur |
+|---|---|
+| regression | `(x, y, art="linear", *, grad=2) -> Regressionsergebnis` |
+
+`art` ist `linear`, `polynomial` (mit `grad=2` oder `3`),
+`exponentiell` oder `logarithmisch`. Gerechnet wird über
+`numpy.polyfit`, **nicht** über scikit-learn: numpy ist klein, immer da
+und für diese vier Arten völlig ausreichend. scikit-learn liegt dem
+Programm trotzdem bei, damit Fortgeschrittene damit arbeiten können –
+Natter selbst hängt aber nicht davon ab.
+
+`Regressionsergebnis` ist bewusst ein kleines, lesbares Objekt statt
+der scikit-learn-API:
+
+| Feld | Bedeutung |
+|---|---|
+| steigung | linear: `m` aus `y = m·x + b`; polynomial: Koeffizient des Glieds `·x`; exponentiell: Wachstumsrate im Exponenten; logarithmisch: Faktor vor `ln(x)` |
+| achsenabschnitt | Wert bei `x = 0` |
+| bestimmtheitsmass | R², immer auf der **Originalskala** gerechnet – auch bei exponentiell und logarithmisch, sonst gehörte die Zahl zu einer anderen Kurve als der gezeichneten |
+| formel | lesbarer Text, z. B. `y = 2,31·x + 4,07` |
+| koeffizienten | alle Koeffizienten, höchste Potenz zuerst |
+| vorhersage(x) | y-Wert zu einem x oder zu einer Reihe von x-Werten |
+
+Rechenrauschen wird geglättet: `numpy.polyfit` liefert für die
+Normalparabel `1,0·x² - 1,21e-14·x + 2,37e-14`. Koeffizienten unter dem
+1e-10-fachen des größten werden auf glatt 0 gesetzt, damit in der
+Legende `y = 1,00·x²` steht.
 
 ## Dialogfunktionen
 

@@ -1,0 +1,106 @@
+{
+  "format": "pfm/1",
+  "class": "Form1",
+  "type": "Form",
+  "properties": {
+    "caption": "Körpergröße und Schuhgröße",
+    "width": 860,
+    "height": 560
+  },
+  "events": {
+    "on_create": "form_create"
+  },
+  "children": [
+    {
+      "name": "l_titel",
+      "type": "Label",
+      "properties": {
+        "left": 16,
+        "top": 12,
+        "width": 420,
+        "caption": "Hängt die Schuhgröße von der Körpergröße ab?"
+      }
+    },
+    {
+      "name": "sg_messwerte",
+      "type": "StringGrid",
+      "properties": {
+        "left": 16,
+        "top": 44,
+        "width": 300,
+        "height": 380,
+        "col_count": 2,
+        "row_count": 16
+      }
+    },
+    {
+      "name": "ch_punkte",
+      "type": "Chart",
+      "properties": {
+        "left": 332,
+        "top": 44,
+        "width": 500,
+        "height": 380,
+        "kind": "scatter",
+        "title": "Messwerte mit Regressionsgerade",
+        "x_label": "Körpergröße in cm",
+        "y_label": "Schuhgröße",
+        "legend": true,
+        "grid": true
+      }
+    },
+    {
+      "name": "b_rechnen",
+      "type": "Button",
+      "properties": {
+        "left": 16,
+        "top": 440,
+        "width": 170,
+        "caption": "Regression berechnen"
+      },
+      "events": {
+        "on_click": "b_rechnen_click"
+      }
+    },
+    {
+      "name": "l_steigung",
+      "type": "Label",
+      "properties": {
+        "left": 204,
+        "top": 446,
+        "width": 200,
+        "caption": "Steigung: –"
+      }
+    },
+    {
+      "name": "l_achsenabschnitt",
+      "type": "Label",
+      "properties": {
+        "left": 204,
+        "top": 472,
+        "width": 200,
+        "caption": "Achsenabschnitt: –"
+      }
+    },
+    {
+      "name": "l_bestimmtheit",
+      "type": "Label",
+      "properties": {
+        "left": 204,
+        "top": 498,
+        "width": 260,
+        "caption": "Bestimmtheitsmaß: –"
+      }
+    },
+    {
+      "name": "l_vorhersage",
+      "type": "Label",
+      "properties": {
+        "left": 480,
+        "top": 446,
+        "width": 340,
+        "caption": "Vorhersage für 175 cm: –"
+      }
+    }
+  ]
+}

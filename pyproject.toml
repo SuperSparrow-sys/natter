@@ -16,6 +16,12 @@ dependencies = [
     "numpy>=2.5.3",
     "openpyxl>=3.1.5",
     "matplotlib>=3.11.2",
+    # Liegt bei, damit Fortgeschrittene damit arbeiten können (M10,
+    # Abschnitt 7: „numpy rechnet, scikit-learn liegt bei"). Natter
+    # selbst hängt nicht davon ab: `pcl/analyse.py` rechnet jede
+    # Regression über `numpy.polyfit`. BSD-3 wie scipy und joblib, die
+    # es mitbringt - freizügig, also zulässig (AGENTS.md, Lizenzen).
+    "scikit-learn>=1.6",
     "pyinstaller>=6.11",
     "pip>=24.0",
     # Prüft beim Start die Signatur des Prüfsummen-Manifests

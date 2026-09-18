@@ -826,9 +826,10 @@ Ausdrücklicher Wunsch des Nutzers, gilt für jeden Schritt:
   Lineale und Minimap stehen noch aus
 - [x] **7.** M9 Struktogramm – Blöcke mit der Maus verschieben,
   Kopfzeile mit dem Namen
-- [ ] **8.** M10 – Datenquellen, Regression, Beispielprojekt, Abnahme.
-  `Chart` in der Palette und die sechs Diagrammarten im Inspektor
-  (Punkt 1 und 2) sind fertig
+- [x] **8.** M10 vollständig – `Chart` in der Palette, sechs
+  Diagrammarten, Datenquellen (CSV/SQL/StringGrid), Regression über
+  numpy, Beispielprojekt `beispielprojekte/Regression/`. Gemessen und
+  im Paket festgehalten: scikit-learn kostet die Exe 108 MB
 - [ ] **9.** M9 „Danach“ – Use-Case-, Aktivitäts-, Zustands- und
   Sequenzdiagramm samt Abnahme
 - [ ] **10.** Reste aus früheren Paketen – M3 (Klick+Klick-Platzierung),
@@ -882,5 +883,4 @@ tut, was sie verspricht.
 Siehe „Umsetzungsreihenfolge“ oben – der Lauf arbeitet die vierzehn
 Punkte der Reihe nach ab. Die Punkte 0 bis 3 sind erledigt, aus
 Punkt 8 sind M10 Punkt 1 und 2 vorgezogen und fertig. Aktuell:
-**Punkt 8**, der Rest von M10 (Datenquellen, Regression,
-Beispielprojekt).
+**Punkt 9**, die vier weiteren UML-Diagrammarten.
