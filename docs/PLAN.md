@@ -776,7 +776,7 @@ gar nicht dabei.
 ## Umsetzungsreihenfolge (autonomer Lauf ab September 2026)
 
 Der Nutzer hat entschieden: **alles aus diesem Plan, der Reihe nach.**
-Vorab geklärt wurden vier Punkte, damit der Lauf nicht unterbrochen
+Vorab geklärt wurde alles Folgende, damit der Lauf nicht unterbrochen
 werden muss:
 
 | Frage | Entscheidung |
@@ -787,6 +787,13 @@ werden muss:
 | Regression | **numpy rechnet**, scikit-learn liegt zusätzlich bei |
 | Datenquellen fürs Diagramm | **alle drei**: CSV über pandas, SQL, und `StringGrid` |
 | Histogramm und Boxplot | kommen dazu, aber zur **Auswahl**, nicht als Vorgabe |
+| Umfang von M11 | **Abschnitte 1 bis 4 vollständig**, nicht nur eine Auswahl |
+| Startbild | **wird gebraucht**, kein „nice to have“ |
+| Meldungen | **jede** Meldung bekommt einen Lösungsvorschlag |
+| Prüfungsmodus | neu: vier Stunden ohne Lösungen und ohne Quelltexterzeugung |
+| Vervollständigung | **`jedi`** – MIT-Lizenz geprüft, nichts zu kaufen, keine sichtbare Spur in der Oberfläche |
+| Bildschirmfotos | **nicht ins Repository** – Arbeitsmaterial, wird danach gelöscht |
+| Symbolstil | **filigraner, näher an Lazarus, etwas bunter** |
 
 ### Arbeitsweise in diesem Lauf
 
@@ -803,13 +810,13 @@ Ausdrücklicher Wunsch des Nutzers, gilt für jeden Schritt:
 
 ### Reihenfolge
 
-- [ ] **0.** `input()` in `beispielprojekte/CrtDemo/main.py` prüfen,
+- [x] **0.** `input()` in `beispielprojekte/CrtDemo/main.py` prüfen,
   gegebenenfalls korrigieren und committen (bricht derzeit drei Tests)
-- [ ] **1.** M9 Schritt 12 – Eigenschaften-Dialog für UML-Klassen
+- [x] **1.** M9 Schritt 12 – Eigenschaften-Dialog für UML-Klassen
   (Datenmodell, fünf Reiter, Darstellung, Migration der vorhandenen
   `.pdiag`)
-- [ ] **2.** M9 Schritt 13 – Klasse als Python-Quelltext ausgeben
-- [ ] **3.** M9 Schritt 14 – Struktogramm als Quelltext ausgeben,
+- [x] **2.** M9 Schritt 13 – Klasse als Python-Quelltext ausgeben
+- [x] **3.** M9 Schritt 14 – Struktogramm als Quelltext ausgeben,
   **einschließlich** der drei neuen Blocktypen
 - [ ] **4.** M9 Teilschritt 3b – Mehrfachauswahl, Ausrichten/Verteilen,
   Kopieren/Einfügen, Gruppieren, Zeichenreihenfolge
@@ -819,8 +826,9 @@ Ausdrücklicher Wunsch des Nutzers, gilt für jeden Schritt:
   Lineale, Minimap
 - [ ] **7.** M9 Struktogramm – Blöcke mit der Maus verschieben,
   Kopfzeile mit dem Namen
-- [ ] **8.** M10 komplett – `Chart` in die Palette, Diagrammarten im
-  Inspektor, Datenquellen, Regression, Beispielprojekt, Abnahme
+- [ ] **8.** M10 – Datenquellen, Regression, Beispielprojekt, Abnahme.
+  `Chart` in der Palette und die sechs Diagrammarten im Inspektor
+  (Punkt 1 und 2) sind fertig
 - [ ] **9.** M9 „Danach“ – Use-Case-, Aktivitäts-, Zustands- und
   Sequenzdiagramm samt Abnahme
 - [ ] **10.** Reste aus früheren Paketen – M3 (Klick+Klick-Platzierung),
@@ -830,7 +838,11 @@ Ausdrücklicher Wunsch des Nutzers, gilt für jeden Schritt:
   kleinen offenen Punkte aus M0 und dem Referenzmaterial
 - [ ] **12.** M11 – Schülertauglichkeit: Funktionsprüfung mit
   Bildschirmfotos, Einrückungslinien, Symbole, Vervollständigung,
-  Nutzerfreundlichkeit
+  Startbild, Meldungen mit Lösungsvorschlag, Nutzerfreundlichkeit
+- [ ] **13.** M11 Abschnitt 6 – **Prüfungsmodus**: vier Stunden ohne
+  Lösungsvorschläge und ohne Quelltexterzeugung aus Klassendiagramm
+  und Struktogramm. Hängt an Punkt 12, weil er genau das wieder
+  ausblendet, was dort eingebaut wird
 
 Zurückgestellt bleiben bewusst: Update-Mechanismus und
 CI/Release-Automatisierung (M8), ER-Diagramm, Syntaxdiagramm und
@@ -838,7 +850,7 @@ CI/Release-Automatisierung (M8), ER-Diagramm, Syntaxdiagramm und
 zurückgestellt begründet.
 
 
-## M11 – Schülertauglichkeit: Editor, Symbole, Funktionsprüfung
+## M11 – Schülertauglichkeit und Prüfungsmodus
 
 Kleinteilig aufgeschlüsselt in
 [`docs/arbeitspakete/M11.md`](arbeitspakete/M11.md). Neu aufgenommen
@@ -860,9 +872,14 @@ tut, was sie verspricht.
 - [ ] Nutzerfreundlichkeit: Startbild, deutsche Meldungen mit
   Lösungsvorschlag, Tastenkürzel-Übersicht, Prüfung auf einem
   1366×768-Schulrechner
+- [ ] **Prüfungsmodus:** vier Stunden lang keine Lösungsvorschläge
+  und keine Quelltexterzeugung aus Klassendiagramm und
+  Struktogramm. Übersteht einen Neustart von Natter und läuft von
+  selbst aus
 
 ## Nächster konkreter Schritt
 
-Siehe „Umsetzungsreihenfolge“ oben – der Lauf arbeitet die elf Punkte
-der Reihe nach ab. Aktuell: **Punkt 0**, das `input()` in
-`beispielprojekte/CrtDemo/main.py`.
+Siehe „Umsetzungsreihenfolge“ oben – der Lauf arbeitet die vierzehn
+Punkte der Reihe nach ab. Die Punkte 0 bis 3 sind erledigt, aus
+Punkt 8 sind M10 Punkt 1 und 2 vorgezogen und fertig. Aktuell:
+**Punkt 4**, Mehrfachauswahl und Anordnen im Diagramm-Editor.
