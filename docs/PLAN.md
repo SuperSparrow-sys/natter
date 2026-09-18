@@ -828,12 +828,38 @@ Ausdrücklicher Wunsch des Nutzers, gilt für jeden Schritt:
   anzeigen“, Drag & Drop), M8 (Pascal-Rümpfe, Bild-Extraktion)
 - [ ] **11.** Restliche `pcl`-Komponenten aus M1 Schritt 6 sowie die
   kleinen offenen Punkte aus M0 und dem Referenzmaterial
+- [ ] **12.** M11 – Schülertauglichkeit: Funktionsprüfung mit
+  Bildschirmfotos, Einrückungslinien, Symbole, Vervollständigung,
+  Nutzerfreundlichkeit
 
 Zurückgestellt bleiben bewusst: Update-Mechanismus und
 CI/Release-Automatisierung (M8), ER-Diagramm, Syntaxdiagramm und
 `.dia`-Import (M9) – alle vier sind im jeweiligen Paket als
 zurückgestellt begründet.
 
+
+## M11 – Schülertauglichkeit: Editor, Symbole, Funktionsprüfung
+
+Kleinteilig aufgeschlüsselt in
+[`docs/arbeitspakete/M11.md`](arbeitspakete/M11.md). Neu aufgenommen
+auf Nutzer-Wunsch September 2026.
+
+Bis M10 ging es darum, dass Natter **alles kann**, was der Unterricht
+braucht. Hier geht es darum, dass es sich für Schülerinnen und Schüler
+auch **gut anfühlt** – und dass jede einzelne Funktion nachweislich
+tut, was sie verspricht.
+
+- [ ] Symbole neu gestalten: einheitliches Raster, `currentColor` statt
+  fest eingetragener Farbe, Symbole für den Diagramm-Editor (der hat
+  bisher gar keine)
+- [ ] Quelltexteditor: Einrückung sichtbar machen, Vervollständigung
+  nach den ersten Buchstaben, Fehler direkt im Text unterringeln
+- [ ] Funktionsprüfung **jeder** bedienbaren Stelle, mit Bildschirmfoto
+  – Menüeinträge, Knöpfe, Dialoge, jede Komponente samt ihren
+  Eigenschaften
+- [ ] Nutzerfreundlichkeit: Startbild, deutsche Meldungen mit
+  Lösungsvorschlag, Tastenkürzel-Übersicht, Prüfung auf einem
+  1366×768-Schulrechner
 
 ## Nächster konkreter Schritt
 
