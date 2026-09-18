@@ -51,3 +51,11 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
+markers = [
+    # Der erste QPrinter eines Prozesses laesst Windows alle Drucker samt
+    # Treibern durchsuchen; mit einem nicht erreichbaren Netzwerkdrucker
+    # dauert das real gemessen fast eine Minute. Der Test laeuft normal
+    # mit - wer beim Entwickeln schnell durchlaufen will, nimmt
+    # `-m "not drucker"`.
+    "drucker: braucht das Drucksystem von Windows und ist deshalb langsam",
+]

@@ -19,8 +19,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QSettings, Qt
-from PySide6.QtGui import QActionGroup
+from PySide6.QtGui import QActionGroup, QPageLayout, QPainter
+from PySide6.QtPrintSupport import QPrinter, QPrintPreviewDialog
 from PySide6.QtWidgets import (
+    QApplication,
     QDockWidget,
     QFileDialog,
     QMainWindow,
@@ -32,6 +34,14 @@ from ide.assets import symbol
 from ide.diagramm.canvas import DiagrammCanvas
 from ide.diagramm.datei import Diagramm
 from ide.diagramm.eigenschaften import EigenschaftenPanel
+from ide.diagramm.export import (
+    als_pdf,
+    als_png,
+    als_svg,
+    auf_seite_zeichnen,
+    in_zwischenablage,
+)
+from ide.diagramm.exportdialog import PngDialog, PngEinstellungen
 from ide.diagramm.formen import formen_fuer
 from ide.diagramm.kommandos import WerteKommando
 from ide.diagramm.palette import FormenPalette
@@ -44,14 +54,15 @@ _MENUES: dict[str, tuple[tuple[str, bool], ...]] = {
     "Datei": (
         ("Speichern", True),
         ("Speichern unter …", True),
-        ("Exportieren …", False),
-        ("Drucken …", False),
+        ("Exportieren …", True),
+        ("Drucken …", True),
         ("Schließen", True),
     ),
     "Bearbeiten": (
         ("Rückgängig", True),
         ("Wiederholen", True),
         ("Ausschneiden", False),
+        ("Als Bild kopieren", True),
         ("Kopieren", False),
         ("Einfügen", False),
         ("Duplizieren", True),
@@ -92,6 +103,7 @@ class DiagrammFenster(QMainWindow):
         super().__init__()
         self.diagramm = diagramm
         self._geaendert = False
+        self._drucker: QPrinter | None = None
         self.setWindowIcon(symbol("app"))
         self._titel_setzen()
 
@@ -202,7 +214,12 @@ class DiagrammFenster(QMainWindow):
 
         self.aktionen["Datei/Speichern"].triggered.connect(self.speichern)
         self.aktionen["Datei/Speichern unter …"].triggered.connect(self.speichern_unter)
+        self.aktionen["Datei/Exportieren …"].triggered.connect(self.exportieren)
+        self.aktionen["Datei/Drucken …"].triggered.connect(self.drucken)
         self.aktionen["Datei/Schließen"].triggered.connect(self.close)
+        self.aktionen["Bearbeiten/Als Bild kopieren"].triggered.connect(
+            self.als_bild_kopieren
+        )
 
         # Tastenkürzel doppelt zur Zeichenfläche: dort greifen sie nur
         # bei Fokus auf der Fläche, über das Menü immer im Fenster.
@@ -336,3 +353,100 @@ class DiagrammFenster(QMainWindow):
         self._geaendert = False
         self._titel_setzen()
         return self.diagramm.pfad
+
+    # -- Export und Drucken ---------------------------------------------
+
+    def exportieren(
+        self, pfad: Path | None = None, png: PngEinstellungen | None = None
+    ) -> Path | None:
+        """„Datei → Exportieren …“ (Abschnitt 13.2). Das Format ergibt
+        sich aus der gewählten Endung – ein Dialog weniger als eine
+        eigene Formatauswahl. Nur bei PNG folgt eine Rückfrage nach
+        Auflösung und Hintergrund; SVG und PDF sind auflösungsfrei. In
+        Tests werden Pfad und Einstellungen direkt übergeben."""
+        gefragt = pfad is not None
+        if pfad is None:
+            gewaehlt, _ = QFileDialog.getSaveFileName(
+                self,
+                "Diagramm exportieren",
+                str(self.diagramm.pfad.with_suffix(".png")),
+                "Bild (*.png);;Vektorgrafik (*.svg);;PDF (*.pdf)",
+            )
+            if not gewaehlt:
+                return None
+            pfad = Path(gewaehlt)
+
+        pfad = Path(pfad)
+        endung = pfad.suffix.lower()
+        if endung not in (".png", ".svg", ".pdf"):
+            self.statusBar().showMessage(
+                f"Unbekanntes Exportformat „{pfad.suffix}“ – bitte .png, .svg oder .pdf.",
+                5000,
+            )
+            return None
+
+        if endung == ".png":
+            if png is None and not gefragt:
+                dialog = PngDialog(self)
+                if dialog.exec() != PngDialog.DialogCode.Accepted:
+                    return None
+                png = dialog.einstellungen()
+            png = png or PngEinstellungen()
+            als_png(self.diagramm.daten, pfad, png.skalierung, png.transparent)
+        elif endung == ".svg":
+            als_svg(self.diagramm.daten, pfad)
+        else:
+            als_pdf(self.diagramm.daten, pfad)
+
+        self.statusBar().showMessage(f"Exportiert nach {pfad.name}", 3000)
+        return pfad
+
+    def als_bild_kopieren(self) -> None:
+        """Diagramm in die Zwischenablage, zum Einfügen in Word o. Ä.
+        (Abschnitt 13.2)."""
+        in_zwischenablage(self.diagramm.daten)
+        self.statusBar().showMessage("Diagramm in die Zwischenablage kopiert.", 3000)
+
+    def drucken(self, drucker: QPrinter | None = None) -> None:
+        """„Datei → Drucken …“ mit Seitenvorschau (Abschnitt 13.2). Der
+        Vorschaudialog zeichnet über denselben Rückruf wie der echte
+        Druck, es kann also nichts auseinanderlaufen."""
+        if drucker is None:
+            vorschau = QPrintPreviewDialog(self._drucker_vorbereiten(), self)
+            vorschau.setWindowTitle(f"Druckvorschau – {self.diagramm.pfad.name}")
+            vorschau.paintRequested.connect(self._auf_drucker_zeichnen)
+            vorschau.exec()
+            return
+        self._auf_drucker_zeichnen(drucker)
+
+    def _drucker_vorbereiten(self) -> QPrinter:
+        """Der **erste** `QPrinter` eines Prozesses lässt Windows alle
+        Drucker samt Treibern durchsuchen; mit einem nicht erreichbaren
+        Netzwerkdrucker dauert das real gemessen fast eine Minute, in
+        der die Oberfläche steht. Deshalb: Sanduhr und eine Meldung,
+        damit niemand denkt, Natter sei abgestürzt – und den fertigen
+        Drucker merken, sodass jeder weitere Aufruf sofort kommt."""
+        if getattr(self, "_drucker", None) is None:
+            self.statusBar().showMessage("Drucker werden gesucht …")
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+            QApplication.processEvents()
+            try:
+                self._drucker = QPrinter(QPrinter.PrinterMode.HighResolution)
+            finally:
+                QApplication.restoreOverrideCursor()
+                self.statusBar().clearMessage()
+                self._statusleiste_aktualisieren()
+
+        seite = self.diagramm.daten.get("page") or {}
+        self._drucker.setPageOrientation(
+            QPageLayout.Orientation.Landscape
+            if seite.get("orientation") == "landscape"
+            else QPageLayout.Orientation.Portrait
+        )
+        return self._drucker
+
+    def _auf_drucker_zeichnen(self, drucker: QPrinter) -> None:
+        maler = QPainter(drucker)
+        bereich = drucker.pageRect(QPrinter.Unit.DevicePixel)
+        auf_seite_zeichnen(maler, self.diagramm.daten, bereich.width(), bereich.height())
+        maler.end()
