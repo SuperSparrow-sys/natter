@@ -163,7 +163,18 @@ class EigenschaftenPanel(QWidget):
             beschriftung.setVisible(sichtbar)
 
     def _formtitel(self, form: dict[str, Any]) -> str:
+        """Überschrift über den Feldern.
+
+        Bei Mehrfachauswahl steht die Anzahl dabei: die Felder zeigen
+        immer nur die **führende** Form, und eine Eingabe wirkt auch nur
+        auf sie. Ohne diesen Zusatz sähe es so aus, als gälte „Breite"
+        für alle drei ausgewählten Klassen (in der Sichtprüfung zu
+        Teilschritt 3b aufgefallen).
+        """
         name = formname(form) or form["kind"]
+        weitere = len(getattr(self.canvas, "auswahl", ())) - 1
+        if weitere > 0:
+            return f"Form: {name}  (und {weitere} weitere ausgewählt)"
         return f"Form: {name}"
 
     # -- Ändern ---------------------------------------------------------

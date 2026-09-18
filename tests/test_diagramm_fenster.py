@@ -47,9 +47,13 @@ def test_noch_nicht_umgesetzte_eintraege_sind_ausgegraut(tmp_path: Path) -> None
 
     assert fenster.aktionen["Datei/Speichern"].isEnabled() is True
     assert fenster.aktionen["Bearbeiten/Rückgängig"].isEnabled() is True
-    assert fenster.aktionen["Anordnen/Gruppieren"].isEnabled() is False
-    assert fenster.aktionen["Bearbeiten/Kopieren"].isEnabled() is False
+    # Gruppieren und Kopieren können seit Teilschritt 3b wirklich etwas
+    # und sind deshalb aktiv; ausgegraut bleibt, was noch fehlt.
+    assert fenster.aktionen["Anordnen/Gruppieren"].isEnabled() is True
+    assert fenster.aktionen["Bearbeiten/Kopieren"].isEnabled() is True
     assert fenster.aktionen["Ansicht/Minimap"].isEnabled() is False
+    assert fenster.aktionen["Ansicht/Lineale"].isEnabled() is False
+    assert fenster.aktionen["Format/Füllung …"].isEnabled() is False
 
 
 def test_bearbeiten_menue_wirkt_auf_die_zeichenflaeche(tmp_path: Path) -> None:

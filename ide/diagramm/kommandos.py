@@ -88,3 +88,26 @@ class SammelKommando:
     def rueckgaengig(self) -> None:
         for kommando in reversed(self.kommandos):
             kommando.rueckgaengig()
+
+
+class ReihenfolgeKommando:
+    """Ändert die Zeichenreihenfolge (Vordergrund/Hintergrund).
+
+    Merkt sich die **ganze** alte Liste statt einzelner Stellen: wer
+    drei Formen auf einmal nach vorn holt, verschiebt damit auch alle
+    dazwischenliegenden, und die müssten sonst einzeln nachgehalten
+    werden.
+    """
+
+    def __init__(
+        self, formen: list[dict[str, Any]], neue_reihenfolge: list[dict[str, Any]]
+    ) -> None:
+        self.formen = formen
+        self._neu = list(neue_reihenfolge)
+        self._alt = list(formen)
+
+    def tun(self) -> None:
+        self.formen[:] = self._neu
+
+    def rueckgaengig(self) -> None:
+        self.formen[:] = self._alt

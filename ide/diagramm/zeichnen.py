@@ -172,10 +172,21 @@ def klassen_bereiche(shape: dict[str, Any]) -> dict[str, QRectF]:
 
 
 def form_zeichnen(
-    maler: QPainter, shape: dict[str, Any], stil: Stil, ausgewaehlt: bool = False
+    maler: QPainter,
+    shape: dict[str, Any],
+    stil: Stil,
+    ausgewaehlt: bool = False,
+    mit_anfassern: bool = True,
 ) -> None:
     """Malt `shape` in seiner UML-Darstellung. `ausgewaehlt` zeichnet
-    zusätzlich den Auswahlrahmen in der Akzentfarbe (Abschnitt 13.6)."""
+    zusätzlich den Auswahlrahmen in der Akzentfarbe (Abschnitt 13.6).
+
+    `mit_anfassern=False` ist der Fall der Mehrfachauswahl: alle
+    ausgewählten Formen bekommen den Rahmen, aber nur die führende die
+    Anfasser – sonst sähe es aus, als ließen sich alle gleichzeitig in
+    der Größe ändern, und man wüsste nicht, an welcher Form sich
+    „Ausrichten“ orientiert.
+    """
     maler.setRenderHint(QPainter.RenderHint.Antialiasing, True)
     maler.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
 
@@ -195,7 +206,7 @@ def form_zeichnen(
         maler.drawRect(form_rechteck(shape))
 
     if ausgewaehlt:
-        _auswahl_zeichnen(maler, shape, stil)
+        _auswahl_zeichnen(maler, shape, stil, mit_anfassern)
 
 
 def _klasse_zeichnen(maler: QPainter, shape: dict, stil: Stil, kind: str) -> None:
@@ -333,17 +344,24 @@ def _paket_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
     )
 
 
-def _auswahl_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
+def _auswahl_zeichnen(
+    maler: QPainter, shape: dict, stil: Stil, mit_anfassern: bool = True
+) -> None:
     """Auswahlrahmen plus runde Anfasser in der Akzentfarbe
-    (Abschnitt 13.6). Die Anfasser sind hier nur sichtbar; sie werden in
-    Schritt 3 auch ziehbar."""
+    (Abschnitt 13.6)."""
     rechteck = form_rechteck(shape)
     stift = QPen(QColor(stil.akzent))
     stift.setWidthF(LINIENBREITE)
+    if not mit_anfassern:
+        # Mitausgewählt, aber nicht führend: gestrichelt, damit man auf
+        # einen Blick sieht, welche Form den Ton angibt.
+        stift.setStyle(Qt.PenStyle.DashLine)
     maler.setPen(stift)
     maler.setBrush(Qt.BrushStyle.NoBrush)
     maler.drawRect(rechteck.adjusted(-2, -2, 2, 2))
 
+    if not mit_anfassern:
+        return
     maler.setBrush(QBrush(QColor(stil.akzent)))
     for x, y in anfasser_punkte(shape):
         maler.drawEllipse(QRectF(x - 3.5, y - 3.5, 7, 7))

@@ -19,11 +19,13 @@ Hilfslinien als Rückmeldung.
 
 from __future__ import annotations
 
+import copy
+import json
 from typing import Any
 
-from PySide6.QtCore import QPoint, Qt, Signal
+from PySide6.QtCore import QPoint, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QKeyEvent, QMouseEvent, QPainter, QPaintEvent, QPen
-from PySide6.QtWidgets import QScrollArea, QWidget
+from PySide6.QtWidgets import QApplication, QScrollArea, QWidget
 
 from ide.diagramm.datei import Diagramm
 from ide.diagramm.formen import MINDESTGROESSE, form_art, verbindungs_art
@@ -32,6 +34,7 @@ from ide.diagramm.klassendialog import KlassenDialog
 from ide.diagramm.kommandos import (
     EinfuegenKommando,
     LoeschenKommando,
+    ReihenfolgeKommando,
     SammelKommando,
     WerteKommando,
 )
@@ -103,7 +106,12 @@ class DiagrammCanvas(QWidget):
         super().__init__()
         self.diagramm = diagramm
         self.kommandos = Kommandostapel()
-        self.ausgewaehlte_form: dict[str, Any] | None = None
+        #: Die Auswahl ist eine **Liste** (Teilschritt 3b). Die letzte
+        #: Form darin ist die führende: an ihr richtet sich „Ausrichten“
+        #: aus, und nur sie bekommt Anfasser. `ausgewaehlte_form` liefert
+        #: genau diese - so bleibt aller Code gültig, der nur eine Form
+        #: kennt.
+        self._auswahl: list[dict[str, Any]] = []
         self.zoom = 1.0
         self.raster_sichtbar = True
         #: Layout-Hinweise (Schritt 7) sind wie der Design-Prüfer (M7)
@@ -117,10 +125,14 @@ class DiagrammCanvas(QWidget):
         self._verbindungs_kind: str | None = None
         self._verbindungs_quelle: dict[str, Any] | None = None
         self._zieh_form: dict[str, Any] | None = None
+        self._zieh_formen: list[dict[str, Any]] = []
+        self._zieh_startwerte_alle: list[dict[str, Any]] = []
         self._zieh_start: QPoint | None = None
         self._zieh_startwerte: dict[str, Any] | None = None
         self._anfasser: str | None = None
         self._hilfslinien: list[tuple[str, float]] = []
+        #: Auswahlrahmen (von-Punkt, Bis-Punkt) während des Aufziehens
+        self._rahmen: tuple[QPoint, QPoint] | None = None
         self._editor: FormEditor | None = None
         #: Ansicht verschieben (Leertaste gedrückt bzw. mittlere Taste)
         self._leertaste = False
@@ -194,6 +206,49 @@ class DiagrammCanvas(QWidget):
         senkrecht = rollbereich.verticalScrollBar()
         waagerecht.setValue(waagerecht.value() - dx)
         senkrecht.setValue(senkrecht.value() - dy)
+
+    def zur_auswahl_rollen(self) -> None:
+        """Rollt so weit, dass die Auswahl zu sehen ist.
+
+        Ohne das wirkt „Ausrichten" wie ein Verschwinden: richtet man an
+        einer weit rechts liegenden Klasse aus, wandern alle anderen
+        aus dem sichtbaren Ausschnitt heraus, und die Fläche sieht leer
+        aus (in der Sichtprüfung zu Teilschritt 3b genau so
+        passiert).
+        """
+        rollbereich = self.rollbereich()
+        if rollbereich is None or not self._auswahl:
+            return
+        umfassend = form_rechteck(self._auswahl[0])
+        for form in self._auswahl[1:]:
+            umfassend = umfassend.united(form_rechteck(form))
+
+        sichtbar = rollbereich.viewport().rect()
+        waagerecht = rollbereich.horizontalScrollBar()
+        senkrecht = rollbereich.verticalScrollBar()
+        self._balken_nachfuehren(
+            waagerecht,
+            umfassend.left() * self.zoom,
+            umfassend.right() * self.zoom,
+            sichtbar.width(),
+        )
+        self._balken_nachfuehren(
+            senkrecht,
+            umfassend.top() * self.zoom,
+            umfassend.bottom() * self.zoom,
+            sichtbar.height(),
+        )
+
+    @staticmethod
+    def _balken_nachfuehren(balken, von: float, bis: float, breite: int) -> None:
+        """Rollt nur so weit wie nötig. Die Auswahl in die Mitte zu
+        rücken würde die Ansicht auch dann verspringen lassen, wenn
+        ohnehin schon alles zu sehen ist."""
+        rand = 16
+        if von - rand < balken.value():
+            balken.setValue(int(von - rand))
+        elif bis + rand > balken.value() + breite:
+            balken.setValue(int(bis + rand - breite))
 
     def _greifen_beginnen(self, punkt: QPoint) -> None:
         self._greif_start = punkt
@@ -393,13 +448,17 @@ class DiagrammCanvas(QWidget):
     # -- Bearbeiten -----------------------------------------------------
 
     def verschieben(self, dx: int, dy: int, form: dict[str, Any] | None = None) -> None:
-        ziel = form or self.ausgewaehlte_form
-        if ziel is None:
+        """Verschiebt die angegebene Form oder die **ganze** Auswahl –
+        letzteres als ein einziger Undo-Schritt."""
+        ziele = [form] if form is not None else list(self._auswahl)
+        if not ziele:
             return
-        self.kommandos.ausfuehren(
-            WerteKommando(ziel, {"x": ziel["x"] + dx, "y": ziel["y"] + dy})
+        self._sammeln(
+            [
+                WerteKommando(ziel, {"x": ziel["x"] + dx, "y": ziel["y"] + dy})
+                for ziel in ziele
+            ]
         )
-        self._nach_aenderung()
 
     def groesse_aendern(self, dw: int, dh: int, form: dict[str, Any] | None = None) -> None:
         ziel = form or self.ausgewaehlte_form
@@ -423,8 +482,8 @@ class DiagrammCanvas(QWidget):
         allen Verbindungen, die an ihr hängen, als **ein** Undo-Schritt.
         Ohne ausgewählte Form wird eine ausgewählte Verbindung
         gelöscht."""
-        ziel = form or self.ausgewaehlte_form
-        if ziel is None:
+        ziele = [form] if form is not None else list(self._auswahl)
+        if not ziele:
             if self.ausgewaehlte_verbindung is not None:
                 self.kommandos.ausfuehren(
                     LoeschenKommando(self.verbindungen, self.ausgewaehlte_verbindung)
@@ -433,23 +492,29 @@ class DiagrammCanvas(QWidget):
                 self._nach_aenderung()
             return
 
-        kommandos = [
-            LoeschenKommando(self.verbindungen, verbindung)
-            for verbindung in self.verbindungen_von(ziel)
-        ]
-        kommandos.append(LoeschenKommando(self.formen, ziel))
+        # Erst alle Verbindungen, dann alle Formen - und jede Verbindung
+        # nur einmal, sonst stolpert das Rueckgaengig ueber sich selbst,
+        # wenn beide Enden mitgeloescht werden.
+        kommandos = []
+        gesehen: list[dict[str, Any]] = []
+        for ziel in ziele:
+            for verbindung in self.verbindungen_von(ziel):
+                if not any(v is verbindung for v in gesehen):
+                    gesehen.append(verbindung)
+                    kommandos.append(LoeschenKommando(self.verbindungen, verbindung))
+        kommandos.extend(LoeschenKommando(self.formen, ziel) for ziel in ziele)
         self.kommandos.ausfuehren(SammelKommando(kommandos))
 
-        if self.ausgewaehlte_form is ziel:
-            self.ausgewaehlte_form = None
-            self.auswahl_geaendert.emit(None)
+        self._auswahl = [
+            uebrig for uebrig in self._auswahl if not any(z is uebrig for z in ziele)
+        ]
+        self.auswahl_geaendert.emit(self.ausgewaehlte_form)
         self._nach_aenderung()
 
     def duplizieren(self, form: dict[str, Any] | None = None) -> dict[str, Any] | None:
         ziel = form or self.ausgewaehlte_form
         if ziel is None:
             return None
-        import copy
 
         kopie = copy.deepcopy(ziel)
         kopie["id"] = self._neue_id()
@@ -476,11 +541,12 @@ class DiagrammCanvas(QWidget):
         self._nach_aenderung()
 
     def _auswahl_bereinigen(self) -> None:
-        """Nach Undo/Redo kann die ausgewählte Form nicht mehr im
-        Diagramm sein – dann gilt nichts mehr als ausgewählt."""
-        if self.ausgewaehlte_form is not None and self.ausgewaehlte_form not in self.formen:
-            self.ausgewaehlte_form = None
-            self.auswahl_geaendert.emit(None)
+        """Nach Undo/Redo können ausgewählte Formen nicht mehr im
+        Diagramm sein – die fallen aus der Auswahl heraus."""
+        uebrig = [form for form in self._auswahl if any(f is form for f in self.formen)]
+        if len(uebrig) != len(self._auswahl):
+            self._auswahl = uebrig
+            self.auswahl_geaendert.emit(self.ausgewaehlte_form)
 
     # -- Auswahl --------------------------------------------------------
 
@@ -502,20 +568,80 @@ class DiagrammCanvas(QWidget):
                 return name
         return None
 
-    def _auswaehlen(self, form: dict[str, Any] | None) -> None:
-        if form is not None:
+    @property
+    def ausgewaehlte_form(self) -> dict[str, Any] | None:
+        """Die **führende** Form der Auswahl – bei Mehrfachauswahl die
+        zuletzt angeklickte."""
+        return self._auswahl[-1] if self._auswahl else None
+
+    @ausgewaehlte_form.setter
+    def ausgewaehlte_form(self, form: dict[str, Any] | None) -> None:
+        self._auswahl = [form] if form is not None else []
+
+    @property
+    def auswahl(self) -> tuple[dict[str, Any], ...]:
+        """Alle ausgewählten Formen, führende zuletzt."""
+        return tuple(self._auswahl)
+
+    @staticmethod
+    def _gleiche_auswahl(
+        eine: list[dict[str, Any]], andere: list[dict[str, Any]]
+    ) -> bool:
+        """Vergleich über Identität, nicht über `==`. Zwei Formen mit
+        gleichem Inhalt sind als `dict` gleich, aber trotzdem zwei
+        verschiedene Formen im Diagramm."""
+        return len(eine) == len(andere) and all(
+            a is b for a, b in zip(eine, andere, strict=True)
+        )
+
+    def _auswahl_setzen(self, formen: list[dict[str, Any]]) -> None:
+        if formen:
             # Form und Verbindung schließen sich als Auswahl gegenseitig aus
             self.ausgewaehlte_verbindung = None
-        if form is self.ausgewaehlte_form:
+        if self._gleiche_auswahl(formen, self._auswahl):
             return
-        self.ausgewaehlte_form = form
-        self.auswahl_geaendert.emit(form)
+        self._auswahl = formen
+        self.auswahl_geaendert.emit(self.ausgewaehlte_form)
         self.update()
+
+    def _auswaehlen(self, form: dict[str, Any] | None) -> None:
+        self._auswahl_setzen(self._mit_gruppe([form]) if form is not None else [])
+
+    def auswahl_umschalten(self, form: dict[str, Any]) -> None:
+        """Strg+Klick: nimmt die Form dazu oder wieder heraus. Eine
+        bereits ausgewählte Form wandert dabei **nicht** ans Ende – wer
+        eine falsch getroffene Form wieder abwählt, will die Führung
+        nicht verschieben."""
+        neu = [vorhanden for vorhanden in self._auswahl if vorhanden is not form]
+        if len(neu) == len(self._auswahl):
+            neu = self._auswahl + [
+                dazu for dazu in self._mit_gruppe([form]) if dazu not in self._auswahl
+            ]
+        self._auswahl_setzen(neu)
+
+    def alles_auswaehlen(self) -> None:
+        self._auswahl_setzen(list(self.formen))
 
     def auswahl_aufheben(self) -> None:
         self.ausgewaehlte_verbindung = None
-        self._auswaehlen(None)
+        self._auswahl_setzen([])
         self.update()
+
+    def _mit_gruppe(self, formen: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Ergänzt jede Form um ihre Gruppengeschwister. Eine Gruppe ist
+        genau dafür da, dass man sie als Ganzes anfasst."""
+        gruppen = {form.get("group") for form in formen if form.get("group")}
+        if not gruppen:
+            return list(formen)
+        ergebnis = list(formen)
+        for form in self.formen:
+            if form.get("group") in gruppen and form not in ergebnis:
+                ergebnis.append(form)
+        # Die angeklickte Form bleibt die führende
+        if formen:
+            ergebnis.remove(formen[-1])
+            ergebnis.append(formen[-1])
+        return ergebnis
 
     # -- Einrasten ------------------------------------------------------
 
@@ -574,15 +700,22 @@ class DiagrammCanvas(QWidget):
 
         anfasser = self.anfasser_bei(punkt.x(), punkt.y())
         if anfasser is not None:
+            # Größe ändern gilt immer nur der führenden Form - ein
+            # gemeinsames Skalieren mehrerer Formen wäre etwas anderes
+            # als „Gleiche Größe“ und würde damit verwechselt.
             self._anfasser = anfasser
+            self._zieh_formen = [self.ausgewaehlte_form]
             self._zieh_form = self.ausgewaehlte_form
             self._zieh_start = punkt
             self._zieh_startwerte = {
                 name: self.ausgewaehlte_form[name] for name in ("x", "y", "w", "h")
             }
+            self._zieh_startwerte_alle = [dict(self._zieh_startwerte)]
             return
 
+        strg = bool(ereignis.modifiers() & Qt.KeyboardModifier.ControlModifier)
         getroffen = self.form_bei(punkt.x(), punkt.y())
+
         if getroffen is None:
             # Linien sind dünn und liegen zwischen Formen - erst wenn keine
             # Form getroffen wurde, eine Verbindung in der Nähe suchen.
@@ -590,13 +723,38 @@ class DiagrammCanvas(QWidget):
             if verbindung is not None:
                 self._verbindung_auswaehlen(verbindung)
                 return
-        self._auswaehlen(getroffen)
-        if getroffen is None:
-            self.auswahl_aufheben()
-        if getroffen is not None:
-            self._zieh_form = getroffen
-            self._zieh_start = punkt
-            self._zieh_startwerte = {name: getroffen[name] for name in ("x", "y", "w", "h")}
+            if not strg:
+                self.auswahl_aufheben()
+            # Ins Leere gedrückt: von hier an einen Auswahlrahmen ziehen
+            self._rahmen = (punkt, punkt)
+            return
+
+        if strg:
+            self.auswahl_umschalten(getroffen)
+        elif not any(form is getroffen for form in self._auswahl):
+            # Eine Form aus einer bestehenden Mehrfachauswahl anzuklicken
+            # darf die Auswahl nicht zusammenfallen lassen - sonst könnte
+            # man mehrere Formen nie gemeinsam ziehen.
+            self._auswaehlen(getroffen)
+
+        self._ziehen_beginnen(punkt)
+
+    def _ziehen_beginnen(self, punkt: QPoint) -> None:
+        """Merkt sich die Startwerte **aller** ausgewählten Formen – ein
+        Ziehen bewegt die ganze Auswahl und bleibt trotzdem ein einziger
+        Undo-Schritt."""
+        self._zieh_formen = list(self._auswahl)
+        self._zieh_form = self.ausgewaehlte_form
+        self._zieh_start = punkt
+        self._zieh_startwerte = (
+            {name: self._zieh_form[name] for name in ("x", "y", "w", "h")}
+            if self._zieh_form is not None
+            else None
+        )
+        self._zieh_startwerte_alle = [
+            {name: form[name] for name in ("x", "y", "w", "h")}
+            for form in self._zieh_formen
+        ]
 
     def _verbindungsklick(self, punkt: QPoint) -> None:
         """Erster Klick wählt die Quelle, zweiter das Ziel. Ein Klick ins
@@ -715,6 +873,11 @@ class DiagrammCanvas(QWidget):
 
         punkt = self._diagrammpunkt(ereignis)
 
+        if self._rahmen is not None:
+            self._rahmen = (self._rahmen[0], punkt)
+            self.update()
+            return
+
         if self._zieh_form is None or self._zieh_start is None:
             self._cursor_aktualisieren(punkt)
             return
@@ -737,11 +900,19 @@ class DiagrammCanvas(QWidget):
             self._zieh_form["x"] = _am_raster(start["x"] + links_je_dx * dx)
             self._zieh_form["y"] = _am_raster(start["y"] + oben_je_dy * dy)
         else:
+            # Eingerastet wird an der führenden Form; alle anderen folgen
+            # ihr um denselben Betrag. Würde jede Form einzeln einrasten,
+            # zerfiele eine sauber angeordnete Gruppe beim ersten Ziehen.
             neu_x, neu_y = self._einrasten(
                 self._zieh_form, start["x"] + dx, start["y"] + dy
             )
-            self._zieh_form["x"] = neu_x
-            self._zieh_form["y"] = neu_y
+            versatz_x = neu_x - start["x"]
+            versatz_y = neu_y - start["y"]
+            for form, anfang in zip(
+                self._zieh_formen, self._zieh_startwerte_alle, strict=True
+            ):
+                form["x"] = anfang["x"] + versatz_x
+                form["y"] = anfang["y"] + versatz_y
 
         self.update()
 
@@ -749,25 +920,59 @@ class DiagrammCanvas(QWidget):
         if self._greif_start is not None:
             self._greifen_beenden()
             return
+        if self._rahmen is not None:
+            self._rahmen_beenden()
+            return
         if self._zieh_form is None or self._zieh_startwerte is None:
             return
 
-        form = self._zieh_form
-        start = self._zieh_startwerte
-        neue_werte = {name: form[name] for name in ("x", "y", "w", "h")}
+        formen = self._zieh_formen
+        anfaenge = self._zieh_startwerte_alle
         self._zieh_form = None
+        self._zieh_formen = []
         self._zieh_start = None
         self._zieh_startwerte = None
+        self._zieh_startwerte_alle = []
         self._anfasser = None
         self._hilfslinien = []
 
-        if neue_werte != start:
-            # Live-Vorschau hat die Form schon verändert - deshalb die
-            # Startwerte explizit als „alt“ mitgeben.
-            self.kommandos.ausfuehren(WerteKommando(form, neue_werte, alte_werte=start))
+        # Live-Vorschau hat die Formen schon verändert - deshalb die
+        # Startwerte explizit als „alt“ mitgeben. Alle zusammen als ein
+        # Kommando, damit ein Ziehen ein einziger Undo-Schritt bleibt.
+        kommandos = []
+        for form, anfang in zip(formen, anfaenge, strict=True):
+            neue_werte = {name: form[name] for name in ("x", "y", "w", "h")}
+            if neue_werte != anfang:
+                kommandos.append(WerteKommando(form, neue_werte, alte_werte=anfang))
+        if kommandos:
+            self.kommandos.ausfuehren(
+                kommandos[0] if len(kommandos) == 1 else SammelKommando(kommandos)
+            )
             self._nach_aenderung()
         else:
             self.update()
+
+    def _rahmen_beenden(self) -> None:
+        """Wählt alles aus, was **vollständig** im aufgezogenen Rahmen
+        liegt. Nur Berühren würde beim Aufziehen über ein dicht
+        gestelltes Diagramm ständig Nachbarn mitnehmen, die man gar
+        nicht meint."""
+        von, bis = self._rahmen
+        self._rahmen = None
+        rahmen = QRectF(
+            min(von.x(), bis.x()),
+            min(von.y(), bis.y()),
+            abs(bis.x() - von.x()),
+            abs(bis.y() - von.y()),
+        )
+        if rahmen.width() < 3 and rahmen.height() < 3:
+            self.update()  # nur ein Klick ins Leere, kein Rahmen
+            return
+        getroffen = [
+            form for form in self.formen if rahmen.contains(form_rechteck(form))
+        ]
+        self._auswahl_setzen(self._mit_gruppe(getroffen) if getroffen else [])
+        self.update()
 
     def _cursor_aktualisieren(self, punkt: QPoint) -> None:
         if self._platzierungs_kind is not None:
@@ -823,6 +1028,21 @@ class DiagrammCanvas(QWidget):
         if strg and taste == Qt.Key.Key_D:
             self.duplizieren()
             return True
+        if strg and taste == Qt.Key.Key_A:
+            self.alles_auswaehlen()
+            return True
+        if strg and taste == Qt.Key.Key_C:
+            self.kopieren()
+            return True
+        if strg and taste == Qt.Key.Key_X:
+            self.ausschneiden()
+            return True
+        if strg and taste == Qt.Key.Key_V:
+            self.einfuegen()
+            return True
+        if strg and taste == Qt.Key.Key_G:
+            self.gruppierung_aufheben() if umschalt else self.gruppieren()
+            return True
         if taste == Qt.Key.Key_Delete:
             self.loeschen()
             return True
@@ -841,16 +1061,284 @@ class DiagrammCanvas(QWidget):
             Qt.Key.Key_Up: (0, -1),
             Qt.Key.Key_Down: (0, 1),
         }
-        if taste not in richtungen or self.ausgewaehlte_form is None:
+        if taste not in richtungen or not self._auswahl:
             return False
 
         sx, sy = richtungen[taste]
         schritt = 1 if alt else RASTER
         if umschalt:
+            # Größe ändern gilt nur der führenden Form - wie beim Ziehen
+            # am Anfasser.
             self.groesse_aendern(sx * schritt, sy * schritt)
         else:
             self.verschieben(sx * schritt, sy * schritt)
         return True
+
+    # -- Anordnen (Teilschritt 3b) --------------------------------------
+
+    #: Ausgerichtet wird immer an der **führenden** Form, also der
+    #: zuletzt angeklickten - dasselbe Verhalten wie in Lazarus und in
+    #: Dia. Sonst müsste man raten, welche Form stehen bleibt.
+    AUSRICHTUNGEN = (
+        "links",
+        "rechts",
+        "oben",
+        "unten",
+        "senkrechte_mitte",
+        "waagerechte_mitte",
+    )
+
+    def ausrichten(self, art: str) -> bool:
+        """Richtet alle ausgewählten Formen an der führenden aus.
+        Liefert `False`, wenn nichts zu tun war."""
+        if art not in self.AUSRICHTUNGEN or len(self._auswahl) < 2:
+            return False
+        bezug = self.ausgewaehlte_form
+        kommandos = []
+        for form in self._auswahl:
+            if form is bezug:
+                continue
+            if art == "links":
+                werte = {"x": bezug["x"]}
+            elif art == "rechts":
+                werte = {"x": bezug["x"] + bezug["w"] - form["w"]}
+            elif art == "oben":
+                werte = {"y": bezug["y"]}
+            elif art == "unten":
+                werte = {"y": bezug["y"] + bezug["h"] - form["h"]}
+            elif art == "senkrechte_mitte":
+                werte = {"x": int(bezug["x"] + bezug["w"] / 2 - form["w"] / 2)}
+            else:  # waagerechte_mitte
+                werte = {"y": int(bezug["y"] + bezug["h"] / 2 - form["h"] / 2)}
+            if any(form.get(name) != wert for name, wert in werte.items()):
+                kommandos.append(WerteKommando(form, werte))
+        return self._sammeln(kommandos)
+
+    def verteilen(self, richtung: str) -> bool:
+        """Verteilt die ausgewählten Formen mit **gleichen Abständen**
+        zwischen der ersten und der letzten.
+
+        Gleiche Abstände statt gleicher Mittenabstände: bei
+        unterschiedlich breiten Klassen sieht nur das gleichmäßig aus.
+        Die äußeren beiden Formen bleiben stehen - sonst wanderte die
+        ganze Reihe bei jedem Aufruf davon.
+        """
+        if richtung not in ("waagerecht", "senkrecht") or len(self._auswahl) < 3:
+            return False
+        achse, laenge = ("x", "w") if richtung == "waagerecht" else ("y", "h")
+        sortiert = sorted(self._auswahl, key=lambda f: f[achse])
+
+        anfang = sortiert[0][achse]
+        ende = sortiert[-1][achse] + sortiert[-1][laenge]
+        belegt = sum(form[laenge] for form in sortiert)
+        luecke = (ende - anfang - belegt) / (len(sortiert) - 1)
+
+        kommandos = []
+        stelle = float(anfang)
+        for form in sortiert[:-1]:
+            if int(stelle) != form[achse]:
+                kommandos.append(WerteKommando(form, {achse: int(stelle)}))
+            stelle += form[laenge] + luecke
+        return self._sammeln(kommandos)
+
+    def gleiche_groesse(self, art: str) -> bool:
+        """Gibt allen ausgewählten Formen die Größe der führenden.
+        Die Mindestgröße gilt weiter - eine Klasse mit vielen Attributen
+        lässt sich nicht auf die Höhe einer Notiz stauchen."""
+        if art not in ("breite", "hoehe", "beide") or len(self._auswahl) < 2:
+            return False
+        bezug = self.ausgewaehlte_form
+        kommandos = []
+        for form in self._auswahl:
+            if form is bezug:
+                continue
+            breite = bezug["w"] if art in ("breite", "beide") else form["w"]
+            hoehe = bezug["h"] if art in ("hoehe", "beide") else form["h"]
+            breite, hoehe = self._begrenzt(form, breite, hoehe)
+            werte = {"w": breite, "h": hoehe}
+            if any(form.get(name) != wert for name, wert in werte.items()):
+                kommandos.append(WerteKommando(form, werte))
+        return self._sammeln(kommandos)
+
+    # -- Zeichenreihenfolge ---------------------------------------------
+
+    def nach_vorne(self) -> bool:
+        """Holt die Auswahl ans Ende der Liste – spätere Formen werden
+        später gezeichnet und liegen damit oben."""
+        return self._umsortieren(nach_vorne=True)
+
+    def nach_hinten(self) -> bool:
+        return self._umsortieren(nach_vorne=False)
+
+    def _umsortieren(self, nach_vorne: bool) -> bool:
+        if not self._auswahl:
+            return False
+        bewegt = [form for form in self.formen if any(a is form for a in self._auswahl)]
+        rest = [form for form in self.formen if not any(a is form for a in self._auswahl)]
+        neu = rest + bewegt if nach_vorne else bewegt + rest
+        if self._gleiche_auswahl(neu, list(self.formen)):
+            return False
+        self.kommandos.ausfuehren(ReihenfolgeKommando(self.formen, neu))
+        self._nach_aenderung()
+        return True
+
+    # -- Gruppieren ------------------------------------------------------
+
+    def gruppieren(self) -> bool:
+        """Fasst die Auswahl zu einer Gruppe zusammen.
+
+        Eine Gruppe ist kein eigenes Element, sondern nur eine
+        gemeinsame Kennung an den Formen. So bleibt die Datei auch ohne
+        Kenntnis von Gruppen lesbar, und ein Diagramm, das jemand mit
+        einer älteren Natter-Version öffnet, sieht unverändert aus.
+        """
+        if len(self._auswahl) < 2:
+            return False
+        kennung = f"g{self._naechste_gruppennummer()}"
+        kommandos = [
+            WerteKommando(form, {"group": kennung})
+            for form in self._auswahl
+            if form.get("group") != kennung
+        ]
+        return self._sammeln(kommandos)
+
+    def gruppierung_aufheben(self) -> bool:
+        kommandos = [
+            WerteKommando(form, {"group": ""})
+            for form in self._auswahl
+            if form.get("group")
+        ]
+        return self._sammeln(kommandos)
+
+    def _naechste_gruppennummer(self) -> int:
+        vergeben = {
+            form.get("group")
+            for form in self.formen
+            if str(form.get("group", "")).strip()
+        }
+        nummer = 1
+        while f"g{nummer}" in vergeben:
+            nummer += 1
+        return nummer
+
+    def _sammeln(self, kommandos: list[Any]) -> bool:
+        """Führt mehrere Änderungen als **einen** Undo-Schritt aus.
+        Ausrichten ist für die Bedienerin eine Handlung, also soll auch
+        ein einziges Strg+Z sie zurücknehmen."""
+        if not kommandos:
+            return False
+        self.kommandos.ausfuehren(
+            kommandos[0] if len(kommandos) == 1 else SammelKommando(kommandos)
+        )
+        self._nach_aenderung()
+        self.zur_auswahl_rollen()
+        return True
+
+    # -- Zwischenablage --------------------------------------------------
+
+    def kopieren(self) -> bool:
+        """Legt die Auswahl als JSON-Text in die Zwischenablage.
+
+        Text statt eigener MIME-Daten: `QClipboard.setMimeData()` lässt
+        PySide6 beim Beenden des Programms abstürzen (in M9 reproduziert
+        und dort dokumentiert). Der Text hat obendrein einen Vorteil –
+        man kann ihn in einen Editor einfügen und nachsehen, was
+        drinsteht.
+        """
+        if not self._auswahl:
+            return False
+        kennungen = {form.get("id") for form in self._auswahl}
+        inhalt = {
+            "natter_diagramm": 1,
+            "typ": self.diagramm.typ,
+            "shapes": copy.deepcopy(list(self._auswahl)),
+            # Verbindungen kommen mit, wenn **beide** Enden mitkopiert
+            # werden - eine Verbindung ins Nichts wäre beim Einfügen
+            # wertlos.
+            "connections": copy.deepcopy(
+                [
+                    verbindung
+                    for verbindung in self.verbindungen
+                    if verbindung.get("from") in kennungen
+                    and verbindung.get("to") in kennungen
+                ]
+            ),
+        }
+        QApplication.clipboard().setText(
+            json.dumps(inhalt, ensure_ascii=False, indent=1)
+        )
+        return True
+
+    def ausschneiden(self) -> bool:
+        if not self.kopieren():
+            return False
+        self.loeschen()
+        return True
+
+    def einfuegen(self) -> bool:
+        """Fügt ein, was `kopieren()` abgelegt hat – versetzt um einen
+        Rasterschritt, damit die Kopie nicht genau auf dem Original
+        liegt und unsichtbar bleibt."""
+        inhalt = self._zwischenablage_lesen()
+        if inhalt is None:
+            return False
+
+        neue_kennungen: dict[str, str] = {}
+        kommandos = []
+        eingefuegt = []
+        for form in inhalt.get("shapes", []):
+            alt = form.get("id")
+            form["id"] = self._neue_id()
+            if alt:
+                neue_kennungen[alt] = form["id"]
+            form["x"] = form.get("x", 0) + RASTER
+            form["y"] = form.get("y", 0) + RASTER
+            # Gleich anhängen, damit die nächste `_neue_id()` diese hier
+            # schon als vergeben sieht.
+            self.formen.append(form)
+            kommandos.append(EinfuegenKommando(self.formen, form))
+            eingefuegt.append(form)
+        for form in eingefuegt:
+            self.formen.remove(form)
+
+        neue_verbindungen: list[dict[str, Any]] = []
+        for verbindung in inhalt.get("connections", []):
+            verbindung["from"] = neue_kennungen.get(verbindung.get("from"))
+            verbindung["to"] = neue_kennungen.get(verbindung.get("to"))
+            if verbindung.get("from") and verbindung.get("to"):
+                verbindung["id"] = self._neue_verbindungs_id()
+                self.verbindungen.append(verbindung)
+                neue_verbindungen.append(verbindung)
+                kommandos.append(EinfuegenKommando(self.verbindungen, verbindung))
+        for verbindung in neue_verbindungen:
+            self.verbindungen.remove(verbindung)
+
+        if not kommandos:
+            return False
+        self.kommandos.ausfuehren(SammelKommando(kommandos))
+        # Das Eingefügte ist ausgewählt - wie nach dem Platzieren, damit
+        # man es sofort weiterschieben kann.
+        self._auswahl_setzen(eingefuegt)
+        self._nach_aenderung()
+        return True
+
+    def _zwischenablage_lesen(self) -> dict[str, Any] | None:
+        """Liest den Text der Zwischenablage, wenn er von Natter stammt.
+        Fremder Text (aus einem Browser, aus Word) wird stillschweigend
+        übergangen statt in einen Fehler zu laufen."""
+        text = QApplication.clipboard().text()
+        if not text or "natter_diagramm" not in text:
+            return None
+        try:
+            inhalt = json.loads(text)
+        except json.JSONDecodeError:
+            return None
+        if not isinstance(inhalt, dict) or not inhalt.get("natter_diagramm"):
+            return None
+        if inhalt.get("typ") != self.diagramm.typ:
+            # Klassen in eine Entscheidungstabelle einzufügen ergäbe nichts
+            return None
+        return copy.deepcopy(inhalt)
 
     # -- Zeichnen -------------------------------------------------------
 
@@ -876,8 +1364,15 @@ class DiagrammCanvas(QWidget):
                 ausgewaehlt=verbindung is self.ausgewaehlte_verbindung,
             )
 
+        fuehrend = self.ausgewaehlte_form
         for form in self.formen:
-            form_zeichnen(maler, form, stil, ausgewaehlt=form is self.ausgewaehlte_form)
+            form_zeichnen(
+                maler,
+                form,
+                stil,
+                ausgewaehlt=any(gewaehlt is form for gewaehlt in self._auswahl),
+                mit_anfassern=form is fuehrend,
+            )
 
         for verbindung in self.verbindungen:
             quelle = self.form_mit_id(verbindung.get("from"))
@@ -887,6 +1382,27 @@ class DiagrammCanvas(QWidget):
 
         self._hinweise_zeichnen(maler)
         self._hilfslinien_zeichnen(maler, stil.akzent)
+        self._rahmen_zeichnen(maler, stil.akzent)
+
+    def _rahmen_zeichnen(self, maler: QPainter, farbe: str) -> None:
+        """Der aufgezogene Auswahlrahmen. Gestrichelt und ungefüllt –
+        eine gefüllte Fläche würde die Formen darunter verdecken, und
+        genau die will man beim Aufziehen sehen."""
+        if self._rahmen is None:
+            return
+        von, bis = self._rahmen
+        stift = QPen(QColor(farbe))
+        stift.setStyle(Qt.PenStyle.DashLine)
+        maler.setPen(stift)
+        maler.setBrush(Qt.BrushStyle.NoBrush)
+        maler.drawRect(
+            QRectF(
+                min(von.x(), bis.x()),
+                min(von.y(), bis.y()),
+                abs(bis.x() - von.x()),
+                abs(bis.y() - von.y()),
+            )
+        )
 
     def _seitenrand_zeichnen(self, maler: QPainter, stil) -> None:
         """Blattgröße und bedruckbarer Bereich (Abschnitt 13.2). Ohne

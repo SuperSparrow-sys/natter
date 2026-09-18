@@ -818,7 +818,7 @@ Ausdrücklicher Wunsch des Nutzers, gilt für jeden Schritt:
 - [x] **2.** M9 Schritt 13 – Klasse als Python-Quelltext ausgeben
 - [x] **3.** M9 Schritt 14 – Struktogramm als Quelltext ausgeben,
   **einschließlich** der drei neuen Blocktypen
-- [ ] **4.** M9 Teilschritt 3b – Mehrfachauswahl, Ausrichten/Verteilen,
+- [x] **4.** M9 Teilschritt 3b – Mehrfachauswahl, Ausrichten/Verteilen,
   Kopieren/Einfügen, Gruppieren, Zeichenreihenfolge
 - [ ] **5.** M9 Teilschritt 4b – Knickpunkte, verschiebbare
   Beschriftungen
@@ -882,4 +882,5 @@ tut, was sie verspricht.
 Siehe „Umsetzungsreihenfolge“ oben – der Lauf arbeitet die vierzehn
 Punkte der Reihe nach ab. Die Punkte 0 bis 3 sind erledigt, aus
 Punkt 8 sind M10 Punkt 1 und 2 vorgezogen und fertig. Aktuell:
-**Punkt 4**, Mehrfachauswahl und Anordnen im Diagramm-Editor.
+**Punkt 5**, Knickpunkte und verschiebbare Beschriftungen an den
+Verbindungen.

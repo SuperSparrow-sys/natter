@@ -239,7 +239,8 @@
         "abstract": { "type": "boolean" },
         "fill": { "type": "string", "description": "Eigene Füllfarbe #RRGGBB statt der Stilvorlage." },
         "line": { "type": "string", "description": "Eigene Randfarbe #RRGGBB statt der Stilvorlage." },
-        "font_size": { "type": "number", "description": "Eigene Schriftgröße in pt." }
+        "font_size": { "type": "number", "description": "Eigene Schriftgröße in pt." },
+        "group": { "type": "string", "description": "Kennung der Gruppe, zu der die Form gehört (leer oder fehlend = keine Gruppe). Formen mit derselben Kennung werden gemeinsam ausgewählt und verschoben." }
       }
     },
     "connector": {

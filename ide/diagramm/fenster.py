@@ -72,13 +72,13 @@ _MENUES: dict[str, tuple[tuple[str, bool], ...]] = {
     "Bearbeiten": (
         ("Rückgängig", True),
         ("Wiederholen", True),
-        ("Ausschneiden", False),
+        ("Ausschneiden", True),
         ("Als Bild kopieren", True),
-        ("Kopieren", False),
-        ("Einfügen", False),
+        ("Kopieren", True),
+        ("Einfügen", True),
         ("Duplizieren", True),
         ("Löschen", True),
-        ("Alles auswählen", False),
+        ("Alles auswählen", True),
     ),
     "Ansicht": (
         ("Zoom vergrößern", True),
@@ -93,12 +93,13 @@ _MENUES: dict[str, tuple[tuple[str, bool], ...]] = {
         ("Layout-Hinweise", True),
     ),
     "Anordnen": (
-        ("Ausrichten", False),
-        ("Verteilen", False),
-        ("Gleiche Größe", False),
-        ("In den Vordergrund", False),
-        ("In den Hintergrund", False),
-        ("Gruppieren", False),
+        ("Ausrichten", True),
+        ("Verteilen", True),
+        ("Gleiche Größe", True),
+        ("In den Vordergrund", True),
+        ("In den Hintergrund", True),
+        ("Gruppieren", True),
+        ("Gruppierung aufheben", True),
     ),
     "Format": (
         ("Stilvorlage …", True),
@@ -108,6 +109,30 @@ _MENUES: dict[str, tuple[tuple[str, bool], ...]] = {
         ("Stil übertragen", True),
     ),
     "Hilfe": (("Über den Diagramm-Editor", True),),
+}
+
+#: Einträge, die kein Befehl sind, sondern ein Untermenü aufmachen
+#: (Teilschritt 3b). Die Werte sind (Beschriftung, Argument) – das
+#: Argument geht unverändert an `ausrichten()`, `verteilen()` bzw.
+#: `gleiche_groesse()` der Zeichenfläche.
+_UNTERMENUES: dict[str, tuple[tuple[str, str], ...]] = {
+    "Anordnen/Ausrichten": (
+        ("Linksbündig", "links"),
+        ("Rechtsbündig", "rechts"),
+        ("Oben", "oben"),
+        ("Unten", "unten"),
+        ("Senkrecht mittig", "senkrechte_mitte"),
+        ("Waagerecht mittig", "waagerechte_mitte"),
+    ),
+    "Anordnen/Verteilen": (
+        ("Waagerecht", "waagerecht"),
+        ("Senkrecht", "senkrecht"),
+    ),
+    "Anordnen/Gleiche Größe": (
+        ("Breite", "breite"),
+        ("Höhe", "hoehe"),
+        ("Breite und Höhe", "beide"),
+    ),
 }
 
 #: Zusatzmenü, das nur die Entscheidungstabelle bekommt
@@ -271,9 +296,13 @@ class DiagrammFenster(QMainWindow):
             menue = self.menuBar().addMenu(menue_name)
             self._menues[menue_name] = menue
             for beschriftung, aktiv in eintraege:
+                pfad = f"{menue_name}/{beschriftung}"
+                if pfad in _UNTERMENUES:
+                    self._untermenue_aufbauen(menue, pfad, aktiv)
+                    continue
                 aktion = menue.addAction(beschriftung)
                 aktion.setEnabled(aktiv)
-                self.aktionen[f"{menue_name}/{beschriftung}"] = aktion
+                self.aktionen[pfad] = aktion
 
         if self.diagramm.typ == "entscheidungstabelle":
             self._tabellenmenue_aufbauen()
@@ -318,7 +347,76 @@ class DiagrammFenster(QMainWindow):
             if rueckruf is not None:
                 aktion.triggered.connect(rueckruf)
 
+        self._anordnen_verdrahten()
         self._menue_an_typ_anpassen()
+
+    def _untermenue_aufbauen(self, menue, pfad: str, aktiv: bool) -> None:
+        """Baut ein Untermenü wie „Anordnen → Ausrichten".
+
+        Die Einzelbefehle bekommen denselben Pfad mit angehängtem
+        Argument (`Anordnen/Ausrichten/links`) – so findet sie der Test,
+        der jeden aktiven Menüeintrag auslöst, genau wie jede andere
+        Aktion auch.
+        """
+        name = pfad.split("/", 1)[1]
+        untermenue = menue.addMenu(name)
+        untermenue.setEnabled(aktiv)
+        self._menues[pfad] = untermenue
+        for beschriftung, argument in _UNTERMENUES[pfad]:
+            aktion = untermenue.addAction(beschriftung)
+            aktion.setEnabled(aktiv)
+            self.aktionen[f"{pfad}/{argument}"] = aktion
+
+    def _anordnen_verdrahten(self) -> None:
+        """Verbindet Bearbeiten und Anordnen mit der Zeichenfläche.
+
+        Alles über parameterlose Lambdas: `QAction.triggered` schickt
+        immer ein `checked`-Flag mit, das sonst als erstes Argument
+        ankäme (in M9 real abgestürzt).
+        """
+        flaeche = self.zeichenflaeche
+        if not hasattr(flaeche, "ausrichten"):
+            # Struktogramm und Entscheidungstabelle kennen keine Formen
+            for pfad, aktion in self.aktionen.items():
+                if pfad.startswith("Anordnen/") or pfad in (
+                    "Bearbeiten/Ausschneiden",
+                    "Bearbeiten/Kopieren",
+                    "Bearbeiten/Einfügen",
+                    "Bearbeiten/Alles auswählen",
+                ):
+                    aktion.setEnabled(False)
+            for pfad, untermenue in self._menues.items():
+                if pfad.startswith("Anordnen/"):
+                    untermenue.setEnabled(False)
+            return
+
+        for pfad, kuerzel, rueckruf in (
+            ("Bearbeiten/Ausschneiden", "Ctrl+X", flaeche.ausschneiden),
+            ("Bearbeiten/Kopieren", "Ctrl+C", flaeche.kopieren),
+            ("Bearbeiten/Einfügen", "Ctrl+V", flaeche.einfuegen),
+            ("Bearbeiten/Alles auswählen", "Ctrl+A", flaeche.alles_auswaehlen),
+            ("Anordnen/In den Vordergrund", "Ctrl+Shift+Up", flaeche.nach_vorne),
+            ("Anordnen/In den Hintergrund", "Ctrl+Shift+Down", flaeche.nach_hinten),
+            ("Anordnen/Gruppieren", "Ctrl+G", flaeche.gruppieren),
+            (
+                "Anordnen/Gruppierung aufheben",
+                "Ctrl+Shift+G",
+                flaeche.gruppierung_aufheben,
+            ),
+        ):
+            aktion = self.aktionen[pfad]
+            aktion.setShortcut(kuerzel)
+            aktion.triggered.connect(lambda *_, f=rueckruf: f())
+
+        for pfad, methode in (
+            ("Anordnen/Ausrichten", flaeche.ausrichten),
+            ("Anordnen/Verteilen", flaeche.verteilen),
+            ("Anordnen/Gleiche Größe", flaeche.gleiche_groesse),
+        ):
+            for _, argument in _UNTERMENUES[pfad]:
+                self.aktionen[f"{pfad}/{argument}"].triggered.connect(
+                    lambda *_, f=methode, a=argument: f(a)
+                )
 
     def _menue_an_typ_anpassen(self) -> None:
         """Was die Zeichenflaeche dieses Diagrammtyps nicht kann, wird
@@ -523,12 +621,6 @@ class DiagrammFenster(QMainWindow):
             )
             return f"{zeilen} Zeilen  │  {regelanzahl(self.diagramm.daten)} Regeln"
 
-        if self.diagramm.typ == "entscheidungstabelle":
-            zeilen = len(self.diagramm.daten.get("conditions") or []) + len(
-                self.diagramm.daten.get("actions") or []
-            )
-            return f"{zeilen} Zeilen  │  {regelanzahl(self.diagramm.daten)} Regeln"
-
         if self.diagramm.typ == "struktogramm":
             block = self.zeichenflaeche.ausgewaehlter_block
             if block is not None:
@@ -536,11 +628,12 @@ class DiagrammFenster(QMainWindow):
             anzahl = len(alle_bloecke(self.diagramm.daten)) - 1  # ohne die Wurzel
             return f"{anzahl} Blöcke"
 
+        auswahl = getattr(self.zeichenflaeche, "auswahl", ())
+        if len(auswahl) > 1:
+            return f"{len(auswahl)} Formen ausgewählt"
         ausgewaehlt = getattr(self.zeichenflaeche, "ausgewaehlte_form", None)
         if ausgewaehlt:
-            return (
-                f"{formname(ausgewaehlt) or ausgewaehlt['kind']} ausgewählt"
-            )
+            return f"{formname(ausgewaehlt) or ausgewaehlt['kind']} ausgewählt"
         return f"{len(self.diagramm.daten.get('shapes', []))} Formen"
 
     def _statusleiste_aktualisieren(self) -> None:
