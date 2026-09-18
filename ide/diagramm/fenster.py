@@ -50,6 +50,8 @@ from ide.diagramm.stil import BESCHRIFTUNGEN
 from ide.diagramm.struktogramm import BLOCK_BESCHRIFTUNGEN
 from ide.diagramm.struktogramm_canvas import StruktogrammCanvas
 from ide.diagramm.struktogramm_palette import BlockPalette
+from ide.diagramm.tabelle import regelanzahl
+from ide.diagramm.tabelle_canvas import TabellenCanvas
 from ide.shell.theme import ide_qss_erzeugen
 
 #: Menüaufbau aus Abschnitt 13.2. `True` = in diesem Schritt bereits
@@ -101,6 +103,18 @@ _MENUES: dict[str, tuple[tuple[str, bool], ...]] = {
     "Hilfe": (("Über den Diagramm-Editor", True),),
 }
 
+#: Zusatzmenü, das nur die Entscheidungstabelle bekommt
+#: (Abschnitt 13.5: Spalten und Zeilen hinzufügen/entfernen/verschieben).
+_TABELLENMENUE = (
+    "Bedingung hinzufügen",
+    "Aktion hinzufügen",
+    "Zeile entfernen",
+    "Regel hinzufügen",
+    "Regel entfernen",
+    "Regel nach links",
+    "Regel nach rechts",
+)
+
 
 class DiagrammFenster(QMainWindow):
     def __init__(self, diagramm: Diagramm) -> None:
@@ -145,6 +159,12 @@ class DiagrammFenster(QMainWindow):
             self.palette = BlockPalette()
             self.palette.block_gewaehlt.connect(self.zeichenflaeche.einfuegemodus_setzen)
             self.eigenschaften = None
+        elif self.diagramm.typ == "entscheidungstabelle":
+            # Eine Tabelle wird direkt in sich bearbeitet - eine Palette
+            # gaebe es nichts hineinzuziehen (Abschnitt 13.5).
+            self.zeichenflaeche = TabellenCanvas(self.diagramm)
+            self.palette = None
+            self.eigenschaften = None
         else:
             self.zeichenflaeche = DiagrammCanvas(self.diagramm)
             self.palette = (
@@ -166,6 +186,7 @@ class DiagrammFenster(QMainWindow):
         # Ein Struktogramm hat keine "Formen", sondern Bloecke - der
         # Titel des Docks soll das auch sagen.
         palettentitel = "Blöcke" if self.diagramm.typ == "struktogramm" else "Formen"
+
         self.palette_dock = (
             self._dock(palettentitel, self.palette, Qt.DockWidgetArea.LeftDockWidgetArea)
             if self.palette is not None
@@ -231,6 +252,8 @@ class DiagrammFenster(QMainWindow):
                 aktion.setEnabled(aktiv)
                 self.aktionen[f"{menue_name}/{beschriftung}"] = aktion
 
+        if self.diagramm.typ == "entscheidungstabelle":
+            self._tabellenmenue_aufbauen()
         self._stilvorlagen_menue_aufbauen()
         self._ansicht_schalter_aufbauen()
 
@@ -274,6 +297,36 @@ class DiagrammFenster(QMainWindow):
         ):
             if not hasattr(self.zeichenflaeche, faehigkeit):
                 self.aktionen[pfad].setEnabled(False)
+
+    def _tabellenmenue_aufbauen(self) -> None:
+        """Eigenes Menü „Tabelle“ – eine Entscheidungstabelle wird nicht
+        über eine Palette gefüllt, sondern über Zeilen und Spalten."""
+        # Vor "Hilfe" einhaengen - "Hilfe" gehoert ans Ende der
+        # Menueleiste, nicht mittendrin (im Screenshot aufgefallen).
+        menue = QMenu("Tabelle", self)
+        self.menuBar().insertMenu(self._menues["Hilfe"].menuAction(), menue)
+        self._menues["Tabelle"] = menue
+        flaeche = self.zeichenflaeche
+        rueckrufe = {
+            "Bedingung hinzufügen": lambda: flaeche.zeile_hinzufuegen("conditions"),
+            "Aktion hinzufügen": lambda: flaeche.zeile_hinzufuegen("actions"),
+            "Zeile entfernen": flaeche.loeschen,
+            "Regel hinzufügen": lambda: flaeche.regel_hinzufuegen(),
+            "Regel entfernen": lambda: flaeche.regel_entfernen(),
+            "Regel nach links": lambda: self._regel_verschieben(-1),
+            "Regel nach rechts": lambda: self._regel_verschieben(1),
+        }
+        for beschriftung in _TABELLENMENUE:
+            aktion = menue.addAction(beschriftung)
+            aktion.triggered.connect(rueckrufe[beschriftung])
+            self.aktionen[f"Tabelle/{beschriftung}"] = aktion
+
+    def _regel_verschieben(self, richtung: int) -> None:
+        zelle = self.zeichenflaeche.ausgewaehlte_zelle
+        if zelle is None or zelle.spalte < 0:
+            self.statusBar().showMessage("Keine Regel ausgewählt.", 3000)
+            return
+        self.zeichenflaeche.regel_verschieben(zelle.spalte, zelle.spalte + richtung)
 
     def _stilvorlagen_menue_aufbauen(self) -> None:
         """„Format → Stilvorlage“ als Untermenü mit den drei Vorlagen aus
@@ -345,6 +398,18 @@ class DiagrammFenster(QMainWindow):
     def _auswahltext(self) -> str:
         """Linker Teil der Statusleiste – beim Klassendiagramm die Form,
         beim Struktogramm der Block."""
+        if self.diagramm.typ == "entscheidungstabelle":
+            zeilen = len(self.diagramm.daten.get("conditions") or []) + len(
+                self.diagramm.daten.get("actions") or []
+            )
+            return f"{zeilen} Zeilen  │  {regelanzahl(self.diagramm.daten)} Regeln"
+
+        if self.diagramm.typ == "entscheidungstabelle":
+            zeilen = len(self.diagramm.daten.get("conditions") or []) + len(
+                self.diagramm.daten.get("actions") or []
+            )
+            return f"{zeilen} Zeilen  │  {regelanzahl(self.diagramm.daten)} Regeln"
+
         if self.diagramm.typ == "struktogramm":
             block = self.zeichenflaeche.ausgewaehlter_block
             if block is not None:

@@ -27,6 +27,11 @@ class Stil:
     text: str
     #: Trennlinien innerhalb einer Form (z. B. Klasse: Name/Attribute)
     trennlinie: str
+    #: Hinterlegung von Kopfzeilen (Entscheidungstabelle). Bewusst
+    #: getrennt von `trennlinie`: in der Schwarz-Weiß-Vorlage ist die
+    #: Trennlinie schwarz, eine damit gefüllte Kopfzeile verschluckte den
+    #: schwarzen Text darauf vollständig (im PDF aufgefallen).
+    kopf: str
     #: Verbindungen (Schritt 4)
     linie: str
     #: Auswahlrahmen und Anfasser
@@ -41,6 +46,7 @@ MODERN_HELL = Stil(
     rand="#5c6b7a",
     text="#1a1a1a",
     trennlinie="#c3cdd6",
+    kopf="#e8edf2",
     linie="#3d4c5a",
     akzent="#0067c0",
 )
@@ -53,6 +59,7 @@ MODERN_DUNKEL = Stil(
     rand="#8da2b5",
     text="#e8e8e8",
     trennlinie="#48545f",
+    kopf="#38414a",
     linie="#a8b8c6",
     akzent="#4cc2ff",
 )
@@ -65,6 +72,7 @@ SCHWARZ_WEISS = Stil(
     rand="#000000",
     text="#000000",
     trennlinie="#000000",
+    kopf="#ffffff",
     linie="#000000",
     akzent="#000000",
 )

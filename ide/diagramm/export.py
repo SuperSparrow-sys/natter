@@ -26,6 +26,7 @@ from PySide6.QtSvg import QSvgGenerator
 from ide.diagramm.seite import DPI, satzspiegel, seitengroesse
 from ide.diagramm.stil import stil as stil_zu_namen
 from ide.diagramm.struktogramm import struktogramm_layout, struktogramm_zeichnen
+from ide.diagramm.tabelle import tabelle_zeichnen, tabellengroesse
 from ide.diagramm.zeichnen import (
     form_rechteck,
     form_zeichnen,
@@ -51,6 +52,9 @@ def inhaltsbereich(daten: dict[str, Any]) -> QRectF:
     if daten.get("type") == "struktogramm":
         rechteck = struktogramm_layout(daten).rechteck
         return QRectF(rechteck).adjusted(-RAND, -RAND, RAND, RAND)
+    if daten.get("type") == "entscheidungstabelle":
+        breite, hoehe = tabellengroesse(daten)
+        return QRectF(-RAND, -RAND, breite + 2 * RAND, hoehe + 2 * RAND)
 
     formen = daten.get("shapes") or []
     if not formen:
@@ -71,6 +75,9 @@ def diagramm_zeichnen(maler: QPainter, daten: dict[str, Any]) -> None:
     stil = stil_zu_namen(str(daten.get("style", "modern-light")))
     if daten.get("type") == "struktogramm":
         struktogramm_zeichnen(maler, daten, stil)
+        return
+    if daten.get("type") == "entscheidungstabelle":
+        tabelle_zeichnen(maler, daten, stil)
         return
 
     verbindungen = daten.get("connectors") or []
@@ -96,7 +103,7 @@ def _seitenversatz(daten: dict[str, Any]) -> tuple[float, float]:
     Ein Struktogramm beginnt bei (0, 0) und klebte sonst am Blattrand –
     Formen-Diagramme tragen dagegen schon ihre eigenen Koordinaten auf
     der Seite (im PDF-Sichtnachweis aufgefallen)."""
-    if daten.get("type") != "struktogramm":
+    if daten.get("type") not in ("struktogramm", "entscheidungstabelle"):
         return 0.0, 0.0
     links, oben, _, _ = satzspiegel(daten.get("page") or {})
     return links, oben
