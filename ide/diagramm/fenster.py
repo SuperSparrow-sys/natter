@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
 )
 
 from ide.assets import symbol
+from ide.diagramm.bloecke import alle_bloecke
 from ide.diagramm.canvas import DiagrammCanvas
 from ide.diagramm.datei import Diagramm
 from ide.diagramm.eigenschaften import EigenschaftenPanel
@@ -46,6 +47,9 @@ from ide.diagramm.formen import formen_fuer
 from ide.diagramm.kommandos import WerteKommando
 from ide.diagramm.palette import FormenPalette
 from ide.diagramm.stil import BESCHRIFTUNGEN
+from ide.diagramm.struktogramm import BLOCK_BESCHRIFTUNGEN
+from ide.diagramm.struktogramm_canvas import StruktogrammCanvas
+from ide.diagramm.struktogramm_palette import BlockPalette
 from ide.shell.theme import ide_qss_erzeugen
 
 #: Menüaufbau aus Abschnitt 13.2. `True` = in diesem Schritt bereits
@@ -131,32 +135,48 @@ class DiagrammFenster(QMainWindow):
         self.resize(1100, 750)
 
     def _bereiche_aufbauen(self) -> None:
-        """Aufteilung nach Abschnitt 13.2: Formen links, Zeichenfläche in
-        der Mitte, Eigenschaften rechts."""
-        self.zeichenflaeche = DiagrammCanvas(self.diagramm)
+        """Aufteilung nach Abschnitt 13.2: Palette links, Zeichenfläche
+        in der Mitte, Eigenschaften rechts. Welche Fläche und welche
+        Palette das sind, hängt am Diagrammtyp – ein Struktogramm hat
+        keine frei platzierten Formen, sondern einen Blockbaum
+        (Abschnitt 13.5)."""
+        if self.diagramm.typ == "struktogramm":
+            self.zeichenflaeche = StruktogrammCanvas(self.diagramm)
+            self.palette = BlockPalette()
+            self.palette.block_gewaehlt.connect(self.zeichenflaeche.einfuegemodus_setzen)
+            self.eigenschaften = None
+        else:
+            self.zeichenflaeche = DiagrammCanvas(self.diagramm)
+            self.palette = (
+                FormenPalette(self.diagramm.typ) if formen_fuer(self.diagramm.typ) else None
+            )
+            if self.palette is not None:
+                self.palette.form_gewaehlt.connect(
+                    self.zeichenflaeche.platzierungsmodus_setzen
+                )
+                self.palette.verbindung_gewaehlt.connect(
+                    self.zeichenflaeche.verbindungsmodus_setzen
+                )
+            self.eigenschaften = EigenschaftenPanel(self.zeichenflaeche)
+
         self.zeichenflaeche.auswahl_geaendert.connect(self._bei_auswahl)
         self.zeichenflaeche.geaendert.connect(self._bei_aenderung)
         self.setCentralWidget(self.zeichenflaeche)
 
-        if formen_fuer(self.diagramm.typ):
-            self.palette = FormenPalette(self.diagramm.typ)
-            self.palette.form_gewaehlt.connect(self.zeichenflaeche.platzierungsmodus_setzen)
-            self.palette.verbindung_gewaehlt.connect(
-                self.zeichenflaeche.verbindungsmodus_setzen
+        # Ein Struktogramm hat keine "Formen", sondern Bloecke - der
+        # Titel des Docks soll das auch sagen.
+        palettentitel = "Blöcke" if self.diagramm.typ == "struktogramm" else "Formen"
+        self.palette_dock = (
+            self._dock(palettentitel, self.palette, Qt.DockWidgetArea.LeftDockWidgetArea)
+            if self.palette is not None
+            else None
+        )
+        self.eigenschaften_dock = (
+            self._dock(
+                "Eigenschaften", self.eigenschaften, Qt.DockWidgetArea.RightDockWidgetArea
             )
-            self.palette_dock = self._dock(
-                "Formen", self.palette, Qt.DockWidgetArea.LeftDockWidgetArea
-            )
-        else:
-            # Struktogramm/Entscheidungstabelle arbeiten nicht mit frei
-            # platzierten Formen (Abschnitt 13.5) - sie bekommen ihre
-            # eigenen Bedienelemente in Schritt 9/10.
-            self.palette = None
-            self.palette_dock = None
-
-        self.eigenschaften = EigenschaftenPanel(self.zeichenflaeche)
-        self.eigenschaften_dock = self._dock(
-            "Eigenschaften", self.eigenschaften, Qt.DockWidgetArea.RightDockWidgetArea
+            if self.eigenschaften is not None
+            else None
         )
 
     def _dock(self, titel: str, inhalt: QWidget, bereich: Qt.DockWidgetArea) -> QDockWidget:
@@ -170,7 +190,7 @@ class DiagrammFenster(QMainWindow):
         """„Format → Stil übertragen“ (Abschnitt 13.3): erster Aufruf
         merkt sich die Vorlage, der zweite überträgt sie auf die dann
         ausgewählte Form."""
-        aktuell = self.zeichenflaeche.ausgewaehlte_form
+        aktuell = getattr(self.zeichenflaeche, "ausgewaehlte_form", None)
         if aktuell is None:
             self.statusBar().showMessage("Keine Form ausgewählt.", 3000)
             return
@@ -189,11 +209,13 @@ class DiagrammFenster(QMainWindow):
         self.statusBar().showMessage("Stil übertragen.", 3000)
 
     def _bei_auswahl(self, form: dict | None) -> None:
-        self.eigenschaften.aktualisieren()
+        if self.eigenschaften is not None:
+            self.eigenschaften.aktualisieren()
         self._statusleiste_aktualisieren()
 
     def _bei_aenderung(self) -> None:
-        self.eigenschaften.aktualisieren()
+        if self.eigenschaften is not None:
+            self.eigenschaften.aktualisieren()
         self._geaendert = True
         self._titel_setzen()
         self._statusleiste_aktualisieren()
@@ -235,6 +257,23 @@ class DiagrammFenster(QMainWindow):
             aktion.setShortcut(kuerzel)
             if rueckruf is not None:
                 aktion.triggered.connect(rueckruf)
+
+        self._menue_an_typ_anpassen()
+
+    def _menue_an_typ_anpassen(self) -> None:
+        """Was die Zeichenflaeche dieses Diagrammtyps nicht kann, wird
+        ausgegraut statt vorgetaeuscht – ein Struktogramm kennt keine
+        Formen, also auch kein Duplizieren, keine Hilfslinien und kein
+        Uebertragen von Fuellfarben (Abschnitt 13.5)."""
+        for pfad, faehigkeit in (
+            ("Bearbeiten/Duplizieren", "duplizieren"),
+            ("Format/Stil übertragen", "ausgewaehlte_form"),
+            ("Ansicht/Raster", "raster_sichtbar"),
+            ("Ansicht/Seitenränder", "seitenrand_sichtbar"),
+            ("Ansicht/Layout-Hinweise", "hinweise_sichtbar"),
+        ):
+            if not hasattr(self.zeichenflaeche, faehigkeit):
+                self.aktionen[pfad].setEnabled(False)
 
     def _stilvorlagen_menue_aufbauen(self) -> None:
         """„Format → Stilvorlage“ als Untermenü mit den drei Vorlagen aus
@@ -278,16 +317,19 @@ class DiagrammFenster(QMainWindow):
             ("Ansicht/Seitenränder", "seitenrand_sichtbar"),
             ("Ansicht/Layout-Hinweise", "hinweise_sichtbar"),
         ):
+            if not hasattr(self.zeichenflaeche, attribut):
+                continue
             aktion = self.aktionen[pfad]
             aktion.setCheckable(True)
-            aktion.setChecked(getattr(self.zeichenflaeche, attribut, True))
+            aktion.setChecked(getattr(self.zeichenflaeche, attribut))
             aktion.toggled.connect(
                 lambda an, a=attribut: self._ansicht_umschalten(a, an)
             )
 
     def _ansicht_umschalten(self, attribut: str, an: bool) -> None:
         setattr(self.zeichenflaeche, attribut, an)
-        self.zeichenflaeche.hinweise_aktualisieren()
+        if hasattr(self.zeichenflaeche, "hinweise_aktualisieren"):
+            self.zeichenflaeche.hinweise_aktualisieren()
         self.zeichenflaeche.update()
         self._statusleiste_aktualisieren()
 
@@ -300,26 +342,43 @@ class DiagrammFenster(QMainWindow):
             f"{markierung}{self.diagramm.pfad.name} – Diagramm-Editor – Natter"
         )
 
+    def _auswahltext(self) -> str:
+        """Linker Teil der Statusleiste – beim Klassendiagramm die Form,
+        beim Struktogramm der Block."""
+        if self.diagramm.typ == "struktogramm":
+            block = self.zeichenflaeche.ausgewaehlter_block
+            if block is not None:
+                return f"{BLOCK_BESCHRIFTUNGEN.get(block.get('kind'), 'Block')} ausgewählt"
+            anzahl = len(alle_bloecke(self.diagramm.daten)) - 1  # ohne die Wurzel
+            return f"{anzahl} Blöcke"
+
+        ausgewaehlt = getattr(self.zeichenflaeche, "ausgewaehlte_form", None)
+        if ausgewaehlt:
+            return (
+                f"{(ausgewaehlt.get('text') or {}).get('name', ausgewaehlt['kind'])}"
+                " ausgewählt"
+            )
+        return f"{len(self.diagramm.daten.get('shapes', []))} Formen"
+
     def _statusleiste_aktualisieren(self) -> None:
         """Statusleiste nach Abschnitt 13.2 (Auswahl, Raster, Einrasten,
         Seitenformat, Stilvorlage)."""
         seite = self.diagramm.daten["page"]
         ausrichtung = "quer" if seite["orientation"] == "landscape" else "hoch"
-        anzahl = len(self.diagramm.daten.get("shapes", []))
-        ausgewaehlt = getattr(self.zeichenflaeche, "ausgewaehlte_form", None)
-        auswahl = (
-            f"{(ausgewaehlt.get('text') or {}).get('name', ausgewaehlt['kind'])} ausgewählt"
-            if ausgewaehlt
-            else f"{anzahl} Formen"
-        )
+        auswahl = self._auswahltext()
         hinweise = getattr(self.zeichenflaeche, "hinweise", [])
         hinweis_text = (
             f"  │  {len(hinweise)} Layout-Hinweis" + ("e" if len(hinweise) != 1 else "")
             if hinweise
             else ""
         )
+        raster = (
+            "Raster 8 px  │  Einrasten ein  │  "
+            if hasattr(self.zeichenflaeche, "raster_sichtbar")
+            else ""
+        )
         self.statusBar().showMessage(
-            f"{auswahl}  │  Raster 8 px  │  Einrasten ein  │  "
+            f"{auswahl}  │  {raster}"
             f"{seite['size']} {ausrichtung}  │  Stil: {self.diagramm.stil}{hinweis_text}"
         )
         # Die Meldungen selbst als Tooltip: eine Form kann außerhalb des

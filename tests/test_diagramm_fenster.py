@@ -106,11 +106,14 @@ def test_klassendiagramm_hat_eine_formen_palette(tmp_path: Path) -> None:
 def test_struktogramm_hat_keine_formen_palette(tmp_path: Path) -> None:
     """Struktogramme arbeiten mit einem Blockbaum, nicht mit frei
     platzierten Formen (Abschnitt 13.5) – eine Formen-Palette wäre dort
-    irreführend."""
+    irreführend. Seit Schritt 9 steht dort stattdessen die
+    Blockpalette."""
+    from ide.diagramm.struktogramm_palette import BlockPalette
+
     fenster = _fenster(tmp_path, "struktogramm")
 
-    assert fenster.palette is None
-    assert fenster.palette_dock is None
+    assert isinstance(fenster.palette, BlockPalette)
+    assert fenster.palette_dock.windowTitle() == "Blöcke"
 
 
 def test_palettenklick_macht_die_form_auf_der_flaeche_scharf(tmp_path: Path) -> None:

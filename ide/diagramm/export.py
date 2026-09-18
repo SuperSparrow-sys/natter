@@ -23,8 +23,9 @@ from PySide6.QtCore import QMarginsF, QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QImage, QPageLayout, QPageSize, QPainter, QPdfWriter
 from PySide6.QtSvg import QSvgGenerator
 
-from ide.diagramm.seite import DPI, seitengroesse
+from ide.diagramm.seite import DPI, satzspiegel, seitengroesse
 from ide.diagramm.stil import stil as stil_zu_namen
+from ide.diagramm.struktogramm import struktogramm_layout, struktogramm_zeichnen
 from ide.diagramm.zeichnen import (
     form_rechteck,
     form_zeichnen,
@@ -44,9 +45,13 @@ def _form_mit_id(daten: dict[str, Any], kennung: str) -> dict[str, Any] | None:
 
 
 def inhaltsbereich(daten: dict[str, Any]) -> QRectF:
-    """Das kleinste Rechteck, das alle Formen umschließt, plus Rand.
+    """Das kleinste Rechteck, das den Inhalt umschließt, plus Rand.
     Für PNG/SVG besser als die volle Blattgröße: ein Diagramm mit drei
     Klassen soll kein Bild mit 80 % weißer Fläche ergeben."""
+    if daten.get("type") == "struktogramm":
+        rechteck = struktogramm_layout(daten).rechteck
+        return QRectF(rechteck).adjusted(-RAND, -RAND, RAND, RAND)
+
     formen = daten.get("shapes") or []
     if not formen:
         breite, hoehe = seitengroesse(daten.get("page") or {})
@@ -64,6 +69,10 @@ def diagramm_zeichnen(maler: QPainter, daten: dict[str, Any]) -> None:
     Formen darüber, zuletzt die Beschriftungen, damit sie nicht von
     einer Form verdeckt werden."""
     stil = stil_zu_namen(str(daten.get("style", "modern-light")))
+    if daten.get("type") == "struktogramm":
+        struktogramm_zeichnen(maler, daten, stil)
+        return
+
     verbindungen = daten.get("connectors") or []
 
     for verbindung in verbindungen:
@@ -80,6 +89,17 @@ def diagramm_zeichnen(maler: QPainter, daten: dict[str, Any]) -> None:
         ziel = _form_mit_id(daten, verbindung.get("to"))
         if quelle is not None and ziel is not None:
             verbindungsbeschriftungen_zeichnen(maler, verbindung, quelle, ziel, stil)
+
+
+def _seitenversatz(daten: dict[str, Any]) -> tuple[float, float]:
+    """Wohin die linke obere Ecke des Inhalts auf dem Blatt gehört.
+    Ein Struktogramm beginnt bei (0, 0) und klebte sonst am Blattrand –
+    Formen-Diagramme tragen dagegen schon ihre eigenen Koordinaten auf
+    der Seite (im PDF-Sichtnachweis aufgefallen)."""
+    if daten.get("type") != "struktogramm":
+        return 0.0, 0.0
+    links, oben, _, _ = satzspiegel(daten.get("page") or {})
+    return links, oben
 
 
 def _hintergrund(daten: dict[str, Any]) -> QColor:
@@ -204,6 +224,8 @@ def als_pdf(daten: dict[str, Any], pfad: Path) -> Path:
     schreiber.setTitle(str(daten.get("name") or pfad.stem))
 
     maler = QPainter(schreiber)
+    links, oben = _seitenversatz(daten)
+    maler.translate(links, oben)
     diagramm_zeichnen(maler, daten)
     maler.end()
     return pfad
