@@ -1,0 +1,72 @@
+{
+  "format": "pdiag/1",
+  "type": "struktogramm",
+  "name": "ampel_zeichnen",
+  "page": {
+    "size": "A4",
+    "orientation": "portrait"
+  },
+  "style": "modern-light",
+  "root": {
+    "id": "root",
+    "kind": "sequence",
+    "children": [
+      {
+        "id": "b1",
+        "kind": "branch",
+        "text": "Ampel ausgeschaltet?",
+        "then": [
+          {
+            "id": "b2",
+            "kind": "statement",
+            "text": "alle drei Lampen auf AUS setzen"
+          },
+          {
+            "id": "b3",
+            "kind": "jump",
+            "text": "Ende (return)"
+          }
+        ],
+        "else": [
+          {
+            "id": "b4",
+            "kind": "multi_branch",
+            "text": "phase = get_zustand()",
+            "cases": [
+              {
+                "label": "1",
+                "children": [
+                  {
+                    "id": "b5",
+                    "kind": "statement",
+                    "text": "grün an, rot aus, gelb aus"
+                  }
+                ]
+              },
+              {
+                "label": "3",
+                "children": [
+                  {
+                    "id": "b6",
+                    "kind": "statement",
+                    "text": "grün aus, rot an, gelb aus"
+                  }
+                ]
+              },
+              {
+                "label": "2 oder 4",
+                "children": [
+                  {
+                    "id": "b7",
+                    "kind": "statement",
+                    "text": "grün aus, rot aus, gelb an"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
