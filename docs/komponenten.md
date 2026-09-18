@@ -7,9 +7,10 @@ umgesetzt wird. Siehe konzept-natter.md, Abschnitt 5 und 23.2.
 
 Status: `Form`, `Button`, `Label`, `Shape`, `Edit`, `CheckBox`,
 `RadioButton`, `Memo`, `ListBox`, `ComboBox`, `StringGrid`, `Image`,
-`ScrollBar` sind umgesetzt (M1, Schritt 2/3/6). Rest folgt später in
-Schritt 6 – nur deklariert/nicht genutzt oder in keinem Referenzprojekt
-vorhanden, daher niedrigere Priorität: `RadioGroup`, `GroupBox`, `Panel`,
+`ScrollBar` sind umgesetzt (M1, Schritt 2/3/6), `Chart` dazu aus M10.
+Rest folgt später in Schritt 6 – nur deklariert/nicht genutzt oder in
+keinem Referenzprojekt vorhanden, daher niedrigere Priorität:
+`RadioGroup`, `GroupBox`, `Panel`,
 `MainMenu`, `PopupMenu`, `SpinEdit`, `FloatSpinEdit`, `MaskEdit`,
 `PaintBox`, `HtmlViewer`, `TrackBar`, `ProgressBar`, `DateEdit`, `TimeEdit`,
 `Calendar`, Dialoge, `Timer`, `Sound`.
@@ -222,6 +223,57 @@ Qt-Basis: `QScrollBar`, horizontal (`pcl/components/standard.py`)
 
 Gegen die echte Nutzung in `f_Pizza` geprüft (`sb_behinderung.position`
 steuert dort die Schriftgröße eines Memos, Min=5/Max=50).
+
+## Chart
+
+Qt-Basis: `FigureCanvasQTAgg` aus matplotlib (`pcl/components/chart.py`)
+
+Die einzige Komponente, die nicht auf einem Qt-Standardwidget sitzt.
+Sie deckt Abschnitt 11.6 ab und ist die Grundlage der Auswertungen in
+M10 (Regression mit scikit-learn).
+
+| Eigenschaft | Typ | Standardwert | Kategorie | Hilfetext |
+|---|---|---|---|---|
+| left, top, enabled | wie `Control` | – | – | geerbt von `Control` |
+| width | int | 320 | Layout | Breite in Pixeln |
+| height | int | 240 | Layout | Höhe in Pixeln |
+| kind | str | "bar" | Darstellung | Diagrammart: bar, line, pie, scatter, histogram, boxplot |
+| title | str | "" | Darstellung | Überschrift über dem Diagramm |
+| x_label | str | "" | Darstellung | Beschriftung der x-Achse |
+| y_label | str | "" | Darstellung | Beschriftung der y-Achse |
+| legend | bool | False | Darstellung | Legende mit den Serientiteln anzeigen |
+| grid | bool | False | Darstellung | Gitternetzlinien anzeigen |
+
+Keine Ereignisse.
+
+Methoden: `add_bar_series(kategorien, werte, *, title="")`,
+`add_line_series(x, y, *, title="")`,
+`add_pie_series(labels, werte, *, title="")`,
+`add_scatter_series(x, y, *, title="")`,
+`add_histogram_series(werte, *, bins=10, title="")`,
+`add_boxplot_series(werte, *, title="")`, `clear()`. Alle nehmen Listen
+**und** pandas-Serien entgegen – matplotlib versteht beide Formen
+direkt.
+
+Das Standardformat ist mit 320x240 größer als bei allen anderen
+Komponenten; mit den 75x25 aus `Control` wäre nach dem Ablegen aus der
+Palette nur der Figurenrahmen zu sehen.
+
+`kind` legt fest, was **ohne** eigenen `add_*_series`-Aufruf zu sehen
+ist: solange keine echten Daten da sind, zeichnet die Komponente eine
+kleine Beispielreihe in der gewählten Art. Im Designer steht damit ein
+erkennbares Diagramm statt eines leeren Rechtecks. Der erste
+`add_*_series`-Aufruf wirft die Vorschau weg, `clear()` lässt bewusst
+leer. Ein unbekannter Wert fällt wie bei `Shape.shape` auf `bar`
+zurück, statt die Anzeige mit einem Fehler abzubrechen.
+
+Die Serienfarben kommen aus `design/tokens.json`, Eintrag
+`color.<theme>.chart` – sechs Farben, die sich bei mehr Serien
+wiederholen. Sie beginnen mit der Akzentfarbe, damit das übliche
+Diagramm mit einer Serie so aussieht wie gewohnt. Ein Diagramm färbt
+sich beim Erzeugen einmalig nach dem aktuellen Theme ein; ein späterer
+Theme-Wechsel zur Laufzeit wirkt (wie bei allen `pcl`-Komponenten)
+nicht rückwirkend.
 
 ## Dialogfunktionen
 

@@ -2,8 +2,10 @@
 
 Siehe konzept-natter.md, Abschnitt 7.3. Nur die bisher in `pcl`
 umgesetzten Komponenten (Stand M1/M3); `Allgemein`, `Dialoge`,
-`Datensteuerung`, `Datenzugriff`, `System`, `Diagramm` folgen, sobald es
-dort etwas zu platzieren gibt (Abschnitt 5.2).
+`Datensteuerung`, `Datenzugriff`, `System` folgen, sobald es dort etwas
+zu platzieren gibt (Abschnitt 5.2). Ein eigener Reiter `Diagramm` lohnt
+sich mit einer einzigen Komponente noch nicht – `Chart` steht deshalb
+unter „Zusätzlich“.
 
 Optik wie in Lazarus: ein einzeiliger, horizontal scrollbarer Streifen
 aus reinen Symbol-Kacheln je Reiter (kein Fließtext unter dem Symbol),
@@ -17,6 +19,7 @@ from PySide6.QtWidgets import QListWidget, QListWidgetItem, QTabWidget
 
 from ide.assets import symbol
 from pcl.components.additional import Image, Shape, StringGrid
+from pcl.components.chart import Chart
 from pcl.components.standard import (
     Button,
     CheckBox,
@@ -51,6 +54,9 @@ ZUSAETZLICH_KOMPONENTEN = (
     StringGrid,
     Image,
     Shape,
+    # „Zusätzlich“ statt „Standard“: ein Diagramm ist kein Grundbaustein
+    # wie Knopf oder Textfeld (M10, Punkt 1).
+    Chart,
 )
 
 

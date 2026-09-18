@@ -240,3 +240,76 @@ def test_prop_titel_sticht_den_serientitel(diagramm: Chart) -> None:
 
 def test_standardgroesse_ist_groesser_als_ein_knopf(diagramm: Chart) -> None:
     assert (diagramm.width, diagramm.height) == (320, 240)
+
+
+# -- Aus der Sichtprüfung ------------------------------------------------
+#
+# Drei Fehler, die alle Tests oben bestanden hatten und erst auf dem
+# gerenderten Bild auffielen. Deshalb stehen sie hier eigens.
+
+
+def test_beschriftungen_bleiben_in_der_figur(diagramm: Chart) -> None:
+    """Der erste Fund: an der y-Achse stand „.0“ statt „5.0“, und dem
+    Titel fehlte die Oberkante.
+
+    Ursache war `tight_layout()`: es rechnet die Ränder einmalig aus und
+    hinterlässt feste Bruchteile. Schrumpft das Widget danach auf die
+    320x240 der Komponente, brauchen die gleich groß bleibenden
+    Beschriftungen einen größeren Anteil und laufen aus der Figur
+    heraus.
+    """
+    diagramm.kind = "line"
+    diagramm.title = "Messwerte über die Woche"
+    diagramm.y_label = "Anzahl"
+    _gerendert(diagramm)
+
+    figur = diagramm._figure.bbox
+    aussen = diagramm._achse.get_tightbbox()
+
+    assert aussen.x0 >= -1, "die y-Beschriftung ragt links aus der Figur"
+    assert aussen.y1 <= figur.y1 + 1, "der Titel ragt oben aus der Figur"
+
+
+def test_vier_werte_bekommen_vier_verschiedene_farben(diagramm: Chart) -> None:
+    """Der zweite Fund: die Palette bestand aus den drei Statusfarben,
+    ein Kreisdiagramm mit vier Werten hatte deshalb zwei gleich gefärbte
+    Stücke direkt nebeneinander."""
+    diagramm.add_pie_series(["Mo", "Di", "Mi", "Do"], [3, 5, 2, 4])
+
+    farben = [stueck.get_facecolor() for stueck in diagramm._achse.patches]
+
+    assert len({tuple(f) for f in farben}) == 4
+
+
+def test_kreisbeschriftung_folgt_dem_theme(formular: _Formular) -> None:
+    """Der dritte Fund: die Stücke eines Kreisdiagramms werden nicht
+    über die Achsen beschriftet, `tick_params()` erreicht sie also
+    nicht – im dunklen Theme standen sie fast schwarz auf dunklem
+    Grund."""
+    from matplotlib.colors import to_hex
+
+    dunkel = Chart(formular, theme="dark")
+    dunkel.kind = "pie"
+
+    beschriftungen = [
+        to_hex(text.get_color())
+        for text in dunkel._achse.texts
+        if text.get_text() in ("Mo", "Di", "Mi", "Do")
+    ]
+
+    assert beschriftungen, "das Kreisdiagramm hat gar keine Beschriftung"
+    assert set(beschriftungen) == {_theme_farben("dark")["text"].lower()}
+
+
+def test_geschlossenes_formular_wirft_keinen_traceback(formular: _Formular) -> None:
+    """Vierter Fund, beim Testlauf auf der Konsole: ein vorgemerktes
+    Neuzeichnen traf auf die schon gelöschte Leinwand und brach mit
+    `libshiboken: Internal C++ object ... already deleted` ab. In einem
+    Schülerprogramm wäre das ein Traceback beim Schließen des
+    Fensters."""
+    from shiboken6 import delete
+
+    diagramm = formular.ch_diagramm
+    delete(diagramm._qwidget)  # was Qt beim Schließen des Fensters tut
+
+    diagramm.title = "nach dem Schließen"  # darf nichts werfen
