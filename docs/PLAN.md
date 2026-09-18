@@ -63,6 +63,12 @@ tatsächlich fehlen):
   Textzeilen zu strukturierten Datensätzen mit Sichtbarkeit, Typ und
   Parameterliste, das Schema wächst entsprechend, und die vorhandenen
   `.pdiag` müssen beim Laden umgesetzt werden
+- **Klasse als Python-Quelltext ausgeben** (Schritt 13,
+  Nutzer-Wunsch September 2026): aus der modellierten Klasse den
+  passenden Code erzeugen – wahlweise in ein Fenster zum Kopieren oder
+  in eine eigene Datei. Setzt Schritt 12 voraus, weil sich nur aus
+  strukturierten Attributen und Operationen sinnvoll Code erzeugen
+  lässt
 - Mehrfachauswahl, Ausrichten/Verteilen, Kopieren/Einfügen (3b) –
   das ist der spürbarste Mangel: wer zehn Klassen gesetzt hat, kann
   sie derzeit nur einzeln anfassen
