@@ -13,11 +13,20 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import QEvent, QObject, Qt, Signal
+from PySide6.QtCore import QEvent, QObject, QRectF, Qt, Signal
 from PySide6.QtGui import QFont, QKeyEvent
 from PySide6.QtWidgets import QApplication, QLineEdit, QPlainTextEdit, QWidget
 
 from ide.diagramm.zeichnen import form_rechteck, klassen_bereiche
+
+
+def _skaliert(rechteck: QRectF, zoom: float) -> QRectF:
+    return QRectF(
+        rechteck.left() * zoom,
+        rechteck.top() * zoom,
+        rechteck.width() * zoom,
+        rechteck.height() * zoom,
+    )
 
 #: Reihenfolge, in der Tab durch die Felder springt (Abschnitt 13.3:
 #: „Name → Attribute → Methoden“).
@@ -31,9 +40,13 @@ class FormEditor(QWidget):
     fertig = Signal(dict)
     abgebrochen = Signal()
 
-    def __init__(self, form: dict[str, Any], eltern: QWidget) -> None:
+    def __init__(self, form: dict[str, Any], eltern: QWidget, zoom: float = 1.0) -> None:
         super().__init__(eltern)
         self.form = form
+        # Die Zeichenfläche skaliert beim Malen, dieses Widget nicht -
+        # Felder und Schrift müssen den Zoom deshalb selbst einrechnen,
+        # sonst läge der Editor bei 200 % neben seiner Form.
+        self.zoom = zoom
         self._felder: dict[str, QWidget] = {}
         # Nach dem Abschließen dürfen sterbende Felder nichts mehr
         # auslösen: beim Abräumen schickt Qt noch FocusOut, das sonst
@@ -43,7 +56,7 @@ class FormEditor(QWidget):
         self._beendet = False
 
         rechteck = form_rechteck(form)
-        self.setGeometry(rechteck.toRect())
+        self.setGeometry(_skaliert(rechteck, zoom).toRect())
         bereiche = klassen_bereiche(form)
         text = form.get("text") or {}
 
@@ -53,7 +66,7 @@ class FormEditor(QWidget):
             bereich = bereiche[name].translated(-rechteck.left(), -rechteck.top())
             feld = self._feld_erzeugen(name, text)
             feld.setParent(self)
-            feld.setGeometry(bereich.toRect())
+            feld.setGeometry(_skaliert(bereich, zoom).toRect())
             feld.installEventFilter(self)
             self._felder[name] = feld
 
@@ -74,6 +87,11 @@ class FormEditor(QWidget):
         feld.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         feld.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         return feld
+
+    def _schriftgroesse(self, punkte: int) -> int:
+        """Schrift wächst mit dem Zoom mit, damit der Text im Feld genauso
+        groß ist wie der gezeichnete darunter."""
+        return max(1, round(punkte * self.zoom))
 
     # -- Ergebnis -------------------------------------------------------
 

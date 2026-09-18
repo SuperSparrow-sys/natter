@@ -77,8 +77,10 @@ _MENUES: dict[str, tuple[tuple[str, bool], ...]] = {
         ("Alles auswählen", False),
     ),
     "Ansicht": (
-        ("Zoom vergrößern", False),
-        ("Zoom verkleinern", False),
+        ("Zoom vergrößern", True),
+        ("Zoom verkleinern", True),
+        ("Alles anzeigen", True),
+        ("Zoom 100 %", True),
         ("Raster", True),
         ("Lineale", False),
         ("Hilfslinien", False),
@@ -182,6 +184,10 @@ class DiagrammFenster(QMainWindow):
 
         self.zeichenflaeche.auswahl_geaendert.connect(self._bei_auswahl)
         self.zeichenflaeche.geaendert.connect(self._bei_aenderung)
+        if hasattr(self.zeichenflaeche, "zoom_geaendert"):
+            self.zeichenflaeche.zoom_geaendert.connect(
+                lambda _: self._statusleiste_aktualisieren()
+            )
 
         # Die Zeichenfläche steckt in einem Rollbereich: ein A4-Blatt ist
         # breiter als die meisten Fenster, und ein Struktogramm wächst
@@ -288,6 +294,10 @@ class DiagrammFenster(QMainWindow):
             ("Bearbeiten/Löschen", "Del", lambda: self.zeichenflaeche.loeschen()),
             ("Datei/Speichern", "Ctrl+S", None),
             ("Format/Stil übertragen", "Ctrl+Shift+V", self._stil_uebertragen),
+            ("Ansicht/Zoom vergrößern", "Ctrl++", lambda: self._zoomen(1.25)),
+            ("Ansicht/Zoom verkleinern", "Ctrl+-", lambda: self._zoomen(1 / 1.25)),
+            ("Ansicht/Alles anzeigen", "Ctrl+0", self.alles_anzeigen),
+            ("Ansicht/Zoom 100 %", "Ctrl+1", lambda: self._zoom_setzen(1.0)),
         ):
             aktion = self.aktionen[pfad]
             aktion.setShortcut(kuerzel)
@@ -302,6 +312,10 @@ class DiagrammFenster(QMainWindow):
         Formen, also auch kein Duplizieren, keine Hilfslinien und kein
         Uebertragen von Fuellfarben (Abschnitt 13.5)."""
         for pfad, faehigkeit in (
+            ("Ansicht/Zoom vergrößern", "zoom_setzen"),
+            ("Ansicht/Zoom verkleinern", "zoom_setzen"),
+            ("Ansicht/Alles anzeigen", "alles_anzeigen"),
+            ("Ansicht/Zoom 100 %", "zoom_setzen"),
             ("Bearbeiten/Duplizieren", "duplizieren"),
             ("Format/Stil übertragen", "ausgewaehlte_form"),
             ("Ansicht/Raster", "raster_sichtbar"),
@@ -340,6 +354,24 @@ class DiagrammFenster(QMainWindow):
             self.statusBar().showMessage("Keine Regel ausgewählt.", 3000)
             return
         self.zeichenflaeche.regel_verschieben(zelle.spalte, zelle.spalte + richtung)
+
+    # -- Zoom ------------------------------------------------------------
+
+    def _zoomen(self, faktor: float) -> None:
+        if hasattr(self.zeichenflaeche, "zoom_aendern"):
+            self.zeichenflaeche.zoom_aendern(faktor)
+
+    def _zoom_setzen(self, wert: float) -> None:
+        if hasattr(self.zeichenflaeche, "zoom_setzen"):
+            self.zeichenflaeche.zoom_setzen(wert)
+
+    def alles_anzeigen(self) -> None:
+        """„Ansicht → Alles anzeigen“ (Strg+0): so weit herauszoomen, dass
+        alles ins Sichtfenster passt."""
+        if not hasattr(self.zeichenflaeche, "alles_anzeigen"):
+            return
+        sicht = self.rollbereich.viewport()
+        self.zeichenflaeche.alles_anzeigen(sicht.width(), sicht.height())
 
     def _stilvorlagen_menue_aufbauen(self) -> None:
         """„Format → Stilvorlage“ als Untermenü mit den drei Vorlagen aus
@@ -455,6 +487,9 @@ class DiagrammFenster(QMainWindow):
             if hasattr(self.zeichenflaeche, "raster_sichtbar")
             else ""
         )
+        zoom = getattr(self.zeichenflaeche, "zoom", None)
+        if zoom is not None:
+            raster += f"Zoom {round(zoom * 100)} %  │  "
         self.statusBar().showMessage(
             f"{auswahl}  │  {raster}"
             f"{seite['size']} {ausrichtung}  │  Stil: {self.diagramm.stil}{hinweis_text}"

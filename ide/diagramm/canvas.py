@@ -23,7 +23,7 @@ from typing import Any
 
 from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtGui import QColor, QKeyEvent, QMouseEvent, QPainter, QPaintEvent, QPen
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QScrollArea, QWidget
 
 from ide.diagramm.datei import Diagramm
 from ide.diagramm.formen import MINDESTGROESSE, form_art, verbindungs_art
@@ -61,6 +61,10 @@ HINWEIS_FARBE = "#d97706"
 #: Zusätzlicher Platz rechts und unten neben dem Blatt, damit sich eine
 #: Form auch über den bisherigen Rand hinaus ziehen lässt.
 SICHTRAND = 240
+#: Grenzen der Zoomstufe (Abschnitt 13.2). Darunter ist nichts mehr zu
+#: erkennen, darüber verliert man die Übersicht völlig.
+MIN_ZOOM = 0.25
+MAX_ZOOM = 4.0
 
 #: Anfasser-Reihenfolge wie in `zeichnen.anfasser_punkte`.
 _ANFASSER_NAMEN = ("nw", "n", "ne", "e", "se", "s", "sw", "w")
@@ -91,12 +95,14 @@ def _raster_aufrunden(wert: float) -> int:
 class DiagrammCanvas(QWidget):
     auswahl_geaendert = Signal(object)  # das ausgewählte shape-dict oder None
     geaendert = Signal()
+    zoom_geaendert = Signal(float)
 
     def __init__(self, diagramm: Diagramm) -> None:
         super().__init__()
         self.diagramm = diagramm
         self.kommandos = Kommandostapel()
         self.ausgewaehlte_form: dict[str, Any] | None = None
+        self.zoom = 1.0
         self.raster_sichtbar = True
         #: Layout-Hinweise (Schritt 7) sind wie der Design-Prüfer (M7)
         #: abschaltbar – sie melden nur, blockieren nie.
@@ -114,23 +120,108 @@ class DiagrammCanvas(QWidget):
         self._anfasser: str | None = None
         self._hilfslinien: list[tuple[str, float]] = []
         self._editor: FormEditor | None = None
+        #: Ansicht verschieben (Leertaste gedrückt bzw. mittlere Taste)
+        self._leertaste = False
+        self._greif_start: QPoint | None = None
 
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setMouseTracking(True)
         self.inhaltsgroesse_anpassen()
 
+    # -- Zoom ------------------------------------------------------------
+
+    def zoom_setzen(self, wert: float) -> None:
+        """Zoomstufe setzen (Abschnitt 13.2/13.3). Begrenzt, damit sich
+        niemand aus Versehen so weit heraus- oder hineinzoomt, dass
+        nichts mehr zu erkennen ist."""
+        neu = max(MIN_ZOOM, min(MAX_ZOOM, wert))
+        if abs(neu - self.zoom) < 0.001:
+            return
+        self.zoom = neu
+        self.inhaltsgroesse_anpassen()
+        self.zoom_geaendert.emit(neu)
+        self.update()
+
+    def zoom_aendern(self, faktor: float) -> None:
+        self.zoom_setzen(self.zoom * faktor)
+
+    def alles_anzeigen(self, breite: float, hoehe: float) -> None:
+        """„Alles anzeigen“ (Strg+0): so weit herauszoomen, dass alle
+        Formen in `breite`×`hoehe` passen. Ohne Formen bleibt es beim
+        ganzen Blatt, damit die Ansicht nicht ins Leere springt."""
+        inhalt = self._inhalt_in_diagrammkoordinaten()
+        if inhalt[0] <= 0 or inhalt[1] <= 0:
+            return
+        self.zoom_setzen(min(breite / inhalt[0], hoehe / inhalt[1]))
+
+    def _diagrammpunkt(self, ereignis: QMouseEvent) -> QPoint:
+        """Mausposition in Diagrammkoordinaten. Alles unterhalb rechnet
+        in Diagrammkoordinaten, nur das Zeichnen skaliert – sonst müsste
+        jede einzelne Trefferprüfung den Zoom kennen."""
+        punkt = ereignis.position()
+        return QPoint(int(punkt.x() / self.zoom), int(punkt.y() / self.zoom))
+
+    def wheelEvent(self, ereignis) -> None:
+        """Strg+Mausrad zoomt, ohne Strg rollt der Rollbereich wie
+        gewohnt weiter."""
+        if ereignis.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            self.zoom_aendern(1.1 if ereignis.angleDelta().y() > 0 else 1 / 1.1)
+            ereignis.accept()
+            return
+        ereignis.ignore()
+
+    # -- Ansicht verschieben ---------------------------------------------
+
+    def rollbereich(self) -> QScrollArea | None:
+        """Der `QScrollArea`, in dem die Fläche steckt. Sie hängt dort im
+        Viewport, der eigentliche Rollbereich ist also der Großelternteil."""
+        eltern = self.parentWidget()
+        while eltern is not None:
+            if isinstance(eltern, QScrollArea):
+                return eltern
+            eltern = eltern.parentWidget()
+        return None
+
+    def ansicht_verschieben(self, dx: int, dy: int) -> None:
+        """Verschiebt den sichtbaren Ausschnitt (Leertaste+Ziehen bzw.
+        mittlere Maustaste, Abschnitt 13.3)."""
+        rollbereich = self.rollbereich()
+        if rollbereich is None:
+            return
+        waagerecht = rollbereich.horizontalScrollBar()
+        senkrecht = rollbereich.verticalScrollBar()
+        waagerecht.setValue(waagerecht.value() - dx)
+        senkrecht.setValue(senkrecht.value() - dy)
+
+    def _greifen_beginnen(self, punkt: QPoint) -> None:
+        self._greif_start = punkt
+        self.setCursor(Qt.CursorShape.ClosedHandCursor)
+
+    def _greifen_beenden(self) -> None:
+        self._greif_start = None
+        self.setCursor(
+            Qt.CursorShape.OpenHandCursor
+            if self._leertaste
+            else Qt.CursorShape.ArrowCursor
+        )
+
     # -- Größe der Fläche -----------------------------------------------
 
-    def inhaltsgroesse(self) -> tuple[int, int]:
-        """Wie groß die Zeichenfläche mindestens sein muss: das ganze
-        Blatt und darüber hinaus alles, was jemand daneben gelegt hat.
-        `SICHTRAND` lässt rechts und unten Platz, damit sich eine Form
-        auch über den bisherigen Rand hinaus ziehen lässt."""
+    def _inhalt_in_diagrammkoordinaten(self) -> tuple[float, float]:
+        """Das ganze Blatt und darüber hinaus alles, was jemand daneben
+        gelegt hat. `SICHTRAND` lässt rechts und unten Platz, damit sich
+        eine Form auch über den bisherigen Rand hinaus ziehen lässt."""
         breite, hoehe = seitengroesse(self.diagramm.daten.get("page") or {})
         for form in self.formen:
             breite = max(breite, form["x"] + form["w"])
             hoehe = max(hoehe, form["y"] + form["h"])
-        return int(breite + SICHTRAND), int(hoehe + SICHTRAND)
+        return breite + SICHTRAND, hoehe + SICHTRAND
+
+    def inhaltsgroesse(self) -> tuple[int, int]:
+        """Wie groß die Zeichenfläche mindestens sein muss – in Pixeln
+        auf dem Bildschirm, also mit dem Zoom multipliziert."""
+        breite, hoehe = self._inhalt_in_diagrammkoordinaten()
+        return int(breite * self.zoom), int(hoehe * self.zoom)
 
     def inhaltsgroesse_anpassen(self) -> None:
         """Setzt die Mindestgröße neu. Zusammen mit einer `QScrollArea`
@@ -461,7 +552,13 @@ class DiagrammCanvas(QWidget):
     # -- Maus -----------------------------------------------------------
 
     def mousePressEvent(self, ereignis: QMouseEvent) -> None:
-        punkt: QPoint = ereignis.position().toPoint()
+        # Ansicht verschieben geht allem anderen vor: wer die Leertaste
+        # hält oder die mittlere Taste drückt, will nichts auswählen.
+        if self._leertaste or ereignis.button() == Qt.MouseButton.MiddleButton:
+            self._greifen_beginnen(ereignis.position().toPoint())
+            return
+
+        punkt: QPoint = self._diagrammpunkt(ereignis)
 
         if self._platzierungs_kind is not None:
             kind = self._platzierungs_kind
@@ -519,7 +616,7 @@ class DiagrammCanvas(QWidget):
 
     def mouseDoubleClickEvent(self, ereignis: QMouseEvent) -> None:
         """Doppelklick beschriftet die Form direkt (Abschnitt 13.3)."""
-        punkt = ereignis.position().toPoint()
+        punkt = self._diagrammpunkt(ereignis)
         getroffen = self.form_bei(punkt.x(), punkt.y())
         if getroffen is not None:
             self._auswaehlen(getroffen)
@@ -533,7 +630,7 @@ class DiagrammCanvas(QWidget):
             return None
         self.bearbeiten_beenden()
 
-        editor = FormEditor(ziel, self)
+        editor = FormEditor(ziel, self, self.zoom)
         editor.fertig.connect(lambda text, f=ziel: self._text_uebernehmen(f, text))
         editor.abgebrochen.connect(self.bearbeiten_beenden)
         editor.show()
@@ -563,7 +660,14 @@ class DiagrammCanvas(QWidget):
         self._nach_aenderung()
 
     def mouseMoveEvent(self, ereignis: QMouseEvent) -> None:
-        punkt = ereignis.position().toPoint()
+        if self._greif_start is not None:
+            jetzt = ereignis.position().toPoint()
+            self.ansicht_verschieben(
+                jetzt.x() - self._greif_start.x(), jetzt.y() - self._greif_start.y()
+            )
+            return
+
+        punkt = self._diagrammpunkt(ereignis)
 
         if self._zieh_form is None or self._zieh_start is None:
             self._cursor_aktualisieren(punkt)
@@ -596,6 +700,9 @@ class DiagrammCanvas(QWidget):
         self.update()
 
     def mouseReleaseEvent(self, ereignis: QMouseEvent) -> None:
+        if self._greif_start is not None:
+            self._greifen_beenden()
+            return
         if self._zieh_form is None or self._zieh_startwerte is None:
             return
 
@@ -633,11 +740,25 @@ class DiagrammCanvas(QWidget):
 
     # -- Tastatur -------------------------------------------------------
 
+    def keyReleaseEvent(self, ereignis: QKeyEvent) -> None:
+        if ereignis.key() == Qt.Key.Key_Space and not ereignis.isAutoRepeat():
+            self._leertaste = False
+            self._greifen_beenden()
+            return
+        super().keyReleaseEvent(ereignis)
+
     def keyPressEvent(self, ereignis: QKeyEvent) -> None:
         if not self._tastatur_verarbeiten(ereignis):
             super().keyPressEvent(ereignis)
 
     def _tastatur_verarbeiten(self, ereignis: QKeyEvent) -> bool:
+        if ereignis.key() == Qt.Key.Key_Space and self._editor is None:
+            # Nicht während des Beschriftens - dort ist ein Leerzeichen
+            # ein Leerzeichen.
+            self._leertaste = True
+            self.setCursor(Qt.CursorShape.OpenHandCursor)
+            return True
+
         """Tastenkürzel wie im Formular-Designer (Abschnitt 7.7/13.3):
         Pfeil = Rasterschritt, Alt+Pfeil = 1 px, Umschalt+Pfeil = Größe,
         Entf = löschen, Strg+D = duplizieren, Strg+Z/Strg+Umschalt+Z."""
@@ -691,6 +812,7 @@ class DiagrammCanvas(QWidget):
         stil = stil_zu_namen(self.diagramm.stil)
         maler = QPainter(self)
         maler.fillRect(self.rect(), QColor(stil.hintergrund))
+        maler.scale(self.zoom, self.zoom)
 
         if self.seitenrand_sichtbar:
             self._seitenrand_zeichnen(maler, stil)
@@ -755,12 +877,20 @@ class DiagrammCanvas(QWidget):
             if form is not None:
                 maler.drawRect(form_rechteck(form).adjusted(-3, -3, 3, 3))
 
+    def _sichtbare_breite(self) -> int:
+        """Breite der Fläche in Diagrammkoordinaten – beim Zeichnen ist
+        der Maler bereits skaliert, `self.width()` wäre also zu groß."""
+        return int(self.width() / self.zoom) + RASTER
+
+    def _sichtbare_hoehe(self) -> int:
+        return int(self.height() / self.zoom) + RASTER
+
     def _raster_zeichnen(self, maler: QPainter, farbe: str) -> None:
         """Punktraster (Abschnitt 13.6) statt Gitternetzlinien – ruhiger
         und im dunklen Theme weniger aufdringlich."""
         maler.setPen(QColor(farbe))
-        for x in range(0, self.width(), RASTER):
-            for y in range(0, self.height(), RASTER):
+        for x in range(0, self._sichtbare_breite(), RASTER):
+            for y in range(0, self._sichtbare_hoehe(), RASTER):
                 maler.drawPoint(x, y)
 
     def _hilfslinien_zeichnen(self, maler: QPainter, farbe: str) -> None:
@@ -771,6 +901,6 @@ class DiagrammCanvas(QWidget):
         maler.setPen(stift)
         for richtung, wert in self._hilfslinien:
             if richtung == "x":
-                maler.drawLine(int(wert), 0, int(wert), self.height())
+                maler.drawLine(int(wert), 0, int(wert), self._sichtbare_hoehe())
             else:
-                maler.drawLine(0, int(wert), self.width(), int(wert))
+                maler.drawLine(0, int(wert), self._sichtbare_breite(), int(wert))
