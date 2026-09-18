@@ -40,6 +40,7 @@ from ide.diagramm.struktogramm import (
     struktogramm_layout,
     struktogramm_zeichnen,
 )
+from ide.diagramm.zoom import ZoomMischung
 from ide.kommando import Kommandostapel
 
 #: Abstand des Struktogramms von der linken oberen Ecke der Fläche.
@@ -111,9 +112,13 @@ class _FallKommando:
             self.block["cases"].insert(self.nummer, self.fall)
 
 
-class StruktogrammCanvas(QWidget):
+class StruktogrammCanvas(ZoomMischung, QWidget):
     auswahl_geaendert = Signal(object)
     geaendert = Signal()
+    #: Das Signal muss hier stehen und nicht in `ZoomMischung`:
+    #: PySide6 meldet ein `Signal` nur in einer Klasse an, die
+    #: wirklich von `QObject` erbt.
+    zoom_geaendert = Signal(float)
 
     def __init__(self, diagramm: Diagramm) -> None:
         super().__init__()
@@ -121,6 +126,7 @@ class StruktogrammCanvas(QWidget):
         self.kommandos = Kommandostapel()
         self.ausgewaehlter_block: dict[str, Any] | None = None
         self.breite = STANDARDBREITE
+        self.zoom = 1.0
 
         self._einfuegeart: str | None = None
         self._vorschau: Einfuegestelle | None = None
@@ -133,18 +139,12 @@ class StruktogrammCanvas(QWidget):
 
     # -- Größe der Fläche -----------------------------------------------
 
-    def inhaltsgroesse(self) -> tuple[int, int]:
+    def _inhalt_in_diagrammkoordinaten(self) -> tuple[float, float]:
+        """Größe des Struktogramms **ohne** Zoom. `inhaltsgroesse()` und
+        `inhaltsgroesse_anpassen()` kommen aus `ZoomMischung` und
+        multiplizieren das mit der Zoomstufe."""
         rechteck = (self._layout or self._layout_erneuern()).rechteck
-        return (
-            int(rechteck.right() + 2 * VERSATZ),
-            int(rechteck.bottom() + 2 * VERSATZ),
-        )
-
-    def inhaltsgroesse_anpassen(self) -> None:
-        """Zusammen mit einer `QScrollArea` (`setWidgetResizable(True)`)
-        erscheinen Rollbalken, sobald das Struktogramm nicht mehr ins
-        Fenster passt – vorher war alles darunter nicht erreichbar."""
-        self.setMinimumSize(*self.inhaltsgroesse())
+        return rechteck.right() + 2 * VERSATZ, rechteck.bottom() + 2 * VERSATZ
 
     # -- Daten ----------------------------------------------------------
 
@@ -393,7 +393,7 @@ class StruktogrammCanvas(QWidget):
     # -- Maus und Tastatur ----------------------------------------------
 
     def mousePressEvent(self, ereignis: QMouseEvent) -> None:
-        punkt = ereignis.position().toPoint()
+        punkt = self._diagrammpunkt(ereignis)
         if self._einfuegeart is not None:
             stelle = self.stelle_bei(punkt.x(), punkt.y())
             if stelle is not None:
@@ -405,12 +405,12 @@ class StruktogrammCanvas(QWidget):
     def mouseMoveEvent(self, ereignis: QMouseEvent) -> None:
         if self._einfuegeart is None:
             return
-        punkt = ereignis.position().toPoint()
+        punkt = self._diagrammpunkt(ereignis)
         self._vorschau = self.stelle_bei(punkt.x(), punkt.y())
         self.update()
 
     def mouseDoubleClickEvent(self, ereignis: QMouseEvent) -> None:
-        punkt = ereignis.position().toPoint()
+        punkt = self._diagrammpunkt(ereignis)
         block = self.block_bei(punkt.x(), punkt.y())
         if block is not None:
             self.auswaehlen(block)
@@ -452,6 +452,7 @@ class StruktogrammCanvas(QWidget):
         stil = stil_zu_namen(self.diagramm.stil)
         maler = QPainter(self)
         maler.fillRect(self.rect(), QColor(stil.hintergrund))
+        maler.scale(self.zoom, self.zoom)
         maler.translate(VERSATZ, VERSATZ)
 
         self._layout = struktogramm_zeichnen(

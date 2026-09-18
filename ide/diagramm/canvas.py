@@ -25,7 +25,7 @@ from typing import Any
 
 from PySide6.QtCore import QPoint, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QKeyEvent, QMouseEvent, QPainter, QPaintEvent, QPen
-from PySide6.QtWidgets import QApplication, QScrollArea, QWidget
+from PySide6.QtWidgets import QApplication, QWidget
 
 from ide.diagramm.datei import Diagramm
 from ide.diagramm.formen import MINDESTGROESSE, form_art, verbindungs_art
@@ -55,6 +55,7 @@ from ide.diagramm.zeichnen import (
     verbindung_zeichnen,
     verbindungsbeschriftungen_zeichnen,
 )
+from ide.diagramm.zoom import MAX_ZOOM, MIN_ZOOM, ZoomMischung
 from ide.kommando import Kommandostapel
 
 RASTER = 8
@@ -70,10 +71,9 @@ HINWEIS_FARBE = "#d97706"
 #: Zusätzlicher Platz rechts und unten neben dem Blatt, damit sich eine
 #: Form auch über den bisherigen Rand hinaus ziehen lässt.
 SICHTRAND = 240
-#: Grenzen der Zoomstufe (Abschnitt 13.2). Darunter ist nichts mehr zu
-#: erkennen, darüber verliert man die Übersicht völlig.
-MIN_ZOOM = 0.25
-MAX_ZOOM = 4.0
+#: Weiterhin von hier aus erreichbar, damit vorhandene Importe gültig
+#: bleiben; festgelegt sind die Werte in `ide/diagramm/zoom.py`.
+__all__ = ["DiagrammCanvas", "MAX_ZOOM", "MIN_ZOOM"]
 
 #: Anfasser-Reihenfolge wie in `zeichnen.anfasser_punkte`.
 _ANFASSER_NAMEN = ("nw", "n", "ne", "e", "se", "s", "sw", "w")
@@ -101,7 +101,7 @@ def _raster_aufrunden(wert: float) -> int:
     return int(-(-wert // RASTER) * RASTER)
 
 
-class DiagrammCanvas(QWidget):
+class DiagrammCanvas(ZoomMischung, QWidget):
     auswahl_geaendert = Signal(object)  # das ausgewählte shape-dict oder None
     geaendert = Signal()
     zoom_geaendert = Signal(float)
@@ -150,70 +150,7 @@ class DiagrammCanvas(QWidget):
         self.setMouseTracking(True)
         self.inhaltsgroesse_anpassen()
 
-    # -- Zoom ------------------------------------------------------------
-
-    def zoom_setzen(self, wert: float) -> None:
-        """Zoomstufe setzen (Abschnitt 13.2/13.3). Begrenzt, damit sich
-        niemand aus Versehen so weit heraus- oder hineinzoomt, dass
-        nichts mehr zu erkennen ist."""
-        neu = max(MIN_ZOOM, min(MAX_ZOOM, wert))
-        if abs(neu - self.zoom) < 0.001:
-            return
-        self.zoom = neu
-        self.inhaltsgroesse_anpassen()
-        self.zoom_geaendert.emit(neu)
-        self.update()
-
-    def zoom_aendern(self, faktor: float) -> None:
-        self.zoom_setzen(self.zoom * faktor)
-
-    def alles_anzeigen(self, breite: float, hoehe: float) -> None:
-        """„Alles anzeigen“ (Strg+0): so weit herauszoomen, dass alle
-        Formen in `breite`×`hoehe` passen. Ohne Formen bleibt es beim
-        ganzen Blatt, damit die Ansicht nicht ins Leere springt."""
-        inhalt = self._inhalt_in_diagrammkoordinaten()
-        if inhalt[0] <= 0 or inhalt[1] <= 0:
-            return
-        self.zoom_setzen(min(breite / inhalt[0], hoehe / inhalt[1]))
-
-    def _diagrammpunkt(self, ereignis: QMouseEvent) -> QPoint:
-        """Mausposition in Diagrammkoordinaten. Alles unterhalb rechnet
-        in Diagrammkoordinaten, nur das Zeichnen skaliert – sonst müsste
-        jede einzelne Trefferprüfung den Zoom kennen."""
-        punkt = ereignis.position()
-        return QPoint(int(punkt.x() / self.zoom), int(punkt.y() / self.zoom))
-
-    def wheelEvent(self, ereignis) -> None:
-        """Strg+Mausrad zoomt, ohne Strg rollt der Rollbereich wie
-        gewohnt weiter."""
-        if ereignis.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            self.zoom_aendern(1.1 if ereignis.angleDelta().y() > 0 else 1 / 1.1)
-            ereignis.accept()
-            return
-        ereignis.ignore()
-
-    # -- Ansicht verschieben ---------------------------------------------
-
-    def rollbereich(self) -> QScrollArea | None:
-        """Der `QScrollArea`, in dem die Fläche steckt. Sie hängt dort im
-        Viewport, der eigentliche Rollbereich ist also der Großelternteil."""
-        eltern = self.parentWidget()
-        while eltern is not None:
-            if isinstance(eltern, QScrollArea):
-                return eltern
-            eltern = eltern.parentWidget()
-        return None
-
-    def ansicht_verschieben(self, dx: int, dy: int) -> None:
-        """Verschiebt den sichtbaren Ausschnitt (Leertaste+Ziehen bzw.
-        mittlere Maustaste, Abschnitt 13.3)."""
-        rollbereich = self.rollbereich()
-        if rollbereich is None:
-            return
-        waagerecht = rollbereich.horizontalScrollBar()
-        senkrecht = rollbereich.verticalScrollBar()
-        waagerecht.setValue(waagerecht.value() - dx)
-        senkrecht.setValue(senkrecht.value() - dy)
+    # -- Zoom, Rollen, Ansicht verschieben: siehe `ZoomMischung`
 
     def zur_auswahl_rollen(self) -> None:
         """Rollt so weit, dass die Auswahl zu sehen ist.
@@ -281,20 +218,6 @@ class DiagrammCanvas(QWidget):
             breite = max(breite, form["x"] + form["w"])
             hoehe = max(hoehe, form["y"] + form["h"])
         return breite + SICHTRAND, hoehe + SICHTRAND
-
-    def inhaltsgroesse(self) -> tuple[int, int]:
-        """Wie groß die Zeichenfläche mindestens sein muss – in Pixeln
-        auf dem Bildschirm, also mit dem Zoom multipliziert."""
-        breite, hoehe = self._inhalt_in_diagrammkoordinaten()
-        return int(breite * self.zoom), int(hoehe * self.zoom)
-
-    def inhaltsgroesse_anpassen(self) -> None:
-        """Setzt die Mindestgröße neu. Zusammen mit einer `QScrollArea`
-        (`setWidgetResizable(True)`) heißt das: passt der Inhalt ins
-        Fenster, füllt die Fläche das Fenster; passt er nicht, erscheinen
-        Rollbalken. Ohne das war alles außerhalb des Fensters schlicht
-        nicht erreichbar."""
-        self.setMinimumSize(*self.inhaltsgroesse())
 
     # -- Daten ----------------------------------------------------------
 

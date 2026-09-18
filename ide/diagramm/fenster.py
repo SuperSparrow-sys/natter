@@ -492,7 +492,11 @@ class DiagrammFenster(QMainWindow):
         self.menuBar().insertMenu(self._menues["Hilfe"].menuAction(), menue)
         self._menues["Quelltext"] = menue
         aktion = menue.addAction("Erzeugen …")
-        aktion.setShortcut("Ctrl+G")
+        # Nicht Strg+G: das gehört seit Teilschritt 3b dem Gruppieren,
+        # und Strg+G zum Gruppieren kennt jedes Zeichenprogramm. Zwei
+        # aktive Aktionen auf derselben Taste lösen in Qt gar nichts
+        # mehr aus („Ambiguous shortcut overload“).
+        aktion.setShortcut("Ctrl+Shift+E")
         aktion.triggered.connect(lambda: self.quelltext_erzeugen())
         self.aktionen["Quelltext/Erzeugen …"] = aktion
 

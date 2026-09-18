@@ -12,6 +12,7 @@ from PySide6.QtGui import QKeyEvent, QMouseEvent, QWheelEvent
 
 from ide.diagramm import DiagrammFenster, diagramm_erzeugen
 from ide.diagramm.canvas import MAX_ZOOM, MIN_ZOOM, DiagrammCanvas
+from ide.diagramm.struktogramm_canvas import VERSATZ
 
 
 @pytest.fixture
@@ -271,11 +272,67 @@ def test_zoomstufe_steht_in_der_statusleiste(fenster: DiagrammFenster) -> None:
     assert "Zoom 150 %" in fenster.statusBar().currentMessage()
 
 
-def test_struktogramm_hat_keine_zoom_eintraege(tmp_path: Path) -> None:
-    """Ehrlicher Zwischenstand: die Blockfläche kann noch nicht zoomen,
-    der Eintrag ist deshalb ausgegraut statt wirkungslos."""
+# -- Zoom in allen drei Zeichenflächen (Teilschritt 6) -------------------
+#
+# Bis hierher konnte nur das Klassendiagramm zoomen. Gerade dort fehlt
+# es aber am wenigsten: ein Struktogramm mit verschachtelten Schleifen
+# wird schnell länger als das Fenster, eine Entscheidungstabelle
+# breiter.
+
+
+@pytest.mark.parametrize("typ", ["class", "struktogramm", "entscheidungstabelle"])
+def test_jede_flaeche_kann_zoomen(tmp_path: Path, typ: str) -> None:
+    fenster = DiagrammFenster(diagramm_erzeugen(typ, tmp_path / f"{typ}.pdiag", "x"))
+
+    assert fenster.aktionen["Ansicht/Zoom vergrößern"].isEnabled() is True
+
+    fenster.aktionen["Ansicht/Zoom vergrößern"].trigger()
+
+    assert fenster.zeichenflaeche.zoom > 1.0
+
+
+@pytest.mark.parametrize("typ", ["struktogramm", "entscheidungstabelle"])
+def test_flaeche_waechst_auch_dort_mit_dem_zoom(tmp_path: Path, typ: str) -> None:
+    """Sonst bliebe beim Hineinzoomen der untere Teil unerreichbar."""
+    fenster = DiagrammFenster(diagramm_erzeugen(typ, tmp_path / f"{typ}.pdiag", "x"))
+    flaeche = fenster.zeichenflaeche
+    vorher = flaeche.minimumSize().height()
+
+    flaeche.zoom_setzen(2.0)
+
+    assert flaeche.minimumSize().height() == pytest.approx(vorher * 2, abs=2)
+
+
+@pytest.mark.parametrize("typ", ["struktogramm", "entscheidungstabelle"])
+def test_zoomstufe_steht_auch_dort_in_der_statusleiste(
+    tmp_path: Path, typ: str
+) -> None:
+    fenster = DiagrammFenster(diagramm_erzeugen(typ, tmp_path / f"{typ}.pdiag", "x"))
+
+    fenster.zeichenflaeche.zoom_setzen(1.5)
+
+    assert "Zoom 150 %" in fenster.statusBar().currentMessage()
+
+
+def test_struktogramm_trifft_den_block_auch_bei_zoom(tmp_path: Path) -> None:
+    """Der Knackpunkt wie im Klassendiagramm: die Trefferprüfung rechnet
+    in Diagrammkoordinaten, die Maus liefert Bildschirmkoordinaten."""
     fenster = DiagrammFenster(
         diagramm_erzeugen("struktogramm", tmp_path / "s.pdiag", "s")
     )
+    flaeche = fenster.zeichenflaeche
+    flaeche.block_einfuegen("statement", flaeche.einfuegestellen()[0][0])
+    block = flaeche.wurzel["children"][0]
+    kasten = next(k for k in flaeche._layout.alle() if k.block is block)
+    # `block_bei` rechnet den Versatz selbst heraus, das Layout kennt ihn
+    # nicht - deshalb hier wieder dazu.
+    mitte_x = kasten.rechteck.center().x() + VERSATZ
+    mitte_y = kasten.rechteck.center().y() + VERSATZ
+    assert flaeche.block_bei(mitte_x, mitte_y) is block
 
-    assert fenster.aktionen["Ansicht/Zoom vergrößern"].isEnabled() is False
+    flaeche.zoom_setzen(2.0)
+    flaeche.mousePressEvent(
+        _maus(mitte_x * 2, mitte_y * 2, QEvent.Type.MouseButtonPress)
+    )
+
+    assert flaeche.ausgewaehlter_block is block

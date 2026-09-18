@@ -647,3 +647,21 @@ def test_eigenschaften_nennen_die_mitausgewaehlten(tmp_path: Path) -> None:
     flaeche.alles_auswaehlen()
 
     assert "1 weitere ausgewählt" in fenster.eigenschaften.hinweis.text()
+
+
+def test_kein_tastenkuerzel_ist_doppelt_vergeben(tmp_path: Path) -> None:
+    """Zwei aktive Aktionen auf derselben Taste lösen in Qt gar nichts
+    mehr aus („Ambiguous shortcut overload"). Real passiert: Strg+G war
+    kurzzeitig für „Gruppieren" **und** „Quelltext erzeugen" vergeben."""
+    for typ in ("class", "struktogramm", "entscheidungstabelle"):
+        fenster = DiagrammFenster(diagramm_erzeugen(typ, tmp_path / f"{typ}.pdiag", "x"))
+        vergeben: dict[str, str] = {}
+        for pfad, aktion in fenster.aktionen.items():
+            if not aktion.isEnabled():
+                continue
+            for kuerzel in aktion.shortcuts():
+                text = kuerzel.toString()
+                assert text not in vergeben, (
+                    f"{typ}: „{text}“ ist an „{pfad}“ und an „{vergeben[text]}“ vergeben"
+                )
+                vergeben[text] = pfad

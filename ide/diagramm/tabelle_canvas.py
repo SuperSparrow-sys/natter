@@ -30,6 +30,7 @@ from ide.diagramm.tabelle import (
     wert,
     zelle_bei,
 )
+from ide.diagramm.zoom import ZoomMischung
 from ide.kommando import Kommandostapel
 
 VERSATZ = 24
@@ -167,15 +168,20 @@ class _SpaltenTauschKommando:
         self._tauschen(self.von, self.nach)
 
 
-class TabellenCanvas(QWidget):
+class TabellenCanvas(ZoomMischung, QWidget):
     auswahl_geaendert = Signal(object)
     geaendert = Signal()
+    #: Das Signal muss hier stehen und nicht in `ZoomMischung`:
+    #: PySide6 meldet ein `Signal` nur in einer Klasse an, die
+    #: wirklich von `QObject` erbt.
+    zoom_geaendert = Signal(float)
 
     def __init__(self, diagramm: Diagramm) -> None:
         super().__init__()
         self.diagramm = diagramm
         self.kommandos = Kommandostapel()
         self.ausgewaehlte_zelle: Zelle | None = None
+        self.zoom = 1.0
 
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.inhaltsgroesse_anpassen()
@@ -194,15 +200,12 @@ class TabellenCanvas(QWidget):
         self.geaendert.emit()
         self.update()
 
-    def inhaltsgroesse(self) -> tuple[int, int]:
+    def _inhalt_in_diagrammkoordinaten(self) -> tuple[float, float]:
+        """Größe der Tabelle **ohne** Zoom. `inhaltsgroesse()` und
+        `inhaltsgroesse_anpassen()` kommen aus `ZoomMischung` und
+        multiplizieren das mit der Zoomstufe."""
         breite, hoehe = tabellengroesse(self.diagramm.daten)
-        return int(breite + 2 * VERSATZ), int(hoehe + 2 * VERSATZ)
-
-    def inhaltsgroesse_anpassen(self) -> None:
-        """Zusammen mit einer `QScrollArea` (`setWidgetResizable(True)`)
-        erscheinen Rollbalken, sobald die Tabelle nicht mehr ins Fenster
-        passt – vorher waren weitere Regel-Spalten nicht erreichbar."""
-        self.setMinimumSize(*self.inhaltsgroesse())
+        return breite + 2 * VERSATZ, hoehe + 2 * VERSATZ
 
     # -- Auswahl --------------------------------------------------------
 
@@ -319,14 +322,14 @@ class TabellenCanvas(QWidget):
     # -- Maus und Tastatur ----------------------------------------------
 
     def mousePressEvent(self, ereignis: QMouseEvent) -> None:
-        punkt = ereignis.position()
+        punkt = self._diagrammpunkt(ereignis)
         zelle = self.zelle_bei(punkt.x(), punkt.y())
         self.auswaehlen(zelle)
         if zelle is not None and zelle.spalte >= 0:
             self.zelle_schalten(zelle)
 
     def mouseDoubleClickEvent(self, ereignis: QMouseEvent) -> None:
-        punkt = ereignis.position()
+        punkt = self._diagrammpunkt(ereignis)
         zelle = self.zelle_bei(punkt.x(), punkt.y())
         if zelle is not None and zelle.spalte < 0:
             self.auswaehlen(zelle)
@@ -350,6 +353,7 @@ class TabellenCanvas(QWidget):
         stil = stil_zu_namen(self.diagramm.stil)
         maler = QPainter(self)
         maler.fillRect(self.rect(), QColor(stil.hintergrund))
+        maler.scale(self.zoom, self.zoom)
         tabelle_zeichnen(
             maler, self.diagramm.daten, stil, VERSATZ, VERSATZ, self.ausgewaehlte_zelle
         )
