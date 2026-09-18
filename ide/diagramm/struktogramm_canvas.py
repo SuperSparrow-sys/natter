@@ -13,9 +13,10 @@ Der Kommando-Stapel ist derselbe wie beim Klassendiagramm
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 
-from PySide6.QtCore import QRectF, Qt, Signal
+from PySide6.QtCore import QPoint, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QKeyEvent, QMouseEvent, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QInputDialog, QWidget
 
@@ -28,9 +29,12 @@ from ide.diagramm.bloecke import (
     entfernen,
     fall_entfernen,
     fall_hinzufuegen,
+    ist_nachfahre,
     neuer_block,
+    stelle_von,
 )
 from ide.diagramm.datei import Diagramm
+from ide.diagramm.kommandos import SammelKommando
 from ide.diagramm.stil import stil as stil_zu_namen
 from ide.diagramm.struktogramm import (
     KOPFSCHLEIFEN,
@@ -130,6 +134,10 @@ class StruktogrammCanvas(ZoomMischung, QWidget):
 
         self._einfuegeart: str | None = None
         self._vorschau: Einfuegestelle | None = None
+        #: Block, der mit der Maus gezogen wird, und wo der Zug begann
+        self._zieh_block: dict[str, Any] | None = None
+        self._zieh_start: QPoint | None = None
+        self._zieht = False
         self._layout: Kasten | None = None
 
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
@@ -390,6 +398,141 @@ class StruktogrammCanvas(ZoomMischung, QWidget):
             self.ausgewaehlter_block = None
             self.auswahl_geaendert.emit(None)
 
+    # -- Blöcke mit der Maus verschieben (Schritt 9) ---------------------
+
+    #: Ab wie vielen Pixeln ein Ziehen beginnt. Ohne diese Schwelle
+    #: würde jeder Klick, bei dem die Hand ein wenig zittert, schon als
+    #: Verschieben gelten.
+    ZIEHSCHWELLE = 6
+
+    def zielstelle_beim_ziehen(self, x: float, y: float) -> Einfuegestelle | None:
+        """Wo ein gezogener Block landen würde.
+
+        `stelle_bei()` trifft nur die schmalen Lücken zwischen den
+        Blöcken – beim Einfügen aus der Palette zielt man genau dorthin.
+        Beim Ziehen ist das zu wenig: man lässt den Block über einem
+        anderen los, nicht in der Fuge. Deshalb hier zusätzlich: liegt
+        der Zeiger in der **oberen** Hälfte eines Blocks, kommt der
+        gezogene davor, sonst dahinter.
+        """
+        genau = self.stelle_bei(x, y)
+        if genau is not None:
+            return genau
+
+        unter_dem_zeiger = self.block_bei(x, y)
+        if unter_dem_zeiger is None:
+            return None
+        stelle = stelle_von(self.diagramm.daten, unter_dem_zeiger)
+        if stelle is None:
+            return None
+        kasten = next(
+            (k for k in (self._layout or self._layout_erneuern()).alle()
+             if k.block is unter_dem_zeiger),
+            None,
+        )
+        if kasten is None:
+            return None
+        obere_haelfte = (y - VERSATZ) < kasten.rechteck.center().y()
+        index = stelle.index if obere_haelfte else stelle.index + 1
+        return Einfuegestelle(stelle.eltern, stelle.schluessel, index, stelle.fall)
+
+    def verschieben_moeglich(
+        self, block: dict[str, Any], ziel: Einfuegestelle | None
+    ) -> Einfuegestelle | None:
+        """Prüft ein Ziel und rechnet es auf den Stand **nach** dem
+        Herausnehmen um. Liefert `None`, wenn dort nichts abzulegen ist.
+
+        Drei Fälle sind abzulehnen:
+
+        * ein Block in sich selbst oder in einen seiner eigenen Zweige –
+          das ergäbe einen Kreis, und der Baum hätte kein Ende mehr
+        * genau die Stelle, an der der Block ohnehin schon steht – das
+          wäre ein Undo-Schritt, der nichts tut
+        * kein Ziel unter der Maus
+        """
+        if ziel is None:
+            return None
+        if ziel.eltern is block or ist_nachfahre(block, ziel.eltern):
+            return None
+
+        alt = stelle_von(self.diagramm.daten, block)
+        if alt is None:
+            return None
+
+        gleiche_liste = (
+            ziel.eltern is alt.eltern
+            and ziel.schluessel == alt.schluessel
+            and ziel.fall == alt.fall
+        )
+        if gleiche_liste:
+            # Die Zielnummer zählt den Block noch mit, der gerade
+            # herausgenommen wird - alles dahinter rutscht eine Stelle
+            # nach vorn.
+            index = ziel.index - 1 if ziel.index > alt.index else ziel.index
+            if index == alt.index:
+                return None
+            ziel = Einfuegestelle(ziel.eltern, ziel.schluessel, index, ziel.fall)
+        return ziel
+
+    def block_verschieben(
+        self, block: dict[str, Any], ziel: Einfuegestelle | None
+    ) -> bool:
+        """Verschiebt `block` an die Einfügestelle `ziel` – Herausnehmen
+        und Einsetzen zusammen als **ein** Undo-Schritt."""
+        stelle = self.verschieben_moeglich(block, ziel)
+        if stelle is None:
+            return False
+        alt = stelle_von(self.diagramm.daten, block)
+        self.kommandos.ausfuehren(
+            SammelKommando(
+                [
+                    _BaumKommando(alt, block, rueckwaerts=True),
+                    _BaumKommando(stelle, block),
+                ]
+            )
+        )
+        self._nach_aenderung(block)
+        return True
+
+    def block_kopieren(
+        self, block: dict[str, Any], ziel: Einfuegestelle | None
+    ) -> dict[str, Any] | None:
+        """Wie `block_verschieben`, aber das Original bleibt stehen
+        (Strg beim Ziehen). Die Kopie bekommt durchweg neue Kennungen –
+        zwei Blöcke mit derselben `id` würden die Auswahl
+        durcheinanderbringen."""
+        if ziel is None or ziel.eltern is block or ist_nachfahre(block, ziel.eltern):
+            return None
+        kopie = self._mit_neuen_kennungen(copy.deepcopy(block))
+        self.kommandos.ausfuehren(_BaumKommando(ziel, kopie))
+        self._nach_aenderung(kopie)
+        return kopie
+
+    def _mit_neuen_kennungen(self, block: dict[str, Any]) -> dict[str, Any]:
+        vergeben = {vorhanden.get("id") for vorhanden in alle_bloecke(self.diagramm.daten)}
+
+        def neue_kennung() -> str:
+            nummer = 1
+            while f"b{nummer}" in vergeben:
+                nummer += 1
+            vergeben.add(f"b{nummer}")
+            return f"b{nummer}"
+
+        def durchgehen(eintrag: dict[str, Any]) -> dict[str, Any]:
+            eintrag["id"] = neue_kennung()
+            for schluessel in KINDERSCHLUESSEL:
+                for kind in eintrag.get(schluessel) or []:
+                    durchgehen(kind)
+            for fall in eintrag.get("cases") or []:
+                for kind in fall.get("children") or []:
+                    durchgehen(kind)
+            for strang in eintrag.get("branches") or []:
+                for kind in strang:
+                    durchgehen(kind)
+            return eintrag
+
+        return durchgehen(block)
+
     # -- Maus und Tastatur ----------------------------------------------
 
     def mousePressEvent(self, ereignis: QMouseEvent) -> None:
@@ -400,13 +543,61 @@ class StruktogrammCanvas(ZoomMischung, QWidget):
                 self.block_einfuegen(self._einfuegeart, stelle)
             self.einfuegemodus_setzen(None)
             return
-        self.auswaehlen(self.block_bei(punkt.x(), punkt.y()))
+        block = self.block_bei(punkt.x(), punkt.y())
+        self.auswaehlen(block)
+        # Noch nicht ziehen: erst ab `ZIEHSCHWELLE` Pixeln. Sonst würde
+        # jeder Klick, bei dem die Hand ein wenig zittert, schon als
+        # Verschieben gelten.
+        self._zieh_block = block
+        self._zieh_start = punkt
+        self._zieht = False
 
     def mouseMoveEvent(self, ereignis: QMouseEvent) -> None:
-        if self._einfuegeart is None:
-            return
         punkt = self._diagrammpunkt(ereignis)
-        self._vorschau = self.stelle_bei(punkt.x(), punkt.y())
+
+        if self._einfuegeart is not None:
+            self._vorschau = self.stelle_bei(punkt.x(), punkt.y())
+            self.update()
+            return
+
+        if self._zieh_block is None or self._zieh_start is None:
+            return
+        if not self._zieht:
+            weit_genug = (
+                abs(punkt.x() - self._zieh_start.x()) >= self.ZIEHSCHWELLE
+                or abs(punkt.y() - self._zieh_start.y()) >= self.ZIEHSCHWELLE
+            )
+            if not weit_genug:
+                return
+            self._zieht = True
+            self.setCursor(Qt.CursorShape.DragMoveCursor)
+
+        # Nur Stellen anzeigen, an denen der Block wirklich landen kann -
+        # sonst leuchtet eine Marke auf, und beim Loslassen passiert
+        # nichts.
+        ziel = self.zielstelle_beim_ziehen(punkt.x(), punkt.y())
+        self._vorschau = (
+            ziel if self.verschieben_moeglich(self._zieh_block, ziel) else None
+        )
+        self.update()
+
+    def mouseReleaseEvent(self, ereignis: QMouseEvent) -> None:
+        block, zog = self._zieh_block, self._zieht
+        self._zieh_block = None
+        self._zieh_start = None
+        self._zieht = False
+        self._vorschau = None
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+        if block is None or not zog:
+            self.update()
+            return
+
+        punkt = self._diagrammpunkt(ereignis)
+        ziel = self.zielstelle_beim_ziehen(punkt.x(), punkt.y())
+        if ereignis.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            self.block_kopieren(block, ziel)
+        else:
+            self.block_verschieben(block, ziel)
         self.update()
 
     def mouseDoubleClickEvent(self, ereignis: QMouseEvent) -> None:

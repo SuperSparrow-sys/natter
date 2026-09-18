@@ -822,9 +822,9 @@ Ausdrücklicher Wunsch des Nutzers, gilt für jeden Schritt:
   Kopieren/Einfügen, Gruppieren, Zeichenreihenfolge
 - [x] **5.** M9 Teilschritt 4b – Knickpunkte, verschiebbare
   Beschriftungen
-- [ ] **6.** M9 Rest von 2b – Zoom für Struktogramm und Tabelle,
-  Lineale, Minimap
-- [ ] **7.** M9 Struktogramm – Blöcke mit der Maus verschieben,
+- [x] **6.** M9 Rest von 2b – Zoom für Struktogramm und Tabelle.
+  Lineale und Minimap stehen noch aus
+- [x] **7.** M9 Struktogramm – Blöcke mit der Maus verschieben,
   Kopfzeile mit dem Namen
 - [ ] **8.** M10 – Datenquellen, Regression, Beispielprojekt, Abnahme.
   `Chart` in der Palette und die sechs Diagrammarten im Inspektor
@@ -882,4 +882,5 @@ tut, was sie verspricht.
 Siehe „Umsetzungsreihenfolge“ oben – der Lauf arbeitet die vierzehn
 Punkte der Reihe nach ab. Die Punkte 0 bis 3 sind erledigt, aus
 Punkt 8 sind M10 Punkt 1 und 2 vorgezogen und fertig. Aktuell:
-**Punkt 6**, Zoom für Struktogramm und Entscheidungstabelle.
+**Punkt 8**, der Rest von M10 (Datenquellen, Regression,
+Beispielprojekt).

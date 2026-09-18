@@ -13,7 +13,11 @@ from PySide6.QtGui import QImage, QKeyEvent, QMouseEvent, QPainter
 from ide.diagramm import DiagrammFenster, diagramm_erzeugen
 from ide.diagramm.bloecke import Einfuegestelle, alle_bloecke
 from ide.diagramm.stil import stil
-from ide.diagramm.struktogramm import BLOCK_BESCHRIFTUNGEN, struktogramm_zeichnen
+from ide.diagramm.struktogramm import (
+    BLOCK_BESCHRIFTUNGEN,
+    KOPFHOEHE,
+    struktogramm_zeichnen,
+)
 from ide.diagramm.struktogramm_canvas import VERSATZ, StruktogrammCanvas
 from ide.diagramm.struktogramm_palette import KIND_ROLLE, BlockPalette
 
@@ -116,7 +120,9 @@ def test_mehrfachauswahl_bietet_jede_spalte_an(flaeche: StruktogrammCanvas) -> N
 def test_klick_im_einfuegemodus_setzt_den_block(flaeche: StruktogrammCanvas) -> None:
     flaeche.einfuegemodus_setzen("statement")
 
-    flaeche.mousePressEvent(_klick(VERSATZ + 40, VERSATZ + 10))
+    # Unterhalb der Kopfzeile: über ihr steht der Name des
+    # Struktogramms, dort gibt es keine Einfügestelle.
+    flaeche.mousePressEvent(_klick(VERSATZ + 40, VERSATZ + KOPFHOEHE + 10))
 
     assert len(flaeche.wurzel["children"]) == 1
     # danach zurück zum Auswahlwerkzeug, wie bei der Formen-Palette

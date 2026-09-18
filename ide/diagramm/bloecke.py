@@ -68,6 +68,21 @@ class Einfuegestelle:
     fall: int | None = None
 
     def liste(self) -> list[dict[str, Any]]:
+        """Die Kinderliste, in die eingefügt wird.
+
+        Ein Schlüssel, den der Blocktyp gar nicht kennt, ist ein Fehler
+        und **kein** Grund, stillschweigend eine neue Liste anzulegen:
+        vorher legte ein Tippfehler wie `"otherwise"` statt `"else"` ein
+        Feld an, das keine Darstellung kennt. Der eingefügte Block war
+        danach unsichtbar, stand aber in der Datei – und die
+        Schema-Prüfung schlug beim nächsten Öffnen zu.
+        """
+        erlaubt = LISTEN_JE_ART.get(self.eltern.get("kind", ""), ("children",))
+        if self.schluessel not in erlaubt:
+            raise ValueError(
+                f"Ein Block der Art {self.eltern.get('kind')!r} hat keine Liste "
+                f"{self.schluessel!r} (erlaubt: {', '.join(erlaubt)})."
+            )
         if self.fall is None:
             return self.eltern.setdefault(self.schluessel, [])
         if self.schluessel == "branches":
@@ -169,18 +184,32 @@ def einfuegen(stelle: Einfuegestelle, block: dict[str, Any]) -> None:
     liste.insert(min(stelle.index, len(liste)), block)
 
 
-def entfernen(daten: dict[str, Any], block: dict[str, Any]) -> Einfuegestelle | None:
-    """Nimmt `block` samt Inhalt aus dem Baum und gibt die Stelle
-    zurück, an der er stand – damit „Rückgängig“ ihn wieder genau
-    dorthin setzen kann."""
+def stelle_von(daten: dict[str, Any], block: dict[str, Any]) -> Einfuegestelle | None:
+    """Wo `block` gerade steht – **ohne** ihn anzufassen.
+
+    Getrennt von `entfernen()`, weil das Verschieben mit der Maus die
+    alte Stelle schon kennen muss, solange der Block noch an Ort und
+    Stelle ist: nur so lässt sich die Zielstelle gegen die alte
+    verrechnen.
+    """
     gefunden = elternteil(daten, block)
     if gefunden is None:
         return None
     eltern, liste = gefunden
     index = next(i for i, eintrag in enumerate(liste) if eintrag is block)
     schluessel, fall = _schluessel_von(eltern, liste)
-    liste.pop(index)
     return Einfuegestelle(eltern, schluessel, index, fall)
+
+
+def entfernen(daten: dict[str, Any], block: dict[str, Any]) -> Einfuegestelle | None:
+    """Nimmt `block` samt Inhalt aus dem Baum und gibt die Stelle
+    zurück, an der er stand – damit „Rückgängig“ ihn wieder genau
+    dorthin setzen kann."""
+    stelle = stelle_von(daten, block)
+    if stelle is None:
+        return None
+    stelle.liste().pop(stelle.index)
+    return stelle
 
 
 def _schluessel_von(

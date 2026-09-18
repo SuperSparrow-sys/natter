@@ -33,6 +33,11 @@ EINRUECKUNG = 20
 MINDESTHOEHE = 28
 #: Startbreite eines neuen Struktogramms.
 STANDARDBREITE = 560
+#: Höhe der Kopfzeile mit dem Namen. Nassi und Shneiderman schreiben den
+#: Namen des Algorithmus über den Block – ohne ihn ist auf einem
+#: ausgedruckten Blatt nicht zu erkennen, zu welcher Methode das
+#: Struktogramm gehört.
+KOPFHOEHE = 30
 
 _SCHRIFT = "Segoe UI"
 
@@ -402,10 +407,22 @@ def _spalten(kasten: Kasten) -> list[list[Kasten]]:
     return [sorted(spalte, key=lambda k: k.rechteck.top()) for spalte in nach_x.values()]
 
 
+def kopfzeile(daten: dict[str, Any]) -> str:
+    """Der Name über dem Struktogramm – leer, wenn keiner gesetzt ist."""
+    return str(daten.get("name") or "").strip()
+
+
 def struktogramm_layout(daten: dict[str, Any], breite: float = STANDARDBREITE) -> Kasten:
-    """Layout des ganzen Struktogramms aus einer `.pdiag`."""
+    """Layout des ganzen Struktogramms aus einer `.pdiag`.
+
+    Hat das Diagramm einen Namen, beginnt der Block erst unterhalb der
+    Kopfzeile. Das Layout **kennt** den Versatz also schon – dadurch
+    stimmen Zeichnen und Trefferprüfung von allein überein, statt den
+    Versatz an zwei Stellen einzurechnen.
+    """
     wurzel = daten.get("root") or {"id": "b0", "kind": "sequence", "children": []}
-    return layout(wurzel, 0, 0, breite)
+    oben = KOPFHOEHE if kopfzeile(daten) else 0
+    return layout(wurzel, 0, oben, breite)
 
 
 # -- Zeichnen ------------------------------------------------------------
@@ -632,5 +649,38 @@ def struktogramm_zeichnen(
     """Malt das ganze Struktogramm und gibt sein Layout zurück (die
     Zeichenfläche braucht es gleich wieder für die Treffersuche)."""
     wurzel = struktogramm_layout(daten, breite)
+    _kopfzeile_zeichnen(maler, daten, wurzel, stil)
     kasten_zeichnen(maler, wurzel, stil, ausgewaehlt)
     return wurzel
+
+
+def _kopfzeile_zeichnen(
+    maler: QPainter, daten: dict[str, Any], wurzel: Kasten, stil: Stil
+) -> None:
+    """Der Name des Struktogramms als hinterlegte Zeile darüber.
+
+    `stil.kopf` statt `stil.trennlinie` als Hinterlegung: in der
+    Schwarz-Weiß-Vorlage ist die Trennlinie schwarz, und eine damit
+    gefüllte Kopfzeile verschluckte den schwarzen Text vollständig –
+    derselbe Fehler war in der Entscheidungstabelle schon einmal im PDF
+    aufgefallen.
+    """
+    name = kopfzeile(daten)
+    if not name:
+        return
+    rechteck = QRectF(
+        wurzel.rechteck.left(), 0, wurzel.rechteck.width(), KOPFHOEHE
+    )
+    maler.setPen(_stift(stil))
+    maler.setBrush(QBrush(QColor(stil.kopf)))
+    maler.drawRect(rechteck)
+
+    schrift = _schrift(10)
+    schrift.setBold(True)
+    maler.setFont(schrift)
+    maler.setPen(QColor(stil.text))
+    maler.drawText(
+        rechteck.adjusted(INNENABSTAND, 0, -INNENABSTAND, 0),
+        Qt.AlignmentFlag.AlignCenter,
+        name,
+    )
