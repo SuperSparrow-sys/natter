@@ -51,7 +51,7 @@ eine Minute und ließ dabei die Zeitgrenzen der Debugger-Tests reißen.
 
 ### Was noch zu tun ist
 
-Vier Gruppen, absteigend nach Nutzen für den Unterricht:
+Fünf Gruppen, absteigend nach Nutzen für den Unterricht:
 
 **1. M9 zu Ende bringen** (die Teilschritte, die beim Zeichnen
 tatsächlich fehlen):
@@ -98,7 +98,14 @@ dokumentiert, nichts davon blockiert den Unterricht):
   Update-Mechanismus und CI-Release-Automatisierung (beide bewusst
   zurückgestellt)
 
-**4. Offene Frage an den Nutzer:** in
+**4. Neu aufgenommen: M10 – Datenauswertung** (Nutzer-Wunsch
+September 2026). Diagramme im Designer nutzbar machen und Regression
+mit scikit-learn auf CSV- oder Datenbankdaten. Die `Chart`-Komponente
+existiert seit M5, ist aber im Designer gar nicht erreichbar – sie
+fehlt in der Palette und hat kein Symbol. Einzelheiten in
+[`docs/arbeitspakete/M10.md`](arbeitspakete/M10.md).
+
+**5. Offene Frage an den Nutzer:** in
 `beispielprojekte/CrtDemo/main.py` steht ein nicht committetes
 `input()`. Es hält das Konsolenfenster offen, bricht aber drei Tests.
 Die saubere Lösung gehört in den Starter (`ide/run/`), nicht in jedes
@@ -738,6 +745,33 @@ Taskleisten-Eintrag statt Dock/Tab in der IDE (Abschnitt 13.1).
 - [ ] Zoom/Lineale/Minimap, Mehrfachauswahl/Anordnen, Knickpunkte
   (Teilschritte 2b, 3b, 4b)
 - [ ] danach Use-Case, Aktivität, Zustand, Sequenz
+
+## M10 – Datenauswertung: Diagramme und Regression
+
+Kleinteilig aufgeschlüsselt in
+[`docs/arbeitspakete/M10.md`](arbeitspakete/M10.md). Neu aufgenommen
+auf Nutzer-Wunsch September 2026; geht über Abschnitt 11.6 des
+Konzepts hinaus.
+
+Ausgangslage: die `Chart`-Komponente gibt es seit M5 bereits (Säulen,
+Linie, Kreis, Punkte über matplotlib), sie steht aber **nicht** in der
+Komponentenpalette und hat kein Symbol – im Designer lässt sich bis
+heute kein Diagramm auf ein Formular ziehen. `scikit-learn` ist noch
+gar nicht dabei.
+
+- [ ] `Chart` in die Palette, mit eigenem SVG-Symbol
+- [ ] Diagrammart und Beschriftungen als Eigenschaften im
+  Objektinspektor, mit Beispieldaten im Designer
+- [ ] Daten aus CSV, Datenbank oder `StringGrid` in ein Diagramm
+- [ ] `scikit-learn` aufnehmen – **vorher** die Auswirkung auf die
+  Größe der gebauten `Natter.exe` messen und die Entscheidung
+  festhalten; Alternative ist `numpy.polyfit`
+- [ ] Lineare, polynomiale, exponentielle und logarithmische
+  Regression hinter einer einzigen deutschen Schnittstelle
+- [ ] Beispielprojekt `beispielprojekte/Regression/`
+- [ ] Abnahme: CSV einlesen, Punkte anzeigen, Regressionsgerade
+  darüberlegen, Steigung/Achsenabschnitt/R² ausgeben – im Designer
+  zusammengeklickt
 
 ## Nächster konkreter Schritt
 
