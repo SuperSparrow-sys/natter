@@ -1,12 +1,20 @@
-"""Beschriften einer Form direkt auf der Zeichenfläche
-(Abschnitt 13.3, 13.4).
+"""Beschriften einer Notiz oder eines Pakets direkt auf der
+Zeichenfläche (Abschnitt 13.3).
 
-Ein Doppelklick legt Eingabefelder genau über die Bereiche der Form:
-Name oben, darunter Attribute und Methoden, je eine Zeile pro Eintrag.
-Tab springt zum nächsten Feld, Escape bricht ab, Strg+Eingabe
-übernimmt. Der Text wird bewusst **nicht** auf Richtigkeit geprüft
-(Abschnitt 13.4) – auch `+foo(` bleibt stehen, wenn jemand das so
-zeichnen will.
+Ein Doppelklick legt ein Eingabefeld genau über die Form. Escape bricht
+ab, Eingabe bzw. Strg+Eingabe übernimmt, der Verlust des Fokus
+ebenfalls.
+
+**Nur für Notiz und Paket.** Klassen, abstrakte Klassen und Interfaces
+werden seit M9 Schritt 12 über den Eigenschaften-Dialog bearbeitet
+(`ide/diagramm/klassendialog.py`): ihre Attribute und Operationen sind
+strukturierte Datensätze mit Name, Typ, Sichtbarkeit und Parametern und
+kein freier Text mehr. Notiz und Paket haben dagegen nur ein einziges
+Textfeld – dafür wäre ein Dialog mit fünf Reitern überzogen
+(Nutzer-Entscheidung September 2026).
+
+Der Text wird bewusst **nicht** auf Richtigkeit geprüft
+(Abschnitt 13.4).
 """
 
 from __future__ import annotations
@@ -15,9 +23,14 @@ from typing import Any
 
 from PySide6.QtCore import QEvent, QObject, QRectF, Qt, Signal
 from PySide6.QtGui import QFont, QKeyEvent
-from PySide6.QtWidgets import QApplication, QLineEdit, QPlainTextEdit, QWidget
+from PySide6.QtWidgets import QApplication, QPlainTextEdit, QWidget
 
-from ide.diagramm.zeichnen import form_rechteck, klassen_bereiche
+from ide.diagramm.zeichnen import form_rechteck
+
+#: Die Felder, die es hier noch gibt – genau eines. Bleibt als Name
+#: erhalten, weil die Zeichenfläche das Ergebnis weiterhin als
+#: `{"name": ...}` entgegennimmt.
+FELDER = ("name",)
 
 
 def _skaliert(rechteck: QRectF, zoom: float) -> QRectF:
@@ -28,13 +41,9 @@ def _skaliert(rechteck: QRectF, zoom: float) -> QRectF:
         rechteck.height() * zoom,
     )
 
-#: Reihenfolge, in der Tab durch die Felder springt (Abschnitt 13.3:
-#: „Name → Attribute → Methoden“).
-FELDER = ("name", "attributes", "methods")
-
 
 class FormEditor(QWidget):
-    """Eingabefelder über einer Form. Liegt als Kind-Widget auf der
+    """Ein Eingabefeld über einer Form. Liegt als Kind-Widget auf der
     Zeichenfläche und meldet das Ergebnis über `fertig`."""
 
     fertig = Signal(dict)
@@ -44,10 +53,9 @@ class FormEditor(QWidget):
         super().__init__(eltern)
         self.form = form
         # Die Zeichenfläche skaliert beim Malen, dieses Widget nicht -
-        # Felder und Schrift müssen den Zoom deshalb selbst einrechnen,
+        # Feld und Schrift müssen den Zoom deshalb selbst einrechnen,
         # sonst läge der Editor bei 200 % neben seiner Form.
         self.zoom = zoom
-        self._felder: dict[str, QWidget] = {}
         # Nach dem Abschließen dürfen sterbende Felder nichts mehr
         # auslösen: beim Abräumen schickt Qt noch FocusOut, das sonst
         # erneut „übernehmen -> abräumen“ anstößt und auf bereits
@@ -57,56 +65,22 @@ class FormEditor(QWidget):
 
         rechteck = form_rechteck(form)
         self.setGeometry(_skaliert(rechteck, zoom).toRect())
-        bereiche = klassen_bereiche(form)
-        text = form.get("text") or {}
 
-        for name in FELDER:
-            if name not in bereiche:
-                continue
-            bereich = bereiche[name].translated(-rechteck.left(), -rechteck.top())
-            feld = self._feld_erzeugen(name, text)
-            feld.setParent(self)
-            feld.setGeometry(_skaliert(bereich, zoom).toRect())
-            feld.installEventFilter(self)
-            self._felder[name] = feld
-
-        self.setFocusProxy(self._felder["name"])
-
-    def _feld_erzeugen(self, name: str, text: dict[str, Any]) -> QWidget:
-        if name == "name":
-            feld = QLineEdit(str(text.get("name", "")))
-            feld.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            feld.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-            return feld
-
-        feld = QPlainTextEdit("\n".join(str(z) for z in (text.get(name) or [])))
-        feld.setFont(QFont("Consolas", 9))
-        feld.setPlaceholderText(
-            "+attribut: typ" if name == "attributes" else "+methode()"
-        )
+        feld = QPlainTextEdit(str(form.get("name", "")))
+        feld.setFont(QFont("Segoe UI", max(1, round(10 * zoom))))
         feld.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        feld.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        return feld
-
-    def _schriftgroesse(self, punkte: int) -> int:
-        """Schrift wächst mit dem Zoom mit, damit der Text im Feld genauso
-        groß ist wie der gezeichnete darunter."""
-        return max(1, round(punkte * self.zoom))
+        feld.setParent(self)
+        feld.setGeometry(0, 0, self.width(), self.height())
+        feld.installEventFilter(self)
+        self._felder: dict[str, QWidget] = {"name": feld}
+        self.setFocusProxy(feld)
 
     # -- Ergebnis -------------------------------------------------------
 
     def neuer_text(self) -> dict[str, Any]:
-        """Der eingegebene Inhalt im `shape["text"]`-Format. Leere Zeilen
-        fallen weg, damit ein versehentliches Enter am Ende keine leere
-        Attributzeile hinterlässt."""
-        text: dict[str, Any] = dict(self.form.get("text") or {})
-        for name, feld in self._felder.items():
-            if isinstance(feld, QLineEdit):
-                text[name] = feld.text().strip()
-            else:
-                zeilen = [z.strip() for z in feld.toPlainText().splitlines()]
-                text[name] = [z for z in zeilen if z]
-        return text
+        """Der eingegebene Inhalt im Format, das die Zeichenfläche
+        erwartet."""
+        return {"name": self._felder["name"].toPlainText().strip()}
 
     def uebernehmen(self) -> None:
         if self._beendet:
@@ -142,33 +116,9 @@ class FormEditor(QWidget):
             if strg and taste.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
                 self.uebernehmen()
                 return True
-            if strg and taste.key() in (Qt.Key.Key_Up, Qt.Key.Key_Down):
-                if self._zeile_verschieben(beobachtet, -1 if taste.key() == Qt.Key.Key_Up else 1):
-                    return True
         elif ereignis.type() == QEvent.Type.FocusOut:
-            # Nur übernehmen, wenn der Fokus das ganze Feld verlässt -
-            # beim Tab-Sprung zwischen den eigenen Feldern nicht.
+            # Nur übernehmen, wenn der Fokus das ganze Feld verlässt.
             neuer_fokus = QApplication.focusWidget()
             if neuer_fokus is None or not self.isAncestorOf(neuer_fokus):
                 self.uebernehmen()
         return False
-
-    def _zeile_verschieben(self, feld: QObject, richtung: int) -> bool:
-        """Strg+Pfeil sortiert Attribute/Methoden um (Abschnitt 13.4)."""
-        if not isinstance(feld, QPlainTextEdit):
-            return False
-        zeilen = feld.toPlainText().splitlines()
-        cursor = feld.textCursor()
-        nummer = cursor.blockNumber()
-        ziel = nummer + richtung
-        if not (0 <= nummer < len(zeilen)) or not (0 <= ziel < len(zeilen)):
-            return False
-
-        zeilen[nummer], zeilen[ziel] = zeilen[ziel], zeilen[nummer]
-        feld.setPlainText("\n".join(zeilen))
-        neuer_cursor = feld.textCursor()
-        neuer_cursor.movePosition(neuer_cursor.MoveOperation.Start)
-        for _ in range(ziel):
-            neuer_cursor.movePosition(neuer_cursor.MoveOperation.NextBlock)
-        feld.setTextCursor(neuer_cursor)
-        return True

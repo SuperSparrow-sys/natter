@@ -28,6 +28,7 @@ from PySide6.QtWidgets import QScrollArea, QWidget
 from ide.diagramm.datei import Diagramm
 from ide.diagramm.formen import MINDESTGROESSE, form_art, verbindungs_art
 from ide.diagramm.hinweise import Hinweis, pruefen
+from ide.diagramm.klassendialog import KlassenDialog
 from ide.diagramm.kommandos import (
     EinfuegenKommando,
     LoeschenKommando,
@@ -37,6 +38,7 @@ from ide.diagramm.kommandos import (
 from ide.diagramm.seite import satzspiegel, seitengroesse
 from ide.diagramm.stil import stil as stil_zu_namen
 from ide.diagramm.textbearbeitung import FormEditor
+from ide.diagramm.uml_modell import ist_klasse
 from ide.diagramm.zeichnen import (
     abstand_zur_verbindung,
     anfasser_punkte,
@@ -310,7 +312,7 @@ class DiagrammCanvas(QWidget):
             "y": _am_raster(y - art.hoehe / 2),
             "w": art.breite,
             "h": art.hoehe,
-            "text": dict(art.standardtext),
+            "name": art.standardname,
         }
         if kind == "abstract_class":
             form["abstract"] = True
@@ -624,12 +626,19 @@ class DiagrammCanvas(QWidget):
 
     # -- Beschriften ----------------------------------------------------
 
-    def bearbeiten_starten(self, form: dict[str, Any] | None = None) -> FormEditor | None:
+    def bearbeiten_starten(self, form: dict[str, Any] | None = None):
+        """Beschriften. Für Klassen, abstrakte Klassen und Interfaces
+        öffnet sich der Eigenschaften-Dialog (M9 Schritt 12,
+        Nutzer-Entscheidung); Notiz und Paket haben nur ein Textfeld und
+        werden weiterhin direkt in der Fläche beschriftet – ein Dialog
+        mit fünf Reitern wäre dafür überzogen."""
         ziel = form or self.ausgewaehlte_form
         if ziel is None:
             return None
-        self.bearbeiten_beenden()
+        if ist_klasse(ziel):
+            return self.eigenschaften_bearbeiten(ziel)
 
+        self.bearbeiten_beenden()
         editor = FormEditor(ziel, self, self.zoom)
         editor.fertig.connect(lambda text, f=ziel: self._text_uebernehmen(f, text))
         editor.abgebrochen.connect(self.bearbeiten_beenden)
@@ -648,15 +657,52 @@ class DiagrammCanvas(QWidget):
             self.setFocus()
 
     def _text_uebernehmen(self, form: dict[str, Any], text: dict[str, Any]) -> None:
+        """Rückmeldung des Direkteditors – nur noch für Notiz und Paket,
+        die haben ausschließlich einen Namen."""
         self.bearbeiten_beenden()
-        if text == (form.get("text") or {}):
+        neuer_name = str(text.get("name", ""))
+        if neuer_name == str(form.get("name", "")):
             return
         # Höhe gleich mit anpassen, damit neue Zeilen nicht abgeschnitten
         # werden - beides zusammen als ein Undo-Schritt.
         probe = dict(form)
-        probe["text"] = text
+        probe["name"] = neuer_name
         neue_hoehe = max(form["h"], _raster_aufrunden(mindesthoehe(probe)))
-        self.kommandos.ausfuehren(WerteKommando(form, {"text": text, "h": neue_hoehe}))
+        self.kommandos.ausfuehren(
+            WerteKommando(form, {"name": neuer_name, "h": neue_hoehe})
+        )
+        self._nach_aenderung()
+
+    def eigenschaften_dialog(self, form: dict[str, Any] | None = None):
+        """Baut den Eigenschaften-Dialog und hängt ihn an den
+        Kommando-Stapel – **ohne** ihn anzuzeigen. Getrennt vom Anzeigen,
+        weil `exec()` blockiert und Tests sonst hängen blieben."""
+        ziel = form or self.ausgewaehlte_form
+        if ziel is None or not ist_klasse(ziel):
+            return None
+
+        dialog = KlassenDialog(ziel, self)
+        dialog.angewendet = lambda werte, f=ziel: self._eigenschaften_uebernehmen(f, werte)
+        return dialog
+
+    def eigenschaften_bearbeiten(self, form: dict[str, Any] | None = None):
+        """Öffnet den Eigenschaften-Dialog für eine UML-Klasse. Jeder
+        Druck auf „Anwenden“ ist **ein** Undo-Schritt, egal wie viele
+        Felder im Dialog geändert wurden."""
+        dialog = self.eigenschaften_dialog(form)
+        if dialog is not None:
+            dialog.exec()
+        return dialog
+
+    def _eigenschaften_uebernehmen(
+        self, form: dict[str, Any], werte: dict[str, Any]
+    ) -> None:
+        geaendert = {k: v for k, v in werte.items() if form.get(k) != v}
+        if not geaendert:
+            return
+        probe = {**form, **geaendert}
+        geaendert["h"] = max(form["h"], _raster_aufrunden(mindesthoehe(probe)))
+        self.kommandos.ausfuehren(WerteKommando(form, geaendert))
         self._nach_aenderung()
 
     def mouseMoveEvent(self, ereignis: QMouseEvent) -> None:

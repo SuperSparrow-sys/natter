@@ -68,7 +68,8 @@ def test_hoehe_waechst_mit_dem_text_mit(canvas: DiagrammCanvas) -> None:
     form = canvas.form_platzieren("interface", 200, 200)
     vorher = form["h"]
 
-    form["text"] = {"name": "ISchaltbar", "attributes": [], "methods": ["+ein()", "+aus()"]}
+    form["name"] = "ISchaltbar"
+    form["operations"] = [{"name": "ein"}, {"name": "aus"}]
     canvas.hoehe_anpassen(form)
 
     from ide.diagramm.zeichnen import mindesthoehe

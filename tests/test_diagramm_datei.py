@@ -62,7 +62,12 @@ def test_speichern_und_erneutes_laden_erhaelt_aenderungen(tmp_path: Path) -> Non
     )
     diagramm.speichern()
 
-    assert Diagramm.laden(pfad).daten["shapes"][0]["text"]["name"] == "TAmpel"
+    # Seit M9 Schritt 12 wird die alte Textform beim Laden einmalig
+    # in die strukturierte Form umgerechnet.
+    geladen = Diagramm.laden(pfad).daten["shapes"][0]
+    assert geladen["name"] == "TAmpel"
+    assert geladen["attributes"][0]["name"] == "an"
+    assert geladen["operations"][0]["name"] == "ein"
 
 
 def test_speichern_unter_schreibt_an_den_neuen_pfad(tmp_path: Path) -> None:

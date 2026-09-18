@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ide.diagramm.seite import satzspiegel
+from ide.diagramm.uml_modell import formname
 from ide.diagramm.zeichnen import mindestbreite, mindesthoehe
 
 #: Wie weit sich zwei Formen überlappen dürfen, bevor es gemeldet wird.
@@ -43,7 +44,7 @@ def _rechteck(shape: dict[str, Any]) -> tuple[float, float, float, float]:
 
 
 def _beschriftung(shape: dict[str, Any]) -> str:
-    return str((shape.get("text") or {}).get("name") or shape.get("kind", "Form"))
+    return formname(shape) or str(shape.get("kind", "Form"))
 
 
 def _ueberschneidung(a: dict[str, Any], b: dict[str, Any]) -> float:

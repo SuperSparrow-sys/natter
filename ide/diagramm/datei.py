@@ -19,6 +19,7 @@ from typing import Any
 
 import jsonschema
 
+from ide.diagramm.uml_modell import umrechnen
 from ide.pfade import daten_ordner
 
 _SCHEMAS_DIR = daten_ordner("schemas")
@@ -57,6 +58,13 @@ class Diagramm:
         pfad = Path(pfad)
         daten = json.loads(pfad.read_text(encoding="utf-8"))
         jsonschema.validate(daten, _PDIAG_SCHEMA)
+        # Seit M9 Schritt 12 sind Attribute und Operationen strukturiert
+        # statt freier Text. Ältere Dateien werden beim Laden einmalig
+        # umgerechnet - sonst wären die Abnahmediagramme aus Schritt 11
+        # und alles, was Schülerinnen und Schüler schon gezeichnet
+        # haben, mit einem Schlag unbrauchbar. Geschrieben wird die neue
+        # Form erst beim nächsten Speichern.
+        umrechnen(daten)
         return cls(pfad=pfad, daten=daten)
 
     def speichern(self, pfad: Path | None = None) -> None:

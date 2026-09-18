@@ -1,5 +1,11 @@
-"""Tests für ide/diagramm/textbearbeitung.py: Formen direkt beschriften
-(M9, Schritt 5). Headless.
+"""Tests für ide/diagramm/textbearbeitung.py: Notiz und Paket direkt in
+der Fläche beschriften (M9, Schritt 5, seit Schritt 12 eingeschränkt).
+Headless.
+
+Klassen, abstrakte Klassen und Interfaces werden über den
+Eigenschaften-Dialog bearbeitet – dafür ist
+`tests/test_diagramm_klassendialog.py` zuständig. Hier geht es nur noch
+um die beiden Formen mit einem einzigen Textfeld.
 """
 
 from __future__ import annotations
@@ -9,12 +15,10 @@ from pathlib import Path
 import pytest
 from PySide6.QtCore import QEvent, QPointF, Qt
 from PySide6.QtGui import QKeyEvent, QMouseEvent
-from PySide6.QtWidgets import QLineEdit, QPlainTextEdit
+from PySide6.QtWidgets import QPlainTextEdit
 
 from ide.diagramm import diagramm_erzeugen
 from ide.diagramm.canvas import DiagrammCanvas
-from ide.diagramm.textbearbeitung import FELDER
-from ide.diagramm.zeichnen import klassen_bereiche
 
 
 @pytest.fixture
@@ -33,121 +37,112 @@ def _doppelklick(x: float, y: float) -> QMouseEvent:
     )
 
 
-def test_doppelklick_oeffnet_die_eingabefelder(canvas: DiagrammCanvas) -> None:
-    form = canvas.form_platzieren("class", 200, 200)
+def test_doppelklick_auf_eine_notiz_oeffnet_das_eingabefeld(
+    canvas: DiagrammCanvas,
+) -> None:
+    notiz = canvas.form_platzieren("note", 200, 200)
 
     canvas.mouseDoubleClickEvent(
-        _doppelklick(form["x"] + form["w"] / 2, form["y"] + form["h"] / 2)
+        _doppelklick(notiz["x"] + notiz["w"] / 2, notiz["y"] + notiz["h"] / 2)
     )
 
     editor = canvas._editor
     assert editor is not None
-    assert set(editor._felder) == set(FELDER)
-    assert isinstance(editor._felder["name"], QLineEdit)
-    assert isinstance(editor._felder["attributes"], QPlainTextEdit)
+    assert set(editor._felder) == {"name"}
+    assert isinstance(editor._felder["name"], QPlainTextEdit)
 
 
 def test_doppelklick_ins_leere_oeffnet_nichts(canvas: DiagrammCanvas) -> None:
-    canvas.form_platzieren("class", 200, 200)
+    canvas.form_platzieren("note", 200, 200)
 
-    canvas.mouseDoubleClickEvent(_doppelklick(600, 440))
+    canvas.mouseDoubleClickEvent(_doppelklick(2000, 1400))
 
     assert canvas._editor is None
 
 
-def test_felder_liegen_ueber_ihren_bereichen(canvas: DiagrammCanvas) -> None:
-    """Abschnitt 13.3: „bearbeitet direkt in der Form“ – die Felder
-    müssen genau dort liegen, wo der Text gezeichnet wird."""
-    form = canvas.form_platzieren("class", 300, 300)
-    editor = canvas.bearbeiten_starten(form)
-    bereiche = klassen_bereiche(form)
+def test_feld_liegt_ueber_der_form(canvas: DiagrammCanvas) -> None:
+    """Abschnitt 13.3: „bearbeitet direkt in der Form“."""
+    notiz = canvas.form_platzieren("note", 300, 300)
 
-    for name, feld in editor._felder.items():
-        erwartet = bereiche[name].translated(-form["x"], -form["y"]).toRect()
-        assert feld.geometry() == erwartet
+    editor = canvas.bearbeiten_starten(notiz)
+
+    assert editor.geometry().left() == notiz["x"]
+    assert editor.geometry().width() == notiz["w"]
 
 
 def test_eingabe_wird_uebernommen(canvas: DiagrammCanvas) -> None:
-    form = canvas.form_platzieren("class", 200, 200)
-    editor = canvas.bearbeiten_starten(form)
+    notiz = canvas.form_platzieren("note", 200, 200)
+    editor = canvas.bearbeiten_starten(notiz)
 
-    editor._felder["name"].setText("TAmpel")
-    editor._felder["attributes"].setPlainText("-an: bool\n-zustand: int")
-    editor._felder["methods"].setPlainText("+einschalten()")
+    editor._felder["name"].setPlainText("Zustand: 1=grün, 2=gelb")
     editor.uebernehmen()
 
-    assert form["text"] == {
-        "name": "TAmpel",
-        "attributes": ["-an: bool", "-zustand: int"],
-        "methods": ["+einschalten()"],
-    }
+    assert notiz["name"] == "Zustand: 1=grün, 2=gelb"
     assert canvas._editor is None
 
 
-def test_leere_zeilen_fallen_weg(canvas: DiagrammCanvas) -> None:
-    """Ein versehentliches Enter am Ende soll keine leere Attributzeile
-    hinterlassen."""
-    form = canvas.form_platzieren("class", 200, 200)
-    editor = canvas.bearbeiten_starten(form)
+def test_umgebende_leerzeichen_fallen_weg(canvas: DiagrammCanvas) -> None:
+    notiz = canvas.form_platzieren("note", 200, 200)
+    editor = canvas.bearbeiten_starten(notiz)
 
-    editor._felder["attributes"].setPlainText("-an: bool\n\n   \n")
+    editor._felder["name"].setPlainText("  Hinweis  \n")
     editor.uebernehmen()
 
-    assert form["text"]["attributes"] == ["-an: bool"]
+    assert notiz["name"] == "Hinweis"
 
 
 def test_uebernehmen_ist_ein_undo_schritt(canvas: DiagrammCanvas) -> None:
-    form = canvas.form_platzieren("class", 200, 200)
-    vorher = dict(form["text"])
-    editor = canvas.bearbeiten_starten(form)
-    editor._felder["name"].setText("TAmpel")
+    notiz = canvas.form_platzieren("note", 200, 200)
+    vorher = notiz["name"]
+    editor = canvas.bearbeiten_starten(notiz)
+    editor._felder["name"].setPlainText("Neuer Text")
     editor.uebernehmen()
 
     canvas.rueckgaengig()
 
-    assert form["text"] == vorher
+    assert notiz["name"] == vorher
 
 
 def test_form_waechst_mit_dem_neuen_text_mit(canvas: DiagrammCanvas) -> None:
-    form = canvas.form_platzieren("class", 200, 200)
-    vorher = form["h"]
-    editor = canvas.bearbeiten_starten(form)
+    notiz = canvas.form_platzieren("note", 200, 200)
+    vorher = notiz["h"]
+    editor = canvas.bearbeiten_starten(notiz)
 
-    editor._felder["methods"].setPlainText("\n".join(f"+m{i}()" for i in range(8)))
+    editor._felder["name"].setPlainText("sehr langer Hinweistext " * 12)
     editor.uebernehmen()
 
-    assert form["h"] > vorher
+    assert notiz["h"] > vorher
 
 
 def test_abbrechen_laesst_den_text_unveraendert(canvas: DiagrammCanvas) -> None:
-    form = canvas.form_platzieren("class", 200, 200)
-    vorher = dict(form["text"])
-    editor = canvas.bearbeiten_starten(form)
+    notiz = canvas.form_platzieren("note", 200, 200)
+    vorher = notiz["name"]
+    editor = canvas.bearbeiten_starten(notiz)
 
-    editor._felder["name"].setText("Nicht übernehmen")
+    editor._felder["name"].setPlainText("Nicht übernehmen")
     editor.abbrechen()
 
-    assert form["text"] == vorher
+    assert notiz["name"] == vorher
     assert canvas._editor is None
 
 
 def test_escape_bricht_die_eingabe_ab(canvas: DiagrammCanvas) -> None:
-    form = canvas.form_platzieren("class", 200, 200)
-    editor = canvas.bearbeiten_starten(form)
-    editor._felder["name"].setText("Verworfen")
+    notiz = canvas.form_platzieren("note", 200, 200)
+    editor = canvas.bearbeiten_starten(notiz)
+    editor._felder["name"].setPlainText("Verworfen")
 
     editor.eventFilter(
         editor._felder["name"],
         QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Escape, Qt.KeyboardModifier.NoModifier),
     )
 
-    assert form["text"]["name"] != "Verworfen"
+    assert notiz["name"] != "Verworfen"
 
 
 def test_strg_eingabe_uebernimmt(canvas: DiagrammCanvas) -> None:
-    form = canvas.form_platzieren("class", 200, 200)
-    editor = canvas.bearbeiten_starten(form)
-    editor._felder["name"].setText("TAmpel")
+    notiz = canvas.form_platzieren("note", 200, 200)
+    editor = canvas.bearbeiten_starten(notiz)
+    editor._felder["name"].setPlainText("Fertig")
 
     editor.eventFilter(
         editor._felder["name"],
@@ -156,37 +151,21 @@ def test_strg_eingabe_uebernimmt(canvas: DiagrammCanvas) -> None:
         ),
     )
 
-    assert form["text"]["name"] == "TAmpel"
+    assert notiz["name"] == "Fertig"
 
 
-def test_strg_pfeil_sortiert_zeilen_um(canvas: DiagrammCanvas) -> None:
-    """Abschnitt 13.4: „Zeilen … per Strg+Pfeil umsortieren“."""
-    form = canvas.form_platzieren("class", 200, 200)
-    editor = canvas.bearbeiten_starten(form)
-    feld = editor._felder["methods"]
-    feld.setPlainText("+zweite()\n+erste()")
-    cursor = feld.textCursor()
-    cursor.movePosition(cursor.MoveOperation.End)
-    feld.setTextCursor(cursor)
+def test_paket_wird_genauso_beschriftet(canvas: DiagrammCanvas) -> None:
+    paket = canvas.form_platzieren("package", 200, 200)
 
-    editor.eventFilter(
-        feld,
-        QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Up, Qt.KeyboardModifier.ControlModifier),
-    )
+    editor = canvas.bearbeiten_starten(paket)
+    editor._felder["name"].setPlainText("fachlogik")
+    editor.uebernehmen()
 
-    assert feld.toPlainText().splitlines() == ["+erste()", "+zweite()"]
-
-
-def test_notiz_hat_nur_ein_namensfeld(canvas: DiagrammCanvas) -> None:
-    notiz = canvas.form_platzieren("note", 200, 200)
-
-    editor = canvas.bearbeiten_starten(notiz)
-
-    assert set(editor._felder) == {"name"}
+    assert paket["name"] == "fachlogik"
 
 
 def test_f2_startet_die_bearbeitung_der_auswahl(canvas: DiagrammCanvas) -> None:
-    canvas.form_platzieren("class", 200, 200)
+    canvas.form_platzieren("note", 200, 200)
 
     canvas.keyPressEvent(
         QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_F2, Qt.KeyboardModifier.NoModifier)
@@ -196,8 +175,8 @@ def test_f2_startet_die_bearbeitung_der_auswahl(canvas: DiagrammCanvas) -> None:
 
 
 def test_zweites_bearbeiten_ersetzt_das_erste(canvas: DiagrammCanvas) -> None:
-    erste = canvas.form_platzieren("class", 160, 160)
-    zweite = canvas.form_platzieren("class", 480, 160)
+    erste = canvas.form_platzieren("note", 160, 160)
+    zweite = canvas.form_platzieren("note", 480, 160)
 
     canvas.bearbeiten_starten(erste)
     editor = canvas.bearbeiten_starten(zweite)
@@ -206,13 +185,23 @@ def test_zweites_bearbeiten_ersetzt_das_erste(canvas: DiagrammCanvas) -> None:
     assert editor.form is zweite
 
 
+def test_editor_skaliert_mit_dem_zoom(canvas: DiagrammCanvas) -> None:
+    notiz = canvas.form_platzieren("note", 300, 300)
+    canvas.zoom_setzen(2.0)
+
+    editor = canvas.bearbeiten_starten(notiz)
+
+    assert editor.geometry().left() == pytest.approx(notiz["x"] * 2, abs=2)
+    assert editor.geometry().width() == pytest.approx(notiz["w"] * 2, abs=2)
+
+
 def test_abgeraeumter_editor_loest_nichts_mehr_aus(canvas: DiagrammCanvas) -> None:
     """Real gefunden: beim Abräumen schickte Qt den sterbenden Feldern
-    noch FocusOut, das erneut „übernehmen -> abräumen“ anstieß und auf
+    noch `FocusOut`, das erneut „übernehmen → abräumen“ anstieß und auf
     bereits gelöschte Widgets zugriff – der ganze Testlauf stürzte
     danach in einem *anderen* Test ab (Windows: access violation)."""
-    form = canvas.form_platzieren("class", 200, 200)
-    editor = canvas.bearbeiten_starten(form)
+    notiz = canvas.form_platzieren("note", 200, 200)
+    editor = canvas.bearbeiten_starten(notiz)
     uebernahmen: list[dict] = []
     editor.fertig.connect(uebernahmen.append)
 

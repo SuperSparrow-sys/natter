@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 
 from ide.diagramm.kommandos import WerteKommando
 from ide.diagramm.stil import stil as stil_zu_namen
+from ide.diagramm.uml_modell import formname
 from ide.diagramm.zeichnen import fuellfarbe, randfarbe, schriftgroesse
 
 _GEOMETRIE = (("x", "Links"), ("y", "Oben"), ("w", "Breite"), ("h", "Höhe"))
@@ -162,7 +163,7 @@ class EigenschaftenPanel(QWidget):
             beschriftung.setVisible(sichtbar)
 
     def _formtitel(self, form: dict[str, Any]) -> str:
-        name = (form.get("text") or {}).get("name") or form["kind"]
+        name = formname(form) or form["kind"]
         return f"Form: {name}"
 
     # -- Ändern ---------------------------------------------------------

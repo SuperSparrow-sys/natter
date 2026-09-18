@@ -74,9 +74,9 @@ def test_klassendiagramm_bildet_die_echte_ampel_klasse_ab() -> None:
     """Inhaltliche Probe: die Methoden im Diagramm müssen zu
     `beispielprojekte/Ampel/u_ampel.py` passen."""
     daten = Diagramm.laden(DIAGRAMME / "tampel_klassen.pdiag").daten
-    ampel = next(f for f in daten["shapes"] if (f.get("text") or {}).get("name") == "Ampel")
+    ampel = next(f for f in daten["shapes"] if f.get("name") == "Ampel")
 
-    methoden = " ".join(ampel["text"]["methods"])
+    methoden = " ".join(o["name"] for o in ampel["operations"])
     for name in ("einschalten", "ausschalten", "umschalten", "get_zustand", "get_eingeschaltet"):
         assert name in methoden
 

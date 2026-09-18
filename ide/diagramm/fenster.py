@@ -53,6 +53,7 @@ from ide.diagramm.struktogramm_canvas import StruktogrammCanvas
 from ide.diagramm.struktogramm_palette import BlockPalette
 from ide.diagramm.tabelle import regelanzahl
 from ide.diagramm.tabelle_canvas import TabellenCanvas
+from ide.diagramm.uml_modell import formname
 from ide.shell.theme import ide_qss_erzeugen
 
 #: Menüaufbau aus Abschnitt 13.2. `True` = in diesem Schritt bereits
@@ -237,7 +238,7 @@ class DiagrammFenster(QMainWindow):
         vorlage = getattr(self, "_stil_vorlage", None)
         if vorlage is None or vorlage is aktuell:
             self._stil_vorlage = aktuell
-            name = (aktuell.get("text") or {}).get("name") or aktuell["kind"]
+            name = formname(aktuell) or aktuell["kind"]
             self.statusBar().showMessage(
                 f"Stil von „{name}“ gemerkt – jetzt Zielform auswählen und erneut aufrufen.",
                 5000,

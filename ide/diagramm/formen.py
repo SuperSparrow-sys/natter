@@ -22,8 +22,10 @@ class FormArt:
     beschreibung: str
     breite: int
     hoehe: int
-    #: Vorbelegung für `shape["text"]`, sobald die Form platziert wird.
-    standardtext: dict
+    #: Vorbelegter Name, sobald die Form platziert wird. Attribute und
+    #: Operationen bleiben leer – sie kommen über den Eigenschaften-
+    #: Dialog dazu (M9 Schritt 12).
+    standardname: str
 
 
 #: Mindestgröße jeder Form – verhindert, dass beim späteren
@@ -38,7 +40,7 @@ KLASSENDIAGRAMM_FORMEN: tuple[FormArt, ...] = (
         beschreibung="Klasse mit Name, Attributen und Methoden",
         breite=184,
         hoehe=128,
-        standardtext={"name": "Klasse", "attributes": [], "methods": []},
+        standardname="Klasse",
     ),
     FormArt(
         kind="abstract_class",
@@ -46,7 +48,7 @@ KLASSENDIAGRAMM_FORMEN: tuple[FormArt, ...] = (
         beschreibung="Klasse mit {abstract}, Name kursiv",
         breite=184,
         hoehe=128,
-        standardtext={"name": "AbstrakteKlasse", "attributes": [], "methods": []},
+        standardname="AbstrakteKlasse",
     ),
     FormArt(
         kind="interface",
@@ -54,7 +56,7 @@ KLASSENDIAGRAMM_FORMEN: tuple[FormArt, ...] = (
         beschreibung="Schnittstelle mit «interface»",
         breite=184,
         hoehe=104,
-        standardtext={"name": "Interface", "attributes": [], "methods": []},
+        standardname="Interface",
     ),
     FormArt(
         kind="note",
@@ -62,7 +64,7 @@ KLASSENDIAGRAMM_FORMEN: tuple[FormArt, ...] = (
         beschreibung="Freitext-Notiz mit umgeknickter Ecke",
         breite=160,
         hoehe=80,
-        standardtext={"name": "Notiz"},
+        standardname="Notiz",
     ),
     FormArt(
         kind="package",
@@ -70,7 +72,7 @@ KLASSENDIAGRAMM_FORMEN: tuple[FormArt, ...] = (
         beschreibung="Paket mit Reiter oben links",
         breite=176,
         hoehe=112,
-        standardtext={"name": "Paket"},
+        standardname="Paket",
     ),
 )
 

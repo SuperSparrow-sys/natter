@@ -20,6 +20,13 @@ from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QFontMetricsF, QPainter, QPainterPath, QPen
 
 from ide.diagramm.stil import Stil
+from ide.diagramm.uml_modell import (
+    attributzeilen,
+    formname,
+    kursive_operationen,
+    operationszeilen,
+    unterstrichene_attribute,
+)
 
 LINIENBREITE = 1.5
 INNENABSTAND = 8
@@ -90,9 +97,8 @@ def mindesthoehe(shape: dict[str, Any]) -> float:
     if kind not in ("class", "abstract_class", "interface"):
         return KOPFHOEHE + 2 * INNENABSTAND
 
-    text = shape.get("text") or {}
-    attribute = max(1, len(text.get("attributes") or []))
-    methoden = max(1, len(text.get("methods") or []))
+    attribute = max(1, len(attributzeilen(shape)))
+    methoden = max(1, len(operationszeilen(shape)))
     zeilenhoehe = QFontMetricsF(_mono_schrift()).height()
     kopf = KOPFHOEHE * (2 if kind == "interface" else 1)
     return kopf + (attribute + methoden) * zeilenhoehe + 2 * INNENABSTAND
@@ -106,7 +112,7 @@ def _umbruchhoehe(shape: dict[str, Any]) -> float:
     return metriken.boundingRect(
         QRectF(0, 0, innen, 10_000),
         int(Qt.AlignmentFlag.AlignLeft | Qt.TextFlag.TextWordWrap),
-        str((shape.get("text") or {}).get("name", "")),
+        formname(shape),
     ).height()
 
 
@@ -124,13 +130,12 @@ def mindestbreite(shape: dict[str, Any]) -> float:
     if shape.get("kind") in ("note", "package"):
         return 0.0
 
-    text = shape.get("text") or {}
     groesse = schriftgroesse(shape)
     name_breite = QFontMetricsF(_namensschrift(groesse=groesse)).horizontalAdvance(
-        str(text.get("name", ""))
+        formname(shape)
     )
     mono = QFontMetricsF(_mono_schrift(groesse - 1))
-    zeilen = [*(text.get("attributes") or []), *(text.get("methods") or [])]
+    zeilen = [*attributzeilen(shape), *operationszeilen(shape)]
     zeilen_breite = max((mono.horizontalAdvance(str(z)) for z in zeilen), default=0.0)
     return max(name_breite, zeilen_breite) + 2 * INNENABSTAND
 
@@ -145,10 +150,9 @@ def klassen_bereiche(shape: dict[str, Any]) -> dict[str, QRectF]:
     if kind not in ("class", "abstract_class", "interface"):
         return {"name": rechteck}
 
-    text = shape.get("text") or {}
     zeilenhoehe = QFontMetricsF(_mono_schrift()).height()
     kopf_unten = rechteck.top() + KOPFHOEHE * (2 if kind == "interface" else 1)
-    attribute = max(1, len(text.get("attributes") or []))
+    attribute = max(1, len(attributzeilen(shape)))
     attribut_unten = kopf_unten + attribute * zeilenhoehe + INNENABSTAND
 
     return {
@@ -201,7 +205,6 @@ def _klasse_zeichnen(maler: QPainter, shape: dict, stil: Stil, kind: str) -> Non
     maler.setBrush(QBrush(QColor(fuellfarbe(shape, stil))))
     maler.drawRect(rechteck)
 
-    text = shape.get("text") or {}
     abstrakt = kind == "abstract_class" or bool(shape.get("abstract"))
     maler.setPen(QColor(stil.text))
 
@@ -215,7 +218,7 @@ def _klasse_zeichnen(maler: QPainter, shape: dict, stil: Stil, kind: str) -> Non
         )
         kopf_unten = rechteck.top() + 2 * KOPFHOEHE
 
-    name = str(text.get("name", ""))
+    name = formname(shape)
     maler.setFont(_namensschrift(fett=True, kursiv=abstrakt, groesse=gross))
     namensbereich = QRectF(
         rechteck.left(),
@@ -233,15 +236,23 @@ def _klasse_zeichnen(maler: QPainter, shape: dict, stil: Stil, kind: str) -> Non
     maler.drawLine(rechteck.left(), kopf_unten, rechteck.right(), kopf_unten)
 
     zeilenhoehe = QFontMetricsF(_mono_schrift()).height()
-    attribute = [str(zeile) for zeile in (text.get("attributes") or [])]
-    methoden = [str(zeile) for zeile in (text.get("methods") or [])]
+    # „Unterdrücken“ blendet den Bereich ganz aus, „unsichtbar“ lässt
+    # ihn leer stehen (Abschnitt 13.4, Reiter „Klasse“).
+    attribute = [] if shape.get("attributes_suppressed") else attributzeilen(shape)
+    methoden = [] if shape.get("operations_suppressed") else operationszeilen(shape)
 
     attribut_unten = klassen_bereiche(shape)["methods"].top()
-    _zeilen_zeichnen(maler, rechteck, kopf_unten, attribute, stil, zeilenhoehe)
+    _zeilen_zeichnen(
+        maler, rechteck, kopf_unten, attribute, stil, zeilenhoehe,
+        unterstrichen=unterstrichene_attribute(shape),
+    )
 
     maler.setPen(_stift(stil, stil.trennlinie))
     maler.drawLine(rechteck.left(), attribut_unten, rechteck.right(), attribut_unten)
-    _zeilen_zeichnen(maler, rechteck, attribut_unten, methoden, stil, zeilenhoehe)
+    _zeilen_zeichnen(
+        maler, rechteck, attribut_unten, methoden, stil, zeilenhoehe,
+        kursiv=kursive_operationen(shape),
+    )
 
 
 def _zeilen_zeichnen(
@@ -251,10 +262,17 @@ def _zeilen_zeichnen(
     zeilen: list[str],
     stil: Stil,
     zeilenhoehe: float,
+    unterstrichen: set[int] | None = None,
+    kursiv: set[int] | None = None,
 ) -> None:
-    maler.setFont(_mono_schrift())
+    """`unterstrichen` markiert den Klassen-Gültigkeitsbereich, `kursiv`
+    abstrakte Operationen – beides UML-Notation (Abschnitt 13.6)."""
     maler.setPen(QColor(stil.text))
     for nummer, zeile in enumerate(zeilen):
+        schrift = _mono_schrift()
+        schrift.setUnderline(nummer in (unterstrichen or ()))
+        schrift.setItalic(nummer in (kursiv or ()))
+        maler.setFont(schrift)
         y = oben + INNENABSTAND / 2 + nummer * zeilenhoehe
         if y + zeilenhoehe > rechteck.bottom():
             break  # unterhalb der Form nicht weiterzeichnen
@@ -290,7 +308,7 @@ def _notiz_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
     maler.drawText(
         rechteck.adjusted(INNENABSTAND, INNENABSTAND, -INNENABSTAND, -INNENABSTAND),
         int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap),
-        str((shape.get("text") or {}).get("name", "")),
+        formname(shape),
     )
 
 
@@ -311,7 +329,7 @@ def _paket_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
     maler.drawText(
         koerper,
         Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter,
-        str((shape.get("text") or {}).get("name", "")),
+        formname(shape),
     )
 
 
