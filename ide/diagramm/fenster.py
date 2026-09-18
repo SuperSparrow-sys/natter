@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
 from ide.assets import symbol
 from ide.diagramm.bloecke import alle_bloecke
 from ide.diagramm.canvas import DiagrammCanvas
+from ide.diagramm.codefenster import CodeFenster, CodeOptionenDialog, in_datei_schreiben
 from ide.diagramm.datei import Diagramm
 from ide.diagramm.eigenschaften import EigenschaftenPanel
 from ide.diagramm.export import (
@@ -45,11 +46,13 @@ from ide.diagramm.export import (
 )
 from ide.diagramm.exportdialog import PngDialog, PngEinstellungen
 from ide.diagramm.formen import formen_fuer
+from ide.diagramm.klassen_code import diagramm_als_python
 from ide.diagramm.kommandos import WerteKommando
 from ide.diagramm.palette import FormenPalette
 from ide.diagramm.stil import BESCHRIFTUNGEN
 from ide.diagramm.struktogramm import BLOCK_BESCHRIFTUNGEN
 from ide.diagramm.struktogramm_canvas import StruktogrammCanvas
+from ide.diagramm.struktogramm_code import als_python as struktogramm_als_python
 from ide.diagramm.struktogramm_palette import BlockPalette
 from ide.diagramm.tabelle import regelanzahl
 from ide.diagramm.tabelle_canvas import TabellenCanvas
@@ -274,6 +277,8 @@ class DiagrammFenster(QMainWindow):
 
         if self.diagramm.typ == "entscheidungstabelle":
             self._tabellenmenue_aufbauen()
+        if self.diagramm.typ in ("class", "struktogramm"):
+            self._quelltextmenue_aufbauen()
         self._stilvorlagen_menue_aufbauen()
         self._ansicht_schalter_aufbauen()
 
@@ -381,6 +386,66 @@ class DiagrammFenster(QMainWindow):
             return
         sicht = self.rollbereich.viewport()
         self.zeichenflaeche.alles_anzeigen(sicht.width(), sicht.height())
+
+    def _quelltextmenue_aufbauen(self) -> None:
+        """„Quelltext → Erzeugen …“ (M9 Schritte 13 und 14). Vor „Hilfe“,
+        das gehört ans Ende der Leiste."""
+        menue = QMenu("Quelltext", self)
+        self.menuBar().insertMenu(self._menues["Hilfe"].menuAction(), menue)
+        self._menues["Quelltext"] = menue
+        aktion = menue.addAction("Erzeugen …")
+        aktion.setShortcut("Ctrl+G")
+        aktion.triggered.connect(lambda: self.quelltext_erzeugen())
+        self.aktionen["Quelltext/Erzeugen …"] = aktion
+
+    def quelltext_code(self, umfang: str = "alles") -> str:
+        """Der erzeugte Quelltext – ohne jede Oberfläche, damit sich das
+        einzeln prüfen lässt."""
+        auswahl = None
+        if umfang == "auswahl":
+            auswahl = getattr(self.zeichenflaeche, "ausgewaehlte_form", None) or getattr(
+                self.zeichenflaeche, "ausgewaehlter_block", None
+            )
+        if self.diagramm.typ == "struktogramm":
+            return struktogramm_als_python(self.diagramm.daten, auswahl).text
+        return diagramm_als_python(self.diagramm.daten, auswahl)
+
+    def quelltext_erzeugen(
+        self, ziel: str | None = None, umfang: str | None = None, pfad: Path | None = None
+    ):
+        """„Quelltext → Erzeugen …“. Ohne Angaben fragt ein Dialog nach
+        Ziel und Umfang; in Tests werden beide direkt übergeben."""
+        if ziel is None or umfang is None:
+            dialog = CodeOptionenDialog(
+                self,
+                "Umfang" if self.diagramm.typ == "class" else "Ausschnitt",
+            )
+            if dialog.exec() != CodeOptionenDialog.DialogCode.Accepted:
+                return None
+            ziel, umfang = dialog.merken()
+
+        quelltext = self.quelltext_code(umfang)
+        if not quelltext.strip():
+            self.statusBar().showMessage("Nichts zu erzeugen.", 3000)
+            return None
+
+        if ziel == "datei":
+            vorschlag = pfad or (
+                self.diagramm.pfad.parent.parent
+                / "units"
+                / f"u_{self.diagramm.pfad.stem.lower()}.py"
+            )
+            geschrieben = in_datei_schreiben(
+                quelltext, vorschlag, self, fragen=pfad is None
+            )
+            if geschrieben is not None:
+                self.statusBar().showMessage(f"Geschrieben: {geschrieben.name}", 4000)
+            return geschrieben
+
+        fenster = CodeFenster(quelltext, f"Quelltext – {self.diagramm.pfad.stem}", self)
+        if pfad is None:
+            fenster.exec()
+        return fenster
 
     def _stilvorlagen_menue_aufbauen(self) -> None:
         """„Format → Stilvorlage“ als Untermenü mit den drei Vorlagen aus
