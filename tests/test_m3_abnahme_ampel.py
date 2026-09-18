@@ -67,7 +67,10 @@ def _ampel_in_der_ide_nachbauen(canvas: DesignerCanvas) -> None:
     b_aus.caption = "Auschalten"
     canvas.komponente_umbenennen(b_aus, "b_auschalten")
 
-    l_titel = canvas.komponente_platzieren(Label, 128, 67)
+    # Position aus der echten u_main.pfm - der Titel wurde im Designer
+    # nachträglich noch etwas verschoben; der Nachbau muss ihr folgen,
+    # sonst prüft der Test seine eigene alte Annahme statt das Beispiel.
+    l_titel = canvas.komponente_platzieren(Label, 148, 63)
     l_titel.width, l_titel.height = 192, 32
     l_titel.caption = "Ampel Simulator"
     canvas.komponente_umbenennen(l_titel, "l_titel")

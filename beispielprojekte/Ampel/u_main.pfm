@@ -2,43 +2,111 @@
   "format": "pfm/1",
   "class": "Form1",
   "type": "Form",
-  "properties": { "caption": "Ampel", "width": 620, "height": 736, "theme": "system" },
-  "events": { "on_create": "form_create" },
+  "properties": {
+    "caption": "Ampel",
+    "width": 620,
+    "height": 736
+  },
+  "events": {
+    "on_create": "form_create"
+  },
   "children": [
     {
-      "name": "b_einschalten", "type": "Button",
-      "properties": { "caption": "Einschalten", "left": 392, "top": 184, "width": 170, "height": 25 },
-      "events": { "on_click": "b_einschalten_click" }
+      "name": "b_einschalten",
+      "type": "Button",
+      "properties": {
+        "left": 392,
+        "top": 184,
+        "width": 170,
+        "caption": "Einschalten"
+      },
+      "events": {
+        "on_click": "b_einschalten_click"
+      }
     },
     {
-      "name": "b_wechseln", "type": "Button",
-      "properties": { "caption": "Wechseln", "left": 400, "top": 223, "width": 170, "height": 25 },
-      "events": { "on_click": "b_wechseln_click" }
+      "name": "b_wechseln",
+      "type": "Button",
+      "properties": {
+        "left": 400,
+        "top": 223,
+        "width": 170,
+        "caption": "Wechseln"
+      },
+      "events": {
+        "on_click": "b_wechseln_click"
+      }
     },
     {
-      "name": "b_auschalten", "type": "Button",
-      "properties": { "caption": "Auschalten", "left": 413, "top": 262, "width": 170, "height": 25 },
-      "events": { "on_click": "b_auschalten_click" }
+      "name": "b_auschalten",
+      "type": "Button",
+      "properties": {
+        "left": 413,
+        "top": 262,
+        "width": 170,
+        "caption": "Auschalten"
+      },
+      "events": {
+        "on_click": "b_auschalten_click"
+      }
     },
     {
-      "name": "l_titel", "type": "Label",
-      "properties": { "caption": "Ampel Simulator", "left": 128, "top": 67, "width": 192, "height": 32 }
+      "name": "l_titel",
+      "type": "Label",
+      "properties": {
+        "left": 148,
+        "top": 63,
+        "width": 192,
+        "height": 32,
+        "caption": "Ampel Simulator"
+      }
     },
     {
-      "name": "s_gehaeuse", "type": "Shape",
-      "properties": { "shape": "rectangle", "left": 135, "top": 160, "width": 169, "height": 330, "brush_color": "#808080" }
+      "name": "s_gehaeuse",
+      "type": "Shape",
+      "properties": {
+        "left": 135,
+        "top": 160,
+        "width": 169,
+        "height": 330,
+        "brush_color": "#808080"
+      }
     },
     {
-      "name": "s_rot", "type": "Shape",
-      "properties": { "shape": "circle", "left": 170, "top": 176, "width": 96, "height": 89, "brush_color": "#000000" }
+      "name": "s_rot",
+      "type": "Shape",
+      "properties": {
+        "left": 170,
+        "top": 176,
+        "width": 96,
+        "height": 89,
+        "shape": "circle",
+        "brush_color": "#000000"
+      }
     },
     {
-      "name": "s_gelb", "type": "Shape",
-      "properties": { "shape": "circle", "left": 169, "top": 272, "width": 97, "height": 89, "brush_color": "#000000" }
+      "name": "s_gelb",
+      "type": "Shape",
+      "properties": {
+        "left": 169,
+        "top": 272,
+        "width": 97,
+        "height": 89,
+        "shape": "circle",
+        "brush_color": "#000000"
+      }
     },
     {
-      "name": "s_gruen", "type": "Shape",
-      "properties": { "shape": "circle", "left": 176, "top": 376, "width": 90, "height": 80, "brush_color": "#000000" }
+      "name": "s_gruen",
+      "type": "Shape",
+      "properties": {
+        "left": 176,
+        "top": 376,
+        "width": 90,
+        "height": 80,
+        "shape": "circle",
+        "brush_color": "#000000"
+      }
     }
   ]
 }

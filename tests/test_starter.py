@@ -66,11 +66,71 @@ def test_konsolenprojekt_bekommt_ein_eigenes_konsolenfenster_unter_windows(
     projekt_starten(projekt)
 
     assert len(aufrufe) == 1
-    _, kwargs = aufrufe[0]
+    args, kwargs = aufrufe[0]
     if sys.platform == "win32":
         assert kwargs.get("creationflags") == subprocess.CREATE_NEW_CONSOLE
     else:
         assert "creationflags" not in kwargs
+    # Konsolenprogramme laufen durch die Hülle, die das Fenster offen
+    # hält und ihm einen lesbaren Titel gibt
+    assert "-c" in args[0]
+    assert args[0][-1] == "main.py"
+    assert args[0][-2].startswith("Natter")
+
+
+def _huelle_ausfuehren(ordner: Path, inhalt: str) -> subprocess.CompletedProcess:
+    """Führt die Hülle für Konsolenprogramme wirklich aus und beantwortet
+    ihre Rückfrage mit einer Eingabetaste."""
+    from ide.run.starter import _KONSOLEN_HUELLE
+
+    (ordner / "main.py").write_text(inhalt, encoding="utf-8")
+    return subprocess.run(
+        [sys.executable, "-c", _KONSOLEN_HUELLE, "Natter – Test", "main.py"],
+        cwd=ordner,
+        input="\n",
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+
+def test_konsolenprogramm_laeuft_und_das_fenster_bleibt_offen(tmp_path: Path) -> None:
+    """Vom Nutzer indirekt gemeldet: er hatte angefangen, `input()` von
+    Hand ans Ende seiner Beispielprogramme zu schreiben, weil sich das
+    Konsolenfenster sofort wieder schloss. Das gehört in den Starter und
+    nicht in jedes Programm."""
+    ergebnis = _huelle_ausfuehren(tmp_path, 'print("Ausgabe des Programms")\n')
+
+    assert "Ausgabe des Programms" in ergebnis.stdout
+    assert "Eingabetaste" in ergebnis.stdout  # es wurde wirklich gewartet
+    assert ergebnis.returncode == 0
+
+
+def test_nach_einem_absturz_bleibt_das_fenster_auch_offen(tmp_path: Path) -> None:
+    """Gerade dann will man den Fehler lesen können."""
+    ergebnis = _huelle_ausfuehren(
+        tmp_path, 'print("vorher")\nraise ValueError("kaputt")\n'
+    )
+
+    assert "vorher" in ergebnis.stdout
+    assert "ValueError: kaputt" in ergebnis.stderr
+    assert "Eingabetaste" in ergebnis.stdout
+    assert ergebnis.returncode == 1
+
+
+def test_rueckgabecode_des_programms_bleibt_erhalten(tmp_path: Path) -> None:
+    ergebnis = _huelle_ausfuehren(tmp_path, "import sys\nsys.exit(3)\n")
+
+    assert ergebnis.returncode == 3
+
+
+def test_die_huelle_laesst_das_programm_sein_eigenes_argv_sehen(tmp_path: Path) -> None:
+    """`sys.argv[0]` muss das Programm sein, nicht die Hülle und auch
+    nicht der Fenstertitel – sonst stimmte in jedem Schülerprogramm der
+    eigene Name nicht."""
+    ergebnis = _huelle_ausfuehren(tmp_path, "import sys\nprint('ARGV', sys.argv[0])\n")
+
+    assert "ARGV main.py" in ergebnis.stdout
 
 
 def test_gui_projekt_bekommt_kein_eigenes_konsolenfenster(
@@ -93,3 +153,6 @@ def test_gui_projekt_bekommt_kein_eigenes_konsolenfenster(
     projekt_starten(projekt)
 
     assert "creationflags" not in aufrufe[0][1]
+    # Ein GUI-Programm hat sein eigenes Fenster - eine Eingabe-
+    # aufforderung wäre dort sinnlos, die Konsole gibt es gar nicht.
+    assert "-c" not in aufrufe[0][0][0]
