@@ -16,19 +16,88 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M9: Abnahme der MVP-Dreiergruppe bestanden** (September 2026).
-Klassendiagramm, Struktogramm und Entscheidungstabelle sind fertig,
-inklusive Eigenschaften-Bereich, umschaltbaren Stilvorlagen,
-Layout-Hinweisen und Export nach PNG/SVG/PDF samt Drucken. Die drei
-Diagramme des Abnahmekriteriums liegen als Beispiel in
-`beispielprojekte/Ampel/diagramme/` und wurden als PDF zurückgelesen
-und angesehen.
+**Stand September 2026: alle neun Meilensteine sind abgenommen.**
+M0–M8 sind abgeschlossen, und in M9 ist das Abnahmekriterium aus dem
+Konzept erfüllt – UML-Klassendiagramm, Struktogramm und
+Entscheidungstabelle der Ampel von Hand erstellt und als PDF
+exportiert. Natter ist damit **fachlich vollständig** für das, was im
+Unterricht gebraucht wird; was noch offen ist, ist Ausbau und
+Feinschliff, kein fehlendes Fundament.
 
-Offen in M9 sind noch die Teilschritte 2b (Zoom, Lineale, Minimap),
-3b (Mehrfachauswahl, Anordnen, Kopieren) und 4b (Knickpunkte) sowie
-die vier späteren Diagrammtypen (Use-Case, Aktivität, Zustand,
-Sequenz) – Einzelheiten in
-[`docs/arbeitspakete/M9.md`](arbeitspakete/M9.md).
+Zahlen zur Einordnung: rund 16 500 Zeilen Python in `ide/` und `pcl/`,
+1129 Tests in 125 Dateien – im committeten Stand alle grün, Ruff
+sauber. Dazu zehn Beispielprojekte, die alle wirklich starten, und eine
+gebaute, signierte `Natter.exe` mit Installer und
+`.natter`-Dateiverknüpfung.
+
+Die Drucker-Tests laufen bewusst nicht im Standardlauf mit
+(`uv run pytest -m drucker` startet sie): die Windows-Druckerabfrage
+kostet auf einem Rechner mit nicht erreichbarem Netzwerkdrucker knapp
+eine Minute und ließ dabei die Zeitgrenzen der Debugger-Tests reißen.
+
+### Was fertig ist
+
+| Bereich | Stand |
+|---|---|
+| `pcl`-Komponentenbibliothek, Theme, Eigenschaften-System | fertig (M1) |
+| IDE-Grundgerüst, Quelltexteditor, Projektverwaltung | fertig (M2) |
+| Formular-Designer, Objektinspektor, Code-Erzeugung | fertig (M3) |
+| Debugger, Fehlerkatalog, Testrunner | fertig (M4) |
+| Datenbank, pandas, Charts | fertig (M5) |
+| Konsolen-Feinschliff (CRT-Nachbau) | fertig (M6) |
+| Design-Prüfer, Paketverwaltung | fertig (M7) |
+| Lazarus-Import, Exe-Export, Signierung, Installer | fertig (M8) |
+| Diagramm-Editor: Klasse, Struktogramm, Tabelle | fertig (M9, abgenommen) |
+
+### Was noch zu tun ist
+
+Vier Gruppen, absteigend nach Nutzen für den Unterricht:
+
+**1. M9 zu Ende bringen** (die Teilschritte, die beim Zeichnen
+tatsächlich fehlen):
+
+- Mehrfachauswahl, Ausrichten/Verteilen, Kopieren/Einfügen (3b) –
+  das ist der spürbarste Mangel: wer zehn Klassen gesetzt hat, kann
+  sie derzeit nur einzeln anfassen
+- Knickpunkte in Verbindungen und verschiebbare Beschriftungen (4b)
+- Blöcke im Struktogramm mit der Maus verschieben (der Baum kann es
+  schon, nur das Ziehen fehlt)
+- Zoom auch für Struktogramm und Entscheidungstabelle; Lineale und
+  Minimap (Rest von 2b)
+
+**2. Die vier weiteren Diagrammtypen** (Abschnitt 13.4 „Später“):
+Use-Case, Aktivität, Zustand, Sequenz. Sie bauen auf der fertigen
+Formen-und-Verbindungen-Infrastruktur auf – nötig sind je nur neue
+Formen- und Verbindungsarten, kein neues Grundgerüst.
+
+**3. Liegengebliebenes aus früheren Meilensteinen** (je Paket
+dokumentiert, nichts davon blockiert den Unterricht):
+
+- M3 (2 Punkte): Komponente per Klick+Klick an einer gewählten Stelle
+  platzieren statt nur mittig
+- M5 (7 Punkte): Designzeit-Aktivierung von Datenbankkomponenten,
+  Zugangsdaten im Windows Credential Store, „Als Tabelle anzeigen“ im
+  Variablen-Panel, Bild per Drag & Drop ins Formular
+- M8 (4 Punkte): Pascal-Rümpfe beim Lazarus-Import als Kommentar
+  übernehmen, Bilder aus `Picture.Data` extrahieren, sowie
+  Update-Mechanismus und CI-Release-Automatisierung (beide bewusst
+  zurückgestellt)
+
+**4. Offene Frage an den Nutzer:** in
+`beispielprojekte/CrtDemo/main.py` steht ein nicht committetes
+`input()`. Es hält das Konsolenfenster offen, bricht aber drei Tests.
+Die saubere Lösung gehört in den Starter (`ide/run/`), nicht in jedes
+Beispiel – das ist noch zu entscheiden.
+
+### Wie der Stand geprüft wurde
+
+Nicht nur über die Testsuite: jeder Schritt wurde zusätzlich im
+laufenden Programm angesehen (Bildschirmfotos, exportierte PDFs mit
+`QPdfDocument` zurückgelesen und gerendert). Das hat in M9 sieben
+Fehler zutage gefördert, die alle Tests bestanden hatten – unter
+anderem abgeschnittene Texte, eine im Schwarz-Weiß-Druck unsichtbare
+Tabellenkopfzeile, ein am Blattrand klebendes Struktogramm und eine
+Druckvorschau, die das Fenster 48 Sekunden eingefroren hätte.
 
 **M8 ist abgeschlossen** (September 2026): Abnahme bestanden mit
 `beispielprojekte/Pizza` – aus `referenz/lazarus/f_Pizza` über
@@ -657,8 +726,13 @@ Taskleisten-Eintrag statt Dock/Tab in der IDE (Abschnitt 13.1).
 
 ## Nächster konkreter Schritt
 
-**M9, Teilschritt 2b:** Ansicht ausbauen – Zoom (Strg+Mausrad,
-Strg+0, Strg+1), Ansicht verschieben (Leertaste+Ziehen), Lineale und
-Minimap. Danach 3b (Mehrfachauswahl, Ausrichten/Verteilen, Kopieren/
-Einfügen) und 4b (Knickpunkte, verschiebbare Beschriftungen), siehe
+**M9, Teilschritt 3b: Mehrfachauswahl und Anordnen.** Das ist der
+spürbarste Mangel im fertigen Diagramm-Editor – wer zehn Klassen
+gesetzt hat, kann sie bislang nur einzeln anfassen. Umfang: Rahmen
+ziehen und Strg+Klick, „Alles auswählen“, Ausrichten/Verteilen/Gleiche
+Größe im Menü „Anordnen“, Vordergrund/Hintergrund, Gruppieren und
+Kopieren/Ausschneiden/Einfügen.
+
+Danach 4b (Knickpunkte, verschiebbare Beschriftungen) und der Rest von
+2b (Zoom für Struktogramm und Tabelle, Lineale, Minimap), siehe
 [`docs/arbeitspakete/M9.md`](arbeitspakete/M9.md).
