@@ -1,6 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-  <path d="M6 4l13 8-13 8z" fill="#1e8e3e"/>
-  <circle cx="18.5" cy="18.5" r="4" fill="#c0392b"/>
-  <path d="M18.5 16.2v2.3l1.6 1.6" fill="none" stroke="#ffffff" stroke-width="1"
-        stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Starten mit Debugger: Abspieldreieck plus roter Haltepunkt -->
+  <path d="M5 3.6 17.4 10.8 5 18z" fill="#1e8e3e" stroke="#14682c" stroke-width="1.2" stroke-linejoin="round"/>
+  <circle cx="17" cy="17" r="4.2" fill="#c42b1c" stroke="#f7f9fa" stroke-width="1.2"/>
 </svg>

@@ -93,6 +93,23 @@ class Aktionsregister:
                     hauptfenster.werkzeugleiste.addSeparator()
                 hauptfenster.werkzeugleiste.addAction(aktion.qaction)
 
+    def symbole_erneuern(self, theme: str = "system") -> int:
+        """Lädt die Symbole aller Aktionen im angegebenen Theme neu.
+
+        Nötig nach „Ansicht → Design": die `QIcon` entstehen einmal beim
+        Anlegen der Aktion, und ein `QIcon` merkt sich seine Farben. Ohne
+        diesen Aufruf behielt die Werkzeugleiste nach dem Umschalten die
+        alten Farben, bis Natter neu gestartet wurde (beim Überarbeiten
+        der Symbole in M11 aufgefallen). Liefert die Zahl der erneuerten
+        Symbole zurück.
+        """
+        anzahl = 0
+        for aktion in self._aktionen.values():
+            if aktion.symbol:
+                aktion.qaction.setIcon(symbol_laden(aktion.symbol, theme))
+                anzahl += 1
+        return anzahl
+
     def __getitem__(self, id: str) -> Aktion:
         return self._aktionen[id]
 

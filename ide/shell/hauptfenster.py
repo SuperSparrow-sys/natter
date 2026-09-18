@@ -1176,6 +1176,13 @@ class HauptFenster(QMainWindow):
             if isinstance(editor, QuelltextEditor):
                 editor.thema_setzen(aufgeloest)
 
+        # Symbole neu laden: ein `QIcon` merkt sich seine Farben. Ohne
+        # das behielt die Werkzeugleiste nach dem Umschalten die alten
+        # Farben, bis Natter neu gestartet wurde.
+        self.aktionen.symbole_erneuern(thema)
+        self.palette.symbole_erneuern(thema)
+        self.setWindowIcon(symbol("app", thema))
+
     def _code_schriftart_wechseln(self, schriftart: str) -> None:
         """„Ansicht → Schriftart“: wendet die gewählte Editor-Schrift
         sofort an (auch auf bereits offene Editor-Tabs) und merkt sich

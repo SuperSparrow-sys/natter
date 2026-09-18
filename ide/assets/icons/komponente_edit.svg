@@ -1,4 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-  <rect x="3" y="8" width="18" height="8" rx="1.5" fill="none" stroke="#0067c0" stroke-width="1.6"/>
-  <path d="M7 10.5v3" stroke="#0067c0" stroke-width="1.6" stroke-linecap="round"/>
+  <!-- Edit: einzeiliges Eingabefeld mit Schreibmarke -->
+  <rect x="2.9" y="7.4" width="18.2" height="9.2" rx="1.5" fill="#f7f9fa" stroke="#37474f" stroke-width="1.2"/>
+  <path d="M6.4 9.9v4.2" stroke="#0067c0" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M9 12h8" stroke="#7b8f9a" stroke-width="1" stroke-linecap="round"/>
 </svg>

@@ -1,4 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-  <path d="M6 18 10 6h1.6l4 12" fill="none" stroke="#0067c0" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
-  <path d="M7.6 13.6h6" stroke="#0067c0" stroke-width="1.6" stroke-linecap="round"/>
+  <!-- Label: Buchstabe A über einer Grundlinie. Der Buchstabe trägt die
+       Bedeutung allein und ist deshalb eine Marke (2,0) - bei 1,5 blieb
+       er bei 16 px fast durchsichtig (Sichtprüfung M11). -->
+  <path d="M6.6 17.2 11 5.4h2l4.4 11.8" fill="none"
+        stroke="#0067c0" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M8.5 13.2h7" stroke="#0067c0" stroke-width="2" stroke-linecap="round"/>
+  <path d="M4 20.4h16" stroke="#7b8f9a" stroke-width="1" stroke-linecap="round"/>
 </svg>

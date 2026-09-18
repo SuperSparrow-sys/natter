@@ -1,6 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-  <path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"
-        fill="#0067c0" stroke="#004c8c" stroke-width="1"/>
-  <path d="M8 14l3-3 2 2 4-4" fill="none" stroke="#ffffff" stroke-width="1.6"
-        stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Projekt öffnen: derselbe Ordner wie "Öffnen", darin ein Blatt in
+       der Akzentfarbe. So unterscheidet er sich bei 16 px sowohl vom
+       leeren Ordner als auch von der (ebenfalls blauen) Diskette. -->
+  <path d="M9.2 2.7h4.4l3.4 3.4v5.4H9.2z"
+        fill="#0067c0" stroke="#004c8c" stroke-width="1.2" stroke-linejoin="round"/>
+  <path d="M13.4 2.7v3.6h3.6" fill="none" stroke="#ffffff" stroke-width="1" stroke-linejoin="round"/>
+  <path d="M10.8 9h3.6" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M2.9 19.4V7.6a1 1 0 0 1 1-1h3.1l2 2h8.6a1 1 0 0 1 1 1v1.3H6.2z"
+        fill="#c98f1e" stroke="#c98f1e" stroke-width="1.2" stroke-linejoin="round"/>
+  <path d="M6.2 10.9h14.6l-3 8.5H2.9z"
+        fill="#f2b134" stroke="#c98f1e" stroke-width="1.2" stroke-linejoin="round"/>
 </svg>

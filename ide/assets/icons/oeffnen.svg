@@ -1,4 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-  <path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"
-        fill="#f2b134" stroke="#c98f1e" stroke-width="1"/>
+  <!-- Datei öffnen: aufgeklappter Ordner -->
+  <path d="M2.9 19.4V6.4a1 1 0 0 1 1-1h4.3l2 2h8.4a1 1 0 0 1 1 1v2.2H6.2z"
+        fill="#c98f1e" stroke="#c98f1e" stroke-width="1.2" stroke-linejoin="round"/>
+  <path d="M6.2 10.6h14.6l-3 8.8H2.9z"
+        fill="#f2b134" stroke="#c98f1e" stroke-width="1.2" stroke-linejoin="round"/>
 </svg>

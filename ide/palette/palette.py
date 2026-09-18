@@ -92,6 +92,21 @@ class Komponentenpalette(QTabWidget):
             liste.addItem(eintrag)
         return liste
 
+    def symbole_erneuern(self, theme: str = "system") -> None:
+        """Lädt die Palettensymbole im angegebenen Theme neu – nötig nach
+        „Ansicht → Design", weil ein `QIcon` sich seine Farben merkt."""
+        for seite in range(self.count()):
+            liste = self.widget(seite)
+            if not isinstance(liste, QListWidget):
+                continue
+            for zeile in range(liste.count()):
+                eintrag = liste.item(zeile)
+                typ = eintrag.data(TYP_ROLLE)
+                if typ is not None:
+                    eintrag.setIcon(
+                        symbol(f"komponente_{typ.__name__.lower()}", theme)
+                    )
+
     def ausgewaehlter_typ(self) -> type | None:
         """Der in der aktiven Palettenseite ausgewählte Komponententyp,
         oder `None`, wenn nichts ausgewählt ist."""

@@ -1,4 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-  <rect x="4" y="4" width="16" height="16" rx="2" fill="none" stroke="#0067c0" stroke-width="1.6"/>
-  <path d="M7.5 12.5l2.8 2.8 6-6.6" fill="none" stroke="#0067c0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- CheckBox: Kästchen mit grünem Haken -->
+  <rect x="3.6" y="3.6" width="16.8" height="16.8" rx="2" fill="#f7f9fa" stroke="#37474f" stroke-width="1.2"/>
+  <path d="M7.4 12.2 10.6 15.4 16.8 8.4" fill="none"
+        stroke="#1e8e3e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
