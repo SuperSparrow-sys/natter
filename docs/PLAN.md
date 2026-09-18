@@ -16,9 +16,19 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-→ **M9, Schritt 1: Diagramm-Editor beginnen** – der einzige noch nicht
-begonnene Meilenstein; er wird vor dem Start wie M1–M8 in einer eigenen
-`docs/arbeitspakete/M9.md` kleinteilig aufgeschlüsselt.
+→ **M9: Abnahme der MVP-Dreiergruppe bestanden** (September 2026).
+Klassendiagramm, Struktogramm und Entscheidungstabelle sind fertig,
+inklusive Eigenschaften-Bereich, umschaltbaren Stilvorlagen,
+Layout-Hinweisen und Export nach PNG/SVG/PDF samt Drucken. Die drei
+Diagramme des Abnahmekriteriums liegen als Beispiel in
+`beispielprojekte/Ampel/diagramme/` und wurden als PDF zurückgelesen
+und angesehen.
+
+Offen in M9 sind noch die Teilschritte 2b (Zoom, Lineale, Minimap),
+3b (Mehrfachauswahl, Anordnen, Kopieren) und 4b (Knickpunkte) sowie
+die vier späteren Diagrammtypen (Use-Case, Aktivität, Zustand,
+Sequenz) – Einzelheiten in
+[`docs/arbeitspakete/M9.md`](arbeitspakete/M9.md).
 
 **M8 ist abgeschlossen** (September 2026): Abnahme bestanden mit
 `beispielprojekte/Pizza` – aus `referenz/lazarus/f_Pizza` über
@@ -636,16 +646,19 @@ Anfang an), danach Use-Case-, Aktivitäts-, Zustands- und
 Sequenzdiagramm. Eigenes Top-Level-Fenster mit eigenem
 Taskleisten-Eintrag statt Dock/Tab in der IDE (Abschnitt 13.1).
 
-- [ ] Fenster, Palette, Klassendiagramm, Struktogramm, Entscheidungstabelle
+- [x] Fenster, Palette, Klassendiagramm, Struktogramm, Entscheidungstabelle
+- [x] Stilvorlagen, Layout-Hinweise, Export (PNG/SVG/PDF), Druck
+- [x] Abnahme: UML-Klassendiagramm `TAmpel`, Struktogramm
+  `ampel_zeichnen` und Entscheidungstabelle der Ampel von Hand erstellt
+  und als PDF exportiert
+- [ ] Zoom/Lineale/Minimap, Mehrfachauswahl/Anordnen, Knickpunkte
+  (Teilschritte 2b, 3b, 4b)
 - [ ] danach Use-Case, Aktivität, Zustand, Sequenz
-- [ ] Stilvorlagen, Export, Druck
-- [ ] Abnahme: UML-Klassendiagramm `TAmpel`, Struktogramm
-  `ampel_zeichnen` und Entscheidungstabelle der Ampel von Hand erstellen
-  und als PDF exportieren
 
 ## Nächster konkreter Schritt
 
-**M9, Schritt 1:** `.pdiag`-Datenmodell und Fenster-Grundgerüst anlegen
-(`schemas/pdiag.schema.json` für die MVP-Dreiergruppe erweitern,
-eigenständiges `QMainWindow` mit Projekt-Explorer-Integration), siehe
-[`docs/arbeitspakete/M9.md`](arbeitspakete/M9.md), Schritt 1.
+**M9, Teilschritt 2b:** Ansicht ausbauen – Zoom (Strg+Mausrad,
+Strg+0, Strg+1), Ansicht verschieben (Leertaste+Ziehen), Lineale und
+Minimap. Danach 3b (Mehrfachauswahl, Ausrichten/Verteilen, Kopieren/
+Einfügen) und 4b (Knickpunkte, verschiebbare Beschriftungen), siehe
+[`docs/arbeitspakete/M9.md`](arbeitspakete/M9.md).
