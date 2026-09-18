@@ -36,6 +36,10 @@ from ide.diagramm.zeichnen import (
 
 #: Weißer Rand um den Inhalt beim Export „nur Inhalt“ (PNG/SVG).
 RAND = 16
+#: Auflösung für die Zwischenablage. Vierfach entspricht 384 dpi und
+#: sieht auch ausgedruckt noch sauber aus. Vom Nutzer gemeldet: mit
+#: einfacher Auflösung war das eingefügte Bild sichtbar unscharf.
+ZWISCHENABLAGE_SKALIERUNG = 4.0
 
 
 def _form_mit_id(daten: dict[str, Any], kennung: str) -> dict[str, Any] | None:
@@ -109,6 +113,25 @@ def _seitenversatz(daten: dict[str, Any]) -> tuple[float, float]:
     return links, oben
 
 
+def _aufloesung_eintragen(bild: QImage, skalierung: float) -> None:
+    """Trägt die echte Auflösung ins Bild ein.
+
+    Ohne diese Angabe nimmt Word ein Bild als 96 dpi an und fügt eine
+    vierfach gerechnete Zeichnung entsprechend **vierfach zu groß** ein –
+    wer sie dann von Hand kleinzieht, hätte zwar die Schärfe, aber
+    niemand macht das. Mit der Angabe landet sie in der richtigen Größe
+    und mit der vollen Detailschärfe auf dem Blatt.
+
+    **Erst nach dem Malen aufrufen.** `QPainter` rechnet Schriftgrößen
+    von Punkt in Pixel über die Auflösung des Zielbildes um. Steht sie
+    schon vorher auf 384 dpi, wird die Schrift zusätzlich zur Skalierung
+    des Malers noch einmal vervierfacht – im Sichtvergleich fielen dann
+    sechzehnfach große, übereinanderliegende Textzeilen auf."""
+    punkte_je_meter = round(DPI * skalierung / 0.0254)
+    bild.setDotsPerMeterX(punkte_je_meter)
+    bild.setDotsPerMeterY(punkte_je_meter)
+
+
 def _hintergrund(daten: dict[str, Any]) -> QColor:
     return QColor(stil_zu_namen(str(daten.get("style", "modern-light"))).hintergrund)
 
@@ -140,6 +163,7 @@ def als_png(
     maler.translate(-bereich.left(), -bereich.top())
     diagramm_zeichnen(maler, daten)
     maler.end()
+    _aufloesung_eintragen(bild, skalierung)
 
     pfad = Path(pfad)
     if not bild.save(str(pfad), "PNG"):
@@ -164,13 +188,28 @@ def als_bild(daten: dict[str, Any], skalierung: float = 1.0) -> QImage:
     maler.translate(-bereich.left(), -bereich.top())
     diagramm_zeichnen(maler, daten)
     maler.end()
+    _aufloesung_eintragen(bild, skalierung)
     return bild
 
 
 def in_zwischenablage(daten: dict[str, Any]) -> QImage:
+    """Diagramm in die Zwischenablage legen (Abschnitt 13.2).
+
+    Kopiert wird mit **vierfacher** Auflösung (384 dpi) statt wie früher
+    mit einfacher – vom Nutzer gemeldet: eingefügt war das Bild sichtbar
+    unscharf. Entscheidend ist dabei nicht nur die Pixelzahl, sondern
+    die eingetragene Auflösung: nur damit fügt Word die Zeichnung in der
+    richtigen *Größe* ein und nicht viermal zu groß.
+
+    Bewusst **kein** `QMimeData` mit zusätzlichem SVG, so verlockend das
+    wäre: `QClipboard.setMimeData()` lässt PySide6 beim Beenden des
+    Programms mit einem Speicherzugriffsfehler abstürzen (hier
+    reproduziert, auch wenn man das Paket am Leben hält). Wer Vektoren
+    braucht, nimmt „Datei → Exportieren …“ mit der Endung `.svg`.
+    """
     from PySide6.QtWidgets import QApplication
 
-    bild = als_bild(daten)
+    bild = als_bild(daten, ZWISCHENABLAGE_SKALIERUNG)
     QApplication.clipboard().setImage(bild)
     return bild
 
@@ -178,17 +217,20 @@ def in_zwischenablage(daten: dict[str, Any]) -> QImage:
 # -- SVG -----------------------------------------------------------------
 
 
-def als_svg(daten: dict[str, Any], pfad: Path) -> Path:
-    """Vektorgrafik – verlustfrei skalierbar und in LibreOffice/Word
-    weiterverwendbar."""
+def _svg_schreiben(
+    daten: dict[str, Any], pfad: Path | None = None, ausgabegeraet: Any = None
+) -> None:
+    """Malt die Zeichnung als SVG – entweder in eine Datei oder in ein
+    beliebiges Ausgabegerät (für die Zwischenablage)."""
     bereich = inhaltsbereich(daten)
-    pfad = Path(pfad)
-
     erzeuger = QSvgGenerator()
-    erzeuger.setFileName(str(pfad))
+    if pfad is not None:
+        erzeuger.setFileName(str(pfad))
+    else:
+        erzeuger.setOutputDevice(ausgabegeraet)
     erzeuger.setSize(QSize(round(bereich.width()), round(bereich.height())))
     erzeuger.setViewBox(QRectF(0, 0, bereich.width(), bereich.height()))
-    erzeuger.setTitle(str(daten.get("name") or pfad.stem))
+    erzeuger.setTitle(str(daten.get("name") or (pfad.stem if pfad else "Diagramm")))
     erzeuger.setDescription("Erstellt mit dem Diagramm-Editor von Natter")
 
     maler = QPainter(erzeuger)
@@ -196,6 +238,13 @@ def als_svg(daten: dict[str, Any], pfad: Path) -> Path:
     maler.translate(-bereich.left(), -bereich.top())
     diagramm_zeichnen(maler, daten)
     maler.end()
+
+
+def als_svg(daten: dict[str, Any], pfad: Path) -> Path:
+    """Vektorgrafik – verlustfrei skalierbar und in LibreOffice/Word
+    weiterverwendbar."""
+    pfad = Path(pfad)
+    _svg_schreiben(daten, pfad=pfad)
     return pfad
 
 

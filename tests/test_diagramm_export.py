@@ -191,6 +191,71 @@ def test_zwischenablage_bekommt_das_bild(daten: dict) -> None:
     assert aus_ablage.size() == bild.size()
 
 
+def test_zwischenablage_kopiert_in_hoher_aufloesung(daten: dict) -> None:
+    """Vom Nutzer gemeldet: eingefügt war das Bild sichtbar unscharf,
+    weil es nur einfach aufgelöst kopiert wurde."""
+    from ide.diagramm.export import ZWISCHENABLAGE_SKALIERUNG
+
+    einfach = als_bild(daten, 1.0)
+    aus_ablage = in_zwischenablage(daten)
+
+    assert aus_ablage.width() == pytest.approx(
+        einfach.width() * ZWISCHENABLAGE_SKALIERUNG, abs=4
+    )
+
+
+def test_zwischenablage_traegt_die_aufloesung_ein(daten: dict) -> None:
+    """Ohne diese Angabe fügt Word das Bild vierfach zu groß ein."""
+    in_zwischenablage(daten)
+
+    aus_ablage = QApplication.clipboard().image()
+    dpi = aus_ablage.dotsPerMeterX() * 0.0254
+
+    assert round(dpi) == 384  # 96 dpi x 4
+
+
+def test_hohe_aufloesung_zeigt_dasselbe_bild_nur_feiner(
+    daten: dict, tmp_path: Path
+) -> None:
+    """Der Fehler, der beim Sichtvergleich auffiel: `setDotsPerMeter`
+    **vor** dem Malen ändert, wie `QPainter` Schriftgrößen von Punkt in
+    Pixel umrechnet. Die Schrift kam dadurch sechzehnfach statt
+    vierfach heraus und die Textzeilen lagen übereinander.
+
+    Geprüft wird deshalb, dass die hochaufgelöste Fassung – wieder
+    heruntergerechnet – praktisch deckungsgleich mit der einfachen ist.
+    Mit dem Fehler lag die mittlere Abweichung bei 11,4 von 255, ohne
+    ihn bei 0,5.
+    """
+    from PySide6.QtCore import Qt
+
+    einfach = als_bild(daten, 1.0)
+    fein = als_bild(daten, 4.0)
+    verkleinert = fein.scaled(
+        einfach.size(),
+        Qt.AspectRatioMode.IgnoreAspectRatio,
+        Qt.TransformationMode.SmoothTransformation,
+    )
+
+    summe = anzahl = 0
+    for x in range(0, einfach.width(), 3):
+        for y in range(0, einfach.height(), 3):
+            a, b = einfach.pixelColor(x, y), verkleinert.pixelColor(x, y)
+            summe += abs(a.red() - b.red()) + abs(a.green() - b.green())
+            summe += abs(a.blue() - b.blue())
+            anzahl += 3
+
+    assert summe / anzahl < 3.0
+
+
+def test_png_export_traegt_die_aufloesung_ein(daten: dict, tmp_path: Path) -> None:
+    """Auch ein 2×-PNG soll in Word in der richtigen Größe landen."""
+    pfad = als_png(daten, tmp_path / "a.png", skalierung=2.0)
+
+    bild = QImage(str(pfad))
+    assert round(bild.dotsPerMeterX() * 0.0254) == 192
+
+
 # -- Menü im Fenster -----------------------------------------------------
 
 
