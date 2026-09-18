@@ -266,6 +266,14 @@
             "from": { "type": "string" },
             "to": { "type": "string" }
           }
+        },
+        "label_offsets": {
+          "type": "object",
+          "description": "Eigene Verschiebung der Beschriftungen gegenüber ihrer berechneten Stelle, je [dx, dy] in Diagrammkoordinaten.",
+          "properties": {
+            "from": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+            "to": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 }
+          }
         }
       }
     }

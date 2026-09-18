@@ -820,7 +820,7 @@ Ausdrücklicher Wunsch des Nutzers, gilt für jeden Schritt:
   **einschließlich** der drei neuen Blocktypen
 - [x] **4.** M9 Teilschritt 3b – Mehrfachauswahl, Ausrichten/Verteilen,
   Kopieren/Einfügen, Gruppieren, Zeichenreihenfolge
-- [ ] **5.** M9 Teilschritt 4b – Knickpunkte, verschiebbare
+- [x] **5.** M9 Teilschritt 4b – Knickpunkte, verschiebbare
   Beschriftungen
 - [ ] **6.** M9 Rest von 2b – Zoom für Struktogramm und Tabelle,
   Lineale, Minimap
@@ -882,5 +882,4 @@ tut, was sie verspricht.
 Siehe „Umsetzungsreihenfolge“ oben – der Lauf arbeitet die vierzehn
 Punkte der Reihe nach ab. Die Punkte 0 bis 3 sind erledigt, aus
 Punkt 8 sind M10 Punkt 1 und 2 vorgezogen und fertig. Aktuell:
-**Punkt 5**, Knickpunkte und verschiebbare Beschriftungen an den
-Verbindungen.
+**Punkt 6**, Zoom für Struktogramm und Entscheidungstabelle.

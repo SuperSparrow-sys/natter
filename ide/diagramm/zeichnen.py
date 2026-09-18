@@ -496,35 +496,25 @@ def _raute_zeichnen(
     maler.setBrush(Qt.BrushStyle.NoBrush)
 
 
-def verbindungsbeschriftungen_zeichnen(
-    maler: QPainter,
-    verbindung: dict[str, Any],
-    quelle: dict[str, Any],
-    ziel: dict[str, Any],
-    stil: Stil,
-) -> None:
-    """Multiplizitäten/Rollen an den Enden (Abschnitt 13.3).
+def beschriftungs_rechtecke(
+    verbindung: dict[str, Any], quelle: dict[str, Any], ziel: dict[str, Any]
+) -> dict[str, QRectF]:
+    """Wo die beiden Beschriftungen stehen – als Rechtecke.
 
-    Eigene Funktion, die **nach** den Formen gezeichnet wird: vorher lag
-    die Beschriftung halb in der Zielform und wurde von ihr überdeckt
-    („0..*“ erschien als „0..“), und an Aggregation/Komposition saß sie
-    unter der Raute (beides im Screenshot aufgefallen). Jetzt steht sie
-    entlang der Linie von der Form weg – hinter einer Raute oder
-    Pfeilspitze weiter entfernt – und seitlich neben der Linie.
+    Eigene Funktion, weil dieselbe Rechnung an drei Stellen gebraucht
+    wird: zum Zeichnen, zum Anklicken und zum Verschieben. Lägen die
+    Zahlen doppelt vor, würde die Beschriftung irgendwann woanders
+    gezeichnet als angeklickt.
     """
     from ide.diagramm.formen import verbindungs_art
 
-    labels = verbindung.get("labels") or {}
-    if not any(str(wert).strip() for wert in labels.values()):
-        return
-
     art = verbindungs_art(verbindung["kind"])
     punkte = verbindungs_punkte(verbindung, quelle, ziel)
-    schrift = _namensschrift(fett=False)
-    metrik = QFontMetricsF(schrift)
-    maler.setFont(schrift)
-    maler.setPen(QColor(stil.text))
+    labels = verbindung.get("labels") or {}
+    versatz = verbindung.get("label_offsets") or {}
+    metrik = QFontMetricsF(_namensschrift(fett=False))
 
+    ergebnis: dict[str, QRectF] = {}
     for schluessel, punkt, nachbar, hat_ende in (
         ("from", punkte[0], punkte[1], art.raute_an_quelle != "keine"),
         ("to", punkte[-1], punkte[-2], art.spitze_am_ziel != "keine"),
@@ -540,15 +530,110 @@ def verbindungsbeschriftungen_zeichnen(
         nx, ny = ey, -ex
         if ny > 0 or (ny == 0 and nx > 0):
             nx, ny = -nx, -ny
-        mitte_x = punkt.x() + ex * abstand + nx * (metrik.height() * 0.8)
-        mitte_y = punkt.y() + ey * abstand + ny * (metrik.height() * 0.8)
+        eigen_x, eigen_y = versatz.get(schluessel, (0, 0))
+        mitte_x = punkt.x() + ex * abstand + nx * (metrik.height() * 0.8) + eigen_x
+        mitte_y = punkt.y() + ey * abstand + ny * (metrik.height() * 0.8) + eigen_y
         breite = metrik.horizontalAdvance(text) + 4
         hoehe = metrik.height()
-        maler.drawText(
-            QRectF(mitte_x - breite / 2, mitte_y - hoehe / 2, breite, hoehe),
-            Qt.AlignmentFlag.AlignCenter,
-            text,
+        ergebnis[schluessel] = QRectF(
+            mitte_x - breite / 2, mitte_y - hoehe / 2, breite, hoehe
         )
+    return ergebnis
+
+
+def verbindungsbeschriftungen_zeichnen(
+    maler: QPainter,
+    verbindung: dict[str, Any],
+    quelle: dict[str, Any],
+    ziel: dict[str, Any],
+    stil: Stil,
+) -> None:
+    """Multiplizitäten/Rollen an den Enden (Abschnitt 13.3).
+
+    Wird **nach** den Formen gezeichnet: vorher lag die Beschriftung
+    halb in der Zielform und wurde von ihr überdeckt („0..*“ erschien
+    als „0..“), und an Aggregation/Komposition saß sie unter der Raute
+    (beides im Screenshot aufgefallen). Jetzt steht sie entlang der
+    Linie von der Form weg – hinter einer Raute oder Pfeilspitze
+    weiter entfernt – und seitlich neben der Linie. Ab Teilschritt 4b
+    lässt sie sich von dort aus frei verschieben.
+    """
+    labels = verbindung.get("labels") or {}
+    if not any(str(wert).strip() for wert in labels.values()):
+        return
+
+    maler.setFont(_namensschrift(fett=False))
+    maler.setPen(QColor(stil.text))
+    for schluessel, rechteck in beschriftungs_rechtecke(
+        verbindung, quelle, ziel
+    ).items():
+        maler.drawText(
+            rechteck,
+            Qt.AlignmentFlag.AlignCenter,
+            str(labels.get(schluessel, "")).strip(),
+        )
+
+
+#: Wie nah man einen Knickpunkt treffen muss. Etwas größer als der
+#: gezeichnete Punkt, weil man ihn sonst mit der Maus kaum erwischt.
+KNICKPUNKT_RADIUS = 5.0
+
+
+def knickpunkt_bei(
+    verbindung: dict[str, Any], x: float, y: float
+) -> int | None:
+    """Nummer des Knickpunkts an dieser Stelle, oder `None`."""
+    for nummer, (px, py) in enumerate(verbindung.get("waypoints") or []):
+        if abs(px - x) <= KNICKPUNKT_RADIUS and abs(py - y) <= KNICKPUNKT_RADIUS:
+            return nummer
+    return None
+
+
+def segment_bei(
+    punkt: QPointF, verbindung: dict[str, Any], quelle: dict, ziel: dict
+) -> int:
+    """Nummer des Linienstücks, das `punkt` am nächsten liegt.
+
+    Damit landet ein neuer Knickpunkt an der Stelle, an der man
+    hingeklickt hat, statt immer am Ende – bei einer Linie mit schon
+    zwei Knicken wäre das sonst ein Sprung quer durchs Diagramm.
+    """
+    punkte = verbindungs_punkte(verbindung, quelle, ziel)
+    bester, kleinster = 0, float("inf")
+    for nummer, (a, b) in enumerate(zip(punkte, punkte[1:], strict=False)):
+        abstand = _abstand_zur_strecke(punkt, a, b)
+        if abstand < kleinster:
+            bester, kleinster = nummer, abstand
+    return bester
+
+
+def _abstand_zur_strecke(punkt: QPointF, a: QPointF, b: QPointF) -> float:
+    dx, dy = b.x() - a.x(), b.y() - a.y()
+    laenge_quadrat = dx * dx + dy * dy
+    if laenge_quadrat == 0:
+        return math.hypot(punkt.x() - a.x(), punkt.y() - a.y())
+    t = max(
+        0.0,
+        min(
+            1.0,
+            ((punkt.x() - a.x()) * dx + (punkt.y() - a.y()) * dy) / laenge_quadrat,
+        ),
+    )
+    return math.hypot(punkt.x() - (a.x() + t * dx), punkt.y() - (a.y() + t * dy))
+
+
+def knickpunkte_zeichnen(
+    maler: QPainter, verbindung: dict[str, Any], stil: Stil
+) -> None:
+    """Kleine Quadrate auf den gesetzten Knickpunkten – nur bei
+    ausgewählter Verbindung. Quadrate statt Kreise, damit man sie nicht
+    mit den runden Anfassern einer Form verwechselt."""
+    stift = QPen(QColor(stil.akzent))
+    stift.setWidthF(LINIENBREITE)
+    maler.setPen(stift)
+    maler.setBrush(QBrush(QColor(stil.hintergrund)))
+    for x, y in verbindung.get("waypoints") or []:
+        maler.drawRect(QRectF(x - 3.5, y - 3.5, 7, 7))
 
 
 def abstand_zur_verbindung(

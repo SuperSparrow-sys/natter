@@ -23,7 +23,7 @@ import copy
 import json
 from typing import Any
 
-from PySide6.QtCore import QPoint, QRectF, Qt, Signal
+from PySide6.QtCore import QPoint, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QKeyEvent, QMouseEvent, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QApplication, QScrollArea, QWidget
 
@@ -45,9 +45,13 @@ from ide.diagramm.uml_modell import ist_klasse
 from ide.diagramm.zeichnen import (
     abstand_zur_verbindung,
     anfasser_punkte,
+    beschriftungs_rechtecke,
     form_rechteck,
     form_zeichnen,
+    knickpunkt_bei,
+    knickpunkte_zeichnen,
     mindesthoehe,
+    segment_bei,
     verbindung_zeichnen,
     verbindungsbeschriftungen_zeichnen,
 )
@@ -133,6 +137,10 @@ class DiagrammCanvas(QWidget):
         self._hilfslinien: list[tuple[str, float]] = []
         #: Auswahlrahmen (von-Punkt, Bis-Punkt) während des Aufziehens
         self._rahmen: tuple[QPoint, QPoint] | None = None
+        #: Gezogener Knickpunkt: (Verbindung, Nummer, Startwert)
+        self._zieh_knick: tuple[dict[str, Any], int, list] | None = None
+        #: Gezogene Beschriftung: (Verbindung, „from“/„to“, Startversatz)
+        self._zieh_beschriftung: tuple[dict[str, Any], str, tuple] | None = None
         self._editor: FormEditor | None = None
         #: Ansicht verschieben (Leertaste gedrückt bzw. mittlere Taste)
         self._leertaste = False
@@ -698,6 +706,29 @@ class DiagrammCanvas(QWidget):
             self._verbindungsklick(punkt)
             return
 
+        # Knickpunkt der ausgewählten Verbindung geht vor: er liegt
+        # mitten auf der Linie und wäre sonst nicht zu treffen.
+        if self.ausgewaehlte_verbindung is not None:
+            nummer = knickpunkt_bei(self.ausgewaehlte_verbindung, punkt.x(), punkt.y())
+            if nummer is not None:
+                knicke = self.ausgewaehlte_verbindung.get("waypoints") or []
+                self._zieh_knick = (
+                    self.ausgewaehlte_verbindung,
+                    nummer,
+                    [list(paar) for paar in knicke],
+                )
+                self._zieh_start = punkt
+                return
+
+        beschriftung = self.beschriftung_bei(punkt.x(), punkt.y())
+        if beschriftung is not None:
+            verbindung, schluessel = beschriftung
+            versatz = (verbindung.get("label_offsets") or {}).get(schluessel, (0, 0))
+            self._verbindung_auswaehlen(verbindung)
+            self._zieh_beschriftung = (verbindung, schluessel, tuple(versatz))
+            self._zieh_start = punkt
+            return
+
         anfasser = self.anfasser_bei(punkt.x(), punkt.y())
         if anfasser is not None:
             # Größe ändern gilt immer nur der führenden Form - ein
@@ -775,12 +806,25 @@ class DiagrammCanvas(QWidget):
         self.verbindung_erstellen(kind, quelle, getroffen)
 
     def mouseDoubleClickEvent(self, ereignis: QMouseEvent) -> None:
-        """Doppelklick beschriftet die Form direkt (Abschnitt 13.3)."""
+        """Doppelklick beschriftet die Form direkt (Abschnitt 13.3) –
+        auf einer Verbindung setzt er dagegen einen Knickpunkt bzw.
+        nimmt ihn wieder weg (Teilschritt 4b)."""
         punkt = self._diagrammpunkt(ereignis)
         getroffen = self.form_bei(punkt.x(), punkt.y())
         if getroffen is not None:
             self._auswaehlen(getroffen)
             self.bearbeiten_starten(getroffen)
+            return
+
+        verbindung = self.verbindung_bei(punkt.x(), punkt.y())
+        if verbindung is None:
+            return
+        self._verbindung_auswaehlen(verbindung)
+        nummer = knickpunkt_bei(verbindung, punkt.x(), punkt.y())
+        if nummer is not None:
+            self.knickpunkt_entfernen(verbindung, nummer)
+        else:
+            self.knickpunkt_setzen(verbindung, punkt)
 
     # -- Beschriften ----------------------------------------------------
 
@@ -878,6 +922,25 @@ class DiagrammCanvas(QWidget):
             self.update()
             return
 
+        if self._zieh_knick is not None:
+            verbindung, nummer, anfang = self._zieh_knick
+            knicke = [list(paar) for paar in anfang]
+            knicke[nummer] = [_am_raster(punkt.x()), _am_raster(punkt.y())]
+            verbindung["waypoints"] = knicke
+            self.update()
+            return
+
+        if self._zieh_beschriftung is not None and self._zieh_start is not None:
+            verbindung, schluessel, anfang = self._zieh_beschriftung
+            versatz = dict(verbindung.get("label_offsets") or {})
+            versatz[schluessel] = [
+                anfang[0] + punkt.x() - self._zieh_start.x(),
+                anfang[1] + punkt.y() - self._zieh_start.y(),
+            ]
+            verbindung["label_offsets"] = versatz
+            self.update()
+            return
+
         if self._zieh_form is None or self._zieh_start is None:
             self._cursor_aktualisieren(punkt)
             return
@@ -922,6 +985,38 @@ class DiagrammCanvas(QWidget):
             return
         if self._rahmen is not None:
             self._rahmen_beenden()
+            return
+        if self._zieh_knick is not None:
+            verbindung, _, anfang = self._zieh_knick
+            self._zieh_knick = None
+            self._zieh_start = None
+            jetzt = [list(paar) for paar in (verbindung.get("waypoints") or [])]
+            if jetzt != anfang:
+                # Live-Vorschau hat die Linie schon verändert - deshalb
+                # die Startwerte ausdrücklich als „alt“ mitgeben.
+                self.kommandos.ausfuehren(
+                    WerteKommando(
+                        verbindung, {"waypoints": jetzt}, alte_werte={"waypoints": anfang}
+                    )
+                )
+                self._nach_aenderung()
+            return
+        if self._zieh_beschriftung is not None:
+            verbindung, schluessel, anfang = self._zieh_beschriftung
+            self._zieh_beschriftung = None
+            self._zieh_start = None
+            versatz = dict(verbindung.get("label_offsets") or {})
+            if tuple(versatz.get(schluessel, (0, 0))) != tuple(anfang):
+                alt_versatz = dict(versatz)
+                alt_versatz[schluessel] = list(anfang)
+                self.kommandos.ausfuehren(
+                    WerteKommando(
+                        verbindung,
+                        {"label_offsets": versatz},
+                        alte_werte={"label_offsets": alt_versatz},
+                    )
+                )
+                self._nach_aenderung()
             return
         if self._zieh_form is None or self._zieh_startwerte is None:
             return
@@ -1073,6 +1168,47 @@ class DiagrammCanvas(QWidget):
         else:
             self.verschieben(sx * schritt, sy * schritt)
         return True
+
+    # -- Knickpunkte und Beschriftungen (Teilschritt 4b) -----------------
+
+    def knickpunkt_setzen(self, verbindung: dict[str, Any], punkt: QPoint) -> bool:
+        """Fügt an dieser Stelle einen Knickpunkt ein – und zwar in dem
+        Linienstück, auf das geklickt wurde. Immer ans Ende zu hängen
+        wäre bei einer schon zweimal geknickten Linie ein Sprung quer
+        durchs Diagramm."""
+        quelle = self.form_mit_id(verbindung.get("from"))
+        ziel = self.form_mit_id(verbindung.get("to"))
+        if quelle is None or ziel is None:
+            return False
+        stelle = segment_bei(QPointF(punkt.x(), punkt.y()), verbindung, quelle, ziel)
+        knicke = [list(paar) for paar in (verbindung.get("waypoints") or [])]
+        knicke.insert(stelle, [_am_raster(punkt.x()), _am_raster(punkt.y())])
+        self.kommandos.ausfuehren(WerteKommando(verbindung, {"waypoints": knicke}))
+        self._nach_aenderung()
+        return True
+
+    def knickpunkt_entfernen(self, verbindung: dict[str, Any], nummer: int) -> bool:
+        knicke = [list(paar) for paar in (verbindung.get("waypoints") or [])]
+        if not 0 <= nummer < len(knicke):
+            return False
+        del knicke[nummer]
+        self.kommandos.ausfuehren(WerteKommando(verbindung, {"waypoints": knicke}))
+        self._nach_aenderung()
+        return True
+
+    def beschriftung_bei(self, x: float, y: float) -> tuple[dict[str, Any], str] | None:
+        """Beschriftung an dieser Stelle, als (Verbindung, „from"/„to")."""
+        for verbindung in reversed(self.verbindungen):
+            quelle = self.form_mit_id(verbindung.get("from"))
+            ziel = self.form_mit_id(verbindung.get("to"))
+            if quelle is None or ziel is None:
+                continue
+            for schluessel, rechteck in beschriftungs_rechtecke(
+                verbindung, quelle, ziel
+            ).items():
+                if rechteck.contains(x, y):
+                    return verbindung, schluessel
+        return None
 
     # -- Anordnen (Teilschritt 3b) --------------------------------------
 
@@ -1379,6 +1515,11 @@ class DiagrammCanvas(QWidget):
             ziel = self.form_mit_id(verbindung.get("to"))
             if quelle is not None and ziel is not None:
                 verbindungsbeschriftungen_zeichnen(maler, verbindung, quelle, ziel, stil)
+
+        # Knickpunkte nur an der ausgewählten Verbindung: an allen
+        # gleichzeitig wäre das Diagramm mit Quadraten übersät.
+        if self.ausgewaehlte_verbindung is not None:
+            knickpunkte_zeichnen(maler, self.ausgewaehlte_verbindung, stil)
 
         self._hinweise_zeichnen(maler)
         self._hilfslinien_zeichnen(maler, stil.akzent)
