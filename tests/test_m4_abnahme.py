@@ -18,6 +18,7 @@ from pathlib import Path
 
 from ide.debugger import fehlermeldung_erzeugen
 from ide.shell.hauptfenster import HauptFenster
+from tests.conftest import DEBUG_ZEITGRENZE
 
 _AMPEL_ORDNER = Path(__file__).resolve().parent.parent / "beispielprojekte" / "Ampel"
 
@@ -83,11 +84,14 @@ def test_ampel_breakpoint_in_ereignis_handler_haelt_an_und_zeigt_self(
     editor.breakpoint_umschalten(zeile)
 
     fenster._projekt_mit_debugger_starten_aktion()
-    qtbot.waitUntil(lambda: fenster._aktueller_thread_id is not None, timeout=15000)
+    qtbot.waitUntil(lambda: fenster._aktueller_thread_id is not None, timeout=DEBUG_ZEITGRENZE)
 
     try:
         assert "Angehalten (breakpoint)" in fenster.statusBar().currentMessage()
-        qtbot.waitUntil(lambda: fenster.variablen_baum.topLevelItemCount() > 0, timeout=15000)
+        qtbot.waitUntil(
+        lambda: fenster.variablen_baum.topLevelItemCount() > 0,
+        timeout=DEBUG_ZEITGRENZE,
+    )
 
         namen = [
             fenster.variablen_baum.topLevelItem(i).text(0)

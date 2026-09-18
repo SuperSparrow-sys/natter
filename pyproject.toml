@@ -51,11 +51,18 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
+# Die Drucker-Tests sind standardmaessig abgewaehlt, siehe unten.
+addopts = ["-m", "not drucker"]
 markers = [
     # Der erste QPrinter eines Prozesses laesst Windows alle Drucker samt
-    # Treibern durchsuchen; mit einem nicht erreichbaren Netzwerkdrucker
-    # dauert das real gemessen fast eine Minute. Der Test laeuft normal
-    # mit - wer beim Entwickeln schnell durchlaufen will, nimmt
-    # `-m "not drucker"`.
-    "drucker: braucht das Drucksystem von Windows und ist deshalb langsam",
+    # Treibern durchsuchen. Das kostet auf einem Rechner mit einem nicht
+    # erreichbaren Netzwerkdrucker real gemessen 49 Sekunden - und
+    # schlimmer: waehrend dieser Abfrage reissen die Zeitgrenzen der
+    # Debugger-Tests, die auf echte Unterprozesse warten. In drei
+    # Durchlaeufen fiel jedes Mal ein *anderer* Debugger-Test um; ohne
+    # die Drucker-Tests lief dieselbe Suite dreimal sauber durch.
+    #
+    # Sie sind deshalb nicht Teil des Standardlaufs, aber jederzeit
+    # einzeln aufrufbar:  uv run pytest -m drucker
+    "drucker: fasst das Drucksystem von Windows an; bremst und stoert andere Tests",
 ]

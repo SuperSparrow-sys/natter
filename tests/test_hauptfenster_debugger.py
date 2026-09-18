@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 
 from ide.shell.hauptfenster import HauptFenster
+from tests.conftest import DEBUG_ZEITGRENZE
 
 
 def _projekt_oeffnen(fenster: HauptFenster, ordner: Path, main_inhalt: str) -> Path:
@@ -45,12 +46,15 @@ def test_f5_haelt_bei_einem_im_editor_gesetzten_breakpoint(qtbot, tmp_path: Path
     editor.breakpoint_umschalten(2)
 
     fenster._projekt_mit_debugger_starten_aktion()
-    qtbot.waitUntil(lambda: fenster._aktueller_thread_id is not None, timeout=15000)
+    qtbot.waitUntil(lambda: fenster._aktueller_thread_id is not None, timeout=DEBUG_ZEITGRENZE)
 
     try:
         assert "Angehalten" in fenster.statusBar().currentMessage()
-        qtbot.waitUntil(lambda: fenster.aufrufstapel_liste.count() > 0, timeout=15000)
-        qtbot.waitUntil(lambda: fenster.variablen_baum.topLevelItemCount() > 0, timeout=15000)
+        qtbot.waitUntil(lambda: fenster.aufrufstapel_liste.count() > 0, timeout=DEBUG_ZEITGRENZE)
+        qtbot.waitUntil(
+            lambda: fenster.variablen_baum.topLevelItemCount() > 0,
+            timeout=DEBUG_ZEITGRENZE,
+        )
 
         werte = {
             fenster.variablen_baum.topLevelItem(i).text(0): fenster.variablen_baum.topLevelItem(
@@ -80,10 +84,10 @@ def test_f5_springt_beim_anhalten_zur_breakpoint_zeile(qtbot, tmp_path: Path) ->
     editor.setTextCursor(cursor)
 
     fenster._projekt_mit_debugger_starten_aktion()
-    qtbot.waitUntil(lambda: fenster._aktueller_thread_id is not None, timeout=15000)
+    qtbot.waitUntil(lambda: fenster._aktueller_thread_id is not None, timeout=DEBUG_ZEITGRENZE)
 
     try:
-        qtbot.waitUntil(lambda: fenster.aufrufstapel_liste.count() > 0, timeout=15000)
+        qtbot.waitUntil(lambda: fenster.aufrufstapel_liste.count() > 0, timeout=DEBUG_ZEITGRENZE)
         aktiver_editor = fenster.editor_tabs.currentWidget()
         assert aktiver_editor is editor
         assert editor.textCursor().blockNumber() == 1  # Zeile 2, 0-indiziert
@@ -103,10 +107,10 @@ def test_klick_auf_aufrufstapel_eintrag_springt_zu_dieser_zeile(qtbot, tmp_path:
     editor.breakpoint_umschalten(2)
 
     fenster._projekt_mit_debugger_starten_aktion()
-    qtbot.waitUntil(lambda: fenster._aktueller_thread_id is not None, timeout=15000)
+    qtbot.waitUntil(lambda: fenster._aktueller_thread_id is not None, timeout=DEBUG_ZEITGRENZE)
 
     try:
-        qtbot.waitUntil(lambda: fenster.aufrufstapel_liste.count() >= 2, timeout=15000)
+        qtbot.waitUntil(lambda: fenster.aufrufstapel_liste.count() >= 2, timeout=DEBUG_ZEITGRENZE)
         aeusserer_rahmen = fenster.aufrufstapel_liste.item(1)  # main.py, Zeile 6
 
         fenster._bei_aufrufstapel_klick(aeusserer_rahmen)
@@ -130,10 +134,10 @@ def test_fortsetzen_laesst_das_programm_zu_ende_laufen(qtbot, tmp_path: Path) ->
     editor.breakpoint_umschalten(3)
 
     fenster._projekt_mit_debugger_starten_aktion()
-    qtbot.waitUntil(lambda: fenster._aktueller_thread_id is not None, timeout=15000)
+    qtbot.waitUntil(lambda: fenster._aktueller_thread_id is not None, timeout=DEBUG_ZEITGRENZE)
 
     fenster._debugger_fortsetzen_aktion()
-    qtbot.waitUntil(lambda: fenster.debug_sitzung is None, timeout=15000)
+    qtbot.waitUntil(lambda: fenster.debug_sitzung is None, timeout=DEBUG_ZEITGRENZE)
 
     assert (tmp_path / "marker.txt").read_text(encoding="utf-8") == "fertig"
 
@@ -147,7 +151,7 @@ def test_unbehandelte_ausnahme_zeigt_die_fehlerkatalog_meldung_und_springt_hin(
     )
 
     fenster._projekt_mit_debugger_starten_aktion()
-    qtbot.waitUntil(lambda: fenster.meldungen_liste.count() > 0, timeout=15000)
+    qtbot.waitUntil(lambda: fenster.meldungen_liste.count() > 0, timeout=DEBUG_ZEITGRENZE)
 
     try:
         text = fenster.meldungen_liste.item(0).text()

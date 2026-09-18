@@ -276,11 +276,19 @@ class DiagrammFenster(QMainWindow):
         self._stilvorlagen_menue_aufbauen()
         self._ansicht_schalter_aufbauen()
 
-        self.aktionen["Datei/Speichern"].triggered.connect(self.speichern)
-        self.aktionen["Datei/Speichern unter …"].triggered.connect(self.speichern_unter)
-        self.aktionen["Datei/Exportieren …"].triggered.connect(self.exportieren)
-        self.aktionen["Datei/Drucken …"].triggered.connect(self.drucken)
-        self.aktionen["Datei/Schließen"].triggered.connect(self.close)
+        # Achtung: `QAction.triggered` schickt immer ein `checked`-Flag
+        # mit. Eine Methode, deren erster Parameter optional ist, bekommt
+        # dadurch `False` statt `None` hineingereicht – `exportieren`
+        # stürzte real mit „argument should be a str or an os.PathLike
+        # object … not 'bool'“ ab. Deshalb hier überall ein Lambda ohne
+        # Parameter, das dieses Flag verschluckt.
+        self.aktionen["Datei/Speichern"].triggered.connect(lambda: self.speichern())
+        self.aktionen["Datei/Speichern unter …"].triggered.connect(
+            lambda: self.speichern_unter()
+        )
+        self.aktionen["Datei/Exportieren …"].triggered.connect(lambda: self.exportieren())
+        self.aktionen["Datei/Drucken …"].triggered.connect(lambda: self.drucken())
+        self.aktionen["Datei/Schließen"].triggered.connect(lambda: self.close())
         self.aktionen["Bearbeiten/Als Bild kopieren"].triggered.connect(
             self.als_bild_kopieren
         )

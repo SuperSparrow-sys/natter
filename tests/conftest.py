@@ -16,6 +16,17 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 # auf, weil Consolas selbst gar nicht auffindbar war).
 os.environ.setdefault("QT_QPA_FONTDIR", r"C:\Windows\Fonts")
 
+#: Zeitgrenze für alle Debugger-Tests, die auf einen echten
+#: Unterprozess warten (debugpy-Handshake, Haltepunkt erreichen).
+#:
+#: Real gemessen: einzeln laufen diese Tests in gut einer Sekunde und
+#: sind dreimal hintereinander grün. Am Ende der vollen Suite - nach über
+#: tausend Qt-Tests im selben Prozess - reichten 15 Sekunden dagegen
+#: nicht mehr zuverlässig: in vier Durchläufen fiel jedes Mal ein
+#: *anderer* Debugger-Test um. Das war nie ein Fehler im Debugger,
+#: sondern eine zu knappe Grenze unter Last.
+DEBUG_ZEITGRENZE = 45000
+
 import pytest  # noqa: E402
 from PySide6.QtCore import QSettings  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
