@@ -239,6 +239,9 @@ class DiagrammCanvas(QWidget):
             self.ausgewaehlte_form = None
             self.auswahl_geaendert.emit(None)
         self.ausgewaehlte_verbindung = verbindung
+        # dasselbe Signal wie bei Formen: der Eigenschaften-Bereich
+        # fragt die Auswahl ohnehin selbst bei der Fläche ab
+        self.auswahl_geaendert.emit(None if verbindung is not None else self.ausgewaehlte_form)
         self.update()
 
     def hoehe_anpassen(self, form: dict[str, Any]) -> None:

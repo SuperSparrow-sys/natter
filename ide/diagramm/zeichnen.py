@@ -32,15 +32,29 @@ _NAMENSSCHRIFT = "Segoe UI"
 _MONOSCHRIFT = "Consolas"
 
 
-def _namensschrift(fett: bool = True, kursiv: bool = False) -> QFont:
-    schrift = QFont(_NAMENSSCHRIFT, 10)
+def fuellfarbe(shape: dict[str, Any], stil: Stil) -> str:
+    """Eigene Farbe der Form, sonst die der Stilvorlage (Abschnitt 13.2:
+    „Füllung, Linie, Schrift“ im Eigenschaften-Bereich)."""
+    return str(shape.get("fill") or stil.fuellung)
+
+
+def randfarbe(shape: dict[str, Any], stil: Stil) -> str:
+    return str(shape.get("line") or stil.rand)
+
+
+def schriftgroesse(shape: dict[str, Any]) -> float:
+    return float(shape.get("font_size") or 10)
+
+
+def _namensschrift(fett: bool = True, kursiv: bool = False, groesse: float = 10) -> QFont:
+    schrift = QFont(_NAMENSSCHRIFT, round(groesse))
     schrift.setBold(fett)
     schrift.setItalic(kursiv)
     return schrift
 
 
-def _mono_schrift() -> QFont:
-    schrift = QFont(_MONOSCHRIFT, 9)
+def _mono_schrift(groesse: float = 9) -> QFont:
+    schrift = QFont(_MONOSCHRIFT, round(groesse))
     schrift.setFixedPitch(True)
     return schrift
 
@@ -140,8 +154,9 @@ def form_zeichnen(
 
 def _klasse_zeichnen(maler: QPainter, shape: dict, stil: Stil, kind: str) -> None:
     rechteck = form_rechteck(shape)
-    maler.setPen(_stift(stil))
-    maler.setBrush(QBrush(QColor(stil.fuellung)))
+    gross = schriftgroesse(shape)
+    maler.setPen(_stift(stil, randfarbe(shape, stil)))
+    maler.setBrush(QBrush(QColor(fuellfarbe(shape, stil))))
     maler.drawRect(rechteck)
 
     text = shape.get("text") or {}
@@ -150,7 +165,7 @@ def _klasse_zeichnen(maler: QPainter, shape: dict, stil: Stil, kind: str) -> Non
 
     kopf_unten = rechteck.top() + KOPFHOEHE
     if kind == "interface":
-        maler.setFont(_namensschrift(fett=False))
+        maler.setFont(_namensschrift(fett=False, groesse=gross))
         maler.drawText(
             QRectF(rechteck.left(), rechteck.top() + 4, rechteck.width(), KOPFHOEHE - 6),
             Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter,
@@ -159,7 +174,7 @@ def _klasse_zeichnen(maler: QPainter, shape: dict, stil: Stil, kind: str) -> Non
         kopf_unten = rechteck.top() + 2 * KOPFHOEHE
 
     name = str(text.get("name", ""))
-    maler.setFont(_namensschrift(fett=True, kursiv=abstrakt))
+    maler.setFont(_namensschrift(fett=True, kursiv=abstrakt, groesse=gross))
     namensbereich = QRectF(
         rechteck.left(),
         kopf_unten - KOPFHOEHE,
@@ -219,8 +234,8 @@ def _notiz_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
     pfad.lineTo(rechteck.left(), rechteck.bottom())
     pfad.closeSubpath()
 
-    maler.setPen(_stift(stil))
-    maler.setBrush(QBrush(QColor(stil.fuellung)))
+    maler.setPen(_stift(stil, randfarbe(shape, stil)))
+    maler.setBrush(QBrush(QColor(fuellfarbe(shape, stil))))
     maler.drawPath(pfad)
     # umgeknickte Ecke
     maler.drawLine(rechteck.right() - ECKE, rechteck.top(),
@@ -229,7 +244,7 @@ def _notiz_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
                    rechteck.right(), rechteck.top() + ECKE)
 
     maler.setPen(QColor(stil.text))
-    maler.setFont(_namensschrift(fett=False))
+    maler.setFont(_namensschrift(fett=False, groesse=schriftgroesse(shape)))
     maler.drawText(
         rechteck.adjusted(INNENABSTAND, INNENABSTAND, -INNENABSTAND, -INNENABSTAND),
         int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap),
@@ -244,13 +259,13 @@ def _paket_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
         rechteck.left(), rechteck.top() + ECKE, rechteck.width(), rechteck.height() - ECKE
     )
 
-    maler.setPen(_stift(stil))
-    maler.setBrush(QBrush(QColor(stil.fuellung)))
+    maler.setPen(_stift(stil, randfarbe(shape, stil)))
+    maler.setBrush(QBrush(QColor(fuellfarbe(shape, stil))))
     maler.drawRect(reiter)
     maler.drawRect(koerper)
 
     maler.setPen(QColor(stil.text))
-    maler.setFont(_namensschrift(fett=True))
+    maler.setFont(_namensschrift(fett=True, groesse=schriftgroesse(shape)))
     maler.drawText(
         koerper,
         Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter,

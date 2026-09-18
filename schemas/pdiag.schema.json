@@ -144,7 +144,10 @@
             "methods": { "type": "array", "items": { "type": "string" } }
           }
         },
-        "abstract": { "type": "boolean" }
+        "abstract": { "type": "boolean" },
+        "fill": { "type": "string", "description": "Eigene Füllfarbe #RRGGBB statt der Stilvorlage." },
+        "line": { "type": "string", "description": "Eigene Randfarbe #RRGGBB statt der Stilvorlage." },
+        "font_size": { "type": "number", "description": "Eigene Schriftgröße in pt." }
       }
     },
     "connector": {

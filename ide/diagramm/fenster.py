@@ -7,9 +7,8 @@ unabhängig vom Hauptfenster verschoben werden kann (z. B. auf einen
 zweiten Bildschirm) – kein Dock und kein Tab in der IDE
 (Nutzer-Entscheidung September 2026, siehe docs/arbeitspakete/M9.md).
 
-Stand M9, Schritt 4: Formen- und Verbindungs-Palette links,
-Zeichenfläche in der Mitte, Eigenschaften-Bereich rechts (noch leer,
-folgt in Schritt 6). Die
+Stand M9, Schritt 6: Formen- und Verbindungs-Palette links,
+Zeichenfläche in der Mitte, Eigenschaften-Bereich rechts. Die
 Menüeinträge aus Abschnitt 13.2 sind vollständig angelegt, aber nur
 die bereits umgesetzten sind aktiv – der Rest ist ausgegraut, statt
 ein Verhalten vorzutäuschen, das noch nicht existiert.
@@ -23,7 +22,6 @@ from PySide6.QtCore import QSettings, Qt
 from PySide6.QtWidgets import (
     QDockWidget,
     QFileDialog,
-    QLabel,
     QMainWindow,
     QMenu,
     QWidget,
@@ -32,6 +30,7 @@ from PySide6.QtWidgets import (
 from ide.assets import symbol
 from ide.diagramm.canvas import DiagrammCanvas
 from ide.diagramm.datei import Diagramm
+from ide.diagramm.eigenschaften import EigenschaftenPanel
 from ide.diagramm.formen import formen_fuer
 from ide.diagramm.palette import FormenPalette
 from ide.shell.theme import ide_qss_erzeugen
@@ -78,7 +77,7 @@ _MENUES: dict[str, tuple[tuple[str, bool], ...]] = {
         ("Füllung …", False),
         ("Linie …", False),
         ("Schrift …", False),
-        ("Stil übertragen", False),
+        ("Stil übertragen", True),
     ),
     "Hilfe": (("Über den Diagramm-Editor", True),),
 }
@@ -138,9 +137,7 @@ class DiagrammFenster(QMainWindow):
             self.palette = None
             self.palette_dock = None
 
-        self.eigenschaften = QLabel("Eigenschaften folgen in Schritt 6")
-        self.eigenschaften.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.eigenschaften.setWordWrap(True)
+        self.eigenschaften = EigenschaftenPanel(self.zeichenflaeche)
         self.eigenschaften_dock = self._dock(
             "Eigenschaften", self.eigenschaften, Qt.DockWidgetArea.RightDockWidgetArea
         )
@@ -152,10 +149,34 @@ class DiagrammFenster(QMainWindow):
         self.addDockWidget(bereich, dock)
         return dock
 
+    def _stil_uebertragen(self) -> None:
+        """„Format → Stil übertragen“ (Abschnitt 13.3): erster Aufruf
+        merkt sich die Vorlage, der zweite überträgt sie auf die dann
+        ausgewählte Form."""
+        aktuell = self.zeichenflaeche.ausgewaehlte_form
+        if aktuell is None:
+            self.statusBar().showMessage("Keine Form ausgewählt.", 3000)
+            return
+        vorlage = getattr(self, "_stil_vorlage", None)
+        if vorlage is None or vorlage is aktuell:
+            self._stil_vorlage = aktuell
+            name = (aktuell.get("text") or {}).get("name") or aktuell["kind"]
+            self.statusBar().showMessage(
+                f"Stil von „{name}“ gemerkt – jetzt Zielform auswählen und erneut aufrufen.",
+                5000,
+            )
+            return
+
+        self.eigenschaften.stil_uebertragen(vorlage, aktuell)
+        self._stil_vorlage = None
+        self.statusBar().showMessage("Stil übertragen.", 3000)
+
     def _bei_auswahl(self, form: dict | None) -> None:
+        self.eigenschaften.aktualisieren()
         self._statusleiste_aktualisieren()
 
     def _bei_aenderung(self) -> None:
+        self.eigenschaften.aktualisieren()
         self._geaendert = True
         self._titel_setzen()
         self._statusleiste_aktualisieren()
@@ -183,6 +204,7 @@ class DiagrammFenster(QMainWindow):
             ("Bearbeiten/Duplizieren", "Ctrl+D", lambda: self.zeichenflaeche.duplizieren()),
             ("Bearbeiten/Löschen", "Del", lambda: self.zeichenflaeche.loeschen()),
             ("Datei/Speichern", "Ctrl+S", None),
+            ("Format/Stil übertragen", "Ctrl+Shift+V", self._stil_uebertragen),
         ):
             aktion = self.aktionen[pfad]
             aktion.setShortcut(kuerzel)
