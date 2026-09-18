@@ -82,6 +82,11 @@ def mindesthoehe(shape: dict[str, Any]) -> float:
     Attribute die letzte Methode abgeschnitten wurde (im Screenshot
     aufgefallen)."""
     kind = shape.get("kind", "class")
+    if kind == "note":
+        # Eine Notiz bricht ihren Text um (siehe `_notiz_zeichnen`),
+        # braucht dafür aber Höhe – sonst verschwinden die unteren
+        # Zeilen hinter dem Rand.
+        return _umbruchhoehe(shape) + 2 * INNENABSTAND
     if kind not in ("class", "abstract_class", "interface"):
         return KOPFHOEHE + 2 * INNENABSTAND
 
@@ -91,6 +96,43 @@ def mindesthoehe(shape: dict[str, Any]) -> float:
     zeilenhoehe = QFontMetricsF(_mono_schrift()).height()
     kopf = KOPFHOEHE * (2 if kind == "interface" else 1)
     return kopf + (attribute + methoden) * zeilenhoehe + 2 * INNENABSTAND
+
+
+def _umbruchhoehe(shape: dict[str, Any]) -> float:
+    """Höhe, die der umbrochene Text einer Notiz in der aktuellen Breite
+    einnimmt."""
+    innen = max(1.0, float(shape.get("w", 0)) - 2 * INNENABSTAND - ECKE)
+    metriken = QFontMetricsF(_namensschrift(fett=False, groesse=schriftgroesse(shape)))
+    return metriken.boundingRect(
+        QRectF(0, 0, innen, 10_000),
+        int(Qt.AlignmentFlag.AlignLeft | Qt.TextFlag.TextWordWrap),
+        str((shape.get("text") or {}).get("name", "")),
+    ).height()
+
+
+def mindestbreite(shape: dict[str, Any]) -> float:
+    """Breite, ab der keine Textzeile seitlich abgeschnitten wird.
+    Anders als `mindesthoehe` wird sie **nicht** automatisch erzwungen –
+    eine zu schmale Form ist erlaubt und wird nur als Layout-Hinweis
+    gemeldet (Schritt 7), weil sonst jede Eingabe eines langen
+    Methodennamens die Form ruckartig breiter zöge.
+
+    Notizen und Pakete brechen ihren Text um und haben deshalb keine
+    Mindestbreite – sie wurden sonst reihenweise fälschlich als „zu
+    schmal“ gemeldet (im Screenshot-Durchgang aufgefallen); bei ihnen
+    zählt nur die Höhe."""
+    if shape.get("kind") in ("note", "package"):
+        return 0.0
+
+    text = shape.get("text") or {}
+    groesse = schriftgroesse(shape)
+    name_breite = QFontMetricsF(_namensschrift(groesse=groesse)).horizontalAdvance(
+        str(text.get("name", ""))
+    )
+    mono = QFontMetricsF(_mono_schrift(groesse - 1))
+    zeilen = [*(text.get("attributes") or []), *(text.get("methods") or [])]
+    zeilen_breite = max((mono.horizontalAdvance(str(z)) for z in zeilen), default=0.0)
+    return max(name_breite, zeilen_breite) + 2 * INNENABSTAND
 
 
 def klassen_bereiche(shape: dict[str, Any]) -> dict[str, QRectF]:

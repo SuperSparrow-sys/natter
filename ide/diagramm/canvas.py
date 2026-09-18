@@ -27,12 +27,14 @@ from PySide6.QtWidgets import QWidget
 
 from ide.diagramm.datei import Diagramm
 from ide.diagramm.formen import MINDESTGROESSE, form_art, verbindungs_art
+from ide.diagramm.hinweise import Hinweis, pruefen
 from ide.diagramm.kommandos import (
     EinfuegenKommando,
     LoeschenKommando,
     SammelKommando,
     WerteKommando,
 )
+from ide.diagramm.seite import satzspiegel, seitengroesse
 from ide.diagramm.stil import stil as stil_zu_namen
 from ide.diagramm.textbearbeitung import FormEditor
 from ide.diagramm.zeichnen import (
@@ -52,6 +54,10 @@ RASTER = 8
 FANGABSTAND = 6
 #: Klickradius um einen Größenanfasser herum.
 ANFASSER_RADIUS = 6
+#: Warnfarbe der Layout-Hinweise – bewusst in allen drei Stilvorlagen
+#: dieselbe, damit ein Hinweis nicht mit einer eigenen Formfarbe
+#: verwechselt wird. Er wird ohnehin nie mitexportiert.
+HINWEIS_FARBE = "#d97706"
 
 #: Anfasser-Reihenfolge wie in `zeichnen.anfasser_punkte`.
 _ANFASSER_NAMEN = ("nw", "n", "ne", "e", "se", "s", "sw", "w")
@@ -89,6 +95,11 @@ class DiagrammCanvas(QWidget):
         self.kommandos = Kommandostapel()
         self.ausgewaehlte_form: dict[str, Any] | None = None
         self.raster_sichtbar = True
+        #: Layout-Hinweise (Schritt 7) sind wie der Design-Prüfer (M7)
+        #: abschaltbar – sie melden nur, blockieren nie.
+        self.hinweise_sichtbar = True
+        self.seitenrand_sichtbar = True
+        self.hinweise: list[Hinweis] = []
 
         self.ausgewaehlte_verbindung: dict[str, Any] | None = None
         self._platzierungs_kind: str | None = None
@@ -148,8 +159,16 @@ class DiagrammCanvas(QWidget):
     def _nach_aenderung(self, auswahl: dict[str, Any] | None = None) -> None:
         if auswahl is not None:
             self._auswaehlen(auswahl)
+        self.hinweise_aktualisieren()
         self.geaendert.emit()
         self.update()
+
+    def hinweise_aktualisieren(self) -> list[Hinweis]:
+        """Layout-Hinweise neu berechnen (Schritt 7). Ausgeschaltet
+        bleibt die Liste leer, damit nichts markiert wird und die
+        Prüfung auch keine Rechenzeit kostet."""
+        self.hinweise = pruefen(self.diagramm.daten) if self.hinweise_sichtbar else []
+        return self.hinweise
 
     # -- Platzieren -----------------------------------------------------
 
@@ -648,6 +667,8 @@ class DiagrammCanvas(QWidget):
         maler = QPainter(self)
         maler.fillRect(self.rect(), QColor(stil.hintergrund))
 
+        if self.seitenrand_sichtbar:
+            self._seitenrand_zeichnen(maler, stil)
         if self.raster_sichtbar:
             self._raster_zeichnen(maler, stil.raster)
 
@@ -671,7 +692,43 @@ class DiagrammCanvas(QWidget):
             if quelle is not None and ziel is not None:
                 verbindungsbeschriftungen_zeichnen(maler, verbindung, quelle, ziel, stil)
 
+        self._hinweise_zeichnen(maler)
         self._hilfslinien_zeichnen(maler, stil.akzent)
+
+    def _seitenrand_zeichnen(self, maler: QPainter, stil) -> None:
+        """Blattgröße und bedruckbarer Bereich (Abschnitt 13.2). Ohne
+        diese Linien wäre der Layout-Hinweis „liegt außerhalb des
+        Seitenbereichs“ für Schülerinnen und Schüler nicht
+        nachvollziehbar."""
+        breite, hoehe = seitengroesse(self.diagramm.daten.get("page") or {})
+        stift = QPen(QColor(stil.trennlinie))
+        stift.setWidth(1)
+        maler.setPen(stift)
+        maler.drawRect(0, 0, int(breite), int(hoehe))
+
+        links, oben, satz_breite, satz_hoehe = satzspiegel(
+            self.diagramm.daten.get("page") or {}
+        )
+        stift.setStyle(Qt.PenStyle.DashLine)
+        maler.setPen(stift)
+        maler.drawRect(int(links), int(oben), int(satz_breite), int(satz_hoehe))
+
+    def _hinweise_zeichnen(self, maler: QPainter) -> None:
+        """Betroffene Formen bekommen einen gestrichelten Warnrahmen –
+        wie die Wellenlinie des Design-Prüfers ein Hinweis, der nichts
+        blockiert und sich abschalten lässt."""
+        if not self.hinweise:
+            return
+        stift = QPen(QColor(HINWEIS_FARBE))
+        stift.setWidth(2)
+        stift.setStyle(Qt.PenStyle.DashLine)
+        maler.setPen(stift)
+        maler.setBrush(Qt.BrushStyle.NoBrush)
+        betroffen = {kennung for hinweis in self.hinweise for kennung in hinweis.elemente}
+        for kennung in betroffen:
+            form = self.form_mit_id(kennung)
+            if form is not None:
+                maler.drawRect(form_rechteck(form).adjusted(-3, -3, 3, 3))
 
     def _raster_zeichnen(self, maler: QPainter, farbe: str) -> None:
         """Punktraster (Abschnitt 13.6) statt Gitternetzlinien – ruhiger

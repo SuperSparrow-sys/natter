@@ -19,6 +19,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QSettings, Qt
+from PySide6.QtGui import QActionGroup
 from PySide6.QtWidgets import (
     QDockWidget,
     QFileDialog,
@@ -32,7 +33,9 @@ from ide.diagramm.canvas import DiagrammCanvas
 from ide.diagramm.datei import Diagramm
 from ide.diagramm.eigenschaften import EigenschaftenPanel
 from ide.diagramm.formen import formen_fuer
+from ide.diagramm.kommandos import WerteKommando
 from ide.diagramm.palette import FormenPalette
+from ide.diagramm.stil import BESCHRIFTUNGEN
 from ide.shell.theme import ide_qss_erzeugen
 
 #: Menüaufbau aus Abschnitt 13.2. `True` = in diesem Schritt bereits
@@ -58,11 +61,12 @@ _MENUES: dict[str, tuple[tuple[str, bool], ...]] = {
     "Ansicht": (
         ("Zoom vergrößern", False),
         ("Zoom verkleinern", False),
-        ("Raster", False),
+        ("Raster", True),
         ("Lineale", False),
         ("Hilfslinien", False),
         ("Minimap", False),
-        ("Seitenränder", False),
+        ("Seitenränder", True),
+        ("Layout-Hinweise", True),
     ),
     "Anordnen": (
         ("Ausrichten", False),
@@ -73,7 +77,7 @@ _MENUES: dict[str, tuple[tuple[str, bool], ...]] = {
         ("Gruppieren", False),
     ),
     "Format": (
-        ("Stilvorlage …", False),
+        ("Stilvorlage …", True),
         ("Füllung …", False),
         ("Linie …", False),
         ("Schrift …", False),
@@ -105,11 +109,12 @@ class DiagrammFenster(QMainWindow):
             )
         )
 
+        # Erst die Bereiche, dann die Menüs: die Ansicht-Schalter lesen
+        # ihren Anfangszustand von der Zeichenfläche ab.
+        self._bereiche_aufbauen()
         self._menues: dict[str, QMenu] = {}
         self.aktionen: dict[str, object] = {}
         self._menues_aufbauen()
-
-        self._bereiche_aufbauen()
         self._statusleiste_aktualisieren()
         self.resize(1100, 750)
 
@@ -192,6 +197,9 @@ class DiagrammFenster(QMainWindow):
                 aktion.setEnabled(aktiv)
                 self.aktionen[f"{menue_name}/{beschriftung}"] = aktion
 
+        self._stilvorlagen_menue_aufbauen()
+        self._ansicht_schalter_aufbauen()
+
         self.aktionen["Datei/Speichern"].triggered.connect(self.speichern)
         self.aktionen["Datei/Speichern unter …"].triggered.connect(self.speichern_unter)
         self.aktionen["Datei/Schließen"].triggered.connect(self.close)
@@ -210,6 +218,61 @@ class DiagrammFenster(QMainWindow):
             aktion.setShortcut(kuerzel)
             if rueckruf is not None:
                 aktion.triggered.connect(rueckruf)
+
+    def _stilvorlagen_menue_aufbauen(self) -> None:
+        """„Format → Stilvorlage“ als Untermenü mit den drei Vorlagen aus
+        Abschnitt 13.6. Bewusst pro Diagramm und **unabhängig vom
+        IDE-Theme**: ein im dunklen Theme gezeichnetes Diagramm soll
+        trotzdem als Schwarz-Weiß-Abgabe gedruckt werden können."""
+        eintrag = self.aktionen["Format/Stilvorlage …"]
+        untermenue = QMenu("Stilvorlage", self)
+        gruppe = QActionGroup(self)
+        gruppe.setExclusive(True)
+
+        self.stil_aktionen: dict[str, object] = {}
+        for name, beschriftung in BESCHRIFTUNGEN.items():
+            aktion = untermenue.addAction(beschriftung)
+            aktion.setCheckable(True)
+            aktion.setChecked(name == self.diagramm.stil)
+            aktion.triggered.connect(lambda _=False, n=name: self.stil_setzen(n))
+            gruppe.addAction(aktion)
+            self.stil_aktionen[name] = aktion
+
+        eintrag.setMenu(untermenue)
+
+    def stil_setzen(self, name: str) -> None:
+        """Stilvorlage des ganzen Diagramms wechseln – rückgängig machbar
+        wie jede andere Änderung."""
+        if name == self.diagramm.stil:
+            return
+        self.zeichenflaeche.kommandos.ausfuehren(
+            WerteKommando(self.diagramm.daten, {"style": name})
+        )
+        self.stil_aktionen[name].setChecked(True)
+        self.zeichenflaeche.update()
+        self._bei_aenderung()
+
+    def _ansicht_schalter_aufbauen(self) -> None:
+        """Raster, Seitenränder und Layout-Hinweise sind Ein/Aus-Schalter.
+        Die Hinweise lassen sich wie beim Design-Prüfer (M7) abschalten –
+        sie melden nur, blockieren nie."""
+        for pfad, attribut in (
+            ("Ansicht/Raster", "raster_sichtbar"),
+            ("Ansicht/Seitenränder", "seitenrand_sichtbar"),
+            ("Ansicht/Layout-Hinweise", "hinweise_sichtbar"),
+        ):
+            aktion = self.aktionen[pfad]
+            aktion.setCheckable(True)
+            aktion.setChecked(getattr(self.zeichenflaeche, attribut, True))
+            aktion.toggled.connect(
+                lambda an, a=attribut: self._ansicht_umschalten(a, an)
+            )
+
+    def _ansicht_umschalten(self, attribut: str, an: bool) -> None:
+        setattr(self.zeichenflaeche, attribut, an)
+        self.zeichenflaeche.hinweise_aktualisieren()
+        self.zeichenflaeche.update()
+        self._statusleiste_aktualisieren()
 
     def menue(self, name: str) -> QMenu:
         return self._menues[name]
@@ -232,9 +295,22 @@ class DiagrammFenster(QMainWindow):
             if ausgewaehlt
             else f"{anzahl} Formen"
         )
+        hinweise = getattr(self.zeichenflaeche, "hinweise", [])
+        hinweis_text = (
+            f"  │  {len(hinweise)} Layout-Hinweis" + ("e" if len(hinweise) != 1 else "")
+            if hinweise
+            else ""
+        )
         self.statusBar().showMessage(
             f"{auswahl}  │  Raster 8 px  │  Einrasten ein  │  "
-            f"{seite['size']} {ausrichtung}  │  Stil: {self.diagramm.stil}"
+            f"{seite['size']} {ausrichtung}  │  Stil: {self.diagramm.stil}{hinweis_text}"
+        )
+        # Die Meldungen selbst als Tooltip: eine Form kann außerhalb des
+        # sichtbaren Ausschnitts liegen, dann wäre ihr Warnrahmen allein
+        # nicht zu sehen und die Zahl in der Statusleiste nicht zu
+        # erklären.
+        self.statusBar().setToolTip(
+            "\n".join(hinweis.meldung for hinweis in hinweise) if hinweise else ""
         )
 
     # -- Datei ----------------------------------------------------------

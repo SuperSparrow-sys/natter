@@ -49,7 +49,7 @@ def test_noch_nicht_umgesetzte_eintraege_sind_ausgegraut(tmp_path: Path) -> None
     assert fenster.aktionen["Bearbeiten/Rückgängig"].isEnabled() is True
     assert fenster.aktionen["Datei/Drucken …"].isEnabled() is False
     assert fenster.aktionen["Bearbeiten/Kopieren"].isEnabled() is False
-    assert fenster.aktionen["Format/Stilvorlage …"].isEnabled() is False
+    assert fenster.aktionen["Ansicht/Minimap"].isEnabled() is False
 
 
 def test_bearbeiten_menue_wirkt_auf_die_zeichenflaeche(tmp_path: Path) -> None:
