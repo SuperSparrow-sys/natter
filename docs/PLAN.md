@@ -773,16 +773,70 @@ gar nicht dabei.
   darüberlegen, Steigung/Achsenabschnitt/R² ausgeben – im Designer
   zusammengeklickt
 
+## Umsetzungsreihenfolge (autonomer Lauf ab September 2026)
+
+Der Nutzer hat entschieden: **alles aus diesem Plan, der Reihe nach.**
+Vorab geklärt wurden vier Punkte, damit der Lauf nicht unterbrochen
+werden muss:
+
+| Frage | Entscheidung |
+|---|---|
+| Struktogramm und Entscheidungstabelle | bleiben **in der Fläche** bedienbar, kein Dialog |
+| Notiz und Paket im Klassendiagramm | bleiben ebenfalls direkt bearbeitbar (nur ein Textfeld) |
+| Fehlende Struktogramm-Blocktypen | **alle drei** (Endlosschleife, Parallelabschnitt, Try-Block) |
+| Regression | **numpy rechnet**, scikit-learn liegt zusätzlich bei |
+| Datenquellen fürs Diagramm | **alle drei**: CSV über pandas, SQL, und `StringGrid` |
+| Histogramm und Boxplot | kommen dazu, aber zur **Auswahl**, nicht als Vorgabe |
+
+### Arbeitsweise in diesem Lauf
+
+Ausdrücklicher Wunsch des Nutzers, gilt für jeden Schritt:
+
+1. **Zwischendurch immer wieder testen** – nicht erst am Ende
+2. **Regelmäßig committen und pushen**, nicht alles in einem Schwung
+3. **Laufend mit Bildschirmfotos prüfen, ob die Gestaltung stimmt.**
+   Was nicht passt, wird **sofort korrigiert**, nicht nur vermerkt.
+   Das hat sich schon bewährt: in M9 fanden Bildschirmfotos und
+   zurückgelesene PDFs sieben Fehler, die alle Tests bestanden hatten
+4. Keine Rückfragen mehr – offene Einzelfälle werden mit einer
+   begründeten Entscheidung im Commit festgehalten
+
+### Reihenfolge
+
+- [ ] **0.** `input()` in `beispielprojekte/CrtDemo/main.py` prüfen,
+  gegebenenfalls korrigieren und committen (bricht derzeit drei Tests)
+- [ ] **1.** M9 Schritt 12 – Eigenschaften-Dialog für UML-Klassen
+  (Datenmodell, fünf Reiter, Darstellung, Migration der vorhandenen
+  `.pdiag`)
+- [ ] **2.** M9 Schritt 13 – Klasse als Python-Quelltext ausgeben
+- [ ] **3.** M9 Schritt 14 – Struktogramm als Quelltext ausgeben,
+  **einschließlich** der drei neuen Blocktypen
+- [ ] **4.** M9 Teilschritt 3b – Mehrfachauswahl, Ausrichten/Verteilen,
+  Kopieren/Einfügen, Gruppieren, Zeichenreihenfolge
+- [ ] **5.** M9 Teilschritt 4b – Knickpunkte, verschiebbare
+  Beschriftungen
+- [ ] **6.** M9 Rest von 2b – Zoom für Struktogramm und Tabelle,
+  Lineale, Minimap
+- [ ] **7.** M9 Struktogramm – Blöcke mit der Maus verschieben,
+  Kopfzeile mit dem Namen
+- [ ] **8.** M10 komplett – `Chart` in die Palette, Diagrammarten im
+  Inspektor, Datenquellen, Regression, Beispielprojekt, Abnahme
+- [ ] **9.** M9 „Danach“ – Use-Case-, Aktivitäts-, Zustands- und
+  Sequenzdiagramm samt Abnahme
+- [ ] **10.** Reste aus früheren Paketen – M3 (Klick+Klick-Platzierung),
+  M5 (Designzeit-Aktivierung, Credential Store, „Als Tabelle
+  anzeigen“, Drag & Drop), M8 (Pascal-Rümpfe, Bild-Extraktion)
+- [ ] **11.** Restliche `pcl`-Komponenten aus M1 Schritt 6 sowie die
+  kleinen offenen Punkte aus M0 und dem Referenzmaterial
+
+Zurückgestellt bleiben bewusst: Update-Mechanismus und
+CI/Release-Automatisierung (M8), ER-Diagramm, Syntaxdiagramm und
+`.dia`-Import (M9) – alle vier sind im jeweiligen Paket als
+zurückgestellt begründet.
+
+
 ## Nächster konkreter Schritt
 
-**M9, Schritt 12: Eigenschaften-Dialog für UML-Klassen.** Der Nutzer
-hat im September 2026 entschieden, dass die Inhalte einer UML-Klasse
-über einen Dialog mit Reitern bearbeitet werden (Vorbild: Dia) und
-**nicht** direkt auf der Zeichenfläche. Das zieht das Datenmodell mit:
-Attribute und Operationen werden strukturiert statt frei getippt.
-Ausführlich beschrieben in
-[`docs/arbeitspakete/M9.md`](arbeitspakete/M9.md), Schritt 12.
-
-Danach 3b (Mehrfachauswahl und Anordnen), 4b (Knickpunkte,
-verschiebbare Beschriftungen) und der Rest von 2b (Zoom für
-Struktogramm und Tabelle, Lineale, Minimap).
+Siehe „Umsetzungsreihenfolge“ oben – der Lauf arbeitet die elf Punkte
+der Reihe nach ab. Aktuell: **Punkt 0**, das `input()` in
+`beispielprojekte/CrtDemo/main.py`.
