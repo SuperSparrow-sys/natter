@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QMainWindow,
     QMenu,
+    QScrollArea,
     QWidget,
 )
 
@@ -181,7 +182,19 @@ class DiagrammFenster(QMainWindow):
 
         self.zeichenflaeche.auswahl_geaendert.connect(self._bei_auswahl)
         self.zeichenflaeche.geaendert.connect(self._bei_aenderung)
-        self.setCentralWidget(self.zeichenflaeche)
+
+        # Die Zeichenfläche steckt in einem Rollbereich: ein A4-Blatt ist
+        # breiter als die meisten Fenster, und ein Struktogramm wächst
+        # nach unten aus jedem Fenster heraus. Ohne ihn war alles
+        # außerhalb des sichtbaren Ausschnitts schlicht nicht erreichbar
+        # (vom Nutzer gemeldet). `setWidgetResizable(True)` zusammen mit
+        # der Mindestgröße der Fläche heißt: passt der Inhalt, füllt die
+        # Fläche das Fenster; passt er nicht, erscheinen Rollbalken.
+        self.rollbereich = QScrollArea()
+        self.rollbereich.setWidget(self.zeichenflaeche)
+        self.rollbereich.setWidgetResizable(True)
+        self.rollbereich.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.setCentralWidget(self.rollbereich)
 
         # Ein Struktogramm hat keine "Formen", sondern Bloecke - der
         # Titel des Docks soll das auch sagen.

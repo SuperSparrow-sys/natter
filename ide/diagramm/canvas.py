@@ -58,6 +58,9 @@ ANFASSER_RADIUS = 6
 #: dieselbe, damit ein Hinweis nicht mit einer eigenen Formfarbe
 #: verwechselt wird. Er wird ohnehin nie mitexportiert.
 HINWEIS_FARBE = "#d97706"
+#: Zusätzlicher Platz rechts und unten neben dem Blatt, damit sich eine
+#: Form auch über den bisherigen Rand hinaus ziehen lässt.
+SICHTRAND = 240
 
 #: Anfasser-Reihenfolge wie in `zeichnen.anfasser_punkte`.
 _ANFASSER_NAMEN = ("nw", "n", "ne", "e", "se", "s", "sw", "w")
@@ -112,9 +115,30 @@ class DiagrammCanvas(QWidget):
         self._hilfslinien: list[tuple[str, float]] = []
         self._editor: FormEditor | None = None
 
-        self.setMinimumSize(640, 480)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setMouseTracking(True)
+        self.inhaltsgroesse_anpassen()
+
+    # -- Größe der Fläche -----------------------------------------------
+
+    def inhaltsgroesse(self) -> tuple[int, int]:
+        """Wie groß die Zeichenfläche mindestens sein muss: das ganze
+        Blatt und darüber hinaus alles, was jemand daneben gelegt hat.
+        `SICHTRAND` lässt rechts und unten Platz, damit sich eine Form
+        auch über den bisherigen Rand hinaus ziehen lässt."""
+        breite, hoehe = seitengroesse(self.diagramm.daten.get("page") or {})
+        for form in self.formen:
+            breite = max(breite, form["x"] + form["w"])
+            hoehe = max(hoehe, form["y"] + form["h"])
+        return int(breite + SICHTRAND), int(hoehe + SICHTRAND)
+
+    def inhaltsgroesse_anpassen(self) -> None:
+        """Setzt die Mindestgröße neu. Zusammen mit einer `QScrollArea`
+        (`setWidgetResizable(True)`) heißt das: passt der Inhalt ins
+        Fenster, füllt die Fläche das Fenster; passt er nicht, erscheinen
+        Rollbalken. Ohne das war alles außerhalb des Fensters schlicht
+        nicht erreichbar."""
+        self.setMinimumSize(*self.inhaltsgroesse())
 
     # -- Daten ----------------------------------------------------------
 
@@ -159,6 +183,7 @@ class DiagrammCanvas(QWidget):
     def _nach_aenderung(self, auswahl: dict[str, Any] | None = None) -> None:
         if auswahl is not None:
             self._auswaehlen(auswahl)
+        self.inhaltsgroesse_anpassen()
         self.hinweise_aktualisieren()
         self.geaendert.emit()
         self.update()

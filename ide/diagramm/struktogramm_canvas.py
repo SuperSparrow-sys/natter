@@ -123,10 +123,25 @@ class StruktogrammCanvas(QWidget):
         self._vorschau: Einfuegestelle | None = None
         self._layout: Kasten | None = None
 
-        self.setMinimumSize(640, 480)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setMouseTracking(True)
         self._layout_erneuern()
+        self.inhaltsgroesse_anpassen()
+
+    # -- Größe der Fläche -----------------------------------------------
+
+    def inhaltsgroesse(self) -> tuple[int, int]:
+        rechteck = (self._layout or self._layout_erneuern()).rechteck
+        return (
+            int(rechteck.right() + 2 * VERSATZ),
+            int(rechteck.bottom() + 2 * VERSATZ),
+        )
+
+    def inhaltsgroesse_anpassen(self) -> None:
+        """Zusammen mit einer `QScrollArea` (`setWidgetResizable(True)`)
+        erscheinen Rollbalken, sobald das Struktogramm nicht mehr ins
+        Fenster passt – vorher war alles darunter nicht erreichbar."""
+        self.setMinimumSize(*self.inhaltsgroesse())
 
     # -- Daten ----------------------------------------------------------
 
@@ -142,6 +157,7 @@ class StruktogrammCanvas(QWidget):
 
     def _nach_aenderung(self, auswahl: dict[str, Any] | None = None) -> None:
         self._layout_erneuern()
+        self.inhaltsgroesse_anpassen()
         if auswahl is not None:
             self.auswaehlen(auswahl)
         self.geaendert.emit()

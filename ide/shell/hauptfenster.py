@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPlainTextEdit,
+    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
@@ -1221,7 +1222,7 @@ class HauptFenster(QMainWindow):
         schluessel = str(pfad)
         if schluessel in self._pfad_zu_formular:
             formular = self._pfad_zu_formular[schluessel]
-            index = self.editor_tabs.indexOf(formular._qwidget)
+            index = self._tab_index(formular._qwidget)
             if index != -1:
                 self.editor_tabs.setCurrentIndex(index)
             return formular
@@ -1235,7 +1236,9 @@ class HauptFenster(QMainWindow):
         self._pfad_zu_formular[schluessel] = formular
         self._widget_zu_canvas[formular._qwidget] = canvas
 
-        index = self.editor_tabs.addTab(formular._qwidget, f"{pfad.stem} (Designer)")
+        index = self.editor_tabs.addTab(
+            self._designer_rollbereich(formular._qwidget), f"{pfad.stem} (Designer)"
+        )
         self.editor_tabs.setCurrentIndex(index)
         self.objektinspektor.formular_anzeigen(formular, canvas)
         return formular
@@ -1308,8 +1311,38 @@ class HauptFenster(QMainWindow):
         if not ziel.exists() or ziel.read_text(encoding="utf-8") != quelltext:
             ziel.write_text(quelltext, encoding="utf-8")
 
+    def _designer_rollbereich(self, formular_widget: QWidget) -> QScrollArea:
+        """Ein Designer-Tab steckt in einem Rollbereich, damit sich auch
+        ein Formular bedienen lässt, das größer ist als das Fenster
+        (vom Nutzer gemeldet: „scrollen … funktioniert nicht“).
+
+        Bewusst **ohne** `setWidgetResizable`: die Größe eines Formulars
+        ist eine Eigenschaft, die der Nutzer gesetzt hat – sie darf sich
+        nicht danach richten, wie groß das IDE-Fenster gerade ist."""
+        rollbereich = QScrollArea()
+        rollbereich.setWidget(formular_widget)
+        rollbereich.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
+        )
+        return rollbereich
+
+    def _tab_inhalt(self, widget: QWidget | None) -> QWidget | None:
+        """Der eigentliche Inhalt eines Tabs – bei Designer-Tabs das
+        Formular im Rollbereich, sonst das Widget selbst."""
+        if isinstance(widget, QScrollArea):
+            return widget.widget()
+        return widget
+
+    def _tab_index(self, inhalt: QWidget) -> int:
+        """Wie `QTabWidget.indexOf`, aber es findet auch ein Formular,
+        das in einem Rollbereich steckt."""
+        for index in range(self.editor_tabs.count()):
+            if self._tab_inhalt(self.editor_tabs.widget(index)) is inhalt:
+                return index
+        return -1
+
     def _bei_tab_wechsel(self, index: int) -> None:
-        widget = self.editor_tabs.widget(index)
+        widget = self._tab_inhalt(self.editor_tabs.widget(index))
         self._aktueller_canvas = self._widget_zu_canvas.get(widget)
 
     def _tab_schliessen(self, index: int) -> None:
@@ -1318,7 +1351,7 @@ class HauptFenster(QMainWindow):
         Fragt bei ungespeicherten Textänderungen nach; Designer-Tabs
         schreiben laufend automatisch in die `.pfm` zurück und haben
         daher nichts zu bestätigen."""
-        widget = self.editor_tabs.widget(index)
+        widget = self._tab_inhalt(self.editor_tabs.widget(index))
         if widget is None:
             return
         if isinstance(widget, QPlainTextEdit) and widget.document().isModified():
@@ -1416,7 +1449,7 @@ class HauptFenster(QMainWindow):
         canvas, komponenten_name = daten
         komponente = getattr(canvas.formular, komponenten_name, None)
         if komponente is not None:
-            index = self.editor_tabs.indexOf(canvas.formular._qwidget)
+            index = self._tab_index(canvas.formular._qwidget)
             if index != -1:
                 self.editor_tabs.setCurrentIndex(index)
             canvas._auswaehlen(komponente)

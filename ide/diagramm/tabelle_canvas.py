@@ -26,6 +26,7 @@ from ide.diagramm.tabelle import (
     Zelle,
     regelanzahl,
     tabelle_zeichnen,
+    tabellengroesse,
     wert,
     zelle_bei,
 )
@@ -176,8 +177,8 @@ class TabellenCanvas(QWidget):
         self.kommandos = Kommandostapel()
         self.ausgewaehlte_zelle: Zelle | None = None
 
-        self.setMinimumSize(640, 480)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.inhaltsgroesse_anpassen()
 
     # -- Daten ----------------------------------------------------------
 
@@ -189,8 +190,19 @@ class TabellenCanvas(QWidget):
         return liste[zelle.zeile] if 0 <= zelle.zeile < len(liste) else None
 
     def _nach_aenderung(self) -> None:
+        self.inhaltsgroesse_anpassen()
         self.geaendert.emit()
         self.update()
+
+    def inhaltsgroesse(self) -> tuple[int, int]:
+        breite, hoehe = tabellengroesse(self.diagramm.daten)
+        return int(breite + 2 * VERSATZ), int(hoehe + 2 * VERSATZ)
+
+    def inhaltsgroesse_anpassen(self) -> None:
+        """Zusammen mit einer `QScrollArea` (`setWidgetResizable(True)`)
+        erscheinen Rollbalken, sobald die Tabelle nicht mehr ins Fenster
+        passt – vorher waren weitere Regel-Spalten nicht erreichbar."""
+        self.setMinimumSize(*self.inhaltsgroesse())
 
     # -- Auswahl --------------------------------------------------------
 
