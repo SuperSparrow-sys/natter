@@ -63,12 +63,14 @@ tatsächlich fehlen):
   Textzeilen zu strukturierten Datensätzen mit Sichtbarkeit, Typ und
   Parameterliste, das Schema wächst entsprechend, und die vorhandenen
   `.pdiag` müssen beim Laden umgesetzt werden
-- **Klasse als Python-Quelltext ausgeben** (Schritt 13,
-  Nutzer-Wunsch September 2026): aus der modellierten Klasse den
-  passenden Code erzeugen – wahlweise in ein Fenster zum Kopieren oder
-  in eine eigene Datei. Setzt Schritt 12 voraus, weil sich nur aus
-  strukturierten Attributen und Operationen sinnvoll Code erzeugen
-  lässt
+- **Quelltext aus den Diagrammen erzeugen** (Schritte 13 und 14,
+  Nutzer-Wunsch September 2026, Vorbilder Dia und Structorizer):
+  aus der modellierten Klasse die Python-Klasse, aus dem Struktogramm
+  den Algorithmus – wahlweise ganz oder nur der ausgewählte Block, und
+  wahlweise in ein Fenster zum Kopieren oder in eine eigene Datei.
+  Schritt 13 setzt Schritt 12 voraus, weil sich nur aus strukturierten
+  Attributen und Operationen sinnvoll Code erzeugen lässt; Schritt 14
+  geht unabhängig davon
 - Mehrfachauswahl, Ausrichten/Verteilen, Kopieren/Einfügen (3b) –
   das ist der spürbarste Mangel: wer zehn Klassen gesetzt hat, kann
   sie derzeit nur einzeln anfassen
