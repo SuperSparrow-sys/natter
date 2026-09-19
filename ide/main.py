@@ -24,6 +24,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from ide.deutsch import deutsch_einschalten
 from ide.fehlermeldung import fehlerhaken_einrichten
 from ide.integritaet.start_pruefung import installation_pruefen
+from ide.run.interpreter import PYTHON_FLAGGE, als_python_ausfuehren
 from ide.shell.hauptfenster import HauptFenster
 
 
@@ -73,6 +74,14 @@ def _projekt_aus_argv_oeffnen(fenster: HauptFenster, argv: list[str]) -> None:
 
 
 def main() -> int:
+    # Ganz am Anfang, noch vor jedem Qt-Aufruf: mit `--python` davor ist
+    # dieser Aufruf kein Start der IDE, sondern ein Python-Aufruf. Die
+    # gebaute `Natter.exe` enthält einen vollständigen Python, und nur
+    # so kommt sie an ihn heran - `sys.executable` ist dort die Exe
+    # selbst (M12, siehe `ide/run/interpreter.py`).
+    if len(sys.argv) > 1 and sys.argv[1] == PYTHON_FLAGGE:
+        return als_python_ausfuehren(sys.argv[2:])
+
     app, fenster = erstellen()
     # Ab hier endet ein Fehler in Natter selbst in einer deutschen
     # Meldung statt in einem Traceback, den in der gebauten Exe ohnehin

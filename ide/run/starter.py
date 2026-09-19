@@ -20,6 +20,7 @@ import subprocess
 import sys
 
 from ide.project import Projekt
+from ide.run.interpreter import python_befehl
 
 #: Hülle für Konsolenprogramme: führt das Schülerprogramm aus und hält
 #: das Fenster danach offen.
@@ -82,14 +83,14 @@ _KONSOLEN_HUELLE = (
 
 def projekt_starten(projekt: Projekt) -> subprocess.Popen:
     zusatz_optionen: dict[str, object] = {}
-    befehl = [sys.executable, projekt.haupt_datei.name]
+    befehl = [*python_befehl(), projekt.haupt_datei.name]
 
     if projekt.typ == "console":
         # Die Hülle hält das Fenster offen; sie kostet auf anderen
         # Plattformen nichts, weil die Eingabeaufforderung dort im
         # bestehenden Terminal erscheint.
         befehl = [
-            sys.executable,
+            *python_befehl(),
             "-c",
             _KONSOLEN_HUELLE,
             f"Natter – {projekt.name}",

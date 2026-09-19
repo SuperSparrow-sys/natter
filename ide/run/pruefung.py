@@ -16,11 +16,11 @@ from __future__ import annotations
 import json
 import re
 import subprocess
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 from ide.project import Projekt
+from ide.run.interpreter import ruff_befehl
 from pcl.pruefungsmodus import laeuft as pruefungsmodus_laeuft
 
 _AUSGEWAEHLTE_REGELN = "E9,F821,F401,F841"
@@ -146,9 +146,7 @@ def projekt_pruefen(projekt: Projekt) -> list[RuffFund]:
     sauberem Projekt."""
     ergebnis = subprocess.run(
         [
-            sys.executable,
-            "-m",
-            "ruff",
+            *ruff_befehl(),
             "check",
             "--isolated",
             f"--select={_AUSGEWAEHLTE_REGELN}",

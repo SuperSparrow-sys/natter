@@ -24,11 +24,11 @@ from __future__ import annotations
 import json
 import socket
 import subprocess
-import sys
 import time
 from pathlib import Path
 from typing import Any
 
+from ide.run.interpreter import python_befehl
 from pcl.eigener_code import ist_eigener_code
 
 # Großzügig bemessen: schadet der echten Nutzung nicht (ein einzelner
@@ -94,7 +94,7 @@ class DapClient:
             port = _freien_port_finden()
             self.prozess = subprocess.Popen(
                 [
-                    sys.executable,
+                    *python_befehl(),
                     "-m",
                     "debugpy",
                     "--listen",

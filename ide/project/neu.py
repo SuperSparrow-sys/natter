@@ -10,9 +10,15 @@ from __future__ import annotations
 from pathlib import Path
 
 from ide.codegen.design import design_datei_erzeugen
+from ide.pfade import daten_ordner
 from ide.project.projekt import Projekt
 
-_TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "templates"
+#: `daten_ordner` statt eines quellcode-relativen Pfads: in der gebauten
+#: Exe liegt `templates/` im Bundle-Ordner, nicht drei Ebenen über
+#: dieser Datei. Bis M12 stand hier der relative Pfad - in der
+#: installierten Natter endete „Neues Projekt …“ deshalb in einem
+#: FileNotFoundError, es ließ sich überhaupt kein Projekt anlegen.
+_TEMPLATES_DIR = daten_ordner("templates")
 
 VORLAGEN = ("gui", "console")
 

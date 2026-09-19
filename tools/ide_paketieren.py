@@ -45,6 +45,9 @@ _PROJEKT_WURZEL = Path(__file__).resolve().parent.parent
 _DESIGN_ORDNER = _PROJEKT_WURZEL / "design"
 _SCHEMAS_ORDNER = _PROJEKT_WURZEL / "schemas"
 _ICONS_ORDNER = _PROJEKT_WURZEL / "ide" / "assets" / "icons"
+_TEMPLATES_ORDNER = _PROJEKT_WURZEL / "templates"
+_HARNESS_DATEI = _PROJEKT_WURZEL / "ide" / "testrunner" / "harness.py"
+_SCHRIFT_ORDNER = _PROJEKT_WURZEL / "ide" / "assets" / "fonts"
 _ICON = _ICONS_ORDNER / "app.ico"
 _HAUPTSKRIPT = _PROJEKT_WURZEL / "ide" / "__main__.py"
 _DIST_ORDNER = _PROJEKT_WURZEL / "dist"
@@ -66,8 +69,12 @@ _LIZENZ_VORLAGEN = Path(__file__).resolve().parent / "lizenz_vorlagen"
 _SIGNIER_SKRIPT = Path(__file__).resolve().parent / "signieren" / "datei_signieren.ps1"
 _MANIFEST_SCHLUESSEL = Path(__file__).resolve().parent / "signieren" / "manifest-privat.pem"
 
-# Nur diese Laufzeit-Abhängigkeiten interessieren (nicht pytest/ruff/
+# Nur diese Laufzeit-Abhängigkeiten interessieren (nicht pytest oder
 # pyinstaller selbst - die stecken nicht in der gebauten Exe).
+#
+# `ruff` steht seit M12 mit drin: es wird zwar nur als Unterprozess
+# aufgerufen, liegt aber seither wirklich in der Exe (die Prüfung vor
+# dem Start braucht es), und dann gehört auch sein Lizenztext dazu.
 _LAUFZEIT_PAKETE = (
     "pyside6",
     "pyside6-essentials",
@@ -75,6 +82,7 @@ _LAUFZEIT_PAKETE = (
     "jsonschema",
     "libcst",
     "debugpy",
+    "ruff",
     "pymysql",
     "sqlalchemy",
     "pandas",
@@ -90,6 +98,14 @@ _LAUFZEIT_PAKETE = (
     "joblib",
     "threadpoolctl",
 )
+
+
+def _ruff_binaerdatei() -> Path:
+    """Der Pfad zu `ruff.exe` im aktuellen Python - die Datei, die ins
+    Bundle muss."""
+    from ruff import find_ruff_bin
+
+    return Path(find_ruff_bin())
 
 
 def _pyinstaller_bauen() -> None:
@@ -122,6 +138,24 @@ def _pyinstaller_bauen() -> None:
         # weiterhin dorthin zeigt.
         "--add-data",
         f"{_ICONS_ORDNER}{os.pathsep}ide/assets/icons",
+        # Dieselbe Art Fund wie bei den Symbolen, in der gebauten Exe
+        # gemessen (M12): drei weitere Datenpfade fehlten, und jeder
+        # kostete eine Funktion.
+        #
+        # * `templates/` - ohne sie endete "Neues Projekt ..." in einem
+        #   FileNotFoundError. In der installierten Natter liess sich
+        #   also überhaupt kein Projekt anlegen.
+        # * `harness.py` - der Testrunner startet sie als eigenen
+        #   Prozess; ohne sie lief "Alle Tests ausführen" ins Leere.
+        # * die Schriftdatei - ohne sie fällt der Editor auf eine andere
+        #   Schrift zurück, obwohl Natter Cascadia Code ausdrücklich
+        #   mitbringen soll, damit nichts installiert werden muss.
+        "--add-data",
+        f"{_TEMPLATES_ORDNER}{os.pathsep}templates",
+        "--add-data",
+        f"{_HARNESS_DATEI}{os.pathsep}ide/testrunner",
+        "--add-data",
+        f"{_SCHRIFT_ORDNER}{os.pathsep}ide/assets/fonts",
         # Die zehn Beispielprojekte und die Anleitung. Das Startbild
         # (M11) bietet beide an; ohne sie stuende dort in einer
         # installierten Natter ein leerer Abschnitt, und genau die
@@ -143,6 +177,22 @@ def _pyinstaller_bauen() -> None:
         # nicht da. Natter selbst braucht sklearn nicht (die Regression
         # rechnet über numpy.polyfit); es liegt für Fortgeschrittene
         # bei, so wie im Arbeitspaket M10 entschieden.
+        # `ruff` und `debugpy` ruft Natter nur als Unterprozess auf,
+        # importiert sie also nirgends - PyInstaller findet sie deshalb
+        # nicht von allein und ließ sie bis M12 einfach weg. In der
+        # installierten Natter gab es damit weder die Prüfung vor dem
+        # Start noch den Debugger.
+        "--collect-all",
+        "debugpy",
+        # `ruff` ist ein Sonderfall: das Python-Paket ist nur ein
+        # **Finder**, der `ruff.exe` in den `Scripts`-Ordnern sucht. Die
+        # gibt es in der Exe nicht, `--collect-all ruff` brachte also
+        # nur den Finder mit und die Prüfung endete in `RuffNotFound`
+        # (in der gebauten Exe nachgemessen). Deshalb die Binärdatei
+        # selbst ins Bundle; `ide/run/interpreter.py` ruft sie direkt
+        # auf, ohne Umweg über Python.
+        "--add-binary",
+        f"{_ruff_binaerdatei()}{os.pathsep}.",
         "--collect-all",
         "sklearn",
         "--collect-all",

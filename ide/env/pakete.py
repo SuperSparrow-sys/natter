@@ -18,11 +18,28 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from ide.run.interpreter import ist_gebaut
+
 
 @dataclass(frozen=True)
 class Paket:
     name: str
     version: str
+
+
+#: Warum die Paketverwaltung in der gebauten Exe nicht arbeiten kann.
+#:
+#: Sie läuft über `pip` im laufenden Python. Die `Natter.exe` bringt
+#: ihren Python fest eingebaut mit; dort ist kein `pip`, und ein
+#: nachträglich installiertes Paket läge in einem Ordner, den die Exe
+#: beim nächsten Start gar nicht mehr ansieht. Bis M12 rief sie
+#: stattdessen `sys.executable` auf - und das ist in der Exe die Exe
+#: selbst, es ging also ein zweites Natter-Fenster auf (M12).
+GEBAUT_HINWEIS = (
+    "Die Paketverwaltung arbeitet über pip und steht in der installierten "
+    "Natter-Version nicht zur Verfügung: dort ist Python fest eingebaut. "
+    "Alles, was der Unterricht braucht, ist bereits enthalten."
+)
 
 
 class PaketFehler(RuntimeError):
@@ -37,6 +54,8 @@ def installierte_pakete() -> list[Paket]:
     `CalledProcessError` bis zur IDE durchschlagen, statt wie
     `paket_installieren()` einen sauberen Fehler mit `pip`s eigener
     Meldung zu liefern)."""
+    if ist_gebaut():
+        raise PaketFehler(GEBAUT_HINWEIS)
     ergebnis = subprocess.run(
         [sys.executable, "-m", "pip", "list", "--format=json"],
         capture_output=True,
@@ -51,6 +70,8 @@ def installierte_pakete() -> list[Paket]:
 def paket_installieren(name: str) -> str:
     """Installiert `name` per `pip install`. Liefert `pip`s Ausgabe bei
     Erfolg, löst `PaketFehler` bei Misserfolg aus."""
+    if ist_gebaut():
+        raise PaketFehler(GEBAUT_HINWEIS)
     ergebnis = subprocess.run(
         [sys.executable, "-m", "pip", "install", name],
         capture_output=True,
@@ -65,6 +86,8 @@ def paketliste_exportieren(pfad: str | Path) -> None:
     """Schreibt `pip freeze` nach `pfad` (Abschnitt 7.2: „Paketliste
     exportieren (requirements.txt)“). Löst `PaketFehler` aus, wenn `pip`
     fehlschlägt (siehe `installierte_pakete`)."""
+    if ist_gebaut():
+        raise PaketFehler(GEBAUT_HINWEIS)
     ergebnis = subprocess.run(
         [sys.executable, "-m", "pip", "freeze"],
         capture_output=True,
