@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from ide.debugger.fehlerkatalog import fehlermeldung_erzeugen
+from pcl.fehlerkatalog import fehlermeldung_erzeugen
 
 
 def _meldung(fehler: BaseException):

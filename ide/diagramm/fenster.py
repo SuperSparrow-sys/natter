@@ -57,9 +57,9 @@ from ide.diagramm.struktogramm_palette import BlockPalette
 from ide.diagramm.tabelle import regelanzahl
 from ide.diagramm.tabelle_canvas import TabellenCanvas
 from ide.diagramm.uml_modell import formname
-from ide.pruefungsmodus import GESPERRT_HINWEIS, restzeit_text
-from ide.pruefungsmodus import laeuft as pruefungsmodus_laeuft
 from ide.shell.theme import ide_qss_erzeugen
+from pcl.pruefungsmodus import GESPERRT_HINWEIS, restzeit_text
+from pcl.pruefungsmodus import laeuft as pruefungsmodus_laeuft
 
 #: Menüaufbau aus Abschnitt 13.2. `True` = in diesem Schritt bereits
 #: umgesetzt und aktiv, `False` = angelegt, aber ausgegraut.

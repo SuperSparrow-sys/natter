@@ -16,9 +16,9 @@ from __future__ import annotations
 
 import pytest
 
-from ide.debugger.fehlerkatalog import fehlermeldung_erzeugen
 from pcl.analyse import regression
 from pcl.errors import NatterDatenDateiError, NatterDatenError
+from pcl.fehlerkatalog import fehlermeldung_erzeugen
 
 
 def _meldung(fehler: BaseException):

@@ -43,13 +43,13 @@ from pathlib import Path
 
 import pytest
 
-from ide.debugger.fehlerkatalog import (
+from ide.diagramm import hinweise as diagramm_hinweise
+from ide.lint import pruefen as design_pruefen
+from pcl.fehlerkatalog import (
     _STANDARDMELDUNGEN,
     ORIGINALMELDUNG_PRAEFIX,
     fehlermeldung_erzeugen,
 )
-from ide.diagramm import hinweise as diagramm_hinweise
-from ide.lint import pruefen as design_pruefen
 
 WURZEL = Path(__file__).resolve().parents[1]
 
@@ -427,7 +427,7 @@ def test_deutsche_pcl_meldung_wird_ueber_dap_nicht_als_englisch_behandelt() -> N
     mitgereichte Klasse hielte der Katalog eine bereits deutsche
     `pcl`-Meldung für eine englische Standardmeldung und stellte ihr
     den Rückfalltext samt Zitatklammer voran."""
-    from ide.debugger.fehlerkatalog import fehlermeldung_aus_dap_erzeugen
+    from pcl.fehlerkatalog import fehlermeldung_aus_dap_erzeugen
 
     # `NatterDatenError` erbt von `ValueError` und landet damit im
     # Eintrag, der sonst übersetzt - genau der Fall, in dem die Herkunft

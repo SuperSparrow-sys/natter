@@ -19,9 +19,10 @@ import pytest
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QMessageBox
 
-from ide.debugger.fehlerkatalog import Fehlermeldung
 from ide.diagramm import DiagrammFenster, diagramm_erzeugen
-from ide.pruefungsmodus import (
+from ide.shell.hauptfenster import HauptFenster
+from pcl.fehlerkatalog import Fehlermeldung
+from pcl.pruefungsmodus import (
     DAUER,
     ENDE_SCHLUESSEL,
     beenden,
@@ -30,7 +31,6 @@ from ide.pruefungsmodus import (
     restzeit_text,
     starten,
 )
-from ide.shell.hauptfenster import HauptFenster
 
 JETZT = datetime(2026, 9, 19, 9, 0, 0)
 
@@ -47,7 +47,7 @@ def echte_einstellungen(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> QSet
     """Legt auch die IDE-weite Fassung auf eine Testdatei um, damit die
     Oberflächen-Tests nicht in die echten Einstellungen schreiben."""
     datei = QSettings(str(tmp_path / "ide.ini"), QSettings.Format.IniFormat)
-    import ide.pruefungsmodus as modul
+    import pcl.pruefungsmodus as modul
 
     monkeypatch.setattr(modul, "einstellungen", lambda: datei)
     return datei

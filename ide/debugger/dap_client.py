@@ -29,7 +29,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ide.debugger.eigener_code import ist_eigener_code
+from pcl.eigener_code import ist_eigener_code
 
 # Großzügig bemessen: schadet der echten Nutzung nicht (ein einzelner
 # Start dauert praktisch immer < 5s), macht die Testsuite aber robuster
@@ -393,5 +393,5 @@ class DapClient:
         """Details zur unbehandelten Ausnahme, die `thread_id` gerade
         angehalten hat (DAP `exceptionInfo`) – u. a. `exceptionId`,
         `description`, `details.message`/`stackTrace`. Grundlage für
-        `ide.debugger.fehlerkatalog.fehlermeldung_aus_dap_erzeugen()`."""
+        `pcl.fehlerkatalog.fehlermeldung_aus_dap_erzeugen()`."""
         return self.anfrage("exceptionInfo", {"threadId": thread_id})

@@ -38,7 +38,7 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any
 
-from ide.debugger.eigener_code import ist_eigener_code
+from pcl.eigener_code import ist_eigener_code
 from pcl.errors import NatterDatenbankError, NatterPropertyError
 
 _STAPEL_ZEILE_MUSTER = re.compile(
@@ -64,7 +64,7 @@ class Fehlermeldung:
         „Was“ bleiben: eine Schülerin soll sehen, dass und wo etwas
         schiefgegangen ist, nur nicht, woran es liegen könnte.
         """
-        from ide.pruefungsmodus import laeuft
+        from pcl.pruefungsmodus import laeuft
 
         zeilen = [self.ueberschrift, "", f"Wo:   {self.wo}"]
         if self.quelltext is not None:

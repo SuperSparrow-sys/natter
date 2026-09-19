@@ -107,13 +107,21 @@ def test_konsolenprogramm_laeuft_und_das_fenster_bleibt_offen(tmp_path: Path) ->
 
 
 def test_nach_einem_absturz_bleibt_das_fenster_auch_offen(tmp_path: Path) -> None:
-    """Gerade dann will man den Fehler lesen können."""
+    """Gerade dann will man den Fehler lesen können.
+
+    Seit M12 steht dort die deutsche Wo/Was/Prüfe-Meldung statt des rohen
+    englischen Tracebacks – dieselbe, die auch der Debugger und ein
+    GUI-Programm zeigen. Die Originalmeldung von Python („kaputt“) bleibt
+    als gekennzeichnetes Zitat darin erhalten."""
     ergebnis = _huelle_ausfuehren(
         tmp_path, 'print("vorher")\nraise ValueError("kaputt")\n'
     )
 
     assert "vorher" in ergebnis.stdout
-    assert "ValueError: kaputt" in ergebnis.stderr
+    assert "Wo:" in ergebnis.stderr
+    assert "ValueError" in ergebnis.stderr
+    assert "kaputt" in ergebnis.stderr
+    assert "Traceback (most recent call last)" not in ergebnis.stderr
     assert "Eingabetaste" in ergebnis.stdout
     assert ergebnis.returncode == 1
 

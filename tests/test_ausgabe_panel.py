@@ -27,7 +27,7 @@ from ide.shell.hauptfenster import HauptFenster
 @pytest.fixture
 def einstellungen(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> QSettings:
     datei = QSettings(str(tmp_path / "ide.ini"), QSettings.Format.IniFormat)
-    import ide.pruefungsmodus as modul
+    import pcl.pruefungsmodus as modul
 
     monkeypatch.setattr(modul, "einstellungen", lambda: datei)
     return datei

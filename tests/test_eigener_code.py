@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 
-from ide.debugger.eigener_code import ist_eigener_code
+from pcl.eigener_code import ist_eigener_code
 
 
 def test_relative_pfade_gelten_als_eigener_code() -> None:

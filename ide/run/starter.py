@@ -59,8 +59,17 @@ _KONSOLEN_HUELLE = (
     "    runpy.run_path(skript, run_name='__main__')\n"
     "except SystemExit as beendet:\n"
     "    rueckgabe = beendet.code if isinstance(beendet.code, int) else 0\n"
+    # Dieselbe Wo/Was/Prüfe-Meldung wie im Debugger und im GUI-Programm
+    # (M12). Ohne sie stand hier der rohe englische Traceback, in dem vor
+    # der einen wichtigen Zeile ein Dutzend Zeilen aus `pcl` und Qt
+    # stehen. Fällt der Import aus, bleibt der Traceback als Rückfall -
+    # eine Meldung ist besser als keine.
     "except BaseException:\n"
-    "    traceback.print_exc()\n"
+    "    try:\n"
+    "        from pcl.fehleranzeige import fehlertext\n"
+    "        print(fehlertext(*sys.exc_info()), file=sys.stderr)\n"
+    "    except Exception:\n"
+    "        traceback.print_exc()\n"
     "    rueckgabe = 1\n"
     "finally:\n"
     "    try:\n"

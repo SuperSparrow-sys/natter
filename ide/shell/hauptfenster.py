@@ -84,9 +84,6 @@ from ide.papierkorb import in_den_papierkorb, papierkorb_verfuegbar
 from ide.pfade import daten_ordner
 from ide.project import Projekt, projekt_erzeugen
 from ide.project.neu_dialog import NeuesProjektDialog
-from ide.pruefungsmodus import laeuft as pruefungsmodus_laeuft
-from ide.pruefungsmodus import restzeit_text
-from ide.pruefungsmodus import starten as pruefungsmodus_starten
 from ide.run import projekt_pruefen, projekt_starten
 from ide.run.pruefung import RuffFund
 from ide.shell.explorer import PFAD_ROLLE, ProjektExplorer
@@ -105,6 +102,9 @@ from ide.viewers import (
     TabellenAnsicht,
 )
 from pcl.form import Form
+from pcl.pruefungsmodus import laeuft as pruefungsmodus_laeuft
+from pcl.pruefungsmodus import restzeit_text
+from pcl.pruefungsmodus import starten as pruefungsmodus_starten
 from pcl.theme import theme_aufloesen
 
 _BILD_ENDUNGEN = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".svg"}

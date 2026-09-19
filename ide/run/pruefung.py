@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ide.project import Projekt
-from ide.pruefungsmodus import laeuft as pruefungsmodus_laeuft
+from pcl.pruefungsmodus import laeuft as pruefungsmodus_laeuft
 
 _AUSGEWAEHLTE_REGELN = "E9,F821,F401,F841"
 

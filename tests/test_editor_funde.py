@@ -167,7 +167,7 @@ def einstellungen(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> QSettings:
     """Eigene Ini - ein Test darf die echten Einstellungen des Rechners
     nicht verstellen."""
     datei = QSettings(str(tmp_path / "ide.ini"), QSettings.Format.IniFormat)
-    import ide.pruefungsmodus as modul
+    import pcl.pruefungsmodus as modul
 
     monkeypatch.setattr(modul, "einstellungen", lambda: datei)
     return datei
@@ -352,7 +352,7 @@ def test_zu_jedem_fund_steht_da_was_man_tun_kann(einstellungen: QSettings) -> No
 def test_im_pruefungsmodus_faellt_der_loesungsteil_weg(
     einstellungen: QSettings,
 ) -> None:
-    from ide.pruefungsmodus import starten
+    from pcl.pruefungsmodus import starten
 
     starten(einstellungen)
     fund = RuffFund(Path("main.py"), 3, 1, "F401", "`os` imported but unused")
