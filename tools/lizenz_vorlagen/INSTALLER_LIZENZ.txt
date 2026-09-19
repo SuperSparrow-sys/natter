@@ -1,0 +1,61 @@
+Natter - Lizenzbedingungen
+==========================
+
+Bitte lesen Sie die folgenden Bedingungen, bevor Sie fortfahren.
+
+
+1. Natter selbst
+----------------
+
+Natter ist eine Entwicklungsumgebung fuer den Informatikunterricht. Die
+Software wird unentgeltlich und ohne Gewaehrleistung ueberlassen. Es
+wird keine Haftung fuer Schaeden uebernommen, die aus der Benutzung
+entstehen, soweit dies gesetzlich zulaessig ist.
+
+Die vollstaendige Lizenz von Natter finden Sie nach der Installation in
+der Datei LICENSE im Installationsordner.
+
+
+2. Mitgelieferte Bibliotheken
+-----------------------------
+
+Natter bringt eine vollstaendige Python-Installation und eine Reihe
+freier Bibliotheken mit, damit auf dem Rechner nichts weiter
+eingerichtet werden muss. Diese stehen unter ihren eigenen Lizenzen:
+
+  * Qt fuer Python (PySide6)  -  LGPL-3.0
+  * Python selbst            -  Python Software Foundation License
+  * NumPy, pandas, matplotlib, SciPy, scikit-learn, joblib,
+    threadpoolctl            -  BSD-3-Clause
+  * SQLAlchemy, PyMySQL, jsonschema, libcst, debugpy, openpyxl,
+    jedi, ruff, PyInstaller  -  MIT bzw. Apache-2.0 und vergleichbare
+                                freizuegige Lizenzen
+
+Die vollstaendigen Lizenztexte aller mitgelieferten Bibliotheken liegen
+nach der Installation im Ordner "Lizenzen" im Installationsordner.
+
+Hinweis zur LGPL-3.0 (PySide6/Qt): Sie duerfen die mitgelieferte
+Qt-Bibliothek durch eine eigene Fassung ersetzen. Die dafuer noetigen
+Dateien liegen im Ordner python\Lib\site-packages\PySide6.
+
+
+3. Was installiert wird
+-----------------------
+
+Der Installer legt im gewaehlten Ordner ab:
+
+  * Natter.exe            - das Programm
+  * python\               - eine eigene Python-Installation, die nur zu
+                            Natter gehoert. Eine bereits vorhandene
+                            Python-Installation auf diesem Rechner wird
+                            nicht veraendert.
+  * Lizenzen\             - die Lizenztexte aus Abschnitt 2
+  * Beispielprojekte und Hilfeseiten
+
+Es werden keine Daten an Dritte uebermittelt. Natter benoetigt keine
+Internetverbindung, ausser wenn Sie ueber das Menue "Pakete" selbst
+zusaetzliche Python-Pakete nachinstallieren.
+
+
+Mit "Ich akzeptiere die Vereinbarung" erklaeren Sie sich mit diesen
+Bedingungen einverstanden.

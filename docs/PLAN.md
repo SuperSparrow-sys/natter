@@ -861,6 +861,21 @@ Ausdrücklicher Wunsch des Nutzers, gilt für jeden Schritt:
   deutsche Meldung; ein ungenutzter Import, der den Start verhinderte;
   und der Fehlerkatalog, der die Schüler nur über F5 erreichte
 
+- [x] **15.** M13 – **Vollwertige Installation und Installer**
+  (`docs/arbeitspakete/M13.md`), auf Nutzer-Wunsch nach M12: „der
+  Installer soll alles beinhalten, um das System vollumfänglich zu
+  installieren … beachte, dass in der Exe alle Dinge komplett machbar
+  sind, also auch pip und den Rest“. Statt eines eingefrorenen
+  PyInstaller-Bundles liefert Natter jetzt eine vollwertige,
+  verschiebbare CPython mit `pip` aus; damit arbeiten Paketverwaltung,
+  Exe-Export, Debugger und Vorstart-Prüfung in der installierten
+  Fassung wieder. Der Installer bringt die klassischen Seiten mit,
+  einschließlich anzunehmender Lizenz und Zielordner-Auswahl. Vier
+  Fehler waren am Quellbaum nicht zu sehen und kamen erst in der
+  fertigen Installation heraus – darunter eine Auslieferung, der ein
+  Dutzend Pakete fehlte, obwohl der Bau fehlerfrei durchlief, und eine
+  Integritätsprüfung, die still gar nicht mehr lief
+
 Zurückgestellt bleiben bewusst: Update-Mechanismus und
 CI/Release-Automatisierung (M8), ER-Diagramm, Syntaxdiagramm und
 `.dia`-Import (M9) – alle vier sind im jeweiligen Paket als

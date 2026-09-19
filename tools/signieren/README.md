@@ -41,6 +41,14 @@ uv run python -m tools.ide_paketieren
 powershell -ExecutionPolicy Bypass -File tools\signieren\datei_signieren.ps1 -Datei dist\installer\Natter-Setup.exe
 ```
 
+Der erste Befehl lädt beim allerersten Mal die mitgelieferte CPython
+herunter (rund 21 MB, danach zwischengespeichert) und installiert
+Natter samt aller Bibliotheken hinein - seit M13 ist die Auslieferung
+eine vollwertige Python-Installation und entsprechend groß
+(`dist\Natter` rund 1,2 GB, der fertige Installer rund 340 MB).
+Rechnen Sie für die ersten beiden Befehle zusammen mit einigen
+Minuten.
+
 `ide_paketieren.py` signiert `Natter.exe` automatisch (Schritt 1),
 sofern ein Zertifikat vorhanden ist - sonst nur eine Warnung, kein
 Abbruch. Der Installer selbst (`Natter-Setup.exe`) muss danach separat

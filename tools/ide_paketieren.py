@@ -1,7 +1,15 @@
-"""Baut Natter selbst (nicht ein Schülerprojekt) mit PyInstaller zu
-einer eigenständigen Exe - Vorstufe für den Installer aus
-`tools/natter.iss` (Nutzer-Feedback September 2026: „Natter als Exe
-nur zum Download auf z. B. einer Website, man installiert die Exe").
+"""Baut die auslieferbare Natter-Installation - Vorstufe für den
+Installer aus `tools/natter.iss` (Nutzer-Feedback September 2026:
+„Natter als Exe nur zum Download auf z. B. einer Website, man
+installiert die Exe").
+
+Seit M13 ist das **kein** eingefrorenes PyInstaller-Bundle mehr, sondern
+eine gewöhnliche, verschiebbare Python-Installation, in die Natter mit
+`pip install` hineingelegt wird. Nur so können die Paketverwaltung und
+„Als Exe exportieren" in der ausgelieferten Fassung überhaupt arbeiten:
+beide brauchen einen Python, den man auseinandernehmen kann (siehe
+`docs/arbeitspakete/M13.md`). PyInstaller baut nur noch den schlanken
+Starter `Natter.exe` aus `tools/launcher.py`.
 
 Anders als `ide/export/exporter.py` (baut ein in der laufenden IDE
 offenes Schülerprojekt, Menü „Projekt → Als Exe exportieren") baut
@@ -37,34 +45,22 @@ import sys
 from importlib.metadata import distributions
 from pathlib import Path
 
-import PySide6
-
 from ide.integritaet import manifest_schreiben
+from tools.python_beschaffen import python_beschaffen
 
 _PROJEKT_WURZEL = Path(__file__).resolve().parent.parent
 _DESIGN_ORDNER = _PROJEKT_WURZEL / "design"
 _SCHEMAS_ORDNER = _PROJEKT_WURZEL / "schemas"
 _ICONS_ORDNER = _PROJEKT_WURZEL / "ide" / "assets" / "icons"
 _TEMPLATES_ORDNER = _PROJEKT_WURZEL / "templates"
-_HARNESS_DATEI = _PROJEKT_WURZEL / "ide" / "testrunner" / "harness.py"
-_SCHRIFT_ORDNER = _PROJEKT_WURZEL / "ide" / "assets" / "fonts"
 _ICON = _ICONS_ORDNER / "app.ico"
-_HAUPTSKRIPT = _PROJEKT_WURZEL / "ide" / "__main__.py"
+_STARTER_SKRIPT = Path(__file__).resolve().parent / "launcher.py"
 _DIST_ORDNER = _PROJEKT_WURZEL / "dist"
 _AUSGABE = _DIST_ORDNER / "Natter"
 _BUILD_ORDNER = _PROJEKT_WURZEL / "_pyinstaller_build_ide"
 _SPEC_ORDNER = _PROJEKT_WURZEL / "_pyinstaller_spec_ide"
 _BEISPIEL_ORDNER = _PROJEKT_WURZEL / "beispielprojekte"
 _DOCS_ORDNER = _PROJEKT_WURZEL / "docs"
-#: Qts eigene deutsche Oberflächentexte (M11, Abschnitt 4): die
-#: Tastenkürzel in den Menüs, die Knöpfe der Standarddialoge, der
-#: Datei-Öffnen-Dialog. PyInstaller bindet die Übersetzungen nicht von
-#: selbst ein; ohne sie stünde in der gebauten Exe wieder „Ctrl+S“ und
-#: „Cancel“, während dasselbe Programm aus dem Quelltext deutsch ist.
-_QT_UEBERSETZUNGEN = (
-    Path(PySide6.__file__).resolve().parent / "translations"
-)
-
 _LIZENZ_VORLAGEN = Path(__file__).resolve().parent / "lizenz_vorlagen"
 _SIGNIER_SKRIPT = Path(__file__).resolve().parent / "signieren" / "datei_signieren.ps1"
 _MANIFEST_SCHLUESSEL = Path(__file__).resolve().parent / "signieren" / "manifest-privat.pem"
@@ -100,112 +96,162 @@ _LAUFZEIT_PAKETE = (
 )
 
 
-def _ruff_binaerdatei() -> Path:
-    """Der Pfad zu `ruff.exe` im aktuellen Python - die Datei, die ins
-    Bundle muss."""
-    from ruff import find_ruff_bin
+def _python_bereitstellen() -> Path:
+    """Kopiert die Standalone-CPython in den Ausgabeordner und liefert
+    den Pfad zu ihrer `python.exe`."""
+    ziel = _AUSGABE / "python"
+    if ziel.exists():
+        shutil.rmtree(ziel)
+    ziel.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(python_beschaffen(), ziel)
 
-    return Path(find_ruff_bin())
+    # `uv` legt in seine Python-Installationen einen PEP-668-Vermerk
+    # („extern verwaltet“), der jedes `pip install` ablehnt - richtig,
+    # solange uv sie verwaltet. Diese Kopie hier gehört aber zu Natter,
+    # und Natter verwaltet sie selbst. Bliebe der Vermerk liegen, wäre
+    # die Paketverwaltung in der ausgelieferten Fassung wieder tot -
+    # also genau das, was M13 beheben soll.
+    vermerk = ziel / "Lib" / "EXTERNALLY-MANAGED"
+    if vermerk.exists():
+        vermerk.unlink()
+
+    return ziel / "python.exe"
 
 
-def _pyinstaller_bauen() -> None:
+#: Umgebungsvariablen, die beim `pip install` in die mitgelieferte
+#: Python weg müssen – sie alle zeigen auf eine *andere*
+#: Python-Installation auf dem Baurechner.
+#:
+#: Der teuerste Eintrag ist `PYTHONUSERBASE`. Die gesetzt zu finden ist
+#: auf einem Entwicklerrechner normal (hier von der Windows-Store-
+#: Python), und sie wirkt an einer Stelle, an der man sie nicht sucht:
+#: **jede** Python 3.13 rechnet ihr Benutzer-Paketverzeichnis daraus
+#: aus, also auch die frisch ausgepackte in `dist`. Die sah dadurch die
+#: Pakete des Baurechners als ihre eigenen; pip meldete Zeile für Zeile
+#: „Requirement already satisfied“, installierte nur Natter selbst und
+#: gab 0 zurück. Der Bau lief fehlerfrei durch – heraus kam eine
+#: Auslieferung ohne `ruff`, `scipy`, `scikit-learn`, `cryptography`,
+#: `setuptools` und ein Dutzend weiterer Pakete, und damit ohne Prüfung
+#: vor dem Start, ohne Integritätsprüfung und ohne Exe-Export.
+#:
+#: Aufgefallen ist es erst beim Nachzählen der Pakete in der fertigen
+#: Auslieferung, nicht am Bau (M13).
+FREMDE_UMGEBUNG = ("PYTHONPATH", "PYTHONHOME", "PYTHONUSERBASE", "VIRTUAL_ENV")
+
+
+def _saubere_umgebung() -> dict[str, str]:
+    """Die Umgebung für einen `pip install` in die mitgelieferte Python.
+
+    Entfernt die Variablen aus `FREMDE_UMGEBUNG` und schaltet das
+    Benutzer-Paketverzeichnis ganz ab. Das Abschalten ist der Gürtel zum
+    Hosenträger: `PYTHONUSERBASE` zu löschen genügt für diesen
+    Baurechner, aber das Benutzerverzeichnis hat auch ohne sie einen
+    Vorgabewert, und dort liegende Pakete würden denselben Schaden
+    anrichten (M13).
+    """
+    umgebung = {
+        name: wert
+        for name, wert in os.environ.items()
+        if name.upper() not in FREMDE_UMGEBUNG
+    }
+    umgebung["PYTHONNOUSERSITE"] = "1"
+    return umgebung
+
+
+def _natter_installieren(python: Path) -> None:
+    """Installiert Natter samt Abhängigkeiten in die mitgelieferte
+    Python - ganz gewöhnlich mit `pip install`.
+
+    Dadurch liegt dort alles so, wie es auch im Entwicklungsbaum liegt;
+    `pip` und PyInstaller finden in der ausgelieferten Fassung eine
+    Umgebung vor, mit der sie arbeiten können (M13).
+    """
+    for schritt, argumente in (
+        ("Natter", [str(_PROJEKT_WURZEL)]),
+        # Für "Projekt -> Als Exe exportieren": PyInstaller gehört in
+        # die ausgelieferte Umgebung, nicht nur in den Entwicklungsbaum.
+        ("PyInstaller", ["pyinstaller"]),
+    ):
+        print(f"Installiere {schritt} in die mitgelieferte Python ...", flush=True)
+        # Ausgabe bewusst **nicht** eingefangen: ein Bau, der Minuten
+        # läuft, soll zeigen, wo er steht - und wenn etwas schiefgeht,
+        # will man pips eigene Zeilen sehen.
+        ergebnis = subprocess.run(
+            [
+                str(python),
+                "-m",
+                "pip",
+                "install",
+                "--no-warn-script-location",
+                "--disable-pip-version-check",
+                *argumente,
+            ],
+            env=_saubere_umgebung(),
+        )
+        if ergebnis.returncode != 0:
+            raise RuntimeError(
+                f"pip install {schritt} fehlgeschlagen (Rückgabewert "
+                f"{ergebnis.returncode}), siehe Ausgabe oben."
+            )
+
+
+def _datenordner_kopieren(python: Path) -> None:
+    """Legt die zur Laufzeit gelesenen Ordner neben die Pakete.
+
+    `ide/pfade.daten_ordner()` sucht sie eine Ebene über dem
+    `ide`-Paket - im Entwicklungsbaum ist das die Projektwurzel, in der
+    Installation `Lib/site-packages`. PyInstaller brauchte dafür
+    `--add-data`; hier genügt Kopieren.
+    """
+    site_packages = python.parent / "Lib" / "site-packages"
+    for quelle in (
+        _DESIGN_ORDNER,
+        _SCHEMAS_ORDNER,
+        _TEMPLATES_ORDNER,
+        _DOCS_ORDNER,
+        _BEISPIEL_ORDNER,
+    ):
+        ziel = site_packages / quelle.name
+        if ziel.exists():
+            shutil.rmtree(ziel)
+        shutil.copytree(quelle, ziel)
+
+
+def _starter_bauen() -> None:
+    """Baut `Natter.exe` aus `tools/launcher.py`.
+
+    Eine eigene, kleine Exe statt einer Verknüpfung direkt auf
+    `pythonw.exe`: so trägt das Programm sein eigenes Symbol, seine
+    Versionsangabe und seine Signatur.
+    """
     befehl = [
         sys.executable,
         "-m",
         "PyInstaller",
         "--noconfirm",
+        "--onefile",
         "--windowed",
         "--name",
         "Natter",
         "--icon",
         str(_ICON),
         "--distpath",
-        str(_DIST_ORDNER),
+        str(_DIST_ORDNER / "_starter"),
         "--workpath",
         str(_BUILD_ORDNER),
         "--specpath",
         str(_SPEC_ORDNER),
-        "--add-data",
-        f"{_DESIGN_ORDNER}{os.pathsep}design",
-        "--add-data",
-        f"{_SCHEMAS_ORDNER}{os.pathsep}schemas",
-        # ide/assets/symbole.py liest Symbole über einen quellcode-
-        # relativen Pfad (Path(__file__).resolve().parent / "icons"),
-        # nicht über einen Import - PyInstaller bindet solche
-        # Datendateien nie automatisch ein (dieselbe Art Fund wie bei
-        # design/tokens.json und schemas/*.json). Ziel entspricht
-        # exakt dem Paketpfad, damit __file__ im gebauten Bundle
-        # weiterhin dorthin zeigt.
-        "--add-data",
-        f"{_ICONS_ORDNER}{os.pathsep}ide/assets/icons",
-        # Dieselbe Art Fund wie bei den Symbolen, in der gebauten Exe
-        # gemessen (M12): drei weitere Datenpfade fehlten, und jeder
-        # kostete eine Funktion.
-        #
-        # * `templates/` - ohne sie endete "Neues Projekt ..." in einem
-        #   FileNotFoundError. In der installierten Natter liess sich
-        #   also überhaupt kein Projekt anlegen.
-        # * `harness.py` - der Testrunner startet sie als eigenen
-        #   Prozess; ohne sie lief "Alle Tests ausführen" ins Leere.
-        # * die Schriftdatei - ohne sie fällt der Editor auf eine andere
-        #   Schrift zurück, obwohl Natter Cascadia Code ausdrücklich
-        #   mitbringen soll, damit nichts installiert werden muss.
-        "--add-data",
-        f"{_TEMPLATES_ORDNER}{os.pathsep}templates",
-        "--add-data",
-        f"{_HARNESS_DATEI}{os.pathsep}ide/testrunner",
-        "--add-data",
-        f"{_SCHRIFT_ORDNER}{os.pathsep}ide/assets/fonts",
-        # Die zehn Beispielprojekte und die Anleitung. Das Startbild
-        # (M11) bietet beide an; ohne sie stuende dort in einer
-        # installierten Natter ein leerer Abschnitt, und genau die
-        # Beispiele sind der schnellste Weg hinein.
-        "--add-data",
-        f"{_BEISPIEL_ORDNER}{os.pathsep}beispielprojekte",
-        "--add-data",
-        f"{_DOCS_ORDNER}{os.pathsep}docs",
-        # Ziel exakt der Paketpfad: `QLibraryInfo.path(TranslationsPath)`
-        # zeigt im Bundle dorthin, und `ide/deutsch.py` sucht dort.
-        "--add-data",
-        f"{_QT_UEBERSETZUNGEN}{os.pathsep}PySide6/translations",
-        # scikit-learn kommt sonst gar nicht mit. Nachgemessen (M10):
-        # steht es nur in pyproject.toml, zieht PyInstaller allein
-        # `scipy` hinein - weil numpy/matplotlib es über ihre Hooks
-        # finden -, und die Exe wächst um 70 MB, ohne dass `import
-        # sklearn` im gebauten Programm funktioniert. Das wäre das
-        # Schlechteste aus beiden Welten: der Platz weg, der Nutzen
-        # nicht da. Natter selbst braucht sklearn nicht (die Regression
-        # rechnet über numpy.polyfit); es liegt für Fortgeschrittene
-        # bei, so wie im Arbeitspaket M10 entschieden.
-        # `ruff` und `debugpy` ruft Natter nur als Unterprozess auf,
-        # importiert sie also nirgends - PyInstaller findet sie deshalb
-        # nicht von allein und ließ sie bis M12 einfach weg. In der
-        # installierten Natter gab es damit weder die Prüfung vor dem
-        # Start noch den Debugger.
-        "--collect-all",
-        "debugpy",
-        # `ruff` ist ein Sonderfall: das Python-Paket ist nur ein
-        # **Finder**, der `ruff.exe` in den `Scripts`-Ordnern sucht. Die
-        # gibt es in der Exe nicht, `--collect-all ruff` brachte also
-        # nur den Finder mit und die Prüfung endete in `RuffNotFound`
-        # (in der gebauten Exe nachgemessen). Deshalb die Binärdatei
-        # selbst ins Bundle; `ide/run/interpreter.py` ruft sie direkt
-        # auf, ohne Umweg über Python.
-        "--add-binary",
-        f"{_ruff_binaerdatei()}{os.pathsep}.",
-        "--collect-all",
-        "sklearn",
-        "--collect-all",
-        "joblib",
-        "--collect-all",
-        "threadpoolctl",
-        str(_HAUPTSKRIPT),
+        str(_STARTER_SKRIPT),
     ]
     ergebnis = subprocess.run(befehl, cwd=_PROJEKT_WURZEL)
     shutil.rmtree(_BUILD_ORDNER, ignore_errors=True)
     shutil.rmtree(_SPEC_ORDNER, ignore_errors=True)
     if ergebnis.returncode != 0:
-        raise RuntimeError("PyInstaller-Build fehlgeschlagen, siehe Ausgabe oben.")
+        raise RuntimeError("Der Bau des Starters ist fehlgeschlagen, siehe Ausgabe oben.")
+
+    quelle = _DIST_ORDNER / "_starter" / "Natter.exe"
+    shutil.copy2(quelle, _AUSGABE / "Natter.exe")
+    shutil.rmtree(_DIST_ORDNER / "_starter", ignore_errors=True)
 
 
 def _lizenzen_sammeln(ziel: Path) -> None:
@@ -214,6 +260,11 @@ def _lizenzen_sammeln(ziel: Path) -> None:
     `LICENSE*`/`COPYING*` im Paketordner) in `ziel`."""
     ziel.mkdir(parents=True, exist_ok=True)
     for datei in _LIZENZ_VORLAGEN.iterdir():
+        # Die INSTALLER_*-Texte sind Seiten des Installers (Lizenz,
+        # Hinweis vor der Installation), keine Lizenz einer Bibliothek -
+        # sie gehören nicht in den Lizenzen-Ordner der Installation.
+        if datei.name.startswith("INSTALLER_"):
+            continue
         shutil.copy2(datei, ziel / datei.name)
 
     gesehen: set[str] = set()
@@ -296,7 +347,12 @@ def _manifest_schreiben(ordner: Path) -> None:
 
 
 def paketieren(*, signieren: bool = True) -> Path:
-    _pyinstaller_bauen()
+    if _AUSGABE.exists():
+        shutil.rmtree(_AUSGABE)
+    python = _python_bereitstellen()
+    _natter_installieren(python)
+    _datenordner_kopieren(python)
+    _starter_bauen()
     _lizenzen_sammeln(_AUSGABE / "Lizenzen")
     if signieren:
         _exe_signieren(_AUSGABE / "Natter.exe")

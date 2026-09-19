@@ -8,6 +8,7 @@ gebraucht werden.
 """
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -46,18 +47,36 @@ def schluesselpaar(tmp_path: Path) -> tuple[Path, str]:
     return privat_pfad, oeffentlich
 
 
+#: Der Pfad, unter dem die Pakete der mitgelieferten Python liegen.
+SP = "python/Lib/site-packages"
+
+
+def _legen(ordner: Path, pfad: str, inhalt: bytes) -> Path:
+    ziel = ordner / pfad
+    ziel.parent.mkdir(parents=True, exist_ok=True)
+    ziel.write_bytes(inhalt)
+    return ziel
+
+
 @pytest.fixture
 def programm(tmp_path: Path) -> Path:
-    """Ein Programmordner im Aufbau einer gebauten Installation."""
+    """Ein Programmordner im Aufbau einer gebauten Installation.
+
+    Seit M13 ist das kein eingefrorenes Bundle mehr, sondern
+    `Natter.exe` neben einer gewöhnlichen Python-Installation - der
+    Aufbau, den `tools/ide_paketieren.py` erzeugt.
+    """
     ordner = tmp_path / "Natter"
-    (ordner / "_internal").mkdir(parents=True)
-    (ordner / "benutzer").mkdir()
-    (ordner / "pakete-zusatz").mkdir()
-    (ordner / "Natter.exe").write_bytes(b"exe-inhalt")
-    (ordner / "_internal" / "base_library.zip").write_bytes(b"stdlib")
-    (ordner / "_internal" / "qt.dll").write_bytes(b"qt")
-    (ordner / "benutzer" / "mein_projekt.natter").write_text("{}", encoding="utf-8")
-    (ordner / "pakete-zusatz" / "extra.py").write_text("x = 1", encoding="utf-8")
+    _legen(ordner, "Natter.exe", b"exe-inhalt")
+    _legen(ordner, "python/pythonw.exe", b"pythonw")
+    _legen(ordner, "python/Lib/os.py", b"stdlib")
+    _legen(ordner, f"{SP}/ide/main.py", b"ide")
+    _legen(ordner, f"{SP}/pcl/application.py", b"pcl")
+    # Eine mitgelieferte Fremdbibliothek: sie darf sich ändern, ohne
+    # dass Natter als verändert gilt.
+    _legen(ordner, f"{SP}/numpy/__init__.py", b"numpy")
+    _legen(ordner, "benutzer/mein_projekt.natter", b"{}")
+    _legen(ordner, "pakete-zusatz/extra.py", b"x = 1")
     return ordner
 
 
@@ -70,7 +89,13 @@ def test_manifest_erfasst_programmdateien_ohne_benutzerordner(programm: Path) ->
     `pakete-zusatz/`)“ – dort ändert sich bestimmungsgemäß etwas."""
     dateien = manifest_erstellen(programm)["dateien"]
 
-    assert set(dateien) == {"Natter.exe", "_internal/base_library.zip", "_internal/qt.dll"}
+    assert set(dateien) == {
+        "Natter.exe",
+        "python/pythonw.exe",
+        "python/Lib/os.py",
+        f"{SP}/ide/main.py",
+        f"{SP}/pcl/application.py",
+    }
 
 
 def test_unveraenderte_installation_ist_in_ordnung(programm, schluesselpaar) -> None:
@@ -98,34 +123,34 @@ def test_veraenderte_datei_wird_erkannt(programm, schluesselpaar) -> None:
     """Das M8-Abnahmekriterium: „veränderte Datei wird erkannt“."""
     privat, oeffentlich = schluesselpaar
     manifest_schreiben(programm, privat)
-    (programm / "_internal" / "qt.dll").write_bytes(b"manipuliert")
+    (programm / "python" / "Lib" / "os.py").write_bytes(b"manipuliert")
 
     ergebnis = _pruefen(programm, oeffentlich)
 
     assert not ergebnis.in_ordnung
-    assert ergebnis.veraendert == ["_internal/qt.dll"]
+    assert ergebnis.veraendert == ["python/Lib/os.py"]
     assert ergebnis.als_meldung().startswith("Natter wurde nach der Erstellung verändert:")
-    assert "_internal/qt.dll (verändert)" in ergebnis.als_meldung()
+    assert "python/Lib/os.py (verändert)" in ergebnis.als_meldung()
 
 
 def test_fehlende_datei_wird_erkannt(programm, schluesselpaar) -> None:
     privat, oeffentlich = schluesselpaar
     manifest_schreiben(programm, privat)
-    (programm / "_internal" / "qt.dll").unlink()
+    (programm / "python" / "Lib" / "os.py").unlink()
 
     ergebnis = _pruefen(programm, oeffentlich)
 
-    assert ergebnis.fehlend == ["_internal/qt.dll"]
+    assert ergebnis.fehlend == ["python/Lib/os.py"]
 
 
 def test_fremde_datei_wird_erkannt(programm, schluesselpaar) -> None:
     privat, oeffentlich = schluesselpaar
     manifest_schreiben(programm, privat)
-    (programm / "_internal" / "eingeschleust.dll").write_bytes(b"fremd")
+    (programm / "python" / "Lib" / "eingeschleust.py").write_bytes(b"fremd")
 
     ergebnis = _pruefen(programm, oeffentlich)
 
-    assert ergebnis.fremd == ["_internal/eingeschleust.dll"]
+    assert ergebnis.fremd == ["python/Lib/eingeschleust.py"]
 
 
 def test_datei_im_benutzerordner_loest_keinen_alarm_aus(programm, schluesselpaar) -> None:
@@ -141,12 +166,12 @@ def test_manipuliertes_manifest_faellt_ueber_die_signatur_auf(programm, schluess
     anpassen – das macht die Signatur ungültig."""
     privat, oeffentlich = schluesselpaar
     manifest_schreiben(programm, privat)
-    (programm / "_internal" / "qt.dll").write_bytes(b"manipuliert")
+    (programm / "python" / "Lib" / "os.py").write_bytes(b"manipuliert")
 
     manifest_pfad = programm / MANIFEST_DATEINAME
     daten = json.loads(manifest_pfad.read_text(encoding="utf-8"))
-    neue_summe = manifest_erstellen(programm)["dateien"]["_internal/qt.dll"]
-    daten["manifest"]["dateien"]["_internal/qt.dll"] = neue_summe
+    neue_summe = manifest_erstellen(programm)["dateien"]["python/Lib/os.py"]
+    daten["manifest"]["dateien"]["python/Lib/os.py"] = neue_summe
     manifest_pfad.write_text(json.dumps(daten), encoding="utf-8")
 
     ergebnis = _pruefen(programm, oeffentlich)
@@ -160,7 +185,7 @@ def test_schnelle_pruefung_sieht_nur_die_kerndateien(programm, schluesselpaar) -
     erst beim ersten Start bzw. über „Werkzeuge → Umgebung prüfen“."""
     privat, oeffentlich = schluesselpaar
     manifest_schreiben(programm, privat)
-    (programm / "_internal" / "qt.dll").write_bytes(b"manipuliert")
+    (programm / "python" / "Lib" / "os.py").write_bytes(b"manipuliert")
 
     assert _pruefen(programm, oeffentlich, nur_kern=True).in_ordnung
     assert not _pruefen(programm, oeffentlich, nur_kern=False).in_ordnung
@@ -174,9 +199,143 @@ def test_schnelle_pruefung_erkennt_eine_veraenderte_exe(programm, schluesselpaar
     assert not _pruefen(programm, oeffentlich, nur_kern=True).in_ordnung
 
 
+# -- Die mitgelieferte Python-Installation (M13) ---------------------------
+
+
+def test_uebersetzte_module_zaehlen_nicht(programm, schluesselpaar) -> None:
+    """Python legt neben jedem Modul eine `.pyc` ab, sobald es das erste
+    Mal importiert wird. Seit M13 liegt eine echte Python-Installation
+    bei - in der gebauten Auslieferung nachgemessen waren es über
+    achtzig solcher Dateien, bevor überhaupt ein Fenster offen war.
+    Zählten sie mit, wäre jede Installation nach dem ersten Start
+    „verändert“."""
+    privat, oeffentlich = schluesselpaar
+    manifest_schreiben(programm, privat)
+    _legen(programm, f"{SP}/ide/__pycache__/main.cpython-313.pyc", b"uebersetzt")
+    _legen(programm, "python/Lib/__pycache__/os.cpython-313.pyc", b"uebersetzt")
+
+    assert _pruefen(programm, oeffentlich).in_ordnung
+
+
+def test_selbst_nachinstalliertes_paket_loest_keinen_alarm_aus(
+    programm, schluesselpaar
+) -> None:
+    """Das Menü „Pakete“ ist eine vorgesehene Funktion. Was ein Schüler
+    darüber holt, landet seit M13 ganz normal in `site-packages`."""
+    privat, oeffentlich = schluesselpaar
+    manifest_schreiben(programm, privat)
+    _legen(programm, f"{SP}/requests/__init__.py", b"requests")
+
+    assert _pruefen(programm, oeffentlich).in_ordnung
+
+
+def test_eine_angehobene_bibliothek_loest_keinen_alarm_aus(programm, schluesselpaar) -> None:
+    """`pip` löst beim Nachinstallieren Abhängigkeiten mit auf und hebt
+    dabei ohne Rückfrage etwa numpy an. Stünde das unter Aufsicht,
+    forderte Natter danach bei jedem Start zur Neuinstallation auf."""
+    privat, oeffentlich = schluesselpaar
+    manifest_schreiben(programm, privat)
+    _legen(programm, f"{SP}/numpy/__init__.py", b"neuere fassung")
+
+    assert _pruefen(programm, oeffentlich).in_ordnung
+
+
+def test_eingeschleuster_code_in_natters_eigenen_paketen_faellt_auf(
+    programm, schluesselpaar
+) -> None:
+    """Die Gegenprobe zu den drei Tests darüber: in `ide` und `pcl`
+    steht Natters eigener Code, und dort hat nichts Neues zu suchen."""
+    privat, oeffentlich = schluesselpaar
+    manifest_schreiben(programm, privat)
+    _legen(programm, f"{SP}/ide/eingeschleust.py", b"boeser code")
+
+    ergebnis = _pruefen(programm, oeffentlich)
+
+    assert ergebnis.fremd == [f"{SP}/ide/eingeschleust.py"]
+
+
+def test_die_schnelle_pruefung_sieht_natters_eigenen_code(programm, schluesselpaar) -> None:
+    """Abschnitt 17.8 zählt „IDE-Code, `pcl`“ ausdrücklich zur schnellen
+    Prüfung. Seit M13 liegen beide in `site-packages` statt neben der
+    Exe - ohne eigene Regel fielen sie aus der Prüfung bei jedem Start
+    heraus."""
+    privat, oeffentlich = schluesselpaar
+    manifest_schreiben(programm, privat)
+    _legen(programm, f"{SP}/pcl/application.py", b"manipuliert")
+
+    ergebnis = _pruefen(programm, oeffentlich, nur_kern=True)
+
+    # Ausdrücklich „verändert“ und nicht bloß „nicht in Ordnung“: fiele
+    # `pcl` aus den Kerndateien heraus, stünde dieselbe Datei als
+    # „zusätzlich“ da - auch ein Alarm, aber der falsche.
+    assert ergebnis.veraendert == [f"{SP}/pcl/application.py"]
+    assert ergebnis.fremd == []
+
+
+def test_die_schnelle_pruefung_liest_die_standardbibliothek_nicht(
+    programm, schluesselpaar, monkeypatch
+) -> None:
+    """Sie läuft bei jedem Start. Die mitgelieferte Python bringt gut
+    dreißigtausend Dateien mit; würden die alle gelesen, dauerte jeder
+    Start Sekunden länger (in der Auslieferung gemessen: 2,7 s gegen
+    0,07 s)."""
+    privat, oeffentlich = schluesselpaar
+    manifest_schreiben(programm, privat)
+
+    gelesen: list[str] = []
+    echtes_lesen = Path.read_bytes
+
+    def _mitschreiben(self: Path) -> bytes:
+        gelesen.append(self.as_posix())
+        return echtes_lesen(self)
+
+    monkeypatch.setattr(Path, "read_bytes", _mitschreiben)
+    _pruefen(programm, oeffentlich, nur_kern=True)
+
+    assert not [pfad for pfad in gelesen if pfad.endswith("python/Lib/os.py")]
+
+
 def test_fehlendes_manifest_meldet_einen_eigenen_fehler(programm) -> None:
     with pytest.raises(ManifestFehler):
         manifest_pruefen(programm)
+
+
+def test_der_uninstaller_loest_keinen_alarm_aus(programm, schluesselpaar) -> None:
+    """Inno Setup legt `unins000.exe` und `unins000.dat` neben
+    `Natter.exe` - erst *während* der Installation, also lange nachdem
+    das Manifest beim Bau geschrieben wurde. Ohne Ausnahme begrüßte
+    jede frisch installierte Natter den Schüler mit „Natter wurde nach
+    der Erstellung verändert" und der Aufforderung, neu zu
+    installieren; die neue Installation legte den Uninstaller prompt
+    wieder an (M13, an einer echten Installation aufgefallen)."""
+    privat, oeffentlich = schluesselpaar
+    manifest_schreiben(programm, privat)
+    _legen(programm, "unins000.exe", b"uninstaller")
+    _legen(programm, "unins000.dat", b"eintraege")
+
+    assert _pruefen(programm, oeffentlich, nur_kern=True).in_ordnung
+    assert _pruefen(programm, oeffentlich).in_ordnung
+
+
+def test_die_ausgelieferte_installation_wird_erkannt(programm, schluesselpaar, monkeypatch):
+    """Seit M13 läuft Natter als gewöhnliches `pythonw.exe -m ide`.
+    `sys.frozen` gibt es dort nicht mehr - würde weiter danach gefragt,
+    fiele die Prüfung in der ausgelieferten Fassung stillschweigend ganz
+    aus, und bemerkt hätte das niemand: sie meldet sich ja nur, wenn
+    etwas nicht stimmt."""
+    privat, _ = schluesselpaar
+    manifest_schreiben(programm, privat)
+    monkeypatch.setattr(sys, "executable", str(programm / "python" / "pythonw.exe"))
+
+    assert programmordner() == programm
+
+
+def test_ohne_manifest_daneben_gilt_es_nicht_als_installation(programm, monkeypatch) -> None:
+    """Die Gegenprobe: im Entwicklungsbaum zeigt derselbe Weg auf
+    `.venv`, und dort liegt kein Manifest."""
+    monkeypatch.setattr(sys, "executable", str(programm / "python" / "pythonw.exe"))
+
+    assert programmordner() is None
 
 
 def test_im_entwicklungsbaum_wird_nicht_geprueft() -> None:
@@ -215,7 +374,7 @@ def test_veraenderte_installation_fragt_vor_dem_start_nach(monkeypatch) -> None:
     monkeypatch.setattr(
         ide_main,
         "installation_pruefen",
-        lambda *a, **k: PruefErgebnis(signatur_gueltig=True, veraendert=["_internal/qt.dll"]),
+        lambda *a, **k: PruefErgebnis(signatur_gueltig=True, veraendert=["python/Lib/os.py"]),
     )
     _app, fenster = ide_main.erstellen()
 
@@ -232,7 +391,7 @@ def test_werkzeuge_umgebung_pruefen_listet_betroffene_dateien(monkeypatch) -> No
         hauptfenster_modul,
         "installation_pruefen",
         lambda *a, **k: PruefErgebnis(
-            signatur_gueltig=True, veraendert=["_internal/qt.dll"], fehlend=["Lizenzen/Qt.txt"]
+            signatur_gueltig=True, veraendert=["python/Lib/os.py"], fehlend=["Lizenzen/Qt.txt"]
         ),
     )
     fenster = HauptFenster()
@@ -242,5 +401,5 @@ def test_werkzeuge_umgebung_pruefen_listet_betroffene_dateien(monkeypatch) -> No
     eintraege = [
         fenster.meldungen_liste.item(i).text() for i in range(fenster.meldungen_liste.count())
     ]
-    assert "[Umgebung] _internal/qt.dll" in eintraege
+    assert "[Umgebung] python/Lib/os.py" in eintraege
     assert "[Umgebung] Lizenzen/Qt.txt" in eintraege

@@ -18,8 +18,6 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from ide.run.interpreter import ist_gebaut
-
 
 @dataclass(frozen=True)
 class Paket:
@@ -27,18 +25,19 @@ class Paket:
     version: str
 
 
-#: Warum die Paketverwaltung in der gebauten Exe nicht arbeiten kann.
+#: Ergänzung zur pip-Meldung, wenn das Installationsverzeichnis
+#: schreibgeschützt ist.
 #:
-#: Sie läuft über `pip` im laufenden Python. Die `Natter.exe` bringt
-#: ihren Python fest eingebaut mit; dort ist kein `pip`, und ein
-#: nachträglich installiertes Paket läge in einem Ordner, den die Exe
-#: beim nächsten Start gar nicht mehr ansieht. Bis M12 rief sie
-#: stattdessen `sys.executable` auf - und das ist in der Exe die Exe
-#: selbst, es ging also ein zweites Natter-Fenster auf (M12).
-GEBAUT_HINWEIS = (
-    "Die Paketverwaltung arbeitet über pip und steht in der installierten "
-    "Natter-Version nicht zur Verfügung: dort ist Python fest eingebaut. "
-    "Alles, was der Unterricht braucht, ist bereits enthalten."
+#: Natter liegt seit M13 als gewöhnliche Python-Installation vor, pip
+#: arbeitet also wieder ganz normal. Nur: wer Natter systemweit nach
+#: `C:\Programme` installiert hat, darf dort ohne Administratorrechte
+#: nicht hineinschreiben. Die Voreinstellung des Installers ist deshalb
+#: die Installation nur für den angemeldeten Nutzer.
+KEIN_SCHREIBRECHT_HINWEIS = (
+    " Natter ist in einem Ordner installiert, in den ohne "
+    "Administratorrechte nicht geschrieben werden darf. Pakete lassen "
+    "sich nur nachinstallieren, wenn Natter nur für den angemeldeten "
+    "Nutzer installiert ist."
 )
 
 
@@ -54,8 +53,6 @@ def installierte_pakete() -> list[Paket]:
     `CalledProcessError` bis zur IDE durchschlagen, statt wie
     `paket_installieren()` einen sauberen Fehler mit `pip`s eigener
     Meldung zu liefern)."""
-    if ist_gebaut():
-        raise PaketFehler(GEBAUT_HINWEIS)
     ergebnis = subprocess.run(
         [sys.executable, "-m", "pip", "list", "--format=json"],
         capture_output=True,
@@ -70,24 +67,34 @@ def installierte_pakete() -> list[Paket]:
 def paket_installieren(name: str) -> str:
     """Installiert `name` per `pip install`. Liefert `pip`s Ausgabe bei
     Erfolg, löst `PaketFehler` bei Misserfolg aus."""
-    if ist_gebaut():
-        raise PaketFehler(GEBAUT_HINWEIS)
     ergebnis = subprocess.run(
         [sys.executable, "-m", "pip", "install", name],
         capture_output=True,
         text=True,
     )
     if ergebnis.returncode != 0:
-        raise PaketFehler(ergebnis.stderr.strip() or ergebnis.stdout.strip())
+        raise PaketFehler(_mit_rechtehinweis(ergebnis))
     return ergebnis.stdout
+
+
+def _mit_rechtehinweis(ergebnis: subprocess.CompletedProcess) -> str:
+    """`pip`s eigene Meldung, bei fehlenden Schreibrechten ergänzt.
+
+    `pip` schreibt in diesem Fall nur „Could not install packages due to
+    an OSError: [Errno 13] Permission denied“ - richtig, aber ohne den
+    entscheidenden Hinweis, woran es liegt (M13).
+    """
+    meldung = ergebnis.stderr.strip() or ergebnis.stdout.strip()
+    zeichen = ("Permission denied", "Errno 13", "WinError 5", "Zugriff verweigert")
+    if any(z in meldung for z in zeichen):
+        return meldung + KEIN_SCHREIBRECHT_HINWEIS
+    return meldung
 
 
 def paketliste_exportieren(pfad: str | Path) -> None:
     """Schreibt `pip freeze` nach `pfad` (Abschnitt 7.2: „Paketliste
     exportieren (requirements.txt)“). Löst `PaketFehler` aus, wenn `pip`
     fehlschlägt (siehe `installierte_pakete`)."""
-    if ist_gebaut():
-        raise PaketFehler(GEBAUT_HINWEIS)
     ergebnis = subprocess.run(
         [sys.executable, "-m", "pip", "freeze"],
         capture_output=True,

@@ -29,7 +29,6 @@ from pathlib import Path
 
 import pcl
 from ide.project import Projekt
-from ide.run.interpreter import ist_gebaut
 
 _GUI_PROJEKTTYPEN = {"gui", "gui_db"}
 
@@ -53,22 +52,6 @@ def exe_exportieren(projekt: Projekt, ziel_ordner: Path | None = None) -> Export
     (Standard: `<projekt>/dist`). PyInstaller-eigene Zwischenstände
     (`build/`, `.spec`) landen in temporären Unterordnern und werden
     danach wieder entfernt, damit das Projekt sauber bleibt."""
-    if ist_gebaut():
-        # PyInstaller braucht eine vollständige Python-Installation samt
-        # Paketordnern. Die `Natter.exe` hat ihren Python fest eingebaut
-        # und kann ihn nicht wieder auseinandernehmen. Bis M12 rief der
-        # Export `sys.executable` auf - in der Exe also sich selbst, und
-        # es ging bloß ein zweites Natter-Fenster auf (M12).
-        return ExportErgebnis(
-            erfolgreich=False,
-            ausgabe_pfad=None,
-            protokoll=(
-                "Der Exe-Export braucht eine eigene Python-Installation und steht "
-                "in der installierten Natter-Version nicht zur Verfügung. Er "
-                "funktioniert, wenn Natter aus dem Quelltext gestartet wird."
-            ),
-        )
-
     export_optionen = projekt.daten.get("export", {})
     dist_pfad = ziel_ordner if ziel_ordner is not None else projekt.ordner / "dist"
     arbeits_pfad = projekt.ordner / "_pyinstaller_build"

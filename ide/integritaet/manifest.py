@@ -26,6 +26,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -41,6 +42,30 @@ FORMAT = "natter-manifest/1"
 #: Schülerdateien bzw. selbst nachinstallierte Pakete, die sich
 #: bestimmungsgemäß ändern.
 AUSGENOMMENE_ORDNER = ("benutzer", "pakete-zusatz")
+
+#: Wo `pip` die selbst nachinstallierten Pakete ablegt (M13).
+#:
+#: Mit dem eingefrorenen Bundle gab es dafür `pakete-zusatz`. Seit M13
+#: liegt eine gewöhnliche Python-Installation bei, und was ein Schüler
+#: über das Menü „Pakete“ holt, landet ganz normal hier.
+SITE_PACKAGES = "python/Lib/site-packages/"
+
+#: Was innerhalb von `site-packages` zu Natter selbst gehört. Nur hier
+#: ist eine *zusätzliche* Datei ein Grund zur Sorge; überall sonst in
+#: `site-packages` ist sie das erwartete Ergebnis einer Installation.
+NATTER_EIGEN = ("ide", "pcl", "design", "schemas", "templates")
+
+#: Der Uninstaller, den Inno Setup neben `Natter.exe` legt
+#: (`unins000.exe`, `unins000.dat`, bei mehrfacher Installation auch
+#: `unins001.…`).
+#:
+#: Er entsteht **während** der Installation und kann deshalb gar nicht
+#: im Manifest stehen, das beim Bau geschrieben wird. Ohne diese
+#: Ausnahme begrüßte jede frisch installierte Natter den Schüler mit
+#: „Natter wurde nach der Erstellung verändert" und der Aufforderung,
+#: neu zu installieren - was den Uninstaller prompt wieder anlegt
+#: (M13, an einer echten Installation aufgefallen).
+UNINSTALLER_ANFANG = "unins"
 
 #: Der Lösungsteil an der Meldung aus Abschnitt 17.8. Dass etwas nicht
 #: stimmt, sagt der feste Anfang; wer das an einem Schulrechner liest,
@@ -60,22 +85,87 @@ class ManifestFehler(Exception):
 def _erfasst(relativer_pfad: str) -> bool:
     if relativer_pfad == MANIFEST_DATEINAME:
         return False  # das Manifest kann sich nicht selbst enthalten
+    # Python legt neben jedem Modul die übersetzte Fassung ab, sobald es
+    # das erste Mal importiert wird. Das ist abgeleitetes Zeug, das beim
+    # bloßen Benutzen von Natter entsteht - stünde es im Manifest, wäre
+    # die Installation schon nach dem ersten Start „verändert“ (M13, in
+    # der gebauten Auslieferung nachgemessen: über achtzig Meldungen,
+    # bevor überhaupt ein Fenster offen war).
+    if "__pycache__/" in relativer_pfad:
+        return False
+    if ist_nachinstalliert(relativer_pfad):
+        return False
+    if "/" not in relativer_pfad and relativer_pfad.startswith(UNINSTALLER_ANFANG):
+        return False
     return relativer_pfad.split("/", 1)[0] not in AUSGENOMMENE_ORDNER
+
+
+def ist_nachinstalliert(relativer_pfad: str) -> bool:
+    """Ob die Datei zu einem Paket gehört, das jemand selbst
+    nachinstalliert haben kann.
+
+    Solche Dateien kommen gar nicht erst ins Manifest. `pip` löst beim
+    Nachinstallieren Abhängigkeiten mit auf und hebt dabei ohne
+    Rückfrage etwa numpy oder setuptools an - eine ganz gewöhnliche
+    Folge des Menüs „Pakete“. Stünden die mitgelieferten Bibliotheken
+    unter Aufsicht, bekäme der Schüler danach bei jedem Start zu lesen,
+    Natter sei verändert worden und müsse neu installiert werden.
+
+    Unter Aufsicht bleibt, was Natter selbst ist: `Natter.exe`, die
+    mitgelieferte Python und die Pakete aus `NATTER_EIGEN`. Taucht dort
+    etwas Neues auf, hat es jemand hineingelegt.
+    """
+    if not relativer_pfad.startswith(SITE_PACKAGES):
+        return False
+    rest = relativer_pfad[len(SITE_PACKAGES) :]
+    return rest.split("/", 1)[0] not in NATTER_EIGEN
 
 
 def ist_kerndatei(relativer_pfad: str) -> bool:
     """Die Dateien der schnellen Prüfung bei jedem Start (Abschnitt
-    17.8: „Starter-Umfeld, Python, IDE-Code, `pcl` – schnell“): alles
-    direkt neben der Exe sowie die gebündelte Python-Standardbibliothek.
-    Die vollständige Prüfung über alle Dateien läuft beim ersten Start
-    und über „Werkzeuge → Umgebung prüfen“."""
-    return "/" not in relativer_pfad or relativer_pfad == "_internal/base_library.zip"
+    17.8: „Starter-Umfeld, Python, IDE-Code, `pcl` – schnell“).
+
+    Seit M13 sind das drei Gruppen: `Natter.exe` selbst, der Kern der
+    mitgelieferten Python (`python.exe`, `pythonw.exe`, `python313.dll`
+    - alles unmittelbar in `python\\`) sowie der Programmcode von Natter
+    in `ide` und `pcl`. Die gebündelte Standardbibliothek liegt jetzt
+    als einzelne Dateien in `python/Lib` statt als eine Zip-Datei und
+    wäre für „schnell“ zu viel; sie fällt in die vollständige Prüfung,
+    die beim ersten Start und über „Werkzeuge → Umgebung prüfen“ läuft.
+    """
+    if "/" not in relativer_pfad:
+        return True
+    if relativer_pfad.startswith("python/") and relativer_pfad.count("/") == 1:
+        return True
+    return any(relativer_pfad.startswith(f"{SITE_PACKAGES}{paket}/") for paket in ("ide", "pcl"))
 
 
-def manifest_erstellen(programmordner: Path) -> dict:
-    """SHA-256 je Programmdatei, relativ zu `programmordner`."""
+def _kandidaten(programmordner: Path, *, nur_kern: bool) -> Iterator[Path]:
+    """Die Dateien, die überhaupt angesehen werden.
+
+    Für die schnelle Prüfung wird hier schon **eingeschränkt gesucht**,
+    nicht erst hinterher gefiltert. Die mitgelieferte Python bringt gut
+    dreißigtausend Dateien mit; allein durch die hindurchzulaufen kostet
+    Sekunden, und die schnelle Prüfung läuft bei jedem Start (M13).
+    """
+    if not nur_kern:
+        yield from programmordner.rglob("*")
+        return
+    yield from programmordner.glob("*")
+    yield from (programmordner / "python").glob("*")
+    for paket in ("ide", "pcl"):
+        yield from (programmordner / SITE_PACKAGES / paket).rglob("*")
+
+
+def manifest_erstellen(programmordner: Path, *, nur_kern: bool = False) -> dict:
+    """SHA-256 je Programmdatei, relativ zu `programmordner`.
+
+    `nur_kern=True` erfasst nur die Dateien der schnellen Prüfung
+    (siehe `ist_kerndatei`).
+    """
+    programmordner = Path(programmordner)
     dateien: dict[str, str] = {}
-    for pfad in sorted(Path(programmordner).rglob("*")):
+    for pfad in sorted(_kandidaten(programmordner, nur_kern=nur_kern)):
         if not pfad.is_file():
             continue
         relativ = pfad.relative_to(programmordner).as_posix()
@@ -205,10 +295,13 @@ def manifest_pruefen(
         return PruefErgebnis(signatur_gueltig=False)
 
     erwartet: dict[str, str] = manifest["dateien"]
-    aktuell = manifest_erstellen(programmordner)["dateien"]
+    aktuell = manifest_erstellen(programmordner, nur_kern=nur_kern)["dateien"]
+
     if nur_kern:
+        # `aktuell` ist schon eingeschränkt eingesammelt worden; hier
+        # bleibt die Erwartungsseite zu beschneiden, sonst gälte jede
+        # nicht gesuchte Datei als fehlend.
         erwartet = {name: wert for name, wert in erwartet.items() if ist_kerndatei(name)}
-        aktuell = {name: wert for name, wert in aktuell.items() if ist_kerndatei(name)}
 
     return PruefErgebnis(
         signatur_gueltig=True,

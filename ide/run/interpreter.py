@@ -41,15 +41,33 @@ def ist_gebaut() -> bool:
     return bool(getattr(sys, "frozen", False))
 
 
+def konsolen_python() -> Path:
+    """Der Interpreter **mit** Konsole.
+
+    Die IDE selbst läuft unter `pythonw.exe` – ohne Konsolenfenster, so
+    soll ein Fensterprogramm starten. Ein **Konsolen**programm braucht
+    dagegen `python.exe`: unter `pythonw` hätte es keine Konsole, in die
+    es schreiben könnte, und `print()` liefe ins Leere (M13).
+    """
+    pfad = Path(sys.executable)
+    if pfad.name.lower() == "pythonw.exe":
+        mit_konsole = pfad.with_name("python.exe")
+        if mit_konsole.is_file():
+            return mit_konsole
+    return pfad
+
+
 def python_befehl() -> list[str]:
     """Der Befehlsanfang, mit dem sich Python-Code starten lässt.
 
-    Im Entwicklungsbaum `[python]`, in der gebauten Exe
-    `[Natter.exe, --python]`.
+    Seit M13 wird eine gewöhnliche Python-Installation ausgeliefert –
+    hier steht also in beiden Welten ein echter Interpreter. Die Flagge
+    `--python` bleibt als Rückfallebene für den Fall, dass doch wieder
+    ein eingefrorenes Bundle gebaut wird.
     """
     if ist_gebaut():
         return [sys.executable, PYTHON_FLAGGE]
-    return [sys.executable]
+    return [str(konsolen_python())]
 
 
 def ruff_befehl() -> list[str]:

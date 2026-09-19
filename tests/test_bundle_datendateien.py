@@ -1,30 +1,34 @@
-"""Jede Datei, die Natter zur Laufzeit liest, muss auch in die Exe (M12).
+"""Jede Datei, die Natter zur Laufzeit liest, muss in die Auslieferung
+(M12, auf die Bauweise von M13 umgestellt).
 
-PyInstaller bindet nur ein, was **importiert** wird. Alles, was über
-einen Pfad gelesen wird – Vorlagen, Symbole, Schemas, eine Schriftdatei,
-ein Hilfsskript für den Testrunner –, muss von Hand in
-`tools/ide_paketieren.py` eingetragen werden. Wird das vergessen, merkt
-es niemand: im Entwicklungsbaum liegt die Datei ja da, und der Fehler
-zeigt sich erst in der installierten Version.
+Der Fehler, gegen den dieser Test steht, ist derselbe geblieben: eine
+Datei wird über einen **Pfad** gelesen statt importiert, und niemand
+trägt sie in `tools/ide_paketieren.py` ein. Im Entwicklungsbaum liegt
+sie ja da - auffallen kann es erst in der installierten Fassung. In der
+gebauten Exe nachgemessen fehlten so **drei** Pfade, und jeder kostete
+eine ganze Funktion:
 
-In der gebauten Exe nachgemessen fehlten **drei** Pfade, und jeder
-kostete eine ganze Funktion:
-
-* `templates/` – „Neues Projekt …“ endete in einem `FileNotFoundError`.
+* `templates/` - „Neues Projekt ..." endete in einem `FileNotFoundError`.
   In der installierten Natter ließ sich überhaupt kein Projekt anlegen.
-* `ide/testrunner/harness.py` – der Testrunner startet sie als eigenen
-  Prozess; ohne sie lief „Alle Tests ausführen“ ins Leere.
-* die Schriftdatei Cascadia Code – der Editor fiel auf eine andere
+* `ide/testrunner/harness.py` - der Testrunner startet sie als eigenen
+  Prozess; ohne sie lief „Alle Tests ausführen" ins Leere.
+* die Schriftdatei Cascadia Code - der Editor fiel auf eine andere
   Schrift zurück, obwohl Natter sie ausdrücklich mitbringen soll, damit
   nichts installiert werden muss.
 
-Dieser Test hält die Liste der zur Laufzeit gelesenen Pfade gegen das,
-was das Paketierskript wirklich einpackt.
+Seit M13 gibt es zwei Wege in die Auslieferung, und der Test prüft
+beide getrennt:
+
+* Liegt die Datei **innerhalb** von `ide/` oder `pcl/`, nimmt `pip`
+  sie von selbst mit - vorausgesetzt, sie liegt wirklich dort und nicht
+  daneben (`[tool.hatch.build.targets.wheel] packages`).
+* Liegt sie als eigener Ordner **neben** den Paketen (`templates/`,
+  `docs/`, ...), muss `_datenordner_kopieren()` sie kopieren.
 """
 
 from __future__ import annotations
 
-import re
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -32,47 +36,65 @@ import pytest
 WURZEL = Path(__file__).resolve().parent.parent
 PAKETIERSKRIPT = WURZEL / "tools" / "ide_paketieren.py"
 
-#: Was Natter zur Laufzeit liest, mit dem Ziel im Bundle. Der Schlüssel
-#: ist der Pfad im Quellbaum, der Wert das `--add-data`-Ziel, unter dem
-#: die Datei im Bundle liegen muss.
-LAUFZEIT_DATEIEN = {
-    "design": "design",
-    "schemas": "schemas",
-    "docs": "docs",
-    "beispielprojekte": "beispielprojekte",
-    "templates": "templates",
-    "ide/assets/icons": "ide/assets/icons",
-    "ide/assets/fonts": "ide/assets/fonts",
-    "ide/testrunner/harness.py": "ide/testrunner",
-}
+#: Ordner, die `ide/pfade.daten_ordner()` eine Ebene über dem
+#: `ide`-Paket sucht - in der Installation also in `site-packages`.
+#: Dorthin kommen sie nur durch `_datenordner_kopieren()`.
+DATEN_ORDNER = ("design", "schemas", "docs", "beispielprojekte", "templates")
+
+#: Dateien, die zur Laufzeit über einen Pfad gelesen werden und
+#: innerhalb der Pakete liegen. `pip` nimmt sie mit, solange sie das
+#: auch bleiben.
+PAKET_DATEIEN = (
+    "ide/assets/icons",
+    "ide/assets/fonts",
+    "ide/testrunner/harness.py",
+)
 
 
 def _paketierskript() -> str:
     return PAKETIERSKRIPT.read_text(encoding="utf-8")
 
 
-@pytest.mark.parametrize("quelle", sorted(LAUFZEIT_DATEIEN), ids=lambda q: q)
-def test_die_datei_gibt_es_im_quellbaum(quelle: str) -> None:
+def _wheel_pakete() -> list[str]:
+    inhalt = tomllib.loads((WURZEL / "pyproject.toml").read_text(encoding="utf-8"))
+    return inhalt["tool"]["hatch"]["build"]["targets"]["wheel"]["packages"]
+
+
+@pytest.mark.parametrize("name", DATEN_ORDNER)
+def test_der_datenordner_gibt_es_im_quellbaum(name: str) -> None:
     """Sonst prüfte der Test unten gegen einen Pfad, den es nicht
     mehr gibt."""
-    assert (WURZEL / quelle).exists()
+    assert (WURZEL / name).is_dir()
 
 
-@pytest.mark.parametrize(
-    ("quelle", "ziel"), sorted(LAUFZEIT_DATEIEN.items()), ids=lambda w: str(w)
-)
-def test_die_datei_wird_ins_bundle_gepackt(quelle: str, ziel: str) -> None:
-    """Der eigentliche Punkt: steht sie in `--add-data`?"""
+@pytest.mark.parametrize("name", DATEN_ORDNER)
+def test_der_datenordner_wird_mitkopiert(name: str) -> None:
+    """Der eigentliche Punkt: steht er in `_datenordner_kopieren()`?"""
     text = _paketierskript()
+    eintrag = f'_PROJEKT_WURZEL / "{name}"'
 
-    assert f'{{os.pathsep}}{ziel}"' in text, (
-        f"{quelle} wird zur Laufzeit gelesen, steht aber in "
-        f"tools/ide_paketieren.py in keinem --add-data auf {ziel}."
+    assert eintrag in text, (
+        f"{name}/ wird zur Laufzeit über daten_ordner() gelesen, wird in "
+        f"tools/ide_paketieren.py aber nirgends aus der Projektwurzel geholt."
+    )
+
+
+@pytest.mark.parametrize("pfad", PAKET_DATEIEN)
+def test_die_laufzeitdatei_liegt_in_einem_ausgelieferten_paket(pfad: str) -> None:
+    """Sie muss existieren **und** innerhalb von `ide/` bzw. `pcl/`
+    liegen - nur was dort liegt, packt `pip install` mit ein."""
+    assert (WURZEL / pfad).exists(), f"{pfad} wird zur Laufzeit gelesen, gibt es aber nicht."
+
+    oberstes = pfad.split("/")[0]
+    assert oberstes in _wheel_pakete(), (
+        f"{pfad} wird zur Laufzeit gelesen, liegt aber in '{oberstes}' - "
+        f"das steht nicht in [tool.hatch.build.targets.wheel] packages und "
+        f"landet damit nicht in der Auslieferung."
     )
 
 
 def test_die_vorlagen_werden_ueber_daten_ordner_gesucht() -> None:
-    """Ein quellcode-relativer Pfad zeigt im Bundle ins Leere.
+    """Ein quellcode-relativer Pfad zeigt in der Installation ins Leere.
     `ide/pfade.daten_ordner()` gibt es genau dafür."""
     quelle = (WURZEL / "ide" / "project" / "neu.py").read_text(encoding="utf-8")
 
@@ -80,10 +102,19 @@ def test_die_vorlagen_werden_ueber_daten_ordner_gesucht() -> None:
     assert "parent.parent.parent" not in quelle
 
 
-def test_ruff_und_debugpy_kommen_mit() -> None:
-    """Beide werden nur als Unterprozess aufgerufen, nie importiert -
-    PyInstaller findet sie deshalb nicht von allein."""
-    text = _paketierskript()
+def test_pyinstaller_liegt_der_auslieferung_bei() -> None:
+    """„Projekt -> Als Exe exportieren" startet PyInstaller in der
+    mitgelieferten Python. Im Entwicklungsbaum steht er in der
+    dev-Gruppe und käme sonst nie mit."""
+    assert '("PyInstaller", ["pyinstaller"])' in _paketierskript()
 
-    assert "_ruff_binaerdatei()" in text  # die Binärdatei, nicht nur der Finder
-    assert re.search(r'"--collect-all",\s*\n\s*"debugpy"', text)
+
+def test_ruff_ist_eine_laufzeitabhaengigkeit() -> None:
+    """Natter prüft **vor jedem Start** mit ruff - das ist keine
+    Entwicklerspielerei, sondern gehört zum Programm. Stünde ruff nur
+    in der dev-Gruppe, käme es nicht in die Auslieferung und die
+    Prüfung vor dem Start fiele dort aus (M13)."""
+    inhalt = tomllib.loads((WURZEL / "pyproject.toml").read_text(encoding="utf-8"))
+    abhaengigkeiten = " ".join(inhalt["project"]["dependencies"])
+
+    assert "ruff" in abhaengigkeiten
