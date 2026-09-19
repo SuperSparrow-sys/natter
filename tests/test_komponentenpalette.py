@@ -40,12 +40,13 @@ def test_hat_die_beiden_reiter() -> None:
 
 def test_standard_reiter_enthaelt_button() -> None:
     # Wie in Lazarus zeigen die Kacheln nur ein Symbol, der Name steht im
-    # Tooltip statt als sichtbarer Text (siehe ide/palette/palette.py).
+    # Kurzhinweis statt als sichtbarer Text (siehe ide/palette/palette.py).
+    # Seit M11, Abschnitt 4 steht dort Name **und** Erklaerung.
     palette = Komponentenpalette()
     namen = [
         palette.standard_liste.item(i).toolTip() for i in range(palette.standard_liste.count())
     ]
-    assert "Button" in namen
+    assert any(name.startswith("Button – ") for name in namen)
 
 
 def test_zusaetzlich_reiter_enthaelt_shape() -> None:
@@ -54,7 +55,7 @@ def test_zusaetzlich_reiter_enthaelt_shape() -> None:
         palette.zusaetzlich_liste.item(i).toolTip()
         for i in range(palette.zusaetzlich_liste.count())
     ]
-    assert "Shape" in namen
+    assert any(name.startswith("Shape – ") for name in namen)
 
 
 def test_ausgewaehlter_typ_ohne_auswahl_ist_none() -> None:

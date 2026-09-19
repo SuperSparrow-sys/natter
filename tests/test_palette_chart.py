@@ -23,7 +23,7 @@ def test_chart_kachel_hat_ein_echtes_symbol() -> None:
 
     chart_kachel = next(k for k in kacheln if k.data(TYP_ROLLE) is Chart)
 
-    assert chart_kachel.toolTip() == "Chart"
+    assert chart_kachel.toolTip().startswith("Chart – ")
     # Ein Tippfehler im Dateinamen liefert nur ein leeres QIcon, keinen
     # Fehler (siehe ide/assets/symbole.py) – das war real schon kaputt.
     assert not chart_kachel.icon().isNull()

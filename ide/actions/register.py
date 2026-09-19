@@ -8,6 +8,7 @@ from typing import Any
 from PySide6.QtGui import QAction
 
 from ide.assets import symbol as symbol_laden
+from ide.shell.tastenkuerzel import deutsche_taste
 
 
 class AktionsKonfliktError(Exception):
@@ -45,6 +46,13 @@ class Aktion:
         self.trennlinie_davor = trennlinie_davor
 
         self.qaction = QAction(name)
+        # In der Werkzeugleiste steht nur das Symbol. Ohne eigenen
+        # Kurzhinweis zeigt Qt dort den Namen der Aktion - und das
+        # Tastenkürzel, das im Menü daneben steht, erfährt man nie, weil
+        # man dafür erst das Menü aufklappen müsste (M11, Abschnitt 4).
+        self.qaction.setToolTip(
+            f"{name} ({deutsche_taste(tastenkuerzel)})" if tastenkuerzel else name
+        )
         if tastenkuerzel:
             self.qaction.setShortcut(tastenkuerzel)
         if symbol:

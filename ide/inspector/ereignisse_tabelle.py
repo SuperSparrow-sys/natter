@@ -61,6 +61,11 @@ class EreignisseTabelle(QTableWidget):
         for zeile, name in enumerate(namen):
             name_element = QTableWidgetItem(name)
             name_element.setFlags(name_element.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            # `on_change` heißt bei jeder Komponente etwas anderes: beim
+            # `Edit` jeder Tastendruck, beim `TrackBar` jede Bewegung
+            # des Reglers. Der Text dazu steht seit jeher am `Event`,
+            # wurde aber nirgends angezeigt (M11, Abschnitt 4).
+            name_element.setToolTip(events[name].doc)
             self.setItem(zeile, _SPALTE_NAME, name_element)
             self.setCellWidget(zeile, _SPALTE_HANDLER, self._auswahl_erzeugen(name, methoden))
 

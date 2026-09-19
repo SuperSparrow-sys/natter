@@ -88,6 +88,27 @@ ZUSAETZLICH_KOMPONENTEN = (
 )
 
 
+def kurzbeschreibung(typ: type) -> str:
+    """Der Text, der beim Überfahren einer Kachel erscheint: Name und
+    erster Satz aus dem Docstring der Komponente.
+
+    Bis dahin stand dort nur „Button“ – also genau das, was man auf dem
+    Symbol ohnehin vermutet. Wer „ScrollBar“ von „TrackBar“ nicht
+    unterscheiden kann, war damit keinen Schritt weiter (M11,
+    Abschnitt 4).
+
+    Der Satz wird aus dem Docstring **geholt** statt hier noch einmal
+    aufgeschrieben – eine zweite Beschreibung wäre nach der ersten
+    Änderung an der Komponente falsch. Der Hinweis auf das zugrunde
+    liegende Qt-Widget fällt weg: beim Bauen eines Formulars hilft er
+    niemandem.
+    """
+    text = " ".join((typ.__doc__ or "").split()).replace("`", "")
+    text = text.split("Qt-Basis")[0].strip()
+    satz = text.split(". ")[0].strip().rstrip(".")
+    return f"{typ.__name__} – {satz}" if satz else typ.__name__
+
+
 class Komponentenpalette(QTabWidget):
     def __init__(self) -> None:
         super().__init__()
@@ -116,7 +137,7 @@ class Komponentenpalette(QTabWidget):
         for typ in komponenten:
             eintrag = QListWidgetItem(symbol(f"komponente_{typ.__name__.lower()}"), "")
             eintrag.setData(TYP_ROLLE, typ)
-            eintrag.setToolTip(typ.__name__)
+            eintrag.setToolTip(kurzbeschreibung(typ))
             liste.addItem(eintrag)
         return liste
 

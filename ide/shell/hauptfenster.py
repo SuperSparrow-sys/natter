@@ -13,9 +13,10 @@ import json
 import os
 import re
 import sys
+import time
 from pathlib import Path
 
-from PySide6.QtCore import QSettings, QSize, Qt
+from PySide6.QtCore import QSettings, QSize, Qt, QTimer
 from PySide6.QtGui import QActionGroup, QCloseEvent, QColor, QFont, QTextCursor
 from PySide6.QtWidgets import (
     QApplication,
@@ -122,6 +123,31 @@ MENUETITEL = (
 )
 
 PANEL_REITER = ("Meldungen", "Ausgabe", "Variablen", "Aufrufstapel", "Tests")
+
+#: Wie oft nachgesehen wird, ob das gestartete Programm inzwischen zu
+#: Ende ist. Eine halbe Sekunde reicht: das Ergebnis steht danach im
+#: Panel „Ausgabe“, niemand wartet darauf mit der Stoppuhr.
+_LAUFZEIT_TAKT_MS = 500
+
+#: Kurzhinweise zu den Reitern unten und zu den Docks (M11, Abschnitt 4).
+#: „Aufrufstapel“ oder „Objektinspektor“ sagen jemandem, der gerade von
+#: Lazarus kommt, noch nichts – und ein Fenster, dessen Zweck man raten
+#: muss, wird nicht benutzt.
+PANEL_HINWEISE = {
+    "Meldungen": "Fehler und Hinweise aus der Prüfung vor dem Start",
+    "Ausgabe": "Was das laufende Programm ausgibt (print) und was man ihm eintippt",
+    "Variablen": "Die Werte, während das Programm an einem Haltepunkt steht",
+    "Aufrufstapel": "Welche Methode gerade welche aufgerufen hat – von unten nach oben",
+    "Tests": "Ergebnisse der Test-Units des Projekts",
+}
+
+DOCK_HINWEISE = {
+    "Projekt-Explorer": "Die Formulare, Units und Diagramme des geöffneten Projekts",
+    "Objektinspektor": "Eigenschaften und Ereignisse der im Designer gewählten Komponente",
+    "Komponentenpalette": "Bausteine für das Formular – anklicken, dann auf das Formular klicken",
+    "Datenbank": "SQLite- oder MySQL-Verbindung, Abfragen und Import/Export",
+    "Panels": "Meldungen, Ausgabe, Variablen, Aufrufstapel und Tests",
+}
 
 _TEST_ID_ROLLE = Qt.ItemDataRole.UserRole
 _STATUS_FARBE = {
@@ -310,14 +336,28 @@ class HauptFenster(QMainWindow):
         self.tests_baum = QTreeWidget()
         self.tests_baum.setHeaderLabels(["Test", "Status", "Dauer (s)"])
         self.tests_baum.itemDoubleClicked.connect(self._bei_test_doppelklick)
+        # Der Reiter „Ausgabe“ war bis hierher ein leeres graues Feld:
+        # angelegt, benannt, nie gefüllt. Das Schülerprogramm läuft in
+        # einem eigenen Fenster (Abschnitt 7.8), seine `print`-Zeilen
+        # stehen also dort - aber wann es gestartet ist, wann es geendet
+        # hat und mit welchem Exitcode, gehört laut Abschnitt 7.8
+        # hierher und stand nirgends (M11, Abschnitt 5).
+        self.ausgabe_liste = QListWidget()
+        self._laufzeit_uhr = QTimer(self)
+        self._laufzeit_uhr.setInterval(_LAUFZEIT_TAKT_MS)
+        self._laufzeit_uhr.timeout.connect(self._programmende_pruefen)
+        self._start_zeitpunkt: float | None = None
+
         panel_widgets = {
             "Meldungen": self.meldungen_liste,
+            "Ausgabe": self.ausgabe_liste,
             "Variablen": self.variablen_baum,
             "Aufrufstapel": self.aufrufstapel_liste,
             "Tests": self.tests_baum,
         }
         for reiter in PANEL_REITER:
-            self.panels.addTab(panel_widgets.get(reiter, QWidget()), reiter)
+            index = self.panels.addTab(panel_widgets.get(reiter, QWidget()), reiter)
+            self.panels.setTabToolTip(index, PANEL_HINWEISE.get(reiter, reiter))
         self.panels_dock = self._dock_erzeugen(
             "Panels", Qt.DockWidgetArea.BottomDockWidgetArea, inhalt=self.panels
         )
@@ -1189,6 +1229,7 @@ class HauptFenster(QMainWindow):
     ) -> QDockWidget:
         dock = QDockWidget(titel, self)
         dock.setObjectName(titel)  # von QMainWindow.saveState()/restoreState() benötigt
+        dock.setToolTip(DOCK_HINWEISE.get(titel, titel))
         dock.setWidget(inhalt if inhalt is not None else QWidget())
         self.addDockWidget(bereich, dock)
         return dock
@@ -1685,6 +1726,9 @@ class HauptFenster(QMainWindow):
             self.laufender_prozess.kill()
             beendet += 1
         self.laufender_prozess = None
+        # Sonst schlägt die Uhr weiter auf ein Fenster, das es gleich
+        # nicht mehr gibt.
+        self._laufzeit_uhr.stop()
         return beendet
 
     # -- Hilfe (Abschnitt 7.2) -------------------------------------------------
@@ -2262,7 +2306,53 @@ class HauptFenster(QMainWindow):
             return
 
         self.laufender_prozess = projekt_starten(self.projekt)
+        self._start_zeitpunkt = time.monotonic()
+        self.ausgabe_zeile(f"{self.projekt.name} gestartet ({self.projekt.haupt_datei.name})")
+        self.panels.setCurrentWidget(self.ausgabe_liste)
+        self._laufzeit_uhr.start()
         self.statusBar().showMessage(f"{self.projekt.name} gestartet")
+
+    def ausgabe_zeile(self, text: str) -> None:
+        """Eine Zeile im Panel „Ausgabe“, mit der Uhrzeit davor."""
+        self.ausgabe_liste.addItem(f"{time.strftime('%H:%M:%S')}  {text}")
+        self.ausgabe_liste.scrollToBottom()
+
+    def _programmende_pruefen(self) -> None:
+        """Sieht nach, ob das gestartete Programm inzwischen zu Ende ist.
+
+        Nötig, weil das Programm als eigener Prozess in einem eigenen
+        Fenster läuft (Abschnitt 7.8) und sich nicht von selbst
+        zurückmeldet."""
+        if self.laufender_prozess is None:
+            self._laufzeit_uhr.stop()
+            return
+        code = self.laufender_prozess.poll()
+        if code is None:
+            return
+        self._laufzeit_uhr.stop()
+        self.programmende_melden(code)
+        self.laufender_prozess = None
+
+    def programmende_melden(self, code: int) -> None:
+        """Exitcode und Laufzeit ins Panel „Ausgabe“ (Abschnitt 7.8).
+
+        Ein Exitcode ungleich 0 heißt, dass das Programm mit einem
+        Fehler geendet ist. Das steht dabei, weil „Code 1“ allein
+        niemandem etwas sagt – die Fehlermeldung selbst steht im
+        Konsolenfenster des Programms, das offen bleibt."""
+        dauer = ""
+        if self._start_zeitpunkt is not None:
+            sekunden = time.monotonic() - self._start_zeitpunkt
+            dauer = f" nach {sekunden:.1f} s".replace(".", ",")
+        self._start_zeitpunkt = None
+        if code == 0:
+            self.ausgabe_zeile(f"Programm beendet (Code 0){dauer}")
+            return
+        self.ausgabe_zeile(
+            f"Programm beendet (Code {code}){dauer} – Code {code} heißt: mit einem Fehler "
+            f"geendet. Die Fehlermeldung steht im Fenster des Programms, es bleibt dafür "
+            f"offen."
+        )
 
     # -- Debugger (F5, Abschnitt 7.8/8.1) ------------------------------------
 
@@ -2554,11 +2644,31 @@ class HauptFenster(QMainWindow):
             self.debug_sitzung.fortsetzen(self._aktueller_thread_id)
 
     def _debugger_stoppen_aktion(self) -> None:
+        """„Start → Stopp“ (Umschalt+F5).
+
+        Beendet **beides**: eine Debugger-Sitzung und ein mit Strg+F5
+        gestartetes Programm. Vorher hing der Eintrag allein am
+        Debugger – wer sein Programm mit Strg+F5 gestartet hatte, bekam
+        von Natter sogar den Rat, es „über Start → Stopp“ zu beenden,
+        und dort passierte dann nichts (M11, Abschnitt 5).
+        """
+        gestoppt = []
         if self.debug_sitzung is not None:
             self.debug_sitzung.beenden()
             self.debug_sitzung = None
             self._aktueller_thread_id = None
-            self.statusBar().showMessage("Debugger gestoppt")
+            gestoppt.append("Debugger")
+        if self.laufender_prozess is not None and self.laufender_prozess.poll() is None:
+            self.laufender_prozess.kill()
+            self._laufzeit_uhr.stop()
+            self.ausgabe_zeile("Programm über „Start → Stopp“ beendet")
+            self._start_zeitpunkt = None
+            self.laufender_prozess = None
+            gestoppt.append("Programm")
+        if not gestoppt:
+            self.statusBar().showMessage("Es läuft gerade nichts, was sich stoppen ließe.")
+            return
+        self.statusBar().showMessage(f"{' und '.join(gestoppt)} gestoppt")
 
     def _debugger_einzelschritt_aktion(self) -> None:
         if self.debug_sitzung is not None and self._aktueller_thread_id is not None:

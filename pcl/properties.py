@@ -127,6 +127,11 @@ class VerschachtelteEigenschaft(NamedTuple):
     unter_attribut: str
     typ: type
     standardwert: Any
+    #: Wie `Prop.doc`: der Hilfetext, den der Objektinspektor beim
+    #: Überfahren der Zeile zeigt. Eine verschachtelte Eigenschaft ist
+    #: kein `Prop` und hatte deshalb als Einzige keinen (M11,
+    #: Abschnitt 4).
+    doc: str = ""
 
 
 # Standardfüllung einer frisch gezogenen `Shape` (hier statt in
@@ -142,11 +147,26 @@ STANDARD_BRUSH_FARBE = "#c0c0c0"
 # Stellen (`ide/designer/pfm_schreiben.py`, `ide/codegen/design.py`,
 # `ide/inspector/eigenschaften_tabelle.py`).
 VERSCHACHTELTE_EIGENSCHAFTEN: dict[str, VerschachtelteEigenschaft] = {
-    "brush_color": VerschachtelteEigenschaft("brush", "color", str, STANDARD_BRUSH_FARBE),
-    "font_name": VerschachtelteEigenschaft("font", "name", str, ""),
-    "font_size": VerschachtelteEigenschaft("font", "size", int, 0),
-    "font_bold": VerschachtelteEigenschaft("font", "bold", bool, False),
-    "font_italic": VerschachtelteEigenschaft("font", "italic", bool, False),
+    "brush_color": VerschachtelteEigenschaft(
+        "brush", "color", str, STANDARD_BRUSH_FARBE, doc="Füllfarbe als #RRGGBB"
+    ),
+    "font_name": VerschachtelteEigenschaft(
+        "font", "name", str, "", doc="Name der Schriftart, leer = Schrift des Formulars"
+    ),
+    "font_size": VerschachtelteEigenschaft(
+        "font", "size", int, 0, doc="Schriftgröße in Punkt, 0 = Größe des Formulars"
+    ),
+    "font_bold": VerschachtelteEigenschaft("font", "bold", bool, False, doc="Fettschrift"),
+    "font_italic": VerschachtelteEigenschaft(
+        "font", "italic", bool, False, doc="Kursivschrift"
+    ),
+}
+
+# Hilfetexte zu den Sammlungen, für den Objektinspektor - das Gegenstück
+# zu `Prop.doc` und `VerschachtelteEigenschaft.doc`.
+SAMMLUNGS_DOKU: dict[str, str] = {
+    "items": "Die Einträge der Liste, einer je Zeile (Doppelklick zum Bearbeiten)",
+    "lines": "Der Inhalt des Textfelds, einer je Zeile (Doppelklick zum Bearbeiten)",
 }
 
 # Eigenschaften, die statt eines Einzelwerts eine `pcl.strings.Strings`-

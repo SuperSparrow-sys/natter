@@ -21,6 +21,7 @@ from PySide6.QtWidgets import QTableWidget, QTableWidgetItem
 from ide.inspector.sammlung_dialog import SammlungDialog
 from pcl.errors import NatterPropertyError
 from pcl.properties import (
+    SAMMLUNGS_DOKU,
     SAMMLUNGS_EIGENSCHAFTEN,
     VERSCHACHTELTE_EIGENSCHAFTEN,
     eigenschaften,
@@ -36,6 +37,14 @@ _NAME_ROLLE = Qt.ItemDataRole.UserRole
 # keine echte Prop, deshalb ein eigener Marker statt eines Eigenschafts-
 # namens in _NAME_ROLLE.
 _NAME_ZEILE = object()
+
+#: Hilfetext der Zeile „name“. Sie ist keine `Prop` und hat deshalb
+#: auch keinen `doc` – dabei ist gerade sie erklärungsbedürftig, weil
+#: „name“ und „caption“ aus Lazarus-Sicht leicht verwechselt werden.
+_NAME_DOKU = (
+    "Der Bezeichner im Quelltext, z. B. b_anmelden – nicht der "
+    "angezeigte Text (das ist „caption“ bzw. „text“)."
+)
 
 
 class EigenschaftenTabelle(QTableWidget):
@@ -117,13 +126,33 @@ class EigenschaftenTabelle(QTableWidget):
         return eigenschaften(type(self._komponente))[name].typ
 
     def _zeile_anlegen(self, zeile: int, anzeige_name: str, rollen_wert: Any) -> None:
+        # Jede Zeile trägt ihren Hilfetext als Kurzhinweis (M11,
+        # Abschnitt 4). Die Texte stehen seit jeher an den Eigenschaften
+        # selbst (`Prop(doc=...)`), wurden aber nirgends angezeigt -
+        # „increment“, „frequency“ oder „item_index“ musste man raten.
+        hinweis = self.hilfetext(anzeige_name if rollen_wert is not _NAME_ZEILE else "name")
         name_element = QTableWidgetItem(anzeige_name)
         name_element.setFlags(name_element.flags() & ~Qt.ItemFlag.ItemIsEditable)
+        name_element.setToolTip(hinweis)
         self.setItem(zeile, _SPALTE_NAME, name_element)
 
         wert_element = QTableWidgetItem()
         wert_element.setData(_NAME_ROLLE, rollen_wert)
+        wert_element.setToolTip(hinweis)
         self.setItem(zeile, _SPALTE_WERT, wert_element)
+
+    def hilfetext(self, name: str) -> str:
+        """Der Hilfetext zu einer Zeile – aus derselben Quelle, aus der
+        auch die Komponenten-Referenz ihn nimmt."""
+        if name == "name":
+            return _NAME_DOKU
+        if name in SAMMLUNGS_EIGENSCHAFTEN:
+            return SAMMLUNGS_DOKU.get(name, "")
+        verschachtelt = VERSCHACHTELTE_EIGENSCHAFTEN.get(name)
+        if verschachtelt is not None:
+            return verschachtelt.doc
+        prop = eigenschaften(type(self._komponente)).get(name)
+        return prop.doc if prop is not None else ""
 
     def _wert_lesen(self, name: str) -> Any:
         return wert_lesen(self._komponente, name)

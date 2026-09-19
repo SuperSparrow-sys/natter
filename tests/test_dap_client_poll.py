@@ -11,6 +11,12 @@ from pathlib import Path
 
 from ide.debugger import DapClient
 
+#: So oft wird höchstens nach einem Nachzügler-Ereignis gesehen, bevor
+#: der Test misst. Eine Obergrenze, damit ein Debugger, der unerwartet
+#: ununterbrochen sendet, den Test scheitern lässt statt ihn hängen zu
+#: lassen.
+_HOECHSTENS_NACHZUEGLER = 10
+
 
 def _skript_schreiben(tmp_path: Path, inhalt: str) -> Path:
     skript = tmp_path / "ziel.py"
@@ -25,6 +31,14 @@ def test_liefert_none_wenn_kurzfristig_nichts_ankommt(tmp_path: Path) -> None:
         client.starten(skript, arbeitsordner=tmp_path, anfangs_breakpoints={skript: [2]})
         client.angehalten_abwarten()  # jetzt angehalten, keine weiteren Events zu erwarten
         client.ereignisse.clear()  # Telemetrie-Events aus dem Handshake verwerfen
+        # `debugpy` schickt noch eine Weile Nachzügler (geladene Module,
+        # Telemetrie). Auf einem ausgelasteten Rechner trafen die
+        # gelegentlich genau in der Messung unten ein und machten den
+        # Test wackelig - er fiel im Gesamtlauf durch und lief einzeln
+        # sofort wieder. Deshalb erst leerlaufen lassen.
+        for _ in range(_HOECHSTENS_NACHZUEGLER):
+            if client.naechstes_ereignis_abfragen(0.2) is None:
+                break
 
         anfang = time.monotonic()
         ergebnis = client.naechstes_ereignis_abfragen(0.2)
