@@ -14,9 +14,9 @@ from pathlib import Path
 
 from ide.diagramm.datei import FORMEN_TYPEN, Diagramm
 
-#: Die drei Typen aus dem M9-Abnahmekriterium; die übrigen aus
-#: Abschnitt 13.4 folgen als eigene Schritte (siehe M9.md, „Danach“).
-MVP_TYPEN = ("class", "struktogramm", "entscheidungstabelle")
+#: Typen, die „Datei → Neu“ anbietet. Die ersten drei stammen aus dem
+#: M9-Abnahmekriterium, die übrigen aus Abschnitt 13.4.
+MVP_TYPEN = ("class", "struktogramm", "entscheidungstabelle", "use_case")
 
 TYP_BESCHRIFTUNGEN = {
     "class": "Klassendiagramm",

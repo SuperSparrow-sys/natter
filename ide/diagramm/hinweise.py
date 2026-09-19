@@ -47,9 +47,35 @@ def _beschriftung(shape: dict[str, Any]) -> str:
     return formname(shape) or str(shape.get("kind", "Form"))
 
 
+#: Formen, die andere Formen **umschließen sollen**. Eine Systemgrenze
+#: voller Anwendungsfälle ist kein Layout-Fehler, sondern genau ihr
+#: Zweck; ein Paket kann ebenso Klassen enthalten.
+BEHAELTERFORMEN = ("system_boundary", "package")
+
+
+def _umschliesst(aussen: dict[str, Any], innen: dict[str, Any]) -> bool:
+    """Ob `innen` vollständig in `aussen` liegt."""
+    ax, ay, aw, ah = _rechteck(aussen)
+    bx, by, bw, bh = _rechteck(innen)
+    return ax <= bx and ay <= by and bx + bw <= ax + aw and by + bh <= ay + ah
+
+
 def _ueberschneidung(a: dict[str, Any], b: dict[str, Any]) -> float:
     """Fläche, die sich beide Formen teilen – 0, wenn sie sich nicht
-    berühren."""
+    berühren.
+
+    Ein Behälter, der die andere Form ganz enthält, zählt nicht: eine
+    Systemgrenze voller Anwendungsfälle wurde sonst als Überlappung
+    gemeldet, und ein Use-Case-Diagramm hatte von Anfang an so viele
+    Warnungen wie Fälle (in der Sichtprüfung aufgefallen). Ein Behälter,
+    der eine Form nur **anschneidet**, wird weiterhin gemeldet – das ist
+    dann wirklich ein Versehen.
+    """
+    if a.get("kind") in BEHAELTERFORMEN and _umschliesst(a, b):
+        return 0.0
+    if b.get("kind") in BEHAELTERFORMEN and _umschliesst(b, a):
+        return 0.0
+
     ax, ay, aw, ah = _rechteck(a)
     bx, by, bw, bh = _rechteck(b)
     breite = min(ax + aw, bx + bw) - max(ax, bx)

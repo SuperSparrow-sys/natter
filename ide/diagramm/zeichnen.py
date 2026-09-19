@@ -34,6 +34,9 @@ INNENABSTAND = 8
 KOPFHOEHE = 28
 #: Größe der umgeknickten Ecke einer Notiz bzw. des Paket-Reiters.
 ECKE = 16
+#: Höhe des Strichmännchens eines Akteurs. Fest, weil ein Akteur in
+#: UML immer dieselbe Gestalt hat - nur der Name darunter wächst.
+AKTEUR_HOEHE = 64
 
 _NAMENSSCHRIFT = "Segoe UI"
 _MONOSCHRIFT = "Consolas"
@@ -94,6 +97,14 @@ def mindesthoehe(shape: dict[str, Any]) -> float:
         # braucht dafür aber Höhe – sonst verschwinden die unteren
         # Zeilen hinter dem Rand.
         return _umbruchhoehe(shape) + 2 * INNENABSTAND
+    if kind == "actor":
+        # Das Strichmännchen hat eine feste Höhe, darunter steht der
+        # Name und darf umbrechen.
+        return AKTEUR_HOEHE + _umbruchhoehe(shape) + INNENABSTAND
+    if kind == "use_case":
+        # Eine Ellipse ist in der Mitte am höchsten; der Text braucht
+        # deshalb mehr Luft als in einem Rechteck gleicher Größe.
+        return _umbruchhoehe(shape) * 1.6 + 2 * INNENABSTAND
     if kind not in ("class", "abstract_class", "interface"):
         return KOPFHOEHE + 2 * INNENABSTAND
 
@@ -107,7 +118,10 @@ def mindesthoehe(shape: dict[str, Any]) -> float:
 def _umbruchhoehe(shape: dict[str, Any]) -> float:
     """Höhe, die der umbrochene Text einer Notiz in der aktuellen Breite
     einnimmt."""
-    innen = max(1.0, float(shape.get("w", 0)) - 2 * INNENABSTAND - ECKE)
+    # Die umgeknickte Ecke nimmt nur einer Notiz Platz weg; bei einem
+    # Akteur oder einem Anwendungsfall gibt es sie nicht.
+    ecke = ECKE if shape.get("kind") == "note" else 0
+    innen = max(1.0, float(shape.get("w", 0)) - 2 * INNENABSTAND - ecke)
     metriken = QFontMetricsF(_namensschrift(fett=False, groesse=schriftgroesse(shape)))
     return metriken.boundingRect(
         QRectF(0, 0, innen, 10_000),
@@ -127,7 +141,9 @@ def mindestbreite(shape: dict[str, Any]) -> float:
     Mindestbreite – sie wurden sonst reihenweise fälschlich als „zu
     schmal“ gemeldet (im Screenshot-Durchgang aufgefallen); bei ihnen
     zählt nur die Höhe."""
-    if shape.get("kind") in ("note", "package"):
+    if shape.get("kind") in ("note", "package", "actor", "use_case", "system_boundary"):
+        # Alle diese Formen brechen ihren Text um; eine Mindestbreite
+        # würde sie reihenweise fälschlich als „zu schmal“ melden.
         return 0.0
 
     groesse = schriftgroesse(shape)
@@ -197,6 +213,12 @@ def form_zeichnen(
         _notiz_zeichnen(maler, shape, stil)
     elif kind == "package":
         _paket_zeichnen(maler, shape, stil)
+    elif kind == "actor":
+        _akteur_zeichnen(maler, shape, stil)
+    elif kind == "use_case":
+        _anwendungsfall_zeichnen(maler, shape, stil)
+    elif kind == "system_boundary":
+        _systemgrenze_zeichnen(maler, shape, stil)
     else:
         # Unbekannte Form nicht verschlucken, sondern sichtbar als
         # schlichtes Rechteck malen - sonst „verschwindet“ sie
@@ -323,6 +345,100 @@ def _notiz_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
     )
 
 
+def _akteur_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
+    """Strichmännchen mit dem Namen darunter (UML, Abschnitt 13.4).
+
+    Das Männchen bekommt eine feste Höhe und sitzt oben mittig; der
+    Name steht darunter und darf umbrechen. Würde das Männchen mit der
+    Form mitwachsen, wäre ein breit gezogener Akteur ein grotesk
+    breites Strichmännchen – in UML hat es aber immer dieselbe Gestalt.
+    """
+    rechteck = form_rechteck(shape)
+    mitte_x = rechteck.center().x()
+    hoehe = min(AKTEUR_HOEHE, rechteck.height() - KOPFHOEHE)
+    kopf = hoehe * 0.28
+
+    stift = _stift(stil, randfarbe(shape, stil))
+    maler.setPen(stift)
+    maler.setBrush(QBrush(QColor(fuellfarbe(shape, stil))))
+    oben = rechteck.top() + 4
+    maler.drawEllipse(QRectF(mitte_x - kopf / 2, oben, kopf, kopf))
+
+    maler.setBrush(Qt.BrushStyle.NoBrush)
+    rumpf_oben = oben + kopf
+    rumpf_unten = oben + hoehe * 0.66
+    maler.drawLine(QPointF(mitte_x, rumpf_oben), QPointF(mitte_x, rumpf_unten))
+    # Arme
+    arm = hoehe * 0.2
+    arm_y = rumpf_oben + (rumpf_unten - rumpf_oben) * 0.3
+    maler.drawLine(QPointF(mitte_x - arm, arm_y), QPointF(mitte_x + arm, arm_y))
+    # Beine
+    bein = hoehe * 0.26
+    maler.drawLine(
+        QPointF(mitte_x, rumpf_unten), QPointF(mitte_x - bein, oben + hoehe)
+    )
+    maler.drawLine(
+        QPointF(mitte_x, rumpf_unten), QPointF(mitte_x + bein, oben + hoehe)
+    )
+
+    maler.setPen(QColor(stil.text))
+    maler.setFont(_namensschrift(fett=False, groesse=schriftgroesse(shape)))
+    maler.drawText(
+        QRectF(
+            rechteck.left(),
+            oben + hoehe + 2,
+            rechteck.width(),
+            rechteck.bottom() - (oben + hoehe + 2),
+        ),
+        int(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap),
+        formname(shape),
+    )
+
+
+def _anwendungsfall_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
+    """Ellipse mit dem Namen darin."""
+    rechteck = form_rechteck(shape)
+    maler.setPen(_stift(stil, randfarbe(shape, stil)))
+    maler.setBrush(QBrush(QColor(fuellfarbe(shape, stil))))
+    maler.drawEllipse(rechteck)
+
+    maler.setPen(QColor(stil.text))
+    maler.setFont(_namensschrift(fett=False, groesse=schriftgroesse(shape)))
+    # Deutlich einrücken: eine Ellipse ist an den Rändern schmaler als
+    # ihr Rechteck, und Text würde dort über die Linie hinauslaufen.
+    maler.drawText(
+        rechteck.adjusted(
+            rechteck.width() * 0.14,
+            INNENABSTAND,
+            -rechteck.width() * 0.14,
+            -INNENABSTAND,
+        ),
+        int(Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap),
+        formname(shape),
+    )
+
+
+def _systemgrenze_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
+    """Rahmen um die Anwendungsfälle, Name oben mittig.
+
+    Ungefüllt gezeichnet: die Systemgrenze liegt hinter den Fällen, und
+    eine Füllung würde sie verdecken, sobald jemand die Grenze später
+    nach vorn holt.
+    """
+    rechteck = form_rechteck(shape)
+    maler.setPen(_stift(stil, randfarbe(shape, stil)))
+    maler.setBrush(Qt.BrushStyle.NoBrush)
+    maler.drawRect(rechteck)
+
+    maler.setPen(QColor(stil.text))
+    maler.setFont(_namensschrift(fett=True, groesse=schriftgroesse(shape)))
+    maler.drawText(
+        QRectF(rechteck.left(), rechteck.top() + 4, rechteck.width(), KOPFHOEHE - 6),
+        Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter,
+        formname(shape),
+    )
+
+
 def _paket_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
     rechteck = form_rechteck(shape)
     reiter = QRectF(rechteck.left(), rechteck.top(), rechteck.width() / 2.5, ECKE)
@@ -441,6 +557,32 @@ def verbindung_zeichnen(
         _raute_zeichnen(maler, punkte[1], punkte[0], art.raute_an_quelle, stil, farbe)
 
 
+def _stereotyp_zeichnen(
+    maler: QPainter, kasten: QRectF, stereotyp: str, stil: Stil
+) -> None:
+    """«include» bzw. «extend» neben der Mitte der Linie.
+
+    Gehört zur Notation und nicht zur Beschriftung: die Multiplizitäten
+    an den Enden setzt die Bedienerin selbst, der Stereotyp steht
+    dagegen fest und muss ohne Zutun erscheinen – sonst sähe eine
+    «include»-Beziehung wie eine gewöhnliche Abhängigkeit aus.
+
+    Hinterlegt in der Hintergrundfarbe, damit die Linie nicht durch die
+    Buchstaben läuft. Gemalt wird er zusammen mit den Beschriftungen,
+    also **nach** den Formen: bei einer «extend»-Beziehung, deren Linie
+    hinter einem anderen Anwendungsfall vorbeiläuft, lag die Mitte genau
+    in dessen Ellipse, und der Stereotyp verschwand darunter (in der
+    Sichtprüfung aufgefallen – derselbe Fehler wie seinerzeit bei den
+    Multiplizitäten).
+    """
+    maler.setPen(Qt.PenStyle.NoPen)
+    maler.setBrush(QBrush(QColor(stil.hintergrund)))
+    maler.drawRect(kasten)
+
+    maler.setPen(QColor(stil.text))
+    maler.setFont(_namensschrift(fett=False))
+    maler.drawText(kasten, Qt.AlignmentFlag.AlignCenter, f"«{stereotyp}»")
+
 
 def _winkel_punkte(spitze: QPointF, von: QPointF, laenge: float, breite: float):
     """Zwei Punkte, die mit `spitze` ein gleichschenkliges Dreieck
@@ -538,7 +680,42 @@ def beschriftungs_rechtecke(
         ergebnis[schluessel] = QRectF(
             mitte_x - breite / 2, mitte_y - hoehe / 2, breite, hoehe
         )
+
+    if art.stereotyp:
+        ergebnis["stereotyp"] = _stereotyp_rechteck(
+            punkte, art.stereotyp, versatz.get("stereotyp", (0, 0)), metrik
+        )
     return ergebnis
+
+
+def _stereotyp_rechteck(
+    punkte: list[QPointF], stereotyp: str, eigener_versatz, metrik: QFontMetricsF
+) -> QRectF:
+    """Wo «include»/«extend» steht: in der Mitte der Linie, um eine
+    Zeilenhöhe **neben** sie gerückt.
+
+    Genau auf der Linie sah es aus, als wäre sie durchtrennt. Und wenn
+    die Linie hinter einer anderen Form vorbeiläuft, lässt sich der Text
+    von dort aus wegziehen – er teilt sich `label_offsets` mit den
+    Multiplizitäten und damit auch deren Bedienung aus Teilschritt 4b.
+    """
+    mitte_nummer = len(punkte) // 2
+    a = punkte[max(0, mitte_nummer - 1)]
+    b = punkte[min(len(punkte) - 1, mitte_nummer)]
+    mitte_x = (a.x() + b.x()) / 2
+    mitte_y = (a.y() + b.y()) / 2
+
+    dx, dy = b.x() - a.x(), b.y() - a.y()
+    laenge = math.hypot(dx, dy) or 1.0
+    nx, ny = dy / laenge, -dx / laenge
+    if ny > 0 or (ny == 0 and nx > 0):
+        nx, ny = -nx, -ny
+
+    breite = metrik.horizontalAdvance(f"«{stereotyp}»") + 6
+    hoehe = metrik.height()
+    mitte_x += nx * hoehe + eigener_versatz[0]
+    mitte_y += ny * hoehe + eigener_versatz[1]
+    return QRectF(mitte_x - breite / 2, mitte_y - hoehe / 2, breite, hoehe)
 
 
 def verbindungsbeschriftungen_zeichnen(
@@ -558,20 +735,20 @@ def verbindungsbeschriftungen_zeichnen(
     weiter entfernt – und seitlich neben der Linie. Ab Teilschritt 4b
     lässt sie sich von dort aus frei verschieben.
     """
-    labels = verbindung.get("labels") or {}
-    if not any(str(wert).strip() for wert in labels.values()):
-        return
+    from ide.diagramm.formen import verbindungs_art
 
+    rechtecke = beschriftungs_rechtecke(verbindung, quelle, ziel)
+    stereotyp = verbindungs_art(verbindung["kind"]).stereotyp
+    if stereotyp and "stereotyp" in rechtecke:
+        _stereotyp_zeichnen(maler, rechtecke["stereotyp"], stereotyp, stil)
+
+    labels = verbindung.get("labels") or {}
     maler.setFont(_namensschrift(fett=False))
     maler.setPen(QColor(stil.text))
-    for schluessel, rechteck in beschriftungs_rechtecke(
-        verbindung, quelle, ziel
-    ).items():
-        maler.drawText(
-            rechteck,
-            Qt.AlignmentFlag.AlignCenter,
-            str(labels.get(schluessel, "")).strip(),
-        )
+    for schluessel, rechteck in rechtecke.items():
+        text = str(labels.get(schluessel, "")).strip()
+        if text:
+            maler.drawText(rechteck, Qt.AlignmentFlag.AlignCenter, text)
 
 
 #: Wie nah man einen Knickpunkt treffen muss. Etwas größer als der

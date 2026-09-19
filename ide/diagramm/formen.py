@@ -2,9 +2,12 @@
 
 Beschreibt nur, *was* es gibt (Name, Beschriftung, Startgröße) – das
 *Zeichnen* steht in `ide/diagramm/zeichnen.py`, die Bedienung in
-`ide/diagramm/canvas.py`. Stand M9, Schritt 2: nur das
-Klassendiagramm; die übrigen Formen-Diagramme aus Abschnitt 13.4
-kommen als eigene Schritte dazu (siehe M9.md, „Danach“).
+`ide/diagramm/canvas.py`.
+
+Alle Formen-Diagramme teilen sich dieselbe Zeichenfläche und dieselbe
+Verbindungs-Maschinerie; ein neuer Diagrammtyp ist deshalb im
+Wesentlichen ein Eintrag in `FORMEN_JE_TYP` und `VERBINDUNGEN_JE_TYP`
+plus seine Darstellung in `zeichnen.py`.
 """
 
 from __future__ import annotations
@@ -33,6 +36,19 @@ class FormArt:
 #: „automatische Mindestgröße, damit Text nie abgeschnitten wird“).
 MINDESTGROESSE = (72, 40)
 
+#: Formen und Verbindungen, die in mehreren Diagrammarten vorkommen –
+#: **ein** Objekt, nicht zwei gleich aussehende: `form_art()` sucht über
+#: `kind`, und zwei Einträge mit derselben Kennung würden sich sonst
+#: gegenseitig überschreiben, ohne dass es auffällt.
+NOTIZ = FormArt(
+    kind="note",
+    beschriftung="Notiz",
+    beschreibung="Freitext-Notiz mit umgeknickter Ecke",
+    breite=160,
+    hoehe=80,
+    standardname="Notiz",
+)
+
 KLASSENDIAGRAMM_FORMEN: tuple[FormArt, ...] = (
     FormArt(
         kind="class",
@@ -58,14 +74,7 @@ KLASSENDIAGRAMM_FORMEN: tuple[FormArt, ...] = (
         hoehe=104,
         standardname="Interface",
     ),
-    FormArt(
-        kind="note",
-        beschriftung="Notiz",
-        beschreibung="Freitext-Notiz mit umgeknickter Ecke",
-        breite=160,
-        hoehe=80,
-        standardname="Notiz",
-    ),
+    NOTIZ,
     FormArt(
         kind="package",
         beschriftung="Paket",
@@ -90,14 +99,20 @@ class VerbindungsArt:
     spitze_am_ziel: str = "keine"
     #: "keine" | "leer" (Aggregation ◇) | "gefuellt" (Komposition ◆)
     raute_an_quelle: str = "keine"
+    #: Text, der ohne Zutun in der Mitte der Linie steht – bei
+    #: «include»/«extend» gehört er zur Notation und nicht zur
+    #: Beschriftung, die die Bedienerin selbst setzt.
+    stereotyp: str = ""
 
+
+ASSOZIATION = VerbindungsArt(
+    kind="association",
+    beschriftung="Assoziation",
+    beschreibung="einfache Verbindung ohne Richtung",
+)
 
 KLASSENDIAGRAMM_VERBINDUNGEN: tuple[VerbindungsArt, ...] = (
-    VerbindungsArt(
-        kind="association",
-        beschriftung="Assoziation",
-        beschreibung="einfache Verbindung ohne Richtung",
-    ),
+    ASSOZIATION,
     VerbindungsArt(
         kind="directed_association",
         beschriftung="Gerichtete Assoziation",
@@ -138,15 +153,71 @@ KLASSENDIAGRAMM_VERBINDUNGEN: tuple[VerbindungsArt, ...] = (
     ),
 )
 
+USE_CASE_FORMEN: tuple[FormArt, ...] = (
+    FormArt(
+        kind="actor",
+        beschriftung="Akteur",
+        beschreibung="Strichmännchen mit Namen darunter",
+        breite=80,
+        hoehe=104,
+        standardname="Akteur",
+    ),
+    FormArt(
+        kind="use_case",
+        beschriftung="Anwendungsfall",
+        beschreibung="Ellipse mit dem Namen des Falls",
+        breite=176,
+        hoehe=72,
+        standardname="Anwendungsfall",
+    ),
+    FormArt(
+        kind="system_boundary",
+        beschriftung="Systemgrenze",
+        beschreibung="Rahmen um die Fälle, Name oben",
+        breite=360,
+        hoehe=280,
+        standardname="System",
+    ),
+    NOTIZ,
+)
+
+USE_CASE_VERBINDUNGEN: tuple[VerbindungsArt, ...] = (
+    ASSOZIATION,
+    VerbindungsArt(
+        kind="include",
+        beschriftung="«include»",
+        beschreibung="der Fall benutzt einen anderen immer",
+        gestrichelt=True,
+        spitze_am_ziel="offen",
+        stereotyp="include",
+    ),
+    VerbindungsArt(
+        kind="extend",
+        beschriftung="«extend»",
+        beschreibung="der Fall erweitert einen anderen manchmal",
+        gestrichelt=True,
+        spitze_am_ziel="offen",
+        stereotyp="extend",
+    ),
+    VerbindungsArt(
+        kind="generalization",
+        beschriftung="Generalisierung",
+        beschreibung="leeres Dreieck am allgemeineren Element",
+        spitze_am_ziel="dreieck",
+    ),
+)
+
 #: Diagrammtyp -> Formen der Palette (Abschnitt 13.2: Gruppen je
 #: Diagrammtyp).
 FORMEN_JE_TYP: dict[str, tuple[FormArt, ...]] = {
     "class": KLASSENDIAGRAMM_FORMEN,
+    "use_case": USE_CASE_FORMEN,
 }
 
 #: Diagrammtyp -> Verbindungsarten der Palette.
 VERBINDUNGEN_JE_TYP: dict[str, tuple[VerbindungsArt, ...]] = {
     "class": KLASSENDIAGRAMM_VERBINDUNGEN,
+    "use_case": USE_CASE_VERBINDUNGEN,
 }
 
 _NACH_KIND = {form.kind: form for formen in FORMEN_JE_TYP.values() for form in formen}
