@@ -39,7 +39,11 @@ def test_units_ohne_design_dateien() -> None:
     projekt = Projekt.laden(_AMPEL_ORDNER)
     namen = [p.name for p in projekt.units()]
     assert "u_main_design.py" not in namen
-    assert set(namen) == {"main.py", "u_ampel.py", "u_main.py"}
+    # Seit M12 steht die Startdatei nicht mehr bei den Units: sie wird
+    # erzeugt und nicht bearbeitet, wie die `.lpr` in Lazarus. Erreichbar
+    # bleibt sie über „Projekt → Startdatei anzeigen“.
+    assert set(namen) == {"u_ampel.py", "u_main.py"}
+    assert "main.py" in {p.name for p in projekt.alle_python_dateien()}
 
 
 def test_formulare() -> None:

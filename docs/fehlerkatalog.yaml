@@ -95,6 +95,46 @@ entries:
     was: "Die Datei {pfad} lässt sich nicht als Tabelle einlesen. Erkannte Spaltenanzahl: {spaltenanzahl}."
     pruefe: "Stimmt das angegebene Trennzeichen? Hat die Datei eine Kopfzeile, und ist sie überhaupt gefüllt?"
 
+  # M12: Fehler, die im Unterricht vorkommen und bis dahin gar keinen
+  # Eintrag hatten - das Schülerprogramm zeigte dann den englischen
+  # Traceback.
+  - id: import_error
+    exception: [ImportError, ModuleNotFoundError]
+    was: "Die Unit oder das Paket {name} konnte nicht geladen werden."
+    pruefe: "Heißt die Unit wirklich so, mit derselben Groß- und Kleinschreibung, und liegt sie im Projektordner? Falls es ein Paket sein soll: ist es über „Pakete → Paket installieren …“ eingerichtet?"
+
+  # Der einzige Fehler, den man im Editor nicht sehen kann. Der Hinweis
+  # zeigt auf die Ansicht, die Natter seit M11 dafür hat.
+  - id: tab_error
+    exception: TabError
+    was: "In der Einrückung sind Leerzeichen und Tabulatoren gemischt."
+    pruefe: "Wird in dieser Datei überall mit Leerzeichen eingerückt - oder überall mit Tabulatoren? Beides sieht im Editor gleich aus; „Ansicht → Leerzeichen anzeigen“ macht den Unterschied sichtbar."
+
+  - id: recursion_error
+    exception: RecursionError
+    was: "Die Funktion hat sich so oft selbst aufgerufen, dass kein Platz mehr da war. Meistens fehlt der Fall, der die Rekursion beendet."
+    pruefe: "Welcher Fall soll die Rekursion abbrechen, und wird er überhaupt erreicht? Kommt der Aufruf dem Abbruchfall mit jedem Schritt näher?"
+
+  - id: assertion_error
+    exception: AssertionError
+    was: "Eine Behauptung (`assert`) hat nicht gestimmt. Dazu steht da: {meldung}."
+    pruefe: "Welche Werte haben die Namen in der Behauptung an dieser Stelle wirklich? Ist die Behauptung falsch - oder das, was vorher berechnet wurde?"
+
+  # Rückfall für alle OSError ohne eigenen Eintrag (FileExistsError,
+  # IsADirectoryError, volle Platte). Ohne ihn fiel die Suche über die
+  # Klassenhierarchie ins Leere.
+  - id: os_error
+    exception: OSError
+    was: "Der Zugriff auf {pfad} ist fehlgeschlagen."
+    pruefe: "Stimmt der Pfad, und gibt es die Datei bzw. den Ordner schon? Ist sie gerade in einem anderen Programm geöffnet?"
+
+  # Rückfall für OverflowError und die übrigen Rechenfehler neben der
+  # Division durch 0.
+  - id: arithmetic_error
+    exception: ArithmeticError
+    was: "Die Rechnung ließ sich nicht ausführen."
+    pruefe: "Welche Werte haben die beteiligten Zahlen an dieser Stelle? Wird eine Zahl in einer Schleife immer weiter vergrößert?"
+
   # Noch nicht umgesetzt: eine Ausnahme `NatterRuntimeError` gibt es in
   # `pcl.errors` bisher nicht, und `input()` wird im GUI-Programm nicht
   # abgefangen. Der Eintrag bleibt als Vorgabe stehen.

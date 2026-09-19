@@ -207,6 +207,32 @@ def _kommentar_umschalten_zeilen(zeilen: list[str]) -> list[str]:
 
 # Vorlage „Test-Unit“ im Neu-Dialog (Abschnitt 8.6): unittest, reines
 # Python wie bei jeder anderen Unit.
+def neue_unit_vorlage(name: str) -> str:
+    """Das Gerüst, mit dem eine neue Unit entsteht.
+
+    Bis M12 legte „Neue Unit“ eine **völlig leere Datei** an. In Lazarus
+    bekommt man dagegen `unit …; interface; uses …; implementation;
+    end.` und weiß auf einen Blick, wohin was gehört (Nutzer-Feedback:
+    „wenn es muss wie bei Lazarus eine konkrete Abfolge geben und eine
+    Struktur“). Dieselben drei Dinge stehen hier: wofür die Unit da ist,
+    wo die Importe hingehören und wie andere Units an ihren Inhalt
+    kommen – das Gegenstück zu Lazarus' `uses`.
+    """
+    return f'''\
+"""{name} – wofür ist diese Unit da?
+
+Andere Units holen sich, was hier steht, mit:
+    from {name} import MeineKlasse
+"""
+
+# Importe stehen hier, oberhalb des eigenen Codes. Zum Beispiel:
+# from u_ampel import Ampel
+
+
+# Ab hier dein Code: eine Klasse oder ein paar Funktionen.
+'''
+
+
 _TEST_UNIT_VORLAGE = '''\
 """Tests. Ausführen über „Projekt → Alle Tests ausführen“ oder das
 Panel „Tests“."""
@@ -725,6 +751,15 @@ class HauptFenster(QMainWindow):
         )
         self.aktionen.registrieren(
             Aktion(
+                "projekt.startdatei_zeigen",
+                "Startdatei anzeigen",
+                menue="Projekt",
+                trennlinie_davor=True,
+                callback=self._startdatei_zeigen_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
                 "projekt.alle_tests_ausfuehren",
                 "Alle Tests ausführen",
                 menue="Projekt",
@@ -978,10 +1013,13 @@ class HauptFenster(QMainWindow):
         if dialog.exec() == QDialog.DialogCode.Accepted and dialog.ausgewaehlte_datei is not None:
             self.datei_oeffnen(dialog.ausgewaehlte_datei)
 
-    def unit_erzeugen(self, name: str | None = None, *, inhalt: str = "") -> Path:
+    def unit_erzeugen(self, name: str | None = None, *, inhalt: str | None = None) -> Path:
         """„Neue Unit“ (Abschnitt 7.2, 7.4): legt `u_neu<n>.py` an (oder
-        mit gegebenem `name`/`inhalt`), fügt sie dem Projekt-Explorer hinzu
-        und öffnet sie im Editor."""
+        mit gegebenem `name`), fügt sie dem Projekt-Explorer hinzu und
+        öffnet sie im Editor.
+
+        Ohne `inhalt` entsteht das Gerüst aus `neue_unit_vorlage()` -
+        bis M12 war es eine leere Datei."""
         if self.projekt is None:
             raise RuntimeError("Kein Projekt offen.")
 
@@ -992,13 +1030,40 @@ class HauptFenster(QMainWindow):
         if pfad.exists():
             raise FileExistsError(f"{pfad} existiert bereits.")
 
-        pfad.write_text(inhalt, encoding="utf-8")
+        pfad.write_text(
+            neue_unit_vorlage(name) if inhalt is None else inhalt, encoding="utf-8"
+        )
         self.explorer.projekt_anzeigen(self.projekt)
         self.datei_oeffnen(pfad)
         return pfad
 
+    def _startdatei_zeigen_aktion(self) -> None:
+        """„Projekt → Startdatei anzeigen“ – der einzige Weg zur
+        `main.py`.
+
+        Sie steht bewusst nicht im Projekt-Explorer: Natter schreibt sie
+        beim Anlegen des Projekts, danach ändert sie niemand mehr. Eine
+        Datei, die man nicht bearbeiten soll, gehört nicht zwischen die,
+        an denen man arbeitet – genau so hält es Lazarus mit der
+        Projektdatei `.lpr` (M12). Wer trotzdem hineinsehen will, kommt
+        über diesen Eintrag hin."""
+        if self.projekt is None:
+            self.statusBar().showMessage(
+                "Kein Projekt offen. Zuerst über „Projekt → Öffnen …“ eines laden oder ein "
+                "neues anlegen."
+            )
+            return
+        self.oeffnen(self.projekt.haupt_datei)
+        self.statusBar().showMessage(
+            f"{self.projekt.haupt_datei.name} startet das Programm. Dein Code gehört in die "
+            f"Units daneben – hier ist nichts zu ändern."
+        )
+
     def _naechster_unit_name(self) -> str:
-        vorhandene = {p.stem for p in self.projekt.units()}
+        # Gegen *alle* Dateien geprüft, nicht nur gegen die sichtbaren:
+        # sonst könnte ein neuer Name die Startdatei oder eine erzeugte
+        # Design-Datei überschreiben (M12).
+        vorhandene = {p.stem for p in self.projekt.alle_python_dateien()}
         zaehler = 1
         while f"u_neu{zaehler}" in vorhandene:
             zaehler += 1
@@ -1013,7 +1078,7 @@ class HauptFenster(QMainWindow):
                 "neues anlegen."
             )
             return
-        vorhandene = {p.stem for p in self.projekt.units()}
+        vorhandene = {p.stem for p in self.projekt.alle_python_dateien()}
         zaehler = 1
         while f"test_neu{zaehler}" in vorhandene:
             zaehler += 1

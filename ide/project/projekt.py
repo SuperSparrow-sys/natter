@@ -64,9 +64,29 @@ class Projekt:
         )
 
     def units(self) -> list[Path]:
-        """Alle Python-Units im Projektordner, ohne automatisch erzeugte
-        `*_design.py`-Dateien (Abschnitt 4.1: nicht bearbeiten)."""
-        return sorted(p for p in self.ordner.glob("*.py") if not p.name.endswith("_design.py"))
+        """Die Units, an denen gearbeitet wird.
+
+        Ohne die automatisch erzeugten `*_design.py` (Abschnitt 4.1:
+        nicht bearbeiten) **und ohne die Startdatei** (`main`): die
+        schreibt Natter beim Anlegen des Projekts, danach ändert sie
+        niemand mehr. In Lazarus steht die entsprechende Projektdatei
+        (`.lpr`) aus demselben Grund nicht im Projektinspektor, sondern
+        nur hinter einem eigenen Menüweg (M12).
+
+        Für Namenskollisionen ist `alle_python_dateien()` gemeint, nicht
+        diese Liste - sonst ließe sich eine Unit auf den Namen der
+        Startdatei umbenennen und diese damit überschreiben."""
+        versteckt = {self.haupt_datei.name}
+        return sorted(
+            p
+            for p in self.ordner.glob("*.py")
+            if not p.name.endswith("_design.py") and p.name not in versteckt
+        )
+
+    def alle_python_dateien(self) -> list[Path]:
+        """Jede `.py` im Projektordner, auch die erzeugten und die
+        Startdatei - für Namensprüfungen."""
+        return sorted(self.ordner.glob("*.py"))
 
     def formulare(self) -> list[Path]:
         """Alle Formularbeschreibungen (`.pfm`) im Projektordner."""

@@ -13,6 +13,7 @@ umgesetzten Ereignisse haben die Signatur `(self, sender)` (Abschnitt
 from __future__ import annotations
 
 import inspect
+from collections.abc import Callable
 from typing import Any
 
 from PySide6.QtCore import Qt
@@ -49,10 +50,32 @@ class EreignisseTabelle(QTableWidget):
         self.setHorizontalHeaderLabels(["Ereignis", "Handler"])
         self._komponente: Any = None
         self._formular: Any = None
+        self._bei_aenderung: Callable[[Any, str, Any, Any], None] | None = None
 
-    def anzeigen(self, komponente: Any, formular: Any) -> None:
+    def anzeigen(
+        self,
+        komponente: Any,
+        formular: Any,
+        *,
+        bei_aenderung: Callable[[Any, str, Any, Any], None] | None = None,
+    ) -> None:
+        """`bei_aenderung` meldet eine hier gewählte Verknüpfung an den
+        Designer weiter, damit sie in die `.pfm` und den erzeugten Code
+        kommt.
+
+        Ohne diese Meldung landete eine im Reiter „Ereignisse“ gesetzte
+        Verknüpfung **nur am Live-Objekt**: der Designer zeigte sie an,
+        die `.pfm` und `u_*_design.py` erfuhren nichts davon, und im
+        gestarteten Programm tat der Knopf nichts. Manchmal kam sie doch
+        an – nämlich dann, wenn die Schülerin danach zufällig noch eine
+        Eigenschaft änderte, denn dabei wird die `.pfm` komplett aus dem
+        Live-Formular neu geschrieben. „Mal geht mein Knopf, mal nicht“
+        ist für jemanden, der programmieren lernt, der denkbar
+        schlechteste Fehler (M12).
+        """
         self._komponente = komponente
         self._formular = formular
+        self._bei_aenderung = bei_aenderung
         events = ereignisse(type(komponente))
         namen = sorted(events)
         self.setRowCount(len(namen))
@@ -89,7 +112,12 @@ class EreignisseTabelle(QTableWidget):
         return auswahl
 
     def _handler_setzen(self, ereignis_name: str, methoden_name: str) -> None:
-        if methoden_name == KEIN_HANDLER:
-            setattr(self._komponente, ereignis_name, None)
-        else:
-            setattr(self._komponente, ereignis_name, getattr(self._formular, methoden_name))
+        alt = getattr(self._komponente, ereignis_name)
+        neu = (
+            None
+            if methoden_name == KEIN_HANDLER
+            else getattr(self._formular, methoden_name)
+        )
+        setattr(self._komponente, ereignis_name, neu)
+        if self._bei_aenderung is not None:
+            self._bei_aenderung(self._komponente, ereignis_name, alt, neu)

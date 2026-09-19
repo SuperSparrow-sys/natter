@@ -8,17 +8,21 @@ nur die Sprache ist Python statt Pascal.
 
 **Projekt → Neues Projekt …**, oder auf dem Startbild „Neues Projekt …".
 
-Natter legt dir einen Ordner mit vier Dateien an:
+Im Projekt-Explorer links siehst du genau zwei Dinge:
 
-| Datei | Wofür |
+| Eintrag | Wofür |
 |---|---|
-| `main.py` | startet das Programm – hier änderst du nichts |
-| `u_main.pfm` | das **Formular**: wo welche Komponente liegt. Entsteht im Designer, nicht von Hand |
-| `u_main_design.py` | wird aus der `.pfm` erzeugt. **Nicht bearbeiten** – deine Änderungen wären beim nächsten Speichern weg |
-| `u_main.py` | **dein** Code: was passieren soll, wenn jemand klickt |
+| **Formulare › u_main** | das **Formular**. Doppelklick öffnet den Designer |
+| **Units › u_main.py** | **dein** Code: was passieren soll, wenn jemand klickt |
 
-Die Trennung der letzten beiden ist derselbe Gedanke wie `.lfm` und
-`.pas` in Lazarus.
+Im Ordner liegen noch zwei weitere Dateien, die Natter selbst schreibt
+und die du nicht bearbeitest – deshalb stehen sie auch nicht im Baum:
+`u_main_design.py` (aus dem Formular erzeugt) und `main.py` (startet das
+Programm). Genau so hält es Lazarus mit der Projektdatei `.lpr`. Wenn du
+trotzdem hineinsehen willst: **Projekt → Startdatei anzeigen**.
+
+Die Trennung von `u_main.pfm` und `u_main.py` ist derselbe Gedanke wie
+`.lfm` und `.pas` in Lazarus.
 
 ## 2. Das Formular bauen
 
@@ -35,16 +39,20 @@ Komponente können soll:
 * `left`, `top`, `width`, `height` – Lage und Größe
 * Reiter **Ereignisse** – was bei einem Klick passieren soll
 
-Trag bei `on_click` eines Knopfes einen Namen ein, etwa
-`b_start_click`. Natter legt dir die passende Methode in `u_main.py`
-an.
+**Doppelklick auf den Knopf** im Formular – Natter legt dir die
+Methode dafür in `u_main.py` an und verknüpft sie. (Dasselbe über die
+rechte Maustaste: „Methode für „click“ anlegen“.) Der Reiter
+**Ereignisse** im Objektinspektor zeigt danach, welche Methode an
+welchem Ereignis hängt; dort lässt sich auch eine **schon vorhandene**
+Methode auswählen.
 
 ## 3. Code schreiben
 
-Wechsle zu **u_main.py**. Dort steht jetzt deine leere Methode:
+Wechsle zu **u_main.py**. Dort steht jetzt deine leere Methode – trag
+hinein, was passieren soll:
 
 ```python
-def b_start_click(self, sender) -> None:
+def b_start_click(self, sender):
     self.l_ausgabe.caption = "Hallo!"
 ```
 
@@ -96,11 +104,11 @@ zum Abschreiben, kein fertiges Programm.
 | F5 | Starten mit Debugger |
 | Strg+F5 | Starten ohne Debugger |
 | Umschalt+F5 | Stopp |
-| F7 / F8 | Einzelschritt / Prozedurschritt |
+| F11 / F10 | Einzelschritt / Prozedurschritt |
 | Strg+S | Speichern |
 | Strg+F | Suchen |
 | Strg+Z | Rückgängig |
-| Strg+G | Gruppieren (im Diagramm-Editor) |
+| Strg+G | Gehe zu Zeile … (im Diagramm-Editor: Gruppieren) |
 | Strg+Umschalt+E | Quelltext aus dem Diagramm erzeugen |
 
 ## Und wenn ich nicht weiterkomme?

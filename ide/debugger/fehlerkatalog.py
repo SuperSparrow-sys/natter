@@ -460,7 +460,20 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
         r"^unindent does not match any outer indentation level$",
         "Die Einrückung dieser Zeile passt zu keiner der Ebenen darüber.",
         "Sind alle Zeilen des Blocks gleich weit eingerückt? Ein gemischter "
-        "Gebrauch von Leerzeichen und Tabulatoren fällt im Editor nicht auf.",
+        "Gebrauch von Leerzeichen und Tabulatoren sieht im Editor gleich aus – "
+        "„Ansicht → Leerzeichen anzeigen“ macht den Unterschied sichtbar.",
+    ),
+    # Die Meldung zu `TabError`. Ohne eigenen Eintrag fiel sie auf den
+    # allgemeinen Text der Syntaxfehler zurück, der die Ursache gar nicht
+    # nennt - dabei ist sie die eine, die man im Editor nicht sehen kann
+    # (M12). Der Hinweis zeigt auf die Ansicht, die Natter seit M11 dafür
+    # hat.
+    _m(
+        r"^inconsistent use of tabs and spaces in indentation$",
+        "In der Einrückung sind Leerzeichen und Tabulatoren gemischt.",
+        "Wird in dieser Datei überall mit Leerzeichen eingerückt – oder überall "
+        "mit Tabulatoren? Beides sieht im Editor gleich aus; „Ansicht → "
+        "Leerzeichen anzeigen“ macht den Unterschied sichtbar.",
     ),
     _m(
         r"^expected an indented block$",
@@ -755,7 +768,8 @@ def _file_not_found(exc: FileNotFoundError) -> tuple[str, str, str]:
     if exc.filename:
         return (
             "Datei nicht gefunden",
-            f"Die Datei {exc.filename!r} wurde nicht gefunden.",
+            f"Die Datei {_in_deutsche_anfuehrungszeichen(repr(exc.filename))} "
+            "wurde nicht gefunden.",
             pruefe,
         )
     was, pruefe = _was_und_pruefe(exc, "Die angegebene Datei wurde nicht gefunden.", pruefe)
@@ -768,7 +782,12 @@ def _permission_error(exc: PermissionError) -> tuple[str, str, str]:
         "Bestehen Schreibrechte für diesen Ordner?"
     )
     if exc.filename:
-        return ("Kein Zugriff auf die Datei", f"Auf {exc.filename!r} besteht kein Zugriff.", pruefe)
+        return (
+            "Kein Zugriff auf die Datei",
+            f"Auf {_in_deutsche_anfuehrungszeichen(repr(exc.filename))} besteht kein "
+            "Zugriff.",
+            pruefe,
+        )
     was, pruefe = _was_und_pruefe(exc, "Auf die Datei besteht kein Zugriff.", pruefe)
     return ("Kein Zugriff auf die Datei", was, pruefe)
 
@@ -813,6 +832,89 @@ def _syntax_error(exc: SyntaxError) -> tuple[str, str, str]:
     return ("Ungültige Quelltextstruktur", was, pruefe)
 
 
+def _import_error(exc: BaseException) -> tuple[str, str, str]:
+    """`ModuleNotFoundError`/`ImportError` (M12).
+
+    Der häufigste Fehler beim Aufteilen auf mehrere Units: die Unit
+    heißt `u_Ampel.py`, im Import steht `u_ampel` – unter Windows fällt
+    das beim Dateinamen nicht auf, beim Import schon. Der zweite Fall
+    ist ein Paket, das gar nicht installiert ist.
+    """
+    name = getattr(exc, "name", None) or _name_ermitteln(exc)
+    # Bewusst ohne `_gross()`: der Name ist ein Bezeichner. Aus
+    # `u_ampel` würde sonst `U_ampel` – und genau um Groß- und
+    # Kleinschreibung geht es hier.
+    ziel = (
+        f"Die Unit oder das Paket {_in_deutsche_anfuehrungszeichen(repr(name))}"
+        if name
+        else "Die angeforderte Unit bzw. das Paket"
+    )
+    return (
+        "Unit oder Paket nicht gefunden",
+        f"{ziel} konnte nicht geladen werden.",
+        "Heißt die Unit wirklich so, mit derselben Groß- und Kleinschreibung, und "
+        "liegt sie im Projektordner? Falls es ein Paket sein soll: ist es über "
+        "„Pakete → Paket installieren …“ eingerichtet?",
+    )
+
+
+def _recursion_error(exc: BaseException) -> tuple[str, str, str]:
+    """`RecursionError` (M12). Rekursion steht auf dem Lehrplan, und der
+    erste Versuch endet fast immer hier."""
+    return (
+        "Rekursion ohne Ende",
+        "Die Funktion hat sich so oft selbst aufgerufen, dass kein Platz mehr da "
+        "war. Meistens fehlt der Fall, der die Rekursion beendet.",
+        "Welcher Fall soll die Rekursion abbrechen, und wird er überhaupt erreicht? "
+        "Kommt der Aufruf dem Abbruchfall mit jedem Schritt näher?",
+    )
+
+
+def _assertion_error(exc: BaseException) -> tuple[str, str, str]:
+    """`AssertionError` (M12). Kommt aus einem `assert` im eigenen Code
+    und aus jeder fehlgeschlagenen Prüfung in einer Test-Unit."""
+    text = _vorschlaege_entfernen(str(exc))
+    was = "Eine Behauptung (`assert`) hat nicht gestimmt."
+    if text:
+        was += f" Dazu steht da: {_in_deutsche_anfuehrungszeichen(repr(text))}."
+    return (
+        "Behauptung nicht erfüllt",
+        was,
+        "Welche Werte haben die Namen in der Behauptung an dieser Stelle wirklich? "
+        "Ist die Behauptung falsch – oder das, was vorher berechnet wurde?",
+    )
+
+
+def _os_error(exc: BaseException) -> tuple[str, str, str]:
+    """Rückfall für alle `OSError`, die keinen eigenen Eintrag haben
+    (`FileExistsError`, `IsADirectoryError`, volle Platte …). Ohne ihn
+    fiel die Suche über die MRO ins Leere und das Schülerprogramm zeigte
+    den rohen Traceback (M12)."""
+    pfad = getattr(exc, "filename", None)
+    was, pruefe = _was_und_pruefe(
+        exc,
+        f"Der Zugriff auf {_in_deutsche_anfuehrungszeichen(repr(str(pfad)))} ist "
+        "fehlgeschlagen."
+        if pfad
+        else "Ein Zugriff auf eine Datei oder einen Ordner ist fehlgeschlagen.",
+        "Stimmt der Pfad, und gibt es die Datei bzw. den Ordner schon? Ist sie "
+        "gerade in einem anderen Programm geöffnet?",
+    )
+    return ("Dateizugriff fehlgeschlagen", was, pruefe)
+
+
+def _arithmetic_error(exc: BaseException) -> tuple[str, str, str]:
+    """Rückfall für `OverflowError` und die übrigen Rechenfehler neben
+    der Division durch 0 (M12)."""
+    was, pruefe = _was_und_pruefe(
+        exc,
+        "Die Rechnung ließ sich nicht ausführen.",
+        "Welche Werte haben die beteiligten Zahlen an dieser Stelle? Wird eine "
+        "Zahl in einer Schleife immer weiter vergrößert?",
+    )
+    return ("Rechnung nicht ausführbar", was, pruefe)
+
+
 def _natter_property_error(exc: BaseException) -> tuple[str, str, str]:
     """`pcl.errors.NatterPropertyError`: einer Eigenschaft wurde ein Wert
     falschen Typs zugewiesen. Die Meldung aus `pcl` ist bereits deutsch
@@ -855,6 +957,16 @@ _KATALOG: dict[type[BaseException], Callable[[BaseException], tuple[str, str, st
     UnicodeDecodeError: _unicode_decode_error,
     IndentationError: _syntax_error,
     SyntaxError: _syntax_error,
+    # M12: Fehler, die im Unterricht vorkommen und bis dahin gar keine
+    # Meldung bekamen - das Schülerprogramm zeigte den englischen
+    # Traceback. `ImportError` deckt auch `ModuleNotFoundError` ab,
+    # `OSError` und `ArithmeticError` fangen ihre übrigen Unterklassen
+    # auf (FileExistsError, IsADirectoryError, OverflowError …).
+    ImportError: _import_error,
+    RecursionError: _recursion_error,
+    AssertionError: _assertion_error,
+    OSError: _os_error,
+    ArithmeticError: _arithmetic_error,
     # `pcl`-eigene Ausnahmen: NatterPropertyError und
     # NatterDatenbankError stehen hier, weil ihre Basisklassen den
     # Fehler nicht treffen bzw. gar nicht im Katalog stehen

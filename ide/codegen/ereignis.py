@@ -20,13 +20,31 @@ def _hat_methode(klasse: cst.ClassDef, methodenname: str) -> bool:
     )
 
 
+#: Steht in jeder frisch erzeugten Ereignis-Methode über dem `pass`.
+#:
+#: `pass` ist für jemanden, der von Pascal kommt, ein rätselhaftes Wort:
+#: es sieht aus wie eine Anweisung, tut aber nichts. Die Zeile darüber
+#: sagt, wofür der leere Rumpf da ist, und verschwindet von selbst,
+#: sobald die erste eigene Zeile sie ersetzt (M12).
+RUMPF_HINWEIS = "Hier steht, was passieren soll."
+
+
 def _leere_handler_methode(methodenname: str) -> cst.FunctionDef:
     return cst.FunctionDef(
         name=cst.Name(methodenname),
         params=cst.Parameters(
             params=[cst.Param(cst.Name("self")), cst.Param(cst.Name("sender"))]
         ),
-        body=cst.IndentedBlock(body=[cst.SimpleStatementLine([cst.Pass()])]),
+        body=cst.IndentedBlock(
+            body=[
+                cst.SimpleStatementLine(
+                    [cst.Pass()],
+                    leading_lines=[
+                        cst.EmptyLine(comment=cst.Comment(f"# {RUMPF_HINWEIS}"))
+                    ],
+                )
+            ]
+        ),
         leading_lines=[cst.EmptyLine()],
     )
 

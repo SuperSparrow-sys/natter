@@ -98,4 +98,7 @@ def test_projekt_in_der_ide_oeffnen_gruppiert_units_korrekt() -> None:
         for i in range(fenster.explorer.units_gruppe.childCount())
     }
     assert formulare == {"u_main"}
-    assert units == {"main.py", "u_pflanzen.py", "u_garten.py"}
+    # Seit M12 steht die Startdatei nicht mehr bei den Units: sie wird
+    # erzeugt und nicht bearbeitet, wie die `.lpr` in Lazarus. Erreichbar
+    # bleibt sie über „Projekt → Startdatei anzeigen“.
+    assert units == {"u_pflanzen.py", "u_garten.py"}

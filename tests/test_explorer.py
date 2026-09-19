@@ -57,4 +57,6 @@ def test_erneutes_anzeigen_ersetzt_den_alten_inhalt() -> None:
     explorer.projekt_anzeigen(projekt)
 
     assert explorer.formulare_gruppe.childCount() == 1
-    assert explorer.units_gruppe.childCount() == 2
+    # Nur `u_ampel.py`: `u_main.py` gehört zum Formular und steht dort,
+    # und die Startdatei `main.py` steht seit M12 gar nicht mehr im Baum.
+    assert explorer.units_gruppe.childCount() == 1

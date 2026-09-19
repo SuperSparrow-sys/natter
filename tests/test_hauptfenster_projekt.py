@@ -32,7 +32,10 @@ def test_projekt_oeffnen_fuellt_den_explorer() -> None:
         for i in range(fenster.explorer.units_gruppe.childCount())
     ]
     assert formulare == ["u_main"]
-    assert set(units) == {"main.py", "u_ampel.py"}
+    # Seit M12 steht die Startdatei nicht mehr bei den Units: sie wird
+    # erzeugt und nicht bearbeitet, wie die `.lpr` in Lazarus. Erreichbar
+    # bleibt sie über „Projekt → Startdatei anzeigen“.
+    assert set(units) == {"u_ampel.py"}
 
 
 def test_datei_oeffnen_zeigt_inhalt_in_neuem_tab() -> None:
@@ -60,7 +63,7 @@ def test_explorer_doppelklick_oeffnet_die_datei() -> None:
     fenster = HauptFenster()
     fenster.projekt_oeffnen(_AMPEL_ORDNER)
 
-    eintrag = fenster.explorer.units_gruppe.child(0)  # main.py oder u_ampel.py
+    eintrag = fenster.explorer.units_gruppe.child(0)  # u_ampel.py
     fenster.explorer.itemActivated.emit(eintrag, 0)
 
     assert fenster.editor_tabs.count() == 1

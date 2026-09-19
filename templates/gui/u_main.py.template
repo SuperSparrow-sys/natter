@@ -1,3 +1,12 @@
+# Hier steht dein Code.
+#
+# Die Klasse erbt alles, was du im Designer angelegt hast - jede
+# Komponente erreichst du über self. und ihren Namen, z. B.
+# self.l_titel.caption = "Hallo".
+#
+# Methoden für Ereignisse legt Natter selbst an: Doppelklick auf eine
+# Komponente im Designer.
+
 from u_main_design import Form1Design
 
 

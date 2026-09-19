@@ -56,4 +56,7 @@ def test_projekt_dateien_liefert_units_und_formulare() -> None:
 
     fenster.projekt_oeffnen(_AMPEL_ORDNER)
     namen = {p.name for p in fenster.projekt_dateien()}
-    assert namen == {"main.py", "u_ampel.py", "u_main.py", "u_main.pfm"}
+    # Seit M12 steht die Startdatei nicht mehr bei den Units: sie wird
+    # erzeugt und nicht bearbeitet, wie die `.lpr` in Lazarus. Erreichbar
+    # bleibt sie über „Projekt → Startdatei anzeigen“.
+    assert namen == {"u_ampel.py", "u_main.py", "u_main.pfm"}

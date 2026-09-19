@@ -66,6 +66,11 @@ def explorer(qtbot, tmp_path: Path) -> ProjektExplorer:
     return baum
 
 
+#: Die erste Unit im Baum. Seit M12 steht die Startdatei `main.py`
+#: nicht mehr darin - sie wird erzeugt und nicht bearbeitet.
+ERSTE_UNIT = "u_hilfe.py"
+
+
 def _punkt_der_unit(baum: ProjektExplorer) -> QPoint:
     """Die Mitte der ersten Unit-Zeile."""
     eintrag = baum.units_gruppe.child(0)
@@ -90,7 +95,7 @@ def test_umbenennen_meldet_den_pfad(explorer: ProjektExplorer, qtbot) -> None:
     with qtbot.waitSignal(explorer.umbenennen_angefordert) as gefangen:
         menue.actions()[0].trigger()
 
-    assert Path(gefangen.args[0]).name == "main.py"
+    assert Path(gefangen.args[0]).name == ERSTE_UNIT
 
 
 def test_loeschen_meldet_den_pfad(explorer: ProjektExplorer, qtbot) -> None:
@@ -99,7 +104,7 @@ def test_loeschen_meldet_den_pfad(explorer: ProjektExplorer, qtbot) -> None:
     with qtbot.waitSignal(explorer.loeschen_angefordert) as gefangen:
         menue.actions()[1].trigger()
 
-    assert Path(gefangen.args[0]).name == "main.py"
+    assert Path(gefangen.args[0]).name == ERSTE_UNIT
 
 
 def test_ueber_einer_gruppenueberschrift_gibt_es_kein_menue(

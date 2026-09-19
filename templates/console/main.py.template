@@ -1,1 +1,4 @@
+# Ein Konsolenprogramm: Ein- und Ausgabe über das schwarze Fenster.
+# print(...) schreibt hinein, input(...) liest eine Zeile daraus.
+
 print("Hallo, {{name}}!")

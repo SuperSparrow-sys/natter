@@ -67,4 +67,9 @@ class Objektinspektor(QWidget):
         self.eigenschaften_tabelle.komponente_anzeigen(
             komponente, name=name, name_setzen=name_setzen, bei_aenderung=bei_aenderung
         )
-        self.ereignisse_tabelle.anzeigen(komponente, self._formular)
+        # Dieselbe Meldung wie bei den Eigenschaften: eine hier gewählte
+        # Verknüpfung muss in die `.pfm` und den erzeugten Code, sonst
+        # tut der Knopf im gestarteten Programm nichts (M12).
+        self.ereignisse_tabelle.anzeigen(
+            komponente, self._formular, bei_aenderung=bei_aenderung
+        )
