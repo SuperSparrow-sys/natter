@@ -1,11 +1,23 @@
 # Komponenten-Referenz
 
-Verbindliche Schnittstelle für `pcl`. Jede Komponente wird hier mit jeder
-Eigenschaft (Name, Typ, Standardwert, Kategorie, deutscher Hilfetext) und
-jedem Ereignis (Name, Signatur, Auslöser) dokumentiert, bevor sie in `pcl`
-umgesetzt wird. Siehe konzept-natter.md, Abschnitt 5 und 23.2.
+Hier steht zu jeder Komponente, **was sie kann**: jede Eigenschaft mit
+ihrem Typ, ihrem Standardwert und einem Satz dazu, und jedes Ereignis
+mit seinem Auslöser. Dieselben Texte stehen als Kurzhinweis im
+Objektinspektor, wenn man mit der Maus über einer Zeile stehen bleibt.
 
-Status: `Form`, `Button`, `Label`, `Shape`, `Edit`, `CheckBox`,
+Die Eigenschaften setzt man im Designer (Objektinspektor) oder im Code
+über `self.` und den Namen der Komponente, zum Beispiel
+`self.b_start.caption = "Los"`.
+
+Zum Nachschlagen genügt die Tabelle der jeweiligen Komponente; die
+Angabe „Qt-Basis“ darunter ist für die Neugierigen und sagt, welches
+Qt-Widget dahintersteckt.
+
+Diese Seite ist zugleich die **verbindliche Schnittstelle** für `pcl`:
+jede Komponente wird hier dokumentiert, bevor sie umgesetzt wird (siehe
+konzept-natter.md, Abschnitt 5 und 23.2).
+
+Stand: `Form`, `Button`, `Label`, `Shape`, `Edit`, `CheckBox`,
 `RadioButton`, `Memo`, `ListBox`, `ComboBox`, `StringGrid`, `Image`,
 `ScrollBar` sind umgesetzt (M1, Schritt 2/3/6), `Chart` dazu aus M10.
 Aus Schritt 6 kamen `SpinEdit`, `FloatSpinEdit`, `TrackBar`,

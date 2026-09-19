@@ -852,6 +852,15 @@ Ausdrücklicher Wunsch des Nutzers, gilt für jeden Schritt:
   Lösungsvorschläge und ohne Quelltexterzeugung aus Klassendiagramm
   und Struktogramm. Übersteht einen Neustart, läuft von selbst aus
 
+- [x] **14.** M12 – Oberfläche und Programmierung für Lernende
+  (`docs/arbeitspakete/M12.md`), auf Nutzer-Wunsch nach M11: nicht mehr
+  „tät es, was es verspricht“, sondern „stolpert jemand darüber, der
+  gerade erst anfängt“. Gefunden wurden unter anderem ein Knopf, der mal
+  ging und mal nicht; eine Startdatei, die Schüler gar nicht sehen
+  sollten; eine Anleitung mit falschen Tasten; sechs Alltagsfehler ohne
+  deutsche Meldung; ein ungenutzter Import, der den Start verhinderte;
+  und der Fehlerkatalog, der die Schüler nur über F5 erreichte
+
 Zurückgestellt bleiben bewusst: Update-Mechanismus und
 CI/Release-Automatisierung (M8), ER-Diagramm, Syntaxdiagramm und
 `.dia`-Import (M9) – alle vier sind im jeweiligen Paket als
