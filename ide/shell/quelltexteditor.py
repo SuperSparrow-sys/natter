@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, QRect, QSize, Qt, Signal
+from PySide6.QtCore import QEvent, QPointF, QRect, QSize, Qt, Signal
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -28,6 +28,7 @@ from PySide6.QtGui import (
     QTextCharFormat,
     QTextCursor,
     QTextFormat,
+    QTextOption,
 )
 from PySide6.QtWidgets import (
     QListWidget,
@@ -40,7 +41,9 @@ from PySide6.QtWidgets import (
 from ide.shell.python_hervorhebung import PythonHervorhebung
 from ide.shell.vervollstaendigung import (
     MINDESTZEICHEN,
+    Fundstelle,
     Vorschlag,
+    definition,
     parameterhilfe,
     vorschlaege,
 )
@@ -94,6 +97,14 @@ _EINZUG_MUSTER = re.compile(r"[ \t]*")
 _BREAKPOINT_DURCHMESSER = 10
 _BREAKPOINT_SPALTE_BREITE = _BREAKPOINT_DURCHMESSER + 6
 
+#: Streifen rechts im Rand fuer die Faltzeichen (M11, 2.3).
+_FALT_SPALTE_BREITE = 14
+
+#: Zeilen, die eine Klasse oder Funktion eröffnen. Nur diese lassen
+#: sich falten. Die Wortgrenze am Ende ist nötig, damit
+#: `definiere = 1` nicht als Funktionskopf durchgeht.
+_KOPF_MUSTER = re.compile(r"^[ \t]*(class|async def|def)\b")
+
 # Rand-/Zeilenhervorhebungsfarben je Thema (Abschnitt 6, „Ansicht →
 # Design“, Nutzer-Feedback September 2026: Dark-Mode-Farben sollen zum
 # VS-Code-Standardschema passen). Dark+-Zeilennummernfarbe `#858585` und
@@ -137,11 +148,17 @@ class _ZeilenNummernRand(QWidget):
         self._editor._zeilennummern_zeichnen(event)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
-        self._editor._rand_klick_verarbeiten(event.position().y())
+        self._editor._rand_klick_verarbeiten(
+            event.position().x(), event.position().y()
+        )
 
 
 class QuelltextEditor(QPlainTextEdit):
     breakpoint_umgeschaltet = Signal(int, bool)  # (Zeile ab 1, jetzt gesetzt?)
+
+    #: F12. Der Editor kennt weder das Projekt noch die anderen Tabs -
+    #: das Springen selbst macht deshalb das Hauptfenster.
+    definition_gesucht = Signal()
 
     def __init__(
         self,
@@ -169,6 +186,9 @@ class QuelltextEditor(QPlainTextEdit):
         # mitsamt einer Einrückung, die gar nicht im Text steht.
         # Über „Ansicht → Zeilenumbruch“ schaltbar.
         self.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
+
+        #: Leerzeichen und Tabulatoren sichtbar (M11, 2.1)
+        self.leerzeichen_sichtbar = False
 
         #: Funde aus ruff und dem Fehlerkatalog (M11, 2.3)
         self._funde: dict[int, str] = {}
@@ -199,10 +219,14 @@ class QuelltextEditor(QPlainTextEdit):
         self.vorschlagsliste.hide()
 
         self.breakpoints: set[int] = set()
+
+        #: Zugeklappte Klassen und Funktionen, je Kopfzeile (M11, 2.3)
+        self._gefaltet: set[int] = set()
         self._rand = _ZeilenNummernRand(self)
         self.blockCountChanged.connect(self._breite_aktualisieren)
         self.updateRequest.connect(self._rand_aktualisieren)
         self.cursorPositionChanged.connect(self._aktuelle_zeile_hervorheben)
+        self.textChanged.connect(self._faltungen_pruefen)
         self._breite_aktualisieren()
         self._aktuelle_zeile_hervorheben()
 
@@ -211,6 +235,7 @@ class QuelltextEditor(QPlainTextEdit):
         return (
             _BREAKPOINT_SPALTE_BREITE
             + _RAND_ABSTAND
+            + _FALT_SPALTE_BREITE
             + self.fontMetrics().horizontalAdvance("9") * stellen
         )
 
@@ -293,6 +318,9 @@ class QuelltextEditor(QPlainTextEdit):
             return
         if alt and event.key() in (Qt.Key.Key_Up, Qt.Key.Key_Down):
             self.zeile_verschieben(event.key() == Qt.Key.Key_Down)
+            return
+        if event.key() == Qt.Key.Key_F12 and not event.modifiers():
+            self.definition_gesucht.emit()
             return
         if not event.modifiers() and self._klammer_schliessen(event):
             return
@@ -751,6 +779,217 @@ class QuelltextEditor(QPlainTextEdit):
             return
         super().wheelEvent(event)
 
+    # -- Leerzeichen sichtbar machen (M11, Abschnitt 2.1) ----------------
+
+    def leerzeichen_setzen(self, sichtbar: bool) -> None:
+        """Zeigt Leerzeichen als Punkte und Tabulatoren als Pfeile.
+
+        Normalerweise aus: das Bild wird unruhig, und wer es nicht
+        braucht, soll es nicht sehen. Gebraucht wird es an genau einer
+        Stelle, dort aber dringend – wenn eine aus dem Netz kopierte
+        Zeile Tabulatoren mitbringt und Python mit `TabError` abbricht,
+        ohne dass am Bildschirm irgendetwas anders aussieht.
+        """
+        self.leerzeichen_sichtbar = sichtbar
+        einstellung = self.document().defaultTextOption()
+        marke = QTextOption.Flag.ShowTabsAndSpaces
+        vorher = einstellung.flags()
+        einstellung.setFlags(vorher | marke if sichtbar else vorher & ~marke)
+        self.document().setDefaultTextOption(einstellung)
+        self.viewport().update()
+
+    # -- Einfügen mit passender Einrückung (M11, Abschnitt 2.1) ----------
+
+    def insertFromMimeData(self, quelle) -> None:
+        """Beim Einfügen die Einrückung an die Zielstelle anpassen.
+
+        Aus einer Aufgabenstellung kopierter Quelltext bringt die
+        Einrückung seiner alten Umgebung mit. Eingefügt in eine
+        Methode, stand er dann auf der falschen Ebene – und in Python
+        ist das kein Schönheitsfehler, sondern ein `IndentationError`.
+        Die **relative** Einrückung innerhalb des eingefügten Stücks
+        bleibt erhalten; verschoben wird der Block als Ganzes.
+
+        Angefasst wird nur mehrzeiliger Text. Ein einzelnes Wort oder
+        eine Zeile aus dem Browser geht unverändert durch.
+        """
+        if not quelle.hasText():
+            super().insertFromMimeData(quelle)
+            return
+        text = quelle.text().replace("\r\n", "\n").replace("\r", "\n")
+        if "\n" not in text:
+            super().insertFromMimeData(quelle)
+            return
+        self.textCursor().insertText(self.eingefuegt_einruecken(text))
+
+    def eingefuegt_einruecken(self, text: str) -> str:
+        """Der einzufügende Text, auf die Einrückung der Zielstelle
+        gebracht. Eigene Methode, damit sich die Rechnung ohne
+        Zwischenablage prüfen lässt."""
+        # Tabulatoren zuerst: gemischte Einrückung ist der Fehler, den
+        # man am Bildschirm am schlechtesten sieht.
+        zeilen = [zeile.replace("\t", _EINZUG) for zeile in text.split("\n")]
+        inhalt = [zeile for zeile in zeilen if zeile.strip()]
+        if not inhalt:
+            return "\n".join(zeilen)
+
+        gemeinsam = min(len(zeile) - len(zeile.lstrip()) for zeile in inhalt)
+        cursor = self.textCursor()
+        links = cursor.block().text()[: cursor.positionInBlock()]
+        ziel = _EINZUG_MUSTER.match(cursor.block().text()).group()
+
+        ergebnis = []
+        for nummer, zeile in enumerate(zeilen):
+            rest = zeile[gemeinsam:] if zeile.strip() else ""
+            if nummer == 0:
+                # Die erste Zeile schließt dort an, wo der Cursor steht
+                # - was links davon steht, steht schon im Text. Ein
+                # Einzug davor käme zu dem bereits vorhandenen hinzu.
+                ergebnis.append(zeile.strip() if links.strip() else rest)
+            else:
+                ergebnis.append(ziel + rest if rest else "")
+        return "\n".join(ergebnis)
+
+    # -- Zu einer Definition springen (M11, Abschnitt 2.3) ---------------
+
+    def definition_unter_cursor(
+        self, projekt: Path | str | None = None
+    ) -> Fundstelle | None:
+        """Wo der Name unter dem Cursor definiert wurde, oder `None`.
+
+        F12. In einer Klasse mit zehn Methoden ist das Blättern nach
+        „wo steht das eigentlich“ der häufigste Grund, den Faden zu
+        verlieren.
+        """
+        cursor = self.textCursor()
+        return definition(
+            self.toPlainText(),
+            cursor.blockNumber() + 1,
+            cursor.positionInBlock(),
+            pfad=self.property(_PFAD_EIGENSCHAFT),
+            projekt=projekt,
+        )
+
+    def zu_zeile_springen(self, zeile: int, spalte: int = 0) -> None:
+        """Setzt den Cursor auf `zeile` (ab 1) und rollt sie in die
+        Mitte – am oberen Rand sieht man den Zusammenhang nicht."""
+        block = self.document().findBlockByNumber(max(0, zeile - 1))
+        if not block.isValid():
+            return
+        cursor = self.textCursor()
+        cursor.setPosition(block.position() + min(spalte, len(block.text())))
+        self.setTextCursor(cursor)
+        self.centerCursor()
+
+    # -- Code falten (M11, Abschnitt 2.3) --------------------------------
+
+    def faltbare_zeilen(self) -> dict[int, int]:
+        """Zu jeder Zeile, die eine Klasse oder Funktion eröffnet, die
+        letzte Zeile ihres Rumpfes (beides ab 1).
+
+        Nur `class` und `def`: bei einer Datei mit zehn Methoden ist
+        das der Grund, warum man den Überblick verliert. Eine
+        zusammengeklappte `if`-Abfrage dagegen versteckte gerade das,
+        worauf es im Unterricht ankommt.
+        """
+        zeilen = self.toPlainText().split("\n")
+        anfaenge: dict[int, int] = {}
+        for nummer, zeile in enumerate(zeilen):
+            if not _KOPF_MUSTER.match(zeile):
+                continue
+            einzug = len(zeile) - len(zeile.lstrip())
+            letzte = nummer
+            for weiter in range(nummer + 1, len(zeilen)):
+                folge = zeilen[weiter]
+                if not folge.strip():
+                    continue
+                if len(folge) - len(folge.lstrip()) <= einzug:
+                    break
+                letzte = weiter
+            if letzte > nummer:
+                anfaenge[nummer + 1] = letzte + 1
+        return anfaenge
+
+    def falt_umschalten(self, zeile: int) -> bool:
+        """Klappt die Klasse oder Funktion in `zeile` zu oder auf.
+        Liefert, ob sie danach zugeklappt ist."""
+        if zeile not in self.faltbare_zeilen():
+            return False
+        if zeile in self._gefaltet:
+            self.entfalten(zeile)
+            return False
+        self.falten(zeile)
+        return True
+
+    def falten(self, zeile: int) -> None:
+        """Versteckt den Rumpf der Klasse oder Funktion in `zeile`."""
+        ende = self.faltbare_zeilen().get(zeile)
+        if ende is None:
+            return
+        self._gefaltet.add(zeile)
+        self._sichtbarkeit_setzen(zeile + 1, ende, sichtbar=False)
+
+    def entfalten(self, zeile: int) -> None:
+        """Zeigt den Rumpf wieder."""
+        ende = self.faltbare_zeilen().get(zeile)
+        self._gefaltet.discard(zeile)
+        if ende is None:
+            return
+        self._sichtbarkeit_setzen(zeile + 1, ende, sichtbar=True)
+        # Eine innen liegende Faltung bleibt zu: wer eine Klasse
+        # aufklappt, will nicht alle ihre Methoden offen haben.
+        for innen in sorted(self._gefaltet):
+            if zeile < innen <= ende:
+                self.falten(innen)
+
+    def alles_entfalten(self) -> None:
+        """Alles wieder aufklappen – der Ausweg, wenn man den Überblick
+        verloren hat, welche Zeile wo versteckt ist."""
+        for zeile in sorted(self._gefaltet):
+            self.entfalten(zeile)
+        self._gefaltet.clear()
+
+    def _sichtbarkeit_setzen(self, von: int, bis: int, *, sichtbar: bool) -> None:
+        dokument = self.document()
+        for nummer in range(von - 1, bis):
+            block = dokument.findBlockByNumber(nummer)
+            if not block.isValid():
+                continue
+            block.setVisible(sichtbar)
+            # Ohne `setLineCount(0)` behält Qt die Höhe der Zeile bei,
+            # und die zugeklappte Funktion hinterlässt eine Lücke.
+            block.setLineCount(1 if sichtbar else 0)
+        dokument.markContentsDirty(0, dokument.characterCount())
+        self._breite_aktualisieren()
+        self.viewport().update()
+        self._rand.update()
+
+    def _faltungen_pruefen(self) -> None:
+        """Nach jeder Änderung: eine Faltung, deren Kopfzeile keine mehr
+        ist, wird aufgehoben.
+
+        Sonst bliebe Text unsichtbar, den es gar nicht mehr zu falten
+        gibt – und niemand käme auf die Idee, dass da noch etwas steht.
+        """
+        faltbar = self.faltbare_zeilen()
+        for zeile in sorted(self._gefaltet):
+            if zeile not in faltbar:
+                self._gefaltet.discard(zeile)
+                self._alles_sichtbar_machen()
+                return
+
+    def _alles_sichtbar_machen(self) -> None:
+        dokument = self.document()
+        for nummer in range(dokument.blockCount()):
+            block = dokument.findBlockByNumber(nummer)
+            block.setVisible(True)
+            block.setLineCount(1)
+        dokument.markContentsDirty(0, dokument.characterCount())
+        self.viewport().update()
+        self._rand.update()
+        for zeile in sorted(self._gefaltet):
+            self.falten(zeile)
+
     def _zeilennummern_zeichnen(self, event: QPaintEvent) -> None:
         maler = QPainter(self._rand)
         maler.fillRect(event.rect(), QColor(self._rand_farben["hintergrund"]))
@@ -776,17 +1015,57 @@ class QuelltextEditor(QPlainTextEdit):
             maler.drawText(
                 0,
                 oben,
-                self._rand.width() - _RAND_ABSTAND // 2,
+                self._rand.width() - _FALT_SPALTE_BREITE - _RAND_ABSTAND // 2,
                 hoehe,
                 Qt.AlignmentFlag.AlignRight,
                 str(zeile),
             )
+            if zeile in self.faltbare_zeilen():
+                self._faltzeichen_zeichnen(maler, oben, hoehe, zeile in self._gefaltet)
 
-    def _rand_klick_verarbeiten(self, y: float) -> None:
+    def _faltzeichen_zeichnen(
+        self, maler: QPainter, oben: float, hoehe: float, zugeklappt: bool
+    ) -> None:
+        """Ein kleines Dreieck: nach rechts für „zugeklappt“, nach unten
+        für „offen“ – dieselbe Sprache wie im Projekt-Explorer daneben.
+
+        Filigran wie in Lazarus, nicht als Kasten mit Plus darin: der
+        Rand soll die Zeilennummern nicht überstimmen.
+        """
+        mitte_x = self._rand.width() - _FALT_SPALTE_BREITE / 2
+        mitte_y = oben + hoehe / 2
+        halb = 3.5
+        maler.setBrush(QColor(self._rand_farben["zeilennummer"]))
+        maler.setPen(Qt.PenStyle.NoPen)
+        if zugeklappt:
+            ecken = [
+                QPointF(mitte_x - halb / 2, mitte_y - halb),
+                QPointF(mitte_x - halb / 2, mitte_y + halb),
+                QPointF(mitte_x + halb, mitte_y),
+            ]
+        else:
+            ecken = [
+                QPointF(mitte_x - halb, mitte_y - halb / 2),
+                QPointF(mitte_x + halb, mitte_y - halb / 2),
+                QPointF(mitte_x, mitte_y + halb),
+            ]
+        maler.drawPolygon(ecken)
+
+    def _rand_klick_verarbeiten(self, x: float, y: float) -> None:
+        """Links im Rand der Haltepunkt, rechts das Falten.
+
+        Der Streifen ganz rechts gehört dem Falten, alles übrige dem
+        Haltepunkt - so wie in Lazarus, wo der Haltepunkt ebenfalls
+        neben der Zeilennummer sitzt.
+        """
         rect = QRect(0, 0, self._rand.width(), self._rand.height())
+        falten = x >= self._rand.width() - _FALT_SPALTE_BREITE
         for blocknummer, oben, unten in self._fuer_jeden_sichtbaren_block(rect):
             if oben <= y < unten:
-                self.breakpoint_umschalten(blocknummer + 1)
+                if falten:
+                    self.falt_umschalten(blocknummer + 1)
+                else:
+                    self.breakpoint_umschalten(blocknummer + 1)
                 return
 
     def _aktuelle_zeile_hervorheben(self) -> None:

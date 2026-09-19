@@ -12,9 +12,9 @@ def test_ansicht_menue_listet_alle_docks() -> None:
     titel = {aktion.text() for aktion in fenster.menue("Ansicht").actions()}
     # "Design" und "Schriftart" sind eigene Untermenüs (eigene Tests in
     # test_hauptfenster_design_wechsel.py/test_hauptfenster_schriftart_
-    # wechsel.py), "Einrückungslinien", "Vervollständigung" und
-    # "Zeilenumbruch" sind Anzeigeschalter (M11) – keines davon ist eine
-    # Dock-Umschaltung.
+    # wechsel.py), "Einrückungslinien", "Vervollständigung",
+    # "Zeilenumbruch" und "Leerzeichen anzeigen" sind Anzeigeschalter
+    # (M11) – keines davon ist eine Dock-Umschaltung.
     assert titel == {
         "Projekt-Explorer",
         "Objektinspektor",
@@ -24,6 +24,7 @@ def test_ansicht_menue_listet_alle_docks() -> None:
         "Einrückungslinien",
         "Vervollständigung",
         "Zeilenumbruch",
+        "Leerzeichen anzeigen",
         "Design",
         "Schriftart",
     }

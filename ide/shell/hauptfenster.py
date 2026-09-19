@@ -375,6 +375,20 @@ class HauptFenster(QMainWindow):
         )
         self.zeilenumbruch_aktion.toggled.connect(self._zeilenumbruch_umschalten)
 
+        # „Ansicht → Leerzeichen anzeigen“ (M11, Abschnitt 2.1). Aus,
+        # weil das Bild sonst unruhig wird. Gebraucht wird es an genau
+        # einer Stelle, dort aber dringend: wenn eine kopierte Zeile
+        # Tabulatoren mitbringt und Python mit „TabError“ abbricht,
+        # ohne dass am Bildschirm irgendetwas anders aussieht.
+        self.leerzeichen_aktion = self._menues["Ansicht"].addAction(
+            "Leerzeichen anzeigen"
+        )
+        self.leerzeichen_aktion.setCheckable(True)
+        self.leerzeichen_aktion.setChecked(
+            self._design_einstellungen.value("editor/leerzeichen", False, type=bool)
+        )
+        self.leerzeichen_aktion.toggled.connect(self._leerzeichen_umschalten)
+
         # „Ansicht → Design“ (Nutzer-Feedback, September 2026: „Hast du
         # den Darkmode schon implementiert?“) – Hell/Dunkel/System,
         # gemerkt über QSettings. Bewusst keine eigene `Aktion`-Hülle
@@ -1227,6 +1241,8 @@ class HauptFenster(QMainWindow):
             self.vervollstaendigung_aktion.isChecked()
         )
         editor.zeilenumbruch_setzen(self.zeilenumbruch_aktion.isChecked())
+        editor.leerzeichen_setzen(self.leerzeichen_aktion.isChecked())
+        editor.definition_gesucht.connect(self._zur_definition_springen)
         editor.setPlainText(pfad.read_text(encoding="utf-8"))
         editor.setProperty(_PFAD_EIGENSCHAFT, str(pfad))
         # Ein Tab, der nach der Prüfung aufgeht, zeigt seine Funde
@@ -1416,6 +1432,57 @@ class HauptFenster(QMainWindow):
             editor = self.editor_tabs.widget(index)
             if isinstance(editor, QuelltextEditor):
                 editor.zeilenumbruch_setzen(an)
+
+    def _leerzeichen_umschalten(self, sichtbar: bool) -> None:
+        """Schaltet Leerzeichen und Tabulatoren in allen offenen
+        Editor-Tabs und merkt sich die Wahl für den nächsten Start."""
+        self._design_einstellungen.setValue("editor/leerzeichen", sichtbar)
+        for index in range(self.editor_tabs.count()):
+            editor = self.editor_tabs.widget(index)
+            if isinstance(editor, QuelltextEditor):
+                editor.leerzeichen_setzen(sichtbar)
+
+    def _zur_definition_springen(self) -> str:
+        """F12 im Editor: dorthin, wo der Name unter dem Cursor
+        definiert wurde. Gibt die Statusmeldung zurück, damit der Weg
+        prüfbar bleibt.
+
+        Drei Fälle, und alle drei sagen etwas: gefunden (Sprung),
+        gefunden, aber ausserhalb des Projekts (nur die Auskunft, wo es
+        herkommt), nichts gefunden.
+        """
+        editor = self.editor_tabs.currentWidget()
+        if not isinstance(editor, QuelltextEditor):
+            return ""
+        ordner = self.projekt.ordner if self.projekt is not None else None
+        fundstelle = editor.definition_unter_cursor(projekt=ordner)
+
+        if fundstelle is None:
+            meldung = (
+                "Zu dieser Stelle gibt es keine Definition im Projekt. Steht der "
+                "Cursor auf einem Namen – und ist der Name richtig geschrieben?"
+            )
+        elif fundstelle.fremd:
+            # Ein Sprung nach `builtins.pyi` wäre Quelltext in einer
+            # Sprache, die im Unterricht nie vorkommt.
+            meldung = (
+                f"„{fundstelle.name}“ gehört nicht zum Projekt, sondern zu "
+                f"{Path(fundstelle.pfad).stem}. Der Quelltext dazu wird nicht "
+                f"geöffnet."
+            )
+        else:
+            if fundstelle.pfad is not None:
+                editor = self.datei_oeffnen(Path(fundstelle.pfad))
+            editor.zu_zeile_springen(fundstelle.zeile, fundstelle.spalte)
+            wo = (
+                Path(fundstelle.pfad).name
+                if fundstelle.pfad is not None
+                else "dieser Datei"
+            )
+            meldung = f"„{fundstelle.name}“ steht in {wo}, Zeile {fundstelle.zeile}."
+
+        self.statusBar().showMessage(meldung)
+        return meldung
 
     def _funde_in_editoren_zeigen(self, funde: list[RuffFund]) -> None:
         """Unterringelt die Funde der Vorstart-Prüfung **dort, wo sie

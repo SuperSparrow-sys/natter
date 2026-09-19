@@ -249,3 +249,78 @@ def parameterhilfe(
     if not unterschriften:
         return ""
     return unterschriften[0].to_string()
+
+
+@dataclass(frozen=True)
+class Fundstelle:
+    """Wo eine Definition steht – für „Zu Definition springen“ (F12)."""
+
+    pfad: Path | None
+    zeile: int
+    spalte: int
+    name: str
+    #: Die Definition liegt ausserhalb des Projektordners – in Python
+    #: selbst oder in einem installierten Paket. Dorthin wird nicht
+    #: gesprungen; der Editor sagt stattdessen, woher der Name kommt.
+    fremd: bool = False
+
+    @property
+    def in_dieser_datei(self) -> bool:
+        return self.pfad is None and not self.fremd
+
+
+def definition(
+    quelltext: str,
+    zeile: int,
+    spalte: int,
+    pfad: Path | str | None = None,
+    projekt: Path | str | None = None,
+) -> Fundstelle | None:
+    """Wo das, was unter dem Cursor steht, definiert wurde.
+
+    `None`, wenn es nichts zu finden gibt – bei einem Schlüsselwort, im
+    Leeren, oder wenn jedi an einer halb getippten Zeile scheitert.
+    Eine Fundstelle in derselben Datei trägt `pfad=None`: der Editor
+    braucht dann nur zu springen, nicht zu öffnen.
+
+    **Kein Sprung in Pythons Standardbibliothek.** Wer auf `print`
+    steht und F12 drückt, landete sonst in `builtins.pyi` – Quelltext
+    in einer Sprache, die im Unterricht nie vorkommt, in einem Ordner,
+    den niemand wiederfindet. Liegt die Definition ausserhalb von
+    `projekt`, kommt sie mit `fremd=True` zurück: der Editor sagt dann,
+    woher der Name stammt, statt die Datei zu öffnen.
+    """
+    try:
+        import jedi
+
+        skript = jedi.Script(code=quelltext, path=str(pfad) if pfad else None)
+        gefunden = skript.goto(zeile, spalte, follow_imports=True)
+    except Exception:  # noqa: BLE001 - F12 darf nie etwas hochgehen lassen
+        return None
+    if not gefunden:
+        return None
+
+    treffer = gefunden[0]
+    if treffer.line is None:
+        return None
+    ziel = Path(treffer.module_path) if treffer.module_path else None
+    eigene = Path(pfad).resolve() if pfad else None
+    if ziel is not None and eigene is not None and ziel.resolve() == eigene:
+        return Fundstelle(None, treffer.line, treffer.column, treffer.name)
+    if ziel is not None and not _gehoert_zum_projekt(ziel, projekt):
+        return Fundstelle(ziel, treffer.line, treffer.column, treffer.name, fremd=True)
+    return Fundstelle(
+        pfad=ziel, zeile=treffer.line, spalte=treffer.column, name=treffer.name
+    )
+
+
+def _gehoert_zum_projekt(ziel: Path, projekt: Path | str | None) -> bool:
+    """Ob `ziel` im Projektordner liegt. Ohne Projekt gilt jede Datei
+    als fremd – ausserhalb eines Projekts gibt es nichts, wohin ein
+    Sprung sinnvoll führen könnte."""
+    if projekt is None:
+        return False
+    try:
+        return Path(ziel).resolve().is_relative_to(Path(projekt).resolve())
+    except OSError:
+        return False
