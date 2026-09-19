@@ -214,6 +214,8 @@ _STANDARDGROESSEN: dict[str, tuple[int, int]] = {
     "ScrollBar": (150, 17),
     "StringGrid": (220, 150),
     "Image": (100, 100),
+    # Eine Zeichenflaeche im Querformat, gross genug zum Zeichnen.
+    "PaintBox": (200, 150),
     # Ein Zeitgeber zeigt nur sein Symbol - quadratisch und klein, wie
     # das Entwurfszeit-Symbol einer nicht sichtbaren Komponente in
     # Lazarus. Für die beiden Menüs gilt dasselbe.

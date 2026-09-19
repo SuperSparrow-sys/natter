@@ -40,6 +40,7 @@ from pcl.components.additional import (
     TrackBar,
 )
 from pcl.components.chart import Chart
+from pcl.components.graphics import PaintBox
 from pcl.components.menus import MainMenu, PopupMenu
 from pcl.components.standard import (
     Button,
@@ -92,6 +93,9 @@ ZUSAETZLICH_KOMPONENTEN = (
     StringGrid,
     Image,
     Shape,
+    # Direkt hinter `Shape`: dort hören fertige Formen auf und fängt
+    # freies Zeichnen mit Koordinaten an (M15, Abschnitt 2).
+    PaintBox,
     # „Zusätzlich“ statt „Standard“: ein Diagramm ist kein Grundbaustein
     # wie Knopf oder Textfeld (M10, Punkt 1).
     Chart,
