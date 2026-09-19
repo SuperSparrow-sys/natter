@@ -88,15 +88,16 @@ class ProjektExplorer(QTreeWidget):
         for pfad in projekt.units():
             if pfad.stem in formular_stems:
                 continue  # gehört zu einem Formular, dort schon aufgeführt
-            # Die Startdatei eines Konsolenprojekts steht hier (sie ist
-            # dort das ganze Programm), bekommt aber **kein** „⋮“-Menü:
-            # „Löschen …“ hieße, das einzige Stück Programm zu
-            # entfernen, und „Umbenennen …“ zöge einen Eintrag in der
-            # `.natter` nach sich, den es nicht nachführt. Beides wäre
-            # ein Projekt, das sich nicht mehr starten lässt.
-            startdatei = pfad == projekt.haupt_datei
+            # Kein „⋮“-Menü für die Unit, die das Programm trägt: bei
+            # einem Konsolenprojekt ist das `u_main.py`, und `main.py`
+            # importiert genau diesen Namen. „Umbenennen …“ zöge den
+            # Import nicht nach, „Löschen …“ nähme dem Projekt seinen
+            # ganzen Inhalt. Bei einem GUI-Projekt stellt sich die
+            # Frage nicht - dort steht die Hauptunit unter „Formulare“
+            # und hat aus demselben Grund schon keines.
+            traegt_das_programm = pfad.stem == projekt.haupt_unit
             self._eintrag_hinzufuegen(
-                self.units_gruppe, pfad.name, pfad, mit_menue=not startdatei
+                self.units_gruppe, pfad.name, pfad, mit_menue=not traegt_das_programm
             )
 
         for pfad in projekt.diagramme():

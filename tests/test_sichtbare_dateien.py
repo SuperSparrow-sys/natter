@@ -135,13 +135,14 @@ def test_ein_neuer_unitname_kollidiert_nicht_mit_der_startdatei(
     assert (ordner / "main.py").read_text(encoding="utf-8") == "print('start')" + chr(10)
 
 
-# -- Konsolenprojekte: dort ist main.py das ganze Programm --------------
+# -- Konsolenprojekte: auch dort schreibt die Schuelerin in u_main.py --
 #
-# Die Regel "was nicht bearbeitet wird, wird nicht gezeigt" galt
-# unterschiedslos, obwohl sie fuer GUI-Projekte gedacht war. Bei einem
-# Konsolenprojekt gibt es nur `main.py`, und genau darin steht der Code
-# der Schuelerin - die ersten beiden Stufen des Lehrgangs oeffneten sich
-# deshalb mit einem voellig leeren Projekt-Explorer.
+# Erst stand der ganze Code eines Konsolenprojekts in `main.py`, und die
+# ist als Startdatei ausgeblendet - die ersten beiden Lehrgangsstufen
+# oeffneten sich deshalb mit einem voellig leeren Projekt-Explorer. Die
+# Antwort darauf war nicht, die Startdatei zu zeigen, sondern der
+# Grundsatz des Nutzers (September 2026): "Jedes Projekt braucht eine
+# Main um zu starten und eine u_main wo der Schueler Code drin steht."
 
 
 @pytest.fixture
@@ -149,13 +150,30 @@ def konsolenprojekt(tmp_path: Path) -> Projekt:
     return projekt_erzeugen("console", tmp_path / "k", "Konsole")
 
 
-def test_bei_einem_konsolenprojekt_ist_die_startdatei_die_unit(
+def test_ein_konsolenprojekt_bekommt_beide_dateien(
+    konsolenprojekt: Projekt, tmp_path: Path
+) -> None:
+    assert (tmp_path / "k" / "main.py").is_file()
+    assert (tmp_path / "k" / "u_main.py").is_file()
+
+
+def test_die_startdatei_bleibt_auch_dort_ausgeblendet(
     konsolenprojekt: Projekt,
 ) -> None:
-    assert [pfad.name for pfad in konsolenprojekt.units()] == ["main.py"]
+    assert [pfad.name for pfad in konsolenprojekt.units()] == ["u_main.py"]
 
 
-def test_der_explorer_eines_konsolenprojekts_ist_nicht_leer(
+def test_die_main_eines_konsolenprojekts_startet_nur(tmp_path: Path) -> None:
+    projekt_erzeugen("console", tmp_path / "k", "Konsole")
+    zeilen = [
+        z.strip()
+        for z in (tmp_path / "k" / "main.py").read_text(encoding="utf-8").splitlines()
+        if z.strip() and not z.strip().startswith("#")
+    ]
+    assert len(zeilen) <= 5
+
+
+def test_der_explorer_eines_konsolenprojekts_zeigt_u_main(
     konsolenprojekt: Projekt, qtbot
 ) -> None:
     baum = ProjektExplorer()
@@ -167,22 +185,22 @@ def test_der_explorer_eines_konsolenprojekts_ist_nicht_leer(
         baum.units_gruppe.child(i).text(0)
         for i in range(baum.units_gruppe.childCount())
     }
-    assert gezeigt == {"main.py"}
+    assert gezeigt == {"u_main.py"}
 
 
-def test_die_startdatei_eines_konsolenprojekts_hat_kein_kontextmenue(
+def test_die_u_main_eines_konsolenprojekts_hat_kein_kontextmenue(
     konsolenprojekt: Projekt, qtbot
 ) -> None:
-    """„Löschen …“ hiesse, das einzige Stueck Programm zu entfernen;
-    „Umbenennen …“ zoege einen Eintrag in der `.natter` nach sich, den
-    es nicht nachfuehrt."""
+    """Sie traegt das Programm, und `main.py` importiert genau diesen
+    Namen: "Umbenennen …" zoege den Import nicht nach, "Loeschen …"
+    naehme dem Projekt seinen ganzen Inhalt."""
     baum = ProjektExplorer()
     qtbot.addWidget(baum)
 
     baum.projekt_anzeigen(konsolenprojekt)
 
     eintrag = baum.units_gruppe.child(0)
-    assert eintrag.text(0) == "main.py"
+    assert eintrag.text(0) == "u_main.py"
     assert baum.itemWidget(eintrag, 1) is None
 
 

@@ -1,4 +1,9 @@
-# Ein Konsolenprogramm: Ein- und Ausgabe über das schwarze Fenster.
-# print(...) schreibt hinein, input(...) liest eine Zeile daraus.
+# Startet das Programm. Hier musst du nichts ändern - dein Code
+# gehört nach u_main.py.
+#
+# Der Import führt u_main.py aus; `del` hält danach nur noch sauber
+# auf, damit keine Prüfung den Namen für überflüssig hält.
 
-print("Hallo, {{name}}!")
+import u_main
+
+del u_main

@@ -63,6 +63,33 @@ def test_console_projekt_erzeugt_main_und_natter_datei(tmp_path: Path) -> None:
 
     assert projekt.typ == "console"
     assert (ziel / "KonsolenTest.natter").exists()
-    assert "KonsolenTest" in (ziel / "main.py").read_text(encoding="utf-8")
+    # Der Begruessungstext steht in `u_main.py`, nicht in `main.py`:
+    # dort steht der Code der Schuelerin (Nutzer, September 2026,
+    # "Jedes Projekt braucht eine Main um zu starten und eine u_main wo
+    # der Schueler Code drin steht"). Bis dahin trug ein
+    # Konsolenprojekt seinen ganzen Inhalt in der Startdatei.
+    assert "KonsolenTest" in (ziel / "u_main.py").read_text(encoding="utf-8")
+    assert "KonsolenTest" not in (ziel / "main.py").read_text(encoding="utf-8")
     # kein Formular bei einem Konsolenprojekt
     assert not (ziel / "u_main.pfm").exists()
+
+
+def test_console_projekt_startet_wirklich(tmp_path: Path) -> None:
+    """Der Import in `main.py` muss `u_main.py` auch tatsaechlich
+    ausfuehren - sonst startet ein frisches Konsolenprojekt stumm."""
+    import subprocess
+    import sys
+
+    ziel = tmp_path / "Start"
+    projekt_erzeugen("console", ziel, "Start")
+
+    lauf = subprocess.run(
+        [sys.executable, "main.py"],
+        cwd=ziel,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+    assert lauf.returncode == 0, lauf.stderr
+    assert "Hallo, Start!" in lauf.stdout

@@ -79,3 +79,61 @@ def test_combobox_auswahl_ueber_qwidget_aktualisiert_props() -> None:
     formular.cb_mws._qwidget.setCurrentIndex(1)
     assert formular.cb_mws.item_index == 1
     assert formular.cb_mws.text == "Katze"
+
+
+# -- on_change sieht den neuen Text, nicht den alten --------------------
+#
+# Gefunden im Beispielprojekt `08_Regression` (September 2026): ein Klick
+# auf "polynomial" zeigte die *lineare* Formel, ein Klick auf
+# "exponentiell" die polynomiale - die Anzeige hinkte der Auswahl
+# dauerhaft einen Schritt hinterher. Qt meldet einen Wechsel in zwei
+# Schritten (`currentIndexChanged`, dann `currentTextChanged`), und
+# `on_change` feuerte schon im ersten. Jede Ereignis-Methode, die
+# `self.cb_x.text` abfragt, las damit den vorherigen Text.
+
+
+def test_combobox_on_change_sieht_den_neuen_text() -> None:
+    formular = _Formular()
+    formular.cb_mws.items = ["linear", "polynomial", "exponentiell"]
+    gesehen: list[str] = []
+    formular.cb_mws.on_change = lambda sender: gesehen.append(sender.text)
+
+    formular.cb_mws._qwidget.setCurrentIndex(1)
+    formular.cb_mws._qwidget.setCurrentIndex(2)
+
+    assert gesehen == ["polynomial", "exponentiell"]
+
+
+def test_combobox_on_change_sieht_auch_den_neuen_index() -> None:
+    formular = _Formular()
+    formular.cb_mws.items = ["a", "b", "c"]
+    gesehen: list[int] = []
+    formular.cb_mws.on_change = lambda sender: gesehen.append(sender.item_index)
+
+    formular.cb_mws._qwidget.setCurrentIndex(2)
+
+    assert gesehen == [2]
+
+
+def test_combobox_on_change_feuert_genau_einmal_je_wechsel() -> None:
+    """Das Nachziehen von `text` darf keinen zweiten Durchlauf
+    auslösen - sonst rechnete jedes Programm alles doppelt."""
+    formular = _Formular()
+    formular.cb_mws.items = ["a", "b", "c"]
+    rufe: list[str] = []
+    formular.cb_mws.on_change = lambda sender: rufe.append(sender.text)
+
+    formular.cb_mws._qwidget.setCurrentIndex(1)
+
+    assert rufe == ["b"]
+
+
+def test_combobox_on_change_wirkt_auch_bei_zuweisung_im_code() -> None:
+    formular = _Formular()
+    formular.cb_mws.items = ["a", "b", "c"]
+    gesehen: list[str] = []
+    formular.cb_mws.on_change = lambda sender: gesehen.append(sender.text)
+
+    formular.cb_mws.item_index = 2
+
+    assert gesehen == ["c"]

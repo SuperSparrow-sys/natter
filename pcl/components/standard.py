@@ -308,6 +308,16 @@ class ComboBox(Control):
 
     def _bei_index_wechsel(self, index: int) -> None:
         self.item_index = index
+        # **`text` vor `on_change` nachziehen.** Qt meldet einen Wechsel
+        # in zwei Schritten: erst `currentIndexChanged`, dann
+        # `currentTextChanged`. Wurde `on_change` schon im ersten
+        # ausgelöst, las jede Ereignis-Methode, die `self.cb_x.text`
+        # abfragt, noch den **vorherigen** Text - die Anzeige hinkte der
+        # Auswahl dauerhaft einen Schritt hinterher. Gefunden im
+        # Beispielprojekt `08_Regression`: ein Klick auf „polynomial"
+        # zeigte die lineare Formel, ein Klick auf „exponentiell" die
+        # polynomiale.
+        self.text = self._qwidget.currentText()
         if self.on_change is not None:
             self.on_change(self)
 

@@ -37,7 +37,12 @@ def einstellungen(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> QSettings:
 
 def _projekt(ordner: Path) -> Projekt:
     ordner.mkdir(parents=True, exist_ok=True)
-    (ordner / "main.py").write_text("print('hallo')\n", encoding="utf-8")
+    # Wie jedes Natter-Projekt: main.py startet nur, u_main.py traegt
+    # den Code, u_hilfe.py ist eine gewoehnliche zweite Unit.
+    (ordner / "main.py").write_text(
+        "import u_main\n\ndel u_main\n", encoding="utf-8"
+    )
+    (ordner / "u_main.py").write_text("print('hallo')\n", encoding="utf-8")
     (ordner / "u_hilfe.py").write_text("def rechne(a):\n    return a\n", encoding="utf-8")
     (ordner / "test.natter").write_text(
         json.dumps(
@@ -74,13 +79,12 @@ ERSTE_UNIT = "u_hilfe.py"
 def _punkt_der_unit(baum: ProjektExplorer) -> QPoint:
     """Die Mitte der `u_hilfe.py`-Zeile.
 
-    **Ueber den Namen gesucht, nicht ueber den Index.** Das Projekt hier
-    ist ein Konsolenprojekt, und dort steht seit September 2026 auch
-    `main.py` im Baum - sie ist das ganze Programm, und vorher oeffnete
-    sich ein Konsolenprojekt mit einem voellig leeren Explorer. Sie
-    steht alphabetisch **vor** `u_hilfe.py` und hat bewusst kein
-    Kontextmenue (loeschen hiesse: das einzige Stueck Programm weg).
-    `child(0)` traf damit die falsche Zeile."""
+    **Ueber den Namen gesucht, nicht ueber den Index.** Neben
+    `u_hilfe.py` steht `u_main.py` im Baum, und die traegt das Programm:
+    sie hat bewusst kein Kontextmenue, weil `main.py` genau diesen Namen
+    importiert. Sie steht alphabetisch **nach** `u_hilfe.py`, aber auf
+    die Reihenfolge soll sich hier nichts verlassen - `child(0)` war
+    schon einmal die falsche Zeile."""
     eintrag = next(
         baum.units_gruppe.child(i)
         for i in range(baum.units_gruppe.childCount())
@@ -90,16 +94,16 @@ def _punkt_der_unit(baum: ProjektExplorer) -> QPoint:
     return kasten.center()
 
 
-def test_die_startdatei_eines_konsolenprojekts_bietet_kein_menue(
+def test_die_unit_die_das_programm_traegt_bietet_kein_menue(
     explorer: ProjektExplorer,
 ) -> None:
-    """Sie steht im Baum, weil sie der Quelltext ist - aber
-    „Umbenennen …"/„Loeschen …" waeren dort beide ein kaputtes
-    Projekt."""
+    """`u_main.py` steht im Baum, weil der Schuelercode darin steht -
+    aber „Umbenennen …"/„Loeschen …" waeren dort beide ein Projekt, das
+    sich nicht mehr starten laesst: `main.py` importiert diesen Namen."""
     eintrag = next(
         explorer.units_gruppe.child(i)
         for i in range(explorer.units_gruppe.childCount())
-        if explorer.units_gruppe.child(i).text(0) == "main.py"
+        if explorer.units_gruppe.child(i).text(0) == "u_main.py"
     )
     punkt = explorer.visualItemRect(eintrag).center()
 

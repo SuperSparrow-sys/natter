@@ -151,9 +151,7 @@ def test_jedes_projekt_erklaert_seine_stufe(name: str) -> None:
     """Oben in der Datei, die der Schüler zuerst öffnet, steht, um die
     wievielte Stufe es geht und was neu ist. Ohne diesen Faden ist es
     wieder nur eine Sammlung."""
-    ordner = BEISPIELE / name
-    startdatei = ordner / ("main.py" if name.startswith(("01_", "02_")) else "u_main.py")
-    kopf = startdatei.read_text(encoding="utf-8")[:400]
+    kopf = (BEISPIELE / name / "u_main.py").read_text(encoding="utf-8")[:400]
 
     nummer = int(name[:2])
     assert f"Stufe {nummer} von 9" in kopf
@@ -167,10 +165,13 @@ def test_jedes_projekt_erklaert_seine_stufe(name: str) -> None:
 # allen der Fall sein."
 #
 # Dabei kam heraus: die beiden Konsolenstufen oeffneten sich mit einem
-# **voellig leeren** Explorer. Ihre einzige Datei ist `main.py`, und die
-# war als "automatisch erzeugt, nicht bearbeiten" ausgeblendet - eine
-# Regel, die fuer GUI-Projekte richtig ist und hier den ganzen Quelltext
-# verschwinden liess. Genau das faengt der erste Test hier ab.
+# **voellig leeren** Explorer. Ihre einzige Datei war `main.py`, und die
+# ist als Startdatei ausgeblendet - dort stand aber der ganze
+# Schuelercode. Die Antwort darauf war nicht, die Startdatei zu zeigen,
+# sondern der Grundsatz des Nutzers: "Jedes Projekt braucht eine Main um
+# zu starten und eine u_main wo der Schueler Code drin steht." Seither
+# haben auch Konsolenprojekte eine `u_main.py`, und `main.py` ist
+# ueberall nur noch der Starter.
 
 
 @pytest.mark.parametrize("name", NAMEN)
@@ -272,3 +273,58 @@ def test_jedes_diagramm_laesst_sich_wirklich_oeffnen(datei: str, typ: str, qtbot
         if bild.pixelColor(x, y).name() not in ("#ffffff", "#f3f3f3")
     )
     assert gezeichnet > 200, f"{datei}: das Fenster ist praktisch leer"
+
+
+# -- Jedes Projekt: winzige main.py, grosse u_main.py -------------------
+
+
+@pytest.mark.parametrize("name", NAMEN)
+def test_jedes_projekt_hat_eine_main_und_eine_u_main(name: str) -> None:
+    ordner = BEISPIELE / name
+    assert (ordner / "main.py").is_file(), f"{name}: main.py fehlt"
+    assert (ordner / "u_main.py").is_file(), f"{name}: u_main.py fehlt"
+
+
+@pytest.mark.parametrize("name", NAMEN)
+def test_die_main_startet_nur_und_enthaelt_keinen_unterricht(name: str) -> None:
+    """"Main.py ist nur dafuer da um das Script zu starten. Alles was
+    programmiert werden muss passiert in u_main.py" - Nutzer, September
+    2026. Gemessen an Zeilen, die wirklich etwas tun."""
+    zeilen = [
+        z.strip()
+        for z in (BEISPIELE / name / "main.py").read_text(encoding="utf-8").splitlines()
+        if z.strip() and not z.strip().startswith("#")
+    ]
+    assert len(zeilen) <= 5, f"{name}: main.py tut zu viel ({len(zeilen)} Zeilen)"
+
+
+@pytest.mark.parametrize("name", NAMEN)
+def test_die_main_steht_in_keinem_explorer(name: str, qtbot) -> None:
+    """Schueler sollen nicht in die main.py schauen muessen - also darf
+    sie auch nirgends im Baum auftauchen."""
+    from ide.shell.explorer import ProjektExplorer
+
+    baum = ProjektExplorer()
+    qtbot.addWidget(baum)
+    baum.projekt_anzeigen(Projekt.laden(BEISPIELE / name))
+
+    gezeigt = {
+        gruppe.child(i).text(0)
+        for gruppe in (baum.formulare_gruppe, baum.units_gruppe, baum.diagramme_gruppe)
+        for i in range(gruppe.childCount())
+    }
+    assert "main.py" not in gezeigt
+
+
+@pytest.mark.parametrize("name", NAMEN)
+def test_der_schuelercode_kommt_ohne_qt_aus(name: str) -> None:
+    """Befuellt wird ueber die Komponenten selbst - `self.l_x.caption =
+    "..."` - und nie ueber Qt. Eigenschaft im Objektinspektor und
+    Attribut im Code sind dasselbe; das ist der Kern des Konzepts."""
+    verboten = ("PySide6", "QtWidgets", "_qwidget", ".setText(", ".setValue(")
+    for datei in sorted((BEISPIELE / name).glob("u_*.py")):
+        if datei.name.endswith("_design.py"):
+            continue  # erzeugt, nicht vom Schueler
+        text = datei.read_text(encoding="utf-8")
+        for wort in verboten:
+            assert wort not in text, f"{name}/{datei.name}: {wort} gehoert nicht in Schuelercode"

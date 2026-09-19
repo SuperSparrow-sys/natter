@@ -99,8 +99,20 @@ Lazarus.
 
 ### 4.1 Konsolenprojekte
 
-Ein Konsolenprojekt hat nur `main.py` und läuft von oben nach unten,
-mit `print()` und `input()` in einem eigenen Konsolenfenster.
+Ein Konsolenprojekt läuft von oben nach unten, mit `print()` und
+`input()` in einem eigenen Konsolenfenster. Der Aufbau ist derselbe wie
+bei einem GUI-Projekt, nur ohne Formular:
+
+```
+MeinProjekt/
+  MeinProjekt.natter
+  main.py                startet das Programm — erzeugt und ausgeblendet
+  u_main.py              dein Code
+```
+
+**Auch hier gilt: `main.py` startet nur.** Alles, was programmiert
+wird, steht in `u_main.py`. Es gibt keinen Projekttyp, bei dem eine
+Schülerin in die Startdatei schauen müsste.
 
 ## 5. Die Komponentenbibliothek `pcl`
 

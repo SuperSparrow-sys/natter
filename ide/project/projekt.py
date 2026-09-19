@@ -40,6 +40,16 @@ class Projekt:
 
     @property
     def haupt_unit(self) -> str | None:
+        """Die Unit, die das Programm trägt – ohne `.py`.
+
+        Bei einem GUI-Projekt das Hauptformular aus der `.natter`, bei
+        einem Konsolenprojekt immer `u_main`: dort steht kein
+        `main_form` in der Projektdatei, aber `main.py` importiert
+        genau diesen Namen. Sie umzubenennen oder zu löschen hieße,
+        das Projekt unstartbar zu machen - der Explorer bietet für sie
+        deshalb kein „Umbenennen …"/„Löschen …" an."""
+        if self.typ == "console":
+            return "u_main"
         return self.daten.get("main_form")
 
     @classmethod
@@ -67,26 +77,27 @@ class Projekt:
         """Die Units, an denen gearbeitet wird.
 
         Ohne die automatisch erzeugten `*_design.py` (Abschnitt 4.1:
-        nicht bearbeiten). Bei einem **GUI-Projekt** außerdem ohne die
-        Startdatei (`main`): die schreibt Natter beim Anlegen, danach
-        ändert sie niemand mehr. In Lazarus steht die entsprechende
-        Projektdatei (`.lpr`) aus demselben Grund nicht im
-        Projektinspektor, sondern nur hinter einem eigenen Menüweg (M12).
+        nicht bearbeiten) und ohne die Startdatei (`main`): die schreibt
+        Natter beim Anlegen, danach ändert sie niemand mehr. In Lazarus
+        steht die entsprechende Projektdatei (`.lpr`) aus demselben
+        Grund nicht im Projektinspektor, sondern nur hinter einem
+        eigenen Menüweg (M12).
 
-        **Bei einem Konsolenprojekt bleibt sie sichtbar**, denn dort ist
-        sie das ganze Programm: ein Konsolenprojekt hat nur `main.py`
-        (Abschnitt 4.1), und genau darin schreibt die Schülerin ihren
-        Code. Sie mitzuverstecken war der Fehler, der die ersten beiden
-        Stufen des Lehrgangs mit einem **völlig leeren** Projekt-Explorer
-        öffnen ließ - drei fette Überschriften ohne einen einzigen
-        Eintrag darunter, und kein Weg zum eigenen Quelltext. Die Regel
-        „was nicht bearbeitet wird, wird nicht gezeigt" galt
-        unterschiedslos, obwohl sie für GUI-Projekte gedacht war.
+        **Das gilt für jeden Projekttyp**, auch für Konsolenprojekte.
+        Dort stand der ganze Schülercode früher in `main.py` selbst -
+        die Startdatei war damit zugleich ausgeblendet und der einzige
+        Quelltext, und die ersten beiden Lehrgangsstufen öffneten sich
+        mit einem völlig leeren Projekt-Explorer. Die Antwort darauf ist
+        nicht, die Startdatei zu zeigen, sondern dass auch ein
+        Konsolenprojekt eine `u_main.py` hat (Nutzer, September 2026:
+        „Jedes Projekt braucht eine Main um zu starten und eine u_main wo
+        der Schüler Code drin steht"). `main.py` ist überall nur der
+        Starter.
 
         Für Namenskollisionen ist `alle_python_dateien()` gemeint, nicht
         diese Liste - sonst ließe sich eine Unit auf den Namen der
         Startdatei umbenennen und diese damit überschreiben."""
-        versteckt = {self.haupt_datei.name} if self.typ != "console" else set()
+        versteckt = {self.haupt_datei.name}
         return sorted(
             p
             for p in self.ordner.glob("*.py")

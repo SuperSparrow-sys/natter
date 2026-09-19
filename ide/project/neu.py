@@ -3,6 +3,19 @@
 Erzeugt ein neues, leeres Projekt aus einer Vorlage in `templates/`.
 `gui_db` (GUI-Anwendung mit Datenbank) folgt später zusammen mit den
 SQLdb-Komponenten (M5).
+
+**Jedes Projekt bekommt beides: `main.py` und `u_main.py`** – auch ein
+Konsolenprojekt. `main.py` startet nur, `u_main.py` trägt den Code der
+Schülerin. Der Grundsatz stammt vom Nutzer (September 2026): „Main.py
+ist nur dafür da um das Script zu starten. Alles was programmiert
+werden muss passiert in u_main.py … denn Schüler sollen nicht in die
+Main py schauen aber ja trotzdem Code schreiben."
+
+Bis dahin hatte ein Konsolenprojekt **nur** `main.py`, und der ganze
+Schülercode stand darin. Damit stand die Startdatei zugleich auf der
+Liste der ausgeblendeten Dateien und auf der des Quelltexts – ein
+Widerspruch, der die ersten beiden Lehrgangsstufen mit einem leeren
+Projekt-Explorer öffnen ließ.
 """
 
 from __future__ import annotations
@@ -46,14 +59,14 @@ def projekt_erzeugen(vorlage: str, zielordner: Path, name: str) -> Projekt:
     main_text = _vorlagendatei_rendern(vorlagenordner, "main.py", name)
     (zielordner / "main.py").write_text(main_text, encoding="utf-8")
 
+    u_main_text = _vorlagendatei_rendern(vorlagenordner, "u_main.py", name)
+    (zielordner / "u_main.py").write_text(u_main_text, encoding="utf-8")
+
     if vorlage == "gui":
         pfm_text = _vorlagendatei_rendern(vorlagenordner, "u_main.pfm", name)
         pfm_pfad = zielordner / "u_main.pfm"
         pfm_pfad.write_text(pfm_text, encoding="utf-8")
 
         design_datei_erzeugen(pfm_pfad, zielordner / "u_main_design.py")
-
-        u_main_text = (vorlagenordner / "u_main.py.template").read_text(encoding="utf-8")
-        (zielordner / "u_main.py").write_text(u_main_text, encoding="utf-8")
 
     return Projekt.laden(zielordner)
