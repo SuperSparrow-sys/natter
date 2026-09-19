@@ -279,3 +279,75 @@ def test_ein_einzelner_name_bleibt_kurz(tmp_path: Path) -> None:
     from ide.shell.startbild import eindeutige_namen
 
     assert eindeutige_namen([tmp_path / "Ampel" / "a.natter"]) == ["Ampel"]
+
+
+# -- Aussehen beim Darüberfahren -------------------------------------------
+#
+# Nutzer-Feedback September 2026: „schaue nochmal aufs hover, die schrift
+# darf nicht weis werden". Die Einträge des Startbilds verschwanden beim
+# Darüberfahren: die allgemeine Regel `QPushButton:hover` setzt weiße
+# Schrift, weil dort ein Akzent-Hintergrund dahinterliegt - der kam hier
+# aber nicht, weil das eigene Stylesheet des Eintrags
+# `background: transparent` setzt und damit gewinnt. Übrig blieb weiße
+# Schrift auf weißem Grund.
+
+
+def _farbe(hex_wert: str) -> tuple[int, int, int]:
+    hex_wert = hex_wert.lstrip("#")
+    return tuple(int(hex_wert[i : i + 2], 16) for i in (0, 2, 4))
+
+
+def _helligkeit(hex_wert: str) -> float:
+    """Wahrgenommene Helligkeit 0..255 (Rec. 601)."""
+    rot, gruen, blau = _farbe(hex_wert)
+    return 0.299 * rot + 0.587 * gruen + 0.114 * blau
+
+
+def _regel(qss: str, selektor: str) -> str:
+    """Der Block hinter `selektor` aus einem Stylesheet."""
+    anfang = qss.index(selektor + " {")
+    return qss[anfang : qss.index("}", anfang)]
+
+
+def test_der_eintrag_traegt_den_objektnamen_des_themas(qtbot) -> None:
+    """Nur über den Objektnamen greift die theme-abhängige Regel; ohne
+    ihn bliebe es bei der allgemeinen mit der weißen Schrift."""
+    from ide.shell.startbild import _Abschnitt
+    from ide.shell.theme import STARTBILD_EINTRAG
+
+    abschnitt = _Abschnitt("Beispiele")
+    qtbot.addWidget(abschnitt)
+    knopf = abschnitt.knopf_hinzufuegen("Ampel", "Tooltip", lambda: None)
+
+    assert knopf.objectName() == STARTBILD_EINTRAG
+
+
+def test_das_eigene_stylesheet_faerbt_nicht_selbst() -> None:
+    """Die Farben gehören ins IDE-weite QSS, wo das eingestellte Thema
+    bekannt ist. Eine eigene Hover-Regel hier würde die dortige
+    verdecken, sobald jemand sie erweitert."""
+    from ide.shell.startbild import _EINTRAG_STIL
+
+    assert ":hover" not in _EINTRAG_STIL
+    assert "color" not in _EINTRAG_STIL
+
+
+@pytest.mark.parametrize("thema", ["light", "dark"])
+def test_beim_darueberfahren_bleibt_die_schrift_lesbar(thema: str) -> None:
+    """Der eigentliche Punkt: die Schrift darf nicht weiß werden - und
+    allgemeiner: sie muss sich vom Hintergrund abheben."""
+    from ide.shell.theme import STARTBILD_EINTRAG, ide_qss_erzeugen
+    from pcl.theme import _tokens_laden
+
+    farben = _tokens_laden()["color"][thema]
+    qss = ide_qss_erzeugen(thema)
+    regel = _regel(qss, f"QPushButton#{STARTBILD_EINTRAG}:hover")
+
+    assert "#ffffff" not in regel.lower()
+    assert f"color: {farben['accent']}" in regel
+    # Der Eintrag liegt durchsichtig auf dem Fensterhintergrund.
+    abstand = abs(_helligkeit(farben["accent"]) - _helligkeit(farben["bg"]))
+    assert abstand > 40, (
+        f"Die Schrift beim Darüberfahren hebt sich im Thema {thema} kaum "
+        f"vom Hintergrund ab (Helligkeitsabstand {abstand:.0f})."
+    )

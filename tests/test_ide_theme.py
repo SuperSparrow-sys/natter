@@ -37,3 +37,16 @@ def test_qss_verwendet_die_akzentfarbe_fuer_ausgewaehlte_elemente() -> None:
 
     assert hell.count("#0067c0") >= 3  # color.light.accent
     assert dunkel.count("#4cc2ff") >= 3  # color.dark.accent
+
+
+def test_im_dunklen_thema_steht_keine_weisse_schrift_fest() -> None:
+    """Weiß auf der Akzentfarbe ist die Voreinstellung für einen Knopf
+    mit Akzent-Hintergrund - im hellen Thema stimmt das, weil `bg`
+    ohnehin weiß ist. Im dunklen Thema ist der Akzent ein helles Blau
+    (#4cc2ff), und weiße Schrift darauf ist kaum zu lesen.
+
+    `pcl/theme` nimmt an denselben Stellen seit jeher `bg` statt einer
+    festen Farbe; das IDE-Stylesheet zieht nach (Nutzer-Feedback
+    September 2026 zum Hover: „die schrift darf nicht weis werden").
+    """
+    assert "#ffffff" not in ide_qss_erzeugen("dark").lower()

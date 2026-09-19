@@ -26,6 +26,15 @@ from pcl.theme import _tokens_laden, theme_aufloesen
 _ICON_ORDNER = Path(__file__).resolve().parent.parent / "assets" / "icons"
 
 
+#: Objektname der Eintraege auf dem Startbild.
+#:
+#: Ueber den Namen greift die Regel weiter unten genau diese Knoepfe
+#: heraus - eine ID-Regel gewinnt in Qt gegen die allgemeine Regel fuer
+#: `QPushButton`, ohne dass das Startbild die Farben des Themas kennen
+#: muesste. `ide/shell/startbild.py` setzt ihn.
+STARTBILD_EINTRAG = "startbildEintrag"
+
+
 def _tab_schliessen_symbol(aufgeloest: str) -> str:
     """Pfad zum Kreuz des Reiter-Schließknopfes für `light`/`dark`.
 
@@ -123,7 +132,7 @@ QMenuBar::item {{
 }}
 QMenuBar::item:selected, QMenuBar::item:pressed {{
     background-color: {farben["accent"]};
-    color: #ffffff;
+    color: {farben["bg"]};
 }}
 
 QMenu {{
@@ -137,7 +146,7 @@ QMenu::item {{
 }}
 QMenu::item:selected {{
     background-color: {farben["accent"]};
-    color: #ffffff;
+    color: {farben["bg"]};
 }}
 QMenu::item:disabled {{
     color: {farben["text_muted"]};
@@ -267,15 +276,39 @@ QPushButton {{
 }}
 QPushButton:hover {{
     background-color: {farben["accent"]};
-    color: #ffffff;
+    color: {farben["bg"]};
     border-color: {farben["accent"]};
 }}
 QPushButton:pressed {{
     background-color: {farben["focus"]};
-    color: #ffffff;
+    color: {farben["bg"]};
 }}
 QPushButton:disabled {{
     color: {farben["text_muted"]};
+}}
+
+/* Die Eintraege auf dem Startbild sehen aus wie Verweise, nicht wie
+   Schaltflaechen (siehe ide/shell/startbild.py). Die Regel steht hier
+   und nicht dort, weil nur hier die Farben des gerade eingestellten
+   Themas bekannt sind - und weil sie sich beim Umschalten zwischen
+   hell und dunkel von selbst mitaendert.
+
+   Ohne eigene Hover-Regel greift die allgemeine darueber: die setzt
+   weisse Schrift, weil dort ein Akzent-Hintergrund dahinterliegt. Der
+   kommt bei einem flachen Eintrag aber nicht, weil dessen eigenes
+   Stylesheet `background: transparent` setzt - uebrig blieb weisse
+   Schrift auf weissem Grund, der Eintrag verschwand beim Darueberfahren
+   (Nutzer-Feedback September 2026: "schaue nochmal aufs hover, die
+   schrift darf nicht weis werden"). */
+QPushButton#{STARTBILD_EINTRAG}:hover {{
+    background: transparent;
+    border: none;
+    color: {farben["accent"]};
+    text-decoration: underline;
+}}
+QPushButton#{STARTBILD_EINTRAG}:pressed {{
+    background: transparent;
+    color: {farben["focus"]};
 }}
 
 /* Ohne QSpinBox/QDoubleSpinBox, und das mit Absicht: sobald ein
@@ -293,7 +326,7 @@ QLineEdit, QPlainTextEdit, QComboBox {{
     border-radius: {radius["input"]}px;
     padding: 3px 6px;
     selection-background-color: {farben["accent"]};
-    selection-color: #ffffff;
+    selection-color: {farben["bg"]};
     outline: none;
 }}
 QLineEdit:focus, QPlainTextEdit:focus, QComboBox:focus {{

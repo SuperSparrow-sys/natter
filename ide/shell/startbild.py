@@ -38,6 +38,7 @@ from PySide6.QtWidgets import (
 )
 
 from ide.pfade import daten_ordner
+from ide.shell.theme import STARTBILD_EINTRAG
 
 #: Wie viele zuletzt geöffnete Projekte gemerkt werden. Mehr als acht
 #: wären auf einem Schulrechner ohnehin nicht wiederzuerkennen.
@@ -67,6 +68,17 @@ _UEBERSCHRIFT_STIL = "font-size: 11pt; font-weight: bold; padding-top: 6px;"
 #: `setFlat(True)` allein genügt nicht - auch dagegen gewinnt die
 #: QSS-Regel für `QPushButton`, und im Bild standen elf Kästen
 #: untereinander, die wie gesperrte Eingabefelder wirkten.
+#:
+#: Hier steht nur, was von den Farben des Themas unabhängig ist. Das
+#: Aussehen beim Darüberfahren steht im IDE-weiten QSS unter dem
+#: Objektnamen `STARTBILD_EINTRAG` (`ide/shell/theme.py`), weil nur
+#: dort die Farben des gerade eingestellten Themas bekannt sind.
+#:
+#: Ein reiner Zusatz von `text-decoration` genügte hier ausdrücklich
+#: **nicht**: `background: transparent` von hier gewann gegen den
+#: Akzent-Hintergrund der allgemeinen Hover-Regel, deren weiße Schrift
+#: mangels eigener Farbe hier aber durchkam - übrig blieb weiße Schrift
+#: auf weißem Grund (Nutzer-Feedback September 2026).
 _EINTRAG_STIL = """
 QPushButton {
     text-align: left;
@@ -74,7 +86,6 @@ QPushButton {
     border: none;
     background: transparent;
 }
-QPushButton:hover { text-decoration: underline; }
 """
 
 
@@ -177,6 +188,9 @@ class _Abschnitt(QWidget):
         knopf.setToolTip(tooltip)
         knopf.setFlat(True)
         knopf.setCursor(Qt.CursorShape.PointingHandCursor)
+        # Der Objektname holt die theme-abhängigen Farben aus dem
+        # IDE-weiten QSS dazu - siehe `_EINTRAG_STIL`.
+        knopf.setObjectName(STARTBILD_EINTRAG)
         knopf.setStyleSheet(_EINTRAG_STIL)
         knopf.clicked.connect(lambda *_: rueckruf())
         self._layout.addWidget(knopf)
