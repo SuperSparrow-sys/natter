@@ -1016,11 +1016,6 @@ class DiagrammCanvas(ZoomMischung, QWidget):
             punkt.y(),
         )
 
-    def nachricht_verschieben(self, verbindung: dict[str, Any], hoehe: float) -> None:
-        """Setzt die Höhe einer Nachricht als eigenen Undo-Schritt."""
-        self.kommandos.ausfuehren(WerteKommando(verbindung, {"y": _am_raster(hoehe)}))
-        self._nach_aenderung()
-
     def _rahmen_beenden(self) -> None:
         """Wählt alles aus, was **vollständig** im aufgezogenen Rahmen
         liegt. Nur Berühren würde beim Aufziehen über ein dicht

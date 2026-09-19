@@ -26,6 +26,15 @@ DATEN = Path(__file__).parent / "daten" / "koerpergroesse.csv"
 ARTEN = ["linear", "polynomial", "exponentiell", "logarithmisch"]
 
 
+def text(wert: float, stellen: int = 1) -> str:
+    """Macht aus einer Zahl deutschen Text: 43.2 -> "43,2".
+
+    Die Formel daneben kommt schon mit Komma aus `pcl` - ohne
+    diesen Schritt stünde im selben Fenster beides nebeneinander.
+    """
+    return f"{wert:.{stellen}f}".replace(".", ",")
+
+
 class Form1(Form1Design):
     def form_create(self, sender) -> None:
         self.groessen: list[float] = []
@@ -56,7 +65,7 @@ class Form1(Form1Design):
 
         self.l_formel.caption = f"Formel:\n{self.ergebnis.formel}"
         self.l_guete.caption = (
-            f"Bestimmtheitsmaß:\n{self.ergebnis.bestimmtheitsmass:.3f}\n"
+            f"Bestimmtheitsmaß:\n{text(self.ergebnis.bestimmtheitsmass, 3)}\n"
             f"({self.guete_in_worten()})"
         )
         self.vorhersage_zeigen()
@@ -82,7 +91,7 @@ class Form1(Form1Design):
             return
         groesse = self.se_groesse.value
         schuh = self.ergebnis.vorhersage(groesse)
-        self.l_ergebnis.caption = f"{groesse} cm\n->  Schuhgröße {schuh:.1f}"
+        self.l_ergebnis.caption = f"{groesse} cm\n->  Schuhgröße {text(schuh)}"
 
     def hinweis_zeigen(self) -> None:
         """Warnt, wenn außerhalb des gemessenen Bereichs vorhergesagt
@@ -92,12 +101,13 @@ class Form1(Form1Design):
 
         if kleinste <= gewaehlt <= groesste:
             self.l_hinweis.caption = (
-                f"Gemessen wurde zwischen {kleinste:.0f} und {groesste:.0f} cm - "
+                f"Gemessen wurde zwischen {text(kleinste, 0)} und "
+                f"{text(groesste, 0)} cm - "
                 f"{gewaehlt} cm liegt mittendrin, die Vorhersage steht auf festem Boden."
             )
         else:
             self.l_hinweis.caption = (
-                f"Achtung: gemessen wurde nur zwischen {kleinste:.0f} und "
-                f"{groesste:.0f} cm. Bei {gewaehlt} cm rechnet die Kurve über die Daten "
-                f"hinaus - das ist geraten, nicht gewusst."
+                f"Achtung: gemessen wurde nur zwischen {text(kleinste, 0)} und "
+                f"{text(groesste, 0)} cm. Bei {gewaehlt} cm rechnet die Kurve "
+                f"über die Daten hinaus - das ist geraten, nicht gewusst."
             )

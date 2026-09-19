@@ -10,6 +10,16 @@
 # sondern "Daten und die Regeln, die für sie gelten".
 
 
+def euro(betrag: float) -> str:
+    """Ein Geldbetrag als deutscher Text: 120.5 -> "120,50".
+
+    Zwei Nachkommastellen, weil es um Geld geht - und ein Komma,
+    weil wir auf Deutsch rechnen. Python selbst schreibt einen
+    Punkt.
+    """
+    return f"{betrag:.2f}".replace(".", ",")
+
+
 class NichtGenugGeld(Exception):
     """Wird ausgelöst, wenn mehr abgehoben werden soll als da ist.
 
@@ -34,7 +44,7 @@ class Konto:
             raise ValueError("Abheben geht nur mit einem Betrag über null.")
         if betrag > self.stand:
             raise NichtGenugGeld(
-                f"Auf Konto {self.nummer} liegen nur {self.stand:.2f} Euro."
+                f"Auf Konto {self.nummer} liegen nur {euro(self.stand)} Euro."
             )
         self.stand -= betrag
 

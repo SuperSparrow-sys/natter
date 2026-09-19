@@ -69,7 +69,13 @@ def test_status_und_dauer_werden_pro_test_angezeigt(tmp_path: Path) -> None:
     eintraege = {klassen_eintrag.child(i).text(0): klassen_eintrag.child(i) for i in range(2)}
     assert eintraege["test_bestehend"].text(1) == "bestanden"
     assert eintraege["test_fehlschlagend"].text(1) == "fehlgeschlagen"
-    assert float(eintraege["test_bestehend"].text(2)) >= 0
+
+    # Die Dauer steht deutsch da - „0,003" und nicht „0.003" (Nutzer,
+    # September 2026: „Alles in Deutschem Format"). Deshalb erst das
+    # Komma zurücktauschen, bevor hier gerechnet wird.
+    dauer = eintraege["test_bestehend"].text(2)
+    assert "." not in dauer
+    assert float(dauer.replace(",", ".")) >= 0
 
 
 def test_fehlgeschlagener_test_zeigt_soll_ist_als_tooltip(tmp_path: Path) -> None:

@@ -41,19 +41,6 @@ KOPFHOEHE = 30
 
 _SCHRIFT = "Segoe UI"
 
-#: Blocktypen, die selbst wieder Blöcke enthalten können.
-BEHAELTER = (
-    "sequence",
-    "branch",
-    "multi_branch",
-    "count_loop",
-    "head_loop",
-    "foot_loop",
-    "forever_loop",
-    "parallel",
-    "try",
-)
-
 #: Blocktypen mit Schleifenkopf oben – die Endlosschleife unterscheidet
 #: sich nur dadurch, dass in ihrem Kopf keine Bedingung steht.
 KOPFSCHLEIFEN = ("count_loop", "head_loop", "forever_loop")

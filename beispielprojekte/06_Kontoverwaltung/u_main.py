@@ -16,7 +16,7 @@
 from pathlib import Path
 
 from pcl import SQLite3Connection
-from u_konto import Konto, NichtGenugGeld
+from u_konto import Konto, NichtGenugGeld, euro
 from u_main_design import Form1Design
 
 # Die Datenbankdatei liegt neben dem Programm.
@@ -91,7 +91,7 @@ class Form1(Form1Design):
         for zeile, konto in enumerate(konten, start=1):
             self.sg_konten.cells[0, zeile] = str(konto.nummer)
             self.sg_konten.cells[1, zeile] = konto.inhaber
-            self.sg_konten.cells[2, zeile] = f"{konto.stand:.2f}"
+            self.sg_konten.cells[2, zeile] = euro(konto.stand)
 
         # "1 Konten" liest sich falsch - dieselbe Stelle, an der sich
         # der Objektinspektor mit "(1 Einträge)" blamiert hat.
@@ -153,7 +153,7 @@ class Form1(Form1Design):
 
         self.stand_schreiben(konto)
         self.konten_zeigen()
-        self.l_meldung.caption = f"{betrag:.2f} Euro eingezahlt."
+        self.l_meldung.caption = f"{euro(betrag)} Euro eingezahlt."
 
     def b_abheben_click(self, sender) -> None:
         konto = self.konto_holen()
@@ -171,7 +171,7 @@ class Form1(Form1Design):
 
         self.stand_schreiben(konto)
         self.konten_zeigen()
-        self.l_meldung.caption = f"{betrag:.2f} Euro abgehoben."
+        self.l_meldung.caption = f"{euro(betrag)} Euro abgehoben."
 
     def b_filtern_click(self, sender) -> None:
         try:

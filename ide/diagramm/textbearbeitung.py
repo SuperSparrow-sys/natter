@@ -27,11 +27,6 @@ from PySide6.QtWidgets import QApplication, QPlainTextEdit, QWidget
 
 from ide.diagramm.zeichnen import form_rechteck
 
-#: Die Felder, die es hier noch gibt – genau eines. Bleibt als Name
-#: erhalten, weil die Zeichenfläche das Ergebnis weiterhin als
-#: `{"name": ...}` entgegennimmt.
-FELDER = ("name",)
-
 
 def _skaliert(rechteck: QRectF, zoom: float) -> QRectF:
     return QRectF(

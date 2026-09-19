@@ -28,13 +28,34 @@ class Form1(Form1Design):
     def b_geteilt_click(self, sender) -> None:
         self.rechnen("/")
 
+    # Zwei kleine Helfer, die zusammengehören: Python rechnet mit dem
+    # Punkt, wir schreiben das Komma. Beim Lesen wird getauscht, beim
+    # Schreiben zurückgetauscht.
+
+    def zahl(self, text: str) -> float:
+        """Macht aus dem Text im Feld eine Zahl: "2,5" -> 2.5.
+
+        `float()` versteht nur den Punkt. Wir schreiben Zahlen aber mit
+        Komma, und genau das tippt man auch ein.
+        """
+        return float(text.replace(",", "."))
+
+    def text(self, wert: float) -> str:
+        """Macht aus einer Zahl deutschen Text: 3.5 -> "3,5".
+
+        Ohne diesen Schritt stünde im Ergebnis ein Punkt, obwohl man
+        eben ein Komma eingetippt hat - das sieht aus wie ein Fehler.
+        """
+        return f"{wert:g}".replace(".", ",")
+
     def rechnen(self, zeichen: str) -> None:
         """Liest beide Felder, rechnet und zeigt das Ergebnis an."""
-        # Was im Feld steht, ist Text. float() macht eine Kommazahl
-        # daraus - und wirft einen Fehler, wenn da "abc" steht.
+        # Was im Feld steht, ist Text - auch dann, wenn eine Zahl
+        # darin steht. `self.zahl(...)` macht eine Zahl daraus und
+        # wirft einen Fehler, wenn da "abc" steht.
         try:
-            a = float(self.e_zahl1.text)
-            b = float(self.e_zahl2.text)
+            a = self.zahl(self.e_zahl1.text)
+            b = self.zahl(self.e_zahl2.text)
         except ValueError:
             self.l_ergebnis.caption = "Bitte in beide Felder eine Zahl schreiben."
             return
@@ -53,4 +74,6 @@ class Form1(Form1Design):
                 return
             ergebnis = a / b
 
-        self.l_ergebnis.caption = f"Ergebnis: {a:g} {zeichen} {b:g} = {ergebnis:g}"
+        self.l_ergebnis.caption = (
+            f"Ergebnis: {self.text(a)} {zeichen} {self.text(b)} = {self.text(ergebnis)}"
+        )

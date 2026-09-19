@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import QBrush, QColor, QFont, QFontMetricsF, QPainter, QPen
+from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen
 
 from ide.diagramm.stil import Stil
 
@@ -211,14 +211,3 @@ def tabelle_zeichnen(
         maler.setPen(stift)
         maler.setBrush(Qt.BrushStyle.NoBrush)
         maler.drawRect(ausgewaehlt.rechteck.adjusted(1, 1, -1, -1))
-
-
-def spaltenbreite_reicht(daten: dict[str, Any]) -> bool:
-    """Ob die längste Zeilenbeschriftung noch in die Textspalte passt –
-    Grundlage für den Layout-Hinweis „abgeschnittener Text“."""
-    metriken = QFontMetricsF(_schrift())
-    zeilen = [*(daten.get("conditions") or []), *(daten.get("actions") or [])]
-    return all(
-        metriken.horizontalAdvance(str(zeile.get("text", ""))) <= TEXTSPALTE - 2 * INNENABSTAND
-        for zeile in zeilen
-    )

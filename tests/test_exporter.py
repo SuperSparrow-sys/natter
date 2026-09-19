@@ -264,3 +264,101 @@ def test_zwischenstaende_bleiben_nicht_im_projekt_liegen(tmp_path: Path, pyinsta
 
     assert not (projekt.ordner / "_pyinstaller_build").exists()
     assert not (projekt.ordner / "_pyinstaller_spec").exists()
+
+
+# -- Nur mitnehmen, was das Projekt braucht (September 2026) -------------
+#
+# Anlass: "Schaue wie ich den Export eines Programms als exe schneller
+# hinbekommen aber trotzdem als Stand alone Datei." Real gemessen bekam
+# jedes Projekt dasselbe Paket - ein Taschenrechner mit vier Knoepfen wog
+# 120,2 MB und brauchte 110 s, genau wie das scikit-learn-Beispiel.
+# PyInstaller folgt auch Importen tief in einer Funktion, und `pcl`
+# fuehrt fuer `Chart` und `regression` numpy, matplotlib und pandas mit.
+#
+# Danach: 44,9 MB in 53 s fuer den Taschenrechner, waehrend
+# 09_ObstSortierer mit 111,9 MB alles Noetige behaelt.
+
+
+def _projekt_mit_quelltext(tmp_path: Path, quelltext: str) -> Projekt:
+    projekt = _projekt(tmp_path, typ="gui")
+    (projekt.ordner / "u_main.py").write_text(quelltext, encoding="utf-8")
+    return projekt
+
+
+def _ausgeschlossen(aufruf: list[str]) -> set[str]:
+    return {
+        aufruf[i + 1] for i, teil in enumerate(aufruf) if teil == "--exclude-module"
+    }
+
+
+def test_ein_programm_ohne_diagramm_laesst_die_schweren_pakete_draussen(
+    tmp_path: Path, pyinstaller
+) -> None:
+    projekt = _projekt_mit_quelltext(tmp_path, "self.l_ergebnis.caption = 'hallo'\n")
+
+    exe_exportieren(projekt)
+
+    draussen = _ausgeschlossen(pyinstaller[0])
+    assert {"matplotlib", "numpy", "pandas", "sklearn", "scipy"} <= draussen
+
+
+def test_ein_programm_mit_chart_behaelt_matplotlib_und_numpy(
+    tmp_path: Path, pyinstaller
+) -> None:
+    """`Chart` steht im erzeugten `u_main_design.py`, sobald im Designer
+    ein Diagramm liegt - deshalb reicht das Wort im Projekt."""
+    projekt = _projekt_mit_quelltext(tmp_path, "self.ch_verlauf = Chart(self)\n")
+
+    exe_exportieren(projekt)
+
+    draussen = _ausgeschlossen(pyinstaller[0])
+    assert "matplotlib" not in draussen
+    assert "numpy" not in draussen
+    assert "pandas" not in draussen
+    assert "sklearn" in draussen
+
+
+def test_ein_programm_mit_sklearn_behaelt_den_ganzen_stapel(
+    tmp_path: Path, pyinstaller
+) -> None:
+    projekt = _projekt_mit_quelltext(
+        tmp_path, "from sklearn.ensemble import RandomForestClassifier\n"
+    )
+
+    exe_exportieren(projekt)
+
+    draussen = _ausgeschlossen(pyinstaller[0])
+    for paket in ("sklearn", "scipy", "joblib", "numpy", "pandas"):
+        assert paket not in draussen, f"{paket} wird gebraucht"
+
+
+def test_die_werkzeuge_der_ide_wandern_nie_in_ein_schuelerprogramm(
+    tmp_path: Path, pyinstaller
+) -> None:
+    """`debugpy`, `libcst` und `jedi` liegen in derselben Umgebung, aber
+    `pcl` fasst sie nie an."""
+    projekt = _projekt_mit_quelltext(tmp_path, "print('hallo')\n")
+
+    exe_exportieren(projekt)
+
+    draussen = _ausgeschlossen(pyinstaller[0])
+    assert {"debugpy", "libcst", "jedi", "tkinter"} <= draussen
+
+
+def test_im_zweifel_wird_mitgenommen(tmp_path: Path, pyinstaller) -> None:
+    """Ein zu grosses Paket kostet Sekunden, ein fehlendes kostet ein
+    Programm, das beim Freund nicht startet."""
+    projekt = _projekt_mit_quelltext(tmp_path, "import openpyxl\n")
+
+    exe_exportieren(projekt)
+
+    assert "openpyxl" not in _ausgeschlossen(pyinstaller[0])
+
+
+def test_es_bleibt_bei_einer_einzigen_datei(tmp_path: Path, pyinstaller) -> None:
+    """Schlanker ja - aber die Vorgabe „alles in der exe" bleibt."""
+    projekt = _projekt_mit_quelltext(tmp_path, "print('hallo')\n")
+
+    exe_exportieren(projekt)
+
+    assert "--onefile" in pyinstaller[0]

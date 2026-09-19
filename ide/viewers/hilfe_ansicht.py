@@ -17,8 +17,6 @@ einem eigenen Reiter neben dem Quelltext.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from PySide6.QtGui import QFontDatabase, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import QTextBrowser, QWidget
 
@@ -100,12 +98,3 @@ class HilfeAnsicht(QTextBrowser):
             cursor.setPosition(anfang + laenge, QTextCursor.MoveMode.KeepAnchor)
             cursor.mergeCharFormat(format_)
         cursor.endEditBlock()
-
-    def datei_laden(self, pfad: Path | str) -> bool:
-        """Lädt eine `.md`-Datei. Liefert `False`, wenn es sie nicht
-        gibt – der Aufrufer sagt dann, wo sie liegen müsste."""
-        pfad = Path(pfad)
-        if not pfad.exists():
-            return False
-        self.markdown_setzen(pfad.read_text(encoding="utf-8"))
-        return True

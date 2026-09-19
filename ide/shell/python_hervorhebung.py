@@ -139,7 +139,6 @@ class PythonHervorhebung(QSyntaxHighlighter):
     _ZAHL_MUSTER = QRegularExpression(r"\b\d+\.?\d*\b")
     _DECORATOR_MUSTER = QRegularExpression(r"@\w+")
     _DEF_NAME_MUSTER = QRegularExpression(r"\b(?:def|class)\s+(\w+)")
-    _KOMMENTAR_MUSTER = QRegularExpression(r"#[^\n]*")
     _RAUTE_MUSTER = QRegularExpression(r"#")
     _STRING_MUSTER = QRegularExpression(
         r"(\"[^\"\\\n]*(?:\\.[^\"\\\n]*)*\")|('[^'\\\n]*(?:\\.[^'\\\n]*)*')"

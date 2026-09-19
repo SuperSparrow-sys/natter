@@ -1281,7 +1281,10 @@ class HauptFenster(QMainWindow):
 
     def _test_eintrag_aktualisieren(self, eintrag: QTreeWidgetItem, ergebnis: Testergebnis) -> None:
         eintrag.setText(1, ergebnis.status)
-        eintrag.setText(2, f"{ergebnis.dauer:.3f}")
+        # Deutsch auch in einer Zahlenspalte: eine Sekundenangabe mit
+        # Punkt sticht in einer sonst durchgehend deutschen Oberflaeche
+        # hervor (Nutzer, September 2026: „Alles in Deutschem Format“).
+        eintrag.setText(2, f"{ergebnis.dauer:.3f}".replace(".", ","))
         farbe = QColor(_STATUS_FARBE.get(ergebnis.status, "#000000"))
         for spalte in range(3):
             eintrag.setForeground(spalte, farbe)

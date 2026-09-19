@@ -212,17 +212,6 @@ def wert_lesen(komponente: Any, name: str) -> Any:
     return getattr(komponente, name)
 
 
-def hat_eigenschaft(komponente: Any, name: str) -> bool:
-    """Ob diese Komponente die Eigenschaft überhaupt hat.
-
-    Für Sammlungen und Bäume reicht `hasattr` nicht: `getattr` liefert
-    dort eine leere Liste, auch wenn die Komponente gar kein Menü und
-    keine Zeilen kennt."""
-    if name in SAMMLUNGS_EIGENSCHAFTEN or name in BAUM_EIGENSCHAFTEN:
-        return hasattr(type(komponente), name)
-    return name in eigenschaften(type(komponente)) or name in VERSCHACHTELTE_EIGENSCHAFTEN
-
-
 def wert_setzen(komponente: Any, name: str, wert: Any) -> None:
     """Gegenstück zu `wert_lesen`."""
     verschachtelt = VERSCHACHTELTE_EIGENSCHAFTEN.get(name)

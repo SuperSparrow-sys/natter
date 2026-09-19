@@ -20,6 +20,15 @@ from u_main_design import Form1Design
 MITGELIEFERT = Path(__file__).parent.parent / "04_CookieKlicker" / "bilder"
 
 
+def text(wert: float, stellen: int = 1) -> str:
+    """Macht aus einer Zahl deutschen Text: 5.5 -> "5,5".
+
+    Python schreibt Kommazahlen mit Punkt. In einem deutschen
+    Programm gehört dort ein Komma hin.
+    """
+    return f"{wert:.{stellen}f}".replace(".", ",")
+
+
 class Form1(Form1Design):
     def form_create(self, sender) -> None:
         # `self.bilder` sind vollständige Pfade, die ListBox zeigt nur
@@ -82,4 +91,4 @@ class Form1(Form1Design):
 
         # Dateigröße in Kilobyte, auf eine Stelle gerundet.
         groesse = pfad.stat().st_size / 1024
-        self.l_info.caption = f"{pfad.name}  -  {groesse:.1f} kB\n{pfad.parent}"
+        self.l_info.caption = f"{pfad.name}  -  {text(groesse)} kB\n{pfad.parent}"

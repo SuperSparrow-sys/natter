@@ -35,8 +35,10 @@ class BildVorschau(QWidget):
         )
 
         groesse_kb = self._pfad.stat().st_size / 1024
+        # Dezimalkomma wie ueberall in der Oberflaeche.
+        groesse_text = f"{groesse_kb:.1f}".replace(".", ",")
         self._info_label = QLabel(
-            f"{self._pixmap.width()} × {self._pixmap.height()} Pixel, {groesse_kb:.1f} KB"
+            f"{self._pixmap.width()} × {self._pixmap.height()} Pixel, {groesse_text} KB"
         )
         self._info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 

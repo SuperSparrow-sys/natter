@@ -26,6 +26,11 @@ def zahl(text: str) -> float:
     return float(text.replace(",", "."))
 
 
+def text(wert: float, stellen: int = 1) -> str:
+    """Und zurück: 2.4 -> "2,4". Die Gegenrichtung zu `zahl`."""
+    return f"{wert:.{stellen}f}".replace(".", ",")
+
+
 class Form1(Form1Design):
     def form_create(self, sender) -> None:
         self.zeilen: list[dict[str, str]] = []
@@ -101,10 +106,10 @@ class Form1(Form1Design):
         regen = sum(zahl(zeile["Niederschlag"]) for zeile in daten)
 
         self.l_ergebnis.caption = (
-            f"{self.cb_ort.text}:  Mittelwert {mittel:.1f} °C   |   "
+            f"{self.cb_ort.text}:  Mittelwert {text(mittel)} °C   |   "
             f"wärmster Monat {waermster['Monat']} ({waermster['Temperatur']} °C)   |   "
             f"kältester Monat {kaeltester['Monat']} ({kaeltester['Temperatur']} °C)   |   "
-            f"Niederschlag im Jahr {regen:.0f} mm"
+            f"Niederschlag im Jahr {text(regen, 0)} mm"
         )
 
     # -- Knöpfe ----------------------------------------------------
@@ -134,10 +139,10 @@ class Form1(Form1Design):
                 schreiber.writerow(
                     {
                         "Ort": ort,
-                        "Mittelwert": f"{sum(temperaturen) / len(temperaturen):.1f}".replace(
-                            ".", ","
+                        "Mittelwert": text(sum(temperaturen) / len(temperaturen)),
+                        "Niederschlag": text(
+                            sum(zahl(z["Niederschlag"]) for z in werte), 0
                         ),
-                        "Niederschlag": f"{sum(zahl(z['Niederschlag']) for z in werte):.0f}",
                     }
                 )
 

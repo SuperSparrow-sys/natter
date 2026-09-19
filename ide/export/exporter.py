@@ -19,6 +19,23 @@ Exe; zur Laufzeit packt PyInstaller sie neben das Skript aus, sodass
 Der Preis ist ein spürbar langsamerer Start (die Exe entpackt sich bei
 jedem Lauf) und eine größere Datei. Beides ist hier das kleinere Übel.
 
+**Mitgenommen wird nur, was das Projekt wirklich braucht** (September
+2026, Nutzer-Auftrag: „Schaue wie ich den Export eines Programms als exe
+schneller hinbekommen aber trotzdem als Stand alone Datei"). Vorher bekam
+jedes Projekt dasselbe Paket: ein Taschenrechner mit vier Knöpfen wog
+genauso viel wie das Machine-Learning-Beispiel, nämlich **120,2 MB, und
+der Bau dauerte 110 Sekunden**. Der Grund ist PyInstaller selbst - es
+folgt auch Importen, die tief in einer Funktion stehen, und `pcl` führt
+für `Chart` und `regression` numpy, matplotlib und pandas mit. Wer kein
+Diagramm zeichnet, schleppt sie trotzdem mit.
+
+`_ueberfluessige_pakete()` sieht deshalb in den Quelltexten des Projekts
+nach, welche dieser Pakete überhaupt vorkommen, und schließt die
+übrigen mit `--exclude-module` aus. Für den Taschenrechner sind das
+**51 Sekunden und 44,9 MB** - weniger als die Hälfte der Zeit und gut
+ein Drittel der Größe, bei unverändert einer einzigen Datei. Wer ein
+Diagramm oder scikit-learn benutzt, bekommt alles Nötige nach wie vor.
+
 Baut absichtlich nicht das Prüfsummen-Manifest/die Authenticode-Signatur
 aus `prototypes/s6_signatur` mit ein - eine Signatur braucht ein
 gekauftes Zertifikat, das ein Schulprojekt normalerweise nicht hat;
@@ -40,6 +57,38 @@ from ide.project import Projekt
 from ide.run.interpreter import python_befehl
 
 _GUI_PROJEKTTYPEN = {"gui", "gui_db"}
+
+#: Pakete, die nur dann in die Exe wandern, wenn das Projekt sie braucht -
+#: und die Wörter, an denen sich das im Quelltext erkennen lässt.
+#:
+#: Die Zuordnung ist bewusst großzügig: taucht eines der Wörter irgendwo
+#: in einer `.py` des Projekts auf, bleibt das Paket drin. Ein zu großes
+#: Paket kostet Sekunden, ein fehlendes kostet ein Programm, das beim
+#: Freund nicht startet. `u_*_design.py` wird mitgelesen - dort steht
+#: `Chart(self)`, wenn im Designer ein Diagramm liegt.
+#:
+#: `numpy` und `pandas` hängen an `Chart`, weil `pcl/components/chart.py`
+#: beide importiert; `scipy` und `joblib` hängen an scikit-learn, das sie
+#: mitbringt.
+_OPTIONALE_PAKETE: dict[str, tuple[str, ...]] = {
+    "matplotlib": ("matplotlib", "pyplot", "Chart"),
+    "numpy": ("numpy", "Chart", "regression", "sklearn", "pandas", "DataFrame"),
+    "pandas": ("pandas", "DataFrame", "to_dataframe", "Chart", "sklearn"),
+    "sklearn": ("sklearn", "scikit"),
+    "scipy": ("scipy", "sklearn"),
+    "joblib": ("joblib", "sklearn"),
+    "openpyxl": ("openpyxl", "xlsx"),
+    "sqlalchemy": ("sqlalchemy",),
+    "PIL": ("PIL", "Pillow"),
+    # Werkzeuge der IDE. `pcl` fasst sie nie an, sie liegen nur in
+    # derselben Python-Umgebung.
+    "debugpy": ("debugpy",),
+    "libcst": ("libcst",),
+    "jedi": ("jedi",),
+    "IPython": ("IPython",),
+    "tkinter": ("tkinter",),
+    "pytest": ("pytest",),
+}
 
 #: `pcl.theme` lädt `design/tokens.json` zur Laufzeit (Abschnitt 6) statt
 #: es zu importieren – PyInstaller bindet daher nur den Python-Code
@@ -131,6 +180,32 @@ class _Fortschritt:
                 return
 
 
+def _ueberfluessige_pakete(projekt: Projekt) -> list[str]:
+    """Die Pakete aus `_OPTIONALE_PAKETE`, die in diesem Projekt nirgends
+    vorkommen - sie bleiben draußen.
+
+    Gelesen werden alle `.py` des Projekts, auch die erzeugten: im
+    `u_*_design.py` steht `Chart(self)`, wenn im Designer ein Diagramm
+    liegt, und im Quelltext der Schülerin steht `import sklearn`, wenn
+    sie es benutzt.
+    """
+    quelltext = ""
+    for datei in sorted(projekt.ordner.rglob("*.py")):
+        if any(teil in _NICHT_MITNEHMEN for teil in datei.parts):
+            continue
+        try:
+            quelltext += datei.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            # Eine unlesbare Datei ist kein Grund, den Export abzubrechen -
+            # im Zweifel wird eben mehr mitgenommen.
+            return []
+    return [
+        paket
+        for paket, woerter in _OPTIONALE_PAKETE.items()
+        if not any(wort in quelltext for wort in woerter)
+    ]
+
+
 def exe_exportieren(
     projekt: Projekt,
     ziel_ordner: Path | None = None,
@@ -175,6 +250,9 @@ def exe_exportieren(
 
     for ordner in _daten_ordner_des_projekts(projekt):
         befehl += ["--add-data", f"{ordner}{os.pathsep}{ordner.name}"]
+
+    for paket in _ueberfluessige_pakete(projekt):
+        befehl += ["--exclude-module", paket]
 
     if projekt.typ in _GUI_PROJEKTTYPEN:
         befehl.append("--windowed")

@@ -33,10 +33,6 @@ _OEFFNER = ("begin", "case", "try", "record", "asm")
 _WORT_MUSTER = re.compile(r"[A-Za-z_]\w*")
 
 
-class PascalLeseFehler(ValueError):
-    """Die `.pas`-Datei ließ sich nicht wie erwartet lesen."""
-
-
 def _code_ohne_text(zeile: str, in_block_kommentar: str | None) -> tuple[str, str | None]:
     """Entfernt Zeichenketten (`'...'`) und Kommentare (`//`, `{...}`,
     `(*...*)`) aus einer Zeile, damit `begin`/`end` darin nicht

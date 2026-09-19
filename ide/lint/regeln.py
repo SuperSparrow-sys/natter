@@ -56,7 +56,6 @@ _KLICKBARE_TYPEN = ("Button", "CheckBox", "RadioButton", "ComboBox", "DBNavigato
 # Werte selten ändern und ein Import von pcl.theme hier eine unnötige
 # Kopplung an dessen interne Ladefunktion wäre.
 _THEME_TEXTFARBEN = {"light": "#1a1a1a", "dark": "#e8e8e8"}
-_THEME_HINTERGRUNDFARBEN = {"light": "#ffffff", "dark": "#1e1e1e"}
 
 
 @dataclass(frozen=True)
@@ -279,6 +278,9 @@ def _lesbarkeit_pruefen(pfm: dict[str, Any]) -> list[Befund]:
             verhaeltnis = _kontrastverhaeltnis(farbe, _THEME_TEXTFARBEN[theme])
             if verhaeltnis < _KONTRAST_MINDESTVERHAELTNIS:
                 ziel = name or "Das Formular"
+                # Dezimalkomma wie ueberall in der Oberflaeche - der
+                # Befund landet im Panel „Meldungen“ und wird gelesen.
+                gemessen = f"{verhaeltnis:.1f}".replace(".", ",")
                 befunde.append(
                     _befund(
                         "lesbarkeit.kontrast",
@@ -286,7 +288,7 @@ def _lesbarkeit_pruefen(pfm: dict[str, Any]) -> list[Befund]:
                         "warnung",
                         name,
                         f"{ziel}: Der Text hebt sich von der Farbe {farbe} zu wenig "
-                        f"ab ({verhaeltnis:.1f}:1 statt der empfohlenen "
+                        f"ab ({gemessen}:1 statt der empfohlenen "
                         f"{_KONTRAST_MINDESTVERHAELTNIS}:1 im "
                         f"{'hellen' if theme == 'light' else 'dunklen'} Design).",
                         "Eine deutlich hellere oder dunklere Farbe wählen.",
