@@ -130,3 +130,125 @@ def test_import_mit_ungueltigem_lfm_zeigt_fehlermeldung(
 
     assert "fehlgeschlagen" in fenster.statusBar().currentMessage()
     assert fenster.editor_tabs.count() == 0
+
+
+# -- Pascal-Rümpfe und Bilder aus Picture.Data (M8, Schritt 3) --------------
+
+_REFERENZ = Path(__file__).resolve().parent.parent / "referenz" / "lazarus"
+
+_PAS_TEXT = """\
+unit unit1;
+
+interface
+
+implementation
+
+procedure TForm1.FormCreate(Sender: TObject);
+begin
+  Caption := 'Start';
+end;
+
+procedure TForm1.b_startClick(Sender: TObject);
+begin
+  ShowMessage('los');
+end;
+
+end.
+"""
+
+
+def test_import_uebernimmt_pascal_ruempfe_als_kommentar_in_die_unit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    quelle = tmp_path / "unit1.lfm"
+    quelle.write_text(_LFM_TEXT, encoding="utf-8")
+    (tmp_path / "unit1.pas").write_text(_PAS_TEXT, encoding="utf-8")
+    ziel = tmp_path / "u_main.pfm"
+    _dialoge_vorbereiten(monkeypatch, tmp_path, quelle=quelle, ziel=ziel)
+    fenster = HauptFenster()
+
+    fenster._lazarus_formular_importieren_aktion()
+
+    unit = tmp_path / "u_main.py"
+    assert unit.exists()
+    quelltext = unit.read_text(encoding="utf-8")
+    assert "class Form1(Form1Design):" in quelltext
+    assert "def b_start_click(self, sender):" in quelltext
+    assert "# Pascal-Rumpf von b_startClick aus unit1.pas (Lazarus-Import)," in quelltext
+    assert "#   ShowMessage('los');" in quelltext
+    assert "def form_create(self, sender):" in quelltext
+    assert "#   Caption := 'Start';" in quelltext
+    # gültiges Python, nicht nur Text
+    compile(quelltext, str(unit), "exec")
+
+
+def test_import_ohne_pas_datei_meldet_das_und_legt_leere_methoden_an(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    quelle = tmp_path / "unit1.lfm"
+    quelle.write_text(_LFM_TEXT, encoding="utf-8")
+    ziel = tmp_path / "u_main.pfm"
+    _dialoge_vorbereiten(monkeypatch, tmp_path, quelle=quelle, ziel=ziel)
+    fenster = HauptFenster()
+
+    fenster._lazarus_formular_importieren_aktion()
+
+    meldungen = [
+        fenster.meldungen_liste.item(i).text() for i in range(fenster.meldungen_liste.count())
+    ]
+    assert any("unit1.pas nicht gefunden" in m for m in meldungen)
+    quelltext = (tmp_path / "u_main.py").read_text(encoding="utf-8")
+    assert "def b_start_click(self, sender):" in quelltext
+    assert "Pascal-Rumpf" not in quelltext
+
+
+def test_import_ueberschreibt_vorhandene_unit_nicht(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    quelle = tmp_path / "unit1.lfm"
+    quelle.write_text(_LFM_TEXT, encoding="utf-8")
+    (tmp_path / "unit1.pas").write_text(_PAS_TEXT, encoding="utf-8")
+    ziel = tmp_path / "u_main.pfm"
+    unit = tmp_path / "u_main.py"
+    unit.write_text("# eigener Code\n", encoding="utf-8")
+    _dialoge_vorbereiten(monkeypatch, tmp_path, quelle=quelle, ziel=ziel)
+    fenster = HauptFenster()
+
+    fenster._lazarus_formular_importieren_aktion()
+
+    assert unit.read_text(encoding="utf-8") == "# eigener Code\n"
+    meldungen = [
+        fenster.meldungen_liste.item(i).text() for i in range(fenster.meldungen_liste.count())
+    ]
+    assert any("nicht überschrieben" in m for m in meldungen)
+
+
+def test_import_schreibt_bilder_aus_picture_data_nach_assets(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Gegen die echte `referenz/lazarus/l_Pet/u_main.lfm`: erst in
+    `tmp_path` kopieren (AGENTS.md - eingecheckte Dateien nie im Test
+    verändern), dann importieren."""
+    quelle = tmp_path / "u_quelle.lfm"
+    quelle.write_bytes((_REFERENZ / "l_Pet" / "u_main.lfm").read_bytes())
+    (tmp_path / "u_quelle.pas").write_bytes((_REFERENZ / "l_Pet" / "u_main.pas").read_bytes())
+    ziel = tmp_path / "u_main.pfm"
+    _dialoge_vorbereiten(monkeypatch, tmp_path, quelle=quelle, ziel=ziel)
+    fenster = HauptFenster()
+
+    fenster._lazarus_formular_importieren_aktion()
+
+    bild = tmp_path / "assets" / "Image1.png"
+    assert bild.exists()
+    assert bild.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+    assert bild.stat().st_size == 2999969
+
+    quelltext = (tmp_path / "u_main.py").read_text(encoding="utf-8")
+    assert 'self.Image1.picture.load_from_file("assets/Image1.png")' in quelltext
+    assert "#   meinPet.nameaendern(e_name.text);" in quelltext
+    compile(quelltext, "u_main.py", "exec")
+
+    meldungen = [
+        fenster.meldungen_liste.item(i).text() for i in range(fenster.meldungen_liste.count())
+    ]
+    assert any("assets/Image1.png" in m for m in meldungen)

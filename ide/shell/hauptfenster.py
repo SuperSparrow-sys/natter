@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QPlainTextEdit,
     QScrollArea,
@@ -42,7 +43,13 @@ from ide.actions import Aktion, Aktionsregister
 from ide.assets import symbol
 from ide.codegen.design import design_code_erzeugen
 from ide.database import DatenbankPanel
-from ide.debugger import DebugSitzung, fehlermeldung_aus_dap_erzeugen
+from ide.debugger import (
+    DebugSitzung,
+    TabellenFehler,
+    fehlermeldung_aus_dap_erzeugen,
+    tabelle_aus_antwort,
+    tabellen_ausdruck,
+)
 from ide.designer import DesignerCanvas, formular_fuer_designer_laden
 from ide.designer.pfm_schreiben import pfm_aus_formular
 from ide.diagramm import (
@@ -54,7 +61,15 @@ from ide.diagramm import (
 )
 from ide.env import PaketFehler, installierte_pakete, paket_installieren, paketliste_exportieren
 from ide.export import exe_exportieren
-from ide.import_lfm import LfmParserError, lfm_zu_pfm, parse_lfm
+from ide.import_lfm import (
+    LfmImportErgebnis,
+    LfmParserError,
+    lfm_zu_pfm,
+    parse_lfm,
+    pas_text_lesen,
+    prozedur_ruempfe_lesen,
+    unit_quelltext_erzeugen,
+)
 from ide.inspector import Objektinspektor
 from ide.integritaet.start_pruefung import installation_pruefen
 from ide.lint import pruefen
@@ -69,7 +84,7 @@ from ide.shell.schnellauswahl import SchnellAuswahl
 from ide.shell.suchen_dialog import SuchenErsetzenDialog
 from ide.shell.theme import ide_qss_erzeugen
 from ide.testrunner import Testergebnis, ergebnisse_als_html, tests_ausfuehren
-from ide.viewers import BildVorschau, CsvAnsicht, HtmlVorschau
+from ide.viewers import BildVorschau, CsvAnsicht, HtmlVorschau, TabellenAnsicht
 from pcl import open_url
 from pcl.form import Form
 from pcl.theme import theme_aufloesen
@@ -242,6 +257,13 @@ class HauptFenster(QMainWindow):
         self.meldungen_liste.itemClicked.connect(self._bei_meldung_geklickt)
         self.variablen_baum = QTreeWidget()
         self.variablen_baum.setHeaderLabels(["Eigenschaft", "Wert"])
+        # „Als Tabelle anzeigen“ (Abschnitt 11.6): Rechtsklick oder
+        # Doppelklick auf eine Variable im Panel „Variablen“.
+        self.variablen_baum.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.variablen_baum.customContextMenuRequested.connect(self._variablen_menue_zeigen)
+        self.variablen_baum.itemDoubleClicked.connect(
+            lambda eintrag, _spalte: self.variable_als_tabelle_zeigen(eintrag.text(0))
+        )
         self.aufrufstapel_liste = QListWidget()
         self.aufrufstapel_liste.itemClicked.connect(self._bei_aufrufstapel_klick)
         self.tests_baum = QTreeWidget()
@@ -338,6 +360,15 @@ class HauptFenster(QMainWindow):
         self.debug_sitzung: DebugSitzung | None = None
         self._aktueller_thread_id: int | None = None
         self._letzter_aufrufstapel: list[dict] = []
+        #: Name der Variablen, für die gerade „Als Tabelle anzeigen“
+        #: läuft (Abschnitt 11.6) - `None`, wenn keine Anfrage offen ist.
+        self._tabellen_variable: str | None = None
+        #: Grund des letzten Halts ("breakpoint"/"step"/"exception"),
+        #: entscheidet, welches Panel danach nach vorne kommt.
+        self._letzter_haltegrund: str = ""
+        #: Zuletzt geöffnete Tabellenansicht; hält das Fenster am Leben
+        #: (ein `QDialog` ohne Verweis wird sonst sofort eingesammelt).
+        self.letzte_tabellen_ansicht: TabellenAnsicht | None = None
 
         self.statusBar().showMessage("bereit")
 
@@ -1239,6 +1270,7 @@ class HauptFenster(QMainWindow):
         self._design_datei_abgleichen(pfad)
         canvas.auswahl_beobachten(self._designer_auswahl_geaendert)
         canvas.aenderung_beobachten(lambda: self._design_pruefen_automatisch(canvas))
+        canvas.bild_beobachten(self._designer_bild_abgelegt)
         self._offene_canvases.append(canvas)
         self._pfad_zu_formular[schluessel] = formular
         self._widget_zu_canvas[formular._qwidget] = canvas
@@ -1419,6 +1451,16 @@ class HauptFenster(QMainWindow):
     def _designer_auswahl_geaendert(self, komponente) -> None:
         self.objektinspektor._eigenschaften_anzeigen(komponente)
 
+    def _designer_bild_abgelegt(self, relativer_pfad: str) -> None:
+        """Nach Drag & Drop einer Bilddatei in den Designer (Abschnitt
+        11.4): nennt den Pfad im Projekt und die Codezeile, mit der das
+        laufende Programm das Bild lädt – die `.pfm` speichert die
+        Eigenschaft `picture` noch nicht."""
+        self.statusBar().showMessage(
+            f"Bild nach {relativer_pfad} übernommen. Im Code laden mit: "
+            f'picture.load_from_file("{relativer_pfad}")'
+        )
+
     # -- Design-Prüfer (Abschnitt 14) ----------------------------------------
 
     def _design_pruefen_aktion(self) -> None:
@@ -1514,6 +1556,10 @@ class HauptFenster(QMainWindow):
             json.dumps(ergebnis.pfm, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
         )
 
+        ziel_pfad = Path(ziel)
+        bild_pfade = self._lazarus_bilder_schreiben(ergebnis, ziel_pfad)
+        self._lazarus_unit_schreiben(ergebnis, Path(quelle), ziel_pfad, bild_pfade)
+
         formular = self.designer_oeffnen(Path(ziel))
         canvas = self._widget_zu_canvas[formular._qwidget]
         self._design_pruefen(canvas)
@@ -1525,6 +1571,91 @@ class HauptFenster(QMainWindow):
         self.statusBar().showMessage(
             f"{Path(quelle).name} importiert: {len(ergebnis.warnungen)} Hinweis(e) im "
             "Importbericht."
+        )
+
+    def _lazarus_bilder_schreiben(
+        self, ergebnis: LfmImportErgebnis, ziel_pfad: Path
+    ) -> dict[str, str]:
+        """Schreibt die aus `Picture.Data` ausgepackten Bilder nach
+        `assets/` neben die neue `.pfm` (Abschnitt 11.4: „Kopie nach
+        `assets/`“) und liefert je Komponente den Pfad, mit dem das
+        laufende Programm sie lädt (`assets/i_cookie.jpg`)."""
+        if not ergebnis.bilder:
+            return {}
+        assets = ziel_pfad.parent / "assets"
+        assets.mkdir(parents=True, exist_ok=True)
+        bild_pfade: dict[str, str] = {}
+        for komponente, bild in ergebnis.bilder.items():
+            dateiname = f"{komponente}{bild.endung}"
+            try:
+                (assets / dateiname).write_bytes(bild.daten)
+            except OSError as fehler:
+                ergebnis.warnungen.append(f"{komponente}: Bild nicht schreibbar - {fehler}")
+                continue
+            bild_pfade[komponente] = f"assets/{dateiname}"
+            ergebnis.warnungen.append(
+                f"{komponente}: Bild aus Picture.Data nach assets/{dateiname} "
+                f"geschrieben ({len(bild.daten)} Byte, {bild.klassenname})."
+            )
+        if bild_pfade:
+            ergebnis.warnungen.append(
+                "Bilder erscheinen erst im gestarteten Programm, noch nicht in der "
+                "Designer-Vorschau: die .pfm kennt die Eigenschaft `picture` noch nicht."
+            )
+        return bild_pfade
+
+    def _lazarus_unit_schreiben(
+        self,
+        ergebnis: LfmImportErgebnis,
+        quelle: Path,
+        ziel_pfad: Path,
+        bild_pfade: dict[str, str],
+    ) -> None:
+        """Legt die Formular-Unit (`u_main.py`) zum Import an: je
+        Ereignis-Handler eine leere Python-Methode, darüber der
+        Pascal-Rumpf aus der gleichnamigen `.pas` als Kommentar
+        (Abschnitt 15). Eine bereits vorhandene Unit wird nicht
+        überschrieben."""
+        unit_pfad = ziel_pfad.with_suffix(".py")
+        if unit_pfad.exists():
+            ergebnis.warnungen.append(
+                f"{unit_pfad.name} ist schon vorhanden und wurde nicht überschrieben - "
+                "die Pascal-Rümpfe stehen deshalb nirgends."
+            )
+            return
+
+        pas_pfad = quelle.with_suffix(".pas")
+        ruempfe: dict[str, list[str]] = {}
+        if pas_pfad.exists():
+            try:
+                pas_text = pas_text_lesen(pas_pfad)
+            except OSError as fehler:
+                ergebnis.warnungen.append(f"{pas_pfad.name} nicht lesbar - {fehler}")
+                pas_text = ""
+            ruempfe = prozedur_ruempfe_lesen(pas_text) if pas_text else {}
+        else:
+            ergebnis.warnungen.append(
+                f"{pas_pfad.name} nicht gefunden - die Ereignis-Methoden bleiben leer."
+            )
+
+        quelltext = unit_quelltext_erzeugen(
+            ergebnis.pfm,
+            design_modul=f"{ziel_pfad.stem}_design",
+            pascal_ruempfe=ruempfe,
+            handler_quellen=ergebnis.handler_quellen,
+            pas_dateiname=pas_pfad.name,
+            bild_pfade=bild_pfade,
+        )
+        unit_pfad.write_text(quelltext, encoding="utf-8")
+
+        uebernommen = sum(
+            1
+            for methodenname, lazarus_name in ergebnis.handler_quellen.items()
+            if methodenname and lazarus_name in ruempfe
+        )
+        ergebnis.warnungen.append(
+            f"{unit_pfad.name} angelegt: {uebernommen} Pascal-Rumpf/-Rümpfe als "
+            "Kommentar übernommen."
         )
 
     # -- Paketverwaltung (Abschnitt 7.2, 18: ide/env/) -----------------------
@@ -1688,6 +1819,7 @@ class HauptFenster(QMainWindow):
         self.debug_sitzung.bereiche_bereit.connect(self._debugger_bereiche_bereit)
         self.debug_sitzung.variablen_bereit.connect(self._debugger_variablen_bereit)
         self.debug_sitzung.exceptioninfo_bereit.connect(self._debugger_exceptioninfo_bereit)
+        self.debug_sitzung.ausgewertet.connect(self._debugger_tabelle_bereit)
         self.debug_sitzung.starten(
             self.projekt.haupt_datei,
             arbeitsordner=self.projekt.ordner,
@@ -1698,6 +1830,7 @@ class HauptFenster(QMainWindow):
     def _debugger_angehalten(self, ereignis: dict) -> None:
         self._aktueller_thread_id = ereignis.get("threadId")
         grund = ereignis.get("reason", "?")
+        self._letzter_haltegrund = grund
         self.statusBar().showMessage(f"Angehalten ({grund})")
         if self._aktueller_thread_id is None or self.debug_sitzung is None:
             return
@@ -1798,6 +1931,68 @@ class HauptFenster(QMainWindow):
         self.variablen_baum.clear()
         for variable in variablen:
             QTreeWidgetItem(self.variablen_baum, [variable["name"], str(variable.get("value"))])
+        # Beim Bildschirmfoto gefunden: das Programm stand am
+        # Breakpoint, die Variablen waren geladen - sichtbar blieb aber
+        # das Panel „Meldungen“. „Als Tabelle anzeigen“ (und überhaupt
+        # der Blick auf die Variablen) war nur nach einem
+        # Reiterwechsel von Hand erreichbar. Nach einer unbehandelten
+        # Ausnahme behält „Meldungen“ den Vorrang, dort steht die
+        # Fehlermeldung aus dem Fehlerkatalog.
+        if variablen and self._letzter_haltegrund != "exception":
+            self.panels.setCurrentWidget(self.variablen_baum)
+
+    # -- „Als Tabelle anzeigen“ (Abschnitt 11.6) -----------------------------
+
+    def _variablen_menue_zeigen(self, punkt) -> None:
+        """Kontextmenü im Panel „Variablen“: „Als Tabelle anzeigen“ für
+        DataFrames, Listen und Dictionaries (Abschnitt 11.6)."""
+        eintrag = self.variablen_baum.itemAt(punkt)
+        if eintrag is None:
+            return
+        menue = QMenu(self.variablen_baum)
+        aktion = menue.addAction("Als Tabelle anzeigen")
+        aktion.triggered.connect(lambda: self.variable_als_tabelle_zeigen(eintrag.text(0)))
+        menue.exec(self.variablen_baum.viewport().mapToGlobal(punkt))
+
+    def variable_als_tabelle_zeigen(self, name: str) -> None:
+        """Lässt `name` im angehaltenen Schülerprogramm auswerten und
+        zeigt das Ergebnis als Tabelle (Abschnitt 11.6). Die Antwort
+        kommt asynchron über das Signal `ausgewertet` in
+        `_debugger_tabelle_bereit()`."""
+        if self.debug_sitzung is None or not self._letzter_aufrufstapel:
+            self.statusBar().showMessage("Kein angehaltenes Programm - keine Tabelle möglich.")
+            return
+        try:
+            # `debugpy` blendet im Variablen-Panel Sammelzeilen wie
+            # „special variables“ ein. Beim Bildschirmfoto gesehen: ein
+            # Doppelklick darauf schickte diesen Text als Ausdruck an den
+            # Debugger - Syntaxfehler im Panel „Meldungen“ statt einer
+            # verständlichen Antwort.
+            compile(name, "<variable>", "eval")
+        except SyntaxError:
+            self.statusBar().showMessage(f"{name!r} ist keine Variable, die sich auswerten lässt.")
+            return
+        self._tabellen_variable = name
+        self.debug_sitzung.auswerten(
+            tabellen_ausdruck(name), self._letzter_aufrufstapel[0]["id"]
+        )
+
+    def _debugger_tabelle_bereit(self, antwort: dict) -> None:
+        """Antwort auf `variable_als_tabelle_zeigen()` (DAP `evaluate`).
+        Andere Auswertungen (überwachte Ausdrücke) gehen hier nicht
+        verloren: ohne offene Tabellen-Anfrage tut die Methode nichts."""
+        name = self._tabellen_variable
+        self._tabellen_variable = None
+        if name is None:
+            return
+        try:
+            tabelle = tabelle_aus_antwort(str(antwort.get("result", "")))
+        except TabellenFehler as fehler:
+            self.statusBar().showMessage(str(fehler))
+            return
+        fenster = TabellenAnsicht(name, tabelle, self)
+        self.letzte_tabellen_ansicht = fenster
+        fenster.show()
 
     def _debugger_pausieren_aktion(self) -> None:
         if self.debug_sitzung is not None and self._aktueller_thread_id is not None:

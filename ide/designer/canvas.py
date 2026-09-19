@@ -20,17 +20,29 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QEvent, QObject, QPoint, Qt
+from PySide6.QtCore import QEvent, QMimeData, QObject, QPoint, Qt
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QWidget
 
 from ide.codegen.design import design_datei_erzeugen
 from ide.codegen.ereignis import handler_methode_einfuegen
+from ide.designer.bilder import bild_in_assets_uebernehmen, ist_bilddatei
 from ide.designer.kommando import EigenschaftKommando, Kommandostapel
 from ide.designer.laden import platzhalter_erzeugen
 from ide.designer.pfm_schreiben import formular_als_pfm_speichern
 from ide.inspector.komponentenbaum import kind_komponenten
+from pcl.components.additional import Image
 from pcl.form import Form
 from pcl.properties import eigenschaften, ereignisse
+
+#: Beim Ablegen mehrerer Bilder auf einmal werden die neuen Komponenten
+#: leicht versetzt, damit sie sich nicht vollständig überdecken.
+_MEHRFACH_VERSATZ = 16
+
+#: Größte Kantenlänge einer per Drag & Drop erzeugten `Image`-Komponente;
+#: ein 2500×2500-Foto (wie in `referenz/lazarus/l_Pet`) soll das Formular
+#: nicht sprengen.
+_BILD_MAXKANTE = 240
 
 _ANFASSER_GROESSE = 7
 _ANFASSER_FARBE = "#0067c0"
@@ -82,6 +94,39 @@ def _standard_ereignis(typ: type) -> str | None:
     Komponenten ohne oder mit mehreren Ereignissen liefern `None`."""
     events = ereignisse(typ)
     return next(iter(events)) if len(events) == 1 else None
+
+
+def _bildpfade_aus_mime(mime: QMimeData) -> list[Path]:
+    """Die abgelegten Bilddateien eines Drag & Drop (Abschnitt 11.4).
+    Der Windows-Explorer liefert `text/uri-list` mit `file:`-URLs; alles
+    andere (Text, Ordner, Nicht-Bilder) wird ignoriert, damit der
+    Designer die Ablage dann gar nicht erst annimmt."""
+    if mime is None or not mime.hasUrls():
+        return []
+    pfade = []
+    for url in mime.urls():
+        if not url.isLocalFile():
+            continue
+        pfad = Path(url.toLocalFile())
+        if ist_bilddatei(pfad) and pfad.is_file():
+            pfade.append(pfad)
+    return pfade
+
+
+def _bildgroesse(pfad: Path) -> tuple[int, int]:
+    """Startgröße einer per Drag & Drop erzeugten `Image`-Komponente:
+    die echten Bildmaße, auf `_BILD_MAXKANTE` heruntergerechnet. Ein
+    nicht lesbares Bild bekommt die Palettengröße aus
+    `_STANDARDGROESSEN`."""
+    pixmap = QPixmap(str(pfad))
+    if pixmap.isNull() or pixmap.width() <= 0 or pixmap.height() <= 0:
+        return _STANDARDGROESSEN["Image"]
+    breite, hoehe = pixmap.width(), pixmap.height()
+    laengste = max(breite, hoehe)
+    if laengste > _BILD_MAXKANTE:
+        faktor = _BILD_MAXKANTE / laengste
+        breite, hoehe = max(1, round(breite * faktor)), max(1, round(hoehe * faktor))
+    return breite, hoehe
 
 
 class _LoeschenKommando:
@@ -163,6 +208,31 @@ _STANDARDGROESSEN: dict[str, tuple[int, int]] = {
 }
 
 
+class _BildKommando:
+    """Setzt `Image.picture` auf eine Bilddatei und merkt sich den
+    vorherigen Pfad (Abschnitt 11.4). `picture` ist kein `Prop`, sondern
+    eine aufklappbare Untereigenschaft mit eigener Methode
+    (`load_from_file`/`clear`) – deshalb ein eigenes Kommando statt
+    `EigenschaftKommando`."""
+
+    def __init__(self, komponente: Any, neuer_pfad: str) -> None:
+        self.komponente = komponente
+        self._neuer_pfad = neuer_pfad
+        self._alter_pfad: str | None = komponente.picture.pfad
+
+    def tun(self) -> None:
+        self._anwenden(self._neuer_pfad)
+
+    def rueckgaengig(self) -> None:
+        self._anwenden(self._alter_pfad)
+
+    def _anwenden(self, pfad: str | None) -> None:
+        if pfad is None:
+            self.komponente.picture.clear()
+        else:
+            self.komponente.picture.load_from_file(pfad)
+
+
 class _PlatzierenKommando:
     """Wie `_DuplizierenKommando`, aber mit einer frischen Komponente in
     Standardwerten statt einer Kopie (Abschnitt 7.3: Palette → Formular)."""
@@ -209,7 +279,14 @@ class DesignerCanvas(QObject):
         self._anfasser_start: QPoint | None = None
         self._anfasser_start_werte: dict[str, int] | None = None
         self._platzierungs_typ: type | None = None
+        self._bild_beobachter: list[Callable[[str], None]] = []
 
+        # Drag & Drop einer Bilddatei aus dem Windows-Explorer bzw. dem
+        # Projekt-Explorer (Abschnitt 11.4). Nur das Formular-Widget
+        # nimmt Ablagen an; Qt reicht die Ereignisse von Kind-Widgets
+        # ohne `acceptDrops` dorthin weiter, die Position ist dann
+        # bereits in Formular-Koordinaten.
+        formular._qwidget.setAcceptDrops(True)
         formular._qwidget.setStyleSheet(formular._qwidget.styleSheet() + _AUSWAHL_REGEL)
         self._ueberwachung_einrichten(formular)
         self._anfasser_erzeugen()
@@ -269,6 +346,31 @@ class DesignerCanvas(QObject):
 
     def eventFilter(self, beobachtetes_objekt: QObject, ereignis: QEvent) -> bool:
         typ = ereignis.type()
+
+        if typ in (QEvent.Type.DragEnter, QEvent.Type.DragMove):
+            if _bildpfade_aus_mime(ereignis.mimeData()):
+                ereignis.acceptProposedAction()
+                return True
+            return False
+
+        if typ == QEvent.Type.Drop:
+            pfade = _bildpfade_aus_mime(ereignis.mimeData())
+            if not pfade:
+                return False
+            position = ereignis.position().toPoint()
+            for versatz, pfad in enumerate(pfade):
+                self.bild_ablegen(
+                    pfad,
+                    position.x() + versatz * _MEHRFACH_VERSATZ,
+                    position.y() + versatz * _MEHRFACH_VERSATZ,
+                    # Beim Ablegen mehrerer Dateien auf einmal entsteht
+                    # für jede eine eigene Komponente - sonst ersetzte
+                    # das zweite Bild das eben erst erzeugte erste,
+                    # weil es versetzt genau darauf landet.
+                    immer_neu=versatz > 0,
+                )
+            ereignis.acceptProposedAction()
+            return True
 
         if typ == QEvent.Type.MouseButtonDblClick:
             # Qt schickt vor dem Doppelklick bereits einen normalen Press,
@@ -533,6 +635,67 @@ class DesignerCanvas(QObject):
         self.kommandos.ausfuehren(kommando)
         self._nach_aenderung(kommando.neue_komponente)
         return kommando.neue_komponente
+
+    def bild_beobachten(self, beobachter: Callable[[str], None]) -> None:
+        """Meldet nach jedem abgelegten Bild den projektrelativen Pfad
+        (`"assets/cookie.png"`) – das Hauptfenster zeigt ihn in der
+        Statuszeile an."""
+        self._bild_beobachter.append(beobachter)
+
+    def bild_ablegen(self, bild_pfad: Path, x: int, y: int, *, immer_neu: bool = False) -> Any:
+        """Drag & Drop einer Bilddatei ins Formular (Abschnitt 11.4):
+        legt sie als Kopie in `assets/` des Projekts ab und zeigt sie an.
+
+        Liegt an (x, y) bereits eine `Image`-Komponente, bekommt diese
+        das neue Bild (rückgängig machbar); sonst entsteht dort eine neue
+        `Image`-Komponente in der Größe des Bildes (auf
+        `_BILD_MAXKANTE` begrenzt). `immer_neu=True` erzwingt eine neue
+        Komponente, auch wenn dort schon ein Bild liegt.
+
+        **Bewusst dokumentiert:** die `.pfm` kennt die Eigenschaft
+        `picture` noch nicht – sie ist kein `Prop`, sondern eine
+        aufklappbare Untereigenschaft mit eigener Lademethode, und ein
+        neuer `.pfm`-Eigenschaftsname wäre eine Formatänderung samt
+        Schema (siehe AGENTS.md, „Schnittstellen zuerst“). Die
+        `Image`-Komponente selbst samt Lage und Größe wird gespeichert,
+        das Bild lädt der Kurs mit
+        ``self.i_bild.picture.load_from_file("assets/…")``."""
+        bild_pfad = Path(bild_pfad)
+        if self.pfm_pfad is not None:
+            absoluter_pfad, relativer_pfad = bild_in_assets_uebernehmen(
+                bild_pfad, self.pfm_pfad.parent
+            )
+        else:
+            absoluter_pfad, relativer_pfad = bild_pfad.resolve(), bild_pfad.name
+
+        ziel = None if immer_neu else self._komponente_an_position(x, y)
+        if isinstance(ziel, Image):
+            self.kommandos.ausfuehren(_BildKommando(ziel, str(absoluter_pfad)))
+            self._nach_aenderung(ziel)
+        else:
+            ziel = self.komponente_platzieren(Image, x, y)
+            breite, hoehe = _bildgroesse(absoluter_pfad)
+            ziel.width, ziel.height = breite, hoehe
+            ziel.picture.load_from_file(str(absoluter_pfad))
+            self._nach_aenderung(ziel)
+
+        for beobachter in self._bild_beobachter:
+            beobachter(relativer_pfad)
+        return ziel
+
+    def _komponente_an_position(self, x: int, y: int) -> Any:
+        """Die Komponente unter (x, y) in Formular-Koordinaten, oder das
+        Formular selbst. Größenanfasser zählen nicht mit – sie liegen
+        über der Auswahl und sind keine Komponenten."""
+        widget = self.formular._qwidget.childAt(QPoint(x, y))
+        while widget is not None and widget is not self.formular._qwidget:
+            if widget in self._anfasser_widget_zu_name:
+                return self.formular
+            komponente = self._widget_zu_komponente.get(widget)
+            if komponente is not None:
+                return komponente
+            widget = widget.parentWidget()
+        return self.formular
 
     def platzierungsmodus_setzen(self, typ: type | None) -> None:
         """„Klick auf ein Palettensymbol, dann Klick auf das Formular“

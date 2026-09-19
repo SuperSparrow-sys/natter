@@ -164,3 +164,114 @@ def test_unbehandelte_ausnahme_zeigt_die_fehlerkatalog_meldung_und_springt_hin(
     finally:
         if fenster.debug_sitzung is not None:
             fenster._debugger_stoppen_aktion()
+
+
+def test_als_tabelle_anzeigen_oeffnet_ein_tabellenfenster(qtbot, tmp_path: Path) -> None:
+    """„Als Tabelle anzeigen“ im Panel „Variablen“ (Abschnitt 11.6):
+    Ende zu Ende über das echte Hauptfenster und einen echten
+    angehaltenen Debuggee."""
+    fenster = HauptFenster()
+    _projekt_oeffnen(
+        fenster,
+        tmp_path,
+        'schueler = [{"name": "Anna", "punkte": 12}, {"name": "Ben", "punkte": 9}]\n'
+        "marker = 1  # Zeile 2, Breakpoint\n",
+    )
+    editor = fenster.datei_oeffnen(fenster.projekt.haupt_datei)
+    editor.breakpoint_umschalten(2)
+
+    fenster._projekt_mit_debugger_starten_aktion()
+    qtbot.waitUntil(lambda: fenster._aktueller_thread_id is not None, timeout=DEBUG_ZEITGRENZE)
+
+    try:
+        qtbot.waitUntil(
+            lambda: fenster.variablen_baum.topLevelItemCount() > 0, timeout=DEBUG_ZEITGRENZE
+        )
+        fenster.variable_als_tabelle_zeigen("schueler")
+        qtbot.waitUntil(
+            lambda: fenster.letzte_tabellen_ansicht is not None, timeout=DEBUG_ZEITGRENZE
+        )
+
+        widget = fenster.letzte_tabellen_ansicht.tabelle_widget
+        assert widget.columnCount() == 2
+        assert widget.horizontalHeaderItem(0).text() == "name"
+        assert widget.rowCount() == 2
+        assert widget.item(1, 0).text() == "Ben"
+    finally:
+        if fenster.debug_sitzung is not None:
+            fenster._debugger_stoppen_aktion()
+
+
+def test_als_tabelle_anzeigen_ohne_debugger_meldet_das() -> None:
+    fenster = HauptFenster()
+
+    fenster.variable_als_tabelle_zeigen("irgendwas")
+
+    assert "Kein angehaltenes Programm" in fenster.statusBar().currentMessage()
+
+
+def test_special_variables_zeile_wird_nicht_als_ausdruck_geschickt(qtbot, tmp_path: Path) -> None:
+    """Beim Bildschirmfoto gefunden: `debugpy` blendet im
+    Variablen-Panel die Sammelzeile „special variables“ ein. Ein
+    Doppelklick darauf schickte diesen Text als Python-Ausdruck an den
+    Debugger und brachte einen Syntaxfehler ins Panel „Meldungen“."""
+    fenster = HauptFenster()
+    _projekt_oeffnen(fenster, tmp_path, "zahlen = [1, 2]\nmarker = 1  # Zeile 2\n")
+    editor = fenster.datei_oeffnen(fenster.projekt.haupt_datei)
+    editor.breakpoint_umschalten(2)
+
+    fenster._projekt_mit_debugger_starten_aktion()
+    qtbot.waitUntil(lambda: fenster._aktueller_thread_id is not None, timeout=DEBUG_ZEITGRENZE)
+
+    try:
+        qtbot.waitUntil(
+            lambda: fenster.variablen_baum.topLevelItemCount() > 0, timeout=DEBUG_ZEITGRENZE
+        )
+        vorher = fenster.meldungen_liste.count()
+
+        fenster.variable_als_tabelle_zeigen("special variables")
+
+        assert "keine Variable" in fenster.statusBar().currentMessage()
+        assert fenster.letzte_tabellen_ansicht is None
+        assert fenster.meldungen_liste.count() == vorher
+    finally:
+        if fenster.debug_sitzung is not None:
+            fenster._debugger_stoppen_aktion()
+
+
+def test_variablen_panel_kommt_beim_halt_nach_vorne(qtbot, tmp_path: Path) -> None:
+    """Beim Bildschirmfoto gefunden: das Programm stand am Breakpoint,
+    die Variablen waren geladen - sichtbar blieb aber „Meldungen“."""
+    fenster = HauptFenster()
+    _projekt_oeffnen(fenster, tmp_path, "zahl = 42\nmarker = 1  # Zeile 2\n")
+    editor = fenster.datei_oeffnen(fenster.projekt.haupt_datei)
+    editor.breakpoint_umschalten(2)
+
+    fenster._projekt_mit_debugger_starten_aktion()
+    qtbot.waitUntil(lambda: fenster._aktueller_thread_id is not None, timeout=DEBUG_ZEITGRENZE)
+
+    try:
+        qtbot.waitUntil(
+            lambda: fenster.variablen_baum.topLevelItemCount() > 0, timeout=DEBUG_ZEITGRENZE
+        )
+        assert fenster.panels.currentWidget() is fenster.variablen_baum
+    finally:
+        if fenster.debug_sitzung is not None:
+            fenster._debugger_stoppen_aktion()
+
+
+def test_unbehandelte_ausnahme_zeigt_weiter_die_meldungen(qtbot, tmp_path: Path) -> None:
+    """Gegenprobe zum Test oben: bei einer unbehandelten Ausnahme
+    behält das Panel „Meldungen“ den Vorrang - dort steht die
+    Fehlermeldung aus dem Fehlerkatalog (Abschnitt 8.3)."""
+    fenster = HauptFenster()
+    _projekt_oeffnen(fenster, tmp_path, "zahlen = [1, 2]\nprint(zahlen[5])\n")
+
+    fenster._projekt_mit_debugger_starten_aktion()
+    qtbot.waitUntil(lambda: fenster.meldungen_liste.count() > 0, timeout=DEBUG_ZEITGRENZE)
+
+    try:
+        assert fenster.panels.currentWidget() is fenster.meldungen_liste
+    finally:
+        if fenster.debug_sitzung is not None:
+            fenster._debugger_stoppen_aktion()

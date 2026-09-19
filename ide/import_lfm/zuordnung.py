@@ -10,9 +10,14 @@ Importbericht vermerkt, nicht als Platzhalter angelegt (es gibt noch
 keine generische Platzhalter-Komponente in `pcl`). Container-Komponenten
 (`TRadioGroup`, `TGroupBox`, `TPanel`) haben in `pcl` keine Entsprechung;
 sie und ihre Kinder landen im Importbericht. `Cells`-Sammlungen eines
-`TStringGrid` werden ebenfalls nur gemeldet. Bilder aus `Picture.Data`
-werden nicht dekodiert. Pascal-Rumpf-Übernahme aus der `.pas`-Datei ist
-nicht Teil dieses Moduls.
+`TStringGrid` werden ebenfalls nur gemeldet.
+
+Bilder aus `Picture.Data` werden über `ide.import_lfm.bilder` dekodiert
+und im Ergebnis mitgeliefert (`LfmImportErgebnis.bilder`); das Schreiben
+nach `assets/` erledigt die aufrufende Stelle. Die Pascal-Rümpfe selbst
+liest `ide.import_lfm.pascal`; hier wird nur festgehalten, welcher
+Lazarus-Handler zu welcher erzeugten Python-Methode gehört
+(`LfmImportErgebnis.handler_quellen`).
 """
 
 from __future__ import annotations
@@ -22,6 +27,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import pcl
+from ide.import_lfm.bilder import LfmBild, LfmBildFehler, bild_aus_binaerblock
 from pcl.properties import VERSCHACHTELTE_EIGENSCHAFTEN
 
 # Lazarus-Klasse -> pcl-Komponente. Nur die im Kursmaterial
@@ -224,13 +230,25 @@ def _eigenschaft_moeglich(pcl_klasse: str, pcl_name: str) -> bool:
 class LfmImportErgebnis:
     pfm: dict[str, Any]
     warnungen: list[str] = field(default_factory=list)
+    # Python-Methodenname -> Name des Handlers in der `.lfm`/`.pas`
+    # (z. B. `"b_start_click"` -> `"b_startClick"`), damit der zugehörige
+    # Pascal-Rumpf in der `.pas` gefunden wird.
+    handler_quellen: dict[str, str] = field(default_factory=dict)
+    # Komponentenname -> ausgepacktes Bild aus `Picture.Data`.
+    bilder: dict[str, LfmBild] = field(default_factory=dict)
 
 
 def lfm_zu_pfm(lfm_objekt: dict[str, Any]) -> LfmImportErgebnis:
     """Wandelt das Ergebnis von `parse_lfm()` in ein `.pfm`-`dict` um."""
     warnungen: list[str] = []
+    handler_quellen: dict[str, str] = {}
+    bilder: dict[str, LfmBild] = {}
     eigenschaften, ereignisse = _eigenschaften_umwandeln(
-        lfm_objekt["properties"], warnungen, ist_form=True
+        lfm_objekt["properties"],
+        warnungen,
+        ist_form=True,
+        handler_quellen=handler_quellen,
+        bilder=bilder,
     )
     pfm: dict[str, Any] = {
         "format": "pfm/1",
@@ -243,15 +261,22 @@ def lfm_zu_pfm(lfm_objekt: dict[str, Any]) -> LfmImportErgebnis:
 
     kinder = []
     for lfm_kind in lfm_objekt.get("children", []):
-        pfm_kind = _kind_umwandeln(lfm_kind, warnungen)
+        pfm_kind = _kind_umwandeln(lfm_kind, warnungen, handler_quellen, bilder)
         if pfm_kind is not None:
             kinder.append(pfm_kind)
     pfm["children"] = kinder
 
-    return LfmImportErgebnis(pfm=pfm, warnungen=warnungen)
+    return LfmImportErgebnis(
+        pfm=pfm, warnungen=warnungen, handler_quellen=handler_quellen, bilder=bilder
+    )
 
 
-def _kind_umwandeln(lfm_kind: dict[str, Any], warnungen: list[str]) -> dict[str, Any] | None:
+def _kind_umwandeln(
+    lfm_kind: dict[str, Any],
+    warnungen: list[str],
+    handler_quellen: dict[str, str],
+    bilder: dict[str, LfmBild],
+) -> dict[str, Any] | None:
     pcl_klasse = _KLASSEN.get(lfm_kind["class"])
     if pcl_klasse is None:
         warnungen.append(
@@ -260,7 +285,12 @@ def _kind_umwandeln(lfm_kind: dict[str, Any], warnungen: list[str]) -> dict[str,
         )
         return None
     eigenschaften, ereignisse = _eigenschaften_umwandeln(
-        lfm_kind["properties"], warnungen, name=lfm_kind["name"], pcl_klasse=pcl_klasse
+        lfm_kind["properties"],
+        warnungen,
+        name=lfm_kind["name"],
+        pcl_klasse=pcl_klasse,
+        handler_quellen=handler_quellen,
+        bilder=bilder,
     )
     eintrag: dict[str, Any] = {
         "name": lfm_kind["name"],
@@ -272,6 +302,27 @@ def _kind_umwandeln(lfm_kind: dict[str, Any], warnungen: list[str]) -> dict[str,
     return eintrag
 
 
+def _bild_uebernehmen(
+    wert: Any,
+    name: str,
+    warnungen: list[str],
+    bilder: dict[str, LfmBild] | None,
+) -> None:
+    """`Picture.Data` auspacken (M8, Schritt 3). Das Schreiben nach
+    `assets/` übernimmt die aufrufende Stelle, damit die Zuordnung eine
+    reine Datenumwandlung ohne Dateizugriff bleibt."""
+    if bilder is None:
+        warnungen.append(f"{name}: Eigenschaft Picture.Data wird nicht unterstützt.")
+        return
+    if not isinstance(wert, dict) or "binaer" not in wert:
+        warnungen.append(f"{name}: Picture.Data ist kein Binärblock.")
+        return
+    try:
+        bilder[name] = bild_aus_binaerblock(wert["binaer"])
+    except LfmBildFehler as fehler:
+        warnungen.append(f"{name}: Picture.Data konnte nicht ausgepackt werden - {fehler}")
+
+
 def _eigenschaften_umwandeln(
     lfm_eigenschaften: dict[str, Any],
     warnungen: list[str],
@@ -279,6 +330,8 @@ def _eigenschaften_umwandeln(
     ist_form: bool = False,
     name: str = "Formular",
     pcl_klasse: str = "Form",
+    handler_quellen: dict[str, str] | None = None,
+    bilder: dict[str, LfmBild] | None = None,
 ) -> tuple[dict[str, Any], dict[str, str]]:
     eigenschaften: dict[str, Any] = {}
     ereignisse: dict[str, str] = {}
@@ -288,7 +341,13 @@ def _eigenschaften_umwandeln(
             if ereignis_name is None:
                 warnungen.append(f"{name}: Ereignis {schluessel} wird nicht unterstützt.")
                 continue
-            ereignisse[ereignis_name] = _handler_konvertieren(schluessel, wert)
+            methodenname = _handler_konvertieren(schluessel, wert)
+            ereignisse[ereignis_name] = methodenname
+            if handler_quellen is not None and isinstance(wert, str):
+                handler_quellen[methodenname] = wert
+            continue
+        if schluessel == "Picture.Data":
+            _bild_uebernehmen(wert, name, warnungen, bilder)
             continue
         if ist_form and schluessel in ("Left", "Top"):
             continue  # Formulare haben in pcl keine left/top-Prop

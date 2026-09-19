@@ -1,9 +1,11 @@
 """IDE-Betrachter (Abschnitt 11): CSV-Tabellenansicht, Bildvorschau,
-HTML-Vorschau. Öffnen die jeweilige Datei nur an, ändern sie nie.
+HTML-Vorschau, Tabellenansicht für Debugger-Variablen. Öffnen die
+jeweilige Datei bzw. den jeweiligen Wert nur an, ändern sie nie.
 """
 
 from ide.viewers.bild_vorschau import BildVorschau
 from ide.viewers.csv_ansicht import CsvAnsicht, csv_erkennen
 from ide.viewers.html_vorschau import HtmlVorschau
+from ide.viewers.tabellen_ansicht import TabellenAnsicht
 
-__all__ = ["BildVorschau", "CsvAnsicht", "HtmlVorschau", "csv_erkennen"]
+__all__ = ["BildVorschau", "CsvAnsicht", "HtmlVorschau", "TabellenAnsicht", "csv_erkennen"]
