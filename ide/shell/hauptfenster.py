@@ -701,6 +701,14 @@ class HauptFenster(QMainWindow):
         )
         self.aktionen.registrieren(
             Aktion(
+                "hilfe.umstieg",
+                "Umstieg Pascal → Python",
+                menue="Hilfe",
+                callback=self._umstieg_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
                 "hilfe.komponenten_referenz",
                 "Komponenten-Referenz",
                 menue="Hilfe",
@@ -1382,6 +1390,19 @@ class HauptFenster(QMainWindow):
             return False
         self.hilfe_zeigen(titel, pfad.read_text(encoding="utf-8"))
         return True
+
+    def _umstieg_aktion(self) -> bool:
+        """„Hilfe → Umstieg Pascal → Python“.
+
+        Im Konzept (Abschnitt 7.2) seit jeher vorgesehen, gebaut wurde
+        sie nie – dabei ist sie für die Zielgruppe das, was am
+        häufigsten nachgeschlagen wird: `begin…end` gegen Einrückung,
+        `:=` gegen `=`, `writeln` gegen `print`. Die Tabellen standen
+        bis M12 nur in `konzept-natter.md` und waren damit für genau die
+        Leute unerreichbar, die sie brauchen."""
+        return self._hilfedatei_zeigen(
+            "umstieg_pascal_python.md", "Umstieg Pascal → Python"
+        )
 
     def _erste_schritte_aktion(self) -> bool:
         """„Erste Schritte“ – vom Startbild und aus dem Menü „Hilfe“.
