@@ -2556,17 +2556,7 @@ class HauptFenster(QMainWindow):
             )
             return
 
-        funde = projekt_pruefen(self.projekt)
-        self.meldungen_liste.clear()
-        self._funde_in_editoren_zeigen(funde)
-        if funde:
-            self.meldungen_liste.addItems([str(fund) for fund in funde])
-            self.panels.setCurrentWidget(self.meldungen_liste)
-            self.statusBar().showMessage(
-                f"{len(funde)} {'Fund' if len(funde) == 1 else 'Funde'} vor dem Start - nicht "
-                f"gestartet. Jeder Eintrag unten im Panel „Meldungen“ nennt Datei und Zeile; "
-                f"ein Klick führt dorthin."
-            )
+        if self._vorstart_pruefung_blockiert():
             return
 
         self.laufender_prozess = projekt_starten(self.projekt)
@@ -2575,6 +2565,45 @@ class HauptFenster(QMainWindow):
         self.panels.setCurrentWidget(self.ausgabe_liste)
         self._laufzeit_uhr.start()
         self.statusBar().showMessage(f"{self.projekt.name} gestartet")
+
+    def _vorstart_pruefung_blockiert(self) -> bool:
+        """Die Prüfung vor dem Start (Abschnitt 8.2). Liefert, ob der
+        Start deshalb unterbleibt.
+
+        Bis M12 verhinderte **jeder** Fund den Start. Wer `import random`
+        schreibt, bevor er `random` benutzt – also so, wie man es lernt –,
+        bekam sein Programm nicht gestartet, obwohl es einwandfrei
+        gelaufen wäre. Ungenutzter Import und ungenutzte Variable sind
+        Unordnung, kein Fehler; sie stehen jetzt als Hinweis im Panel,
+        und das Programm läuft. Ein Syntaxfehler oder ein unbekannter
+        Name verhindert den Start weiterhin: dort stürzt das Programm
+        ohnehin ab, und die Meldung vorher sagt mehr als der Absturz
+        danach."""
+        funde = projekt_pruefen(self.projekt)
+        self.meldungen_liste.clear()
+        self._funde_in_editoren_zeigen(funde)
+        if not funde:
+            return False
+
+        self.meldungen_liste.addItems([str(fund) for fund in funde])
+        self.panels.setCurrentWidget(self.meldungen_liste)
+
+        blockierend = [fund for fund in funde if fund.blockiert]
+        if blockierend:
+            anzahl = len(blockierend)
+            self.statusBar().showMessage(
+                f"{anzahl} {'Fund' if anzahl == 1 else 'Funde'} vor dem Start - nicht "
+                f"gestartet. Jeder Eintrag unten im Panel „Meldungen“ nennt Datei und "
+                f"Zeile; ein Klick führt dorthin."
+            )
+            return True
+
+        anzahl = len(funde)
+        self.statusBar().showMessage(
+            f"{anzahl} {'Hinweis' if anzahl == 1 else 'Hinweise'} unten im Panel "
+            f"„Meldungen“ - das Programm läuft trotzdem."
+        )
+        return False
 
     def ausgabe_zeile(self, text: str) -> None:
         """Eine Zeile im Panel „Ausgabe“, mit der Uhrzeit davor."""
@@ -2649,17 +2678,7 @@ class HauptFenster(QMainWindow):
             )
             return
 
-        funde = projekt_pruefen(self.projekt)
-        self.meldungen_liste.clear()
-        self._funde_in_editoren_zeigen(funde)
-        if funde:
-            self.meldungen_liste.addItems([str(fund) for fund in funde])
-            self.panels.setCurrentWidget(self.meldungen_liste)
-            self.statusBar().showMessage(
-                f"{len(funde)} {'Fund' if len(funde) == 1 else 'Funde'} vor dem Start - nicht "
-                f"gestartet. Jeder Eintrag unten im Panel „Meldungen“ nennt Datei und Zeile; "
-                f"ein Klick führt dorthin."
-            )
+        if self._vorstart_pruefung_blockiert():
             return
 
         self.variablen_baum.clear()

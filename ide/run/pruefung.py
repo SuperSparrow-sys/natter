@@ -25,6 +25,17 @@ from ide.pruefungsmodus import laeuft as pruefungsmodus_laeuft
 
 _AUSGEWAEHLTE_REGELN = "E9,F821,F401,F841"
 
+#: Regeln, die als Hinweis im Panel „Meldungen“ stehen, den Start aber
+#: **nicht** verhindern: ein ungenutzter Import und eine ungenutzte
+#: Variable sind Unordnung, kein Fehler – das Programm läuft damit
+#: einwandfrei.
+#:
+#: Bewusst eine Liste der Ausnahmen und nicht der Blocker: eine später
+#: hinzugefügte Regel verhindert den Start, bis jemand bewusst
+#: entscheidet, dass sie es nicht soll. Der umgekehrte Weg würde eine
+#: neue, ernste Regel stillschweigend durchlassen (M12).
+NUR_HINWEIS = frozenset({"F401", "F841"})
+
 
 #: Der erste in Rückstrichen eingefasste Name einer Ruff-Meldung -
 #: also `zaehler` in "Undefined name `zaehler`".
@@ -81,6 +92,26 @@ class RuffFund:
         """Der Name, um den es geht - oder leer."""
         treffer = _NAME_MUSTER.search(self.meldung)
         return treffer.group(1) if treffer else ""
+
+    @property
+    def blockiert(self) -> bool:
+        """Ob dieser Fund den Start verhindert.
+
+        Die Unterscheidung fehlte bis M12: **jeder** Fund verhinderte
+        ihn. Wer `import random` schreibt, bevor er `random` benutzt –
+        also so, wie man es lernt –, bekam sein Programm nicht gestartet,
+        obwohl es einwandfrei gelaufen wäre. Dasselbe beim Auskommentieren
+        einer Zeile zum Ausprobieren: die Variable darüber wird ungenutzt,
+        und der Start ist blockiert. In Lazarus ist eine ungenutzte Unit
+        im `uses` ein Hinweis, kein Fehler – das Programm übersetzt und
+        läuft.
+
+        Umgekehrt ist es richtig, bei einem Syntaxfehler oder einem
+        unbekannten Namen gar nicht erst zu starten: das Programm würde
+        ohnehin abstürzen, und der Fehlerkatalog sagt vorher mehr dazu
+        als ein Absturz danach.
+        """
+        return self.code not in NUR_HINWEIS
 
     @property
     def was(self) -> str:
