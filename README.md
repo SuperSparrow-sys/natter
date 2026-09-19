@@ -31,7 +31,7 @@ ausgeliefert wird, steht in [`docs/entwicklung.md`](docs/entwicklung.md).
 - Code-Editor im VS-Code-Stil mit hellem und dunklem Design
 - Ausführung in eigenen Fenstern: GUI-Programme als eigenes Fenster,
   Konsolenprogramme in einem eigenen Konsolenfenster
-- Datenbanken: SQLite und MySQL/MariaDB
+- Datenbanken: SQLite — eine Datei neben dem Programm
 - Debugger mit schülergerechten Fehlermeldungen, die keine Lösung
   vorsagen
 - Diagramm-Editor für UML, Struktogramme und Entscheidungstabellen
@@ -55,7 +55,7 @@ ausgeliefert wird, steht in [`docs/entwicklung.md`](docs/entwicklung.md).
 | Prüfung vor dem Start | Ruff |
 | Debugger | debugpy über das Debug Adapter Protocol |
 | Code-Änderungen durch die IDE | libcst |
-| Datenbanken | `sqlite3`, PyMySQL |
+| Datenbanken | `sqlite3` |
 | Exe-Export | PyInstaller |
 | Diagramm-Editor | `QGraphicsView`/`QGraphicsScene` |
 | Symbole | eigenes SVG-Set, per `currentColor` hell/dunkel |
@@ -117,8 +117,22 @@ Menü-Editor gefüllt: Doppelklick auf das Symbol, F2 oder die Zeile
 
 ### 5.2 Zusätzlich
 
-`StringGrid`, `Image`, `Shape`, `Chart`, `SpinEdit`, `FloatSpinEdit`,
-`TrackBar`, `ProgressBar`, `Timer`
+`StringGrid`, `Image`, `Shape`, `PaintBox`, `Chart`, `SpinEdit`,
+`FloatSpinEdit`, `TrackBar`, `ProgressBar`, `Timer`
+
+`PaintBox` ist die freie Zeichenfläche: `Shape` legt fertige Formen hin,
+`PaintBox` zeichnet mit Koordinaten.
+
+```python
+stift = self.pb_bild.canvas
+stift.pen.color = "#c42b1c"
+stift.line(10, 10, 120, 80)
+stift.brush.color = "#f2b134"
+stift.ellipse(30, 30, 90, 90)
+stift.text_out(10, 110, "Hallo")
+```
+
+Das Gezeichnete bleibt stehen, auch wenn ein Fenster darüberfährt.
 
 `Timer`, `MainMenu` und `PopupMenu` zeigen im laufenden Programm
 nichts an. Im Designer liegen sie als kleines Symbol auf dem Formular,
@@ -127,8 +141,8 @@ Entwurfszeit-Symbol einer nicht sichtbaren Komponente in Lazarus.
 
 ### 5.3 Datenbank
 
-`SQLite3Connection`, `MySQLConnection`, `SQLTransaction`, `SQLQuery`,
-`DataSource`, `DBGrid`, `DBText`, `DBEdit`, `DBComboBox`, `DBNavigator`
+`SQLite3Connection`, `SQLQuery`, `DataSource`, `DBGrid`, `DBText`,
+`DBEdit`, `DBComboBox`, `DBNavigator`
 
 ### 5.4 Dialoge und Werkzeuge
 
@@ -182,18 +196,41 @@ lesbar bleibt.
 
 ## 10. Datenbanken
 
+Natter kennt **eine** Datenbank: SQLite, eine Datei neben dem
+Programm. Kein Server, kein Netz, keine Zugangsdaten — und damit auch
+kein Passwort, das irgendwo gespeichert werden müsste.
+
 ### 10.1 Im Code
 
-`SQLite3Connection` und `MySQLConnection` verbinden, `SQLQuery` führt
-aus — `open()`/`next()`/`eof`/`field_by_name()` für SELECT,
-`exec_sql()` für INSERT/UPDATE/DELETE, dauerhaft mit
-`transaction.commit()`. Benannte Parameter (`:name`) verhindern
-SQL-Injection.
+Öffnen ist eine Zeile, abfragen auch:
+
+```python
+self.db = SQLite3Connection("konten.sqlite")
+
+for zeile in self.db.query("SELECT inhaber, stand FROM konto"):
+    print(zeile["inhaber"], zeile["stand"])
+```
+
+Jede Zeile ist ein gewöhnliches `dict`. `query_one(...)` liefert die
+erste Zeile oder `None`, `execute(...)` führt INSERT/UPDATE/DELETE aus
+und schreibt sofort fest.
+
+Werte gehören nie in den SQL-Text, sondern als `:name`-Platzhalter
+hinein und als Schlüsselwortargument hinterher — das verhindert
+SQL-Injection:
+
+```python
+self.db.execute("INSERT INTO konto (inhaber) VALUES (:wer)", wer=name)
+```
 
 ### 10.2 Auf dem Formular
 
 `DBGrid`, `DBEdit`, `DBText` und `DBNavigator` zeigen eine Abfrage
-unmittelbar an.
+unmittelbar an. Am kürzesten über `show_rows`:
+
+```python
+self.g_konten.show_rows(self.db.query("SELECT * FROM konto"))
+```
 
 ## 11. Dateien, Bilder und Datenauswertung
 

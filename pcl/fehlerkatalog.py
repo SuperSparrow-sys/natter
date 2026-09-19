@@ -540,7 +540,7 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
 )
 
 
-#: Meldungen der Datenbanktreiber (sqlite3, MySQL). `pcl` reicht sie in
+#: Meldungen des Datenbanktreibers (sqlite3). `pcl` reicht sie in
 #: `NatterDatenbankError` unverändert durch – dort sind sie englisch und
 #: stammen aus einer Bibliothek, die Schülerinnen und Schüler nicht
 #: kennen müssen (Abschnitt 8.5). Ersetzt wird nur der Treiberteil, der

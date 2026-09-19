@@ -40,6 +40,13 @@ from PySide6.QtCore import Qt
 from ide.designer.canvas import DesignerCanvas
 from ide.inspector.objektinspektor import Objektinspektor
 from ide.palette.palette import ALLE_KOMPONENTEN
+from pcl.components.data_controls import (
+    DBComboBox,
+    DBEdit,
+    DBGrid,
+    DBNavigator,
+    DBText,
+)
 from pcl.form import Form
 from pcl.properties import (
     SAMMLUNGS_EIGENSCHAFTEN,
@@ -51,10 +58,15 @@ from pcl.properties import (
 #: Alle Komponenten, die sich überhaupt auf ein Formular setzen lassen.
 #: Über `ALLE_KOMPONENTEN` statt über zwei namentlich genannte Reiter:
 #: so läuft eine später ergänzte Komponente hier von selbst mit, statt
-#: still durchzurutschen. Die `DB*`-Komponenten aus
-#: `pcl.components.data_controls` stehen (noch) in keinem Reiter und
-#: können deshalb auch nicht platziert werden.
-PALETTE = ALLE_KOMPONENTEN
+#: still durchzurutschen.
+#:
+#: Die `DB*`-Komponenten stehen in keinem Palettenreiter – sie werden im
+#: Code erzeugt –, laufen hier aber seit September 2026 mit. Vorher
+#: **konnten** sie es nicht: ihr Konstruktor verlangte eine `DataSource`
+#: (`DBGrid(parent, data_source)`), der Designer erzeugt Komponenten
+#: aber mit `typ(formular)` allein. Genau das war der offene Punkt aus
+#: M11; seit die Datenquelle freiwillig ist, fällt er weg.
+PALETTE = (*ALLE_KOMPONENTEN, DBGrid, DBText, DBEdit, DBComboBox, DBNavigator)
 
 #: Eigenschaften mit einer festen Auswahl oder einem festen Format. Ein
 #: beliebiger Text („shape-neu“) wäre kein Wert, den ein Mensch je

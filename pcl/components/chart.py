@@ -337,7 +337,7 @@ class Chart(Control):
         y: str | int | None = None,
     ) -> None:
         """Füllt das Diagramm aus einer Datenbankabfrage über eine
-        `SQLite3Connection`/`MySQLConnection` (M5).
+        `SQLite3Connection` (M5).
 
         Ohne `x`/`y` werden die ersten beiden Spalten des Ergebnisses
         genommen – ``SELECT region, umsatz FROM verkauf`` liefert dann

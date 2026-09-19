@@ -1,36 +1,78 @@
-"""SQLdb-Komponenten (Abschnitt 10.1): Verbindung, Transaktion, Abfrage,
-Datenquelle – SQLite (M5, Schritt 1) und MySQL/MariaDB über PyMySQL (M5,
-Schritt 2) hinter derselben Schnittstelle.
+"""Datenbank-Komponenten (Abschnitt 10.1): Verbindung, Abfrage,
+Datenquelle – ausschließlich SQLite.
+
+**Der kurze Weg ist der Normalweg.** Eine Abfrage ist eine Zeile:
+
+    self.db = SQLite3Connection("konten.sqlite")
+    for zeile in self.db.query("SELECT inhaber, stand FROM konto"):
+        print(zeile["inhaber"], zeile["stand"])
+
+Schreibende Anweisungen genauso, mit ``:name``-Platzhaltern als
+Schlüsselwortargumente – der Schutz vor SQL-Injection, den der Lehrgang
+eigens erklärt, bleibt damit derselbe:
+
+    self.db.execute("INSERT INTO konto (inhaber) VALUES (:wer)", wer=name)
+
+**Warum nur SQLite.** Bis September 2026 gab es hier zusätzlich
+`MySQLConnection` über PyMySQL, mit `host_name`, `port`, `user_name` und
+`password`. Das Passwort war ein `Prop` und wäre damit im Klartext in
+der `.pfm` gelandet, sobald eine Verbindung als Symbol auf dem Formular
+liegt – in einer Datei also, die Lernende abgeben und herumtragen. Auf
+den Vorschlag, das durch einen Schlüsselspeicher abzusichern, kam vom
+Nutzer die Gegenrichtung: „nimm das passwort raus und mache die
+datenbank abfrage einfacher. das wird zu kompliziert oder?" Eine
+Datenbankdatei neben dem Programm läuft ohne Server, ohne Netz und ohne
+Zugangsdaten auf jedem Schulrechner; mehr braucht der Unterricht nicht.
+Seither kennt Natter überhaupt kein Datenbank-Passwort mehr.
+
+**Warum keine `SQLTransaction` mehr.** `query()`/`execute()` schreiben
+sofort fest (Auto-Commit). Eine eigene Komponente, die man nur anlegt,
+um `commit()` darauf zu rufen, erklärt sich nicht von selbst – wer
+mehrere Anweisungen zusammenfassen will, findet `commit()` und
+`rollback()` an der Verbindung.
+
+`SQLQuery` und `DataSource` bleiben als Unterbau der Data Controls
+(`DBGrid` und Geschwister in `data_controls.py`): die brauchen einen
+Datensatzzeiger, den eine Liste von `dict`s nicht hat. Im Lehrgang und
+in der Komponenten-Referenz steht dafür der kurze Weg.
 
 Objektverweise zwischen den Komponenten (``SQLQuery.database``,
-``SQLTransaction.database``, ``DataSource.dataset``) sind bewusst
-einfache Instanzattribute statt `Prop`, weil `Prop` nur Wertetypen (Text/
-Zahl/Wahrheitswert) mit sinnvollem Standardwert kennt – eine Bindung an
-eine andere Komponente im Objektinspektor (wie in Lazarus per Dropdown)
-ist erst mit den Data Controls in Schritt 5 nötig und wird dort eigens
-gelöst.
+``DataSource.dataset``) sind bewusst einfache Instanzattribute statt
+`Prop`, weil `Prop` nur Wertetypen (Text/Zahl/Wahrheitswert) mit
+sinnvollem Standardwert kennt.
 """
 
 from __future__ import annotations
 
 import sqlite3
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
-import pymysql
-
-from pcl.db import uebersetze_platzhalter
 from pcl.errors import NatterDatenbankError
 from pcl.properties import Komponente, Prop
 
 
-class _Datenbankverbindung(Komponente):
-    """Gemeinsame Basis für `SQLite3Connection` und `MySQLConnection`:
-    öffnet/schließt die eigentliche DB-API-Verbindung über die
-    `connected`-Prop. `SQLQuery` kennt nur diese Schnittstelle (samt
-    `_platzhalterstil`/`_treiber_fehler`) und nie `sqlite3`/`PyMySQL`
-    direkt."""
+class SQLite3Connection(Komponente):
+    """Verbindung zu einer SQLite-Datenbank (entspricht
+    ``TSQLite3Connection`` in Lazarus). ``database_name`` ist ein
+    Dateipfad oder ``":memory:"``.
 
+    Der kurze Weg öffnet im Konstruktor::
+
+        self.db = SQLite3Connection("konten.sqlite")
+
+    Der ausführliche steht daneben und tut dasselbe – er wird gebraucht,
+    wenn die Verbindung erst später aufgebaut werden soll::
+
+        self.db = SQLite3Connection()
+        self.db.database_name = "konten.sqlite"
+        self.db.connected = True
+    """
+
+    database_name = Prop(
+        str, "", kategorie="Datenbank", doc='Pfad zur Datenbankdatei oder ":memory:"'
+    )
     connected = Prop(
         bool,
         False,
@@ -38,25 +80,95 @@ class _Datenbankverbindung(Komponente):
         doc="Verbindung öffnen (True) bzw. schließen (False)",
     )
 
-    _platzhalterstil = "named"
-    _treiber_fehler: type[Exception] = Exception
-
-    def __init__(self) -> None:
-        self._verbindung: Any = None
+    def __init__(self, database_name: str | Path | None = None) -> None:
+        # Muss vor jeder Prop-Zuweisung stehen: `connected = True` ruft
+        # `_bei_prop_aenderung` auf, und das greift auf `_verbindung` zu.
+        self._verbindung: sqlite3.Connection | None = None
+        if database_name is not None:
+            self.database_name = str(database_name)
+            self.connected = True
 
     @property
-    def verbindung(self) -> Any:
+    def verbindung(self) -> sqlite3.Connection:
+        """Die offene `sqlite3`-Verbindung. Wer nur Daten lesen oder
+        schreiben will, braucht sie nicht – dafür gibt es `query()` und
+        `execute()`."""
         if self._verbindung is None:
             raise NatterDatenbankError(
-                f"{type(self).__name__}: keine offene Verbindung (connected = True setzen)."
+                "SQLite3Connection: keine offene Verbindung. Entweder den "
+                'Dateinamen gleich mitgeben – SQLite3Connection("daten.sqlite") '
+                "– oder connected = True setzen."
             )
         return self._verbindung
 
-    def _neue_verbindung(self) -> Any:
-        raise NotImplementedError
+    # -- Der kurze Weg -------------------------------------------------
 
-    def _verbindungsziel_text(self) -> str:
-        raise NotImplementedError
+    def query(self, sql: str, **parameter: Any) -> list[dict[str, Any]]:
+        """Führt eine SELECT-Anweisung aus und liefert alle Zeilen als
+        Liste von `dict`s::
+
+            for zeile in db.query("SELECT inhaber, stand FROM konto"):
+                print(zeile["inhaber"])
+
+        Werte gehören nie in den SQL-Text, sondern als
+        ``:name``-Platzhalter hinein und als Schlüsselwortargument
+        hierher::
+
+            db.query("SELECT * FROM konto WHERE stand >= :grenze", grenze=100)
+
+        Ein `dict` und keine eigene Zeilenklasse: `dict` kennen Lernende
+        an dieser Stelle längst, eine neue Vokabel wäre hier nichts wert.
+        """
+        cursor = self._ausfuehren(sql, parameter)
+        spalten = [beschreibung[0] for beschreibung in cursor.description or []]
+        zeilen = [dict(zip(spalten, zeile, strict=True)) for zeile in cursor.fetchall()]
+        cursor.close()
+        return zeilen
+
+    def query_one(self, sql: str, **parameter: Any) -> dict[str, Any] | None:
+        """Wie `query()`, liefert aber nur die erste Zeile – oder
+        ``None``, wenn die Abfrage nichts findet::
+
+            konto = db.query_one("SELECT * FROM konto WHERE nummer = :nr", nr=7)
+            if konto is None:
+                self.l_meldung.caption = "Kein Konto mit dieser Nummer."
+        """
+        zeilen = self.query(sql, **parameter)
+        return zeilen[0] if zeilen else None
+
+    def execute(self, sql: str, **parameter: Any) -> int:
+        """Führt eine schreibende Anweisung aus (INSERT, UPDATE, DELETE,
+        CREATE TABLE) und schreibt sie sofort fest. Liefert die Anzahl
+        der betroffenen Zeilen::
+
+            db.execute("INSERT INTO konto (inhaber) VALUES (:wer)", wer=name)
+            geloescht = db.execute("DELETE FROM konto WHERE stand = 0")
+        """
+        cursor = self._ausfuehren(sql, parameter)
+        anzahl = cursor.rowcount
+        cursor.close()
+        self.verbindung.commit()
+        return max(anzahl, 0)
+
+    def commit(self) -> None:
+        """Schreibt offene Änderungen fest. Wird nur gebraucht, wenn
+        jemand bewusst an der Verbindung selbst gearbeitet hat –
+        `execute()` schreibt von sich aus fest."""
+        self.verbindung.commit()
+
+    def rollback(self) -> None:
+        """Verwirft offene Änderungen."""
+        self.verbindung.rollback()
+
+    # -- Innenleben ----------------------------------------------------
+
+    def _ausfuehren(self, sql: str, parameter: dict[str, Any]) -> sqlite3.Cursor:
+        try:
+            cursor = self.verbindung.cursor()
+            cursor.execute(sql, parameter)
+        except sqlite3.Error as fehler:
+            raise NatterDatenbankError(f"SQL-Fehler: {fehler}") from fehler
+        return cursor
 
     def _bei_prop_aenderung(self, name: str, wert: Any) -> None:
         if name != "connected":
@@ -68,89 +180,22 @@ class _Datenbankverbindung(Komponente):
 
     def _verbindung_oeffnen(self) -> None:
         try:
-            self._verbindung = self._neue_verbindung()
-        except self._treiber_fehler as fehler:
+            self._verbindung = sqlite3.connect(self.database_name or ":memory:")
+        except sqlite3.Error as fehler:
             # connected wurde von Prop.__set__ bereits auf True gesetzt,
             # bevor dieser Hook lief - bei Fehlschlag zurücksetzen, damit
             # `connected` nicht fälschlich True bleibt (siehe
             # Prop._speicher_name in pcl/properties.py).
             self.__dict__["_prop_connected"] = False
+            ziel = repr(self.database_name or ":memory:")
             raise NatterDatenbankError(
-                f"Verbindung zu {self._verbindungsziel_text()} fehlgeschlagen: {fehler}"
+                f"Verbindung zu {ziel} fehlgeschlagen: {fehler}"
             ) from fehler
 
     def _verbindung_schliessen(self) -> None:
         if self._verbindung is not None:
             self._verbindung.close()
             self._verbindung = None
-
-
-class SQLite3Connection(_Datenbankverbindung):
-    """Verbindung zu einer SQLite-Datenbank (entspricht
-    ``TSQLite3Connection`` in Lazarus). ``database_name`` ist ein
-    Dateipfad oder ``":memory:"``."""
-
-    database_name = Prop(
-        str, "", kategorie="Datenbank", doc='Pfad zur Datenbankdatei oder ":memory:"'
-    )
-
-    _platzhalterstil = "named"
-    _treiber_fehler = sqlite3.Error
-
-    def _neue_verbindung(self) -> sqlite3.Connection:
-        return sqlite3.connect(self.database_name or ":memory:")
-
-    def _verbindungsziel_text(self) -> str:
-        return repr(self.database_name or ":memory:")
-
-
-class MySQLConnection(_Datenbankverbindung):
-    """Verbindung zu MySQL/MariaDB über PyMySQL (entspricht
-    ``TMySQLConnection``/``TSQLConnector`` in Lazarus).
-
-    **Zurückgestellt (siehe docs/arbeitspakete/M5.md, „Stolperstein
-    MariaDB“):** hier nur gegen die reine Parameter-Übersetzung und
-    Fehlerbehandlung bei fehlgeschlagener Verbindung getestet, nicht
-    gegen eine echte laufende MariaDB-Instanz – der dafür vorgesehene
-    Homeserver-Docker-Container existiert in dieser Entwicklungsumgebung
-    nicht."""
-
-    host_name = Prop(str, "localhost", kategorie="Datenbank", doc="Servername oder IP-Adresse")
-    port = Prop(int, 3306, kategorie="Datenbank", doc="TCP-Port des Servers")
-    database_name = Prop(str, "", kategorie="Datenbank", doc="Name der Datenbank")
-    user_name = Prop(str, "", kategorie="Datenbank", doc="Benutzername")
-    password = Prop(str, "", kategorie="Datenbank", doc="Passwort")
-
-    _platzhalterstil = "pyformat"
-    _treiber_fehler = pymysql.MySQLError
-
-    def _neue_verbindung(self) -> pymysql.connections.Connection:
-        return pymysql.connect(
-            host=self.host_name,
-            port=self.port,
-            database=self.database_name,
-            user=self.user_name,
-            password=self.password,
-        )
-
-    def _verbindungsziel_text(self) -> str:
-        return f"{self.host_name}/{self.database_name}"
-
-
-class SQLTransaction(Komponente):
-    """Wirkt auf die Verbindung ihrer zugehörigen Connection (Abschnitt
-    10.1: ``transaction.commit()`` / ``.rollback()``)."""
-
-    neue_attribute_erlaubt = True
-
-    def __init__(self, database: _Datenbankverbindung) -> None:
-        self.database = database
-
-    def commit(self) -> None:
-        self.database.verbindung.commit()
-
-    def rollback(self) -> None:
-        self.database.verbindung.rollback()
 
 
 class _Feld:
@@ -182,24 +227,24 @@ class _Feld:
 
 
 class SQLQuery(Komponente):
-    """Eine SQL-Abfrage oder -Anweisung (Abschnitt 10.1):
-    ``open()``/``next()``/``eof``/``field_by_name()``/``close()`` für
-    SELECT, ``exec_sql()`` für INSERT/UPDATE/DELETE. Benannte Parameter
-    über ``params`` (Stil ``:name``) verhindern SQL-Injection.
+    """Eine Abfrage mit **Datensatzzeiger** – der Unterbau der Data
+    Controls (`DBGrid`, `DBEdit`, `DBNavigator`).
 
-    ``open()`` liest das gesamte Ergebnis auf einmal ein (gepuffert,
-    nicht Zeile für Zeile nachgeladen) – das hält `next()`/`eof` aus
-    Schritt 1 unverändert nutzbar, erlaubt zusätzlich aber
-    ``first()``/``prior()``/``last()`` und wahlfreien Zugriff auf alle
-    Zeilen für die Data Controls (M5, Schritt 5: `DBGrid` zeigt alle
-    Zeilen gleichzeitig an, `DBNavigator` bewegt einen Datensatzzeiger
-    vor und zurück)."""
+    Für gewöhnlichen Schülercode ist das nicht der Weg: dafür gibt es
+    `SQLite3Connection.query()`, das in einer Zeile dasselbe tut. `SQLQuery`
+    wird gebraucht, wo ein `DBNavigator` einen Zeiger vor- und
+    zurückbewegen können muss – das kann eine Liste von `dict`s nicht.
+
+    ``open()`` liest das gesamte Ergebnis auf einmal ein (gepuffert),
+    ``exec_sql()`` führt schreibende Anweisungen aus und schreibt sie
+    sofort fest.
+    """
 
     neue_attribute_erlaubt = True
 
     sql = Prop(str, "", kategorie="Datenbank", doc="SQL-Anweisung mit :name-Platzhaltern")
 
-    def __init__(self, database: _Datenbankverbindung) -> None:
+    def __init__(self, database: SQLite3Connection) -> None:
         self.database = database
         self.params: dict[str, Any] = {}
         self._cursor: Any = None
@@ -215,11 +260,12 @@ class SQLQuery(Komponente):
         self._index = 0 if self._zeilen else -1
 
     def exec_sql(self) -> None:
-        """Führt ``sql`` aus (INSERT/UPDATE/DELETE). Wird erst mit
-        ``transaction.commit()`` dauerhaft."""
+        """Führt ``sql`` aus (INSERT/UPDATE/DELETE) und schreibt die
+        Änderung sofort fest."""
         self._ausfuehren()
         self._zeilen = []
         self._index = -1
+        self.database.verbindung.commit()
 
     def next(self) -> None:
         if self._cursor is None:
@@ -259,8 +305,8 @@ class SQLQuery(Komponente):
         return list(self._spalten)
 
     def all_rows(self) -> list[tuple[Any, ...]]:
-        """Alle gepufferten Zeilen (Abschnitt 10.1, für `DBGrid`), ohne
-        den Datensatzzeiger zu bewegen."""
+        """Alle gepufferten Zeilen (für `DBGrid`), ohne den
+        Datensatzzeiger zu bewegen."""
         return list(self._zeilen)
 
     def field_by_name(self, name: str) -> _Feld:
@@ -271,10 +317,10 @@ class SQLQuery(Komponente):
         return _Feld(self._zeilen[self._index][self._spalten_index(name)])
 
     def set_field(self, name: str, wert: Any) -> None:
-        """Ändert ein Feld der aktuellen Zeile im Puffer (Abschnitt 10.1,
-        für `DBEdit`) – wirkt nur auf den lokalen Zwischenspeicher, nicht
-        auf die Datenbank; dauerhaft wird die Änderung erst durch eigenen
-        SQL-Code (`sql`/`exec_sql()`) plus `transaction.commit()`."""
+        """Ändert ein Feld der aktuellen Zeile im Puffer (für `DBEdit`) –
+        wirkt nur auf den lokalen Zwischenspeicher, nicht auf die
+        Datenbank; dauerhaft wird die Änderung erst durch eigenen
+        SQL-Code (`sql`/`exec_sql()`)."""
         if self.eof:
             raise NatterDatenbankError(f"set_field({name!r}) ohne aktuellen Datensatz aufgerufen.")
         index = self._spalten_index(name)
@@ -311,19 +357,14 @@ class SQLQuery(Komponente):
         return pd.DataFrame(zeilen, columns=spalten)
 
     def _ausfuehren(self) -> None:
-        sql = uebersetze_platzhalter(self.sql, self.database._platzhalterstil)
-        try:
-            cursor = self.database.verbindung.cursor()
-            cursor.execute(sql, dict(self.params))
-        except self.database._treiber_fehler as fehler:
-            raise NatterDatenbankError(f"SQL-Fehler: {fehler}") from fehler
+        cursor = self.database._ausfuehren(self.sql, dict(self.params))
         self._cursor = cursor
         self._spalten = [beschreibung[0] for beschreibung in cursor.description or []]
 
 
 class DataSource(Komponente):
-    """Bindeglied zwischen einer `SQLQuery` und den Data Controls (M5,
-    Schritt 5): ``dataset`` verweist auf die anzuzeigende Abfrage.
+    """Bindeglied zwischen einer `SQLQuery` und den Data Controls:
+    ``dataset`` verweist auf die anzuzeigende Abfrage.
 
     **Vereinfachung, bewusst dokumentiert:** anders als `TDataSet` in
     Lazarus, das gebundene Controls automatisch benachrichtigt, ruft hier

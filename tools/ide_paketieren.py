@@ -79,7 +79,6 @@ _LAUFZEIT_PAKETE = (
     "libcst",
     "debugpy",
     "ruff",
-    "pymysql",
     "sqlalchemy",
     "pandas",
     "numpy",

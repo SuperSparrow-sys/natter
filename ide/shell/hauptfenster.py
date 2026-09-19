@@ -148,7 +148,7 @@ DOCK_HINWEISE = {
     "Projekt-Explorer": "Die Formulare, Units und Diagramme des geöffneten Projekts",
     "Objektinspektor": "Eigenschaften und Ereignisse der im Designer gewählten Komponente",
     "Komponentenpalette": "Bausteine für das Formular – anklicken, dann auf das Formular klicken",
-    "Datenbank": "SQLite- oder MySQL-Verbindung, Abfragen und Import/Export",
+    "Datenbank": "SQLite-Datei öffnen, Abfragen und Import/Export",
     "Panels": "Meldungen, Ausgabe, Variablen, Aufrufstapel und Tests",
 }
 

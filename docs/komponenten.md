@@ -337,6 +337,72 @@ Komponente selbst tun: `QProgressBar.setValue()` **ignoriert** einen zu
 großen Wert stillschweigend, statt ihn zu kappen – `position = 300` ließ
 den Balken kommentarlos auf 0 stehen.
 
+## PaintBox
+
+Freie Zeichenfläche (`TPaintBox`). `Shape` legt fertige Formen hin,
+`PaintBox` zeichnet mit Koordinaten – der Ursprung liegt links oben,
+`x` läuft nach rechts, `y` nach unten.
+
+| Eigenschaft | Typ | Standard | Bedeutung |
+|---|---|---|---|
+| border_color | str | `"#90a4ae"` | Farbe des Rahmens um die Fläche |
+| canvas | Canvas | – | die Zeichenfläche selbst |
+
+| Ereignis | Wann |
+|---|---|
+| on_paint | wenn die Fläche neu entstanden ist: beim ersten Anzeigen und nach jeder Größenänderung |
+
+| Methode | Bedeutung |
+|---|---|
+| `clear()` | löscht die Fläche (Kurzform für `canvas.clear()`) |
+| `repaint()` | löst `on_paint` von Hand aus (wie `Invalidate`) |
+
+### Canvas
+
+| Methode | Bedeutung |
+|---|---|
+| `move_to(x, y)` | setzt den Stift, ohne zu zeichnen |
+| `line_to(x, y)` | zieht eine Linie dorthin und setzt den Stift nach |
+| `line(x1, y1, x2, y2)` | Kurzform aus `move_to` und `line_to` |
+| `rectangle(x1, y1, x2, y2)` | Rechteck: Rand in `pen`, Fläche in `brush` |
+| `ellipse(x1, y1, x2, y2)` | Ellipse im angegebenen Rechteck; ein Quadrat ergibt einen Kreis |
+| `fill_rect(x1, y1, x2, y2)` | füllt ein Rechteck ohne Rand |
+| `text_out(x, y, text)` | schreibt Text; `(x, y)` ist die linke **obere** Ecke |
+| `clear()` | löscht die ganze Fläche |
+| `pixels[x, y]` | einzelner Bildpunkt – lesen liefert `#RRGGBB`, zuweisen setzt ihn |
+| `width` / `height` | Größe der Fläche in Pixeln |
+
+`pen` hat `color` und `width` (wie `TPen`), `brush` hat `color` und
+`style` (wie `TBrush`). `style = "clear"` zeichnet nur den Umriss,
+`"solid"` füllt.
+
+```python
+stift = self.pb_bild.canvas
+stift.brush.color = "#e3f2fd"
+stift.rectangle(20, 20, 436, 240)
+
+stift.brush.color = "#ffffff"
+stift.ellipse(170, 150, 290, 235)
+
+stift.pen.color = "#8d6e63"
+stift.pen.width = 3
+stift.line(190, 130, 140, 100)
+
+stift.text_out(30, 30, "Mit Koordinaten gezeichnet")
+```
+
+**Das Gezeichnete bleibt stehen.** Gemalt wird in ein Bild im Speicher,
+nicht bei jedem Neuzeichnen von vorn – ein Fenster, das darüberfährt,
+löscht nichts, und beim Größerziehen bleibt erhalten, was schon da war.
+
+**Ohne Kantenglättung**, wie `TCanvas` in Lazarus: eine rote Linie
+hinterlässt genau Rot. Mit Glättung stünde an ihrer Kante eine
+Mischfarbe, und `pixels[x, y]` gäbe etwas zurück, das aussieht wie rot,
+aber keins ist.
+
+**Noch nicht da:** Zeichnen mit der Maus. `on_mouse_down`/`_move`/`_up`
+kommen mit den Maus-Ereignissen für alle sichtbaren Komponenten.
+
 ## Timer
 
 Qt-Basis: `QTimer` (`pcl/components/system.py`)
@@ -592,7 +658,7 @@ Methoden zum Laden von Daten (M10):
 | Methode | Woher |
 |---|---|
 | `load_csv(pfad, x, y, *, sep=None, decimal=None)` | CSV-Datei; `x`/`y` als Spaltenname **oder** Spaltennummer. Trennzeichen und Dezimalkomma werden ohne Angabe selbst erkannt |
-| `load_query(verbindung, sql, *, x=None, y=None)` | Datenbankabfrage über eine `SQLite3Connection`/`MySQLConnection` aus M5 |
+| `load_query(verbindung, sql, *, x=None, y=None)` | Datenbankabfrage über eine `SQLite3Connection` |
 | `load_grid(stringgrid, *, x=None, y=None)` | `StringGrid` desselben Formulars – der häufigste Weg im Unterricht: Daten erst als Tabelle zeigen, dann als Diagramm |
 
 Alle drei enden in **einem** `pandas.DataFrame`, abrufbar über
@@ -687,6 +753,74 @@ daher zurückgestellt.
 Gegen die echte Nutzung in `g_StringGrid`/`j_komplexeLeistung`/`l_Pet`/
 `m_Gaestebuch` (`show_message`) und `q_Würfelspiel` (`input_box`) geprüft.
 
+## Datenbank
+
+`pcl/components/data_access.py`. Natter kennt **eine** Datenbank:
+SQLite, eine Datei neben dem Programm. Kein Server, kein Netz, keine
+Zugangsdaten – und damit auch kein Passwort, das irgendwo gespeichert
+werden müsste. (Bis September 2026 gab es zusätzlich
+`MySQLConnection`; warum es weg ist, steht in
+`docs/arbeitspakete/M15.md`, Abschnitt 3.)
+
+### SQLite3Connection
+
+| Aufruf | Bedeutung |
+|---|---|
+| `SQLite3Connection(datei)` | öffnet die Datei sofort; gibt es sie nicht, legt SQLite sie an. `":memory:"` für eine Datenbank, die nur im Arbeitsspeicher lebt |
+| `query(sql, **parameter)` | SELECT; liefert alle Zeilen als Liste von `dict`s |
+| `query_one(sql, **parameter)` | wie `query`, aber nur die erste Zeile – oder `None` |
+| `execute(sql, **parameter)` | INSERT/UPDATE/DELETE/CREATE; schreibt sofort fest und liefert die Anzahl betroffener Zeilen |
+| `commit()` / `rollback()` | nur nötig, wer bewusst an `verbindung` selbst arbeitet |
+| `database_name` | `Prop`, der Dateipfad |
+| `connected` | `Prop`; `True` öffnet, `False` schließt. Wer den Dateinamen schon dem Konstruktor mitgibt, braucht ihn nicht |
+
+```python
+self.db = SQLite3Connection("konten.sqlite")
+
+self.db.execute("""
+    CREATE TABLE IF NOT EXISTS konto (
+        nummer  INTEGER PRIMARY KEY AUTOINCREMENT,
+        inhaber TEXT    NOT NULL,
+        stand   REAL    NOT NULL DEFAULT 0
+    )
+""")
+
+self.db.execute("INSERT INTO konto (inhaber) VALUES (:wer)", wer="Anna")
+
+for zeile in self.db.query("SELECT inhaber, stand FROM konto"):
+    print(zeile["inhaber"], zeile["stand"])
+```
+
+**Werte gehören nie in den SQL-Text.** Sie kommen als
+`:name`-Platzhalter hinein und als Schlüsselwortargument hinterher. Den
+Wert in den Text zu kleben ist die berühmteste Sicherheitslücke
+überhaupt: wer statt einer Zahl `0 OR 1=1; DROP TABLE konto` einträgt,
+löscht sonst die Tabelle.
+
+### Die Data Controls
+
+`DBGrid`, `DBText`, `DBEdit`, `DBComboBox`, `DBNavigator` – sie zeigen
+Daten an, ohne dass man jede Zelle selbst füllt. Am kürzesten:
+
+```python
+self.g_konten.show_rows(self.db.query("SELECT * FROM konto"))
+```
+
+`DBNavigator` braucht einen Datensatzzeiger, den eine Liste von `dict`s
+nicht hat; dafür gibt es `SQLQuery` und `DataSource`:
+
+```python
+self.abfrage = SQLQuery(self.db)
+self.abfrage.sql = "SELECT * FROM konto"
+self.abfrage.open()
+self.ds_konten = DataSource(self.abfrage)
+self.g_konten.data_source = self.ds_konten
+```
+
+Ohne zugeordnete Datenquelle zeigen alle fünf eine leere Anzeige,
+statt beim Anlegen zu scheitern – deshalb lassen sie sich auch im
+Designer auf ein Formular legen.
+
 ## Schrift und Sammlungen
 
 Zwei Eigenschaftsarten gelten quer über die Komponenten hinweg und
@@ -745,15 +879,18 @@ die niemand mehr liest:
    `children`-Feld des Behälters schreiben (`schemas/pfm.schema.json`
    kann Verschachtelung schon) und `ide/codegen/design.py` daraus
    `Button(self.p_feld)` statt `Button(self)` erzeugen.
-2. **Die Datenbank-Komponenten im Designer.** Für den `Timer` ist das
-   in M14 gelöst: `Control.nur_im_designer` gibt ihm ein Symbol auf dem
-   Formular, das im laufenden Programm verschwindet. Bei
-   `SQLite3Connection`, `SQLQuery` und `DataSource` fehlt dafür noch
-   ein Stück, das der Timer nicht brauchte: ihre Konstruktoren
-   verlangen eine andere Komponente (`SQLQuery(verbindung)`), der
-   Designer erzeugt aber für jede Komponente `Typ(self)`. Es bräuchte
-   also eine Eigenschaft, die auf eine andere Komponente zeigt — in der
-   `.pfm`, im Objektinspektor und in der Codeerzeugung.
+2. **Die Datenbank-Komponenten im Designer — entfällt.** Das stand
+   hier lange als offener Punkt: `SQLite3Connection`, `SQLQuery` und
+   `DataSource` sollten als Symbole auf dem Formular liegen, wie in
+   Lazarus. Im September 2026 ist die Entscheidung anders gefallen (M15,
+   Abschnitt 3): die Verbindung ist eine Zeile Code
+   (`SQLite3Connection("konten.sqlite")`) und eine Abfrage auch
+   (`db.query(...)`) — ein Symbol auf dem Formular spart dabei nichts
+   mehr ein und kostete einen dritten Palettenreiter, eine
+   Designzeit-Verbindung und eine Eigenschaft, die auf eine andere
+   Komponente zeigt. Die Data Controls (`DBGrid` und Geschwister) lassen
+   sich seither ohne `DataSource` anlegen und deshalb sehr wohl im
+   Designer platzieren.
 3. **Standardgrößen beim Ablegen.** `_STANDARDGROESSEN` in
    `ide/designer/canvas.py` kennt die meisten neuen Komponenten nicht
    (die beiden Menüs stehen seit M15 drin, weil ein Symbol quadratisch

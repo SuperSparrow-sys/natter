@@ -10,12 +10,12 @@
 # noch weiß, was gestern war. Eine Python-Liste ist nach dem Schließen
 # weg.
 #
-# Die Datenbank-Komponenten liegen nicht auf dem Formular, sondern
-# werden hier erzeugt - sie haben nichts anzuzeigen.
+# Die Datenbank liegt nicht auf dem Formular, sondern wird hier
+# geöffnet - sie hat nichts anzuzeigen.
 
 from pathlib import Path
 
-from pcl import SQLite3Connection, SQLQuery, SQLTransaction
+from pcl import SQLite3Connection
 from u_konto import Konto, NichtGenugGeld
 from u_main_design import Form1Design
 
@@ -27,12 +27,9 @@ SPALTEN = ("Nr.", "Inhaber", "Kontostand")
 
 class Form1(Form1Design):
     def form_create(self, sender) -> None:
-        self.verbindung = SQLite3Connection()
-        self.verbindung.database_name = str(DATENBANK)
-        self.verbindung.connected = True
-
-        self.transaktion = SQLTransaction(self.verbindung)
-        self.abfrage = SQLQuery(self.verbindung)
+        # Eine Zeile: Datei auf, fertig. Gibt es die Datei noch nicht,
+        # legt SQLite sie an.
+        self.db = SQLite3Connection(DATENBANK)
 
         self.tabelle_anlegen()
         self.konten_zeigen()
@@ -45,15 +42,13 @@ class Form1(Form1Design):
         `IF NOT EXISTS` heißt: beim zweiten Start passiert hier nichts -
         die Daten von gestern bleiben stehen.
         """
-        self.abfrage.sql = """
+        self.db.execute("""
             CREATE TABLE IF NOT EXISTS konto (
                 nummer  INTEGER PRIMARY KEY AUTOINCREMENT,
                 inhaber TEXT    NOT NULL,
                 stand   REAL    NOT NULL DEFAULT 0
             )
-        """
-        self.abfrage.exec_sql()
-        self.transaktion.commit()
+        """)
 
     def konten_lesen(self, mindestens: float = 0.0) -> list[Konto]:
         """Holt die Konten aus der Datenbank und macht `Konto`-Objekte
@@ -63,32 +58,25 @@ class Form1(Form1Design):
         kleben wäre die berühmteste Sicherheitslücke überhaupt: wer
         statt einer Zahl `0 OR 1=1; DROP TABLE konto` einträgt, löscht
         sonst die Tabelle.
-        """
-        self.abfrage.sql = (
-            "SELECT nummer, inhaber, stand FROM konto "
-            "WHERE stand >= :mindestens ORDER BY nummer"
-        )
-        self.abfrage.params = {"mindestens": mindestens}
-        self.abfrage.open()
 
-        konten = []
-        while not self.abfrage.eof:
-            konten.append(
-                Konto(
-                    self.abfrage.field_by_name("nummer").as_integer,
-                    self.abfrage.field_by_name("inhaber").as_string,
-                    self.abfrage.field_by_name("stand").as_float,
-                )
-            )
-            self.abfrage.next()
-        self.abfrage.close()
-        return konten
+        `query` gibt jede Zeile als `dict` zurück - `zeile["inhaber"]`
+        also, genau wie bei jedem anderen Wörterbuch.
+        """
+        zeilen = self.db.query(
+            "SELECT nummer, inhaber, stand FROM konto "
+            "WHERE stand >= :mindestens ORDER BY nummer",
+            mindestens=mindestens,
+        )
+        return [
+            Konto(zeile["nummer"], zeile["inhaber"], zeile["stand"]) for zeile in zeilen
+        ]
 
     def stand_schreiben(self, konto: Konto) -> None:
-        self.abfrage.sql = "UPDATE konto SET stand = :stand WHERE nummer = :nummer"
-        self.abfrage.params = {"stand": konto.stand, "nummer": konto.nummer}
-        self.abfrage.exec_sql()
-        self.transaktion.commit()
+        self.db.execute(
+            "UPDATE konto SET stand = :stand WHERE nummer = :nummer",
+            stand=konto.stand,
+            nummer=konto.nummer,
+        )
 
     # -- Anzeige ---------------------------------------------------
 
@@ -105,7 +93,10 @@ class Form1(Form1Design):
             self.sg_konten.cells[1, zeile] = konto.inhaber
             self.sg_konten.cells[2, zeile] = f"{konto.stand:.2f}"
 
-        self.l_meldung.caption = f"{len(konten)} Konten."
+        # "1 Konten" liest sich falsch - dieselbe Stelle, an der sich
+        # der Objektinspektor mit "(1 Einträge)" blamiert hat.
+        wort = "Konto" if len(konten) == 1 else "Konten"
+        self.l_meldung.caption = f"{len(konten)} {wort}."
 
     def konto_holen(self) -> Konto | None:
         """Das Konto zur eingetippten Nummer, oder None mit Meldung."""
@@ -114,12 +105,16 @@ class Form1(Form1Design):
             return None
 
         nummer = int(self.e_nummer.text)
-        for konto in self.konten_lesen():
-            if konto.nummer == nummer:
-                return konto
-
-        self.l_meldung.caption = f"Es gibt kein Konto mit der Nummer {nummer}."
-        return None
+        # `query_one` liefert die erste Zeile - oder None, wenn es keine
+        # gibt. Das erspart die Schleife über alle Konten.
+        zeile = self.db.query_one(
+            "SELECT nummer, inhaber, stand FROM konto WHERE nummer = :nummer",
+            nummer=nummer,
+        )
+        if zeile is None:
+            self.l_meldung.caption = f"Es gibt kein Konto mit der Nummer {nummer}."
+            return None
+        return Konto(zeile["nummer"], zeile["inhaber"], zeile["stand"])
 
     def betrag_holen(self) -> float | None:
         try:
@@ -136,10 +131,10 @@ class Form1(Form1Design):
             self.l_meldung.caption = "Ohne Namen geht kein Konto."
             return
 
-        self.abfrage.sql = "INSERT INTO konto (inhaber, stand) VALUES (:inhaber, 0)"
-        self.abfrage.params = {"inhaber": inhaber}
-        self.abfrage.exec_sql()
-        self.transaktion.commit()
+        self.db.execute(
+            "INSERT INTO konto (inhaber, stand) VALUES (:inhaber, 0)",
+            inhaber=inhaber,
+        )
 
         self.konten_zeigen()
         self.l_meldung.caption = f"Konto für {inhaber} angelegt."

@@ -21,12 +21,11 @@ from pcl.components.additional import (
 from pcl.components.chart import Chart
 from pcl.components.data_access import (
     DataSource,
-    MySQLConnection,
     SQLite3Connection,
     SQLQuery,
-    SQLTransaction,
 )
 from pcl.components.data_controls import DBComboBox, DBEdit, DBGrid, DBNavigator, DBText
+from pcl.components.graphics import Brush, Canvas, PaintBox, Pen
 from pcl.components.menus import MainMenu, PopupMenu
 from pcl.components.standard import (
     Button,
@@ -52,7 +51,9 @@ from pcl.strings import Strings
 
 __all__ = [
     "Application",
+    "Brush",
     "Button",
+    "Canvas",
     "Chart",
     "CheckBox",
     "ComboBox",
@@ -72,15 +73,15 @@ __all__ = [
     "Label",
     "ListBox",
     "Memo",
-    "MySQLConnection",
+    "PaintBox",
     "Panel",
+    "Pen",
     "ProgressBar",
     "Prop",
     "RadioButton",
     "RadioGroup",
     "Regressionsergebnis",
     "SQLQuery",
-    "SQLTransaction",
     "SQLite3Connection",
     "ScrollBar",
     "Shape",

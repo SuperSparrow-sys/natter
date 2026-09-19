@@ -75,27 +75,31 @@ bleiben `PaintBox` samt `Canvas` (Zeichnen kommt im Unterricht vor),
 `MaskEdit`, `DateEdit`, `TimeEdit`, `Calendar`, `HtmlViewer` und
 `Sound`.
 
-**2. Nicht sichtbare Komponenten im Designer.** `DataSource`,
-`SQLQuery` und die Datenbankverbindungen lassen sich nicht auf einem
-Formular ablegen – in Lazarus liegen sie dort als kleine Symbole. Das
-ist die gemeinsame Wurzel von drei getrennt notierten Punkten: der
-Designzeit-Aktivierung aus M5, den nicht prüfbaren `DB*`-Komponenten
-aus M11 und dem Umstand, dass Datenbankprogramme ihre Verbindung
-bisher von Hand im Quelltext aufbauen müssen. Der `Timer` zeigt
-bereits, dass ein Symbol auf dem Formular geht.
+**2. ~~Nicht sichtbare Komponenten im Designer~~ – erledigt, indem die
+Datenbank kleiner wurde.** Hier stand, `DataSource`, `SQLQuery` und die
+Verbindungen müssten als Symbole auf dem Formular liegen, wie in
+Lazarus. Dabei wäre ein `.pfm`-gespeichertes MySQL-Passwort
+herausgekommen, und dafür ein Schlüsselspeicher. Der Nutzer hat im
+September 2026 stattdessen die Ursache gestrichen: MySQL/MariaDB und
+PyMySQL sind entfallen, eine Abfrage ist
+`db.query("SELECT ...", grenze=0)` mit Auto-Commit, `SQLTransaction`
+ist weg – und die Data Controls brauchen keine `DataSource` mehr, womit
+sie sich im Designer ablegen lassen und im Eigenschaften-Rundlauf
+mitlaufen. Drei getrennt notierte Punkte (M5 zweimal, M11 einmal) sind
+damit erledigt, zwei weitere hinfällig.
 
 **3. Lineale, Hilfslinien und Minimap** im Diagramm-Editor – die drei
 letzten ausgegrauten Einträge im Menü „Ansicht“ (M9, Teilschritt 2b).
 
 **4. Kleinigkeiten:** ein Eintrag für `NatterDatenError` im
 Fehlerkatalog, ein Abnahmetest für `plt.show()` aus Konsolenprogrammen,
-Zugangsdaten im Windows Credential Store, und ein Durchgang über
-Abstände und Ausrichtung in Objektinspektor, Explorer und Palette.
+und ein Durchgang über Abstände und Ausrichtung in Objektinspektor,
+Explorer und Palette.
 
 **Bewusst nicht in Arbeit** (steht so in den Paketen und bleibt dort):
 ER-Diagramm, Syntaxdiagramm und DIA-Import (Konzept: „später
 möglich“), mehrere Struktogramme auf einer Seite, ein echter
-MariaDB-Verbindungstest (braucht den Server des Nutzers), ein
+MariaDB-Verbindungstest (hinfällig – MySQL ist mit M15 entfallen), ein
 Update-Mechanismus und die CI-Release-Automatisierung.
 
 ### Wie der Stand geprüft wurde
@@ -553,9 +557,9 @@ zerlegt, jeder Schritt für sich mit `pytest` abgesichert.
   (`Label`, `Shape`); kein Referenzprojekt braucht es bisher (siehe
   `docs/komponenten.md`).
 - [x] `SpinEdit`, `FloatSpinEdit` – umgesetzt und in der Palette
-- [ ] `MaskEdit`, `PaintBox` (inkl. Canvas: `line_to`, `rectangle`,
-  `ellipse`, `text_out`), `HtmlViewer` – fehlen weiterhin; `PaintBox`
-  ist davon der lohnendste, weil Zeichnen im Unterricht vorkommt
+- [x] `PaintBox` samt `Canvas` (`line_to`, `rectangle`, `ellipse`,
+  `text_out` …) – seit M15, Abschnitt 2 da
+- [ ] `MaskEdit` und `HtmlViewer` – fehlen weiterhin
   (`b_schneefigur`). Siehe M15
 - [x] `TrackBar`, `ProgressBar` – umgesetzt und in der Palette
 - [ ] `DateEdit`, `TimeEdit`, `Calendar` – fehlen weiterhin, siehe M15
@@ -1019,17 +1023,28 @@ Entstanden aus der Prüfung aller 112 unabgehakten Punkte am
   Schülerprogramm mit Menüleiste war bis dahin nicht baubar. Dafür
   verdrahtet die Komponentenpalette jetzt **alle** Reiter statt zwei
   namentlich genannter; ein dritter wäre vorher stumm geblieben
-- [ ] `PaintBox` und `Canvas` (freies Zeichnen mit Koordinaten)
-- [ ] Nicht sichtbare Komponenten im Designer: die fünf
-  Datenbankkomponenten als Symbole auf dem Formular, mit
-  Designzeit-Verbindung. Setzt voraus, dass die Palette mehr als zwei
-  Reiter verdrahten kann
+- [x] `PaintBox` und `Canvas` (freies Zeichnen mit Koordinaten) –
+  `pen`/`brush`/`pixels`, `move_to`/`line_to`/`line`, `rectangle`,
+  `ellipse`, `fill_rect`, `text_out`, `clear`, `on_paint`. Ohne
+  Kantenglättung, damit `pixels[x, y]` die Farbe zurückgibt, die im
+  Stift stand. Maus-Ereignisse zum Malen kommen mit dem nächsten Punkt
+- [x] Die Datenbank wird **einfacher statt größer**. Geplant waren
+  hier die fünf Datenbankkomponenten als Symbole auf dem Formular samt
+  Designzeit-Verbindung; auf den Hinweis, dass ein `.pfm`-gespeichertes
+  MySQL-Passwort einen Schlüsselspeicher nach sich zöge, kam vom Nutzer
+  die Gegenrichtung („nimm das passwort raus und mache die datenbank
+  abfrage einfacher"). Ergebnis: MySQL/MariaDB und PyMySQL entfallen,
+  eine Abfrage ist `db.query("SELECT ...", grenze=0)` mit Auto-Commit,
+  `SQLTransaction` entfällt, und die Data Controls kommen ohne
+  `DataSource` aus – womit sie im Designer platzierbar und vom
+  Eigenschaften-Rundlauf prüfbar sind (der offene Punkt aus M11)
 - [ ] `MaskEdit`, `DateEdit`, `TimeEdit`, `Calendar`, `HtmlViewer`,
   `Sound`; `on_click` für alle sichtbaren Komponenten
 - [ ] Lineale, Hilfslinien und Minimap im Diagramm-Editor
 - [ ] Kleinigkeiten: `NatterDatenError` im Fehlerkatalog,
-  `plt.show()`-Abnahmetest, Credential Store, ein Durchgang über
-  Abstände und Ausrichtung
+  `plt.show()`-Abnahmetest, ein Durchgang über Abstände und
+  Ausrichtung. Der Credential Store entfällt – ohne MySQL gibt es keine
+  Zugangsdaten mehr abzulegen
 
 ## Nächster konkreter Schritt
 

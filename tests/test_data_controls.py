@@ -136,3 +136,141 @@ def test_dbgrid_ohne_offene_abfrage_bleibt_leer() -> None:
     grid = DBGrid(formular, quelle)
     assert grid._qwidget.rowCount() == 0
     assert grid._qwidget.columnCount() == 0
+
+
+# -- Ohne DataSource (September 2026) -----------------------------------
+#
+# Bis dahin verlangte jede dieser Komponenten eine `DataSource` im
+# Konstruktor. Der Designer erzeugt Komponenten aber mit `typ(formular)`
+# allein - keine davon liess sich also auf ein Formular legen oder vom
+# Eigenschaften-Rundlauf pruefen (der offene Punkt aus M11).
+
+
+def test_alle_data_controls_lassen_sich_ohne_datenquelle_anlegen() -> None:
+    formular = Form()
+    for typ in (DBGrid, DBText, DBEdit, DBNavigator):
+        assert typ(formular).data_source is None
+    assert DBComboBox(formular).list_source is None
+
+
+def test_dbgrid_ohne_datenquelle_zeigt_eine_leere_tabelle() -> None:
+    formular = Form()
+    grid = DBGrid(formular)
+    assert grid._qwidget.rowCount() == 0
+    assert grid._qwidget.columnCount() == 0
+
+
+def test_dbtext_und_dbedit_ohne_datenquelle_bleiben_leer() -> None:
+    formular = Form()
+    text = DBText(formular)
+    text.field = "name"
+    assert text._qwidget.text() == ""
+
+    feld = DBEdit(formular)
+    feld.field = "name"
+    assert feld._qwidget.text() == ""
+    assert feld._qwidget.isEnabled() is False
+
+
+def test_dbnavigator_ohne_datenquelle_klickt_ins_leere_statt_abzustuerzen() -> None:
+    formular = Form()
+    navigator = DBNavigator(formular)
+    for knopf in (
+        navigator.knopf_erster,
+        navigator.knopf_zurueck,
+        navigator.knopf_vor,
+        navigator.knopf_letzter,
+    ):
+        knopf.click()
+
+
+# -- show_rows: der kurze Weg -------------------------------------------
+
+
+def test_show_rows_zeigt_die_zeilen_aus_query_unmittelbar_an() -> None:
+    """Eine Zeile statt Abfrage, Datenquelle und Benachrichtigung:
+    `grid.show_rows(db.query("SELECT ..."))`."""
+    db = _verbindung_mit_kunden()
+    formular = Form()
+    grid = DBGrid(formular)
+    grid.show_rows(db.query("SELECT name, ort FROM kunden ORDER BY name"))
+
+    widget = grid._qwidget
+    assert widget.columnCount() == 2
+    assert [widget.horizontalHeaderItem(s).text() for s in range(2)] == ["name", "ort"]
+    assert widget.rowCount() == 3
+    assert widget.item(0, 0).text() == "Anna"
+    assert widget.item(2, 1).text() == "Coburg"
+
+
+def test_show_rows_mit_leerer_liste_leert_die_tabelle() -> None:
+    db = _verbindung_mit_kunden()
+    formular = Form()
+    grid = DBGrid(formular)
+    grid.show_rows(db.query("SELECT name FROM kunden"))
+    assert grid._qwidget.rowCount() == 3
+
+    grid.show_rows([])
+    assert grid._qwidget.rowCount() == 0
+    assert grid._qwidget.columnCount() == 0
+
+
+def test_show_rows_zeigt_none_als_leere_zelle() -> None:
+    db = SQLite3Connection(":memory:")
+    db.execute("CREATE TABLE t (a TEXT, b TEXT)")
+    db.execute("INSERT INTO t (a, b) VALUES ('x', NULL)")
+
+    formular = Form()
+    grid = DBGrid(formular)
+    grid.show_rows(db.query("SELECT a, b FROM t"))
+    assert grid._qwidget.item(0, 1).text() == ""
+
+
+def test_data_source_nachtraeglich_zuweisen_zeigt_die_daten_wirklich_an() -> None:
+    """Gefunden beim Schreiben der Komponenten-Referenz, nicht von einem
+    Test: `data_source` war ein einfaches Attribut, und die Anmeldung bei
+    der `DataSource` geschah nur im Konstruktor. Die Zuweisung lief
+    durch, die Tabelle blieb leer - der stillste aller Fehler."""
+    verbindung = _verbindung_mit_kunden()
+    abfrage = SQLQuery(verbindung)
+    abfrage.sql = "SELECT name FROM kunden ORDER BY name"
+    abfrage.open()
+
+    formular = Form()
+    grid = DBGrid(formular)
+    assert grid._qwidget.rowCount() == 0
+
+    grid.data_source = DataSource(abfrage)
+    assert grid._qwidget.rowCount() == 3
+    assert grid._qwidget.item(0, 0).text() == "Anna"
+
+
+def test_data_source_nachtraeglich_zuweisen_meldet_auch_spaetere_aenderungen() -> None:
+    verbindung = _verbindung_mit_kunden()
+    abfrage = SQLQuery(verbindung)
+    abfrage.sql = "SELECT name FROM kunden ORDER BY name"
+    abfrage.open()
+    quelle = DataSource(abfrage)
+
+    formular = Form()
+    text = DBText(formular)
+    text.field = "name"
+    text.data_source = quelle
+    assert text._qwidget.text() == "Anna"
+
+    abfrage.next()
+    quelle.aktualisieren()
+    assert text._qwidget.text() == "Bo"
+
+
+def test_list_source_nachtraeglich_zuweisen_fuellt_die_combobox() -> None:
+    verbindung = _verbindung_mit_kunden()
+    abfrage = SQLQuery(verbindung)
+    abfrage.sql = "SELECT ort FROM kunden ORDER BY ort"
+    abfrage.open()
+
+    formular = Form()
+    auswahl = DBComboBox(formular)
+    auswahl.list_field = "ort"
+    auswahl.list_source = DataSource(abfrage)
+    assert auswahl._qwidget.count() == 3

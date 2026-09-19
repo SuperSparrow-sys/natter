@@ -1,13 +1,13 @@
-"""Datenbank-Panel (Abschnitt 10.2): Verbindung testen (SQLite-Datei
-oder MySQL/MariaDB-Zugangsdaten), Tabellen-/Spaltenbaum anzeigen,
-SQL-Abfragen ausführen und das Ergebnis als Tabelle anzeigen; dazu
-„CSV in Datenbank importieren“ sowie Export einer Tabelle als CSV oder
-SQL-Dump.
+"""Datenbank-Panel (Abschnitt 10.2): eine SQLite-Datei öffnen,
+Tabellen-/Spaltenbaum anzeigen, SQL-Abfragen ausführen und das Ergebnis
+als Tabelle anzeigen; dazu „CSV in Datenbank importieren“ sowie Export
+einer Tabelle als CSV oder SQL-Dump.
 
-**Vereinfachung, bewusst dokumentiert:** Zugangsdaten werden nur für die
-laufende Sitzung im Speicher gehalten, nicht dauerhaft verschlüsselt im
-Windows Credential Store abgelegt (Abschnitt 10.2 sieht das als
-Zielzustand vor, siehe docs/arbeitspakete/M5.md, „Zurückgestellt“).
+Seit September 2026 gibt es hier keine Treiberauswahl und keine
+Zugangsdaten mehr: Natter kennt nur noch SQLite (siehe den Modulkopf von
+`pcl/components/data_access.py`). Eine Datenbankdatei braucht weder
+Server noch Benutzer noch Passwort – und ein Passwortfeld, dessen Inhalt
+irgendwo bleiben müsste, gibt es damit auch nicht mehr.
 """
 
 from __future__ import annotations
@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import Any
 
 from PySide6.QtWidgets import (
-    QComboBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
@@ -25,7 +24,6 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QSplitter,
-    QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
     QTreeWidget,
@@ -35,7 +33,7 @@ from PySide6.QtWidgets import (
 )
 
 from ide.viewers.csv_ansicht import csv_erkennen
-from pcl import MySQLConnection, SQLite3Connection, SQLQuery
+from pcl import SQLite3Connection, SQLQuery
 from pcl.errors import NatterDatenbankError
 
 
@@ -57,11 +55,7 @@ def _sql_literal(wert: Any) -> str:
 class DatenbankPanel(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._verbindung: SQLite3Connection | MySQLConnection | None = None
-
-        self._treiber_auswahl = QComboBox()
-        self._treiber_auswahl.addItems(["SQLite", "MySQL/MariaDB"])
-        self._treiber_auswahl.currentIndexChanged.connect(self._treiber_gewechselt)
+        self._verbindung: SQLite3Connection | None = None
 
         self._sqlite_pfad = QLineEdit()
         self._sqlite_pfad.setPlaceholderText("Datenbankdatei oder :memory:")
@@ -73,37 +67,12 @@ class DatenbankPanel(QWidget):
         sqlite_layout.addWidget(self._sqlite_pfad)
         sqlite_layout.addWidget(self._sqlite_datei_waehlen_knopf)
 
-        self._mysql_host = QLineEdit()
-        self._mysql_host.setPlaceholderText("Host")
-        self._mysql_datenbank = QLineEdit()
-        self._mysql_datenbank.setPlaceholderText("Datenbank")
-        self._mysql_benutzer = QLineEdit()
-        self._mysql_benutzer.setPlaceholderText("Benutzer")
-        self._mysql_passwort = QLineEdit()
-        self._mysql_passwort.setPlaceholderText("Passwort")
-        self._mysql_passwort.setEchoMode(QLineEdit.EchoMode.Password)
-        self._mysql_widget = QWidget()
-        mysql_layout = QHBoxLayout(self._mysql_widget)
-        mysql_layout.setContentsMargins(0, 0, 0, 0)
-        for feld in (
-            self._mysql_host,
-            self._mysql_datenbank,
-            self._mysql_benutzer,
-            self._mysql_passwort,
-        ):
-            mysql_layout.addWidget(feld)
-
-        self._verbindungs_stapel = QStackedWidget()
-        self._verbindungs_stapel.addWidget(self._sqlite_widget)
-        self._verbindungs_stapel.addWidget(self._mysql_widget)
-
         self._verbinden_knopf = QPushButton("Verbinden")
         self._verbinden_knopf.clicked.connect(self._verbinden)
         self._status_label = QLabel("Nicht verbunden")
 
         verbindungs_zeile = QHBoxLayout()
-        verbindungs_zeile.addWidget(self._treiber_auswahl)
-        verbindungs_zeile.addWidget(self._verbindungs_stapel, 1)
+        verbindungs_zeile.addWidget(self._sqlite_widget, 1)
         verbindungs_zeile.addWidget(self._verbinden_knopf)
         verbindungs_zeile.addWidget(self._status_label)
 
@@ -159,7 +128,7 @@ class DatenbankPanel(QWidget):
         layout.addWidget(aufteilung)
 
     @property
-    def verbindung(self) -> SQLite3Connection | MySQLConnection | None:
+    def verbindung(self) -> SQLite3Connection | None:
         return self._verbindung
 
     @property
@@ -170,25 +139,14 @@ class DatenbankPanel(QWidget):
     def ergebnis_tabelle(self) -> QTableWidget:
         return self._ergebnis_tabelle
 
-    def _treiber_gewechselt(self, index: int) -> None:
-        self._verbindungs_stapel.setCurrentIndex(index)
-
     def _sqlite_datei_waehlen(self) -> None:
         pfad, _ = QFileDialog.getOpenFileName(self, "Datenbankdatei wählen")
         if pfad:
             self._sqlite_pfad.setText(pfad)
 
     def _verbinden(self) -> None:
-        if self._treiber_auswahl.currentIndex() == 0:
-            verbindung: SQLite3Connection | MySQLConnection = SQLite3Connection()
-            verbindung.database_name = self._sqlite_pfad.text() or ":memory:"
-        else:
-            verbindung = MySQLConnection()
-            verbindung.host_name = self._mysql_host.text() or "localhost"
-            verbindung.database_name = self._mysql_datenbank.text()
-            verbindung.user_name = self._mysql_benutzer.text()
-            verbindung.password = self._mysql_passwort.text()
-
+        verbindung = SQLite3Connection()
+        verbindung.database_name = self._sqlite_pfad.text() or ":memory:"
         try:
             verbindung.connected = True
         except NatterDatenbankError as fehler:
@@ -211,35 +169,16 @@ class DatenbankPanel(QWidget):
         self._tabellenbaum.expandAll()
 
     def _tabellennamen(self) -> list[str]:
-        abfrage = SQLQuery(self._verbindung)
-        if isinstance(self._verbindung, SQLite3Connection):
-            abfrage.sql = "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"
-        else:
-            abfrage.sql = "SHOW TABLES"
-        abfrage.open()
-        namen = []
-        while not abfrage.eof:
-            namen.append(abfrage.field_by_name(abfrage.column_names[0]).as_string)
-            abfrage.next()
-        return namen
+        zeilen = self._verbindung.query(
+            "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"
+        )
+        return [str(zeile["name"]) for zeile in zeilen]
 
     def _spaltennamen(self, tabelle: str) -> list[str]:
-        abfrage = SQLQuery(self._verbindung)
-        if isinstance(self._verbindung, SQLite3Connection):
-            abfrage.sql = f'PRAGMA table_info("{tabelle}")'
-            abfrage.open()
-            namen = []
-            while not abfrage.eof:
-                namen.append(abfrage.field_by_name("name").as_string)
-                abfrage.next()
-            return namen
-        abfrage.sql = f"SHOW COLUMNS FROM {tabelle}"
-        abfrage.open()
-        namen = []
-        while not abfrage.eof:
-            namen.append(abfrage.field_by_name(abfrage.column_names[0]).as_string)
-            abfrage.next()
-        return namen
+        # PRAGMA kennt keine Platzhalter fuer den Tabellennamen; der Name
+        # kommt aus sqlite_master, nicht aus einer Eingabe.
+        zeilen = self._verbindung.query(f'PRAGMA table_info("{tabelle}")')
+        return [str(zeile["name"]) for zeile in zeilen]
 
     def _sql_ausfuehren(self) -> None:
         if self._verbindung is None:
