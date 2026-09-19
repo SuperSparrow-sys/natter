@@ -48,14 +48,32 @@ def test_ohne_pfm_pfad_passiert_nichts() -> None:
     assert formular.b_ein.on_click is None
 
 
-def test_komponente_ohne_ereignis_liefert_none(tmp_path: Path) -> None:
+def test_eine_shape_bekommt_seit_m15_ihren_klick(tmp_path: Path) -> None:
+    """Hier stand bis M15 „Komponente ohne Ereignis liefert None": eine
+    `Shape` hatte keines. Seit die Maus-Ereignisse in `Control` stehen,
+    hat jede sichtbare Komponente `on_click` - auch eine Form, die man
+    im Unterricht gern als Schaltfläche missbraucht."""
     _unit_datei_vorbereiten(tmp_path)
     formular = _Formular()
     canvas = DesignerCanvas(formular, pfm_pfad=tmp_path / "test.pfm")
 
     ergebnis = canvas.ereignis_handler_erzeugen(formular.s_rahmen)
 
-    assert ergebnis is None
+    assert ergebnis == "s_rahmen_click"
+
+
+def test_mehrere_eigene_ereignisse_bleiben_mehrdeutig(tmp_path: Path) -> None:
+    """Beim `DBNavigator` wäre jede Wahl geraten - Einfügen, Löschen,
+    Speichern und Abbrechen stehen gleichberechtigt nebeneinander."""
+    from pcl import DBNavigator
+
+    _unit_datei_vorbereiten(tmp_path)
+    formular = _Formular()
+    navigator = DBNavigator(formular)
+
+    canvas = DesignerCanvas(formular, pfm_pfad=tmp_path / "test.pfm")
+
+    assert canvas.ereignis_handler_erzeugen(navigator) is None
 
 
 def test_erzeugt_methode_in_der_datei_und_verknuepft_sie(tmp_path: Path) -> None:

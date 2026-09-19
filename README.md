@@ -145,6 +145,8 @@ stift.text_out(10, 110, "Hallo")
 ```
 
 Das Gezeichnete bleibt stehen, auch wenn ein Fenster darüberfährt.
+Gemalt wird mit der Maus über `on_mouse_down`/`on_mouse_move` – die
+Koordinaten stehen in der Ereignis-Methode.
 
 `Timer`, `MainMenu` und `PopupMenu` zeigen im laufenden Programm
 nichts an. Im Designer liegen sie als kleines Symbol auf dem Formular,

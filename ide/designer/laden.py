@@ -32,7 +32,11 @@ def platzhalter_erzeugen(name: str):
     # sonst schlägt das spätere Zurückschreiben in die .pfm
     # (ide/designer/pfm_schreiben.py, das `handler.__name__` ausliest)
     # mit ungültigem Python fehl.
-    def platzhalter(self, sender):
+    def platzhalter(self, sender, *zusatz):
+        # `*zusatz` wegen der Maus-Ereignisse, die zusätzlich x und y
+        # mitbringen (siehe `pcl.control.EREIGNIS_PARAMETER`). Ohne das
+        # flöge im Designer ein TypeError, sobald die Maus über eine
+        # Komponente mit zugewiesenem, aber noch leerem Handler fährt.
         return None
 
     platzhalter.__name__ = name

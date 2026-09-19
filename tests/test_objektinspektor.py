@@ -68,8 +68,13 @@ def test_auswahlwechsel_im_baum_aktualisiert_beide_reiter() -> None:
     assert "caption" in eigenschaften_namen
     assert "checked" not in eigenschaften_namen  # Button hat kein checked
 
-    assert inspektor.ereignisse_tabelle.rowCount() == 1
-    assert inspektor.ereignisse_tabelle.item(0, 0).text() == "on_click"
+    ereignis_namen = [
+        inspektor.ereignisse_tabelle.item(z, 0).text()
+        for z in range(inspektor.ereignisse_tabelle.rowCount())
+    ]
+    # Seit M15 stehen dort die fünf Maus-Ereignisse aus `Control`.
+    assert "on_click" in ereignis_namen
+    assert "on_mouse_down" in ereignis_namen
 
 
 def test_eigenschaft_ueber_den_inspektor_aendern_wirkt_auf_die_komponente() -> None:

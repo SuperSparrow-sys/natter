@@ -23,8 +23,17 @@ def test_zeigt_alle_ereignisse_der_komponente() -> None:
 
     tabelle.anzeigen(formular.b_ein, formular)
 
-    assert tabelle.rowCount() == 1
-    assert tabelle.item(0, 0).text() == "on_click"
+    gezeigt = [tabelle.item(z, 0).text() for z in range(tabelle.rowCount())]
+
+    # Seit M15 hat jede sichtbare Komponente die fünf Maus-Ereignisse
+    # (vorher stand hier nur `on_click` des Buttons).
+    assert gezeigt == [
+        "on_click",
+        "on_double_click",
+        "on_mouse_down",
+        "on_mouse_move",
+        "on_mouse_up",
+    ]
 
 
 def test_dropdown_enthaelt_nur_passende_methoden() -> None:

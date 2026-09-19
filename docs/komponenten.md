@@ -400,9 +400,6 @@ hinterlässt genau Rot. Mit Glättung stünde an ihrer Kante eine
 Mischfarbe, und `pixels[x, y]` gäbe etwas zurück, das aussieht wie rot,
 aber keins ist.
 
-**Noch nicht da:** Zeichnen mit der Maus. `on_mouse_down`/`_move`/`_up`
-kommen mit den Maus-Ereignissen für alle sichtbaren Komponenten.
-
 ## Timer
 
 Qt-Basis: `QTimer` (`pcl/components/system.py`)
@@ -820,6 +817,49 @@ self.g_konten.data_source = self.ds_konten
 Ohne zugeordnete Datenquelle zeigen alle fünf eine leere Anzeige,
 statt beim Anlegen zu scheitern – deshalb lassen sie sich auch im
 Designer auf ein Formular legen.
+
+## Die Maus
+
+`pcl/control.py`. **Jede sichtbare Komponente** hat diese fünf
+Ereignisse – der Knopf genauso wie das Bild, die Form oder die
+Zeichenfläche.
+
+| Ereignis | Wann | Bekommt |
+|---|---|---|
+| on_click | Maustaste gedrückt **und** losgelassen, beides auf der Komponente | `sender` |
+| on_double_click | Doppelklick | `sender` |
+| on_mouse_down | Maustaste gedrückt | `sender`, `x`, `y` |
+| on_mouse_move | Maus bewegt | `sender`, `x`, `y` |
+| on_mouse_up | Maustaste losgelassen | `sender`, `x`, `y` |
+
+`x` und `y` zählen ab der **linken oberen Ecke der Komponente**, nicht
+ab der des Fensters – wie in Lazarus. Wer nur wissen will, *dass*
+geklickt wurde, nimmt `on_click`; wer wissen will, *wo*, nimmt
+`on_mouse_down`.
+
+Damit lässt sich malen:
+
+```python
+def pb_bild_mouse_down(self, sender, x, y):
+    self.malt = True
+    self.pb_bild.canvas.pen.color = "#c42b1c"
+    self.pb_bild.canvas.move_to(x, y)
+
+def pb_bild_mouse_move(self, sender, x, y):
+    if self.malt:
+        self.pb_bild.canvas.line_to(x, y)
+
+def pb_bild_mouse_up(self, sender, x, y):
+    self.malt = False
+```
+
+Die Methoden legt Natter selbst an – im Objektinspektor, Reiter
+„Ereignisse", den Namen eintragen; die Koordinaten stehen dann schon in
+der Parameterliste.
+
+**Nicht sichtbare Komponenten** (`Timer`, `MainMenu`, `PopupMenu`)
+haben keine Maus-Ereignisse: im laufenden Programm sind sie gar nicht
+da, eine Maus kann sie nicht treffen.
 
 ## Schrift und Sammlungen
 

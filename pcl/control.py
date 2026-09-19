@@ -2,19 +2,87 @@
 
 Siehe README.md, Abschnitt 5. Verbindet den Prop-Zugriff aus
 `pcl.properties` mit einem echten QWidget: eine Zuweisung wie
-``self.b_ok.caption = "OK"`` ändert sofort die Anzeige (live). Konkrete
-Komponenten (Button, Label, Shape, ...) folgen in M1, Schritt 3.
+``self.b_ok.caption = "OK"`` ändert sofort die Anzeige (live).
+
+**Die Maus gehört jeder sichtbaren Komponente** (Abschnitt 5.4). Bis M15
+war `on_click` nur am `Button` verdrahtet, weil nur er ein eigenes
+Qt-Klicksignal hat; `Label` und `Image` hatten dafür je eine eigene
+QLabel-Unterklasse, die `mousePressEvent` abfing. Drei Nachbauten
+derselben Sache, und für `Shape`, `Panel` oder die frische `PaintBox`
+gab es sie gar nicht - ausgerechnet eine Zeichenfläche konnte also
+nicht das, wofür man sie im Unterricht benutzt: mit der Maus malen.
+
+Jetzt hängt ein Ereignisfilter am Widget, und alle fünf Ereignisse
+stehen an einer Stelle. `Button` behält sein natives Klicksignal
+(`_klick_kommt_vom_widget`), damit sein `on_click` nicht doppelt
+auslöst.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtWidgets import QWidget
 
 from pcl.font import Font
-from pcl.properties import Komponente, Prop
+from pcl.properties import MAUS_EREIGNISSE, Event, Komponente, Prop
+
+#: Weitergereicht, damit `from pcl.control import MAUS_EREIGNISSE`
+#: dort steht, wo die Ereignisse auch deklariert sind.
+__all__ = ["Control", "EREIGNIS_PARAMETER", "MAUS_EREIGNISSE"]
+
+#: Was eine Ereignis-Methode über `sender` hinaus bekommt.
+#:
+#: `on_click` und `on_double_click` bleiben bei `(self, sender)` - wie
+#: `OnClick(Sender)` in Lazarus. Wer weiß, **wo** geklickt wurde, nimmt
+#: `on_mouse_down`; dort stehen die Koordinaten dabei, gezählt von der
+#: linken oberen Ecke der Komponente. Der Ereignis-Generator
+#: (`ide/codegen/ereignis.py`) legt die Methode danach mit der richtigen
+#: Parameterliste an.
+EREIGNIS_PARAMETER: dict[str, tuple[str, ...]] = {
+    "on_mouse_down": ("x", "y"),
+    "on_mouse_move": ("x", "y"),
+    "on_mouse_up": ("x", "y"),
+}
+
+
+class _MausFilter(QObject):
+    """Reicht die Mausereignisse des Widgets an seine Komponente weiter.
+
+    Ein Ereignisfilter statt einer QWidget-Unterklasse je Komponente:
+    sonst bräuchte jede der zwanzig Komponenten eine eigene Klasse, nur
+    um `mousePressEvent` zu überschreiben - und die, die ihr Widget von
+    Qt fertig bekommen (`QPushButton`, `QComboBox`), könnten es gar
+    nicht.
+
+    Gibt immer `False` zurück: das Ereignis läuft danach ganz normal
+    weiter. Ohne das könnte man in ein `Edit` nicht mehr hineinklicken.
+    """
+
+    def __init__(self, control: Control) -> None:
+        super().__init__()
+        self._control = control
+        self._gedrueckt = False
+
+    def eventFilter(self, objekt: QObject, ereignis: QEvent) -> bool:  # noqa: N802
+        art = ereignis.type()
+        if art == QEvent.Type.MouseButtonPress:
+            self._gedrueckt = True
+            self._control._maus_melden("on_mouse_down", ereignis)
+        elif art == QEvent.Type.MouseMove:
+            self._control._maus_melden("on_mouse_move", ereignis)
+        elif art == QEvent.Type.MouseButtonRelease:
+            self._control._maus_melden("on_mouse_up", ereignis)
+            # `on_click` erst beim Loslassen, und nur wenn auf derselben
+            # Komponente gedrückt wurde - wer danebenzieht, hat es sich
+            # anders überlegt. Genauso verhält sich ein echter Knopf.
+            if self._gedrueckt and not self._control._klick_kommt_vom_widget:
+                self._control._ereignis_ausloesen("on_click")
+            self._gedrueckt = False
+        elif art == QEvent.Type.MouseButtonDblClick:
+            self._control._ereignis_ausloesen("on_double_click")
+        return False
 
 
 class Control(Komponente):
@@ -34,6 +102,23 @@ class Control(Komponente):
     #: selbst im Komponentenbaum, im Objektinspektor und in der `.pfm`
     #: auf.
     nur_im_designer = False
+
+    #: Ob die Komponente ihr `on_click` selbst auslöst. Nur der
+    #: `Button` tut das - er hat ein natives Qt-Klicksignal, und ohne
+    #: diese Angabe feuerte sein `on_click` zweimal.
+    _klick_kommt_vom_widget = False
+
+    on_click = Event(doc="Wird beim Klicken ausgelöst")
+    on_double_click = Event(doc="Wird beim Doppelklick ausgelöst")
+    on_mouse_down = Event(
+        doc="Wird beim Drücken der Maustaste ausgelöst; bekommt x und y dazu"
+    )
+    on_mouse_move = Event(
+        doc="Wird beim Bewegen der Maus über der Komponente ausgelöst; bekommt x und y dazu"
+    )
+    on_mouse_up = Event(
+        doc="Wird beim Loslassen der Maustaste ausgelöst; bekommt x und y dazu"
+    )
 
     left = Prop(int, 0, kategorie="Layout", doc="Position von links in Pixeln")
     top = Prop(int, 0, kategorie="Layout", doc="Position von oben in Pixeln")
@@ -60,8 +145,14 @@ class Control(Komponente):
             # Zeitgeber stünde dann als kleine Uhr im fertigen
             # Schülerprogramm.
             self._qwidget.hide()
-        elif parent is not None:
-            self._qwidget.show()
+        else:
+            # Der Filter muss am Objekt hängen bleiben: ein QObject ohne
+            # Eltern und ohne Referenz wird eingesammelt, und die
+            # Ereignisse kämen nie an.
+            self._maus_filter = _MausFilter(self)
+            self._qwidget.installEventFilter(self._maus_filter)
+            if parent is not None:
+                self._qwidget.show()
 
     @property
     def popup_menu(self) -> Any:
@@ -124,6 +215,19 @@ class Control(Komponente):
             self._geometrie_anwenden()
         elif name == "enabled":
             self._qwidget.setEnabled(wert)
+
+    def _ereignis_ausloesen(self, name: str, *zusatz: Any) -> None:
+        """Ruft den Ereignis-Handler auf, falls einer zugewiesen ist."""
+        handler = getattr(self, name, None)
+        if handler is not None:
+            handler(self, *zusatz)
+
+    def _maus_melden(self, name: str, ereignis: Any) -> None:
+        """Wie `_ereignis_ausloesen`, aber mit den Koordinaten des
+        Zeigers - gezählt von der linken oberen Ecke der Komponente,
+        wie in Lazarus."""
+        stelle = ereignis.position()
+        self._ereignis_ausloesen(name, int(stelle.x()), int(stelle.y()))
 
     def nach_vorne_bringen(self) -> None:
         """Holt die Komponente vor alle überlappenden Geschwister-

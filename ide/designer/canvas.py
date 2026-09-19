@@ -32,6 +32,7 @@ from ide.designer.laden import platzhalter_erzeugen
 from ide.designer.pfm_schreiben import formular_als_pfm_speichern
 from ide.inspector.komponentenbaum import kind_komponenten
 from pcl.components.additional import Image
+from pcl.control import EREIGNIS_PARAMETER, MAUS_EREIGNISSE
 from pcl.form import Form
 from pcl.properties import eigenschaften, ereignisse
 
@@ -99,10 +100,33 @@ def _ereignis_kurzname(ereignis_name: str) -> str:
 
 def _standard_ereignis(typ: type) -> str | None:
     """Das Ereignis, das ein Doppelklick verknüpft (Abschnitt 4.4).
-    Nur eindeutig, wenn der Komponententyp genau ein Ereignis hat -
-    Komponenten ohne oder mit mehreren Ereignissen liefern `None`."""
-    events = ereignisse(typ)
-    return next(iter(events)) if len(events) == 1 else None
+
+    Gemeint ist das **kennzeichnende** Ereignis der Komponente: bei
+    einem `Edit` die Änderung, bei einem `Zeitgeber` der Takt, bei einem
+    `Button` der Klick. Die Maus-Ereignisse aus `Control` zählen dafür
+    nicht mit - sie hat seit M15 jede sichtbare Komponente, und mit
+    ihnen wäre nichts mehr eindeutig.
+
+    Vorher stand hier schlicht „genau ein Ereignis". Das war dieselbe
+    Absicht mit einem Maßstab, der nur so lange trug, wie die meisten
+    Komponenten ein einziges Ereignis hatten - mit den Maus-Ereignissen
+    lieferte er für **jede** Komponente `None`, und der Doppelklick im
+    Designer legte gar keine Methode mehr an.
+
+    `None` bleibt es, wenn eine Komponente mehrere eigene Ereignisse
+    hat (der `DBNavigator` mit Einfügen/Löschen/Speichern/Abbrechen):
+    dort wäre jede Wahl geraten.
+    """
+    alle = ereignisse(typ)
+    eigene = [name for name in alle if name not in MAUS_EREIGNISSE]
+    if len(eigene) == 1:
+        return eigene[0]
+    if eigene:
+        return None
+    # Keins außer der Maus: dann ist der Klick gemeint - beim `Label`,
+    # beim `Shape`, beim `Panel` und beim `Button`, dessen `on_click`
+    # seit M15 ebenfalls aus `Control` kommt.
+    return "on_click" if "on_click" in alle else None
 
 
 def _bildpfade_aus_mime(mime: QMimeData) -> list[Path]:
@@ -959,7 +983,12 @@ class DesignerCanvas(QObject):
 
         klassenname = type(self.formular).__name__
         quelltext = self.unit_pfad.read_text(encoding="utf-8")
-        neuer_quelltext = handler_methode_einfuegen(quelltext, klassenname, methodenname)
+        neuer_quelltext = handler_methode_einfuegen(
+            quelltext,
+            klassenname,
+            methodenname,
+            EREIGNIS_PARAMETER.get(ereignis_name, ()),
+        )
         self.unit_pfad.write_text(neuer_quelltext, encoding="utf-8")
 
         gebundene_methode = types.MethodType(platzhalter_erzeugen(methodenname), self.formular)

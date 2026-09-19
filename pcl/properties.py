@@ -85,6 +85,19 @@ class Prop:
         return self.typ is float and isinstance(wert, int)
 
 
+#: Die Maus-Ereignisse, die `pcl.control.Control` jeder sichtbaren
+#: Komponente mitgibt (Abschnitt 5.4). Hier und nicht dort, weil
+#: `ereignisse()` sie kennen muss und `control` von diesem Modul
+#: importiert - nicht umgekehrt.
+MAUS_EREIGNISSE: tuple[str, ...] = (
+    "on_click",
+    "on_double_click",
+    "on_mouse_down",
+    "on_mouse_move",
+    "on_mouse_up",
+)
+
+
 class Event:
     """Ein Ereignis einer Komponente, z. B. ``on_click`` (Abschnitt 5.0,
     5.4). Der zugewiesene Wert ist der aufrufbare Ereignis-Handler."""
@@ -236,12 +249,22 @@ def eigenschaften(cls: type) -> dict[str, Prop]:
 
 def ereignisse(cls: type) -> dict[str, Event]:
     """Alle `Event`-Ereignisse einer Klasse inkl. Basisklassen, für den
-    Objektinspektor."""
+    Objektinspektor.
+
+    **Ohne die Maus-Ereignisse, wenn die Komponente im laufenden
+    Programm gar nicht da ist** (`nur_im_designer`: Zeitgeber,
+    Hauptmenü, Klappmenü). Sie erben sie von `Control` wie jede andere,
+    aber eine Maus kann sie nie treffen - im Objektinspektor stünden
+    fünf Zeilen, von denen keine je auslöst.
+    """
     ergebnis: dict[str, Event] = {}
     for klasse in reversed(cls.__mro__):
         for name, wert in vars(klasse).items():
             if isinstance(wert, Event):
                 ergebnis[name] = wert
+    if getattr(cls, "nur_im_designer", False):
+        for name in MAUS_EREIGNISSE:
+            ergebnis.pop(name, None)
     return ergebnis
 
 

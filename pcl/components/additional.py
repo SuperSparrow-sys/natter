@@ -228,22 +228,6 @@ class Picture:
         self._besitzer._qwidget.clear()
 
 
-class _KlickbaresBildLabel(QLabel):
-    """`QLabel`, das Mausklicks an das besitzende `Image` weiterreicht.
-
-    Dasselbe Vorgehen wie `_KlickbaresLabel` in
-    `pcl/components/standard.py`; Qt kennt kein anklickbares Bild-Widget.
-    """
-
-    def __init__(self, eltern_widget: QWidget, bild: Image) -> None:
-        super().__init__(eltern_widget)
-        self._bild = bild
-
-    def mousePressEvent(self, event: Any) -> None:
-        super().mousePressEvent(event)
-        self._bild._bei_klick()
-
-
 class Image(Control):
     """Bildanzeige, per `on_click` auch anklickbar. Qt-Basis: `QLabel`
     mit `QPixmap`.
@@ -254,8 +238,6 @@ class Image(Control):
     gelegt werden - ein Kniff, den kein Lehrbuch erklärt.
     """
 
-    on_click = Event(doc="Wird beim Klicken auf das Bild ausgelöst")
-
     def __init__(self, parent: Control) -> None:
         self._picture = Picture(self)
         super().__init__(parent)
@@ -265,13 +247,9 @@ class Image(Control):
         return self._picture
 
     def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
-        widget = _KlickbaresBildLabel(eltern_widget, self)
+        widget = QLabel(eltern_widget)
         widget.setScaledContents(True)
         return widget
-
-    def _bei_klick(self) -> None:
-        if self.on_click is not None:
-            self.on_click(self)
 
 
 def _prop_gleichziehen(komponente: Control, name: str, wert: Any) -> None:

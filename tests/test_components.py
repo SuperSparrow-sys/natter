@@ -5,6 +5,7 @@ Shape. Headless. Siehe docs/PLAN.md, M1 Schritt 3.
 import pytest
 from PySide6.QtCore import QEvent, QPointF, Qt
 from PySide6.QtGui import QMouseEvent
+from PySide6.QtWidgets import QApplication
 
 from pcl import Button, Form, Label, Shape
 from pcl.errors import NatterPropertyError, NatterUnbekannteEigenschaftError
@@ -53,6 +54,31 @@ def test_label_standardwert_und_aenderung() -> None:
     assert formular.l_titel._qwidget.text() == "Ampel Simulator"
 
 
+def _maus_senden(widget, art: QEvent.Type) -> None:
+    """Ein Mausereignis so zustellen, wie Qt es tut.
+
+    **Nicht `widget.mousePressEvent(...)` direkt aufrufen**: seit M15
+    hängt die Klickbehandlung an einem Ereignisfilter in `Control`, und
+    einen Filter sieht nur, was durch `QApplication.sendEvent` läuft.
+    Der direkte Methodenaufruf ging am Filter vorbei und meldete
+    nichts."""
+    ereignis = QMouseEvent(
+        art,
+        QPointF(5, 5),
+        QPointF(5, 5),
+        Qt.MouseButton.LeftButton,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+    QApplication.sendEvent(widget, ereignis)
+
+
+def _klicken(widget) -> None:
+    """Drücken und loslassen - `on_click` kommt beim Loslassen."""
+    _maus_senden(widget, QEvent.Type.MouseButtonPress)
+    _maus_senden(widget, QEvent.Type.MouseButtonRelease)
+
+
 def test_label_klick_loest_on_click_mit_sender_aus() -> None:
     # Anklickbares Label wie in Lazarus (TLabel.OnClick), z. B. für
     # Cookie-Klicker-artige Übungen (tests/daten/lazarus/d_Cookie_klicker).
@@ -60,30 +86,15 @@ def test_label_klick_loest_on_click_mit_sender_aus() -> None:
     empfangen = []
     formular.l_titel.on_click = lambda sender: empfangen.append(sender)
 
-    druck = QMouseEvent(
-        QEvent.Type.MouseButtonPress,
-        QPointF(5, 5),
-        QPointF(5, 5),
-        Qt.MouseButton.LeftButton,
-        Qt.MouseButton.LeftButton,
-        Qt.KeyboardModifier.NoModifier,
-    )
-    formular.l_titel._qwidget.mousePressEvent(druck)
+    _klicken(formular.l_titel._qwidget)
 
     assert empfangen == [formular.l_titel]
 
 
 def test_label_ohne_handler_klickt_ohne_fehler() -> None:
     formular = _Formular()
-    druck = QMouseEvent(
-        QEvent.Type.MouseButtonPress,
-        QPointF(5, 5),
-        QPointF(5, 5),
-        Qt.MouseButton.LeftButton,
-        Qt.MouseButton.LeftButton,
-        Qt.KeyboardModifier.NoModifier,
-    )
-    formular.l_titel._qwidget.mousePressEvent(druck)  # kein on_click gesetzt
+
+    _klicken(formular.l_titel._qwidget)  # kein on_click gesetzt
 
 
 def test_shape_standardwert() -> None:

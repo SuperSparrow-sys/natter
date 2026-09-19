@@ -54,10 +54,16 @@ _PANEL_OBJEKTNAME = "pcl_panel"
 
 
 class Button(Control):
-    """Schaltfläche für Klick-Ereignisse. Qt-Basis: `QPushButton`."""
+    """Schaltfläche für Klick-Ereignisse. Qt-Basis: `QPushButton`.
+
+    `on_click` kommt hier aus Qt selbst (`clicked`) und nicht aus dem
+    Maus-Filter in `Control`: ein Knopf reagiert auch auf die
+    Leertaste, und das ist ein Klick, den kein Mausereignis meldet.
+    """
 
     caption = Prop(str, "Button", kategorie="Darstellung", doc="Beschriftung des Buttons")
-    on_click = Event(doc="Wird beim Klicken ausgelöst")
+
+    _klick_kommt_vom_widget = True
 
     def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
         widget = QPushButton(eltern_widget)
@@ -73,20 +79,6 @@ class Button(Control):
         super()._bei_prop_aenderung(name, wert)
         if name == "caption":
             self._qwidget.setText(wert)
-
-
-class _KlickbaresLabel(QLabel):
-    """`QLabel`, das Mausklicks an das besitzende `Label` weiterreicht
-    (Abschnitt 5.1: `on_click` – z. B. für Cookie-Klicker-artige
-    Übungen, in denen ein Label statt eines Buttons angeklickt wird)."""
-
-    def __init__(self, eltern_widget: QWidget, label: Label) -> None:
-        super().__init__(eltern_widget)
-        self._label = label
-
-    def mousePressEvent(self, event: Any) -> None:
-        super().mousePressEvent(event)
-        self._label._bei_klick()
 
 
 class Label(Control):
@@ -106,16 +98,10 @@ class Label(Control):
     transparent = Prop(
         bool, True, kategorie="Darstellung", doc="Wenn wahr (Standard), kein eigener Hintergrund"
     )
-    on_click = Event(doc="Wird beim Klicken ausgelöst")
-
     def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
-        widget = _KlickbaresLabel(eltern_widget, self)
+        widget = QLabel(eltern_widget)
         widget.setText(self.caption)
         return widget
-
-    def _bei_klick(self) -> None:
-        if self.on_click is not None:
-            self.on_click(self)
 
     def _bei_prop_aenderung(self, name: str, wert: Any) -> None:
         super()._bei_prop_aenderung(name, wert)

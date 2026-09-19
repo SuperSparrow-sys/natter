@@ -29,11 +29,17 @@ def _hat_methode(klasse: cst.ClassDef, methodenname: str) -> bool:
 RUMPF_HINWEIS = "Hier steht, was passieren soll."
 
 
-def _leere_handler_methode(methodenname: str) -> cst.FunctionDef:
+def _leere_handler_methode(
+    methodenname: str, zusatz_parameter: tuple[str, ...] = ()
+) -> cst.FunctionDef:
     return cst.FunctionDef(
         name=cst.Name(methodenname),
         params=cst.Parameters(
-            params=[cst.Param(cst.Name("self")), cst.Param(cst.Name("sender"))]
+            params=[
+                cst.Param(cst.Name("self")),
+                cst.Param(cst.Name("sender")),
+                *(cst.Param(cst.Name(name)) for name in zusatz_parameter),
+            ]
         ),
         body=cst.IndentedBlock(
             body=[
@@ -50,9 +56,15 @@ def _leere_handler_methode(methodenname: str) -> cst.FunctionDef:
 
 
 class _MethodeAnhaengen(cst.CSTTransformer):
-    def __init__(self, klassenname: str, methodenname: str) -> None:
+    def __init__(
+        self,
+        klassenname: str,
+        methodenname: str,
+        zusatz_parameter: tuple[str, ...] = (),
+    ) -> None:
         self.klassenname = klassenname
         self.methodenname = methodenname
+        self.zusatz_parameter = zusatz_parameter
         self.eingefuegt = False
 
     def leave_ClassDef(
@@ -64,16 +76,28 @@ class _MethodeAnhaengen(cst.CSTTransformer):
             return updated_node
 
         self.eingefuegt = True
-        neuer_body = list(updated_node.body.body) + [_leere_handler_methode(self.methodenname)]
+        neuer_body = list(updated_node.body.body) + [
+            _leere_handler_methode(self.methodenname, self.zusatz_parameter)
+        ]
         return updated_node.with_changes(body=updated_node.body.with_changes(body=neuer_body))
 
 
-def handler_methode_einfuegen(quelltext: str, klassenname: str, methodenname: str) -> str:
+def handler_methode_einfuegen(
+    quelltext: str,
+    klassenname: str,
+    methodenname: str,
+    zusatz_parameter: tuple[str, ...] = (),
+) -> str:
     """Fügt `def <methodenname>(self, sender): pass` am Ende der Klasse
     `klassenname` ein, falls dort noch keine Methode mit diesem Namen
     existiert. Der restliche Quelltext bleibt Zeichen für Zeichen
-    unverändert (libcst, kein Neuformatieren)."""
+    unverändert (libcst, kein Neuformatieren).
+
+    `zusatz_parameter` sind die Werte, die das Ereignis über `sender`
+    hinaus mitbringt - bei den Maus-Ereignissen `x` und `y`. Welche das
+    sind, steht in `pcl.control.EREIGNIS_PARAMETER`; hier wird nur
+    geschrieben, was dort festgelegt ist."""
     modul = cst.parse_module(quelltext)
-    einfueger = _MethodeAnhaengen(klassenname, methodenname)
+    einfueger = _MethodeAnhaengen(klassenname, methodenname, zusatz_parameter)
     geaendertes_modul = modul.visit(einfueger)
     return geaendertes_modul.code
