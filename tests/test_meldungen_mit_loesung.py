@@ -380,14 +380,9 @@ def test_jeder_layout_hinweis_endet_mit_seinem_loesungsteil() -> None:
 #: Klammern.
 KLAMMERFORM = re.compile(r"[A-Za-zÄÖÜäöüß]\((?:e|s|n|en|er|nen|innen)\)")
 
-#: Bekannte Stellen, die die Regel noch verletzen und außerhalb dieses
-#: Arbeitspakets liegen. Die Liste soll leer werden, nicht wachsen.
-KLAMMERFORM_AUSNAHMEN = {
-    # „{bestanden} von {len(ergebnisse)} Test(s) bestanden.“ im
-    # HTML-Testprotokoll. Einzeiler, aber die Datei gehört zu einem
-    # anderen Arbeitspaket.
-    Path("ide/testrunner/html_export.py"),
-}
+#: Bekannte Stellen, die die Regel noch verletzen. Seit M11 ist die
+#: Liste leer, und sie soll es bleiben.
+KLAMMERFORM_AUSNAHMEN: set[Path] = set()
 
 
 def _sichtbare_texte(pfad: Path) -> list[str]:

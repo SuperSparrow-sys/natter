@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import QSettings, QSize, Qt
-from PySide6.QtGui import QActionGroup, QCloseEvent, QColor, QTextCursor
+from PySide6.QtGui import QActionGroup, QCloseEvent, QColor, QFont, QTextCursor
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -52,6 +52,7 @@ from ide.debugger import (
     tabelle_aus_antwort,
     tabellen_ausdruck,
 )
+from ide.debugger.haltegruende import haltegrund_deutsch
 from ide.designer import DesignerCanvas, formular_fuer_designer_laden
 from ide.designer.pfm_schreiben import pfm_aus_formular
 from ide.diagramm import (
@@ -130,6 +131,10 @@ _PFAD_EIGENSCHAFT = "pfad"
 
 #: Zeilenumbruch fuer mehrzeilige Tooltips.
 _UMBRUCH = chr(10)
+
+#: Was am Panel „Meldungen“ ausser den Textzeilen Hoehe braucht:
+#: Docktitel, Reiterleiste, Rahmen.
+_PANEL_RAHMEN = 90
 
 # Qt.ItemDataRole für Einträge in meldungen_liste: trägt (canvas,
 # komponenten_name) für Design-Prüfer-Befunde, damit ein Klick die
@@ -537,6 +542,7 @@ class HauptFenster(QMainWindow):
                 "Suchen …",
                 menue="Suchen",
                 tastenkuerzel="Ctrl+F",
+                symbol="suchen",
                 callback=self._suchen_aktion,
             )
         )
@@ -555,6 +561,7 @@ class HauptFenster(QMainWindow):
                 "Kommentar umschalten",
                 menue="Quelltext",
                 tastenkuerzel="Ctrl+#",
+                symbol="kommentar",
                 callback=self._kommentar_umschalten_aktion,
             )
         )
@@ -623,6 +630,7 @@ class HauptFenster(QMainWindow):
                 "projekt.alle_tests_ausfuehren",
                 "Alle Tests ausführen",
                 menue="Projekt",
+                symbol="testlauf",
                 callback=self._alle_tests_ausfuehren_aktion,
             )
         )
@@ -639,6 +647,7 @@ class HauptFenster(QMainWindow):
                 "projekt.als_exe_exportieren",
                 "Als Exe exportieren …",
                 menue="Projekt",
+                symbol="export",
                 callback=self._als_exe_exportieren_aktion,
             )
         )
@@ -793,6 +802,7 @@ class HauptFenster(QMainWindow):
                 "Einzelschritt",
                 menue="Start",
                 tastenkuerzel="F11",
+                symbol="einzelschritt",
                 callback=self._debugger_einzelschritt_aktion,
             )
         )
@@ -2191,7 +2201,7 @@ class HauptFenster(QMainWindow):
         self._aktueller_thread_id = ereignis.get("threadId")
         grund = ereignis.get("reason", "?")
         self._letzter_haltegrund = grund
-        self.statusBar().showMessage(f"Angehalten ({grund})")
+        self.statusBar().showMessage(f"Angehalten: {haltegrund_deutsch(grund)}")
         if self._aktueller_thread_id is None or self.debug_sitzung is None:
             return
         self.debug_sitzung.aufrufstapel_lesen(self._aktueller_thread_id)
@@ -2205,9 +2215,39 @@ class HauptFenster(QMainWindow):
         meldung = fehlermeldung_aus_dap_erzeugen(exception_info)
         if meldung is None:
             return
-        self.meldungen_liste.addItem(meldung.als_text())
-        self.panels.setCurrentWidget(self.meldungen_liste)
+        self._katalogmeldung_anzeigen(meldung.als_text())
         self._zu_wo_springen(meldung.wo)
+
+    def _katalogmeldung_anzeigen(self, text: str) -> None:
+        """Eine Fehlerkatalog-Meldung in der Festbreitenschrift.
+
+        Die Meldung enthält die Zeile aus dem Quelltext und darunter
+        eine Zeile mit ^^^, die auf die Stelle zeigt. In der
+        Proportionalschrift der Liste standen die Zeichen irgendwo -
+        die Markierung war damit wertlos. Nur diese Einträge bekommen
+        die Schrift; ein deutscher Satz liest sich proportional besser.
+        """
+        eintrag = QListWidgetItem(text)
+        eintrag.setFont(QFont(self._code_schriftart))
+        self.meldungen_liste.addItem(eintrag)
+        self.panels.setCurrentWidget(self.meldungen_liste)
+        self._panel_hoehe_sichern(text.count(_UMBRUCH) + 1)
+
+    def _panel_hoehe_sichern(self, zeilen: int) -> None:
+        """Macht das Panel hoch genug für eine Meldung aus `zeilen`
+        Zeilen - aber höchstens bis zur Hälfte des Fensters.
+
+        Eine Katalogmeldung ist sechs Zeilen lang; das Panel steht
+        standardmäßig auf einer Höhe, in der davon zweieinhalb zu sehen
+        waren. Ausgerechnet der Teil „Was“ und „Prüfe“ stand unter der
+        Kante. Kleiner zieht es niemandem etwas zusammen: die Höhe wird
+        nur vergrößert, nie verkleinert.
+        """
+        benoetigt = zeilen * self.meldungen_liste.fontMetrics().lineSpacing() + _PANEL_RAHMEN
+        obergrenze = max(_PANEL_RAHMEN, self.height() // 2)
+        ziel = min(benoetigt, obergrenze)
+        if self.panels_dock.height() < ziel:
+            self.resizeDocks([self.panels_dock], [ziel], Qt.Orientation.Vertical)
 
     def _zu_wo_springen(self, wo: str) -> None:
         """Öffnet die Datei aus einer Fehlermeldungs-`wo`-Zeile

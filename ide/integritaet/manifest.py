@@ -42,6 +42,16 @@ FORMAT = "natter-manifest/1"
 #: bestimmungsgemäß ändern.
 AUSGENOMMENE_ORDNER = ("benutzer", "pakete-zusatz")
 
+#: Der Lösungsteil an der Meldung aus Abschnitt 17.8. Dass etwas nicht
+#: stimmt, sagt der feste Anfang; wer das an einem Schulrechner liest,
+#: weiß ohne diesen Satz nicht, ob er weiterarbeiten kann.
+WAS_ZU_TUN_IST = (
+    "Eigene Projekte sind davon nicht betroffen – sie liegen außerhalb "
+    "des Programmordners. Natter neu installieren und dabei den alten "
+    "Programmordner ersetzen; bleibt die Meldung, hilft die "
+    "Systembetreuung der Schule weiter."
+)
+
 
 class ManifestFehler(Exception):
     """Das Manifest fehlt, ist unlesbar oder hat ein fremdes Format."""
@@ -119,13 +129,19 @@ class PruefErgebnis:
     def als_meldung(self) -> str:
         """Die Meldung aus Abschnitt 17.8, wörtlich: „Natter wurde nach
         der Erstellung verändert: …“ mit der Liste der betroffenen
-        Dateien."""
+        Dateien – und dahinter, was zu tun ist.
+
+        Der feste Anfang steht so in Abschnitt 17.8 und bleibt. Allein
+        sagt er aber nur, dass etwas nicht stimmt; wer das an einem
+        Schulrechner liest, weiß ohne den Zusatz nicht, ob er
+        weiterarbeiten kann.
+        """
         if self.in_ordnung:
             return ""
         if not self.signatur_gueltig:
             return (
                 "Natter wurde nach der Erstellung verändert: die Signatur des "
-                "Prüfsummen-Manifests ist ungültig."
+                f"Prüfsummen-Manifests ist ungültig. {WAS_ZU_TUN_IST}"
             )
         teile = []
         for beschriftung, dateien in (
@@ -135,7 +151,11 @@ class PruefErgebnis:
         ):
             for datei in dateien:
                 teile.append(f"{datei} ({beschriftung})")
-        return "Natter wurde nach der Erstellung verändert: " + ", ".join(teile)
+        return (
+            "Natter wurde nach der Erstellung verändert: "
+            + ", ".join(teile)
+            + f". {WAS_ZU_TUN_IST}"
+        )
 
 
 def _oeffentlicher_schluessel(pem: str | None = None) -> Ed25519PublicKey:

@@ -23,7 +23,7 @@ def test_html_enthaelt_titel_und_zusammenfassung() -> None:
     html = ergebnisse_als_html(ergebnisse, titel="Meine Tests")
 
     assert "<title>Meine Tests</title>" in html
-    assert "1 von 2 Test(s) bestanden." in html
+    assert "1 von 2 Tests bestanden." in html
 
 
 def test_html_enthaelt_soll_ist_bei_fehlschlag() -> None:
@@ -54,5 +54,5 @@ def test_html_entkommt_sonderzeichen_in_der_nachricht() -> None:
 
 def test_leere_ergebnisliste_erzeugt_gueltiges_html() -> None:
     html = ergebnisse_als_html([])
-    assert "0 von 0 Test(s) bestanden." in html
+    assert "0 von 0 Tests bestanden." in html
     assert "<html" in html

@@ -27,6 +27,15 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
+#: Was sich anzeigen lässt - als Lösungsteil an jeder Meldung, die
+#: sagt, dass es gerade nicht geht. „Geht nicht“ allein lässt jemanden
+#: raten, welcher Wert denn dann gemeint war.
+GEEIGNETE_WERTE = (
+    "Als Tabelle anzeigen lassen sich eine Liste von Listen, eine Liste "
+    "von Dictionaries, ein Dictionary, das Ergebnis einer "
+    "Datenbankabfrage und ein DataFrame."
+)
+
 #: Voreinstellung: so viele Zeilen werden höchstens übertragen. Ein
 #: Datensatz mit 100 000 Zeilen soll die IDE nicht blockieren.
 MAX_ZEILEN = 200
@@ -148,7 +157,8 @@ def tabelle_aus_wert(
     ergebnis = _KONVERTER_RAUM["natter_tabelle"](wert, max_zeilen, max_zellentext)
     if ergebnis is None:
         raise TabellenFehler(
-            f"Ein Wert vom Typ {type(wert).__name__} lässt sich nicht als Tabelle anzeigen."
+            f"Ein Wert vom Typ {type(wert).__name__} lässt sich nicht als "
+            f"Tabelle anzeigen. {GEEIGNETE_WERTE}"
         )
     return _tabelle_aus_dict(ergebnis)
 
@@ -193,11 +203,23 @@ def tabelle_aus_antwort(antwort: str) -> Tabelle:
 
         text = ast.literal_eval(text)
     if text == "null":
-        raise TabellenFehler("Dieser Wert lässt sich nicht als Tabelle anzeigen.")
+        raise TabellenFehler(
+            f"Dieser Wert lässt sich nicht als Tabelle anzeigen. {GEEIGNETE_WERTE}"
+        )
     try:
         ergebnis = json.loads(text)
     except json.JSONDecodeError as fehler:
-        raise TabellenFehler(f"Unerwartete Antwort des Debuggers: {antwort}") from fehler
+        # Der rohe Antworttext bleibt stehen - er ist das Einzige, was
+        # hier weiterhilft, wenn es doch einmal passiert. Davor steht
+        # jetzt, was zu tun ist.
+        raise TabellenFehler(
+            "Der Debugger hat auf diese Anfrage anders geantwortet als "
+            "erwartet. Das Programm über „Start → Stopp“ beenden und noch "
+            "einmal mit dem Debugger starten. Antwort des Debuggers: "
+            f"{antwort}"
+        ) from fehler
     if ergebnis is None:
-        raise TabellenFehler("Dieser Wert lässt sich nicht als Tabelle anzeigen.")
+        raise TabellenFehler(
+            f"Dieser Wert lässt sich nicht als Tabelle anzeigen. {GEEIGNETE_WERTE}"
+        )
     return _tabelle_aus_dict(ergebnis)

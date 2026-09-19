@@ -143,7 +143,7 @@ def test_null_antwort_meldet_dass_es_keine_tabelle_gibt() -> None:
 
 
 def test_unverstaendliche_antwort_meldet_einen_fehler() -> None:
-    with pytest.raises(TabellenFehler, match="Unerwartete Antwort"):
+    with pytest.raises(TabellenFehler, match="anders geantwortet als erwartet"):
         tabelle_aus_antwort("NameError: name 'daten' is not defined")
 
 

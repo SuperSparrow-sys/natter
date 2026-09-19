@@ -87,7 +87,9 @@ def test_ampel_breakpoint_in_ereignis_handler_haelt_an_und_zeigt_self(
     qtbot.waitUntil(lambda: fenster._aktueller_thread_id is not None, timeout=DEBUG_ZEITGRENZE)
 
     try:
-        assert "Angehalten (breakpoint)" in fenster.statusBar().currentMessage()
+        # Der Grund steht auf Deutsch da (M11, Abschnitt 4); das DAP
+        # liefert ihn als „breakpoint“.
+        assert "Angehalten: an einem Haltepunkt" in fenster.statusBar().currentMessage()
         qtbot.waitUntil(
         lambda: fenster.variablen_baum.topLevelItemCount() > 0,
         timeout=DEBUG_ZEITGRENZE,

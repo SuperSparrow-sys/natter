@@ -18,6 +18,9 @@ def ergebnisse_als_html(ergebnisse: list[Testergebnis], *, titel: str = "Testpro
     """Baut ein eigenständiges HTML-Dokument (kein externes CSS/JS) aus
     `ergebnisse`, inklusive Soll/Ist bei fehlgeschlagenen Tests."""
     bestanden = sum(1 for e in ergebnisse if e.status == "bestanden")
+    # Keine Klammerform: „1 Test(s)“ liest sich in keiner der beiden
+    # Zahlformen richtig, und das Protokoll geht an die Lehrkraft.
+    anzahl = f"{len(ergebnisse)} {'Test' if len(ergebnisse) == 1 else 'Tests'}"
     zeilen = "\n".join(_zeile(e) for e in ergebnisse)
 
     return f"""\
@@ -35,7 +38,7 @@ def ergebnisse_als_html(ergebnisse: list[Testergebnis], *, titel: str = "Testpro
 </head>
 <body>
 <h1>{escape(titel)}</h1>
-<p>{bestanden} von {len(ergebnisse)} Test(s) bestanden.</p>
+<p>{bestanden} von {anzahl} bestanden.</p>
 <table>
 <tr><th>Test</th><th>Status</th><th>Dauer (s)</th><th>Soll</th><th>Ist</th><th>Meldung</th></tr>
 {zeilen}
