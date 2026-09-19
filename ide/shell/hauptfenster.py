@@ -84,6 +84,7 @@ from ide.pruefungsmodus import laeuft as pruefungsmodus_laeuft
 from ide.pruefungsmodus import restzeit_text
 from ide.pruefungsmodus import starten as pruefungsmodus_starten
 from ide.run import projekt_pruefen, projekt_starten
+from ide.run.pruefung import RuffFund
 from ide.shell.explorer import PFAD_ROLLE, ProjektExplorer
 from ide.shell.quelltexteditor import SCHRIFTART_OPTIONEN, QuelltextEditor
 from ide.shell.schnellauswahl import SchnellAuswahl
@@ -126,6 +127,9 @@ _STATUS_FARBE = {
 # Editor-Tabs trägt (nicht zu verwechseln mit PFAD_ROLLE, das ist die
 # Qt.ItemDataRole für Explorer-Einträge).
 _PFAD_EIGENSCHAFT = "pfad"
+
+#: Zeilenumbruch fuer mehrzeilige Tooltips.
+_UMBRUCH = chr(10)
 
 # Qt.ItemDataRole für Einträge in meldungen_liste: trägt (canvas,
 # komponenten_name) für Design-Prüfer-Befunde, damit ein Klick die
@@ -276,6 +280,9 @@ class HauptFenster(QMainWindow):
         self._design_pruefer_abgeschaltete_regeln: set[str] = set()
 
         self.panels = QTabWidget()
+        #: Funde der letzten Vorstart-Prüfung, damit ein später
+        #: geöffneter Tab seine Wellenlinien auch bekommt (M11, 2.3).
+        self._letzte_funde: list[RuffFund] = []
         self.meldungen_liste = QListWidget()
         self.meldungen_liste.itemClicked.connect(self._bei_meldung_geklickt)
         self.variablen_baum = QTreeWidget()
@@ -347,6 +354,21 @@ class HauptFenster(QMainWindow):
         self.vervollstaendigung_aktion.toggled.connect(
             self._vervollstaendigung_umschalten
         )
+
+        # „Ansicht → Zeilenumbruch“ (M11, Abschnitt 2.3). Aus, wie in
+        # Lazarus: in Python trägt die Einrückung Bedeutung, und eine
+        # umgebrochene Zeile sieht aus wie zwei. Wer eine lange Zeile
+        # ganz sehen will, schaltet ihn dazu.
+        self.zeilenumbruch_aktion = self._menues["Ansicht"].addAction(
+            "Zeilenumbruch"
+        )
+        self.zeilenumbruch_aktion.setCheckable(True)
+        self.zeilenumbruch_aktion.setChecked(
+            self._design_einstellungen.value(
+                "editor/zeilenumbruch", False, type=bool
+            )
+        )
+        self.zeilenumbruch_aktion.toggled.connect(self._zeilenumbruch_umschalten)
 
         # „Ansicht → Design“ (Nutzer-Feedback, September 2026: „Hast du
         # den Darkmode schon implementiert?“) – Hell/Dunkel/System,
@@ -1194,8 +1216,12 @@ class HauptFenster(QMainWindow):
         editor.vervollstaendigung_setzen(
             self.vervollstaendigung_aktion.isChecked()
         )
+        editor.zeilenumbruch_setzen(self.zeilenumbruch_aktion.isChecked())
         editor.setPlainText(pfad.read_text(encoding="utf-8"))
         editor.setProperty(_PFAD_EIGENSCHAFT, str(pfad))
+        # Ein Tab, der nach der Prüfung aufgeht, zeigt seine Funde
+        # trotzdem - sonst müsste man erst neu starten, um sie zu sehen.
+        editor.funde_setzen(self._funde_der_datei(str(pfad)))
         editor.document().modificationChanged.connect(
             lambda geaendert, editor=editor: self._aenderung_markieren(editor, geaendert)
         )
@@ -1371,6 +1397,52 @@ class HauptFenster(QMainWindow):
             editor = self.editor_tabs.widget(index)
             if isinstance(editor, QuelltextEditor):
                 editor.einzugslinien_setzen(sichtbar)
+
+    def _zeilenumbruch_umschalten(self, an: bool) -> None:
+        """Schaltet den Zeilenumbruch in allen offenen Editor-Tabs und
+        merkt sich die Wahl für den nächsten Start."""
+        self._design_einstellungen.setValue("editor/zeilenumbruch", an)
+        for index in range(self.editor_tabs.count()):
+            editor = self.editor_tabs.widget(index)
+            if isinstance(editor, QuelltextEditor):
+                editor.zeilenumbruch_setzen(an)
+
+    def _funde_in_editoren_zeigen(self, funde: list[RuffFund]) -> None:
+        """Unterringelt die Funde der Vorstart-Prüfung **dort, wo sie
+        stehen** – im Quelltext, mit der Meldung im Tooltip.
+
+        Bis jetzt stand ein Fund nur in der Liste unter dem Editor. Wer
+        gerade erst anfängt, schaut aber nicht nach unten, sondern auf
+        die Zeile, die er eben getippt hat. Die Liste bleibt trotzdem:
+        sie zeigt auch Funde aus Dateien, die gar nicht offen sind.
+
+        Eine leere Liste räumt die Wellenlinien wieder ab – sonst stünde
+        nach dem Beheben immer noch der alte Fehler im Text.
+        """
+        self._letzte_funde = list(funde)
+        for index in range(self.editor_tabs.count()):
+            editor = self.editor_tabs.widget(index)
+            if isinstance(editor, QuelltextEditor):
+                editor.funde_setzen(
+                    self._funde_der_datei(editor.property(_PFAD_EIGENSCHAFT))
+                )
+
+    def _funde_der_datei(self, pfad: str | None) -> dict[int, str]:
+        """Die Funde einer Datei, nach Zeile geordnet. Zwei Funde in
+        derselben Zeile stehen untereinander, statt dass der zweite den
+        ersten verdeckt."""
+        zeilen: dict[int, list[str]] = {}
+        for fund in self._letzte_funde:
+            if pfad and str(fund.datei) == str(pfad):
+                # Ohne Dateinamen: welche Datei es ist, sieht man am
+                # Reiter, und im Tooltip wäre es nur eine Zeile mehr.
+                text = fund.was
+                if fund.pruefe:
+                    text = f"{text} {fund.pruefe}"
+                zeilen.setdefault(fund.zeile, []).append(text)
+        return {
+            zeile: _UMBRUCH.join(texte) for zeile, texte in zeilen.items()
+        }
 
     def _pruefungsmodus_aktion(self) -> bool:
         """„Werkzeuge → Prüfungsmodus starten …“ (M11, Abschnitt 6).
@@ -2037,6 +2109,7 @@ class HauptFenster(QMainWindow):
 
         funde = projekt_pruefen(self.projekt)
         self.meldungen_liste.clear()
+        self._funde_in_editoren_zeigen(funde)
         if funde:
             self.meldungen_liste.addItems([str(fund) for fund in funde])
             self.panels.setCurrentWidget(self.meldungen_liste)
@@ -2083,6 +2156,7 @@ class HauptFenster(QMainWindow):
 
         funde = projekt_pruefen(self.projekt)
         self.meldungen_liste.clear()
+        self._funde_in_editoren_zeigen(funde)
         if funde:
             self.meldungen_liste.addItems([str(fund) for fund in funde])
             self.panels.setCurrentWidget(self.meldungen_liste)

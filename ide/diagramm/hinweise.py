@@ -123,8 +123,7 @@ def ueberlappende_formen(daten: dict[str, Any]) -> list[Hinweis]:
                 hinweise.append(
                     _hinweis(
                         "ueberlappung",
-                        f"„{_beschriftung(erste)}“ und „{_beschriftung(zweite)}“ "
-                        f"überlappen sich.",
+                        f"„{_beschriftung(erste)}“ und „{_beschriftung(zweite)}“ überlappen sich.",
                         (erste["id"], zweite["id"]),
                         "Eine der beiden zur Seite ziehen oder das Diagramm neu "
                         "anordnen lassen - im Ausdruck ist sonst eine von beiden "
@@ -145,8 +144,7 @@ def abgeschnittener_text(daten: dict[str, Any]) -> list[Hinweis]:
             hinweise.append(
                 _hinweis(
                     "abgeschnittener_text",
-                    f"„{_beschriftung(form)}“ ist zu schmal, der Text wird "
-                    f"abgeschnitten.",
+                    f"„{_beschriftung(form)}“ ist zu schmal, der Text wird abgeschnitten.",
                     (form["id"],),
                     "Die Form am rechten Anfasser breiter ziehen oder die "
                     "Beschriftung kürzer fassen.",

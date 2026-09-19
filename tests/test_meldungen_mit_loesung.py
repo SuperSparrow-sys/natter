@@ -425,3 +425,31 @@ def test_keine_klammerform_in_sichtbaren_texten() -> None:
                 funde.append(f"{pfad.relative_to(WURZEL)}: …{treffer}… in {text!r}")
 
     assert not funde, "Klammerform statt Ein-/Mehrzahl:\n" + "\n".join(funde)
+
+
+def test_deutsche_pcl_meldung_wird_ueber_dap_nicht_als_englisch_behandelt() -> None:
+    """Über DAP kommt nur Text an, kein Exception-Objekt. Ohne die
+    mitgereichte Klasse hielte der Katalog eine bereits deutsche
+    `pcl`-Meldung für eine englische Standardmeldung und stellte ihr
+    den Rückfalltext samt Zitatklammer voran."""
+    from ide.debugger.fehlerkatalog import fehlermeldung_aus_dap_erzeugen
+
+    # `NatterDatenError` erbt von `ValueError` und landet damit im
+    # Eintrag, der sonst übersetzt - genau der Fall, in dem die Herkunft
+    # der Meldung zählt.
+    text = "Die Spalte „Preis“ in der Datei enthält nicht nur Zahlen."
+    meldung = fehlermeldung_aus_dap_erzeugen(
+        {
+            "exceptionId": "pcl.errors.NatterDatenError",
+            "description": text,
+            "details": {
+                "message": text,
+                "stackTrace": '  File "u_main.py", line 12, in b_ok_click\n    x = 1\n',
+            },
+        }
+    )
+
+    assert meldung is not None
+    assert meldung.was == text
+    assert ORIGINALMELDUNG_PRAEFIX not in meldung.was
+    assert meldung.pruefe.strip()

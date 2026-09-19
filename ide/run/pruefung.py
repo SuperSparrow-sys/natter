@@ -14,14 +14,58 @@ Ruff immer gemeldet, auch außerhalb der ausgewählten Regeln.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 from ide.project import Projekt
+from ide.pruefungsmodus import laeuft as pruefungsmodus_laeuft
 
 _AUSGEWAEHLTE_REGELN = "E9,F821,F401,F841"
+
+
+#: Der erste in Rückstrichen eingefasste Name einer Ruff-Meldung -
+#: also `zaehler` in "Undefined name `zaehler`".
+_NAME_MUSTER = re.compile(r"`([^`]+)`")
+
+#: Deutsche Fassung der vier Regelfamilien, die Natter vor dem Start
+#: prüft: was los ist, und was man dagegen tun kann.
+#:
+#: Ruff schreibt englisch ("Local variable `x` is assigned to but never
+#: used"). Für eine Zehntklässlerin im ersten Python-Jahr ist das eine
+#: zweite Hürde vor der eigentlichen: dem Fehler. Die Meldung steht
+#: deshalb auf Deutsch da, im selben Aufbau wie im Fehlerkatalog -
+#: erst *was*, dann *prüfe*.
+_UEBERSETZUNGEN: dict[str, tuple[str, str]] = {
+    "F821": (
+        "Der Name {name} ist an dieser Stelle nicht bekannt.",
+        "Ist er richtig geschrieben? Wurde er vorher zugewiesen oder "
+        "importiert?",
+    ),
+    "F401": (
+        "{name} wird importiert, aber nirgends benutzt.",
+        "Entweder die import-Zeile löschen - oder den Namen dort "
+        "benutzen, wo er gebraucht wird.",
+    ),
+    "F841": (
+        "Die Variable {name} bekommt einen Wert, der nie gelesen wird.",
+        "Steht der Name weiter unten falsch geschrieben? Sonst kann die "
+        "Zuweisung weg.",
+    ),
+    "invalid-syntax": (
+        "Python versteht diese Zeile nicht.",
+        "Fehlt am Zeilenende ein Doppelpunkt, eine schließende Klammer "
+        "oder ein Anführungszeichen?",
+    ),
+}
+
+#: Wenn Ruff eine Regel meldet, für die hier nichts steht.
+_UNBEKANNT = (
+    "{meldung}",
+    "Die Meldung stammt unübersetzt aus der Prüfung vor dem Start.",
+)
 
 
 @dataclass(frozen=True)
@@ -32,8 +76,38 @@ class RuffFund:
     code: str
     meldung: str
 
+    @property
+    def name(self) -> str:
+        """Der Name, um den es geht - oder leer."""
+        treffer = _NAME_MUSTER.search(self.meldung)
+        return treffer.group(1) if treffer else ""
+
+    @property
+    def was(self) -> str:
+        """Was los ist, auf Deutsch."""
+        vorlage = _UEBERSETZUNGEN.get(self.code, _UNBEKANNT)[0]
+        return vorlage.format(name=self.name, meldung=self.meldung)
+
+    @property
+    def pruefe(self) -> str:
+        """Was man dagegen tun kann - leer im Prüfungsmodus.
+
+        Genau dieser Teil hilft weiter, und genau deshalb gehört er in
+        einer Leistungssituation nicht dazu. *Was* falsch ist, steht
+        auch dann noch da.
+        """
+        if pruefungsmodus_laeuft():
+            return ""
+        return _UEBERSETZUNGEN.get(self.code, _UNBEKANNT)[1]
+
     def __str__(self) -> str:
-        return f"{self.datei.name}:{self.zeile}:{self.spalte}: {self.code} {self.meldung}"
+        """Eine Zeile für das Panel „Meldungen“ und für den Tooltip im
+        Quelltext."""
+        teile = [f"{self.datei.name}, Zeile {self.zeile}: {self.was}"]
+        if self.pruefe:
+            teile.append(self.pruefe)
+        teile.append(f"[{self.code}]")
+        return " ".join(teile)
 
 
 def projekt_pruefen(projekt: Projekt) -> list[RuffFund]:

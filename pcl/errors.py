@@ -1,7 +1,15 @@
 """Ausnahmen der pcl-Laufzeit.
 
 Namen und Bedeutung entsprechen docs/fehlerkatalog.yaml (Einträge
-`pcl_property_error`, `attribute_error`).
+`pcl_property_error`, `attribute_error`, `natter_datenbank_error`).
+
+**Der Text jeder dieser Ausnahmen erscheint unverändert im „Was“ der
+Fehlermeldung** (`ide/debugger/fehlerkatalog.py`). Er ist deutsch und
+soll es bleiben: der Katalog übersetzt nur die englischen
+Standardmeldungen von Python und erkennt eine `pcl`-Meldung an ihrer
+Herkunft. Die Leitfrage („Prüfe“) kommt dagegen aus dem Katalog – hier
+gehört keine hin, weil eine Ausnahme nichts darüber weiß, in welchem
+Zusammenhang sie ausgelöst wurde.
 """
 
 
@@ -19,7 +27,14 @@ class NatterDatenbankError(RuntimeError):
     """Eine Datenbankverbindung oder SQL-Anweisung ist fehlgeschlagen
     (Abschnitt 8.5: „Datenbankverbindung, SQL-Fehler“). Ersetzt die rohe
     Treiberausnahme (z. B. ``sqlite3.OperationalError``), damit Schüler
-    nicht die Treiberbibliothek kennen müssen."""
+    nicht die Treiberbibliothek kennen müssen.
+
+    Basis ist `RuntimeError`, und für den gibt es bewusst keinen
+    Katalogeintrag. Diese Klasse steht deshalb seit M11 selbst im
+    Katalog – sonst lief die MRO-Suche ins Leere und das
+    Schülerprogramm zeigte einen rohen Traceback statt einer Meldung.
+    Der eingebettete Treibertext bleibt englisch („no such table: …“);
+    der Katalog deutscht die gängigen Fälle beim Anzeigen ein."""
 
 
 class NatterDatenError(ValueError):
@@ -30,8 +45,8 @@ class NatterDatenError(ValueError):
     Basis `ValueError`, damit die MRO-Suche in
     `ide/debugger/fehlerkatalog.py` einen Eintrag findet und die deutsche
     Meldung unverändert als „Was“ ausgibt, statt einen rohen Traceback zu
-    zeigen. Ein eigener Katalogeintrag wäre genauer, liegt aber in
-    `ide/`/`docs/` und damit außerhalb dieses Arbeitspakets."""
+    zeigen. Ein eigener Katalogeintrag wäre genauer; bis dahin liefert
+    der `ValueError`-Eintrag die Leitfrage."""
 
 
 class NatterDatenDateiError(FileNotFoundError, NatterDatenError):

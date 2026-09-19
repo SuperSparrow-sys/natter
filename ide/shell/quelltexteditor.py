@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from PySide6.QtCore import QRect, QSize, Qt, Signal
+from PySide6.QtCore import QEvent, QRect, QSize, Qt, Signal
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -25,6 +25,8 @@ from PySide6.QtGui import (
     QPainter,
     QPaintEvent,
     QResizeEvent,
+    QTextCharFormat,
+    QTextCursor,
     QTextFormat,
 )
 from PySide6.QtWidgets import (
@@ -73,6 +75,19 @@ _BREAKPOINT_FARBE = QColor("#c0392b")
 _PFAD_EIGENSCHAFT = "pfad"
 #: Das Wort, das gerade getippt wird.
 _WORT_MUSTER = re.compile(r"[A-Za-z_]\w*$")
+
+#: Was beim Tippen selbst geschlossen wird (M11, 2.3).
+_KLAMMER_PAARE = {"(": ")", "[": "]", "{": "}", '"': '"', "'": "'"}
+_KLAMMER_ZU = set(_KLAMMER_PAARE.values())
+
+#: Grenzen der Schriftgröße für Strg+Mausrad. Wer sich auf 2 pt
+#: herunterdreht, findet den Weg zurück nicht mehr.
+_MIN_SCHRIFT = 7
+_MAX_SCHRIFT = 32
+
+#: Farbe der Wellenlinie unter einem Fund (M11, 2.3). Dieselbe wie im
+#: Design-Prüfer der Formulare: ein Hinweis, kein Fehler.
+_FUND_FARBE = "#d97706"
 
 _EINZUG = "    "
 _EINZUG_MUSTER = re.compile(r"[ \t]*")
@@ -147,6 +162,18 @@ class QuelltextEditor(QPlainTextEdit):
 
         #: Senkrechte Hilfslinien je Einrückungsebene (M11, 2.1)
         self.einzugslinien_sichtbar = True
+
+        # Kein Zeilenumbruch, wie in Lazarus (M11, Abschnitt 2.3). Qt
+        # bricht von sich aus um; in Python trägt die Einrückung aber
+        # Bedeutung, und eine umgebrochene Zeile sieht aus wie zwei -
+        # mitsamt einer Einrückung, die gar nicht im Text steht.
+        # Über „Ansicht → Zeilenumbruch“ schaltbar.
+        self.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
+
+        #: Funde aus ruff und dem Fehlerkatalog (M11, 2.3)
+        self._funde: dict[int, str] = {}
+        self._fundmarkierungen: list[QTextEdit.ExtraSelection] = []
+        self._zeilenmarkierung: list[QTextEdit.ExtraSelection] = []
 
         #: Vervollständigung (M11, 2.2)
         self.vervollstaendigung_an = True
@@ -257,6 +284,17 @@ class QuelltextEditor(QPlainTextEdit):
             self.textCursor().insertText(_EINZUG)
             return
         if event.key() == Qt.Key.Key_Backspace and self._einzugsebene_loeschen():
+            return
+
+        strg = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
+        alt = bool(event.modifiers() & Qt.KeyboardModifier.AltModifier)
+        if strg and event.key() == Qt.Key.Key_D:
+            self.zeile_duplizieren()
+            return
+        if alt and event.key() in (Qt.Key.Key_Up, Qt.Key.Key_Down):
+            self.zeile_verschieben(event.key() == Qt.Key.Key_Down)
+            return
+        if not event.modifiers() and self._klammer_schliessen(event):
             return
         super().keyPressEvent(event)
         self._nach_der_eingabe(event)
@@ -535,6 +573,184 @@ class QuelltextEditor(QPlainTextEdit):
             QToolTip.hideText()
         return text
 
+    # -- Funde direkt im Quelltext (M11, Abschnitt 2.3) ------------------
+
+    def funde_setzen(self, funde: dict[int, str]) -> int:
+        """Unterringelt die genannten Zeilen (ab 1) und legt die
+        deutsche Meldung als Tooltip darunter.
+
+        Bis jetzt stand ein Fund **nur** in der Meldungsliste unter dem
+        Editor. Wer ihn dort nicht anklickt, sieht nichts – und gerade
+        wer gerade erst anfängt, schaut nicht nach unten, sondern auf
+        die Zeile, die er eben getippt hat.
+        """
+        self._funde = dict(funde)
+        self._funde_anwenden()
+        return len(self._funde)
+
+    def funde_loeschen(self) -> None:
+        self.funde_setzen({})
+
+    def fund_bei(self, zeile: int) -> str:
+        """Die Meldung zu einer Zeile (ab 1), oder leer."""
+        return self._funde.get(zeile, "")
+
+    def _funde_anwenden(self) -> None:
+        """Malt die Wellenlinien. Zusammen mit der Hervorhebung der
+        aktuellen Zeile, weil Qt beide über dieselbe Liste führt – sie
+        getrennt zu setzen löschte jeweils die andere."""
+        dokument = self.document()
+        markierungen: list[QTextEdit.ExtraSelection] = []
+        for zeile in sorted(self._funde):
+            block = dokument.findBlockByNumber(zeile - 1)
+            if not block.isValid():
+                continue
+            auswahl = QTextEdit.ExtraSelection()
+            auswahl.format.setUnderlineColor(QColor(_FUND_FARBE))
+            auswahl.format.setUnderlineStyle(
+                QTextCharFormat.UnderlineStyle.WaveUnderline
+            )
+            auswahl.format.setToolTip(self._funde[zeile])
+            cursor = QTextCursor(block)
+            # Erst ab dem ersten sichtbaren Zeichen: eine Wellenlinie
+            # unter der Einrückung sieht aus, als wäre die Einrückung
+            # das Problem - und genau da sucht ein Anfänger dann.
+            text = block.text()
+            cursor.setPosition(block.position() + len(text) - len(text.lstrip()))
+            cursor.movePosition(
+                QTextCursor.MoveOperation.EndOfBlock,
+                QTextCursor.MoveMode.KeepAnchor,
+            )
+            if not cursor.hasSelection():
+                # Leerzeile: nichts zu unterringeln, der Tooltip bleibt
+                continue
+            auswahl.cursor = cursor
+            markierungen.append(auswahl)
+        self._fundmarkierungen = markierungen
+        self._markierungen_setzen()
+
+    def _markierungen_setzen(self) -> None:
+        self.setExtraSelections(
+            [*self._fundmarkierungen, *self._zeilenmarkierung]
+        )
+
+    def event(self, ereignis) -> bool:
+        """Tooltip über einer unterringelten Zeile – die deutsche
+        Meldung dort, wo der Fehler steht."""
+        if ereignis.type() == QEvent.Type.ToolTip and self._funde:
+            punkt = ereignis.pos()
+            zeile = self.cursorForPosition(punkt).blockNumber() + 1
+            meldung = self._funde.get(zeile, "")
+            if meldung:
+                QToolTip.showText(ereignis.globalPos(), meldung, self)
+            else:
+                QToolTip.hideText()
+            return True
+        return super().event(ereignis)
+
+    # -- Weitere Hilfen im Editor (M11, Abschnitt 2.3) -------------------
+
+    def _klammer_schliessen(self, event: QKeyEvent) -> bool:
+        """Schließt Klammern und Anführungszeichen selbst.
+
+        Zwei Regeln, die sich im Unterricht bewähren und nicht im Weg
+        stehen:
+
+        * Ist gerade Text markiert, wird er **umschlossen** statt
+          ersetzt – wer `name` markiert und `"` tippt, will
+          `"name"`, nicht den Text weg
+        * Ein schließendes Zeichen, das ohnehin schon dasteht, wird
+          **übersprungen** statt verdoppelt. Sonst entstünde bei jedem
+          getippten `)` ein `))`, und das ist der Fehler, den man am
+          Bildschirm am schlechtesten sieht
+        """
+        zeichen = event.text()
+        cursor = self.textCursor()
+
+        if zeichen in _KLAMMER_PAARE:
+            partner = _KLAMMER_PAARE[zeichen]
+            if cursor.hasSelection():
+                text = cursor.selectedText()
+                cursor.insertText(f"{zeichen}{text}{partner}")
+                self.setTextCursor(cursor)
+                return True
+            cursor.insertText(zeichen + partner)
+            cursor.movePosition(cursor.MoveOperation.Left)
+            self.setTextCursor(cursor)
+            return True
+
+        if zeichen and zeichen in _KLAMMER_ZU and not cursor.hasSelection():
+            rechts = cursor.block().text()[cursor.positionInBlock() :]
+            if rechts.startswith(zeichen):
+                cursor.movePosition(cursor.MoveOperation.Right)
+                self.setTextCursor(cursor)
+                return True
+        return False
+
+    def zeile_duplizieren(self) -> None:
+        """Strg+D: die aktuelle Zeile noch einmal darunter."""
+        cursor = self.textCursor()
+        text = cursor.block().text()
+        cursor.movePosition(cursor.MoveOperation.EndOfBlock)
+        cursor.insertText("\n" + text)
+        self.setTextCursor(cursor)
+
+    def zeile_verschieben(self, nach_unten: bool) -> bool:
+        """Alt+Pfeil: die aktuelle Zeile eine Position nach oben oder
+        unten. Liefert `False`, wenn es dort nicht weitergeht."""
+        dokument = self.document()
+        cursor = self.textCursor()
+        nummer = cursor.blockNumber()
+        ziel = nummer + (1 if nach_unten else -1)
+        if not 0 <= ziel < dokument.blockCount():
+            return False
+
+        spalte = cursor.positionInBlock()
+        zeilen = self.toPlainText().split("\n")
+        zeilen[nummer], zeilen[ziel] = zeilen[ziel], zeilen[nummer]
+
+        # In einem Rutsch, damit ein einziges Strg+Z es zurücknimmt -
+        # sonst wären es drei Schritte, und man müsste dreimal drücken.
+        cursor.beginEditBlock()
+        cursor.select(cursor.SelectionType.Document)
+        cursor.insertText("\n".join(zeilen))
+        cursor.endEditBlock()
+
+        neu = self.textCursor()
+        neu.setPosition(dokument.findBlockByNumber(ziel).position() + spalte)
+        self.setTextCursor(neu)
+        return True
+
+    def zeilenumbruch_setzen(self, an: bool) -> None:
+        """„Ansicht → Zeilenumbruch“: lange Zeilen umbrechen statt
+        waagerecht zu rollen."""
+        self.setLineWrapMode(
+            QPlainTextEdit.LineWrapMode.WidgetWidth
+            if an
+            else QPlainTextEdit.LineWrapMode.NoWrap
+        )
+
+    def schriftgroesse_aendern(self, schritte: int) -> int:
+        """Strg+Mausrad: größer oder kleiner. Begrenzt, damit sich
+        niemand aus Versehen auf 2 pt herunterdreht und den Weg zurück
+        nicht mehr findet."""
+        schrift = self.font()
+        neu = max(_MIN_SCHRIFT, min(_MAX_SCHRIFT, schrift.pointSize() + schritte))
+        if neu == schrift.pointSize():
+            return neu
+        schrift.setPointSize(neu)
+        self.setFont(schrift)
+        self._breite_aktualisieren()
+        self.viewport().update()
+        return neu
+
+    def wheelEvent(self, event) -> None:
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            self.schriftgroesse_aendern(1 if event.angleDelta().y() > 0 else -1)
+            event.accept()
+            return
+        super().wheelEvent(event)
+
     def _zeilennummern_zeichnen(self, event: QPaintEvent) -> None:
         maler = QPainter(self._rand)
         maler.fillRect(event.rect(), QColor(self._rand_farben["hintergrund"]))
@@ -574,6 +790,10 @@ class QuelltextEditor(QPlainTextEdit):
                 return
 
     def _aktuelle_zeile_hervorheben(self) -> None:
+        """Qt führt Zeilenhervorhebung und Wellenlinien über **eine**
+        Liste. Sie getrennt zu setzen löschte jeweils die andere: die
+        Unterringelungen verschwanden beim ersten Cursorwechsel wieder.
+        Beide gehen deshalb über `_markierungen_setzen`."""
         auswahlen: list[QTextEdit.ExtraSelection] = []
         if not self.isReadOnly():
             auswahl = QTextEdit.ExtraSelection()
@@ -582,4 +802,5 @@ class QuelltextEditor(QPlainTextEdit):
             auswahl.cursor = self.textCursor()
             auswahl.cursor.clearSelection()
             auswahlen.append(auswahl)
-        self.setExtraSelections(auswahlen)
+        self._zeilenmarkierung = auswahlen
+        self._markierungen_setzen()

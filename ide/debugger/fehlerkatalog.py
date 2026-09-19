@@ -236,8 +236,7 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
     ),
     _m(
         r"^list assignment index out of range$",
-        "Es sollte auf einen Platz geschrieben werden, den es in der Liste noch "
-        "nicht gibt.",
+        "Es sollte auf einen Platz geschrieben werden, den es in der Liste noch nicht gibt.",
         "Wie lang ist die Liste zu diesem Zeitpunkt? Muss der Eintrag angehängt "
         "werden, statt einen vorhandenen zu überschreiben?",
     ),
@@ -258,8 +257,7 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
     _m(
         r"^can only concatenate (?P<typ_links>\w+) \(not \"(?P<typ_rechts>\w+)\"\) "
         r"to \w+$",
-        "An einen Text lässt sich nur wieder ein Text anhängen, hier kam aber "
-        "{typ_rechts} dazu.",
+        "An einen Text lässt sich nur wieder ein Text anhängen, hier kam aber {typ_rechts} dazu.",
         "Soll der Wert als Text erscheinen oder soll gerechnet werden?",
     ),
     _m(
@@ -279,8 +277,7 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
     _m(
         r"^'(?P<typ>.+?)' object is not iterable$",
         "Über {typ} lässt sich nicht Stück für Stück laufen.",
-        "Was soll die Schleife durchlaufen – eine Liste, einen Text oder einen "
-        "Zahlenbereich?",
+        "Was soll die Schleife durchlaufen – eine Liste, einen Text oder einen Zahlenbereich?",
     ),
     _m(
         r"^cannot unpack non-iterable (?P<typ>.+?) object$",
@@ -326,8 +323,7 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
     _m(
         r"^'(?P<typ>.+?)' object does not support item assignment$",
         "In {typ} lässt sich kein einzelner Platz überschreiben.",
-        "Texte und Tupel bleiben, wie sie sind – soll stattdessen ein neuer Wert "
-        "entstehen?",
+        "Texte und Tupel bleiben, wie sie sind – soll stattdessen ein neuer Wert entstehen?",
     ),
     _m(
         r"^(?P<typ>\w+) indices must be integers.*$",
@@ -339,15 +335,13 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
         r"^unhashable type: '(?P<typ>.+?)'$",
         "{gross_typ} kann nicht als Schlüssel eines Wörterbuchs oder als Eintrag "
         "einer Menge dienen.",
-        "Welcher Wert soll hier der Schlüssel sein? Schlüssel müssen "
-        "unveränderlich sein.",
+        "Welcher Wert soll hier der Schlüssel sein? Schlüssel müssen unveränderlich sein.",
     ),
     _m(
         r"^can't multiply sequence by non-int of type '(?P<typ>.+?)'$",
         "Ein Text oder eine Liste lässt sich nur mit einer ganzen Zahl "
         "vervielfachen, hier stand {typ} daneben.",
-        "Soll wirklich vervielfacht werden, oder sollten zwei Zahlen "
-        "multipliziert werden?",
+        "Soll wirklich vervielfacht werden, oder sollten zwei Zahlen multipliziert werden?",
     ),
     # -- ValueError --------------------------------------------------------
     _m(
@@ -372,15 +366,13 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
     ),
     _m(
         r"^too many values to unpack \(expected (?P<erwartet>\d+)\)$",
-        "Links vom Gleichheitszeichen stehen {erwartet} Namen, rechts kommen "
-        "mehr Werte an.",
+        "Links vom Gleichheitszeichen stehen {erwartet} Namen, rechts kommen mehr Werte an.",
         "Wie viele Werte liefert die rechte Seite an dieser Stelle wirklich?",
     ),
     _m(
         r"^list\.remove\(x\): x not in list$",
         "Der Wert, der entfernt werden sollte, kommt in der Liste nicht vor.",
-        "Steht der gesuchte Wert wirklich in der Liste – und in derselben "
-        "Schreibweise?",
+        "Steht der gesuchte Wert wirklich in der Liste – und in derselben Schreibweise?",
     ),
     _m(
         r"^substring not found$",
@@ -390,8 +382,7 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
     _m(
         r"^(?P<wert>.+) is not in list$",
         "{wert} kommt in der Liste nicht vor.",
-        "Steht der gesuchte Wert wirklich in der Liste – und in derselben "
-        "Schreibweise?",
+        "Steht der gesuchte Wert wirklich in der Liste – und in derselben Schreibweise?",
     ),
     _m(
         r"^math domain error$",
@@ -421,15 +412,13 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
     ),
     _m(
         r"^unterminated string literal.*$",
-        "Ein Text wurde geöffnet, aber in derselben Zeile nicht wieder "
-        "geschlossen.",
+        "Ein Text wurde geöffnet, aber in derselben Zeile nicht wieder geschlossen.",
         "Stehen am Anfang und am Ende des Textes dieselben Anführungszeichen?",
     ),
     _m(
         r"^unterminated triple-quoted string literal.*$",
         "Ein mehrzeiliger Text wurde geöffnet und nie wieder geschlossen.",
-        "Wo sollte der Text enden, und stehen dort dieselben drei "
-        "Anführungszeichen wie am Anfang?",
+        "Wo sollte der Text enden, und stehen dort dieselben drei Anführungszeichen wie am Anfang?",
     ),
     _m(
         r"^'(?P<klammer>.)' was never closed$",
@@ -450,8 +439,7 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
     ),
     _m(
         r"^cannot assign to .*$",
-        "Links vom Gleichheitszeichen steht etwas, dem sich kein Wert zuweisen "
-        "lässt.",
+        "Links vom Gleichheitszeichen steht etwas, dem sich kein Wert zuweisen lässt.",
         "Sollte hier ein Wert zugewiesen oder zwei Werte verglichen werden? "
         "Zuweisung und Vergleich sind in Python zwei verschiedene Zeichen.",
     ),
@@ -460,8 +448,7 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
         r"on line (?P<zeile>\d+)$",
         "Nach {einleitung} (Zeile {zeile}) muss der zugehörige Block eingerückt "
         "sein; hier steht nichts Eingerücktes.",
-        "Ist die Zeile darunter eingerückt? Python nutzt die Einrückung "
-        "anstelle von begin/end.",
+        "Ist die Zeile darunter eingerückt? Python nutzt die Einrückung anstelle von begin/end.",
     ),
     _m(
         r"^unexpected indent$",
@@ -478,20 +465,17 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
     _m(
         r"^expected an indented block$",
         "Hier fehlt der eingerückte Block.",
-        "Ist die Zeile darunter eingerückt? Python nutzt die Einrückung "
-        "anstelle von begin/end.",
+        "Ist die Zeile darunter eingerückt? Python nutzt die Einrückung anstelle von begin/end.",
     ),
     _m(
         r"^invalid decimal literal$",
         "Eine Zahl steht hier in einer Form, die Python nicht lesen kann.",
-        "Beginnt ein Name mit einer Ziffer? Steht in einer Zahl ein Komma statt "
-        "eines Punktes?",
+        "Beginnt ein Name mit einer Ziffer? Steht in einer Zahl ein Komma statt eines Punktes?",
     ),
     _m(
         r"^leading zeros in decimal integer literals are not permitted.*$",
         "Eine ganze Zahl darf nicht mit einer 0 beginnen.",
-        "Soll die führende Null nur der Darstellung dienen? Dann gehört die "
-        "Zahl in einen Text.",
+        "Soll die führende Null nur der Darstellung dienen? Dann gehört die Zahl in einen Text.",
     ),
     _m(
         r"^Missing parentheses in call to '(?P<funktion>\w+)'.*$",
@@ -502,36 +486,30 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
     # -- json.JSONDecodeError, eine Unterklasse von ValueError -------------
     _m(
         r"^Expecting value: line (?P<zeile>\d+) column (?P<spalte>\d+).*$",
-        "In Zeile {zeile}, Spalte {spalte} wurde ein Wert erwartet; dort steht "
-        "kein gültiges JSON.",
+        "In Zeile {zeile}, Spalte {spalte} wurde ein Wert erwartet; dort steht kein gültiges JSON.",
         "Ist die Datei wirklich im JSON-Format, und ist sie vollständig?",
     ),
     _m(
         r"^Expecting ',' delimiter: line (?P<zeile>\d+) column (?P<spalte>\d+).*$",
-        "In Zeile {zeile}, Spalte {spalte} fehlt ein Komma zwischen zwei "
-        "Einträgen.",
-        "Steht zwischen allen Einträgen ein Komma – und hinter dem letzten "
-        "keines?",
+        "In Zeile {zeile}, Spalte {spalte} fehlt ein Komma zwischen zwei Einträgen.",
+        "Steht zwischen allen Einträgen ein Komma – und hinter dem letzten keines?",
     ),
     _m(
         r"^Expecting property name enclosed in double quotes: "
         r"line (?P<zeile>\d+) column (?P<spalte>\d+).*$",
         "In Zeile {zeile}, Spalte {spalte} wurde ein Schlüsselname in doppelten "
         "Anführungszeichen erwartet.",
-        "Stehen alle Schlüssel in doppelten Anführungszeichen? JSON kennt keine "
-        "einfachen.",
+        "Stehen alle Schlüssel in doppelten Anführungszeichen? JSON kennt keine einfachen.",
     ),
     _m(
         r"^Unterminated string starting at: line (?P<zeile>\d+) "
         r"column (?P<spalte>\d+).*$",
-        "Der Text, der in Zeile {zeile}, Spalte {spalte} beginnt, wurde nie "
-        "geschlossen.",
+        "Der Text, der in Zeile {zeile}, Spalte {spalte} beginnt, wurde nie geschlossen.",
         "Steht am Ende des Textes wieder ein doppeltes Anführungszeichen?",
     ),
     _m(
         r"^Extra data: line (?P<zeile>\d+) column (?P<spalte>\d+).*$",
-        "Ab Zeile {zeile}, Spalte {spalte} steht noch etwas hinter dem Ende der "
-        "JSON-Daten.",
+        "Ab Zeile {zeile}, Spalte {spalte} steht noch etwas hinter dem Ende der JSON-Daten.",
         "Enthält die Datei mehr als ein JSON-Objekt hintereinander?",
     ),
     _m(
@@ -543,8 +521,7 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
     ),
     _m(
         r"^EOL while scanning string literal$",
-        "Ein Text wurde geöffnet, aber in derselben Zeile nicht wieder "
-        "geschlossen.",
+        "Ein Text wurde geöffnet, aber in derselben Zeile nicht wieder geschlossen.",
         "Stehen am Anfang und am Ende des Textes dieselben Anführungszeichen?",
     ),
 )
@@ -633,9 +610,7 @@ def _standardmeldung_uebersetzen(text: str) -> tuple[str, str] | None:
                 wert = _in_deutsche_anfuehrungszeichen(wert)
             werte[name] = wert
             werte[f"gross_{name}"] = _gross(wert)
-        return _FORMAT.vformat(eintrag.was, (), werte), _FORMAT.vformat(
-            eintrag.pruefe, (), werte
-        )
+        return _FORMAT.vformat(eintrag.was, (), werte), _FORMAT.vformat(eintrag.pruefe, (), werte)
     return None
 
 

@@ -245,8 +245,7 @@ def _kanten_pruefen(kinder: list[dict[str, Any]]) -> list[Befund]:
                         a["name"],
                         f"{a['name']} und {b['name']} sind fast, aber nicht genau "
                         f"linksbündig ({differenz}px Unterschied).",
-                        "Beiden denselben „left“-Wert geben, wenn sie bündig "
-                        "sein sollen.",
+                        "Beiden denselben „left“-Wert geben, wenn sie bündig sein sollen.",
                     )
                 )
     return befunde
@@ -378,8 +377,7 @@ def _bedienbarkeit_pruefen(pfm: dict[str, Any]) -> list[Befund]:
                     f"{kind['name']} ist mit {width}×{height}px kleiner als die "
                     f"empfohlene Mindestklickfläche ({_MINDEST_KLICKFLAECHE}×"
                     f"{_MINDEST_KLICKFLAECHE}px).",
-                    f"Auf mindestens {_MINDEST_KLICKFLAECHE}×"
-                    f"{_MINDEST_KLICKFLAECHE}px vergrößern.",
+                    f"Auf mindestens {_MINDEST_KLICKFLAECHE}×{_MINDEST_KLICKFLAECHE}px vergrößern.",
                 )
             )
 
@@ -435,8 +433,7 @@ def _tab_reihenfolge_pruefen(kinder: list[dict[str, Any]]) -> list[Befund]:
             "Bedienbarkeit",
             "hinweis",
             None,
-            "Die Komponenten stehen nicht in der Lesereihenfolge (oben links "
-            "nach unten rechts).",
+            "Die Komponenten stehen nicht in der Lesereihenfolge (oben links nach unten rechts).",
             "In dieser Reihenfolge anlegen - danach springt auch die "
             "Tabulatortaste richtig weiter.",
         )
@@ -485,8 +482,7 @@ def _namenskonvention_pruefen(pfm: dict[str, Any]) -> list[Befund]:
                     name,
                     f"{name}: Beschriftung {beschriftung!r} sieht wie ein unveränderter "
                     "Standardtext aus.",
-                    "Die Beschriftung auf den Text ändern, den man später lesen "
-                    "soll.",
+                    "Die Beschriftung auf den Text ändern, den man später lesen soll.",
                 )
             )
     return befunde
