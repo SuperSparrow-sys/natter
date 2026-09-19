@@ -1253,9 +1253,35 @@ class HauptFenster(QMainWindow):
     def closeEvent(self, event: QCloseEvent) -> None:
         """Merkt sich Größe/Sichtbarkeit aller Docks für den nächsten
         Start (Nutzer-Feedback September 2026: ein geschlossenes Dock
-        wie „Datenbank“ soll auch beim nächsten Mal zu bleiben)."""
+        wie „Datenbank“ soll auch beim nächsten Mal zu bleiben) – und
+        beendet ein noch laufendes Schülerprogramm."""
         self._design_einstellungen.setValue("fenster/layout", self.saveState())
+        self.kindprozesse_beenden()
         super().closeEvent(event)
+
+    def kindprozesse_beenden(self) -> int:
+        """Beendet ein noch laufendes Programm und eine offene
+        Debugger-Sitzung. Liefert, wie viele beendet wurden.
+
+        Gefunden beim Aufräumen nach der Funktionsprüfung: auf diesem
+        Rechner warteten **neunundvierzig** `debugpy`-Prozesse aus
+        früheren Sitzungen darauf, dass sich ein Debugger verbindet, der
+        nie kommen würde. Schließt jemand Natter, während sein Programm
+        läuft, bleibt es als Waise zurück – und der „Stopp“-Knopf, mit
+        dem man es beenden könnte, ist mit der IDE verschwunden. Auf
+        einem Schulrechner sammeln sich so über ein paar Stunden
+        Unterricht Dutzende an.
+        """
+        beendet = 0
+        if self.debug_sitzung is not None:
+            self.debug_sitzung.beenden()
+            self.debug_sitzung = None
+            beendet += 1
+        if self.laufender_prozess is not None and self.laufender_prozess.poll() is None:
+            self.laufender_prozess.kill()
+            beendet += 1
+        self.laufender_prozess = None
+        return beendet
 
     # -- Hilfe (Abschnitt 7.2) -------------------------------------------------
 

@@ -25,6 +25,7 @@ import pytest
 from PySide6.QtWidgets import QColorDialog, QDialog, QFileDialog, QInputDialog
 
 from ide.diagramm import DiagrammFenster, diagramm_erzeugen
+from ide.diagramm.neu import MVP_TYPEN
 
 #: Einträge, die bewusst ein Fenster schließen oder einen echten
 #: Systemdialog brauchen – die werden einzeln geprüft, nicht im Rundlauf.
@@ -54,7 +55,10 @@ def _fenster(tmp_path: Path, typ: str) -> DiagrammFenster:
     return DiagrammFenster(diagramm_erzeugen(typ, tmp_path / f"{typ}.pdiag", typ))
 
 
-@pytest.mark.parametrize("typ", ["class", "struktogramm", "entscheidungstabelle"])
+#: Alle sieben Diagrammarten, nicht nur die drei aus dem
+#: M9-Abnahmekriterium: die vier aus „Danach“ teilen sich zwar die
+#: Zeichenfläche, haben aber eigene Paletten und Menüs.
+@pytest.mark.parametrize("typ", list(MVP_TYPEN))
 def test_jeder_aktive_menueeintrag_laesst_sich_ausloesen(tmp_path: Path, typ: str) -> None:
     """Der eigentliche Regressionstest: nichts darf beim Auslösen
     hochgehen."""
