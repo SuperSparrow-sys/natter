@@ -45,15 +45,25 @@ def _tab_schliessen_symbol(aufgeloest: str) -> str:
     return datei.as_posix()
 
 
-def _mit_alpha(farbe_hex: str, alpha: float) -> str:
-    """Wandelt eine `#rrggbb`-Farbe in `rgba(...)` mit gegebener Deckkraft
-    um – für sanfte, helle Auswahl-/Hover-Flächen (wie in Lazarus/Windows
-    11), bei denen farbige Symbole lesbar bleiben müssen, statt einer
-    deckenden Akzentfarbe wie bei Menüs/Tabs."""
-    r = int(farbe_hex[1:3], 16)
-    g = int(farbe_hex[3:5], 16)
-    b = int(farbe_hex[5:7], 16)
-    return f"rgba({r}, {g}, {b}, {alpha})"
+def _ueber_grund(farbe_hex: str, alpha: float, grund_hex: str) -> str:
+    """Mischt `farbe_hex` mit der Deckkraft `alpha` über `grund_hex` zu
+    einer deckenden `#rrggbb`-Farbe.
+
+    Sanfte, helle Auswahl-/Hover-Flächen wie in Lazarus/Windows 11, bei
+    denen farbige Symbole lesbar bleiben müssen, statt einer deckenden
+    Akzentfarbe wie bei Menüs/Tabs. Früher stand hier ein einfaches
+    `rgba(...)` mit derselben Deckkraft; das ging in Baumansichten
+    schief, denn Qt malt die Hover-/Auswahlfläche einer Baumzeile
+    **zweimal** – einmal für den Eintrag (`::item`) und einmal für den Einrückungsbereich
+    davor (`::branch`). Zwei halbdurchsichtige Schichten übereinander
+    ergeben links ein dunkleres Kästchen, das wie ein blauer Rand
+    aussieht (Nutzer-Hinweis, M11). Mit einer deckenden Farbe ist es
+    gleichgültig, wie oft dieselbe Fläche gemalt wird.
+    """
+    grund = (int(grund_hex[1:3], 16), int(grund_hex[3:5], 16), int(grund_hex[5:7], 16))
+    farbe = (int(farbe_hex[1:3], 16), int(farbe_hex[3:5], 16), int(farbe_hex[5:7], 16))
+    gemischt = (round(g + (f - g) * alpha) for g, f in zip(grund, farbe, strict=True))
+    return "#" + "".join(f"{wert:02x}" for wert in gemischt)
 
 
 def ide_qss_erzeugen(
@@ -213,10 +223,10 @@ QTableWidget::item {{
     color: {farben["text"]};
 }}
 QTreeView::item:hover, QListView::item:hover, QTableView::item:hover {{
-    background-color: {_mit_alpha(farben["accent"], 0.08)};
+    background-color: {_ueber_grund(farben["accent"], 0.08, farben["bg"])};
 }}
 QTreeView::item:selected, QListView::item:selected, QTableView::item:selected {{
-    background-color: {_mit_alpha(farben["accent"], 0.16)};
+    background-color: {_ueber_grund(farben["accent"], 0.16, farben["bg"])};
     color: {farben["text"]};
     outline: none;
     border: none;
@@ -231,10 +241,10 @@ QTreeView::branch {{
     image: none;
 }}
 QTreeView::branch:selected {{
-    background-color: {_mit_alpha(farben["accent"], 0.16)};
+    background-color: {_ueber_grund(farben["accent"], 0.16, farben["bg"])};
 }}
 QTreeView::branch:hover {{
-    background-color: {_mit_alpha(farben["accent"], 0.08)};
+    background-color: {_ueber_grund(farben["accent"], 0.08, farben["bg"])};
 }}
 QHeaderView::section {{
     background-color: {farben["surface"]};

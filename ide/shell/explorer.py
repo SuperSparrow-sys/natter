@@ -17,6 +17,11 @@ from ide.project import Projekt
 
 PFAD_ROLLE = Qt.ItemDataRole.UserRole
 
+#: Einrückung der Dateien unter ihrer Gruppenüberschrift. Schmaler als
+#: Qts Standard (20 px), weil es hier nur zwei Ebenen gibt und der Dock
+#: auf einem 1366×768-Schulrechner schmal bleibt.
+_EINRUECKUNG = 14
+
 
 class ProjektExplorer(QTreeWidget):
     #: Nutzer-Feedback (September 2026): Units umbenennen/löschen über
@@ -39,14 +44,23 @@ class ProjektExplorer(QTreeWidget):
         # unstyled, mitten im Baum eingeblendetes Eingabefeld, das gar
         # nicht unsere eigene Umbenennen-Funktion war).
         self.setEditTriggers(QTreeWidget.EditTrigger.NoEditTriggers)
-        # Qts eingebaute Baum-Einrückung malt die Auswahlfarbe für den
-        # Einrückungsbereich eines ausgewählten Kind-Elements nicht über
-        # QSS steuerbar, sondern als deckenden, unpassenden Balken
-        # (Nutzer-Screenshot: „die zwei blauen Balken“) - unabhängig von
-        # der Einrückungstiefe. Ohne Einrückung tritt das nicht auf; die
-        # Gruppenüberschriften sind stattdessen fett, das reicht als
-        # Hierarchie-Hinweis für die nur zwei Ebenen hier.
-        self.setIndentation(0)
+        # Dateien stehen eingerückt unter ihrer Gruppenüberschrift, wie
+        # im Projektinspektor von Lazarus. Die „zwei blauen Balken“, die
+        # dabei früher auftraten (Nutzer-Screenshot), lagen nicht an der
+        # Einrückung selbst: Qt malt die Hover-/Auswahlfläche einer
+        # Zeile zweimal (`::item` und `::branch`), und zwei
+        # halbdurchsichtige Schichten übereinander ergaben links ein
+        # dunkleres Kästchen. Seit `ide/shell/theme.py` dafür deckende
+        # Farben benutzt, ist die Fläche durchgehend gleich hell.
+        self.setIndentation(_EINRUECKUNG)
+
+        # Rechte Maustaste öffnet dasselbe Menü wie der „⋮“-Knopf
+        # (M11, Abschnitt 3). Der Knopf steht nur in der Zeile, über
+        # der die Maus gerade schwebt; wer ihn nicht bemerkt, probiert
+        # als Nächstes die rechte Maustaste – in Lazarus liegt genau
+        # dort das Menü zu einer Datei.
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._kontextmenue_zeigen)
 
         self.formulare_gruppe = QTreeWidgetItem(["Formulare"])
         self.units_gruppe = QTreeWidgetItem(["Units"])
@@ -115,8 +129,37 @@ class ProjektExplorer(QTreeWidget):
             "QToolButton::menu-indicator { image: none; width: 0px; }"
         )
 
-        menue = QMenu(knopf)
+        knopf.setMenu(self.dateimenue(pfad, knopf))
+        return knopf
+
+    def dateimenue(self, pfad: Path, eltern=None) -> QMenu:
+        """Das Menü zu einer Datei – hinter dem „⋮“-Knopf **und** hinter
+        der rechten Maustaste. Eine Fassung, damit beide Wege nie
+        auseinanderlaufen."""
+        menue = QMenu(eltern or self)
         menue.addAction("Umbenennen …", lambda: self.umbenennen_angefordert.emit(pfad))
         menue.addAction("Löschen …", lambda: self.loeschen_angefordert.emit(pfad))
-        knopf.setMenu(menue)
-        return knopf
+        return menue
+
+    def kontextmenue_fuer(self, punkt) -> QMenu | None:
+        """Das Menü für die Stelle `punkt` – `None` über einer
+        Gruppenüberschrift oder im Leeren, wo es nichts zu tun gäbe.
+
+        Getrennt vom Anzeigen, damit der Rundlauf in
+        `tests/test_ide_funktionspruefung.py` jeden Eintrag auslösen
+        kann, ohne ein Menü zu öffnen, das auf einen Klick wartet.
+        """
+        eintrag = self.itemAt(punkt)
+        if eintrag is None:
+            return None
+        pfad = eintrag.data(0, PFAD_ROLLE)
+        # Nur Units tragen einen Pfad; die Gruppenüberschriften und die
+        # Formulare (die aus .pfm + .py bestehen) nicht.
+        if not pfad or self.itemWidget(eintrag, 1) is None:
+            return None
+        return self.dateimenue(Path(pfad))
+
+    def _kontextmenue_zeigen(self, punkt) -> None:
+        menue = self.kontextmenue_fuer(punkt)
+        if menue is not None:
+            menue.exec(self.viewport().mapToGlobal(punkt))

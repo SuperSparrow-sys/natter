@@ -2477,16 +2477,29 @@ class HauptFenster(QMainWindow):
 
     # -- „Als Tabelle anzeigen“ (Abschnitt 11.6) -----------------------------
 
-    def _variablen_menue_zeigen(self, punkt) -> None:
-        """Kontextmenü im Panel „Variablen“: „Als Tabelle anzeigen“ für
-        DataFrames, Listen und Dictionaries (Abschnitt 11.6)."""
+    def variablen_kontextmenue_fuer(self, punkt) -> QMenu | None:
+        """Das Menü im Panel „Variablen“: „Als Tabelle anzeigen“ für
+        DataFrames, Listen und Dictionaries (Abschnitt 11.6). `None` im
+        Leeren, wo es nichts zu zeigen gäbe.
+
+        Getrennt vom Anzeigen, damit der Rundlauf in
+        `tests/test_ide_funktionspruefung.py` jeden Eintrag auslösen
+        kann, ohne ein Menü zu öffnen, das auf einen Klick wartet.
+        """
         eintrag = self.variablen_baum.itemAt(punkt)
         if eintrag is None:
-            return
+            return None
         menue = QMenu(self.variablen_baum)
         aktion = menue.addAction("Als Tabelle anzeigen")
-        aktion.triggered.connect(lambda: self.variable_als_tabelle_zeigen(eintrag.text(0)))
-        menue.exec(self.variablen_baum.viewport().mapToGlobal(punkt))
+        aktion.triggered.connect(
+            lambda *_: self.variable_als_tabelle_zeigen(eintrag.text(0))
+        )
+        return menue
+
+    def _variablen_menue_zeigen(self, punkt) -> None:
+        menue = self.variablen_kontextmenue_fuer(punkt)
+        if menue is not None:
+            menue.exec(self.variablen_baum.viewport().mapToGlobal(punkt))
 
     def variable_als_tabelle_zeigen(self, name: str) -> None:
         """Lässt `name` im angehaltenen Schülerprogramm auswerten und

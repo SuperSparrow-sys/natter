@@ -22,7 +22,7 @@ from typing import Any
 
 from PySide6.QtCore import QEvent, QMimeData, QObject, QPoint, Qt
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QMenu, QWidget
 
 from ide.codegen.design import design_datei_erzeugen
 from ide.codegen.ereignis import handler_methode_einfuegen
@@ -436,7 +436,74 @@ class DesignerCanvas(QObject):
         elif typ == QEvent.Type.KeyPress and self._tastatur_verarbeiten(ereignis):
             return True
 
+        elif typ == QEvent.Type.ContextMenu:
+            komponente = self._widget_zu_komponente.get(beobachtetes_objekt)
+            if komponente is None:
+                return False
+            self._auswaehlen(komponente)
+            menue = self.kontextmenue_fuer(komponente)
+            menue.exec(ereignis.globalPos())
+            return True
+
         return False
+
+    def kontextmenue_fuer(self, komponente: Any) -> QMenu:
+        """Das Menü zur rechten Maustaste auf `komponente`
+        (M11, Abschnitt 3).
+
+        Die drei Dinge gab es alle schon – aber nur über Tasten (Entf,
+        Strg+D) oder einen Doppelklick. Wer sie nicht kennt, probiert
+        die rechte Maustaste; in Lazarus liegt dort das Menü zu einer
+        Komponente. Die Tastenkürzel stehen daneben, damit man sie beim
+        nächsten Mal direkt benutzt.
+
+        Getrennt vom Anzeigen, damit der Rundlauf in
+        `tests/test_ide_funktionspruefung.py` jeden Eintrag auslösen
+        kann, ohne ein Menü zu öffnen, das auf einen Klick wartet.
+        """
+        # Ein `QMenu` ohne Eltern gehört niemandem, Python räumt es samt
+        # seiner `QAction`s weg, sobald der Aufrufer nur die Einträge
+        # behält („Internal C++ object already deleted“). Beim Öffnen
+        # fiel das nie auf, weil `exec()` das Menü so lange am Leben
+        # hält - also braucht es ein Eltern-Widget.
+        #
+        # Das ist bewusst das *Fenster* und nicht das Formular-Widget:
+        # das Formular trägt das pcl-Stylesheet des später laufenden
+        # Programms (hell, eigene Farben). Ein daran gehängtes Menü erbt
+        # das und stand im dunklen IDE-Design hell auf dem Bildschirm
+        # (bei der Bildschirmfoto-Prüfung zu M11 aufgefallen). Steht der
+        # Designer allein da, ist das Formular selbst das Fenster - dann
+        # ändert sich nichts.
+        menue = QMenu(self.formular._qwidget.window())
+        ereignis_name = _standard_ereignis(type(komponente))
+        if ereignis_name is not None and self.unit_pfad is not None:
+            kurz = _ereignis_kurzname(ereignis_name)
+            eintrag = menue.addAction(f"Methode für „{kurz}“ anlegen")
+            eintrag.triggered.connect(
+                lambda *_, k=komponente: self.ereignis_handler_erzeugen(k)
+            )
+            menue.addSeparator()
+
+        ist_formular = komponente is self.formular
+        doppeln = menue.addAction("Duplizieren\tStrg+D")
+        doppeln.setEnabled(not ist_formular)
+        doppeln.triggered.connect(lambda *_, k=komponente: self.duplizieren(k))
+
+        loeschen = menue.addAction("Löschen\tEntf")
+        # Das Formular selbst lässt sich nicht löschen - der Eintrag
+        # bleibt trotzdem stehen, grau: ein Menü, das je nach Klickort
+        # anders aussieht, verwirrt mehr, als es hilft.
+        loeschen.setEnabled(not ist_formular)
+        loeschen.triggered.connect(lambda *_, k=komponente: self.loeschen(k))
+
+        menue.addSeparator()
+        zurueck = menue.addAction("Rückgängig\tStrg+Z")
+        zurueck.setEnabled(self.kommandos.kann_rueckgaengig)
+        zurueck.triggered.connect(lambda *_: self.rueckgaengig())
+        vor = menue.addAction("Wiederholen\tStrg+Y")
+        vor.setEnabled(self.kommandos.kann_wiederholen)
+        vor.triggered.connect(lambda *_: self.wiederholen())
+        return menue
 
     def _anfasser_ziehen_verarbeiten(self, ereignis: QEvent) -> None:
         aktuell = ereignis.globalPosition().toPoint()

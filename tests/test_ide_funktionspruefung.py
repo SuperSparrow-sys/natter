@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 
+from ide.inspector.komponentenbaum import kind_komponenten
 from ide.palette.palette import TYP_ROLLE
 from ide.shell.hauptfenster import HauptFenster
 
@@ -214,6 +215,83 @@ def test_jeder_knopf_der_werkzeugleiste_laesst_sich_ausloesen(
             aktion.trigger()
         except Exception as ausnahme:  # noqa: BLE001
             fehler.append(f"{aktion.text()}: {type(ausnahme).__name__}: {ausnahme}")
+
+    assert not fehler, "\n".join(fehler)
+
+
+def _alle_kontextmenues(fenster: HauptFenster) -> list[tuple[str, object]]:
+    """Die Menüs hinter der rechten Maustaste, mit sprechendem Pfad.
+
+    Bis M11 standen sie ausserhalb des Rundlaufs – dabei probieren die
+    meisten dort zuerst. Jedes Menü wird von einer Methode gebaut, die
+    es **zurückgibt** statt es zu öffnen; ein `QMenu.exec()` wartet auf
+    einen Klick und bliebe im Test stehen.
+    """
+    gefunden: list[tuple[str, object]] = []
+
+    explorer = fenster.explorer
+    explorer.resize(260, 400)
+    explorer.show()
+    for gruppe in (explorer.formulare_gruppe, explorer.units_gruppe):
+        for nummer in range(gruppe.childCount()):
+            punkt = explorer.visualItemRect(gruppe.child(nummer)).center()
+            menue = explorer.kontextmenue_fuer(punkt)
+            if menue is None:
+                continue
+            for aktion in menue.actions():
+                gefunden.append((f"Explorer/{gruppe.text(0)}/{aktion.text()}", aktion))
+
+    from PySide6.QtWidgets import QTreeWidgetItem
+
+    fenster.variablen_baum.addTopLevelItem(QTreeWidgetItem(["zahlen", "[1, 2]"]))
+    fenster.variablen_baum.resize(220, 120)
+    fenster.show()
+    punkt = fenster.variablen_baum.visualItemRect(
+        fenster.variablen_baum.topLevelItem(0)
+    ).center()
+    menue = fenster.variablen_kontextmenue_fuer(punkt)
+    if menue is not None:
+        for aktion in menue.actions():
+            gefunden.append((f"Variablen/{aktion.text()}", aktion))
+
+    # Der Designer öffnet sich nicht von selbst mit dem Projekt; ohne
+    # dieses Öffnen bliebe sein Menü ausserhalb des Rundlaufs.
+    for pfm in sorted(fenster.projekt.ordner.glob("*.pfm")):
+        fenster.designer_oeffnen(pfm)
+    for canvas in fenster._offene_canvases:
+        kinder = [wert for _, wert in kind_komponenten(canvas.formular)]
+        for komponente in (canvas.formular, *kinder):
+            for aktion in canvas.kontextmenue_fuer(komponente).actions():
+                if not aktion.isSeparator():
+                    gefunden.append((f"Designer/{aktion.text()}", aktion))
+    return gefunden
+
+
+def test_die_kontextmenues_sind_im_rundlauf(fenster: HauptFenster) -> None:
+    """Sie sollen überhaupt erst einmal gefunden werden – sonst prüfte
+    der Test darunter nichts."""
+    eintraege = _alle_kontextmenues(fenster)
+
+    assert {pfad.split("/")[0] for pfad, _ in eintraege} == {
+        "Explorer",
+        "Variablen",
+        "Designer",
+    }
+
+
+def test_jeder_kontextmenue_eintrag_laesst_sich_ausloesen(
+    fenster: HauptFenster,
+) -> None:
+    """Derselbe Regressionstest wie für die Menüleiste, nur für die
+    rechte Maustaste."""
+    fehler: list[str] = []
+    for name, aktion in _alle_kontextmenues(fenster):
+        if not aktion.isEnabled():
+            continue
+        try:
+            aktion.trigger()
+        except Exception as ausnahme:  # noqa: BLE001 - genau das wird gesucht
+            fehler.append(f"{name}: {type(ausnahme).__name__}: {ausnahme}")
 
     assert not fehler, "\n".join(fehler)
 
