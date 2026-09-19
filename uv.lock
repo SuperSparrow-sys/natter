@@ -654,6 +654,7 @@ source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
     { name = "debugpy" },
+    { name = "jedi" },
     { name = "jsonschema" },
     { name = "libcst" },
     { name = "matplotlib" },
@@ -683,6 +684,7 @@ prototypes = [
 requires-dist = [
     { name = "cryptography", specifier = ">=42" },
     { name = "debugpy", specifier = ">=1.8" },
+    { name = "jedi", specifier = ">=0.20.0" },
     { name = "jsonschema", specifier = ">=4.23" },
     { name = "libcst", specifier = ">=1.4" },
     { name = "matplotlib", specifier = ">=3.11.2" },

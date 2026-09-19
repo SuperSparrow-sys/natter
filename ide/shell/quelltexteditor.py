@@ -27,9 +27,21 @@ from PySide6.QtGui import (
     QResizeEvent,
     QTextFormat,
 )
-from PySide6.QtWidgets import QPlainTextEdit, QTextEdit, QWidget
+from PySide6.QtWidgets import (
+    QListWidget,
+    QPlainTextEdit,
+    QTextEdit,
+    QToolTip,
+    QWidget,
+)
 
 from ide.shell.python_hervorhebung import PythonHervorhebung
+from ide.shell.vervollstaendigung import (
+    MINDESTZEICHEN,
+    Vorschlag,
+    parameterhilfe,
+    vorschlaege,
+)
 
 _SCHRIFT_DATEI = (
     Path(__file__).resolve().parent.parent / "assets" / "fonts" / "CascadiaCode-Regular.ttf"
@@ -55,6 +67,13 @@ def _cascadia_code_bereitstellen() -> None:
 
 _RAND_ABSTAND = 12
 _BREAKPOINT_FARBE = QColor("#c0392b")
+#: Die Eigenschaft, unter der das Hauptfenster den Dateipfad am Editor
+#: ablegt. jedi arbeitet damit deutlich besser - es findet dann die
+#: Nachbardateien des Projekts.
+_PFAD_EIGENSCHAFT = "pfad"
+#: Das Wort, das gerade getippt wird.
+_WORT_MUSTER = re.compile(r"[A-Za-z_]\w*$")
+
 _EINZUG = "    "
 _EINZUG_MUSTER = re.compile(r"[ \t]*")
 _BREAKPOINT_DURCHMESSER = 10
@@ -129,6 +148,29 @@ class QuelltextEditor(QPlainTextEdit):
         #: Senkrechte Hilfslinien je Einrückungsebene (M11, 2.1)
         self.einzugslinien_sichtbar = True
 
+        #: Vervollständigung (M11, 2.2)
+        self.vervollstaendigung_an = True
+        self._vorschlaege: list[Vorschlag] = []
+        # Kind des **Viewports**, kein eigenes Fenster. Mit
+        # `Qt.WindowType.ToolTip` wäre die Liste ein Fenster für sich -
+        # und `setGeometry` rechnete dann in Bildschirmkoordinaten. Beim
+        # Bildschirmfoto fiel es auf: die Liste tauchte im Bild des
+        # Editors gar nicht auf, weil sie in Wahrheit in der Ecke des
+        # Bildschirms stand statt unter der Schreibmarke.
+        self.vorschlagsliste = QListWidget(self.viewport())
+        self.vorschlagsliste.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        # Keine waagerechte Bildlaufleiste: in einer Vorschlagsliste
+        # scrollt niemand zur Seite, um die Erklärung zu Ende zu lesen -
+        # er tippt weiter. Zu lange Zeilen werden abgekürzt.
+        self.vorschlagsliste.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.vorschlagsliste.setTextElideMode(Qt.TextElideMode.ElideRight)
+        self.vorschlagsliste.itemClicked.connect(
+            lambda *_: self.vorschlag_uebernehmen()
+        )
+        self.vorschlagsliste.hide()
+
         self.breakpoints: set[int] = set()
         self._rand = _ZeilenNummernRand(self)
         self.blockCountChanged.connect(self._breite_aktualisieren)
@@ -179,6 +221,35 @@ class QuelltextEditor(QPlainTextEdit):
         mehr einrücken. Tab fügt vier Leerzeichen statt eines
         Tabulatorzeichens ein - sonst mischen sich in Python schnell
         Tabs und Leerzeichen (`TabError`)."""
+        # Solange die Vorschlagsliste offen ist, gehören ihr die
+        # Pfeiltasten, Eingabe und Escape. Sonst würde Eingabe eine neue
+        # Zeile einfügen, statt den markierten Vorschlag zu übernehmen -
+        # und die Liste bliebe stehen.
+        if self.vorschlagsliste.isVisible():
+            if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Tab):
+                if self.vorschlag_uebernehmen():
+                    return
+            elif event.key() == Qt.Key.Key_Escape:
+                self.vorschlagsliste_schliessen()
+                return
+            elif event.key() in (
+                Qt.Key.Key_Up,
+                Qt.Key.Key_Down,
+                Qt.Key.Key_PageUp,
+                Qt.Key.Key_PageDown,
+            ):
+                self.vorschlagsliste.keyPressEvent(event)
+                return
+
+        # Strg+Leertaste erzwingt die Liste - auch direkt nach einem
+        # Punkt, wo noch nichts getippt ist.
+        if (
+            event.key() == Qt.Key.Key_Space
+            and event.modifiers() & Qt.KeyboardModifier.ControlModifier
+        ):
+            self.vorschlaege_anzeigen(erzwungen=True)
+            return
+
         if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and not event.modifiers():
             self._einrueckende_neue_zeile_einfuegen()
             return
@@ -188,6 +259,23 @@ class QuelltextEditor(QPlainTextEdit):
         if event.key() == Qt.Key.Key_Backspace and self._einzugsebene_loeschen():
             return
         super().keyPressEvent(event)
+        self._nach_der_eingabe(event)
+
+    def _nach_der_eingabe(self, event: QKeyEvent) -> None:
+        """Nach jedem getippten Zeichen: Liste auffrischen bzw.
+        Parameterhilfe zeigen."""
+        if not self.vervollstaendigung_an:
+            return
+        text = event.text()
+        if text == "(":
+            self.parameterhilfe_anzeigen()
+            return
+        if text in (")", ""):
+            QToolTip.hideText()
+        if text and (text.isalnum() or text in "._"):
+            self.vorschlaege_anzeigen()
+        elif self.vorschlagsliste.isVisible():
+            self.vorschlagsliste_schliessen()
 
     def _einzugsebene_loeschen(self) -> bool:
         """Rücktaste im Einzug löscht eine **ganze** Ebene.
@@ -316,6 +404,136 @@ class QuelltextEditor(QPlainTextEdit):
         if self.einzugslinien_sichtbar:
             self._einzugslinien_zeichnen(event)
         super().paintEvent(event)
+
+    # -- Vervollständigung (M11, Abschnitt 2.2) --------------------------
+
+    def vervollstaendigung_setzen(self, an: bool) -> None:
+        self.vervollstaendigung_an = an
+        if not an:
+            self.vorschlagsliste_schliessen()
+
+    def _wort_vor_dem_cursor(self) -> str:
+        """Was gerade getippt wird – ohne den Punkt davor."""
+        cursor = self.textCursor()
+        links = cursor.block().text()[: cursor.positionInBlock()]
+        return _WORT_MUSTER.search(links).group() if _WORT_MUSTER.search(links) else ""
+
+    def vorschlaege_anzeigen(self, erzwungen: bool = False) -> int:
+        """Baut die Vorschlagsliste und zeigt sie. Liefert, wie viele
+        Vorschläge es gab.
+
+        `erzwungen` ist Strg+Leertaste: dann erscheint die Liste auch
+        nach einem Punkt, wo noch gar nichts getippt wurde – genau dort
+        braucht man sie am meisten.
+        """
+        if not self.vervollstaendigung_an:
+            return 0
+        cursor = self.textCursor()
+        links = cursor.block().text()[: cursor.positionInBlock()]
+        wort = self._wort_vor_dem_cursor()
+        nach_punkt = links.rstrip().endswith(".")
+        if not erzwungen and not nach_punkt and len(wort) < MINDESTZEICHEN:
+            self.vorschlagsliste_schliessen()
+            return 0
+
+        gefunden = vorschlaege(
+            self.toPlainText(),
+            cursor.blockNumber() + 1,
+            cursor.positionInBlock(),
+            self.property(_PFAD_EIGENSCHAFT),
+        )
+        if not gefunden:
+            self.vorschlagsliste_schliessen()
+            return 0
+
+        self._vorschlaege = gefunden
+        self.vorschlagsliste.clear()
+        for vorschlag in gefunden:
+            self.vorschlagsliste.addItem(vorschlag.anzeige)
+        self.vorschlagsliste.setCurrentRow(0)
+        self._vorschlagsliste_platzieren()
+        self.vorschlagsliste.show()
+        return len(gefunden)
+
+    def _vorschlagsliste_platzieren(self) -> None:
+        """Direkt unter die Schreibmarke, aber immer innerhalb des
+        Fensters: am unteren Rand klappt die Liste nach oben auf, sonst
+        stünde sie halb außerhalb."""
+        rechteck = self.cursorRect()
+        sicht = self.viewport()
+        breite = min(640, max(320, sicht.width() - rechteck.left() - 8))
+        links = min(rechteck.left(), max(0, sicht.width() - breite))
+
+        # Auf die Seite mit mehr Luft, und nur so hoch, wie dort Platz
+        # ist. Sonst klappte die Liste bei einem kleinen Editor ganz
+        # nach oben und stand weit weg von der Schreibmarke (im
+        # Bildschirmfoto so gesehen).
+        darunter = sicht.height() - rechteck.bottom() - 4
+        darueber = rechteck.top() - 4
+        nach_unten = darunter >= darueber
+        platz = max(44, darunter if nach_unten else darueber)
+        zeilen = min(8, max(1, self.vorschlagsliste.count()))
+        hoehe = min(zeilen * 22 + 8, platz)
+        oben = rechteck.bottom() + 2 if nach_unten else max(0, rechteck.top() - hoehe - 2)
+        self.vorschlagsliste.setGeometry(links, oben, breite, hoehe)
+        self.vorschlagsliste.raise_()
+
+    def focusOutEvent(self, event) -> None:
+        """Wer woanders hinklickt, meint die Liste nicht mehr. Bliebe
+        sie stehen, schwebte sie über einem Editor, in dem gar nicht
+        mehr getippt wird."""
+        self.vorschlagsliste_schliessen()
+        super().focusOutEvent(event)
+
+    def scrollContentsBy(self, dx: int, dy: int) -> None:
+        """Beim Rollen wandert die Schreibmarke unter der Liste weg –
+        sie zeigte dann auf eine Stelle, die gar nicht mehr da ist."""
+        if dy and self.vorschlagsliste.isVisible():
+            self.vorschlagsliste_schliessen()
+        super().scrollContentsBy(dx, dy)
+
+    def vorschlagsliste_schliessen(self) -> None:
+        self.vorschlagsliste.hide()
+        self._vorschlaege = []
+
+    def vorschlag_uebernehmen(self, zeile: int | None = None) -> bool:
+        """Setzt den gewählten Vorschlag ein. Ersetzt dabei das bereits
+        Getippte, statt es zu verdoppeln."""
+        if not self._vorschlaege or not self.vorschlagsliste.isVisible():
+            return False
+        nummer = self.vorschlagsliste.currentRow() if zeile is None else zeile
+        if not 0 <= nummer < len(self._vorschlaege):
+            return False
+        name = self._vorschlaege[nummer].name
+        bereits = self._wort_vor_dem_cursor()
+
+        cursor = self.textCursor()
+        for _ in range(len(bereits)):
+            cursor.deletePreviousChar()
+        cursor.insertText(name)
+        self.setTextCursor(cursor)
+        self.vorschlagsliste_schliessen()
+        return True
+
+    def parameterhilfe_anzeigen(self) -> str:
+        """Zeigt beim Tippen der öffnenden Klammer, welche Parameter
+        erwartet werden – als Kurzhinweis über dem Cursor."""
+        if not self.vervollstaendigung_an:
+            return ""
+        cursor = self.textCursor()
+        text = parameterhilfe(
+            self.toPlainText(),
+            cursor.blockNumber() + 1,
+            cursor.positionInBlock(),
+            self.property(_PFAD_EIGENSCHAFT),
+        )
+        if text:
+            QToolTip.showText(
+                self.mapToGlobal(self.cursorRect().topLeft()), text, self
+            )
+        else:
+            QToolTip.hideText()
+        return text
 
     def _zeilennummern_zeichnen(self, event: QPaintEvent) -> None:
         maler = QPainter(self._rand)

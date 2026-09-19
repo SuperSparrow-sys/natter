@@ -27,6 +27,7 @@ dependencies = [
     # Prüft beim Start die Signatur des Prüfsummen-Manifests
     # (Abschnitt 17.8) - muss deshalb in der gebauten Exe stecken.
     "cryptography>=42",
+    "jedi>=0.20.0",
 ]
 
 [dependency-groups]
