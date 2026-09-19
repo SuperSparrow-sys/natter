@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Versuch: Rumpf, Behandlung (rot) und Abschluss (grau) uebereinander. -->
+  <rect x="3.1" y="4.6" width="17.8" height="14.8" fill="#f7f9fa"/>
+  <path d="M5.6 7.2h12.8M5.6 9.6h7.4" stroke="#7b8f9a" stroke-width="1"
+        stroke-linecap="round"/>
+  <path d="M3.1 11.4h17.8v4H3.1Z" fill="#c42b1c"/>
+  <path d="M3.1 15.4h17.8v4H3.1Z" fill="#90a4ae"/>
+  <path d="M3.1 11.4h17.8M3.1 15.4h17.8" stroke="#37474f" stroke-width="1"/>
+  <rect x="3.1" y="4.6" width="17.8" height="14.8" fill="none" stroke="#37474f" stroke-width="1.2"/>
+</svg>

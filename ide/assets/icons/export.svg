@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Export: der Inhalt verlaesst die Ablage nach oben. -->
+  <path d="M3.4 12.6v6.2a1.4 1.4 0 0 0 1.4 1.4h14.4a1.4 1.4 0 0 0 1.4-1.4v-6.2"
+        fill="#f7f9fa" stroke="#37474f" stroke-width="1.2" stroke-linejoin="round"/>
+  <rect x="10.4" y="7.4" width="3.2" height="7.4" fill="#0067c0"/>
+  <path d="M12 2.8 17.2 8.6H6.8Z" fill="#0067c0"/>
+</svg>

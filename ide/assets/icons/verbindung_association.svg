@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Assoziation: einfache Linie zwischen zwei Elementen. -->
+  <rect x="2.6" y="9.4" width="3.8" height="5.2" rx="1" fill="#90a4ae" stroke="#37474f" stroke-width="1.2"/>
+  <rect x="17.6" y="9.4" width="3.8" height="5.2" rx="1" fill="#90a4ae" stroke="#37474f" stroke-width="1.2"/>
+  <path d="M6.4 12H17.6" fill="none" stroke="#37474f" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

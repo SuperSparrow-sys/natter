@@ -82,6 +82,15 @@ def _gerendert(name: str, kante: int, theme: str = "light") -> QImage:
     return symbol(name, theme).pixmap(QSize(kante, kante)).toImage()
 
 
+def _ist_tab_schliessen(datei: Path) -> bool:
+    """Das Kreuz des Reiter-Schließknopfes und seine beiden
+    Theme-Fassungen sind der dokumentierte Sonderfall des Rasters: 16x16
+    statt 24x24, weil `ide/shell/theme.py` sie als `image: url(...)` ins
+    QSS einbindet und dort die Eigengröße der Datei die Knopfgröße
+    bestimmt."""
+    return datei.stem.startswith("tab_schliessen")
+
+
 def test_palette_hat_je_theme_eindeutige_werte() -> None:
     """Umgefärbt wird über den hellen Hex-Wert. Käme derselbe helle Wert
     zweimal vor, wäre nicht mehr entscheidbar, welcher dunkle gemeint
@@ -102,9 +111,14 @@ def test_umfaerben_laeuft_in_einem_durchgang() -> None:
 
 def test_jede_symboldatei_nutzt_nur_farben_der_palette() -> None:
     erlaubt = {hell.lower() for hell, _ in FARBEN.values()}
+    # `tab_schliessen_dunkel.svg` ist schon das Ergebnis des Umfärbens -
+    # das QSS kommt daran vorbei (siehe `_ist_tab_schliessen`). Es trägt
+    # deshalb als einzige Datei einen *dunklen* Palettenwert.
+    erlaubt_dunkel = erlaubt | {dunkel.lower() for _, dunkel in FARBEN.values()}
     for datei in _svg_dateien():
+        gueltig = erlaubt_dunkel if datei.stem == "tab_schliessen_dunkel" else erlaubt
         for treffer in _HEX_IM_SVG.findall(datei.read_text(encoding="utf-8")):
-            assert treffer.lower() in erlaubt, f"{datei.name}: {treffer} steht nicht in FARBEN"
+            assert treffer.lower() in gueltig, f"{datei.name}: {treffer} steht nicht in FARBEN"
 
 
 def test_jede_symboldatei_nutzt_nur_die_vier_strichstaerken() -> None:
@@ -116,8 +130,8 @@ def test_jede_symboldatei_nutzt_nur_die_vier_strichstaerken() -> None:
 def test_jede_symboldatei_haelt_sich_ans_raster() -> None:
     for datei in _svg_dateien():
         text = datei.read_text(encoding="utf-8")
-        # tab_schliessen.svg ist der dokumentierte Sonderfall (16x16).
-        erwartet = "0 0 16 16" if datei.stem == "tab_schliessen" else "0 0 24 24"
+        # tab_schliessen*.svg ist der dokumentierte Sonderfall (16x16).
+        erwartet = "0 0 16 16" if _ist_tab_schliessen(datei) else "0 0 24 24"
         assert f'viewBox="{erwartet}"' in text, datei.name
         # Eine feste Pixelgröße am <svg> würde die Größe des Aufrufers
         # aushebeln (Werkzeugleiste 18 px, Palette 22 px).
@@ -141,7 +155,7 @@ def test_jedes_symbol_haelt_den_innenabstand_ein() -> None:
     kante = 192
     rand = kante * 2 // 24
     for datei in _svg_dateien():
-        if datei.stem == "tab_schliessen":
+        if _ist_tab_schliessen(datei):
             continue  # 16x16-Sonderfall mit eigenem Rand
         bild = _gerendert(datei.stem, kante)
         ueber = []
@@ -355,3 +369,138 @@ def test_palette_faerbt_sich_beim_designwechsel_um(qtbot) -> None:
     dunkel = eintrag.icon().pixmap(32, 32).toImage()
 
     assert hell != dunkel
+
+
+def _abweichung(a: QImage, b: QImage, kante: int = 16) -> int:
+    """Zahl der Pixel, in denen sich zwei gleich große Bilder deutlich
+    unterscheiden (Summe der Kanal- und Alpha-Abstände ab 100)."""
+    treffer = 0
+    for y in range(kante):
+        for x in range(kante):
+            pa, pb = a.pixelColor(x, y), b.pixelColor(x, y)
+            abstand = (
+                abs(pa.red() - pb.red())
+                + abs(pa.green() - pb.green())
+                + abs(pa.blue() - pb.blue())
+                + abs(pa.alpha() - pb.alpha())
+            )
+            if abstand >= 100:
+                treffer += 1
+    return treffer
+
+
+#: Die sechs Verbindungen des Klassendiagramms, die eine Marke tragen -
+#: `association` ist die schlichte Linie, gegen die gemessen wird.
+_MARKIERTE_VERBINDUNGEN = (
+    "directed_association",
+    "aggregation",
+    "composition",
+    "inheritance",
+    "dependency",
+    "realization",
+)
+
+
+def test_verbindungen_tragen_bei_16_px_eine_marke_mit_flaeche() -> None:
+    """Real gefunden (Sichtprüfung M11): in der ersten Fassung waren die
+    Endkästen 4,6 × 6 groß und die Marke dazwischen nur 5 breit. Bei
+    16 px sahen alle sieben Verbindungen des Klassendiagramms gleich aus
+    – „Kästchen, Strich, Kästchen“; Raute, Dreieck und Pfeilspitze
+    veränderten das Bild um nur 8 bis 16 Pixel. Mit kleinen Endkästen und
+    einer Marke über die ganze Mitte sind es 20 bis 28.
+
+    Gemessen wird gegen die schlichte Assoziation, nicht Verbindung gegen
+    Verbindung: ein bloßer Pixelvergleich zweier Marken liefert auch dann
+    einen Unterschied, wenn beide zu klein zum Sehen sind.
+    """
+    schlicht = _gerendert("verbindung_association", 16)
+    for kind in _MARKIERTE_VERBINDUNGEN:
+        mit_marke = _gerendert(f"verbindung_{kind}", 16)
+        geaendert = _abweichung(schlicht, mit_marke)
+        assert geaendert >= 20, f"verbindung_{kind}: nur {geaendert} Pixel Marke bei 16 px"
+
+
+def test_vererbung_und_realisierung_sind_bei_16_px_unterscheidbar() -> None:
+    """Beide tragen dasselbe leere Dreieck, die Realisierung zusätzlich
+    einen gestrichelten Strich. Real gefunden: das Strichmuster trägt auf
+    16 Pixel nicht – die beiden Symbole waren nicht auseinanderzuhalten.
+    Die Realisierung führt zu einem Interface, und das Interface ist
+    blau; das Dreieck trägt deshalb jetzt die Interface-Farbe.
+    """
+
+    def blaue_pixel(name: str) -> int:
+        bild = _gerendert(name, 16)
+        return sum(
+            1
+            for y in range(16)
+            for x in range(16)
+            if bild.pixelColor(x, y).alpha() >= 120
+            and bild.pixelColor(x, y).blue() > bild.pixelColor(x, y).red() + 40
+        )
+
+    assert blaue_pixel("verbindung_inheritance") == 0
+    assert blaue_pixel("verbindung_realization") >= 12
+
+
+def test_ersetzen_zeigt_bei_16_px_zwei_durchgehende_wortbalken() -> None:
+    """Real gefunden (Sichtprüfung M11): „Ersetzen“ bestand zuerst aus
+    zwei gegeneinander versetzten Halbbalken und zwei gegenläufigen
+    Pfeilen im Kreis. Bei 16 px war das ein Knäuel: der grüne Balken (das
+    neue Wort) begann erst bei Pixel 6 statt am linken Rand, und die
+    breiteste Zeile der beiden Pfeile war vier Pixel breit. Jetzt: zwei
+    volle Balken übereinander und **ein** breiter Pfeil dazwischen.
+    """
+    bild = _gerendert("ersetzen", 16)
+
+    def ist_gruen(x: int, y: int) -> bool:
+        punkt = bild.pixelColor(x, y)
+        return (
+            punkt.alpha() >= 150
+            and punkt.green() > punkt.red() + 25
+            and punkt.green() > punkt.blue() + 25
+        )
+
+    def ist_blau(x: int, y: int) -> bool:
+        punkt = bild.pixelColor(x, y)
+        return (
+            punkt.alpha() >= 150
+            and punkt.blue() > punkt.red() + 40
+            and punkt.blue() > punkt.green() + 25
+        )
+
+    gruen = [x for y in range(16) for x in range(16) if ist_gruen(x, y)]
+    assert gruen, "kein grüner Balken zu sehen"
+    assert min(gruen) <= 3, f"der grüne Balken beginnt erst bei Pixel {min(gruen)}"
+    assert max(gruen) >= 12, f"der grüne Balken endet schon bei Pixel {max(gruen)}"
+
+    breiteste = max(sum(1 for x in range(16) if ist_blau(x, y)) for y in range(16))
+    assert breiteste >= 6, f"der Pfeil ist nirgends breiter als {breiteste} Pixel"
+
+
+def test_reiter_kreuz_hat_je_theme_eine_eigene_datei() -> None:
+    """M11, Abschnitt 1, letzter offener Punkt: `ide/shell/theme.py`
+    bindet das Kreuz des Reiter-Schließknopfes als `image: url(...)` ins
+    QSS ein, und dort kommt Qt am Umfärben aus `symbole.py` vorbei. Es
+    stand deshalb auf einem theme-neutralen Grau, das in beiden Themes
+    nur halb passte. Jetzt wählt das QSS je Theme eine eigene Datei.
+    """
+    from ide.shell.theme import ide_qss_erzeugen
+
+    hell_qss = ide_qss_erzeugen("light")
+    dunkel_qss = ide_qss_erzeugen("dark")
+
+    assert "tab_schliessen_hell.svg" in hell_qss
+    assert "tab_schliessen_dunkel.svg" not in hell_qss
+    assert "tab_schliessen_dunkel.svg" in dunkel_qss
+    assert "tab_schliessen_hell.svg" not in dunkel_qss
+
+    # Und wirklich verschieden gefärbt, nicht nur verschieden benannt:
+    # im dunklen Theme muss das Kreuz heller sein als im hellen.
+    def strichfarbe(stamm: str) -> QColor:
+        text = (_ICON_ORDNER / f"{stamm}.svg").read_text(encoding="utf-8")
+        return QColor(_HEX_IM_SVG.findall(text)[0])
+
+    hell = strichfarbe("tab_schliessen_hell")
+    dunkel = strichfarbe("tab_schliessen_dunkel")
+    assert hell != dunkel
+    assert dunkel.lightness() > hell.lightness()

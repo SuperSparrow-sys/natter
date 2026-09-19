@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Paket: Reiter oben links auf dem Rumpf. -->
+  <rect x="3.1" y="4.6" width="8.4" height="3.6" rx="1" fill="#f2b134"
+        stroke="#c98f1e" stroke-width="1.2"/>
+  <rect x="3.1" y="7.6" width="17.8" height="11.8" rx="1.5" fill="#f7f9fa"
+        stroke="#37474f" stroke-width="1.2"/>
+  <path d="M6 11.4h9.4M6 14h12M6 16.6h7.4"
+        stroke="#7b8f9a" stroke-width="1" stroke-linecap="round"/>
+</svg>

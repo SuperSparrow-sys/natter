@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Einzelschritt: der Pfeil geht in die naechste Zeile hinein. -->
+  <rect x="3.4" y="17.8" width="17.2" height="2.8" rx="1" fill="#90a4ae"/>
+  <rect x="10.4" y="3.4" width="3.2" height="7.6" fill="#0067c0"/>
+  <path d="M12 16.2 6.8 10.4h10.4Z" fill="#0067c0"/>
+</svg>

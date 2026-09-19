@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Zweiseitige Auswahl: der Kopf teilt sich, links Ja (gruen), rechts Nein (rot). -->
+  <rect x="3.1" y="4.6" width="17.8" height="14.8" fill="#f7f9fa"/>
+  <path d="M3.1 4.6h17.8l-8.9 6.4Z" fill="#f2b134"/>
+  <path d="M12 11v8.4" stroke="#37474f" stroke-width="1"/>
+  <rect x="4.6" y="13.4" width="5.4" height="3.6" rx="0.6" fill="#1e8e3e"/>
+  <rect x="14" y="13.4" width="5.4" height="3.6" rx="0.6" fill="#c42b1c"/>
+  <path d="M3.1 4.6 12 11 20.9 4.6" fill="none" stroke="#37474f" stroke-width="1"/>
+  <rect x="3.1" y="4.6" width="17.8" height="14.8" fill="none" stroke="#37474f" stroke-width="1.2"/>
+</svg>

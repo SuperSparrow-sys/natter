@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Zusammengesetzter Zustand: ein Zustand, in dem zwei weitere stehen. -->
+  <rect x="2.6" y="4.6" width="18.8" height="14.8" rx="3" fill="#f7f9fa"
+        stroke="#37474f" stroke-width="1.2"/>
+  <rect x="5" y="6.6" width="9" height="2.4" rx="1" fill="#8764b8"/>
+  <path d="M2.6 10.8h18.8" stroke="#37474f" stroke-width="1"/>
+  <rect x="4.6" y="13" width="6.2" height="4.4" rx="1.6" fill="#0067c0"/>
+  <rect x="13.2" y="13" width="6.2" height="4.4" rx="1.6" fill="#0067c0"/>
+  <path d="M10.8 15.2h2.4" stroke="#37474f" stroke-width="1"/>
+</svg>

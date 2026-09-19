@@ -22,6 +22,7 @@ from pathlib import Path
 import jsonschema
 from PySide6.QtWidgets import QApplication, QMessageBox
 
+from ide.deutsch import deutsch_einschalten
 from ide.integritaet.start_pruefung import installation_pruefen
 from ide.shell.hauptfenster import HauptFenster
 
@@ -46,6 +47,10 @@ def integritaet_bestaetigen(fenster: HauptFenster) -> bool:
 
 def erstellen() -> tuple[QApplication, HauptFenster]:
     app = QApplication.instance() or QApplication(sys.argv)
+    # Qts eigene Texte auf Deutsch, bevor das Fenster entsteht: die
+    # Tastenkürzel in den Menüs („Strg+S“ statt „Ctrl+S“) werden beim
+    # Aufbau gesetzt (M11, Abschnitt 4).
+    deutsch_einschalten(app)
     fenster = HauptFenster()
     return app, fenster
 

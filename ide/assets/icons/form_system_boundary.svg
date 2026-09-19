@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Systemgrenze: Rahmen mit Namensband oben, darin ein Anwendungsfall. -->
+  <rect x="2.7" y="3.7" width="18.6" height="16.6" fill="#f7f9fa"/>
+  <path d="M2.7 3.7h18.6v3.8H2.7Z" fill="#8764b8"/>
+  <path d="M5 5.6h7.4" stroke="#ffffff" stroke-width="1" stroke-linecap="round"/>
+  <ellipse cx="12" cy="14.2" rx="6.2" ry="3.6" fill="#f7f9fa" stroke="#37474f"
+           stroke-width="1.2"/>
+  <rect x="2.7" y="3.7" width="18.6" height="16.6" fill="none" stroke="#37474f"
+        stroke-width="1.2"/>
+</svg>

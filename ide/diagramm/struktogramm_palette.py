@@ -4,16 +4,30 @@ Bewusst dieselbe Bedienung wie die Formen-Palette des
 Klassendiagramms: Block anklicken macht ihn scharf, der nächste Klick
 auf eine Einfügestelle setzt ihn dorthin. Wer beides benutzt, muss
 nichts umlernen.
+
+Auch die Symbole folgen demselben Muster (M11, Abschnitt 1): links
+neben der Beschriftung ein kleines Bild des Blocks, Datei
+`block_<art>.svg`.
 """
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import QLineEdit, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
+from ide.assets import symbol
 from ide.diagramm.struktogramm import BLOCK_BESCHRIFTUNGEN
 
 KIND_ROLLE = Qt.ItemDataRole.UserRole
+
+#: Wie in der Formen-Palette und in der Komponentenpalette.
+SYMBOL_GROESSE = QSize(22, 22)
+
+
+def symbolname(art: str) -> str:
+    """Dateiname (ohne Endung) des Symbols zu einer Blockart."""
+    return f"block_{art}"
+
 
 #: Reihenfolge wie im Konzept aufgezählt (Abschnitt 13.5), gruppiert
 #: nach dem, was Schülerinnen und Schüler im Unterricht zusammen lernen.
@@ -50,6 +64,7 @@ class BlockPalette(QWidget):
 
         self.baum = QTreeWidget()
         self.baum.setHeaderHidden(True)
+        self.baum.setIconSize(SYMBOL_GROESSE)
         self.baum.itemClicked.connect(self._geklickt)
 
         for gruppe, arten in GRUPPEN:
@@ -58,6 +73,7 @@ class BlockPalette(QWidget):
             for art in arten:
                 eintrag = QTreeWidgetItem(knoten, [BLOCK_BESCHRIFTUNGEN[art]])
                 eintrag.setData(0, KIND_ROLLE, art)
+                eintrag.setIcon(0, symbol(symbolname(art)))
                 eintrag.setToolTip(0, BESCHREIBUNGEN.get(art, ""))
             knoten.setExpanded(True)
 
@@ -65,6 +81,17 @@ class BlockPalette(QWidget):
         layout.setContentsMargins(4, 4, 4, 4)
         layout.addWidget(self.suche)
         layout.addWidget(self.baum)
+
+    def symbole_erneuern(self, theme: str = "system") -> None:
+        """Lädt die Palettensymbole im angegebenen Theme neu (siehe
+        `FormenPalette.symbole_erneuern`)."""
+        for i in range(self.baum.topLevelItemCount()):
+            gruppe = self.baum.topLevelItem(i)
+            for j in range(gruppe.childCount()):
+                eintrag = gruppe.child(j)
+                art = eintrag.data(0, KIND_ROLLE)
+                if art:
+                    eintrag.setIcon(0, symbol(symbolname(str(art)), theme))
 
     def _geklickt(self, eintrag: QTreeWidgetItem, spalte: int) -> None:
         art = eintrag.data(0, KIND_ROLLE)

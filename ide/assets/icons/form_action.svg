@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Aktion: Kapsel mit dem, was getan wird - gruen wie alles, was laeuft. -->
+  <rect x="2.6" y="7.2" width="18.8" height="9.6" rx="4.8" fill="#f7f9fa"
+        stroke="#37474f" stroke-width="1.2"/>
+  <rect x="6" y="10" width="12" height="2.6" rx="1.2" fill="#1e8e3e"/>
+  <path d="M6 14.6h8.4" stroke="#7b8f9a" stroke-width="1" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Zustand: abgerundeter Kasten mit Namensbalken und Trennlinie fuer entry/do/exit. -->
+  <rect x="2.6" y="5.6" width="18.8" height="12.8" rx="3.4" fill="#f7f9fa"
+        stroke="#37474f" stroke-width="1.2"/>
+  <rect x="5" y="7.8" width="11" height="2.8" rx="1.2" fill="#0067c0"/>
+  <path d="M2.6 12.4h18.8" stroke="#37474f" stroke-width="1"/>
+  <path d="M5 14.6h11.6M5 16.6h7.6" stroke="#7b8f9a" stroke-width="1"
+        stroke-linecap="round"/>
+</svg>

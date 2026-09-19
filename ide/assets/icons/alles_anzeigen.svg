@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Alles anzeigen: das Blatt wird in die vier Ecken des Fensters gezogen. -->
+  <rect x="7.6" y="8.8" width="8.8" height="6.4" rx="1.2" fill="#f7f9fa"
+        stroke="#37474f" stroke-width="1.2"/>
+  <path d="M3.1 8V3.1h4.9M16 3.1h4.9V8M20.9 16v4.9H16M8 20.9H3.1V16"
+        fill="none" stroke="#0067c0" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round"/>
+</svg>

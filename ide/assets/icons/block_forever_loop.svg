@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Endlosschleife: das Band laeuft rundum, weil es keine Bedingung gibt. -->
+  <rect x="3.1" y="4.6" width="17.8" height="14.8" fill="#f7f9fa"/>
+  <path d="M3.1 4.6h17.8v14.8H3.1Zm4.2 4.2v6.4h9.4V8.8Z" fill="#8764b8"
+        fill-rule="evenodd"/>
+  <path d="M9.6 12h5" stroke="#7b8f9a" stroke-width="1" stroke-linecap="round"/>
+  <rect x="3.1" y="4.6" width="17.8" height="14.8" fill="none" stroke="#37474f" stroke-width="1.2"/>
+</svg>

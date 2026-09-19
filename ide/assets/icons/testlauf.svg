@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Testlauf: Pruefliste mit gruenem Haken. -->
+  <rect x="4.4" y="4.1" width="15.2" height="15.8" rx="1.5" fill="#f7f9fa"
+        stroke="#37474f" stroke-width="1.2"/>
+  <rect x="8.8" y="2.6" width="6.4" height="3" rx="1" fill="#90a4ae"
+        stroke="#37474f" stroke-width="1.2"/>
+  <path d="M7.4 9.4h9.2M7.4 11.8h6" stroke="#7b8f9a" stroke-width="1"
+        stroke-linecap="round"/>
+  <path d="M7.6 15.6 10.2 18.2 16.4 12" fill="none" stroke="#1e8e3e"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

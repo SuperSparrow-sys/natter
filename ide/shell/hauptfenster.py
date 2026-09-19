@@ -91,10 +91,16 @@ from ide.shell.quelltexteditor import SCHRIFTART_OPTIONEN, QuelltextEditor
 from ide.shell.schnellauswahl import SchnellAuswahl
 from ide.shell.startbild import Startbild, beispiel_kopieren, zuletzt_merken
 from ide.shell.suchen_dialog import SuchenErsetzenDialog
+from ide.shell.tastenkuerzel import als_markdown as tastenkuerzel_als_markdown
 from ide.shell.theme import ide_qss_erzeugen
 from ide.testrunner import Testergebnis, ergebnisse_als_html, tests_ausfuehren
-from ide.viewers import BildVorschau, CsvAnsicht, HtmlVorschau, TabellenAnsicht
-from pcl import open_url
+from ide.viewers import (
+    BildVorschau,
+    CsvAnsicht,
+    HilfeAnsicht,
+    HtmlVorschau,
+    TabellenAnsicht,
+)
 from pcl.form import Form
 from pcl.theme import theme_aufloesen
 
@@ -611,6 +617,22 @@ class HauptFenster(QMainWindow):
                 "Komponenten-Referenz",
                 menue="Hilfe",
                 callback=self._komponenten_referenz_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "hilfe.erste_schritte",
+                "Erste Schritte",
+                menue="Hilfe",
+                callback=self._erste_schritte_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
+                "hilfe.tastenkuerzel",
+                "Tastenkürzel-Übersicht",
+                menue="Hilfe",
+                callback=self._tastenkuerzel_aktion,
             )
         )
         self.aktionen.registrieren(
@@ -1180,20 +1202,65 @@ class HauptFenster(QMainWindow):
         leer = self.editor_tabs.count() == 0
         self.mitte.setCurrentWidget(self.startbild if leer else self.editor_tabs)
 
-    def _erste_schritte_aktion(self) -> None:
-        """„Erste Schritte“ vom Startbild aus – dieselbe Anleitung wie
-        unter Hilfe."""
+    def hilfe_zeigen(self, titel: str, markdown: str) -> HilfeAnsicht:
+        """Öffnet eine Hilfeseite als eigenen Reiter – lesbar gesetzt,
+        im Programm.
+
+        Ein zweiter Aufruf mit demselben Titel holt den vorhandenen
+        Reiter nach vorn, statt einen zweiten aufzumachen.
+        """
+        for index in range(self.editor_tabs.count()):
+            widget = self.editor_tabs.widget(index)
+            if isinstance(widget, HilfeAnsicht) and (
+                self.editor_tabs.tabText(index) == titel
+            ):
+                widget.markdown_setzen(markdown)
+                self.editor_tabs.setCurrentIndex(index)
+                return widget
+
+        ansicht = HilfeAnsicht()
+        ansicht.markdown_setzen(markdown)
+        index = self.editor_tabs.addTab(ansicht, titel)
+        self.editor_tabs.setCurrentIndex(index)
+        return ansicht
+
+    def _hilfedatei_zeigen(self, dateiname: str, titel: str) -> bool:
+        """Eine Hilfeseite aus `docs/`. Liefert `False`, wenn es sie
+        nicht gibt; die Meldung sagt dann, wo sie liegen müsste."""
         # `daten_ordner` statt eines quellcode-relativen Pfads: in der
-        # gebauten Exe liegt `docs/` im Bundle-Ordner, nicht neben
-        # dem Quelltext.
-        pfad = daten_ordner("docs") / "erste_schritte.md"
-        if pfad.exists():
-            self.datei_oeffnen(pfad)
-        else:
+        # gebauten Exe liegt `docs/` im Bundle-Ordner, nicht neben dem
+        # Quelltext.
+        pfad = daten_ordner("docs") / dateiname
+        if not pfad.exists():
             self.statusBar().showMessage(
-                "„Erste Schritte“ nicht gefunden. Die Anleitung liegt in "
-                "docs/erste_schritte.md."
+                f"„{titel}“ ist nicht mitgekommen. Die Seite liegt in "
+                f"docs/{dateiname}; eine neue Installation bringt sie mit."
             )
+            return False
+        self.hilfe_zeigen(titel, pfad.read_text(encoding="utf-8"))
+        return True
+
+    def _erste_schritte_aktion(self) -> bool:
+        """„Erste Schritte“ – vom Startbild und aus dem Menü „Hilfe“.
+
+        Bis M11 öffnete der Eintrag die `.md`-Datei im
+        **Quelltexteditor**: eine Anleitung mit `##` und `*` davor, in
+        einem Fenster, das nach Programmieren aussieht und in dem man
+        sie versehentlich ändern kann.
+        """
+        return self._hilfedatei_zeigen("erste_schritte.md", "Erste Schritte")
+
+    def _tastenkuerzel_aktion(self) -> HilfeAnsicht:
+        """„Hilfe → Tastenkürzel-Übersicht“ (M11, Abschnitt 4).
+
+        Die Kürzel gab es alle schon – sie standen nur nirgends
+        zusammen. Erzeugt wird die Seite aus dem Aktionsregister: eine
+        von Hand gepflegte Liste ist nach der dritten neuen Aktion
+        falsch, und eine falsche Übersicht ist schlimmer als keine.
+        """
+        return self.hilfe_zeigen(
+            "Tastenkürzel", tastenkuerzel_als_markdown(self.aktionen)
+        )
 
     def beispiel_oeffnen(self, projektdatei: Path) -> Projekt:
         """Öffnet ein mitgeliefertes Beispielprojekt – als **Kopie** im
@@ -1622,18 +1689,15 @@ class HauptFenster(QMainWindow):
 
     # -- Hilfe (Abschnitt 7.2) -------------------------------------------------
 
-    def _komponenten_referenz_aktion(self) -> None:
-        # Derselbe Fund wie bei „Erste Schritte“: der quellcode-relative
-        # Pfad zeigte in der gebauten Exe ins Leere, und der Eintrag
-        # meldete dort immer „nicht gefunden“.
-        pfad = daten_ordner("docs") / "komponenten.md"
-        if not pfad.exists():
-            self.statusBar().showMessage(
-                "Komponenten-Referenz nicht gefunden. Sie liegt in "
-                "docs/komponenten.md."
-            )
-            return
-        open_url(str(pfad))
+    def _komponenten_referenz_aktion(self) -> bool:
+        """„Hilfe → Komponenten-Referenz“.
+
+        Früher an Windows weitergereicht (`open_url`). Für `.md` ist
+        dort meist gar nichts eingetragen: im besten Fall ging der
+        Editor auf, im Normalfall passierte nichts. Jetzt dieselbe
+        Ansicht wie bei „Erste Schritte“.
+        """
+        return self._hilfedatei_zeigen("komponenten.md", "Komponenten-Referenz")
 
     def _ueber_aktion(self) -> None:
         QMessageBox.about(

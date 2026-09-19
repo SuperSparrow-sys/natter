@@ -23,10 +23,26 @@ from typing import Any
 from ide.shell.quelltexteditor import _CODE_SCHRIFTGROESSE, _schriftart_kette
 from pcl.theme import _tokens_laden, theme_aufloesen
 
-_TAB_SCHLIESSEN_SYMBOL = (
-    (Path(__file__).resolve().parent.parent / "assets" / "icons" / "tab_schliessen.svg")
-    .as_posix()
-)
+_ICON_ORDNER = Path(__file__).resolve().parent.parent / "assets" / "icons"
+
+
+def _tab_schliessen_symbol(aufgeloest: str) -> str:
+    """Pfad zum Kreuz des Reiter-Schließknopfes für `light`/`dark`.
+
+    Das QSS bindet diese Datei als `image: url(...)` ein, und dabei kommt
+    Qt am Umfärben aus `ide/assets/symbole.py` vorbei – die Datei muss
+    also schon in der richtigen Farbe auf der Platte liegen (M11,
+    Abschnitt 1). Deshalb je Theme eine eigene Datei statt eines
+    theme-neutralen Graus, das in beiden Themes nur halb passte.
+
+    `tab_schliessen.svg` (neutral) bleibt als Rückfallebene: fehlt die
+    Theme-Datei, ist ein blasses Kreuz immer noch besser als ein
+    Schließknopf ohne Bild.
+    """
+    datei = _ICON_ORDNER / f"tab_schliessen_{'dunkel' if aufgeloest == 'dark' else 'hell'}.svg"
+    if not datei.exists():
+        datei = _ICON_ORDNER / "tab_schliessen.svg"
+    return datei.as_posix()
 
 
 def _mit_alpha(farbe_hex: str, alpha: float) -> str:
@@ -59,6 +75,7 @@ def ide_qss_erzeugen(
     # Werkzeug wie Lazarus/VS Code - 10pt (sizes_pt[0]) ist die
     # eigentliche Fließtextgröße aus den Design-Tokens.
     basis_pt = schrift["sizes_pt"][0]
+    tab_schliessen = _tab_schliessen_symbol(aufgeloest)
 
     return f"""\
 QMainWindow, QDialog {{
@@ -171,7 +188,7 @@ QTabBar::tab:!selected:hover {{
     background-color: {farben["border"]};
 }}
 QTabBar::close-button {{
-    image: url({_TAB_SCHLIESSEN_SYMBOL});
+    image: url({tab_schliessen});
     padding: 2px;
 }}
 QTabBar::close-button:hover {{

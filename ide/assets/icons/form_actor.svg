@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Akteur: Strichmaennchen mit Namenszeile darunter. Arme und Beine tragen die Bedeutung allein und sind deshalb Marken (2,0). -->
+  <circle cx="12" cy="6" r="3.4" fill="#0067c0" stroke="#004c8c" stroke-width="1.2"/>
+  <path d="M12 9.8v6M7.2 12.2h9.6M12 15.8 8.2 19.4M12 15.8 15.8 19.4"
+        fill="none" stroke="#37474f" stroke-width="2" stroke-linecap="round"/>
+</svg>

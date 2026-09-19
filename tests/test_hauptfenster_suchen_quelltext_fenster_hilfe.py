@@ -169,19 +169,21 @@ def test_layout_zuruecksetzen_stellt_geschlossene_docks_wieder_her() -> None:
 # -- Hilfe -------------------------------------------------------------
 
 
-def test_komponenten_referenz_ruft_open_url_mit_der_docs_datei_auf(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_komponenten_referenz_oeffnet_einen_hilfe_reiter() -> None:
+    """Früher an Windows weitergereicht. Für `.md` ist dort meist gar
+    nichts eingetragen: im besten Fall ging der Editor auf, im
+    Normalfall passierte nichts (M11, Abschnitt 4)."""
+    from ide.viewers import HilfeAnsicht
+
     fenster = HauptFenster()
-    aufgerufen = []
-    monkeypatch.setattr(
-        "ide.shell.hauptfenster.open_url", lambda ziel: aufgerufen.append(ziel)
+
+    assert fenster._komponenten_referenz_aktion() is True
+
+    reiter = fenster.editor_tabs.currentWidget()
+    assert isinstance(reiter, HilfeAnsicht)
+    assert fenster.editor_tabs.tabText(fenster.editor_tabs.currentIndex()) == (
+        "Komponenten-Referenz"
     )
-
-    fenster._komponenten_referenz_aktion()
-
-    assert len(aufgerufen) == 1
-    assert aufgerufen[0].endswith("komponenten.md")
 
 
 def test_ueber_zeigt_eine_dialogbox(monkeypatch: pytest.MonkeyPatch) -> None:

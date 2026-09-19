@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QSettings, Qt
+from PySide6.QtCore import QSettings, QSize, Qt
 from PySide6.QtGui import QActionGroup, QPageLayout, QPainter
 from PySide6.QtPrintSupport import QPrinter, QPrintPreviewDialog
 from PySide6.QtWidgets import (
@@ -136,6 +136,26 @@ _UNTERMENUES: dict[str, tuple[tuple[str, str], ...]] = {
         ("Breite und Höhe", "beide"),
     ),
 }
+
+#: Werkzeugleiste des Diagramm-Editors (M11, Abschnitt 1): die Befehle,
+#: die man beim Zeichnen dauernd braucht. Jeder Eintrag ist der Pfad
+#: einer Aktion, die es **schon im Menü gibt** – die Leiste hängt
+#: dieselbe `QAction` noch einmal auf, statt den Befehl ein zweites Mal
+#: zu verdrahten (Abschnitt 7.3: „eine Aktion = Menüeintrag +
+#: Werkzeugleisten-Button … nur einmal implementiert“). `None` ist eine
+#: Trennlinie.
+_WERKZEUGLEISTE: tuple[tuple[str, str] | None, ...] = (
+    ("Datei/Speichern", "speichern"),
+    None,
+    ("Bearbeiten/Rückgängig", "rueckgaengig"),
+    ("Bearbeiten/Wiederholen", "wiederholen"),
+    ("Bearbeiten/Löschen", "loeschen"),
+    None,
+    ("Ansicht/Zoom vergrößern", "zoom_groesser"),
+    ("Ansicht/Zoom verkleinern", "zoom_kleiner"),
+    ("Ansicht/Alles anzeigen", "alles_anzeigen"),
+    ("Ansicht/Raster", "raster"),
+)
 
 #: Zusatzmenü, das nur die Entscheidungstabelle bekommt
 #: (Abschnitt 13.5: Spalten und Zeilen hinzufügen/entfernen/verschieben).
@@ -351,6 +371,31 @@ class DiagrammFenster(QMainWindow):
 
         self._anordnen_verdrahten()
         self._menue_an_typ_anpassen()
+        self._werkzeugleiste_aufbauen()
+
+    def _werkzeugleiste_aufbauen(self) -> None:
+        """Werkzeugleiste aus `_WERKZEUGLEISTE`.
+
+        Bewusst dieselbe Machart wie die Leiste der Haupt-IDE
+        (`ide/shell/hauptfenster.py`): 18 px Symbole, nicht verschiebbar,
+        und jeder Knopf ist **dieselbe** `QAction` wie der Menüeintrag.
+        Dadurch erbt er Tastenkürzel, Ein/Aus-Zustand und – beim Raster –
+        auch das Häkchen, ohne dass irgendetwas zweimal dasteht. Was der
+        Diagrammtyp nicht kann, ist im Menü ausgegraut und damit auch
+        hier (`_menue_an_typ_anpassen` läuft vorher).
+        """
+        self.werkzeugleiste = self.addToolBar("Werkzeugleiste")
+        self.werkzeugleiste.setObjectName("Werkzeugleiste")
+        self.werkzeugleiste.setMovable(False)
+        self.werkzeugleiste.setIconSize(QSize(18, 18))
+        for eintrag in _WERKZEUGLEISTE:
+            if eintrag is None:
+                self.werkzeugleiste.addSeparator()
+                continue
+            pfad, symbolname = eintrag
+            aktion = self.aktionen[pfad]
+            aktion.setIcon(symbol(symbolname))
+            self.werkzeugleiste.addAction(aktion)
 
     def _untermenue_aufbauen(self, menue, pfad: str, aktiv: bool) -> None:
         """Baut ein Untermenü wie „Anordnen → Ausrichten".

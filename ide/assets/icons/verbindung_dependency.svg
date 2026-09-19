@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Abhaengigkeit: gestrichelte, hellere Linie mit offener Pfeilspitze - die helle Tinte unterscheidet sie bei 16 px von der gerichteten Assoziation, wo das Strichmuster allein verschwimmt. -->
+  <rect x="2.6" y="9.4" width="3.8" height="5.2" rx="1" fill="#90a4ae" stroke="#37474f" stroke-width="1.2"/>
+  <rect x="17.6" y="9.4" width="3.8" height="5.2" rx="1" fill="#90a4ae" stroke="#37474f" stroke-width="1.2"/>
+  <path d="M6.4 12H17.6" fill="none" stroke="#7b8f9a" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="2.4 2"/>
+  <path d="M17.6 12 10.2 7.2 10.2 9.6 13.8 12 10.2 14.4 10.2 16.8Z" fill="#7b8f9a"/>
+</svg>

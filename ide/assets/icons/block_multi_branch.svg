@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Mehrseitige Auswahl: der Kopf teilt sich in mehrere Faelle. -->
+  <rect x="3.1" y="4.6" width="17.8" height="14.8" fill="#f7f9fa"/>
+  <path d="M3.1 4.6h17.8l-4.5 6.4H7.6Z" fill="#f2b134"/>
+  <path d="M8.4 11v8.4M15.6 11v8.4" stroke="#37474f" stroke-width="1"/>
+  <rect x="4.2" y="13.4" width="3" height="3.6" rx="0.6" fill="#0067c0"/>
+  <rect x="10.5" y="13.4" width="3" height="3.6" rx="0.6" fill="#0067c0"/>
+  <rect x="16.8" y="13.4" width="3" height="3.6" rx="0.6" fill="#0067c0"/>
+  <path d="M3.1 4.6 7.6 11M20.9 4.6 16.4 11M7.6 11h8.8" fill="none"
+        stroke="#37474f" stroke-width="1"/>
+  <rect x="3.1" y="4.6" width="17.8" height="14.8" fill="none" stroke="#37474f" stroke-width="1.2"/>
+</svg>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Kopfgesteuerte Schleife: Band oben und links, gruen - die Bedingung steht vor dem Rumpf. -->
+  <rect x="3.1" y="4.6" width="17.8" height="14.8" fill="#f7f9fa"/>
+  <path d="M3.1 4.6h17.8v4.4H7.3v10.4H3.1Z" fill="#1e8e3e"/>
+  <path d="M9.6 6.8h8.4" stroke="#ffffff" stroke-width="1" stroke-linecap="round"/>
+  <path d="M9.6 12.8h8.4M9.6 15.6h5.6" stroke="#7b8f9a" stroke-width="1"
+        stroke-linecap="round"/>
+  <rect x="3.1" y="4.6" width="17.8" height="14.8" fill="none" stroke="#37474f" stroke-width="1.2"/>
+</svg>

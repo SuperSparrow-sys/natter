@@ -6,11 +6,18 @@ Diagrammtyp, Tooltip mit Name und Kurzbeschreibung. Ein einfacher Klick
 macht die Form „scharf“ (Abschnitt 13.3: „anklicken und auf die Fläche
 klicken“) – dasselbe Muster wie die Komponentenpalette im
 Formular-Designer.
+
+Jeder Eintrag trägt links neben der Beschriftung ein Symbol: ein
+kleines Bild genau der Form, die entsteht (M11, Abschnitt 1). Die
+Dateien heißen `form_<kind>.svg` bzw. `verbindung_<kind>.svg` – die
+Kennung ist dieselbe wie in `ide/diagramm/formen.py` und in der
+`.pdiag`, damit eine neue Form nur **eine** Datei braucht und keinen
+zweiten Namen.
 """
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
     QLineEdit,
     QTreeWidget,
@@ -19,10 +26,21 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ide.assets import symbol
 from ide.diagramm.formen import FORMEN_JE_TYP, formen_fuer, ist_verbindungsart, verbindungen_fuer
 from ide.diagramm.neu import TYP_BESCHRIFTUNGEN
 
 KIND_ROLLE = Qt.ItemDataRole.UserRole
+
+#: Gleiche Größe wie in der Komponentenpalette des Designers
+#: (`ide/palette/palette.py`) – die Palette ist dieselbe Art Werkzeug.
+SYMBOL_GROESSE = QSize(22, 22)
+
+
+def symbolname(kind: str) -> str:
+    """Dateiname (ohne Endung) des Symbols zu einer Form- oder
+    Verbindungskennung."""
+    return f"verbindung_{kind}" if ist_verbindungsart(kind) else f"form_{kind}"
 
 
 class FormenPalette(QWidget):
@@ -43,6 +61,7 @@ class FormenPalette(QWidget):
         self.baum = QTreeWidget()
         self.baum.setHeaderHidden(True)
         self.baum.setEditTriggers(QTreeWidget.EditTrigger.NoEditTriggers)
+        self.baum.setIconSize(SYMBOL_GROESSE)
         self.baum.itemClicked.connect(self._bei_klick)
 
         layout = QVBoxLayout(self)
@@ -73,9 +92,23 @@ class FormenPalette(QWidget):
         for art in formen:
             eintrag = QTreeWidgetItem([art.beschriftung])
             eintrag.setData(0, KIND_ROLLE, art.kind)
+            eintrag.setIcon(0, symbol(symbolname(art.kind)))
             eintrag.setToolTip(0, f"{art.beschriftung} – {art.beschreibung}")
             gruppe.addChild(eintrag)
         gruppe.setExpanded(aufgeklappt)
+
+    def symbole_erneuern(self, theme: str = "system") -> None:
+        """Lädt die Palettensymbole im angegebenen Theme neu – ein
+        `QIcon` merkt sich seine Farben, ein Wechsel unter „Ansicht →
+        Design“ ginge sonst an der Palette vorbei (in M11 an der
+        Komponentenpalette real aufgefallen)."""
+        for i in range(self.baum.topLevelItemCount()):
+            gruppe = self.baum.topLevelItem(i)
+            for j in range(gruppe.childCount()):
+                eintrag = gruppe.child(j)
+                kind = eintrag.data(0, KIND_ROLLE)
+                if kind:
+                    eintrag.setIcon(0, symbol(symbolname(kind), theme))
 
     def _bei_klick(self, eintrag: QTreeWidgetItem, spalte: int) -> None:
         kind = eintrag.data(0, KIND_ROLLE)

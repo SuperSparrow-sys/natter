@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Endknoten: Ring mit vollem Kern. -->
+  <circle cx="12" cy="12" r="8" fill="#f7f9fa" stroke="#37474f" stroke-width="1.2"/>
+  <circle cx="12" cy="12" r="4.6" fill="#c42b1c"/>
+</svg>

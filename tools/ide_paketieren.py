@@ -37,6 +37,8 @@ import sys
 from importlib.metadata import distributions
 from pathlib import Path
 
+import PySide6
+
 from ide.integritaet import manifest_schreiben
 
 _PROJEKT_WURZEL = Path(__file__).resolve().parent.parent
@@ -51,6 +53,15 @@ _BUILD_ORDNER = _PROJEKT_WURZEL / "_pyinstaller_build_ide"
 _SPEC_ORDNER = _PROJEKT_WURZEL / "_pyinstaller_spec_ide"
 _BEISPIEL_ORDNER = _PROJEKT_WURZEL / "beispielprojekte"
 _DOCS_ORDNER = _PROJEKT_WURZEL / "docs"
+#: Qts eigene deutsche Oberflächentexte (M11, Abschnitt 4): die
+#: Tastenkürzel in den Menüs, die Knöpfe der Standarddialoge, der
+#: Datei-Öffnen-Dialog. PyInstaller bindet die Übersetzungen nicht von
+#: selbst ein; ohne sie stünde in der gebauten Exe wieder „Ctrl+S“ und
+#: „Cancel“, während dasselbe Programm aus dem Quelltext deutsch ist.
+_QT_UEBERSETZUNGEN = (
+    Path(PySide6.__file__).resolve().parent / "translations"
+)
+
 _LIZENZ_VORLAGEN = Path(__file__).resolve().parent / "lizenz_vorlagen"
 _SIGNIER_SKRIPT = Path(__file__).resolve().parent / "signieren" / "datei_signieren.ps1"
 _MANIFEST_SCHLUESSEL = Path(__file__).resolve().parent / "signieren" / "manifest-privat.pem"
@@ -119,6 +130,10 @@ def _pyinstaller_bauen() -> None:
         f"{_BEISPIEL_ORDNER}{os.pathsep}beispielprojekte",
         "--add-data",
         f"{_DOCS_ORDNER}{os.pathsep}docs",
+        # Ziel exakt der Paketpfad: `QLibraryInfo.path(TranslationsPath)`
+        # zeigt im Bundle dorthin, und `ide/deutsch.py` sucht dort.
+        "--add-data",
+        f"{_QT_UEBERSETZUNGEN}{os.pathsep}PySide6/translations",
         # scikit-learn kommt sonst gar nicht mit. Nachgemessen (M10):
         # steht es nur in pyproject.toml, zieht PyInstaller allein
         # `scipy` hinein - weil numpy/matplotlib es über ihre Hooks
