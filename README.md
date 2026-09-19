@@ -129,8 +129,8 @@ Menü-Editor gefüllt: Doppelklick auf das Symbol, F2 oder die Zeile
 
 ### 5.2 Zusätzlich
 
-`StringGrid`, `Image`, `Shape`, `PaintBox`, `Chart`, `SpinEdit`,
-`FloatSpinEdit`, `TrackBar`, `ProgressBar`, `Timer`
+`StringGrid`, `Image`, `Shape`, `PaintBox`, `HtmlViewer`, `Chart`,
+`SpinEdit`, `FloatSpinEdit`, `TrackBar`, `ProgressBar`, `Timer`
 
 `PaintBox` ist die freie Zeichenfläche: `Shape` legt fertige Formen hin,
 `PaintBox` zeichnet mit Koordinaten.
@@ -153,6 +153,23 @@ nichts an. Im Designer liegen sie als kleines Symbol auf dem Formular,
 damit man sie anklicken und einstellen kann — wie das
 Entwurfszeit-Symbol einer nicht sichtbaren Komponente in Lazarus.
 
+### 5.2a Eingabe
+
+`MaskEdit`, `DateEdit`, `TimeEdit`, `Calendar`
+
+Eingaben mit festem Format. `MaskEdit` lässt nur hinein, was in die
+Maske passt (`00000` für eine Postleitzahl). `DateEdit`, `TimeEdit` und
+`Calendar` arbeiten mit **echten Python-Typen**:
+
+```python
+von = self.de_start.date          # ein datetime.date
+bis = self.de_ende.date
+self.l_dauer.caption = f"{(bis - von).days} Tage"
+```
+
+Angezeigt wird deutsch (`23.11.2026`, `17:45`, „November", „Montag"),
+gespeichert wird in der `.pfm` als ISO-Datum.
+
 ### 5.3 Datenbank
 
 `SQLite3Connection`, `SQLQuery`, `DataSource`, `DBGrid`, `DBText`,
@@ -161,6 +178,7 @@ Entwurfszeit-Symbol einer nicht sichtbaren Komponente in Lazarus.
 ### 5.4 Dialoge und Werkzeuge
 
 `show_message`, `input_box`, `open_dialog`, `open_url`, `regression`,
+`Sound` (spielt `.wav` ab, `Sound.beep()` für einen kurzen Ton),
 `analyse`
 
 Jede Komponente hat dieselben Eigenschaften wie ihr Lazarus-Vorbild,

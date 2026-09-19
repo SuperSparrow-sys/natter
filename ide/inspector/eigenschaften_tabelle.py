@@ -16,7 +16,7 @@ from collections.abc import Callable
 from typing import Any
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QTableWidget, QTableWidgetItem
+from PySide6.QtWidgets import QHeaderView, QTableWidget, QTableWidgetItem
 
 from ide.inspector.menue_editor import MenueEditor
 from ide.inspector.sammlung_dialog import SammlungDialog
@@ -28,6 +28,8 @@ from pcl.properties import (
     SAMMLUNGS_EIGENSCHAFTEN,
     VERSCHACHTELTE_EIGENSCHAFTEN,
     eigenschaften,
+    text_aus_wert,
+    wert_aus_text,
     wert_lesen,
     wert_setzen,
 )
@@ -54,6 +56,19 @@ class EigenschaftenTabelle(QTableWidget):
     def __init__(self) -> None:
         super().__init__(0, 2)
         self.setHorizontalHeaderLabels(["Eigenschaft", "Wert"])
+        # Ohne Zeilennummern: niemand spricht eine Eigenschaft als
+        # „Nummer 3" an, und in Lazarus' Objektinspektor steht dort
+        # auch nichts. Die Spalte kostete nur Platz - links vom Namen,
+        # genau dort, wo der Dock auf einem Schulrechner am
+        # knappsten ist (M15, Abschnitt 6).
+        self.verticalHeader().setVisible(False)
+        # Die Wertspalte füllt den Rest der Breite - sonst endete die
+        # Tabelle mitten im Dock, und rechts davon stand leerer Grund,
+        # während „Kontoverwalt…" nebenan abgeschnitten war. Der
+        # Projekt-Explorer macht es seit jeher so.
+        kopf = self.horizontalHeader()
+        kopf.setStretchLastSection(True)
+        kopf.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
         self.fehlertext = ""
         self._komponente: Any = None
         self._bei_aenderung: Callable[[Any, str, Any, Any], None] | None = None
@@ -206,7 +221,9 @@ class EigenschaftenTabelle(QTableWidget):
             else:
                 element.setText(f"({anzahl} Einträge)")
         else:
-            element.setText(str(wert))
+            # `text_aus_wert` statt `str`: ein Datum steht deutsch in der
+            # Zelle (`20.09.2026`), nicht als `2026-09-20`.
+            element.setText(text_aus_wert(wert))
 
     def _bei_zellenaenderung(self, element: QTableWidgetItem) -> None:
         if self._aktualisierung_laeuft or element.column() != _SPALTE_WERT:
@@ -225,8 +242,8 @@ class EigenschaftenTabelle(QTableWidget):
             neuer_wert: Any = element.checkState() == Qt.CheckState.Checked
         else:
             try:
-                neuer_wert = typ(element.text())
-            except ValueError:
+                neuer_wert = wert_aus_text(typ, element.text())
+            except (ValueError, TypeError):
                 self.fehlertext = f"{element.text()!r} ist keine gültige Eingabe für {name}."
                 self._zelle_zuruecksetzen(element, typ, name)
                 return

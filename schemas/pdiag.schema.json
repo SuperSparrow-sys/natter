@@ -4,24 +4,63 @@
   "title": "Natter Diagrammdatei (.pdiag)",
   "description": "UML-Diagramme, Struktogramme und Entscheidungstabellen. Siehe konzept-natter.md, Abschnitt 13.7. Formen-Diagramme (class/use_case/activity/state/sequence) nutzen shapes+connectors, Struktogramme einen Blockbaum (root), Entscheidungstabellen Bedingungs-/Aktionszeilen mit Regel-Spalten.",
   "type": "object",
-  "required": ["format", "type", "page", "style"],
+  "required": [
+    "format",
+    "type",
+    "page",
+    "style"
+  ],
   "allOf": [
     {
-      "if": { "properties": { "type": { "const": "struktogramm" } }, "required": ["type"] },
-      "then": { "required": ["root"] }
+      "if": {
+        "properties": {
+          "type": {
+            "const": "struktogramm"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "required": [
+          "root"
+        ]
+      }
     },
     {
       "if": {
-        "properties": { "type": { "const": "entscheidungstabelle" } },
-        "required": ["type"]
+        "properties": {
+          "type": {
+            "const": "entscheidungstabelle"
+          }
+        },
+        "required": [
+          "type"
+        ]
       },
-      "then": { "required": ["conditions", "actions"] }
+      "then": {
+        "required": [
+          "conditions",
+          "actions"
+        ]
+      }
     }
   ],
   "properties": {
-    "format": { "const": "pdiag/1" },
+    "format": {
+      "const": "pdiag/1"
+    },
     "type": {
-      "enum": ["class", "use_case", "activity", "state", "sequence", "struktogramm", "entscheidungstabelle"]
+      "enum": [
+        "class",
+        "use_case",
+        "activity",
+        "state",
+        "sequence",
+        "struktogramm",
+        "entscheidungstabelle"
+      ]
     },
     "name": {
       "type": "string",
@@ -33,39 +72,95 @@
     },
     "conditions": {
       "type": "array",
-      "items": { "$ref": "#/$defs/tabellenzeile" },
+      "items": {
+        "$ref": "#/$defs/tabellenzeile"
+      },
       "description": "Bedingungsteil einer Entscheidungstabelle (Werte J/N/*/leer)."
     },
     "actions": {
       "type": "array",
-      "items": { "$ref": "#/$defs/tabellenzeile" },
+      "items": {
+        "$ref": "#/$defs/tabellenzeile"
+      },
       "description": "Aktionsteil einer Entscheidungstabelle (Werte X/leer)."
     },
     "page": {
       "type": "object",
-      "required": ["size", "orientation"],
+      "required": [
+        "size",
+        "orientation"
+      ],
       "properties": {
-        "size": { "type": "string", "examples": ["A4"] },
-        "orientation": { "enum": ["portrait", "landscape"] }
+        "size": {
+          "type": "string",
+          "examples": [
+            "A4"
+          ]
+        },
+        "orientation": {
+          "enum": [
+            "portrait",
+            "landscape"
+          ]
+        }
       }
     },
-    "style": { "enum": ["modern-light", "modern-dark", "black-white"] },
+    "style": {
+      "enum": [
+        "modern-light",
+        "modern-dark",
+        "black-white"
+      ]
+    },
     "shapes": {
       "type": "array",
-      "items": { "$ref": "#/$defs/shape" }
+      "items": {
+        "$ref": "#/$defs/shape"
+      }
     },
     "connectors": {
       "type": "array",
-      "items": { "$ref": "#/$defs/connector" }
+      "items": {
+        "$ref": "#/$defs/connector"
+      }
+    },
+    "guides": {
+      "description": "Hilfslinien, aus dem Lineal gezogen (M15). Fehlt in jeder .pdiag aus der Zeit davor - solche Dateien bleiben gueltig.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "orientation",
+          "pos"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "orientation": {
+            "enum": [
+              "h",
+              "v"
+            ]
+          },
+          "pos": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      }
     }
   },
   "$defs": {
     "block": {
       "type": "object",
-      "required": ["id", "kind"],
+      "required": [
+        "id",
+        "kind"
+      ],
       "description": "Struktogramm-Block (Nassi-Shneiderman, Abschnitt 13.5). Verschachtelung über children/then/else/cases statt über Koordinaten.",
       "properties": {
-        "id": { "type": "string" },
+        "id": {
+          "type": "string"
+        },
         "kind": {
           "enum": [
             "sequence",
@@ -82,43 +177,64 @@
             "try"
           ]
         },
-        "text": { "type": "string" },
+        "text": {
+          "type": "string"
+        },
         "children": {
           "type": "array",
-          "items": { "$ref": "#/$defs/block" },
+          "items": {
+            "$ref": "#/$defs/block"
+          },
           "description": "sequence: Blockfolge; count_loop/head_loop/foot_loop: Schleifenkörper."
         },
         "then": {
           "type": "array",
-          "items": { "$ref": "#/$defs/block" },
+          "items": {
+            "$ref": "#/$defs/block"
+          },
           "description": "branch: Ja-Zweig."
         },
         "else": {
           "type": "array",
-          "items": { "$ref": "#/$defs/block" },
+          "items": {
+            "$ref": "#/$defs/block"
+          },
           "description": "branch: Nein-Zweig."
         },
         "catch": {
           "type": "array",
-          "items": { "$ref": "#/$defs/block" },
+          "items": {
+            "$ref": "#/$defs/block"
+          },
           "description": "try: Behandlungszweig (except)."
         },
         "finally": {
           "type": "array",
-          "items": { "$ref": "#/$defs/block" },
+          "items": {
+            "$ref": "#/$defs/block"
+          },
           "description": "try: Abschlusszweig (finally)."
         },
         "branches": {
           "type": "array",
           "description": "parallel: die nebenlaeufig gedachten Straenge.",
-          "items": { "type": "array", "items": { "$ref": "#/$defs/block" } }
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/block"
+            }
+          }
         },
         "labels": {
           "type": "object",
           "description": "branch: abweichende Zweigbeschriftungen statt ja/nein.",
           "properties": {
-            "then": { "type": "string" },
-            "else": { "type": "string" }
+            "then": {
+              "type": "string"
+            },
+            "else": {
+              "type": "string"
+            }
           }
         },
         "cases": {
@@ -126,10 +242,20 @@
           "description": "multi_branch: Fälle der Mehrfachauswahl.",
           "items": {
             "type": "object",
-            "required": ["label", "children"],
+            "required": [
+              "label",
+              "children"
+            ],
             "properties": {
-              "label": { "type": "string" },
-              "children": { "type": "array", "items": { "$ref": "#/$defs/block" } }
+              "label": {
+                "type": "string"
+              },
+              "children": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/block"
+                }
+              }
             }
           }
         }
@@ -137,126 +263,310 @@
     },
     "tabellenzeile": {
       "type": "object",
-      "required": ["text", "values"],
+      "required": [
+        "text",
+        "values"
+      ],
       "description": "Eine Bedingungs- oder Aktionszeile; ein Eintrag in values je Regel-Spalte (Abschnitt 13.5).",
       "properties": {
-        "text": { "type": "string" },
-        "values": { "type": "array", "items": { "type": "string" } }
+        "text": {
+          "type": "string"
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "attribut": {
       "type": "object",
       "description": "Ein Attribut einer UML-Klasse (M9 Schritt 12, Reiter „Attribute“).",
       "properties": {
-        "name": { "type": "string" },
-        "type": { "type": "string" },
-        "value": { "type": "string" },
-        "comment": { "type": "string" },
-        "visibility": { "enum": ["public", "private", "protected", "implementation"] },
-        "class_scope": { "type": "boolean" }
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "comment": {
+          "type": "string"
+        },
+        "visibility": {
+          "enum": [
+            "public",
+            "private",
+            "protected",
+            "implementation"
+          ]
+        },
+        "class_scope": {
+          "type": "boolean"
+        }
       }
     },
     "parameter": {
       "type": "object",
       "description": "Ein Parameter einer Operation (Reiter „Operationen“).",
       "properties": {
-        "name": { "type": "string" },
-        "type": { "type": "string" },
-        "default": { "type": "string" },
-        "comment": { "type": "string" },
-        "direction": { "enum": ["undefined", "in", "out", "inout"] }
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "default": {
+          "type": "string"
+        },
+        "comment": {
+          "type": "string"
+        },
+        "direction": {
+          "enum": [
+            "undefined",
+            "in",
+            "out",
+            "inout"
+          ]
+        }
       }
     },
     "operation": {
       "type": "object",
       "description": "Eine Operation einer UML-Klasse (Reiter „Operationen“).",
       "properties": {
-        "name": { "type": "string" },
-        "type": { "type": "string", "description": "Rueckgabetyp." },
-        "stereotype": { "type": "string" },
-        "comment": { "type": "string" },
-        "visibility": { "enum": ["public", "private", "protected", "implementation"] },
-        "inheritance": { "enum": ["abstract", "virtual", "leaf"] },
-        "class_scope": { "type": "boolean" },
-        "query": { "type": "boolean", "description": "„Anfrage“: veraendert den Zustand nicht." },
-        "parameters": { "type": "array", "items": { "$ref": "#/$defs/parameter" } }
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "description": "Rueckgabetyp."
+        },
+        "stereotype": {
+          "type": "string"
+        },
+        "comment": {
+          "type": "string"
+        },
+        "visibility": {
+          "enum": [
+            "public",
+            "private",
+            "protected",
+            "implementation"
+          ]
+        },
+        "inheritance": {
+          "enum": [
+            "abstract",
+            "virtual",
+            "leaf"
+          ]
+        },
+        "class_scope": {
+          "type": "boolean"
+        },
+        "query": {
+          "type": "boolean",
+          "description": "„Anfrage“: veraendert den Zustand nicht."
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/parameter"
+          }
+        }
       }
     },
     "vorlagenparameter": {
       "type": "object",
       "description": "Formeller Parameter einer Vorlageklasse (Reiter „Vorlagen“).",
       "properties": {
-        "name": { "type": "string" },
-        "type": { "type": "string" }
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
       }
     },
     "shape": {
       "type": "object",
-      "required": ["id", "kind", "x", "y", "w", "h"],
+      "required": [
+        "id",
+        "kind",
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
       "properties": {
-        "id": { "type": "string" },
-        "kind": { "type": "string" },
-        "x": { "type": "number" },
-        "y": { "type": "number" },
-        "w": { "type": "number" },
-        "h": { "type": "number" },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        },
         "text": {
           "type": "object",
           "description": "Alte Textform vor M9 Schritt 12. Wird beim Laden einmalig in name/attributes/operations umgerechnet und danach nicht mehr geschrieben.",
           "properties": {
-            "name": { "type": "string" },
-            "attributes": { "type": "array", "items": { "type": "string" } },
-            "methods": { "type": "array", "items": { "type": "string" } }
+            "name": {
+              "type": "string"
+            },
+            "attributes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "methods": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         },
-        "name": { "type": "string", "description": "Name der Form (Klassenname, Notiztext, Paketname)." },
-        "stereotype": { "type": "string" },
-        "comment": { "type": "string" },
+        "name": {
+          "type": "string",
+          "description": "Name der Form (Klassenname, Notiztext, Paketname)."
+        },
+        "stereotype": {
+          "type": "string"
+        },
+        "comment": {
+          "type": "string"
+        },
         "attributes": {
           "type": "array",
-          "items": { "$ref": "#/$defs/attribut" },
+          "items": {
+            "$ref": "#/$defs/attribut"
+          },
           "description": "Strukturierte Attribute (M9 Schritt 12)."
         },
         "operations": {
           "type": "array",
-          "items": { "$ref": "#/$defs/operation" },
+          "items": {
+            "$ref": "#/$defs/operation"
+          },
           "description": "Strukturierte Operationen (M9 Schritt 12)."
         },
-        "template": { "type": "boolean", "description": "Vorlageklasse." },
+        "template": {
+          "type": "boolean",
+          "description": "Vorlageklasse."
+        },
         "template_parameters": {
           "type": "array",
-          "items": { "$ref": "#/$defs/vorlagenparameter" }
+          "items": {
+            "$ref": "#/$defs/vorlagenparameter"
+          }
         },
-        "attributes_visible": { "type": "boolean", "default": true },
-        "operations_visible": { "type": "boolean", "default": true },
-        "attributes_suppressed": { "type": "boolean", "default": false },
-        "operations_suppressed": { "type": "boolean", "default": false },
-        "comments_visible": { "type": "boolean", "default": false },
-        "wrap_operations": { "type": "boolean", "default": false },
-        "wrap_after_operations": { "type": "integer", "default": 40 },
-        "wrap_after_comments": { "type": "integer", "default": 17 },
-        "show_documentation": { "type": "boolean", "default": false },
-        "abstract": { "type": "boolean" },
-        "fill": { "type": "string", "description": "Eigene Füllfarbe #RRGGBB statt der Stilvorlage." },
-        "line": { "type": "string", "description": "Eigene Randfarbe #RRGGBB statt der Stilvorlage." },
-        "font_size": { "type": "number", "description": "Eigene Schriftgröße in pt." },
-        "group": { "type": "string", "description": "Kennung der Gruppe, zu der die Form gehört (leer oder fehlend = keine Gruppe). Formen mit derselben Kennung werden gemeinsam ausgewählt und verschoben." }
+        "attributes_visible": {
+          "type": "boolean",
+          "default": true
+        },
+        "operations_visible": {
+          "type": "boolean",
+          "default": true
+        },
+        "attributes_suppressed": {
+          "type": "boolean",
+          "default": false
+        },
+        "operations_suppressed": {
+          "type": "boolean",
+          "default": false
+        },
+        "comments_visible": {
+          "type": "boolean",
+          "default": false
+        },
+        "wrap_operations": {
+          "type": "boolean",
+          "default": false
+        },
+        "wrap_after_operations": {
+          "type": "integer",
+          "default": 40
+        },
+        "wrap_after_comments": {
+          "type": "integer",
+          "default": 17
+        },
+        "show_documentation": {
+          "type": "boolean",
+          "default": false
+        },
+        "abstract": {
+          "type": "boolean"
+        },
+        "fill": {
+          "type": "string",
+          "description": "Eigene Füllfarbe #RRGGBB statt der Stilvorlage."
+        },
+        "line": {
+          "type": "string",
+          "description": "Eigene Randfarbe #RRGGBB statt der Stilvorlage."
+        },
+        "font_size": {
+          "type": "number",
+          "description": "Eigene Schriftgröße in pt."
+        },
+        "group": {
+          "type": "string",
+          "description": "Kennung der Gruppe, zu der die Form gehört (leer oder fehlend = keine Gruppe). Formen mit derselben Kennung werden gemeinsam ausgewählt und verschoben."
+        }
       }
     },
     "connector": {
       "type": "object",
-      "required": ["id", "kind", "from", "to"],
+      "required": [
+        "id",
+        "kind",
+        "from",
+        "to"
+      ],
       "properties": {
-        "id": { "type": "string" },
-        "kind": { "type": "string" },
-        "from": { "type": "string" },
-        "to": { "type": "string" },
-        "y": { "type": "number", "description": "Höhe einer waagerechten Nachricht im Sequenzdiagramm. Ihre Reihenfolge ergibt sich allein daraus." },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "y": {
+          "type": "number",
+          "description": "Höhe einer waagerechten Nachricht im Sequenzdiagramm. Ihre Reihenfolge ergibt sich allein daraus."
+        },
         "waypoints": {
           "type": "array",
           "items": {
             "type": "array",
-            "items": { "type": "number" },
+            "items": {
+              "type": "number"
+            },
             "minItems": 2,
             "maxItems": 2
           }
@@ -264,16 +574,34 @@
         "labels": {
           "type": "object",
           "properties": {
-            "from": { "type": "string" },
-            "to": { "type": "string" }
+            "from": {
+              "type": "string"
+            },
+            "to": {
+              "type": "string"
+            }
           }
         },
         "label_offsets": {
           "type": "object",
           "description": "Eigene Verschiebung der Beschriftungen gegenüber ihrer berechneten Stelle, je [dx, dy] in Diagrammkoordinaten.",
           "properties": {
-            "from": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
-            "to": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 }
+            "from": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "to": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
           }
         }
       }

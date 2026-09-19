@@ -38,10 +38,17 @@ def test_alle_bekannten_komponenten_sind_in_der_palette() -> None:
     assert zusaetzlich_typen == set(ZUSAETZLICH_KOMPONENTEN)
 
 
-def test_hat_die_beiden_reiter() -> None:
+def test_die_reiter_stehen_in_der_reihenfolge_von_REITER() -> None:
+    """Die Titel kommen aus `REITER` und nur von dort - wer einen Reiter
+    ergänzt, trägt ihn dort ein und ist fertig. Hier stand bis M15 eine
+    zweite, von Hand gepflegte Liste („Standard", „Zusätzlich"); der
+    Reiter „Eingabe" ließ sie umfallen."""
     palette = Komponentenpalette()
+
     titel = [palette.tabText(i) for i in range(palette.count())]
-    assert titel == ["Standard", "Zusätzlich"]
+
+    assert titel == [name for name, _ in REITER]
+    assert titel[:2] == ["Standard", "Zusätzlich"]
 
 
 def test_standard_reiter_enthaelt_button() -> None:

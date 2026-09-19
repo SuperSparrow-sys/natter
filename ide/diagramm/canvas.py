@@ -38,6 +38,7 @@ from ide.diagramm.kommandos import (
     SammelKommando,
     WerteKommando,
 )
+from ide.diagramm.lineale import hilfslinien_lesen, hilfslinien_zeichnen
 from ide.diagramm.seite import satzspiegel, seitengroesse
 from ide.diagramm.stil import stil as stil_zu_namen
 from ide.diagramm.textbearbeitung import FormEditor
@@ -123,6 +124,12 @@ class DiagrammCanvas(ZoomMischung, QWidget):
         #: abschaltbar – sie melden nur, blockieren nie.
         self.hinweise_sichtbar = True
         self.seitenrand_sichtbar = True
+        #: Die aus dem Lineal gezogenen Hilfslinien (M15, Abschnitt 5).
+        #: Nicht zu verwechseln mit `_hilfslinien`: das sind die
+        #: Ausrichthilfen, die beim Ziehen einer Form kurz aufblitzen.
+        #: Diese hier stehen fest, werden mit der `.pdiag` gespeichert
+        #: und lassen sich über das Menü ausblenden.
+        self.hilfslinien_sichtbar = True
         self.hinweise: list[Hinweis] = []
 
         self.ausgewaehlte_verbindung: dict[str, Any] | None = None
@@ -1457,6 +1464,11 @@ class DiagrammCanvas(ZoomMischung, QWidget):
             self._seitenrand_zeichnen(maler, stil)
         if self.raster_sichtbar:
             self._raster_zeichnen(maler, stil.raster)
+        if self.hilfslinien_sichtbar:
+            breite, hoehe = self._inhalt_in_diagrammkoordinaten()
+            hilfslinien_zeichnen(
+                maler, hilfslinien_lesen(self.diagramm.daten), breite, hoehe
+            )
 
         # Verbindungen zuerst: sie enden am Formrand, Formen liegen darüber
         for verbindung in self.verbindungen:

@@ -27,6 +27,7 @@ from pcl.properties import (
     VERSCHACHTELTE_EIGENSCHAFTEN,
     eigenschaften,
     ereignisse,
+    pfm_wert,
 )
 
 _SCHEMAS_DIR = daten_ordner("schemas")
@@ -38,7 +39,9 @@ def _eigenschaften_werte(komponente: Any) -> dict[str, Any]:
     for name, prop in eigenschaften(type(komponente)).items():
         wert = getattr(komponente, name)
         if wert != prop.standardwert:
-            werte[name] = wert
+            # `pfm_wert`, weil JSON kein Datum kennt: ein `date` steht
+            # in der Datei als ISO-Zeichenkette.
+            werte[name] = pfm_wert(wert)
 
     for flacher_name, verschachtelt in VERSCHACHTELTE_EIGENSCHAFTEN.items():
         if not hasattr(komponente, verschachtelt.attribut):

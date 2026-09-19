@@ -25,7 +25,9 @@ from pcl.components.data_access import (
     SQLQuery,
 )
 from pcl.components.data_controls import DBComboBox, DBEdit, DBGrid, DBNavigator, DBText
+from pcl.components.eingaben import Calendar, DateEdit, MaskEdit, TimeEdit
 from pcl.components.graphics import Brush, Canvas, PaintBox, Pen
+from pcl.components.medien import HtmlViewer, Sound
 from pcl.components.menus import MainMenu, PopupMenu
 from pcl.components.standard import (
     Button,
@@ -53,11 +55,13 @@ __all__ = [
     "Application",
     "Brush",
     "Button",
+    "Calendar",
     "Canvas",
     "Chart",
     "CheckBox",
     "ComboBox",
     "Control",
+    "DateEdit",
     "DBComboBox",
     "DBEdit",
     "DBGrid",
@@ -69,9 +73,11 @@ __all__ = [
     "FloatSpinEdit",
     "Form",
     "GroupBox",
+    "HtmlViewer",
     "Image",
     "Label",
     "ListBox",
+    "MaskEdit",
     "Memo",
     "PaintBox",
     "Panel",
@@ -85,11 +91,13 @@ __all__ = [
     "SQLite3Connection",
     "ScrollBar",
     "Shape",
+    "Sound",
     "MainMenu",
     "PopupMenu",
     "SpinEdit",
     "StringGrid",
     "Strings",
+    "TimeEdit",
     "Timer",
     "TrackBar",
     "analyse",

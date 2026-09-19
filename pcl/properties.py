@@ -6,6 +6,7 @@ Anbindung an echte Widgets kommt mit `pcl.control` (M1, Schritt 2).
 
 from __future__ import annotations
 
+from datetime import date, time
 from typing import Any, NamedTuple
 
 from pcl.errors import NatterPropertyError, NatterUnbekannteEigenschaftError
@@ -18,12 +19,72 @@ _TYPNAMEN: dict[type, tuple[str, str]] = {
     int: ("Zahl", "eine"),
     float: ("Kommazahl", "eine"),
     bool: ("Wahrheitswert", "ein"),
+    date: ("Datum", "ein"),
+    time: ("Uhrzeit", "eine"),
 }
 
 
 def typ_beschreibung(typ: type) -> str:
     name, artikel = _TYPNAMEN.get(typ, (typ.__name__, "ein"))
     return f"{artikel} {name} ({typ.__name__})"
+
+
+#: Wie Datum und Uhrzeit **in der Oberfläche** stehen: deutsch.
+#: `DateEdit`, `Calendar` und der Objektinspektor zeigen sie so an, und
+#: so tippt man sie auch ein (M15, Abschnitt 4).
+DATUM_FORMAT = "%d.%m.%Y"
+ZEIT_FORMAT = "%H:%M"
+
+#: Wie sie **in der `.pfm`** stehen: ISO, also `2026-09-20` und `14:30`.
+#: Eine Datei, die Maschinen lesen, sortiert sich damit richtig und ist
+#: unabhängig davon, in welchem Land sie geöffnet wird. Die deutsche
+#: Schreibweise gehört auf den Bildschirm, nicht in die Datei.
+_DATUM_ISO = "%Y-%m-%d"
+_ZEIT_ISO = "%H:%M"
+
+
+def text_aus_wert(wert: Any) -> str:
+    """Der Text, der im Objektinspektor in der Zelle steht."""
+    if isinstance(wert, date):
+        return wert.strftime(DATUM_FORMAT)
+    if isinstance(wert, time):
+        return wert.strftime(ZEIT_FORMAT)
+    return str(wert)
+
+
+def wert_aus_text(typ: type, text: str) -> Any:
+    """Das Gegenstück: was jemand eingetippt hat, als Wert.
+
+    Löst wie `int("abc")` einen `ValueError` aus, wenn der Text nicht
+    passt - der Objektinspektor fängt ihn und lässt die Zelle stehen."""
+    from datetime import datetime
+
+    if typ is date:
+        return datetime.strptime(text.strip(), DATUM_FORMAT).date()
+    if typ is time:
+        return datetime.strptime(text.strip(), ZEIT_FORMAT).time()
+    return typ(text)
+
+
+def pfm_wert(wert: Any) -> Any:
+    """Der Wert, wie er in der `.pfm` steht - JSON kennt kein Datum."""
+    if isinstance(wert, date):
+        return wert.strftime(_DATUM_ISO)
+    if isinstance(wert, time):
+        return wert.strftime(_ZEIT_ISO)
+    return wert
+
+
+def wert_aus_pfm(typ: type, roh: Any) -> Any:
+    """Zurück aus der `.pfm`. Alles außer Datum und Uhrzeit steht dort
+    schon als das, was es ist."""
+    from datetime import datetime
+
+    if typ is date and isinstance(roh, str):
+        return datetime.strptime(roh, _DATUM_ISO).date()
+    if typ is time and isinstance(roh, str):
+        return datetime.strptime(roh, _ZEIT_ISO).time()
+    return roh
 
 
 class Prop:

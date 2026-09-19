@@ -40,7 +40,9 @@ from pcl.components.additional import (
     TrackBar,
 )
 from pcl.components.chart import Chart
+from pcl.components.eingaben import Calendar, DateEdit, MaskEdit, TimeEdit
 from pcl.components.graphics import PaintBox
+from pcl.components.medien import HtmlViewer
 from pcl.components.menus import MainMenu, PopupMenu
 from pcl.components.standard import (
     Button,
@@ -89,6 +91,18 @@ STANDARD_KOMPONENTEN = (
     PopupMenu,
 )
 
+#: Eingaben mit festem Format. In Lazarus stehen `MaskEdit`,
+#: `DateEdit`/`TimeEdit` und `Calendar` verstreut in „Misc" und
+#: „Common Controls"; hier bilden sie einen eigenen Reiter „Eingabe" -
+#: sie gehören sichtbar zusammen, und seit M15 kostet ein weiterer
+#: Reiter nichts mehr (vorher wäre er stumm geblieben).
+EINGABE_KOMPONENTEN = (
+    MaskEdit,
+    DateEdit,
+    TimeEdit,
+    Calendar,
+)
+
 ZUSAETZLICH_KOMPONENTEN = (
     StringGrid,
     Image,
@@ -96,6 +110,7 @@ ZUSAETZLICH_KOMPONENTEN = (
     # Direkt hinter `Shape`: dort hören fertige Formen auf und fängt
     # freies Zeichnen mit Koordinaten an (M15, Abschnitt 2).
     PaintBox,
+    HtmlViewer,
     # „Zusätzlich“ statt „Standard“: ein Diagramm ist kein Grundbaustein
     # wie Knopf oder Textfeld (M10, Punkt 1).
     Chart,
@@ -122,6 +137,7 @@ ZUSAETZLICH_KOMPONENTEN = (
 REITER: tuple[tuple[str, tuple[type, ...]], ...] = (
     ("Standard", STANDARD_KOMPONENTEN),
     ("Zusätzlich", ZUSAETZLICH_KOMPONENTEN),
+    ("Eingabe", EINGABE_KOMPONENTEN),
 )
 
 #: Jede Komponente, die sich auf ein Formular legen lässt. Prüfungen,

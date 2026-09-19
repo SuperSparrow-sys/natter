@@ -16,6 +16,7 @@ from typing import Any
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem
 
+from ide.shell.explorer import EINRUECKUNG
 from pcl.control import Control
 from pcl.form import Form
 
@@ -30,6 +31,10 @@ class Komponentenbaum(QTreeWidget):
     def __init__(self) -> None:
         super().__init__()
         self.setHeaderHidden(True)
+        # Dieselbe Einrückung wie im Projekt-Explorer: beide Bäume
+        # stehen gleichzeitig im Fenster, und unterschiedlich tiefe
+        # Stufen fallen sofort auf (M15, Abschnitt 6).
+        self.setIndentation(EINRUECKUNG)
 
     def formular_anzeigen(self, formular: Form) -> None:
         self.clear()

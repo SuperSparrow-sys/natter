@@ -17,10 +17,18 @@ from ide.project import Projekt
 
 PFAD_ROLLE = Qt.ItemDataRole.UserRole
 
-#: Einrückung der Dateien unter ihrer Gruppenüberschrift. Schmaler als
-#: Qts Standard (20 px), weil es hier nur zwei Ebenen gibt und der Dock
-#: auf einem 1366×768-Schulrechner schmal bleibt.
-_EINRUECKUNG = 14
+#: Einrückung in den Bäumen der IDE. Schmaler als Qts Standard (20 px),
+#: weil es meist nur zwei Ebenen gibt und die Docks auf einem
+#: 1366×768-Schulrechner schmal bleiben.
+#:
+#: **Hier und nur hier**, seit M15: der Komponentenbaum im
+#: Objektinspektor stand auf Qts 20 px, der Projekt-Explorer auf 14.
+#: Zwei Bäume, gleichzeitig sichtbar, mit verschieden tiefer
+#: Einrückung - beim Durchsehen der Abstände als Erstes aufgefallen.
+EINRUECKUNG = 14
+
+#: Alter Name, damit nichts umfällt, was ihn noch benutzt.
+_EINRUECKUNG = EINRUECKUNG
 
 
 class ProjektExplorer(QTreeWidget):

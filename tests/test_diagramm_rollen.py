@@ -27,7 +27,12 @@ def _fenster(tmp_path: Path, typ: str) -> DiagrammFenster:
 def test_zeichenflaeche_steckt_in_einem_rollbereich(tmp_path: Path, typ: str) -> None:
     fenster = _fenster(tmp_path, typ)
 
-    assert isinstance(fenster.centralWidget(), QScrollArea)
+    # Seit M15, Abschnitt 5 ist der Rollbereich nicht mehr selbst das
+    # zentrale Widget: er steckt in einem Raster zusammen mit den
+    # Linealen. Geprüft wird deshalb, dass er dort wirklich sitzt.
+    assert fenster.rollbereich.parent() is not None
+    assert isinstance(fenster.rollbereich, QScrollArea)
+    assert fenster.rollbereich in fenster.centralWidget().findChildren(QScrollArea)
     assert fenster.rollbereich.widget() is fenster.zeichenflaeche
     # Ohne `widgetResizable` bliebe die Fläche auf ihrer Wunschgröße und
     # füllte ein großes Fenster nicht aus.

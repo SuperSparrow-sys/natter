@@ -818,6 +818,134 @@ Ohne zugeordnete Datenquelle zeigen alle fünf eine leere Anzeige,
 statt beim Anlegen zu scheitern – deshalb lassen sie sich auch im
 Designer auf ein Formular legen.
 
+## MaskEdit
+
+Textfeld mit Eingabemaske (`TMaskEdit`). Was nicht in die Maske passt,
+nimmt das Feld gar nicht erst an.
+
+| Eigenschaft | Typ | Standard | Bedeutung |
+|---|---|---|---|
+| text | str | `""` | Inhalt des Feldes |
+| mask | str | `""` | die Maske, leer = keine |
+
+| Ereignis | Wann |
+|---|---|
+| on_change | bei jeder Änderung des Textes |
+
+Die Zeichen der Maske sind die von Qt und Lazarus: `0` eine Ziffer
+(Pflicht), `9` eine Ziffer (freiwillig), `A` ein Buchstabe (Pflicht),
+`N` Buchstabe oder Ziffer. Alles andere steht fest da.
+
+```python
+self.me_plz.mask = "00000"            # 12345
+self.me_datum.mask = "00.00.0000"     # 20.09.2026
+self.me_telefon.mask = "00000-000000"
+```
+
+Ob schon genug drinsteht, sagt die Länge:
+
+```python
+if len(self.me_plz.text) < 5:
+    self.l_hinweis.caption = "Die Postleitzahl ist zu kurz."
+```
+
+## DateEdit
+
+Datumsfeld mit Aufklapp-Kalender (`TDateEdit`).
+
+| Eigenschaft | Typ | Standard | Bedeutung |
+|---|---|---|---|
+| date | date | 01.01.2026 | das eingestellte Datum |
+
+| Ereignis | Wann |
+|---|---|
+| on_change | wenn ein anderes Datum eingestellt wird |
+
+**`date` ist ein echtes `datetime.date`**, keine Zeichenkette – damit
+lässt sich rechnen:
+
+```python
+von = self.de_start.date
+bis = self.de_ende.date
+self.l_dauer.caption = f"{(bis - von).days} Tage"
+```
+
+Angezeigt wird deutsch (`23.11.2026`), in der `.pfm` steht ISO
+(`2026-11-23`), im Quelltext `date(2026, 11, 23)`.
+
+## TimeEdit
+
+Uhrzeitfeld (`TTimeEdit`). `time` ist ein `datetime.time`, angezeigt
+als `hh:mm`.
+
+| Eigenschaft | Typ | Standard | Bedeutung |
+|---|---|---|---|
+| time | time | 08:00 | die eingestellte Uhrzeit |
+
+| Ereignis | Wann |
+|---|---|
+| on_change | wenn eine andere Uhrzeit eingestellt wird |
+
+## Calendar
+
+Monatskalender zum Anklicken (`TCalendar`), mit deutschen Monats- und
+Tagesnamen.
+
+| Eigenschaft | Typ | Standard | Bedeutung |
+|---|---|---|---|
+| date | date | 01.01.2026 | der gewählte Tag |
+
+| Ereignis | Wann |
+|---|---|
+| on_change | wenn ein anderer Tag gewählt wird |
+
+## HtmlViewer
+
+Zeigt HTML an, ohne den Browser zu öffnen.
+
+| Eigenschaft | Typ | Standard | Bedeutung |
+|---|---|---|---|
+| html | str | `""` | der angezeigte HTML-Text |
+
+| Methode | Bedeutung |
+|---|---|
+| `load_from_file(pfad)` | lädt eine `.html`-Datei |
+| `clear()` | leert die Anzeige |
+
+```python
+self.hv_seite.html = "<h2>Bericht</h2><p>Ein <b>fetter</b> Text</p>"
+self.hv_seite.load_from_file("auswertung.html")
+```
+
+Was geht: Überschriften, Absätze, Listen, Tabellen, Fett/Kursiv, Bilder,
+Links. Was nicht geht: JavaScript und alles, was eine Seite erst im
+Browser zusammenbaut. Der Grund steht in
+`docs/arbeitspakete/M15.md`: `QWebEngineView` könnte das, wöge in der
+gebauten Exe aber über 100 MB – mehr als das ganze übrige Natter.
+
+## Sound
+
+Spielt einen Klang ab. **Keine Komponente für das Formular**, sondern
+im Code erzeugt – wie eine Datenbankverbindung.
+
+| Aufruf | Bedeutung |
+|---|---|
+| `Sound(datei)` / `load_from_file(datei)` | lädt eine `.wav` |
+| `play()` / `stop()` | abspielen, abbrechen |
+| `volume` | Lautstärke zwischen 0.0 und 1.0 |
+| `file_name` | die geladene Datei, oder `None` |
+| `Sound.beep()` | ein kurzer Ton ohne Datei, auch `Sound.beep(440, 500)` |
+
+```python
+self.klang = Sound()
+self.klang.load_from_file("treffer.wav")
+self.klang.play()
+```
+
+Nur `.wav`: eine MP3 bräuchte Codecs, die auf einem verwalteten
+Schulrechner nicht sicher vorhanden sind. Wer eine hat, wandelt sie mit
+einem Audioprogramm um – die Meldung sagt das auch.
+
 ## Die Maus
 
 `pcl/control.py`. **Jede sichtbare Komponente** hat diese fünf

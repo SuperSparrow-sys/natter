@@ -31,6 +31,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+from datetime import date, time
 from pathlib import Path
 from typing import Any
 
@@ -52,6 +53,7 @@ from pcl.properties import (
     SAMMLUNGS_EIGENSCHAFTEN,
     VERSCHACHTELTE_EIGENSCHAFTEN,
     eigenschaften,
+    text_aus_wert,
     wert_lesen,
 )
 
@@ -95,6 +97,13 @@ def _probewert(typ: type, name: str, alt: Any) -> Any:
     """Ein Wert, der sich vom bisherigen unterscheidet."""
     if name in BESONDERE_WERTE:
         return BESONDERE_WERTE[name]
+    if typ is date:
+        # Ein anderer Tag als der Standard (1.1.2026) - und einer mit
+        # zweistelligem Tag und Monat, damit ein abgeschnittenes Format
+        # auffiele.
+        return date(2026, 11, 23)
+    if typ is time:
+        return time(17, 45)
     if typ is bool:
         return not alt
     if typ is int:
@@ -171,7 +180,10 @@ def _im_inspektor_aendern(
         # wartet auf einen Knopfdruck, deshalb hier sein Ergebnis.
         tabelle._wert_setzen(eigenschaft, neu)
     else:
-        element.setText(str(neu))
+        # `text_aus_wert`, nicht `str`: in die Zelle wird getippt, was
+        # ein Mensch tippt - ein Datum also deutsch als `23.11.2026`
+        # und nicht als `2026-11-23`.
+        element.setText(text_aus_wert(neu))
 
     assert not tabelle.fehlertext, tabelle.fehlertext
     return komponente, neu, pfm, canvas

@@ -60,6 +60,18 @@ entries:
     pruefe: "Entspricht der Wert dem erwarteten Format - ohne Leerzeichen, Einheit oder Dezimalkomma?"
     hinweis_dezimalkomma: "Bei einer Zahl mit Komma: Python erwartet einen Dezimalpunkt, kein Dezimalkomma."
 
+  # Eigener Eintrag, obwohl `NatterDatenError` von `ValueError` erbt
+  # (M15, Abschnitt 6). Der Prüfe-Text oben fragt nach "Leerzeichen,
+  # Einheit oder Dezimalkomma" - bei einem Datenfehler ist das fast
+  # immer die falsche Fährte: wer zu wenige Punkte für eine Regression
+  # hat oder eine Spalte anspricht, die es nicht gibt, sucht sonst am
+  # Zahlenformat. Steht im Katalog **vor** `value_error`, weil die
+  # MRO-Suche den ersten Treffer nimmt.
+  - id: natter_daten_error
+    exception: NatterDatenError
+    was: "Die Daten lassen sich nicht wie angegeben auswerten. Die genaue Meldung kommt aus pcl und steht schon auf Deutsch da."
+    pruefe: "Stehen in der Spalte wirklich Zahlen? Sind es genug Werte? Heißt die Spalte genau so, wie sie in der Datei steht?"
+
   - id: zero_division_error
     exception: ZeroDivisionError
     was: "Es wurde durch 0 geteilt. Der markierte Teiler war zu diesem Zeitpunkt {teiler}."

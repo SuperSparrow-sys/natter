@@ -39,7 +39,7 @@ from types import TracebackType
 from typing import Any
 
 from pcl.eigener_code import ist_eigener_code
-from pcl.errors import NatterDatenbankError, NatterPropertyError
+from pcl.errors import NatterDatenbankError, NatterDatenError, NatterPropertyError
 
 _STAPEL_ZEILE_MUSTER = re.compile(
     r'^  File "(?P<datei>[^"]+)", line (?P<zeile>\d+), in (?P<name>.+)$'
@@ -737,6 +737,31 @@ def _value_error(exc: ValueError) -> tuple[str, str, str]:
     return ("Ungültiger Wert", was, pruefe)
 
 
+def _natter_daten_error(exc: ValueError) -> tuple[str, str, str]:
+    """Eigener Eintrag für `NatterDatenError` (M15, Abschnitt 6).
+
+    Bis hierher griff der `ValueError`-Eintrag - `NatterDatenError` erbt
+    von ihm. Dessen Prüfe-Text fragt nach „Leerzeichen, Einheit oder
+    Dezimalkomma", und das ist bei einem Datenfehler fast immer die
+    falsche Fährte: wer zu wenige Punkte für eine Regression hat oder
+    eine Spalte anspricht, die es nicht gibt, sucht sonst am
+    Zahlenformat.
+
+    Das „Was" kommt unverändert aus `pcl` - diese Meldungen sind schon
+    deutsch und sagen genau, was fehlt."""
+    was, _ = _was_und_pruefe(
+        exc,
+        "Die Daten lassen sich nicht wie angegeben auswerten.",
+        "",
+    )
+    return (
+        "Daten passen nicht",
+        was,
+        "Stehen in der Spalte wirklich Zahlen? Sind es genug Werte? "
+        "Heißt die Spalte genau so, wie sie in der Datei steht?",
+    )
+
+
 def _index_error(exc: IndexError) -> tuple[str, str, str]:
     was, pruefe = _was_und_pruefe(
         exc,
@@ -949,6 +974,10 @@ _KATALOG: dict[type[BaseException], Callable[[BaseException], tuple[str, str, st
     NameError: _name_error,
     AttributeError: _attribute_error,
     TypeError: _type_error,
+    # **Vor** `ValueError`, von dem `NatterDatenError` erbt: die
+    # MRO-Suche nimmt den ersten Treffer, und das soll hier der
+    # genauere Eintrag sein.
+    NatterDatenError: _natter_daten_error,
     ValueError: _value_error,
     IndexError: _index_error,
     KeyError: _key_error,

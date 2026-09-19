@@ -9,6 +9,7 @@ generierte Datei wird nie von Hand bearbeitet (Kopfzeile, `AGENTS.md`).
 from __future__ import annotations
 
 import json
+from datetime import date, time
 from pathlib import Path
 from typing import Any
 
@@ -19,7 +20,9 @@ from pcl.properties import (
     BAUM_EIGENSCHAFTEN,
     SAMMLUNGS_EIGENSCHAFTEN,
     VERSCHACHTELTE_EIGENSCHAFTEN,
+    wert_aus_pfm,
 )
+from pcl.properties import eigenschaften as prop_liste
 
 _EINRUECKUNG = "    "
 
@@ -34,7 +37,21 @@ def _eigenschaft_pfad(name: str) -> str:
     return name
 
 
-def _python_literal(wert: Any) -> str:
+def _python_literal(wert: Any, typ: type | None = None) -> str:
+    """Der Wert als Python-Quelltext.
+
+    `typ` ist der Typ der Eigenschaft, falls bekannt. Er wird nur für
+    Datum und Uhrzeit gebraucht: die stehen in der `.pfm` als
+    ISO-Zeichenkette (`"2026-09-20"`), und ohne den Typ ließe sich
+    nicht unterscheiden, ob das ein Datum oder eine gewöhnliche
+    Beschriftung ist.
+    """
+    if typ in (date, time) and isinstance(wert, str):
+        wert = wert_aus_pfm(typ, wert)
+    if isinstance(wert, date):
+        return f"date({wert.year}, {wert.month}, {wert.day})"
+    if isinstance(wert, time):
+        return f"time({wert.hour}, {wert.minute})"
     if isinstance(wert, str):
         escaped = wert.replace("\\", "\\\\").replace('"', '\\"')
         return f'"{escaped}"'
@@ -91,7 +108,22 @@ def _eintrag_zeilen(eintrag: Any, tiefe: int) -> list[str]:
     return zeilen
 
 
-def _eigenschaften_zeilen(ziel: str, eigenschaften: dict[str, Any]) -> list[str]:
+def _prop_typen(klassenname: str) -> dict[str, type]:
+    """Die Typen der Eigenschaften einer Komponentenklasse, nachgesehen
+    in `pcl`. Gebraucht nur für Datum und Uhrzeit (siehe
+    `_python_literal`); eine unbekannte Klasse liefert nichts, und der
+    Rest funktioniert wie zuvor."""
+    import pcl
+
+    typ = getattr(pcl, klassenname, None)
+    if typ is None:
+        return {}
+    return {name: prop.typ for name, prop in prop_liste(typ).items()}
+
+
+def _eigenschaften_zeilen(
+    ziel: str, eigenschaften: dict[str, Any], typen: dict[str, type] | None = None
+) -> list[str]:
     # Sammlungen (`items`/`lines`) zuerst: sie füllen das Qt-Widget neu und
     # setzen dabei dessen Auswahl zurück. Stünde `items` hinter
     # `item_index`, ginge eine im Designer gesetzte Vorauswahl beim Start
@@ -106,7 +138,7 @@ def _eigenschaften_zeilen(ziel: str, eigenschaften: dict[str, Any]) -> list[str]
             continue
         zeilen.append(
             f"{_EINRUECKUNG * 2}{ziel}.{_eigenschaft_pfad(name)} = "
-            f"{_python_literal(eigenschaften[name])}"
+            f"{_python_literal(eigenschaften[name], (typen or {}).get(name))}"
         )
     return zeilen
 
@@ -128,9 +160,11 @@ def design_code_erzeugen(pfm: dict[str, Any], pfm_dateiname: str) -> str:
     kinder: list[dict[str, Any]] = pfm.get("children", [])
     benoetigte_typen = sorted({basisklasse} | {kind["type"] for kind in kinder})
 
-    zeilen: list[str] = [
+    kopf: list[str] = [
         f"# Automatisch erzeugt aus {pfm_dateiname} - nicht bearbeiten",
         f"from pcl import {', '.join(benoetigte_typen)}",
+    ]
+    zeilen: list[str] = [
         "",
         "",
         f"class {klassenname}({basisklasse}):",
@@ -144,20 +178,41 @@ def design_code_erzeugen(pfm: dict[str, Any], pfm_dateiname: str) -> str:
     zeilen.append(f"{_EINRUECKUNG}def create_components(self):")
     rumpf_start = len(zeilen)
 
-    zeilen.extend(_eigenschaften_zeilen("self", pfm.get("properties", {})))
+    zeilen.extend(
+        _eigenschaften_zeilen("self", pfm.get("properties", {}), _prop_typen(basisklasse))
+    )
     zeilen.extend(_ereignisse_zeilen("self", pfm.get("events", {})))
 
     for kind in kinder:
         if len(zeilen) > rumpf_start:
             zeilen.append("")
         zeilen.append(f"{_EINRUECKUNG * 2}self.{kind['name']} = {kind['type']}(self)")
-        zeilen.extend(_eigenschaften_zeilen(f"self.{kind['name']}", kind.get("properties", {})))
+        zeilen.extend(
+            _eigenschaften_zeilen(
+                f"self.{kind['name']}",
+                kind.get("properties", {}),
+                _prop_typen(kind["type"]),
+            )
+        )
         zeilen.extend(_ereignisse_zeilen(f"self.{kind['name']}", kind.get("events", {})))
 
     if len(zeilen) == rumpf_start:
         zeilen.append(f"{_EINRUECKUNG * 2}pass")
 
-    return "\n".join(zeilen) + "\n"
+    # `from datetime import ...` nur, wenn wirklich ein Datum oder eine
+    # Uhrzeit im Rumpf steht - sonst stünde in jeder erzeugten Datei ein
+    # Import, den niemand braucht.
+    gebraucht = sorted(
+        {
+            name
+            for name in ("date", "time")
+            if any(f"= {name}(" in zeile for zeile in zeilen)
+        }
+    )
+    if gebraucht:
+        kopf.insert(1, f"from datetime import {', '.join(gebraucht)}")
+
+    return "\n".join(kopf + zeilen) + "\n"
 
 
 def design_datei_erzeugen(pfm_pfad: Path, ziel_pfad: Path) -> str:

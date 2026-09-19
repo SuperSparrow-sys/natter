@@ -18,13 +18,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QSettings, QSize, Qt
+from PySide6.QtCore import QPoint, QRect, QSettings, QSize, Qt
 from PySide6.QtGui import QActionGroup, QPageLayout, QPainter
 from PySide6.QtPrintSupport import QPrinter, QPrintPreviewDialog
 from PySide6.QtWidgets import (
     QApplication,
     QDockWidget,
     QFileDialog,
+    QGridLayout,
     QMainWindow,
     QMenu,
     QScrollArea,
@@ -48,6 +49,9 @@ from ide.diagramm.exportdialog import PngDialog, PngEinstellungen
 from ide.diagramm.formen import formen_fuer
 from ide.diagramm.klassen_code import diagramm_als_python
 from ide.diagramm.kommandos import WerteKommando
+from ide.diagramm.lineale import LINEALBREITE, Lineal, hilfslinien_lesen
+from ide.diagramm.minimap import RAND as MINIMAP_RAND
+from ide.diagramm.minimap import Minimap, abbild_erzeugen
 from ide.diagramm.palette import FormenPalette
 from ide.diagramm.stil import BESCHRIFTUNGEN
 from ide.diagramm.struktogramm import BLOCK_BESCHRIFTUNGEN
@@ -88,9 +92,9 @@ _MENUES: dict[str, tuple[tuple[str, bool], ...]] = {
         ("Alles anzeigen", True),
         ("Zoom 100 %", True),
         ("Raster", True),
-        ("Lineale", False),
-        ("Hilfslinien", False),
-        ("Minimap", False),
+        ("Lineale", True),
+        ("Hilfslinien", True),
+        ("Minimap", True),
         ("Seitenränder", True),
         ("Layout-Hinweise", True),
     ),
@@ -256,7 +260,7 @@ class DiagrammFenster(QMainWindow):
         self.rollbereich.setWidget(self.zeichenflaeche)
         self.rollbereich.setWidgetResizable(True)
         self.rollbereich.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.setCentralWidget(self.rollbereich)
+        self.setCentralWidget(self._mitte_mit_linealen())
 
         # Ein Struktogramm hat keine "Formen", sondern Bloecke - der
         # Titel des Docks soll das auch sagen.
@@ -274,6 +278,118 @@ class DiagrammFenster(QMainWindow):
             if self.eigenschaften is not None
             else None
         )
+
+    def _mitte_mit_linealen(self) -> QWidget:
+        """Ecke, oberes Lineal, linkes Lineal und Rollbereich in einem
+        Raster (M15, Abschnitt 5).
+
+        Die Lineale liegen **neben** der Fläche, nicht darauf: in den
+        `paintEvent` gemalt hätten sie die obersten und linkesten
+        Zentimeter des Blatts unter sich begraben.
+        """
+        self.lineal_oben = Lineal(waagerecht=True)
+        self.lineal_links = Lineal(waagerecht=False)
+        self.lineal_ecke = QWidget()
+        self.lineal_ecke.setFixedSize(LINEALBREITE, LINEALBREITE)
+
+        mitte = QWidget()
+        raster = QGridLayout(mitte)
+        raster.setContentsMargins(0, 0, 0, 0)
+        raster.setSpacing(0)
+        raster.addWidget(self.lineal_ecke, 0, 0)
+        raster.addWidget(self.lineal_oben, 0, 1)
+        raster.addWidget(self.lineal_links, 1, 0)
+        raster.addWidget(self.rollbereich, 1, 1)
+
+        self.minimap = Minimap(self.rollbereich)
+        self.minimap.sprung_gewuenscht.connect(self._zur_stelle_springen)
+        self.minimap.hide()
+        #: Ob die Minimap eingeschaltet ist. **Nicht** `isVisible()`
+        #: fragen: solange das Fenster selbst noch nicht gezeigt wurde,
+        #: meldet Qt dort `False`, auch wenn `setVisible(True)` längst
+        #: gelaufen ist - das Abbild wäre dann nie entstanden, und die
+        #: Minimap bliebe ein leerer weißer Kasten.
+        self._minimap_an = False
+
+        for lineal in (self.lineal_oben, self.lineal_links):
+            lineal.hilfslinie_gezogen.connect(
+                lambda stelle, waagerecht=lineal is self.lineal_oben: (
+                    self._hilfslinie_anlegen(stelle, waagerecht)
+                )
+            )
+
+        for balken in (
+            self.rollbereich.horizontalScrollBar(),
+            self.rollbereich.verticalScrollBar(),
+        ):
+            balken.valueChanged.connect(lambda _: self._ansicht_nachfuehren())
+        if hasattr(self.zeichenflaeche, "zoom_geaendert"):
+            self.zeichenflaeche.zoom_geaendert.connect(
+                lambda _: self._ansicht_nachfuehren()
+            )
+        return mitte
+
+    def _ansicht_nachfuehren(self) -> None:
+        """Lineale und Minimap auf den aktuellen Ausschnitt einstellen."""
+        zoom = getattr(self.zeichenflaeche, "zoom", 1.0)
+        waagerecht = self.rollbereich.horizontalScrollBar().value()
+        senkrecht = self.rollbereich.verticalScrollBar().value()
+        self.lineal_oben.stand_setzen(zoom, waagerecht)
+        self.lineal_links.stand_setzen(zoom, senkrecht)
+
+        if self._minimap_an:
+            sicht = self.rollbereich.viewport()
+            self.minimap.ausschnitt_setzen(
+                QRect(
+                    int(waagerecht / max(zoom, 0.01)),
+                    int(senkrecht / max(zoom, 0.01)),
+                    int(sicht.width() / max(zoom, 0.01)),
+                    int(sicht.height() / max(zoom, 0.01)),
+                )
+            )
+            self._minimap_einpassen()
+
+    def _minimap_einpassen(self) -> None:
+        """Unten rechts im Rollbereich, mit Abstand zum Rand."""
+        sicht = self.rollbereich.viewport()
+        self.minimap.move(
+            sicht.width() - self.minimap.width() - MINIMAP_RAND,
+            sicht.height() - self.minimap.height() - MINIMAP_RAND,
+        )
+        self.minimap.raise_()
+
+    def _minimap_abbild_erneuern(self) -> None:
+        if not self._minimap_an:
+            return
+        breite, hoehe = self.zeichenflaeche.inhaltsgroesse()
+        gesamt = QSize(int(breite), int(hoehe))
+        self.minimap.abbild_setzen(abbild_erzeugen(self.zeichenflaeche, gesamt), gesamt)
+        self._ansicht_nachfuehren()
+
+    def _zur_stelle_springen(self, stelle: QPoint) -> None:
+        """Ein Klick in die Minimap rückt den Ausschnitt dorthin - die
+        Stelle in die Mitte, nicht an den Rand."""
+        zoom = getattr(self.zeichenflaeche, "zoom", 1.0)
+        sicht = self.rollbereich.viewport()
+        self.rollbereich.horizontalScrollBar().setValue(
+            int(stelle.x() * zoom - sicht.width() / 2)
+        )
+        self.rollbereich.verticalScrollBar().setValue(
+            int(stelle.y() * zoom - sicht.height() / 2)
+        )
+
+    def _hilfslinie_anlegen(self, stelle: float, waagerecht: bool) -> None:
+        """Eine aus dem Lineal gezogene Hilfslinie - als Undo-Schritt,
+        wie jede andere Änderung am Diagramm auch."""
+        linien = list(hilfslinien_lesen(self.diagramm.daten))
+        linien.append({"orientation": "h" if waagerecht else "v", "pos": float(stelle)})
+        self.zeichenflaeche.kommandos.ausfuehren(
+            WerteKommando(self.diagramm.daten, {"guides": linien})
+        )
+        self.zeichenflaeche.hilfslinien_sichtbar = True
+        self.aktionen["Ansicht/Hilfslinien"].setChecked(True)
+        self.zeichenflaeche.update()
+        self._bei_aenderung()
 
     def _dock(self, titel: str, inhalt: QWidget, bereich: Qt.DockWidgetArea) -> QDockWidget:
         dock = QDockWidget(titel, self)
@@ -354,6 +470,10 @@ class DiagrammFenster(QMainWindow):
         self._geaendert = True
         self._titel_setzen()
         self._statusleiste_aktualisieren()
+        # Die Minimap zeigt das ganze Diagramm - wenn sich das ändert,
+        # muss sie es auch. Nur hier und nicht bei jedem Neuzeichnen:
+        # ein Abbild der ganzen Fläche kostet spürbar Zeit.
+        self._minimap_abbild_erneuern()
 
     # -- Aufbau ---------------------------------------------------------
 
@@ -697,6 +817,7 @@ class DiagrammFenster(QMainWindow):
             ("Ansicht/Raster", "raster_sichtbar"),
             ("Ansicht/Seitenränder", "seitenrand_sichtbar"),
             ("Ansicht/Layout-Hinweise", "hinweise_sichtbar"),
+            ("Ansicht/Hilfslinien", "hilfslinien_sichtbar"),
         ):
             if not hasattr(self.zeichenflaeche, attribut):
                 continue
@@ -706,6 +827,35 @@ class DiagrammFenster(QMainWindow):
             aktion.toggled.connect(
                 lambda an, a=attribut: self._ansicht_umschalten(a, an)
             )
+
+        # Lineale und Minimap hängen nicht an der Zeichenfläche, sondern
+        # am Fenster - und ihr Zustand überlebt das Schließen
+        # (`QSettings`), wie bei jedem anderen Ansichtsschalter auch.
+        einstellungen = QSettings("Natter", "Diagramm")
+        for pfad, schluessel, standard, umschalten in (
+            ("Ansicht/Lineale", "lineale", True, self._lineale_umschalten),
+            ("Ansicht/Minimap", "minimap", False, self._minimap_umschalten),
+        ):
+            aktion = self.aktionen[pfad]
+            aktion.setCheckable(True)
+            an = einstellungen.value(f"ansicht/{schluessel}", standard, type=bool)
+            aktion.toggled.connect(umschalten)
+            aktion.setChecked(an)
+            umschalten(an)
+
+    def _lineale_umschalten(self, an: bool) -> None:
+        for widget in (self.lineal_oben, self.lineal_links, self.lineal_ecke):
+            widget.setVisible(an)
+        QSettings("Natter", "Diagramm").setValue("ansicht/lineale", an)
+        if an:
+            self._ansicht_nachfuehren()
+
+    def _minimap_umschalten(self, an: bool) -> None:
+        self._minimap_an = an
+        self.minimap.setVisible(an)
+        QSettings("Natter", "Diagramm").setValue("ansicht/minimap", an)
+        if an:
+            self._minimap_abbild_erneuern()
 
     def _ansicht_umschalten(self, attribut: str, an: bool) -> None:
         setattr(self.zeichenflaeche, attribut, an)

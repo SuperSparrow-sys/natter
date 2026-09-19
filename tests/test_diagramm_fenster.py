@@ -51,8 +51,13 @@ def test_noch_nicht_umgesetzte_eintraege_sind_ausgegraut(tmp_path: Path) -> None
     # und sind deshalb aktiv; ausgegraut bleibt, was noch fehlt.
     assert fenster.aktionen["Anordnen/Gruppieren"].isEnabled() is True
     assert fenster.aktionen["Bearbeiten/Kopieren"].isEnabled() is True
-    assert fenster.aktionen["Ansicht/Minimap"].isEnabled() is False
-    assert fenster.aktionen["Ansicht/Lineale"].isEnabled() is False
+    # Seit M15, Abschnitt 5 sind auch „Lineale", „Hilfslinien" und
+    # „Minimap" da - das waren die letzten drei ausgegrauten Einträge im
+    # Menü „Ansicht". Hier standen sie bis dahin als Beleg dafür, dass
+    # ein noch nicht Umgesetztes sichtbar deaktiviert ist statt so zu
+    # tun, als täte es etwas.
+    for eintrag in ("Lineale", "Hilfslinien", "Minimap"):
+        assert fenster.aktionen[f"Ansicht/{eintrag}"].isEnabled() is True
     # „Füllung …“ stand hier einmal als Beispiel für „noch nicht da“.
     # Seit M11, Abschnitt 5 führt der Eintrag in den
     # Eigenschaften-Bereich, der das längst kann.
