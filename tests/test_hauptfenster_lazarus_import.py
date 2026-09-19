@@ -1,6 +1,6 @@
 """Tests für „Werkzeuge → Lazarus-Formular importieren …“ (Abschnitt 15).
 Siehe docs/arbeitspakete/M8.md, Schritt 3. Ein eigenes, minimales `.lfm`
-in `tmp_path` (kein Zugriff auf `referenz/lazarus/`, dessen echte
+in `tmp_path` (kein Zugriff auf `tests/daten/lazarus/`, dessen echte
 Dateien sind bereits in tests/test_lfm_parser.py/test_lfm_zuordnung.py
 abgedeckt - hier nur die IDE-Verdrahtung).
 """
@@ -134,7 +134,7 @@ def test_import_mit_ungueltigem_lfm_zeigt_fehlermeldung(
 
 # -- Pascal-Rümpfe und Bilder aus Picture.Data (M8, Schritt 3) --------------
 
-_REFERENZ = Path(__file__).resolve().parent.parent / "referenz" / "lazarus"
+_REFERENZ = Path(__file__).resolve().parent / "daten" / "lazarus"
 
 _PAS_TEXT = """\
 unit unit1;
@@ -226,9 +226,9 @@ def test_import_ueberschreibt_vorhandene_unit_nicht(
 def test_import_schreibt_bilder_aus_picture_data_nach_assets(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Gegen die echte `referenz/lazarus/l_Pet/u_main.lfm`: erst in
-    `tmp_path` kopieren (AGENTS.md - eingecheckte Dateien nie im Test
-    verändern), dann importieren."""
+    """Gegen eine echte Lazarus-Datei aus `tests/daten/lazarus/`: erst
+    in `tmp_path` kopieren (AGENTS.md - eingecheckte Dateien nie im
+    Test verändern), dann importieren."""
     quelle = tmp_path / "u_quelle.lfm"
     quelle.write_bytes((_REFERENZ / "l_Pet" / "u_main.lfm").read_bytes())
     (tmp_path / "u_quelle.pas").write_bytes((_REFERENZ / "l_Pet" / "u_main.pas").read_bytes())
@@ -241,7 +241,9 @@ def test_import_schreibt_bilder_aus_picture_data_nach_assets(
     bild = tmp_path / "assets" / "Image1.png"
     assert bild.exists()
     assert bild.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
-    assert bild.stat().st_size == 2999969
+    # Geprüft wird, dass eine vollständige PNG-Datei herauskommt -
+    # die Größe der Vorlage ist dafür ohne Belang (M14).
+    assert b"IEND" in bild.read_bytes()
 
     quelltext = (tmp_path / "u_main.py").read_text(encoding="utf-8")
     assert 'self.Image1.picture.load_from_file("assets/Image1.png")' in quelltext

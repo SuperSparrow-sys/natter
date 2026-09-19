@@ -1,7 +1,7 @@
 """Font: aufklappbare Schrift-Untereigenschaft jeder Komponente.
 
 Entspricht `TFont` in Lazarus (`Font.Name`, `Font.Size`, `Font.Style =
-[fsBold]`). Siehe konzept-natter.md, Abschnitt 5.0. Wie `Shape.brush`
+[fsBold]`). Siehe README.md, Abschnitt 5.0. Wie `Shape.brush`
 kein eigenständiges `Prop`, sondern eine Untereigenschaft an einem festen
 Attributnamen (`font`); in der `.pfm` und im Objektinspektor erscheint
 sie flach als `font_name`/`font_size`/`font_bold`/`font_italic`

@@ -1,7 +1,7 @@
 """`.lfm`-Parser (Abschnitt 15): zeilenbasierter rekursiver Parser für
 das Lazarus-Formulartextformat (`object Name: Klasse … end`).
 
-Geprüft gegen alle 19 echten `.lfm`-Dateien in `referenz/lazarus/`
+Geprüft gegen alle 19 echten `.lfm`-Dateien in `tests/daten/lazarus/`
 (siehe `tests/test_lfm_parser.py`) – das reale Format ist überraschend
 regelmäßig: eine Anweisung pro Zeile, keine mehrzeiligen String-
 Verkettungen, keine mehrzeiligen Mengen (`[...]` steht immer komplett

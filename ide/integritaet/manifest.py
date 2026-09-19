@@ -1,6 +1,6 @@
 """Signiertes Prüfsummen-Manifest einer Natter-Installation.
 
-Siehe konzept-natter.md, Abschnitt 17.8: „beim Build SHA-256-Prüfsummen
+Siehe docs/entwicklung.md, Abschnitt 17.8: „beim Build SHA-256-Prüfsummen
 aller Programmdateien (ohne `benutzer/` und `pakete-zusatz/`) in
 `manifest.json`; das Manifest wird mit einem eigenen Ed25519-Schlüssel
 signiert, der öffentliche Schlüssel steckt im Starter“ – damit „der

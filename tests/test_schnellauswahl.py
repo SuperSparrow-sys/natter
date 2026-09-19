@@ -10,10 +10,12 @@ from PySide6.QtWidgets import QDialog
 from ide.shell.hauptfenster import HauptFenster
 from ide.shell.schnellauswahl import SchnellAuswahl
 
-_AMPEL_ORDNER = Path(__file__).resolve().parent.parent / "beispielprojekte" / "Ampel"
+_PROJEKT = (
+    Path(__file__).resolve().parent.parent / "beispielprojekte" / "06_Kontoverwaltung"
+)
 
 _DATEIEN = [
-    Path("u_ampel.py"),
+    Path("u_konto.py"),
     Path("u_main.py"),
     Path("main.py"),
     Path("u_main.pfm"),
@@ -22,22 +24,22 @@ _DATEIEN = [
 
 def test_ohne_suchtext_stehen_alle_dateien_alphabetisch_da() -> None:
     dialog = SchnellAuswahl(_DATEIEN)
-    assert dialog.gefilterte_namen() == ["main.py", "u_ampel.py", "u_main.pfm", "u_main.py"]
+    assert dialog.gefilterte_namen() == ["main.py", "u_konto.py", "u_main.pfm", "u_main.py"]
 
 
 def test_suchtext_filtert_die_liste() -> None:
     dialog = SchnellAuswahl(_DATEIEN)
-    dialog.suchfeld.setText("ampel")
-    assert dialog.gefilterte_namen() == ["u_ampel.py"]
+    dialog.suchfeld.setText("konto")
+    assert dialog.gefilterte_namen() == ["u_konto.py"]
 
 
 def test_auswahl_per_aktivierung_setzt_ausgewaehlte_datei_und_akzeptiert() -> None:
     dialog = SchnellAuswahl(_DATEIEN)
-    dialog.suchfeld.setText("u_ampel")
+    dialog.suchfeld.setText("u_konto")
 
     dialog._uebernehmen(dialog.liste.item(0))
 
-    assert dialog.ausgewaehlte_datei == Path("u_ampel.py")
+    assert dialog.ausgewaehlte_datei == Path("u_konto.py")
     assert dialog.result() == QDialog.DialogCode.Accepted
 
 
@@ -54,9 +56,9 @@ def test_projekt_dateien_liefert_units_und_formulare() -> None:
     fenster = HauptFenster()
     assert fenster.projekt_dateien() == []
 
-    fenster.projekt_oeffnen(_AMPEL_ORDNER)
+    fenster.projekt_oeffnen(_PROJEKT)
     namen = {p.name for p in fenster.projekt_dateien()}
     # Seit M12 steht die Startdatei nicht mehr bei den Units: sie wird
     # erzeugt und nicht bearbeitet, wie die `.lpr` in Lazarus. Erreichbar
     # bleibt sie über „Projekt → Startdatei anzeigen“.
-    assert namen == {"u_ampel.py", "u_main.py", "u_main.pfm"}
+    assert namen == {"u_konto.py", "u_main.py", "u_main.pfm"}

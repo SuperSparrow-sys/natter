@@ -1,6 +1,6 @@
 """Integritätsprüfung beim Start und über „Werkzeuge → Umgebung prüfen“.
 
-Siehe konzept-natter.md, Abschnitt 17.8: bei jedem Start werden Signatur
+Siehe docs/entwicklung.md, Abschnitt 17.8: bei jedem Start werden Signatur
 und Prüfsummen der Kerndateien geprüft (schnell), beim ersten Start und
 auf Wunsch alle Dateien; bei Abweichung erscheint eine verständliche
 Meldung mit der Liste der betroffenen Dateien und der Start läuft nur

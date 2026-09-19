@@ -1,7 +1,7 @@
 """Ereignis-Codegenerierung: fügt eine Handler-Methode in eine Formular-
 Unit ein, ohne die restliche Formatierung zu verändern.
 
-Siehe konzept-natter.md, Abschnitt 4.4: „Doppelklick auf Ereignis /
+Siehe README.md, Abschnitt 4.4: „Doppelklick auf Ereignis /
 Komponente → Methode `def <name>_<ereignis>(self, sender):` in
 `u_main.py` einfügen (libcst), Editor springt hin.“ Der Sprung zur neuen
 Stelle im Editor ist Sache der aufrufenden Stelle (`ide/designer/`); hier

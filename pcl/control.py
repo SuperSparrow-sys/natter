@@ -1,6 +1,6 @@
 """Control: Basisklasse aller platzierbaren pcl-Komponenten mit Qt-Anbindung.
 
-Siehe konzept-natter.md, Abschnitt 5. Verbindet den Prop-Zugriff aus
+Siehe README.md, Abschnitt 5. Verbindet den Prop-Zugriff aus
 `pcl.properties` mit einem echten QWidget: eine Zuweisung wie
 ``self.b_ok.caption = "OK"`` ändert sofort die Anzeige (live). Konkrete
 Komponenten (Button, Label, Shape, ...) folgen in M1, Schritt 3.
@@ -19,6 +19,21 @@ from pcl.properties import Komponente, Prop
 class Control(Komponente):
     """Gemeinsame Basis aller auf einem Formular platzierten Komponenten."""
 
+    #: Ob die Komponente nur im Designer zu sehen ist.
+    #:
+    #: Manche Komponenten haben nichts anzuzeigen - ein Zeitgeber etwa
+    #: tickt nur. Im Designer braucht man sie trotzdem: man muss sie
+    #: anklicken können, um im Objektinspektor ihr Intervall
+    #: einzustellen. Lazarus löst das seit jeher mit einem kleinen
+    #: Symbol auf dem Formular, das im laufenden Programm verschwindet;
+    #: genau das macht diese Angabe.
+    #:
+    #: Der Rest der IDE braucht dafür keine Sonderfälle: solche
+    #: Komponenten sind gewöhnliche `Control`s und tauchen damit von
+    #: selbst im Komponentenbaum, im Objektinspektor und in der `.pfm`
+    #: auf.
+    nur_im_designer = False
+
     left = Prop(int, 0, kategorie="Layout", doc="Position von links in Pixeln")
     top = Prop(int, 0, kategorie="Layout", doc="Position von oben in Pixeln")
     width = Prop(int, 75, kategorie="Layout", doc="Breite in Pixeln")
@@ -27,13 +42,24 @@ class Control(Komponente):
         bool, True, kategorie="Verhalten", doc="Legt fest, ob die Komponente bedienbar ist"
     )
 
-    def __init__(self, parent: Komponente) -> None:
-        eltern_widget: QWidget = parent._qwidget
+    def __init__(self, parent: Komponente | None = None) -> None:
+        # `parent=None` für eine Komponente, die im Code erzeugt wird
+        # und auf keinem Formular liegt (ein Zeitgeber etwa). Das Widget
+        # entsteht trotzdem - so braucht der Rest der Klasse keine
+        # Sonderfälle -, es bleibt nur elternlos und ungezeigt.
+        eltern_widget: QWidget | None = parent._qwidget if parent is not None else None
         self._font = Font(self)
         self._qwidget: QWidget = self._qwidget_erzeugen(eltern_widget)
         self._geometrie_anwenden()
         self._qwidget.setEnabled(self.enabled)
-        self._qwidget.show()
+        if type(self).nur_im_designer:
+            # `hide()` ausdrücklich: ein Kind-Widget erscheint sonst
+            # von selbst, sobald das Fenster geöffnet wird - der
+            # Zeitgeber stünde dann als kleine Uhr im fertigen
+            # Schülerprogramm.
+            self._qwidget.hide()
+        elif parent is not None:
+            self._qwidget.show()
 
     @property
     def font(self) -> Font:

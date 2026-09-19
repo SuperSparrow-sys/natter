@@ -11,7 +11,7 @@ import pytest
 from ide.import_lfm.bilder import LfmBildFehler, bild_aus_binaerblock
 from ide.import_lfm.parser import parse_lfm
 
-_REFERENZ = Path(__file__).resolve().parent.parent / "referenz" / "lazarus"
+_REFERENZ = Path(__file__).resolve().parent / "daten" / "lazarus"
 
 _PNG = bytes.fromhex(
     "89504E470D0A1A0A0000000D4948445200000001000000010806000000"
@@ -70,8 +70,15 @@ def test_kein_hex_meldet_fehler() -> None:
 
 
 def test_echtes_lfm_l_pet_liefert_ein_gueltiges_png() -> None:
-    """Gegen die echte `referenz/lazarus/l_Pet/u_main.lfm` (nur lesend):
-    2 999 969 Byte PNG in einer einzigen `.lfm`."""
+    """Gegen eine echte Lazarus-Datei aus `tests/daten/lazarus/`.
+
+    Die Vorlage stammt aus einem Schülerprojekt und trug ein PNG von
+    knapp drei Megabyte in sich - genau der Fall, für den der
+    Binärblock-Leser da ist. Im Repository liegt sie mit einem winzigen
+    Bild an derselben Stelle: geprüft wird das Format, nicht die
+    Dateigröße, und sechs Megabyte Testdaten wären dafür ein hoher
+    Preis (M14).
+    """
     objekt = parse_lfm((_REFERENZ / "l_Pet" / "u_main.lfm").read_text(encoding="utf-8"))
     image = next(kind for kind in objekt["children"] if kind["name"] == "Image1")
 
@@ -80,7 +87,8 @@ def test_echtes_lfm_l_pet_liefert_ein_gueltiges_png() -> None:
     assert bild.klassenname == "TPortableNetworkGraphic"
     assert bild.endung == ".png"
     assert bild.daten.startswith(b"\x89PNG\r\n\x1a\n")
-    assert len(bild.daten) == 2999969
+    # Eine gültige PNG-Datei, nicht bloß ein Bytehaufen.
+    assert b"IEND" in bild.daten  # der Abschlussblock einer PNG-Datei
 
 
 def test_echtes_lfm_cookie_klicker_liefert_jpeg() -> None:

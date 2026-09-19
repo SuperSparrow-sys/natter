@@ -1,6 +1,6 @@
 """Tests für ide/designer/pfm_schreiben.py: Formular → `.pfm`. Siehe
 docs/arbeitspakete/M3.md, Schritt 4. Rundreise-Test gegen die echte
-`beispielprojekte/Ampel/u_main.pfm`.
+`beispielprojekte/04_CookieKlicker/u_main.pfm`.
 """
 
 import json
@@ -10,7 +10,7 @@ from ide.designer import formular_fuer_designer_laden
 from ide.designer.pfm_schreiben import formular_als_pfm_speichern, pfm_aus_formular
 
 _AMPEL_PFM = (
-    Path(__file__).resolve().parent.parent / "beispielprojekte" / "Ampel" / "u_main.pfm"
+    Path(__file__).resolve().parent.parent / "beispielprojekte" / "04_CookieKlicker" / "u_main.pfm"
 )
 
 
@@ -48,35 +48,35 @@ def test_rundreise_ohne_aenderung_liefert_aequivalente_daten() -> None:
 
 def test_geaenderte_eigenschaft_erscheint_im_ergebnis() -> None:
     formular = formular_fuer_designer_laden(_AMPEL_PFM)
-    formular.b_einschalten.left = 500
+    formular.b_teig.left = 500
 
     neu = pfm_aus_formular(formular)
 
-    kind = next(k for k in neu["children"] if k["name"] == "b_einschalten")
+    kind = next(k for k in neu["children"] if k["name"] == "b_teig")
     assert kind["properties"]["left"] == 500
 
 
 def test_standardwert_wird_nicht_gespeichert() -> None:
     formular = formular_fuer_designer_laden(_AMPEL_PFM)
-    assert formular.b_einschalten.enabled is True  # Standardwert von Control
+    assert formular.b_teig.enabled is True  # Standardwert von Control
 
     neu = pfm_aus_formular(formular)
 
-    kind = next(k for k in neu["children"] if k["name"] == "b_einschalten")
+    kind = next(k for k in neu["children"] if k["name"] == "b_teig")
     assert "enabled" not in kind["properties"]
 
 
 def test_formular_als_pfm_speichern_schreibt_eine_datei(tmp_path: Path) -> None:
     formular = formular_fuer_designer_laden(_AMPEL_PFM)
-    formular.b_einschalten.caption = "AN"
+    formular.b_teig.caption = "AN"
     ziel = tmp_path / "kopie.pfm"
 
     formular_als_pfm_speichern(formular, ziel)
 
     gespeichert = json.loads(ziel.read_text(encoding="utf-8"))
-    kind = next(k for k in gespeichert["children"] if k["name"] == "b_einschalten")
+    kind = next(k for k in gespeichert["children"] if k["name"] == "b_teig")
     assert kind["properties"]["caption"] == "AN"
 
     # gespeicherte Datei lässt sich wieder laden (gültig gegen das Schema)
     erneut = formular_fuer_designer_laden(ziel)
-    assert erneut.b_einschalten.caption == "AN"
+    assert erneut.b_teig.caption == "AN"

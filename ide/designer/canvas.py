@@ -2,7 +2,7 @@
 Klick/Ziehen/Tastatur bearbeiten es statt die echte Interaktion
 auszulösen. Jede Änderung läuft über ein Kommando (Undo/Redo).
 
-Siehe konzept-natter.md, Abschnitt 7.7: „Der Designer rendert echte
+Siehe README.md, Abschnitt 7.7: „Der Designer rendert echte
 pcl-Komponenten“, Tastenkürzel wie dort beschrieben (Pfeiltasten =
 Rasterschritt, Alt+Pfeil = 1 px, Umschalt+Pfeil = Größe, Entf = löschen,
 Strg+D = duplizieren, dazu Strg+Z/Strg+Umschalt+Z bzw. Strg+Y für
@@ -40,7 +40,7 @@ from pcl.properties import eigenschaften, ereignisse
 _MEHRFACH_VERSATZ = 16
 
 #: Größte Kantenlänge einer per Drag & Drop erzeugten `Image`-Komponente;
-#: ein 2500×2500-Foto (wie in `referenz/lazarus/l_Pet`) soll das Formular
+#: ein 2500×2500-Foto (wie in `tests/daten/lazarus/l_Pet`) soll das Formular
 #: nicht sprengen.
 _BILD_MAXKANTE = 240
 
@@ -214,6 +214,10 @@ _STANDARDGROESSEN: dict[str, tuple[int, int]] = {
     "ScrollBar": (150, 17),
     "StringGrid": (220, 150),
     "Image": (100, 100),
+    # Ein Zeitgeber zeigt nur sein Symbol - quadratisch und klein, wie
+    # das Entwurfszeit-Symbol einer nicht sichtbaren Komponente in
+    # Lazarus.
+    "Timer": (32, 32),
 }
 
 
@@ -304,6 +308,12 @@ class DesignerCanvas(QObject):
         widget = objekt._qwidget
         self._widget_zu_komponente[widget] = objekt
         widget.installEventFilter(self)
+        # Eine Komponente ohne eigene Anzeige - ein Zeitgeber etwa -
+        # versteckt ihr Widget beim Erzeugen, damit sie im fertigen
+        # Programm nicht zu sehen ist. Im Designer muss man sie
+        # anklicken können, also kommt sie hier zum Vorschein.
+        if getattr(type(objekt), "nur_im_designer", False):
+            widget.show()
         for _, komponente in kind_komponenten(objekt):
             self._ueberwachung_einrichten(komponente)
 

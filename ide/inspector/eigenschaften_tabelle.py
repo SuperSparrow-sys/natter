@@ -1,7 +1,7 @@
 """EigenschaftenTabelle: zeigt und bearbeitet die `Prop`-Eigenschaften
 einer Komponente – Reiter „Eigenschaften“ des Objektinspektors.
 
-Siehe konzept-natter.md, Abschnitt 5.0 (Eigenschaften-System, Editor je
+Siehe README.md, Abschnitt 5.0 (Eigenschaften-System, Editor je
 Datentyp) und 7.6 (Objektinspektor). Live-Wirkung entsteht automatisch,
 weil `Prop.__set__` (`pcl/properties.py`) das zugehörige Qt-Widget sofort
 aktualisiert (`_bei_prop_aenderung`-Hook) – die Tabelle ruft dafür nur

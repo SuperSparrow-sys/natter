@@ -1,0 +1,132 @@
+{
+  "format": "pfm/1",
+  "class": "Form1",
+  "type": "Form",
+  "properties": {
+    "caption": "Regression",
+    "width": 900,
+    "height": 620
+  },
+  "events": {
+    "on_create": "form_create"
+  },
+  "children": [
+    {
+      "name": "l_titel",
+      "type": "Label",
+      "properties": {
+        "left": 24,
+        "top": 16,
+        "width": 500,
+        "height": 28,
+        "caption": "Körpergröße und Schuhgröße"
+      }
+    },
+    {
+      "name": "ch_punkte",
+      "type": "Chart",
+      "properties": {
+        "left": 24,
+        "top": 56,
+        "width": 560,
+        "height": 440,
+        "kind": "scatter",
+        "title": "Messwerte mit Ausgleichsgerade",
+        "x_label": "Körpergröße in cm",
+        "y_label": "Schuhgröße",
+        "grid": true
+      }
+    },
+    {
+      "name": "l_art",
+      "type": "Label",
+      "properties": {
+        "left": 608,
+        "top": 60,
+        "width": 260,
+        "caption": "Art der Ausgleichskurve"
+      }
+    },
+    {
+      "name": "cb_art",
+      "type": "ComboBox",
+      "properties": {
+        "left": 608,
+        "top": 88,
+        "width": 260
+      },
+      "events": {
+        "on_change": "cb_art_change"
+      }
+    },
+    {
+      "name": "l_formel",
+      "type": "Label",
+      "properties": {
+        "left": 608,
+        "top": 136,
+        "width": 260,
+        "height": 50,
+        "caption": "Formel:"
+      }
+    },
+    {
+      "name": "l_guete",
+      "type": "Label",
+      "properties": {
+        "left": 608,
+        "top": 196,
+        "width": 260,
+        "height": 50,
+        "caption": "Bestimmtheitsmaß:"
+      }
+    },
+    {
+      "name": "l_vorhersage",
+      "type": "Label",
+      "properties": {
+        "left": 608,
+        "top": 268,
+        "width": 260,
+        "caption": "Vorhersage für eine Körpergröße"
+      }
+    },
+    {
+      "name": "se_groesse",
+      "type": "SpinEdit",
+      "properties": {
+        "left": 608,
+        "top": 296,
+        "width": 120,
+        "minimum": 120,
+        "maximum": 220,
+        "value": 180
+      },
+      "events": {
+        "on_change": "se_groesse_change"
+      }
+    },
+    {
+      "name": "l_ergebnis",
+      "type": "Label",
+      "properties": {
+        "left": 608,
+        "top": 336,
+        "width": 260,
+        "height": 60,
+        "caption": ""
+      }
+    },
+    {
+      "name": "l_hinweis",
+      "type": "Label",
+      "properties": {
+        "left": 24,
+        "top": 516,
+        "width": 850,
+        "height": 70,
+        "caption": ""
+      }
+    }
+  ]
+}

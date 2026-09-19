@@ -96,8 +96,12 @@ def fenster(qtbot, tmp_path: Path) -> HauptFenster:
     halben Aktionen ausgegraut, und gerade die interessanten."""
     import shutil
 
-    quelle = Path(__file__).resolve().parent.parent / "beispielprojekte" / "Garten"
-    ziel = tmp_path / "Garten"
+    # Bewusst die Kontoverwaltung: sie hat mit `u_konto.py` eine
+    # Unit **ohne** Formular. Nur zu solchen Einträgen zeigt der
+    # Explorer ein Kontextmenü, und ohne eines stünde der halbe
+    # Rundlauf hier leer.
+    quelle = Path(__file__).resolve().parent.parent / "beispielprojekte" / "06_Kontoverwaltung"
+    ziel = tmp_path / "Kontoverwaltung"
     shutil.copytree(quelle, ziel)
     for muell in ziel.rglob("__pycache__"):
         shutil.rmtree(muell, ignore_errors=True)

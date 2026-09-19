@@ -4,7 +4,7 @@ Zwei Funde beim Aufräumen:
 
 * Der Reiter „Ausgabe“ war ein leeres graues Feld – angelegt, benannt,
   nie gefüllt. Das Schülerprogramm läuft als eigener Prozess in einem
-  eigenen Fenster (konzept-natter.md, Abschnitt 7.8), seine
+  eigenen Fenster (README.md, Abschnitt 7.8), seine
   `print`-Zeilen stehen also dort. Laut demselben Abschnitt gehören
   aber **Exitcode und Laufzeit** in dieses Panel, und die standen
   nirgends.

@@ -1,6 +1,6 @@
 """Komponentenpalette mit Reitern Standard/Zusätzlich.
 
-Siehe konzept-natter.md, Abschnitt 7.3. Nur die bisher in `pcl`
+Siehe README.md, Abschnitt 7.3. Nur die bisher in `pcl`
 umgesetzten Komponenten (Stand M1/M3); `Allgemein`, `Dialoge`,
 `Datensteuerung`, `Datenzugriff`, `System` folgen, sobald es dort etwas
 zu platzieren gibt (Abschnitt 5.2). Ein eigener Reiter `Diagramm` lohnt
@@ -42,6 +42,7 @@ from pcl.components.standard import (
     RadioGroup,
     ScrollBar,
 )
+from pcl.components.system import Timer
 
 TYP_ROLLE = Qt.ItemDataRole.UserRole
 # Nutzer-Feedback (September 2026): insgesamt kompakter, näher an
@@ -85,6 +86,14 @@ ZUSAETZLICH_KOMPONENTEN = (
     FloatSpinEdit,
     TrackBar,
     ProgressBar,
+    # Ein Zeitgeber ist die einzige Komponente hier, die nichts
+    # anzeigt - auf dem Formular steht nur sein Symbol, das im
+    # laufenden Programm verschwindet (Nutzer-Hinweis September 2026:
+    # „der Timer muss als Komponente auch mit rein, der ist wichtig").
+    # In Lazarus hat er einen eigenen Reiter „System"; einen dritten
+    # Reiter anzulegen scheitert an der Verdrahtung im Hauptfenster
+    # (siehe den Hinweis bei TrackBar oben).
+    Timer,
 )
 
 

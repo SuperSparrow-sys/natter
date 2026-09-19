@@ -12,7 +12,7 @@ anschließend von Hand, das ist ausdrücklich Teil der Umstiegsaufgabe
 **Umfang, bewusst eingeschränkt:** Pascal wird nicht wirklich geparst,
 sondern nur die `begin`/`end`-Verschachtelung gezählt, nachdem
 Zeichenketten und Kommentare entfernt wurden. Das deckt den
-Unterrichtscode in `referenz/lazarus/` vollständig ab. Nicht unterstützt
+Unterrichtscode in `tests/daten/lazarus/` vollständig ab. Nicht unterstützt
 sind lokal (innerhalb einer Methode) deklarierte Unterprogramme – deren
 `begin`/`end` würde mitgezählt und der Rumpf zu lang geraten.
 """
@@ -114,7 +114,7 @@ def _ohne_gemeinsame_einrueckung(zeilen: list[str]) -> list[str]:
 def pas_text_lesen(pfad: Path) -> str:
     """Liest eine `.pas`-Datei. Lazarus schreibt sie je nach Version als
     UTF-8 oder als Windows-ANSI (CP1252); alle Dateien in
-    `referenz/lazarus/` sind UTF-8, die Rückfallebene deckt ältere
+    `tests/daten/lazarus/` sind UTF-8, die Rückfallebene deckt ältere
     Schülerprojekte ab."""
     rohdaten = Path(pfad).read_bytes()
     try:

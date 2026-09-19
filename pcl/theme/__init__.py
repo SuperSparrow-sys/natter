@@ -1,6 +1,6 @@
 """QSS-Generator aus `design/tokens.json` für `pcl`-Programme.
 
-Siehe konzept-natter.md, Abschnitt 6 und 23.2. Die Tokens-Datei ist die
+Siehe README.md, Abschnitt 6 und 23.2. Die Tokens-Datei ist die
 einzige Quelle; ein eigener, ähnlich aufgebauter Generator für die IDE
 selbst folgt in M2.
 """

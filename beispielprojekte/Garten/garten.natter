@@ -1,7 +1,0 @@
-{
-  "format": "natter-project/1",
-  "name": "Garten",
-  "type": "gui",
-  "main": "main.py",
-  "main_form": "u_main"
-}

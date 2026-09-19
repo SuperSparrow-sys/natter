@@ -1,0 +1,196 @@
+{
+  "format": "pfm/1",
+  "class": "Form1",
+  "type": "Form",
+  "properties": {
+    "caption": "Cookie-Klicker",
+    "width": 780,
+    "height": 560
+  },
+  "events": {
+    "on_create": "form_create"
+  },
+  "children": [
+    {
+      "name": "l_titel",
+      "type": "Label",
+      "properties": {
+        "left": 24,
+        "top": 16,
+        "width": 300,
+        "height": 28,
+        "caption": "Cookie-Klicker"
+      }
+    },
+    {
+      "name": "i_keks",
+      "type": "Image",
+      "properties": {
+        "left": 24,
+        "top": 56,
+        "width": 300,
+        "height": 300
+      },
+      "events": {
+        "on_click": "i_keks_click"
+      }
+    },
+    {
+      "name": "l_hinweis",
+      "type": "Label",
+      "properties": {
+        "left": 24,
+        "top": 366,
+        "width": 300,
+        "caption": "Klicke auf den Keks."
+      }
+    },
+    {
+      "name": "l_punkte",
+      "type": "Label",
+      "properties": {
+        "left": 360,
+        "top": 56,
+        "width": 380,
+        "height": 40,
+        "caption": "0 Kekse"
+      }
+    },
+    {
+      "name": "l_rang",
+      "type": "Label",
+      "properties": {
+        "left": 360,
+        "top": 104,
+        "width": 380,
+        "caption": "Rang: Anfänger"
+      }
+    },
+    {
+      "name": "l_werte",
+      "type": "Label",
+      "properties": {
+        "left": 360,
+        "top": 132,
+        "width": 380,
+        "caption": "Pro Klick: 1   Helfer: 0"
+      }
+    },
+    {
+      "name": "b_teig",
+      "type": "Button",
+      "properties": {
+        "left": 360,
+        "top": 176,
+        "width": 380,
+        "caption": "Besserer Teig"
+      },
+      "events": {
+        "on_click": "b_teig_click"
+      }
+    },
+    {
+      "name": "b_helfer",
+      "type": "Button",
+      "properties": {
+        "left": 360,
+        "top": 216,
+        "width": 380,
+        "caption": "Helfer anstellen"
+      },
+      "events": {
+        "on_click": "b_helfer_click"
+      }
+    },
+    {
+      "name": "b_risiko",
+      "type": "Button",
+      "properties": {
+        "left": 360,
+        "top": 256,
+        "width": 380,
+        "caption": "Risiko: verdoppeln oder alles verlieren"
+      },
+      "events": {
+        "on_click": "b_risiko_click"
+      }
+    },
+    {
+      "name": "b_neu",
+      "type": "Button",
+      "properties": {
+        "left": 360,
+        "top": 296,
+        "width": 380,
+        "caption": "Von vorn anfangen"
+      },
+      "events": {
+        "on_click": "b_neu_click"
+      }
+    },
+    {
+      "name": "l_stil",
+      "type": "Label",
+      "properties": {
+        "left": 360,
+        "top": 348,
+        "width": 380,
+        "caption": "Aussehen des Kekses:"
+      }
+    },
+    {
+      "name": "i_stil_hell",
+      "type": "Image",
+      "properties": {
+        "left": 360,
+        "top": 376,
+        "width": 72,
+        "height": 72
+      },
+      "events": {
+        "on_click": "i_stil_hell_click"
+      }
+    },
+    {
+      "name": "i_stil_dunkel",
+      "type": "Image",
+      "properties": {
+        "left": 444,
+        "top": 376,
+        "width": 72,
+        "height": 72
+      },
+      "events": {
+        "on_click": "i_stil_dunkel_click"
+      }
+    },
+    {
+      "name": "i_stil_bunt",
+      "type": "Image",
+      "properties": {
+        "left": 528,
+        "top": 376,
+        "width": 72,
+        "height": 72
+      },
+      "events": {
+        "on_click": "i_stil_bunt_click"
+      }
+    },
+    {
+      "name": "t_helfer",
+      "type": "Timer",
+      "properties": {
+        "left": 700,
+        "top": 392,
+        "width": 32,
+        "height": 32,
+        "enabled": false,
+        "interval": 1000
+      },
+      "events": {
+        "on_timer": "t_helfer_timer"
+      }
+    }
+  ]
+}

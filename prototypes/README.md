@@ -1,10 +1,10 @@
 # Prototypen S1–S7 (Phase M0)
 
 Wegwerf-Prototypen für die technischen Machbarkeitsprüfungen aus
-konzept-natter.md, Abschnitt 23.3. Jeder Ordner ist eigenständig, klein und
+docs/entwicklung.md, Abschnitt 23.3. Jeder Ordner ist eigenständig, klein und
 nicht Teil von `pcl`/`ide` – Code hier wird nicht weiterverwendet, nur das
 Ergebnis (bestanden/durchgefallen, ggf. Anpassung der Technologie-Entscheidung
-in `konzept-natter.md`).
+in `docs/entwicklung.md`).
 
 Reihenfolge nach Risiko: **S2, S7** zuerst (könnten die Konzept-Entscheidung
 kippen), dann S1, S3, S4, S5, zuletzt S6 (erst für M8 relevant). Siehe

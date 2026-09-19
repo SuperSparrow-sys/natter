@@ -1,12 +1,13 @@
 """Abnahme von M9 (Schritt 11): die drei Diagramme des
-Abnahmekriteriums aus `beispielprojekte/Ampel/diagramme/` laden und als
-PDF exportieren.
+Abnahmekriteriums aus `beispielprojekte/06_Kontoverwaltung/diagramme/`
+laden und als PDF exportieren.
 
-Das Abnahmekriterium aus dem Konzept lautet: „UML-Klassendiagramm
-`TAmpel`, Struktogramm `ampel_zeichnen` und Entscheidungstabelle der
-Ampel von Hand erstellen und als PDF exportieren.“ Die drei `.pdiag`
-im Beispielprojekt wurden genau so erzeugt – ausschließlich über die
-Editor-Methoden, die auch Maus und Tastatur benutzen.
+Das Abnahmekriterium verlangt je ein Klassendiagramm, ein Struktogramm
+und eine Entscheidungstabelle, von Hand erstellt und als PDF
+exportiert. Bis M14 hingen sie am Beispielprojekt „Ampel"; seit der
+Lehrgang steht, gehören sie zur Kontoverwaltung - dort ist die eigene
+Klasse das Thema der Stufe, und ein Klassendiagramm gehört genau
+dorthin.
 
 Die Dateien werden hier nur **gelesen**; exportiert wird nach
 `tmp_path`, damit im Beispielprojekt nichts verändert wird (AGENTS.md).
@@ -22,12 +23,17 @@ from ide.diagramm.datei import Diagramm
 from ide.diagramm.export import als_pdf, als_png
 from ide.diagramm.hinweise import pruefen
 
-DIAGRAMME = Path(__file__).resolve().parent.parent / "beispielprojekte" / "Ampel" / "diagramme"
+DIAGRAMME = (
+    Path(__file__).resolve().parent.parent
+    / "beispielprojekte"
+    / "06_Kontoverwaltung"
+    / "diagramme"
+)
 
 ABNAHME = {
-    "tampel_klassen.pdiag": "class",
-    "ampel_zeichnen.pdiag": "struktogramm",
-    "ampel_entscheidung.pdiag": "entscheidungstabelle",
+    "konto_klassen.pdiag": "class",
+    "konto_abheben.pdiag": "struktogramm",
+    "konto_entscheidung.pdiag": "entscheidungstabelle",
 }
 
 
@@ -70,32 +76,35 @@ def test_abnahmediagramm_ist_nicht_leer(dateiname: str, tmp_path: Path) -> None:
     assert len(farben) > 2
 
 
-def test_klassendiagramm_bildet_die_echte_ampel_klasse_ab() -> None:
+def test_klassendiagramm_bildet_die_echte_klasse_ab() -> None:
     """Inhaltliche Probe: die Methoden im Diagramm müssen zu
-    `beispielprojekte/Ampel/u_ampel.py` passen."""
-    daten = Diagramm.laden(DIAGRAMME / "tampel_klassen.pdiag").daten
-    ampel = next(f for f in daten["shapes"] if f.get("name") == "Ampel")
+    `beispielprojekte/06_Kontoverwaltung/u_konto.py` passen."""
+    daten = Diagramm.laden(DIAGRAMME / "konto_klassen.pdiag").daten
+    konto = next(f for f in daten["shapes"] if f.get("name") == "Konto")
 
-    methoden = " ".join(o["name"] for o in ampel["operations"])
-    for name in ("einschalten", "ausschalten", "umschalten", "get_zustand", "get_eingeschaltet"):
+    methoden = " ".join(o["name"] for o in konto["operations"])
+    for name in ("__init__", "einzahlen", "abheben"):
         assert name in methoden
 
 
-def test_struktogramm_hat_die_drei_ampelphasen() -> None:
+def test_struktogramm_bildet_das_abheben_ab() -> None:
+    """Zwei geschachtelte Verzweigungen - genau die beiden Regeln, die
+    `Konto.abheben` prüft: Betrag über null, und genug Geld da."""
     from ide.diagramm.bloecke import alle_bloecke
 
-    daten = Diagramm.laden(DIAGRAMME / "ampel_zeichnen.pdiag").daten
-    auswahl = next(
-        b for b in alle_bloecke(daten) if b.get("kind") == "multi_branch"
-    )
+    daten = Diagramm.laden(DIAGRAMME / "konto_abheben.pdiag").daten
+    verzweigungen = [b for b in alle_bloecke(daten) if b.get("kind") == "branch"]
 
-    assert [fall["label"] for fall in auswahl["cases"]] == ["1", "3", "2 oder 4"]
+    assert len(verzweigungen) == 2
+    texte = " ".join(b["text"] for b in verzweigungen)
+    assert "null" in texte
+    assert "Kontostand" in texte
 
 
 def test_entscheidungstabelle_hat_zu_jeder_regel_eine_aktion() -> None:
     """Fachliche Probe: in jeder Regel-Spalte muss genau ein `X`
-    stehen – sonst wäre die Ampel in dieser Lage undefiniert."""
-    daten = Diagramm.laden(DIAGRAMME / "ampel_entscheidung.pdiag").daten
+    stehen – sonst wäre die Buchung in dieser Lage undefiniert."""
+    daten = Diagramm.laden(DIAGRAMME / "konto_entscheidung.pdiag").daten
     spalten = max(len(z["values"]) for z in daten["actions"])
 
     for spalte in range(spalten):

@@ -1,7 +1,7 @@
 """Python Component Library (pcl) – Laufzeit der Natter-Komponenten.
 
 Wird von Schülerprogrammen und der exportierten .exe verwendet, läuft ohne IDE.
-Siehe konzept-natter.md, Abschnitt 5. Beispiel (Abschnitt 4.3):
+Siehe README.md, Abschnitt 5. Beispiel (Abschnitt 4.3):
 
     from pcl import Application, Button, Form, Shape
 """
@@ -43,7 +43,7 @@ from pcl.components.standard import (
 )
 from pcl.components.system import Timer
 from pcl.control import Control
-from pcl.dialogs import input_box, show_message
+from pcl.dialogs import input_box, open_dialog, show_message
 from pcl.files import open_url
 from pcl.form import Form
 from pcl.properties import Event, Prop
@@ -90,6 +90,7 @@ __all__ = [
     "TrackBar",
     "analyse",
     "input_box",
+    "open_dialog",
     "open_url",
     "regression",
     "show_message",

@@ -2,7 +2,7 @@
 `.pfm`-Datei – das Gegenstück zu `ide.codegen.design` (die andere
 Richtung, `.pfm` → Python).
 
-Siehe konzept-natter.md, Abschnitt 4.2: „Gespeichert werden nur
+Siehe README.md, Abschnitt 4.2: „Gespeichert werden nur
 Eigenschaften, die vom Standardwert abweichen (wie in `.lfm`).“ und
 Abschnitt 4.4: „Komponente hinzufügen/verschieben/Eigenschaft ändern →
 `.pfm` speichern, `u_main_design.py` neu erzeugen.“ Das Neuerzeugen der

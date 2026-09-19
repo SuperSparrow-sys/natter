@@ -89,8 +89,10 @@ def test_die_nachfrage_verspricht_den_papierkorb(
     fenster._unit_loeschen(ordner / "u_weg.py")
 
     assert gefragt, "Es wurde gar nicht nachgefragt."
+    # Mehrzahl seit M14: zu einer Unit mit Formular gehören drei
+    # Dateien, und die Nachfrage nennt sie alle.
     if papierkorb_verfuegbar():
-        assert "landet im Papierkorb" in gefragt[0]
+        assert "landen im Papierkorb" in gefragt[0]
         assert "zurückholen" in gefragt[0]
     else:
         assert "nicht im Papierkorb" in gefragt[0]

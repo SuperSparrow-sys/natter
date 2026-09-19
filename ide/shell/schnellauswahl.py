@@ -1,6 +1,6 @@
 """SchnellAuswahl: „Unit öffnen …“ (Strg+P).
 
-Siehe konzept-natter.md, Abschnitt 7.4 („Schnellauswahl aller
+Siehe README.md, Abschnitt 7.4 („Schnellauswahl aller
 Projektdateien mit Suche“) und 7.9 (Strg+P). Reine Filterlogik ist ohne
 `exec()` testbar; nur der tatsächliche modale Dialogaufruf
 (`HauptFenster._unit_oeffnen_dialog`) blockiert wie jeder echte Dialog.

@@ -7,7 +7,7 @@ ist bereits durch `tests/test_hauptfenster_testexplorer.py` vollständig
 abgedeckt, wird hier nicht dupliziert.
 
 Gegen echtes `debugpy`, kein Mock. Die Ampel-Beispieldatei wird wie in
-AGENTS.md vorgeschrieben aus `beispielprojekte/Ampel/` in `tmp_path`
+AGENTS.md vorgeschrieben aus `beispielprojekte/04_CookieKlicker/` in `tmp_path`
 kopiert statt sie direkt zu verwenden.
 """
 
@@ -20,7 +20,7 @@ from ide.debugger import fehlermeldung_erzeugen
 from ide.shell.hauptfenster import HauptFenster
 from tests.conftest import DEBUG_ZEITGRENZE
 
-_AMPEL_ORDNER = Path(__file__).resolve().parent.parent / "beispielprojekte" / "Ampel"
+_PROJEKT_ORDNER = Path(__file__).resolve().parent.parent / "beispielprojekte" / "04_CookieKlicker"
 
 
 def _ausloesen(f):
@@ -63,23 +63,23 @@ def test_jeder_fehlerkatalog_eintrag_hat_ein_funktionierendes_beispielprogramm()
         assert "did you mean" not in meldung.was.lower()
 
 
-def test_ampel_breakpoint_in_ereignis_handler_haelt_an_und_zeigt_self(
+def test_breakpoint_in_ereignis_handler_haelt_an_und_zeigt_self(
     qtbot, tmp_path: Path
 ) -> None:
-    ampel_kopie = tmp_path / "Ampel"
-    shutil.copytree(_AMPEL_ORDNER, ampel_kopie)
+    kopie = tmp_path / "04_CookieKlicker"
+    shutil.copytree(_PROJEKT_ORDNER, kopie)
 
     fenster = HauptFenster()
-    fenster.projekt_oeffnen(ampel_kopie / "ampel.natter")
+    fenster.projekt_oeffnen(kopie / "04_CookieKlicker.natter")
 
     # form_create() läuft automatisch beim Start, ohne Klick nötig -
     # exakt "Breakpoint in einem Ereignis-Handler" aus der Abnahme.
-    u_main = ampel_kopie / "u_main.py"
+    u_main = kopie / "u_main.py"
     editor = fenster.datei_oeffnen(u_main)
     zeile = next(
         i + 1
         for i, zeile in enumerate(u_main.read_text(encoding="utf-8").split("\n"))
-        if "self.ampel = Ampel(True, 1)" in zeile
+        if "self.neu_anfangen()" in zeile
     )
     editor.breakpoint_umschalten(zeile)
 

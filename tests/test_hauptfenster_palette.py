@@ -4,7 +4,7 @@ Headless. Siehe docs/arbeitspakete/M3.md, Schritt 6.
 
 Wichtig: `designer_oeffnen()` aktiviert automatisches `.pfm`-Speichern
 (M3, Schritt 4). Tests, die tatsächlich etwas platzieren/verschieben,
-dürfen deshalb NICHT direkt gegen `beispielprojekte/Ampel/u_main.pfm`
+dürfen deshalb NICHT direkt gegen `beispielprojekte/04_CookieKlicker/u_main.pfm`
 laufen, sondern gegen eine Kopie in `tmp_path` – sonst verändert der
 Testlauf die eingecheckte Beispieldatei.
 """
@@ -19,7 +19,7 @@ from ide.shell.hauptfenster import HauptFenster
 from pcl import Button
 
 _AMPEL_PFM = (
-    Path(__file__).resolve().parent.parent / "beispielprojekte" / "Ampel" / "u_main.pfm"
+    Path(__file__).resolve().parent.parent / "beispielprojekte" / "04_CookieKlicker" / "u_main.pfm"
 )
 
 

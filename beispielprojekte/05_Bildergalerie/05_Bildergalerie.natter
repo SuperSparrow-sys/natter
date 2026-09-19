@@ -1,0 +1,7 @@
+{
+  "format": "natter-project/1",
+  "name": "05_Bildergalerie",
+  "type": "gui",
+  "main": "main.py",
+  "main_form": "u_main"
+}

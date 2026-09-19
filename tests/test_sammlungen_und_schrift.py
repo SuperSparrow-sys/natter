@@ -21,7 +21,7 @@ from pcl import ComboBox, Form, Label, ListBox, Memo
 from pcl.errors import NatterPropertyError, NatterUnbekannteEigenschaftError
 
 _F_PIZZA_LFM = (
-    Path(__file__).resolve().parent.parent / "referenz" / "lazarus" / "f_Pizza" / "unit1.lfm"
+    Path(__file__).resolve().parent / "daten" / "lazarus" / "f_Pizza" / "unit1.lfm"
 )
 
 

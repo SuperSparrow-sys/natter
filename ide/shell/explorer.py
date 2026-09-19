@@ -1,6 +1,6 @@
 """ProjektExplorer: Baumansicht mit Formularen und Units.
 
-Siehe konzept-natter.md, Abschnitt 7.4: „Gruppen Formulare, Units,
+Siehe README.md, Abschnitt 7.4: „Gruppen Formulare, Units,
 Assets; Formular-Units als ein Eintrag“. `Assets` folgt, sobald Bild-/
 Sound-Komponenten Dateien in `assets/` erwarten (siehe `pcl.Image`).
 """

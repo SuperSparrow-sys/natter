@@ -89,7 +89,7 @@ def test_form_theme_aenderung_wirkt_sofort() -> None:
 
 def test_form_color_ueberschreibt_die_theme_hintergrundfarbe() -> None:
     # Entspricht Lazarus TForm.Color = clSilver
-    # (referenz/lazarus/a_GUI_Komponenten).
+    # (tests/daten/lazarus/a_GUI_Komponenten).
     formular = Form()
     formular.color = "#c0c0c0"
     assert "background-color: #c0c0c0" in formular._qwidget.styleSheet()

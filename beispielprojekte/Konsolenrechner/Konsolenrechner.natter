@@ -1,6 +1,0 @@
-{
-  "format": "natter-project/1",
-  "name": "Konsolenrechner",
-  "type": "console",
-  "main": "main.py"
-}

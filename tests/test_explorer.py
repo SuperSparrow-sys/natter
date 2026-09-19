@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QTreeWidget
 from ide.project import Projekt
 from ide.shell.explorer import ProjektExplorer
 
-_AMPEL_ORDNER = Path(__file__).resolve().parent.parent / "beispielprojekte" / "Ampel"
+_AMPEL_ORDNER = Path(__file__).resolve().parent.parent / "beispielprojekte" / "06_Kontoverwaltung"
 
 
 def test_leerer_explorer_hat_alle_gruppen_ohne_kinder() -> None:
@@ -57,6 +57,6 @@ def test_erneutes_anzeigen_ersetzt_den_alten_inhalt() -> None:
     explorer.projekt_anzeigen(projekt)
 
     assert explorer.formulare_gruppe.childCount() == 1
-    # Nur `u_ampel.py`: `u_main.py` gehört zum Formular und steht dort,
+    # Nur `u_konto.py`: `u_main.py` gehört zum Formular und steht dort,
     # und die Startdatei `main.py` steht seit M12 gar nicht mehr im Baum.
     assert explorer.units_gruppe.childCount() == 1

@@ -113,7 +113,23 @@ zum Abschreiben, kein fertiges Programm.
 
 ## Und wenn ich nicht weiterkomme?
 
-Probier eines der **Beispielprojekte** vom Startbild. Sie sind alle
-lauffähig und zeigen je eine Sache: die Ampel die Klassen, der Garten
-die Listen, das Würfelspiel den Zufall, die CSV-Auswertung das Einlesen
-von Daten.
+Probier die **Beispielprojekte** vom Startbild. Sie sind keine
+Sammlung, sondern ein Weg von vorn nach hinten — jede Stufe bringt
+genau eine neue Idee dazu, und oben in der Datei steht, welche:
+
+| | Projekt | Neu auf dieser Stufe |
+|---|---|---|
+| 01 | Begrüßung | Ein- und Ausgabe, Variablen |
+| 02 | Zahlenraten | Verzweigung, Schleife, Zufall |
+| 03 | Taschenrechner | das erste Formular |
+| 04 | Cookie-Klicker | Bilder, Zeitgeber, Spielstand |
+| 05 | Bildergalerie | Dateien von der Festplatte holen |
+| 06 | Kontoverwaltung | eigene Klassen, eine Datenbank |
+| 07 | CSV-Auswertung | echte Daten einlesen und auswerten |
+| 08 | Regression | aus Daten eine Regel ableiten |
+| 09 | Obst-Sortierer | der Rechner lernt selbst eine Regel |
+
+Wenn du bei 03 hängst, hilft 02 weiter — nicht 09.
+
+Beim Öffnen legt Natter eine **Kopie** in deinem Dokumente-Ordner an.
+Du kannst darin also alles ausprobieren, ohne etwas kaputtzumachen.

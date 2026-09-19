@@ -1,7 +1,7 @@
 """Startet ein Natter-Projekt als eigenen Prozess (Strg+F5, ohne
 Debugger).
 
-Siehe konzept-natter.md, Abschnitt 7.8:
+Siehe README.md, Abschnitt 7.8:
 
 - GUI-Projekte: eigenes Programmfenster, keine Konsole, IDE bleibt
   bedienbar

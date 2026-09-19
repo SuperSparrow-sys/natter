@@ -1,6 +1,6 @@
 """Eigenschaften-System: eine Quelle für Objektinspektor und Code.
 
-Siehe konzept-natter.md, Abschnitt 5.0. Reine Python-Logik ohne Qt; die
+Siehe README.md, Abschnitt 5.0. Reine Python-Logik ohne Qt; die
 Anbindung an echte Widgets kommt mit `pcl.control` (M1, Schritt 2).
 """
 

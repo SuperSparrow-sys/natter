@@ -1,6 +1,6 @@
 """HauptFenster: Grundgerüst des IDE-Hauptfensters.
 
-Siehe konzept-natter.md, Abschnitt 7.1, 7.4, 7.5. Menüleiste mit den
+Siehe README.md, Abschnitt 7.1, 7.4, 7.5. Menüleiste mit den
 Menütiteln aus Abschnitt 7.2 (Einträge kommen über das Aktionsregister),
 Docks für Explorer/Objektinspektor/Panels, zentrale Editor-Tabs,
 Statusleiste. `projekt_oeffnen`/`datei_oeffnen` sind die Grundlage für
@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
     QPlainTextEdit,
+    QProgressBar,
     QScrollArea,
     QStackedWidget,
     QTableWidget,
@@ -162,6 +163,21 @@ _STATUS_FARBE = {
 # Editor-Tabs trägt (nicht zu verwechseln mit PFAD_ROLLE, das ist die
 # Qt.ItemDataRole für Explorer-Einträge).
 _PFAD_EIGENSCHAFT = "pfad"
+
+
+def _aufzaehlung(namen: list[str]) -> str:
+    """„a“, „a und b“, „a, b und c“ – für Meldungen an Lernende.
+
+    Eine Liste im Stil `['u_ampel.pfm', 'u_ampel_design.py']` roh in
+    einen Satz zu setzen, liest sich wie eine Fehlermeldung; so liest es
+    sich wie ein Satz.
+    """
+    if not namen:
+        return ""
+    zitiert = [f"„{name}“" for name in namen]
+    if len(zitiert) == 1:
+        return zitiert[0]
+    return ", ".join(zitiert[:-1]) + f" und {zitiert[-1]}"
 
 #: Zeilenumbruch fuer mehrzeilige Tooltips.
 _UMBRUCH = chr(10)
@@ -336,6 +352,9 @@ class HauptFenster(QMainWindow):
         )
 
         self.projekt: Projekt | None = None
+        #: Der Ladebalken in der untersten Zeile. Entsteht erst beim
+        #: ersten langen Vorgang (siehe `_fortschritt_zeigen`).
+        self._fortschritt_balken: QProgressBar | None = None
         self.laufender_prozess = None
         self._offene_canvases: list[DesignerCanvas] = []
         self._pfad_zu_formular: dict[str, Form] = {}
@@ -1134,10 +1153,16 @@ class HauptFenster(QMainWindow):
         self.statusBar().showMessage(f"Testprotokoll gespeichert: {pfad}")
 
     def _als_exe_exportieren_aktion(self) -> None:
-        """„Projekt → Als Exe exportieren …“ (Abschnitt 16, 17;
-        M8 Schritt 4): baut das Projekt mit PyInstaller. Läuft
-        blockierend, wie „Alle Tests ausführen“ – ein Export dauert für
-        ein Schulprojekt typischerweise 15-40 Sekunden."""
+        """„Projekt → Als Exe exportieren …“ (Abschnitt 16;
+        M8 Schritt 4, M14): baut das Projekt mit PyInstaller zu einer
+        einzigen Exe.
+
+        Läuft blockierend, wie „Alle Tests ausführen“ – dafür mit
+        Ladebalken in der untersten Zeile (Nutzer-Vorgabe September
+        2026). Ein Export dauert für ein Schulprojekt typischerweise
+        eine halbe bis eine Minute; ohne sichtbaren Fortschritt sieht
+        das nach einem Absturz aus.
+        """
         if self.projekt is None:
             self.statusBar().showMessage(
                 "Kein Projekt offen. Zuerst über „Projekt → Öffnen …“ eines laden oder ein "
@@ -1146,9 +1171,13 @@ class HauptFenster(QMainWindow):
             return
 
         self.statusBar().showMessage("Exe wird erstellt … (kann etwas dauern)")
+        self._fortschritt_zeigen(0)
         QApplication.processEvents()
 
-        ergebnis = exe_exportieren(self.projekt)
+        try:
+            ergebnis = exe_exportieren(self.projekt, fortschritt=self._export_fortschritt)
+        finally:
+            self._fortschritt_verbergen()
 
         if not ergebnis.erfolgreich:
             self.meldungen_liste.clear()
@@ -1164,6 +1193,34 @@ class HauptFenster(QMainWindow):
         self.statusBar().showMessage(f"Exe erstellt: {ergebnis.ausgabe_pfad}")
         if sys.platform == "win32":
             os.startfile(ergebnis.ausgabe_pfad.parent)
+
+    # -- Ladebalken in der Statuszeile ---------------------------------
+
+    def _fortschritt_zeigen(self, prozent: int) -> None:
+        """Blendet den Ladebalken rechts in der untersten Zeile ein.
+
+        Er wird erst hier erzeugt und nicht beim Aufbau des Fensters:
+        eine Statuszeile, in der dauerhaft ein leerer Balken steht,
+        sieht nach einem hängenden Programm aus.
+        """
+        if self._fortschritt_balken is None:
+            self._fortschritt_balken = QProgressBar()
+            self._fortschritt_balken.setMaximumWidth(220)
+            self._fortschritt_balken.setRange(0, 100)
+            self.statusBar().addPermanentWidget(self._fortschritt_balken)
+        self._fortschritt_balken.setValue(prozent)
+        self._fortschritt_balken.show()
+
+    def _fortschritt_verbergen(self) -> None:
+        if self._fortschritt_balken is not None:
+            self._fortschritt_balken.hide()
+
+    def _export_fortschritt(self, prozent: int, text: str) -> None:
+        """Rückruf für `exe_exportieren` – aus demselben Thread, deshalb
+        genügt `processEvents()`, damit sich der Balken auch bewegt."""
+        self._fortschritt_zeigen(prozent)
+        self.statusBar().showMessage(f"Exe wird erstellt: {text}")
+        QApplication.processEvents()
 
     def _tests_baum_befuellen(self, ergebnisse: list[Testergebnis]) -> None:
         self.tests_baum.clear()
@@ -1284,40 +1341,54 @@ class HauptFenster(QMainWindow):
         auch ehrlich. In einem Klassenraum ist aber genau der Fall
         häufig, dass jemand die falsche Unit erwischt – und die Arbeit
         einer Doppelstunde ist nicht wiederzubekommen."""
+        # Zu einer Unit mit Formular gehören drei Dateien, von denen
+        # der Explorer nur zwei zeigt. Sie müssen zusammen gehen, sonst
+        # bleibt erzeugter Code zu einem Formular liegen, das es nicht
+        # mehr gibt (Nutzer-Grundsatz September 2026: der Rest wird im
+        # Hintergrund nachgeführt, auch beim Löschen).
+        betroffen = (
+            self.projekt.zusammengehoerige_dateien(pfad) if self.projekt is not None else [pfad]
+        )
+        weitere = [p for p in betroffen if p != pfad]
+
         mit_papierkorb = papierkorb_verfuegbar()
         folge = (
-            "Die Datei landet im Papierkorb und lässt sich von dort zurückholen."
+            "Die Dateien landen im Papierkorb und lassen sich von dort zurückholen."
             if mit_papierkorb
-            else "Die Datei landet nicht im Papierkorb und lässt sich danach nicht "
+            else "Die Dateien landen nicht im Papierkorb und lassen sich danach nicht "
             "zurückholen."
+        )
+        dazu = (
+            f" Dazu gehört {_aufzaehlung([p.name for p in weitere])}." if weitere else ""
         )
         antwort = QMessageBox.question(
             self,
             "Unit löschen",
-            f"„{pfad.name}“ wirklich löschen? {folge}",
+            f"„{pfad.name}“ wirklich löschen?{dazu} {folge}",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if antwort != QMessageBox.StandardButton.Yes:
             return
 
-        for index in range(self.editor_tabs.count()):
+        offene = {str(p) for p in betroffen}
+        for index in reversed(range(self.editor_tabs.count())):
             editor = self.editor_tabs.widget(index)
             if (
                 isinstance(editor, QPlainTextEdit)
-                and editor.property(_PFAD_EIGENSCHAFT) == str(pfad)
+                and editor.property(_PFAD_EIGENSCHAFT) in offene
             ):
                 self.editor_tabs.removeTab(index)
-                break
 
-        try:
-            if not in_den_papierkorb(pfad):
-                pfad.unlink()
-        except OSError as fehler:
-            self.statusBar().showMessage(
-                f"Löschen fehlgeschlagen: {fehler}. Ist die Datei gerade in einem anderen "
-                f"Programm geöffnet?"
-            )
-            return
+        for datei in betroffen:
+            try:
+                if not in_den_papierkorb(datei):
+                    datei.unlink()
+            except OSError as fehler:
+                self.statusBar().showMessage(
+                    f"Löschen fehlgeschlagen: {fehler}. Ist die Datei gerade in einem anderen "
+                    f"Programm geöffnet?"
+                )
+                return
 
         if self.projekt is not None:
             self.explorer.projekt_anzeigen(self.projekt)
@@ -1398,7 +1469,7 @@ class HauptFenster(QMainWindow):
         sie nie – dabei ist sie für die Zielgruppe das, was am
         häufigsten nachgeschlagen wird: `begin…end` gegen Einrückung,
         `:=` gegen `=`, `writeln` gegen `print`. Die Tabellen standen
-        bis M12 nur in `konzept-natter.md` und waren damit für genau die
+        bis M12 nur in `README.md` und waren damit für genau die
         Leute unerreichbar, die sie brauchen."""
         return self._hilfedatei_zeigen(
             "umstieg_pascal_python.md", "Umstieg Pascal → Python"

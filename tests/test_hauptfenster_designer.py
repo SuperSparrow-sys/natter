@@ -5,7 +5,7 @@ docs/arbeitspakete/M3.md, Schritt 3.
 `designer_oeffnen()` verdrahtet den Designer bewusst so, dass jede
 Änderung automatisch in die `.pfm` zurückgeschrieben wird (Abschnitt
 4.2/4.4) - daher hier grundsätzlich eine Kopie in `tmp_path` statt der
-echten `beispielprojekte/Ampel/u_main.pfm` (AGENTS.md: Tests dürfen
+echten `beispielprojekte/04_CookieKlicker/u_main.pfm` (AGENTS.md: Tests dürfen
 Beispielprojekte nie direkt mutieren)."""
 
 import shutil
@@ -13,11 +13,11 @@ from pathlib import Path
 
 from ide.shell.hauptfenster import HauptFenster
 
-_AMPEL_VORLAGE = Path(__file__).resolve().parent.parent / "beispielprojekte" / "Ampel"
+_AMPEL_VORLAGE = Path(__file__).resolve().parent.parent / "beispielprojekte" / "06_Kontoverwaltung"
 
 
 def _ampel_kopie(tmp_path: Path) -> Path:
-    ziel = tmp_path / "Ampel"
+    ziel = tmp_path / "06_Kontoverwaltung"
     shutil.copytree(_AMPEL_VORLAGE, ziel)
     return ziel
 
@@ -30,7 +30,7 @@ def test_designer_oeffnen_zeigt_formular_und_fuellt_inspektor(tmp_path: Path) ->
 
     assert fenster.editor_tabs.count() == 1
     assert fenster.editor_tabs.tabText(0) == "u_main (Designer)"
-    assert formular.caption == "Ampel"
+    assert formular.caption == "Kontoverwaltung"
     assert fenster.objektinspektor.formular is formular
 
 
@@ -61,7 +61,7 @@ def test_klick_im_designer_aktualisiert_den_objektinspektor(tmp_path: Path) -> N
     formular = fenster.designer_oeffnen(ampel_pfm)
     canvas = fenster._offene_canvases[0]
 
-    canvas.klick_bei(formular.b_einschalten.left + 5, formular.b_einschalten.top + 5)
+    canvas.klick_bei(formular.b_anlegen.left + 5, formular.b_anlegen.top + 5)
 
     eigenschaften_namen = [
         fenster.objektinspektor.eigenschaften_tabelle.item(z, 0).text()
@@ -70,5 +70,5 @@ def test_klick_im_designer_aktualisiert_den_objektinspektor(tmp_path: Path) -> N
     assert "caption" in eigenschaften_namen
     zeile = eigenschaften_namen.index("caption")
     assert (
-        fenster.objektinspektor.eigenschaften_tabelle.item(zeile, 1).text() == "Einschalten"
+        fenster.objektinspektor.eigenschaften_tabelle.item(zeile, 1).text() == "Konto anlegen"
     )

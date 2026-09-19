@@ -9,14 +9,14 @@ from PySide6.QtGui import QTextCursor
 
 from ide.shell.hauptfenster import HauptFenster
 
-_AMPEL_ORDNER = Path(__file__).resolve().parent.parent / "beispielprojekte" / "Ampel"
+_AMPEL_ORDNER = Path(__file__).resolve().parent.parent / "beispielprojekte" / "06_Kontoverwaltung"
 
 
 def test_projekt_oeffnen_laedt_das_projekt() -> None:
     fenster = HauptFenster()
-    projekt = fenster.projekt_oeffnen(_AMPEL_ORDNER / "ampel.natter")
+    projekt = fenster.projekt_oeffnen(_AMPEL_ORDNER / "06_Kontoverwaltung.natter")
     assert fenster.projekt is projekt
-    assert projekt.name == "Ampel"
+    assert projekt.name == "06_Kontoverwaltung"
 
 
 def test_projekt_oeffnen_fuellt_den_explorer() -> None:
@@ -35,23 +35,23 @@ def test_projekt_oeffnen_fuellt_den_explorer() -> None:
     # Seit M12 steht die Startdatei nicht mehr bei den Units: sie wird
     # erzeugt und nicht bearbeitet, wie die `.lpr` in Lazarus. Erreichbar
     # bleibt sie über „Projekt → Startdatei anzeigen“.
-    assert set(units) == {"u_ampel.py"}
+    assert set(units) == {"u_konto.py"}
 
 
 def test_datei_oeffnen_zeigt_inhalt_in_neuem_tab() -> None:
     fenster = HauptFenster()
-    pfad = _AMPEL_ORDNER / "u_ampel.py"
+    pfad = _AMPEL_ORDNER / "u_konto.py"
 
     editor = fenster.datei_oeffnen(pfad)
 
     assert fenster.editor_tabs.count() == 1
-    assert fenster.editor_tabs.tabText(0) == "u_ampel.py"
-    assert "class Ampel" in editor.toPlainText()
+    assert fenster.editor_tabs.tabText(0) == "u_konto.py"
+    assert "class Konto" in editor.toPlainText()
 
 
 def test_datei_oeffnen_zweimal_aktiviert_nur_den_vorhandenen_tab() -> None:
     fenster = HauptFenster()
-    pfad = _AMPEL_ORDNER / "u_ampel.py"
+    pfad = _AMPEL_ORDNER / "u_konto.py"
 
     fenster.datei_oeffnen(pfad)
     fenster.datei_oeffnen(pfad)
@@ -63,7 +63,7 @@ def test_explorer_doppelklick_oeffnet_die_datei() -> None:
     fenster = HauptFenster()
     fenster.projekt_oeffnen(_AMPEL_ORDNER)
 
-    eintrag = fenster.explorer.units_gruppe.child(0)  # u_ampel.py
+    eintrag = fenster.explorer.units_gruppe.child(0)  # u_konto.py
     fenster.explorer.itemActivated.emit(eintrag, 0)
 
     assert fenster.editor_tabs.count() == 1

@@ -1,7 +1,7 @@
 """Additional-Komponenten: Shape, StringGrid, Image, SpinEdit,
 FloatSpinEdit, TrackBar, ProgressBar.
 
-Siehe konzept-natter.md, Abschnitt 5.2 (Palette „Zusätzlich“). Die
+Siehe README.md, Abschnitt 5.2 (Palette „Zusätzlich“). Die
 Wertkomponenten (SpinEdit, FloatSpinEdit, TrackBar, ProgressBar) sind
 jeweils ein dünner Mantel um ein Qt-Standardwidget: ein `Prop` je
 Lazarus-Eigenschaft, `_bei_prop_aenderung` reicht die Zuweisung an das
@@ -15,7 +15,7 @@ noch nicht (`ide/shell/hauptfenster.py` verbindet die Klick-Signale von
 genau zwei Listen), deshalb stehen sie unter „Zusätzlich“.
 
 MaskEdit, PaintBox und HtmlViewer sind in keinem der 18
-Referenzprojekte in `referenz/lazarus/` im Einsatz und daher weiterhin
+Referenzprojekte in `tests/daten/lazarus/` im Einsatz und daher weiterhin
 zurückgestellt (Abschnitt 21: „MVP strikt an den Übungsprojekten
 ausrichten“).
 """
@@ -228,8 +228,33 @@ class Picture:
         self._besitzer._qwidget.clear()
 
 
+class _KlickbaresBildLabel(QLabel):
+    """`QLabel`, das Mausklicks an das besitzende `Image` weiterreicht.
+
+    Dasselbe Vorgehen wie `_KlickbaresLabel` in
+    `pcl/components/standard.py`; Qt kennt kein anklickbares Bild-Widget.
+    """
+
+    def __init__(self, eltern_widget: QWidget, bild: Image) -> None:
+        super().__init__(eltern_widget)
+        self._bild = bild
+
+    def mousePressEvent(self, event: Any) -> None:
+        super().mousePressEvent(event)
+        self._bild._bei_klick()
+
+
 class Image(Control):
-    """Bildanzeige. Qt-Basis: `QLabel` mit `QPixmap`."""
+    """Bildanzeige, per `on_click` auch anklickbar. Qt-Basis: `QLabel`
+    mit `QPixmap`.
+
+    `on_click` wie Lazarus' `TImage.OnClick`: im Beispielprojekt
+    `04_CookieKlicker` ist das anklickbare Bild die ganze Spielidee,
+    und ohne dieses Ereignis müsste ein durchsichtiger Knopf darüber
+    gelegt werden - ein Kniff, den kein Lehrbuch erklärt.
+    """
+
+    on_click = Event(doc="Wird beim Klicken auf das Bild ausgelöst")
 
     def __init__(self, parent: Control) -> None:
         self._picture = Picture(self)
@@ -240,9 +265,13 @@ class Image(Control):
         return self._picture
 
     def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
-        widget = QLabel(eltern_widget)
+        widget = _KlickbaresBildLabel(eltern_widget, self)
         widget.setScaledContents(True)
         return widget
+
+    def _bei_klick(self) -> None:
+        if self.on_click is not None:
+            self.on_click(self)
 
 
 def _prop_gleichziehen(komponente: Control, name: str, wert: Any) -> None:

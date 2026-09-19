@@ -350,24 +350,29 @@ def test_leeres_diagramm_ergibt_leeren_text() -> None:
 # -- Am echten Abnahmediagramm -------------------------------------------
 
 DIAGRAMME = (
-    Path(__file__).resolve().parent.parent / "beispielprojekte" / "Ampel" / "diagramme"
+    Path(__file__).resolve().parent.parent / "beispielprojekte" / "06_Kontoverwaltung" / "diagramme"
 )
 
 
 def test_das_abnahmediagramm_erzeugt_gueltiges_python() -> None:
-    daten = Diagramm.laden(DIAGRAMME / "tampel_klassen.pdiag").daten
+    daten = Diagramm.laden(DIAGRAMME / "konto_klassen.pdiag").daten
 
     code = diagramm_als_python(daten)
 
     _gueltig(code)
 
 
-def test_die_erzeugte_ampel_hat_die_methoden_des_echten_programms() -> None:
-    """Probe gegen `beispielprojekte/Ampel/u_ampel.py`."""
-    daten = Diagramm.laden(DIAGRAMME / "tampel_klassen.pdiag").daten
-    ampel = next(f for f in daten["shapes"] if f.get("name") == "Ampel")
+def test_die_erzeugte_klasse_hat_die_methoden_des_echten_programms() -> None:
+    """Probe gegen `beispielprojekte/06_Kontoverwaltung/u_konto.py`.
 
-    code = klasse_als_python(ampel, daten)
+    Das Klassendiagramm ist dort kein Beiwerk: es ist die Stufe, auf
+    der Lernende zum ersten Mal eine eigene Klasse zeichnen und
+    schreiben. Läuft es auseinander, lernt jemand etwas Falsches.
+    """
+    daten = Diagramm.laden(DIAGRAMME / "konto_klassen.pdiag").daten
+    konto = next(f for f in daten["shapes"] if f.get("name") == "Konto")
+
+    code = klasse_als_python(konto, daten)
     baum = _gueltig(code)
     klassendefinition = baum.body[0]
     methoden = {
@@ -376,18 +381,40 @@ def test_die_erzeugte_ampel_hat_die_methoden_des_echten_programms() -> None:
         if isinstance(knoten, ast.FunctionDef)
     }
 
-    for name in ("einschalten", "ausschalten", "umschalten", "get_zustand"):
+    for name in ("__init__", "einzahlen", "abheben"):
         assert name in methoden
 
 
-@pytest.mark.parametrize("dateiname", ["tampel_klassen.pdiag"])
+def test_das_diagramm_passt_zur_echten_klasse() -> None:
+    """Die Gegenrichtung: was in `u_konto.py` steht, muss auch im
+    Diagramm stehen."""
+    import ast as _ast
+
+    quelle = (DIAGRAMME.parent / "u_konto.py").read_text(encoding="utf-8")
+    echte = next(
+        k
+        for k in _ast.parse(quelle).body
+        if isinstance(k, _ast.ClassDef) and k.name == "Konto"
+    )
+    echte_methoden = {
+        knoten.name for knoten in echte.body if isinstance(knoten, _ast.FunctionDef)
+    }
+
+    daten = Diagramm.laden(DIAGRAMME / "konto_klassen.pdiag").daten
+    konto = next(f for f in daten["shapes"] if f.get("name") == "Konto")
+    gezeichnete = {o["name"] for o in konto["operations"]}
+
+    assert echte_methoden - {"__repr__"} == gezeichnete
+
+
+@pytest.mark.parametrize("dateiname", ["konto_klassen.pdiag"])
 def test_erzeugter_code_besteht_ruff(dateiname: str, tmp_path: Path) -> None:
     """Gültiges Python allein reicht nicht – es soll auch den Linter des
     Projekts überstehen.
 
     `F821` ist dabei ausgenommen: ein Klassendiagramm verweist
-    naturgemäß auf Typen, die anderswo stehen (im Ampel-Diagramm etwa
-    `Shape` aus `pcl`). Der erzeugte Kopf nennt sie namentlich, damit
+    naturgemäß auf Typen, die anderswo stehen (im Konto-Diagramm etwa
+    `SQLQuery` aus `pcl`). Der erzeugte Kopf nennt sie namentlich, damit
     man weiß, was noch zu importieren ist – siehe den Test darunter.
     """
     import subprocess
@@ -409,9 +436,9 @@ def test_erzeugter_code_besteht_ruff(dateiname: str, tmp_path: Path) -> None:
 
 def test_der_kopf_nennt_die_typen_von_ausserhalb() -> None:
     """Sonst rätselt man vor einem `NameError`."""
-    daten = Diagramm.laden(DIAGRAMME / "tampel_klassen.pdiag").daten
+    daten = Diagramm.laden(DIAGRAMME / "konto_klassen.pdiag").daten
 
     code = diagramm_als_python(daten)
 
     assert "noch importiert werden" in code
-    assert "Shape" in code.splitlines()[1]
+    assert "SQLQuery" in code.splitlines()[1]

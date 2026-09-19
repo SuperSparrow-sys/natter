@@ -17,7 +17,7 @@ from ide.diagramm import DiagrammFenster, diagramm_erzeugen
 from ide.diagramm.codefenster import CodeFenster, CodeOptionenDialog, in_datei_schreiben
 
 BEISPIELE = (
-    Path(__file__).resolve().parent.parent / "beispielprojekte" / "Ampel" / "diagramme"
+    Path(__file__).resolve().parent.parent / "beispielprojekte" / "06_Kontoverwaltung" / "diagramme"
 )
 
 
@@ -26,8 +26,8 @@ def klassenfenster(tmp_path: Path) -> DiagrammFenster:
     from ide.diagramm.datei import Diagramm
 
     # Kopie statt Original – im Beispielprojekt wird nichts verändert
-    quelle = (BEISPIELE / "tampel_klassen.pdiag").read_text(encoding="utf-8")
-    ziel = tmp_path / "tampel_klassen.pdiag"
+    quelle = (BEISPIELE / "konto_klassen.pdiag").read_text(encoding="utf-8")
+    ziel = tmp_path / "konto_klassen.pdiag"
     ziel.write_text(quelle, encoding="utf-8")
     return DiagrammFenster(Diagramm.laden(ziel))
 
@@ -66,19 +66,19 @@ def test_entscheidungstabelle_hat_keines(tmp_path: Path) -> None:
 def test_erzeugter_code_enthaelt_die_klassen(klassenfenster: DiagrammFenster) -> None:
     code = klassenfenster.quelltext_code("alles")
 
-    assert "class Ampel:" in code
+    assert "class Konto:" in code
     assert "class Form1:" in code
 
 
 def test_nur_die_auswahl(klassenfenster: DiagrammFenster) -> None:
     ampel = next(
-        f for f in klassenfenster.diagramm.daten["shapes"] if f.get("name") == "Ampel"
+        f for f in klassenfenster.diagramm.daten["shapes"] if f.get("name") == "Konto"
     )
     klassenfenster.zeichenflaeche._auswaehlen(ampel)
 
     code = klassenfenster.quelltext_code("auswahl")
 
-    assert "class Ampel:" in code
+    assert "class Konto:" in code
     assert "class Form1:" not in code
 
 
@@ -86,7 +86,7 @@ def test_ausgabe_in_ein_fenster(klassenfenster: DiagrammFenster, tmp_path: Path)
     fenster = klassenfenster.quelltext_erzeugen("fenster", "alles", tmp_path / "x.py")
 
     assert isinstance(fenster, CodeFenster)
-    assert "class Ampel:" in fenster.ansicht.toPlainText()
+    assert "class Konto:" in fenster.ansicht.toPlainText()
 
 
 def test_fensterausgabe_ist_nur_lesbar(
@@ -114,7 +114,7 @@ def test_ausgabe_in_eine_datei(klassenfenster: DiagrammFenster, tmp_path: Path) 
     geschrieben = klassenfenster.quelltext_erzeugen("datei", "alles", ziel)
 
     assert geschrieben == ziel
-    assert "class Ampel:" in ziel.read_text(encoding="utf-8")
+    assert "class Konto:" in ziel.read_text(encoding="utf-8")
     assert "Geschrieben" in klassenfenster.statusBar().currentMessage()
 
 

@@ -1,7 +1,7 @@
 """Standard-Komponenten: Button, Label, Edit, CheckBox, RadioButton, Memo,
 ListBox, ComboBox, ScrollBar, GroupBox, Panel, RadioGroup.
 
-Siehe konzept-natter.md, Abschnitt 5.2 (Palette „Standard“).
+Siehe README.md, Abschnitt 5.2 (Palette „Standard“).
 
 `GroupBox` und `Panel` sind Behälter: `Control.__init__` hängt jede
 Komponente an das `_qwidget` ihres `parent`, ``Button(self.p_feld)``
@@ -241,6 +241,7 @@ class ListBox(Control):
     item_index = Prop(
         int, -1, kategorie="Verhalten", doc="Index des ausgewählten Eintrags, -1 = keine Auswahl"
     )
+    on_change = Event(doc="Wird ausgelöst, wenn ein anderer Eintrag ausgewählt wird")
 
     def __init__(self, parent: Control) -> None:
         self._items = Strings(self._items_geaendert)
@@ -265,6 +266,8 @@ class ListBox(Control):
 
     def _bei_zeilenwechsel(self, zeile: int) -> None:
         self.item_index = zeile
+        if self.on_change is not None:
+            self.on_change(self)
 
     def _bei_prop_aenderung(self, name: str, wert: Any) -> None:
         super()._bei_prop_aenderung(name, wert)
@@ -279,6 +282,7 @@ class ComboBox(Control):
         int, -1, kategorie="Verhalten", doc="Index des ausgewählten Eintrags, -1 = keine Auswahl"
     )
     text = Prop(str, "", kategorie="Darstellung", doc="Angezeigter bzw. ausgewählter Text")
+    on_change = Event(doc="Wird ausgelöst, wenn ein anderer Eintrag ausgewählt wird")
 
     def __init__(self, parent: Control) -> None:
         self._items = Strings(self._items_geaendert)
@@ -304,6 +308,8 @@ class ComboBox(Control):
 
     def _bei_index_wechsel(self, index: int) -> None:
         self.item_index = index
+        if self.on_change is not None:
+            self.on_change(self)
 
     def _bei_text_wechsel(self, text: str) -> None:
         self.text = text

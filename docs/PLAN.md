@@ -1,7 +1,7 @@
 # Ablaufplan
 
 Schritt-für-Schritt-Checkliste für die Umsetzung, damit nichts vergessen
-wird. Konkretisiert konzept-natter.md, Abschnitt 20 (Umsetzungsphasen) und
+wird. Konkretisiert docs/entwicklung.md, Abschnitt 20 (Umsetzungsphasen) und
 23 (Voraussetzungen).
 
 **Funktionsweise:** jeder Punkt ist einzeln abhakbar (`[ ]` → `[x]`).
@@ -875,6 +875,26 @@ Ausdrücklicher Wunsch des Nutzers, gilt für jeden Schritt:
   fertigen Installation heraus – darunter eine Auslieferung, der ein
   Dutzend Pakete fehlte, obwohl der Bau fehlerfrei durchlief, und eine
   Integritätsprüfung, die still gar nicht mehr lief
+
+- [x] **16.** M14 – **Aufräumen, Lehrgang, Timer, Exe als eine Datei**
+  (`docs/arbeitspakete/M14.md`): Serena und die 490 MB Lazarus-Referenz
+  entfernt (die vier Import-Tests behalten ihre Vorlagen als 185 kB
+  Prüfdaten), aus elf losen Beispielen ein Lehrgang von neun
+  aufeinander aufbauenden Projekten gemacht – zwei Konsolenprojekte,
+  dann Oberfläche, Bilder, SQL, CSV, Regression und zum Schluss ein
+  Random Forest. Dabei fiel auf, was dem Lehrgang fehlte: der Zeitgeber
+  gehört in die Palette (`Control.nur_im_designer`), ein Bild braucht
+  `on_click`, ein Dateidialog fehlte ganz, und eine Auswahl in einer
+  Liste konnte nichts auslösen. Das Löschen einer Unit räumt jetzt auch
+  die Hintergrunddateien weg, der Exe-Export liefert **eine** Datei mit
+  Ladebalken, und README und Konzept sind getrennt
+
+> **Hinweis zu den Pfaden in diesem Dokument (Stand M14):** Der Ordner
+> `referenz/lazarus/` gibt es nicht mehr — 490 MB Lazarus-Projekte samt
+> gebauten Exen. Die Dateien, gegen die der Lazarus-Import geprüft wird,
+> liegen jetzt als Prüfdaten in `tests/daten/lazarus/`. Ältere Einträge
+> unten nennen noch den alten Pfad; sie halten fest, was damals galt,
+> und bleiben deshalb, wie sie sind.
 
 Zurückgestellt bleiben bewusst: Update-Mechanismus und
 CI/Release-Automatisierung (M8), ER-Diagramm, Syntaxdiagramm und

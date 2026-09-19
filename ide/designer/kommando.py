@@ -1,6 +1,6 @@
 """Kommandos des Formular-Designers für Rückgängig/Wiederholen.
 
-Siehe konzept-natter.md, Abschnitt 7.7: „Kopieren/Einfügen, Rückgängig/
+Siehe README.md, Abschnitt 7.7: „Kopieren/Einfügen, Rückgängig/
 Wiederholen (Command-Pattern)“. Der Stapel selbst steht neutral in
 `ide/kommando.py`, weil ihn auch der Diagramm-Editor benutzt; hier
 stehen nur die Kommandos, die `pcl`-Komponenten verändern.

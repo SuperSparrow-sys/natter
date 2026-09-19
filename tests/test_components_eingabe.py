@@ -48,7 +48,7 @@ def test_edit_read_only_standardwert_ist_false() -> None:
 
 
 def test_edit_read_only_wirkt_sofort_auf_qwidget() -> None:
-    # Entspricht Lazarus TEdit.ReadOnly = True (referenz/lazarus/f_Pizza).
+    # Entspricht Lazarus TEdit.ReadOnly = True (tests/daten/lazarus/f_Pizza).
     formular = _Formular()
     formular.e_zahl1.read_only = True
     assert formular.e_zahl1._qwidget.isReadOnly() is True
@@ -56,7 +56,7 @@ def test_edit_read_only_wirkt_sofort_auf_qwidget() -> None:
 
 def test_edit_color_setzt_hintergrundfarbe() -> None:
     # Entspricht Lazarus TEdit.Color = clYellow
-    # (referenz/lazarus/a_GUI_Komponenten).
+    # (tests/daten/lazarus/a_GUI_Komponenten).
     formular = _Formular()
     formular.e_zahl1.color = "#ffff00"
     assert "background-color: #ffff00" in formular.e_zahl1._qwidget.styleSheet()

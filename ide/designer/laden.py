@@ -1,6 +1,6 @@
 """Lädt ein Formular aus einer `.pfm`-Datei für die Anzeige im Designer.
 
-Siehe konzept-natter.md, Abschnitt 4.2: „Die `.pfm` ist die einzige
+Siehe README.md, Abschnitt 4.2: „Die `.pfm` ist die einzige
 Quelle für den Designer.“ Referenzierte Ereignis-Handler (z. B.
 `b_ein_click`) müssen für die reine Designer-Vorschau nicht wirklich
 etwas tun – anders als beim echten Programmstart, wo die Unterklasse aus

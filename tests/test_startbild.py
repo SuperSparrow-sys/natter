@@ -98,13 +98,13 @@ def test_alle_beispielprojekte_werden_gefunden() -> None:
     vorhanden = {ordner.name for ordner in BEISPIELE.iterdir() if ordner.is_dir()}
 
     assert gefunden == vorhanden
-    assert len(gefunden) >= 10
+    assert len(gefunden) == 9  # der Lehrgang, siehe test_beispiellehrgang.py
 
 
 def test_ein_beispiel_wird_kopiert_statt_geoeffnet(tmp_path: Path) -> None:
     """In einer installierten Natter liegen die Beispiele im
     Programmordner, und dort darf eine Schülerin nicht schreiben."""
-    quelle = next(pfad for pfad in beispielprojekte() if pfad.parent.name == "Garten")
+    quelle = next(pfad for pfad in beispielprojekte() if pfad.parent.name == "05_Bildergalerie")
 
     kopie = beispiel_kopieren(quelle, tmp_path)
 
@@ -115,7 +115,7 @@ def test_ein_beispiel_wird_kopiert_statt_geoeffnet(tmp_path: Path) -> None:
 
 
 def test_das_original_bleibt_unberuehrt(tmp_path: Path) -> None:
-    quelle = next(pfad for pfad in beispielprojekte() if pfad.parent.name == "Garten")
+    quelle = next(pfad for pfad in beispielprojekte() if pfad.parent.name == "05_Bildergalerie")
     vorher = sorted(p.name for p in quelle.parent.iterdir())
 
     kopie = beispiel_kopieren(quelle, tmp_path)
@@ -125,9 +125,11 @@ def test_das_original_bleibt_unberuehrt(tmp_path: Path) -> None:
 
 
 def test_eine_zweite_kopie_ueberschreibt_die_erste_nicht(tmp_path: Path) -> None:
-    """Wer gestern am Beispiel „Ampel" gearbeitet hat, bekommt heute
-    „Ampel 2" statt seine Arbeit zurückgesetzt."""
-    quelle = next(pfad for pfad in beispielprojekte() if pfad.parent.name == "Ampel")
+    """Wer gestern an einem Beispiel gearbeitet hat, bekommt heute eine
+    zweite Kopie daneben statt seine Arbeit zurückgesetzt."""
+    quelle = next(
+        pfad for pfad in beispielprojekte() if pfad.parent.name == "05_Bildergalerie"
+    )
     erste = beispiel_kopieren(quelle, tmp_path)
     (erste.parent / "meine_arbeit.py").write_text("print(1)", encoding="utf-8")
 
@@ -140,7 +142,7 @@ def test_eine_zweite_kopie_ueberschreibt_die_erste_nicht(tmp_path: Path) -> None
 def test_die_kopie_nimmt_keinen_bytecode_mit(tmp_path: Path) -> None:
     """`__pycache__` eines fremden Rechners ist Müll, den niemand
     braucht."""
-    quelle = next(pfad for pfad in beispielprojekte() if pfad.parent.name == "Garten")
+    quelle = next(pfad for pfad in beispielprojekte() if pfad.parent.name == "05_Bildergalerie")
 
     kopie = beispiel_kopieren(quelle, tmp_path)
 
@@ -164,7 +166,7 @@ def test_das_startbild_zeigt_die_beispiele(einstellungen: QSettings) -> None:
     bild = Startbild(einstellungen)
 
     beispiele = [name for name in bild.knoepfe if name.startswith("beispiel:")]
-    assert len(beispiele) >= 10
+    assert len(beispiele) == 9  # der Lehrgang, siehe test_beispiellehrgang.py
 
 
 def test_ohne_zuletzt_geoeffnete_fehlt_der_abschnitt(
@@ -235,7 +237,7 @@ def test_nach_dem_schliessen_des_letzten_tabs_kommt_es_zurueck(qtbot, tmp_path: 
 
 
 def test_ein_geoeffnetes_projekt_landet_im_startbild(qtbot, tmp_path: Path) -> None:
-    quelle = BEISPIELE / "Garten"
+    quelle = BEISPIELE / "05_Bildergalerie"
     ziel = tmp_path / "Garten"
     shutil.copytree(quelle, ziel, ignore=shutil.ignore_patterns("__pycache__"))
     fenster = HauptFenster()

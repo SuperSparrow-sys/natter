@@ -1,6 +1,6 @@
 """Komponentenbaum: alle Komponenten eines Formulars mit Verschachtelung.
 
-Siehe konzept-natter.md, Abschnitt 7.6: „alle Komponenten mit
+Siehe README.md, Abschnitt 7.6: „alle Komponenten mit
 Verschachtelung; Auswahl synchron mit dem Designer“. Component-Kinder
 werden aus den eigenen Attributen ermittelt (wie sie `create_components`
 über `self.<name> = <Typ>(self)` anlegt, Abschnitt 4.3) – es gibt (noch)

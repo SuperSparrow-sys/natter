@@ -1,0 +1,100 @@
+{
+  "format": "pdiag/1",
+  "type": "class",
+  "name": "Konto",
+  "page": {
+    "size": "A4",
+    "orientation": "landscape"
+  },
+  "style": "modern-light",
+  "shapes": [
+    {
+      "id": "s1",
+      "kind": "class",
+      "x": 168,
+      "y": 136,
+      "w": 420,
+      "h": 190,
+      "text": {
+        "attributes": [
+          "+nummer: int",
+          "+inhaber: str",
+          "+stand: float"
+        ],
+        "methods": [
+          "+__init__(nummer: int, inhaber: str, stand: float)",
+          "+einzahlen(betrag: float)",
+          "+abheben(betrag: float)"
+        ],
+        "name": "Konto"
+      }
+    },
+    {
+      "id": "s2",
+      "kind": "class",
+      "x": 620,
+      "y": 136,
+      "w": 400,
+      "h": 190,
+      "text": {
+        "attributes": [
+          "-abfrage: SQLQuery"
+        ],
+        "methods": [
+          "+konten_lesen(mindestens: float)",
+          "+stand_schreiben(konto: Konto)",
+          "+b_anlegen_click(sender)",
+          "+b_einzahlen_click(sender)",
+          "+b_abheben_click(sender)"
+        ],
+        "name": "Form1"
+      }
+    },
+    {
+      "id": "s3",
+      "kind": "class",
+      "x": 168,
+      "y": 420,
+      "w": 300,
+      "h": 90,
+      "text": {
+        "attributes": [],
+        "methods": [],
+        "name": "NichtGenugGeld"
+      }
+    },
+    {
+      "id": "s4",
+      "kind": "note",
+      "x": 560,
+      "y": 440,
+      "w": 340,
+      "h": 120,
+      "text": {
+        "name": "Die Regel \"nicht mehr abheben als da ist\" steht in Konto.abheben, nicht im Formular."
+      }
+    }
+  ],
+  "connectors": [
+    {
+      "id": "c1",
+      "kind": "aggregation",
+      "from": "s2",
+      "to": "s1",
+      "labels": {
+        "from": "1",
+        "to": "*"
+      }
+    },
+    {
+      "id": "c2",
+      "kind": "dependency",
+      "from": "s1",
+      "to": "s3",
+      "labels": {
+        "from": "",
+        "to": "löst aus"
+      }
+    }
+  ]
+}

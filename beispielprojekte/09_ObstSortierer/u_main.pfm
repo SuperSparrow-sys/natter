@@ -1,0 +1,171 @@
+{
+  "format": "pfm/1",
+  "class": "Form1",
+  "type": "Form",
+  "properties": {
+    "caption": "Obst-Sortierer",
+    "width": 920,
+    "height": 640
+  },
+  "events": {
+    "on_create": "form_create"
+  },
+  "children": [
+    {
+      "name": "l_titel",
+      "type": "Label",
+      "properties": {
+        "left": 24,
+        "top": 16,
+        "width": 560,
+        "height": 28,
+        "caption": "Obst-Sortierer: ein Random Forest lernt Apfel, Banane, Orange"
+      }
+    },
+    {
+      "name": "ch_streuung",
+      "type": "Chart",
+      "properties": {
+        "left": 24,
+        "top": 56,
+        "width": 540,
+        "height": 420,
+        "kind": "scatter",
+        "title": "Die Lernbeispiele",
+        "x_label": "Länge in mm",
+        "y_label": "Breite in mm",
+        "legend": true,
+        "grid": true
+      }
+    },
+    {
+      "name": "l_training",
+      "type": "Label",
+      "properties": {
+        "left": 588,
+        "top": 56,
+        "width": 300,
+        "height": 70,
+        "caption": "Noch nicht gelernt."
+      }
+    },
+    {
+      "name": "l_wichtigkeit",
+      "type": "Label",
+      "properties": {
+        "left": 588,
+        "top": 136,
+        "width": 300,
+        "height": 90,
+        "caption": ""
+      }
+    },
+    {
+      "name": "l_frage",
+      "type": "Label",
+      "properties": {
+        "left": 588,
+        "top": 244,
+        "width": 300,
+        "caption": "Was ist das für eine Frucht?"
+      }
+    },
+    {
+      "name": "l_gewicht",
+      "type": "Label",
+      "properties": {
+        "left": 588,
+        "top": 276,
+        "width": 110,
+        "caption": "Gewicht in g"
+      }
+    },
+    {
+      "name": "se_gewicht",
+      "type": "SpinEdit",
+      "properties": {
+        "left": 708,
+        "top": 272,
+        "width": 110,
+        "minimum": 50,
+        "maximum": 400,
+        "value": 150
+      },
+      "events": {
+        "on_change": "se_wert_change"
+      }
+    },
+    {
+      "name": "l_laenge",
+      "type": "Label",
+      "properties": {
+        "left": 588,
+        "top": 312,
+        "width": 110,
+        "caption": "Länge in mm"
+      }
+    },
+    {
+      "name": "se_laenge",
+      "type": "SpinEdit",
+      "properties": {
+        "left": 708,
+        "top": 308,
+        "width": 110,
+        "minimum": 30,
+        "maximum": 300,
+        "value": 80
+      },
+      "events": {
+        "on_change": "se_wert_change"
+      }
+    },
+    {
+      "name": "l_breite",
+      "type": "Label",
+      "properties": {
+        "left": 588,
+        "top": 348,
+        "width": 110,
+        "caption": "Breite in mm"
+      }
+    },
+    {
+      "name": "se_breite",
+      "type": "SpinEdit",
+      "properties": {
+        "left": 708,
+        "top": 344,
+        "width": 110,
+        "minimum": 20,
+        "maximum": 200,
+        "value": 75
+      },
+      "events": {
+        "on_change": "se_wert_change"
+      }
+    },
+    {
+      "name": "l_antwort",
+      "type": "Label",
+      "properties": {
+        "left": 588,
+        "top": 396,
+        "width": 300,
+        "height": 80,
+        "caption": ""
+      }
+    },
+    {
+      "name": "l_erklaerung",
+      "type": "Label",
+      "properties": {
+        "left": 24,
+        "top": 496,
+        "width": 864,
+        "height": 110,
+        "caption": ""
+      }
+    }
+  ]
+}

@@ -10,18 +10,18 @@ import pytest
 
 from ide.project import Projekt
 
-_AMPEL_ORDNER = Path(__file__).resolve().parent.parent / "beispielprojekte" / "Ampel"
+_AMPEL_ORDNER = Path(__file__).resolve().parent.parent / "beispielprojekte" / "04_CookieKlicker"
 
 
 def test_laden_ueber_natter_datei() -> None:
-    projekt = Projekt.laden(_AMPEL_ORDNER / "ampel.natter")
-    assert projekt.name == "Ampel"
+    projekt = Projekt.laden(_AMPEL_ORDNER / "04_CookieKlicker.natter")
+    assert projekt.name == "04_CookieKlicker"
     assert projekt.typ == "gui"
 
 
 def test_laden_ueber_ordner_findet_die_natter_datei() -> None:
     projekt = Projekt.laden(_AMPEL_ORDNER)
-    assert projekt.name == "Ampel"
+    assert projekt.name == "04_CookieKlicker"
 
 
 def test_laden_unbekannter_ordner_ohne_natter_datei(tmp_path: Path) -> None:
@@ -42,7 +42,7 @@ def test_units_ohne_design_dateien() -> None:
     # Seit M12 steht die Startdatei nicht mehr bei den Units: sie wird
     # erzeugt und nicht bearbeitet, wie die `.lpr` in Lazarus. Erreichbar
     # bleibt sie über „Projekt → Startdatei anzeigen“.
-    assert set(namen) == {"u_ampel.py", "u_main.py"}
+    assert set(namen) == {"u_main.py"}
     assert "main.py" in {p.name for p in projekt.alle_python_dateien()}
 
 

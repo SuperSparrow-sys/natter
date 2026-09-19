@@ -1,6 +1,6 @@
 """Objektinspektor: Komponentenbaum + Reiter Eigenschaften/Ereignisse.
 
-Siehe konzept-natter.md, Abschnitt 7.6.
+Siehe README.md, Abschnitt 7.6.
 """
 
 from __future__ import annotations

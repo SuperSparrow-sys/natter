@@ -1,7 +1,7 @@
 """EreignisseTabelle: zeigt und verknüpft Event-Handler – Reiter
 „Ereignisse“ des Objektinspektors.
 
-Siehe konzept-natter.md, Abschnitt 7.6: „Doppelklick erzeugt Methode;
+Siehe README.md, Abschnitt 7.6: „Doppelklick erzeugt Methode;
 Auswahlliste mit passenden vorhandenen Methoden“. Das Erzeugen einer
 neuen Methode per Doppelklick (libcst) folgt in Schritt 7; hier wird nur
 unter bereits vorhandenen, passenden Methoden des Formulars ausgewählt.

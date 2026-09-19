@@ -1,0 +1,6 @@
+{
+  "format": "natter-project/1",
+  "name": "02_Zahlenraten",
+  "type": "console",
+  "main": "main.py"
+}

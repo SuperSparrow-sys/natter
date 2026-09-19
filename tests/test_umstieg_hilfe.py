@@ -1,6 +1,6 @@
 """Die Umstiegs-Referenz Pascal → Python (M12).
 
-`konzept-natter.md` sieht sie seit jeher vor – Abschnitt 7.2 führt
+`README.md` sieht sie seit jeher vor – Abschnitt 7.2 führt
 „Umstieg Pascal → Python“ im Menü „Hilfe“ auf, Abschnitt 5 verspricht
 eine vollständige Referenz offline. Gebaut war sie nie. Dabei ist sie
 für die Zielgruppe das, was am häufigsten nachgeschlagen wird:

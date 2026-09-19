@@ -31,7 +31,7 @@ from ide.import_lfm.bilder import LfmBild, LfmBildFehler, bild_aus_binaerblock
 from pcl.properties import VERSCHACHTELTE_EIGENSCHAFTEN
 
 # Lazarus-Klasse -> pcl-Komponente. Nur die im Kursmaterial
-# (referenz/lazarus/) tatsächlich verwendeten Typen (siehe
+# (tests/daten/lazarus/) tatsächlich verwendeten Typen (siehe
 # docs/komponenten.md).
 _KLASSEN: dict[str, str] = {
     "TButton": "Button",
@@ -59,7 +59,7 @@ _FORMEN: dict[str, str] = {
 }
 
 # clXxx-Konstanten. clBlack/clGray/clSilver/clYellow kommen tatsächlich
-# in referenz/lazarus/ vor, der Rest ist die Standard-VCL/LCL-Palette
+# in tests/daten/lazarus/ vor, der Rest ist die Standard-VCL/LCL-Palette
 # für zukünftige Importe.
 _FARBEN: dict[str, str] = {
     "clBlack": "#000000",

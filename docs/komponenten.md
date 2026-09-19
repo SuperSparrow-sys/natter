@@ -15,7 +15,7 @@ Qt-Widget dahintersteckt.
 
 Diese Seite ist zugleich die **verbindliche Schnittstelle** für `pcl`:
 jede Komponente wird hier dokumentiert, bevor sie umgesetzt wird (siehe
-konzept-natter.md, Abschnitt 5 und 23.2).
+README.md, Abschnitt 5 und 23.2).
 
 Stand: `Form`, `Button`, `Label`, `Shape`, `Edit`, `CheckBox`,
 `RadioButton`, `Memo`, `ListBox`, `ComboBox`, `StringGrid`, `Image`,
@@ -155,7 +155,7 @@ Qt-Basis: `QPlainTextEdit` (`pcl/components/standard.py`)
 Keine eigenen Ereignisse. `lines` synchronisiert bisher nur in eine
 Richtung (Zuweisung/`add`/`clear` → Anzeige); von Benutzern eingetippter
 Text wird nicht in `lines` zurückgeschrieben (kein Referenzprojekt braucht
-das bisher, siehe `referenz/lazarus/*` – nur `.Lines.Add`/`.Clear`).
+das bisher, siehe `tests/daten/lazarus/*` – nur `.Lines.Add`/`.Clear`).
 
 ## ListBox
 
@@ -351,24 +351,28 @@ Qt-Basis: `QTimer` (`pcl/components/system.py`)
 |---|---|---|
 | on_timer | (self, sender) | nach jeweils `interval` Millisekunden, solange `enabled` wahr ist |
 
-**Keine `Control`-Komponente**, sondern – wie `SQLite3Connection`,
-`SQLTransaction`, `SQLQuery` und `DataSource` – eine `Komponente` ohne
-Widget. Ein `Timer` hat deshalb weder `left`/`top` noch eine Kachel in
-der Palette; er entsteht im Quelltext:
+**Die einzige Komponente, die im laufenden Programm nichts anzeigt.**
+Im Designer liegt sie als kleine Uhr auf dem Formular — anklickbar,
+verschiebbar, im Objektinspektor einstellbar —, im fertigen Programm
+ist sie unsichtbar. Genau so hält Lazarus es mit `TTimer`.
+
+Du ziehst den Zeitgeber also wie jede andere Komponente aus der Palette
+„Zusätzlich" auf das Formular und stellst `interval` und `enabled` im
+Objektinspektor ein. Ein Doppelklick auf die Uhr legt die Methode für
+`on_timer` an.
+
+Im Quelltext geht es weiterhin auch:
 
 ```python
-def create_components(self):
-    self.t_ampel = Timer()
-    self.t_ampel.interval = 2000
-    self.t_ampel.on_timer = self.t_ampel_timer
+self.t_ampel = Timer(self)
+self.t_ampel.interval = 2000
+self.t_ampel.on_timer = self.t_ampel_timer
 ```
 
-Lazarus zeigt für nicht sichtbare Komponenten zur Entwurfszeit ein
-Symbol auf dem Formular. Damit Natter das auch könnte, müsste der
-Designer nicht sichtbare Komponenten kennen (`.pfm`-Serialisierung,
-Komponentenbaum, Auswahlrahmen) – das betrifft `ide/designer/`,
-`ide/codegen/` und `ide/inspector/` und ist hier bewusst offen
-geblieben, siehe Abschnitt „Offene Punkte“ am Ende dieser Datei.
+Technisch ist sie eine gewöhnliche `Control` mit
+`nur_im_designer = True` (`pcl/control.py`). Dadurch brauchen
+Komponentenbaum, Objektinspektor, `.pfm`-Schreiber und Codeerzeugung
+keinen einzigen Sonderfall (M14).
 
 `enabled` ist wie in Lazarus standardmäßig **wahr**: ein frisch
 erzeugter `Timer` läuft sofort los. `interval = 0` stoppt ihn nicht,
@@ -448,7 +452,7 @@ Qt-Basis: `QGroupBox` mit je einem `QRadioButton` pro Eintrag
 |---|---|---|
 | on_change | (self, sender) | Wechsel der Auswahl (Klick oder Code) |
 
-Gegen `RadioGroup1` aus `referenz/lazarus/f_Pizza` geprüft – dort zwar
+Gegen `RadioGroup1` aus `tests/daten/lazarus/f_Pizza` geprüft – dort zwar
 nur deklariert, aber mit denselben Eigenschaftsnamen wie `TRadioGroup`
 (`Items`, `ItemIndex`, `Caption`).
 
@@ -654,13 +658,15 @@ die niemand mehr liest:
    `children`-Feld des Behälters schreiben (`schemas/pfm.schema.json`
    kann Verschachtelung schon) und `ide/codegen/design.py` daraus
    `Button(self.p_feld)` statt `Button(self)` erzeugen.
-2. **Nicht sichtbare Komponenten im Designer.** `Timer` (und ebenso die
-   Datenbank-Komponenten aus M5) lassen sich nur im Quelltext erzeugen,
-   weil der Designer ausschließlich `Control`-Komponenten kennt. Lazarus
-   legt dafür ein Symbol auf das Formular, das nur zur Entwurfszeit zu
-   sehen ist. Dafür bräuchte es einen Entwurfszeit-Platzhalter im
-   Designer und eine `children`-Serialisierung, die nicht an `Control`
-   hängt.
+2. **Die Datenbank-Komponenten im Designer.** Für den `Timer` ist das
+   in M14 gelöst: `Control.nur_im_designer` gibt ihm ein Symbol auf dem
+   Formular, das im laufenden Programm verschwindet. Bei
+   `SQLite3Connection`, `SQLQuery` und `DataSource` fehlt dafür noch
+   ein Stück, das der Timer nicht brauchte: ihre Konstruktoren
+   verlangen eine andere Komponente (`SQLQuery(verbindung)`), der
+   Designer erzeugt aber für jede Komponente `Typ(self)`. Es bräuchte
+   also eine Eigenschaft, die auf eine andere Komponente zeigt — in der
+   `.pfm`, im Objektinspektor und in der Codeerzeugung.
 3. **Standardgrößen beim Ablegen.** `_STANDARDGROESSEN` in
    `ide/designer/canvas.py` kennt die neuen Komponenten nicht. Sie
    bringen ihre Größe deshalb als `Prop`-Standard selbst mit (wie
@@ -700,7 +706,7 @@ die niemand mehr liest:
    Dazu kommt der Standardwert: `TDateEdit` zeigt in Lazarus *heute* an,
    ein `Prop`-Standard muss aber konstant sein, sonst stünde in jeder
    frisch gespeicherten `.pfm` das Datum des Tages, an dem sie entstand.
-   Kein Referenzprojekt in `referenz/lazarus/` benutzt eine dieser drei
+   Kein Referenzprojekt in `tests/daten/lazarus/` benutzt eine dieser drei
    Komponenten, es gibt also auch keine echte Nutzung, an der sich die
    Wahl prüfen ließe (Abschnitt 21: „MVP strikt an den Übungsprojekten
    ausrichten“). Deshalb bewusst offen gelassen statt geraten.

@@ -13,7 +13,7 @@ import pytest
 from ide.import_lfm.parser import parse_lfm
 from ide.import_lfm.zuordnung import lfm_zu_pfm
 
-_REFERENZ = Path(__file__).resolve().parent.parent / "referenz" / "lazarus"
+_REFERENZ = Path(__file__).resolve().parent / "daten" / "lazarus"
 _SCHEMA = json.loads(
     (Path(__file__).resolve().parent.parent / "schemas" / "pfm.schema.json").read_text(
         encoding="utf-8"

@@ -1,7 +1,7 @@
 """Aktionsregister: eine Aktion = Menüeintrag + Werkzeugleisten-Button +
 Tastenkürzel + Befehlspaletten-Eintrag, nur einmal implementiert.
 
-Siehe konzept-natter.md, Abschnitt 7.2, 7.3, 7.9, 18, `docs/aktionen.md`.
+Siehe README.md, Abschnitt 7.2, 7.3, 7.9, 18, `docs/aktionen.md`.
 """
 
 from ide.actions.register import Aktion, AktionsKonfliktError, Aktionsregister

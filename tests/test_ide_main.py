@@ -14,8 +14,8 @@ from ide.shell.hauptfenster import HauptFenster
 _AMPEL_NATTER = (
     Path(__file__).resolve().parent.parent
     / "beispielprojekte"
-    / "Ampel"
-    / "ampel.natter"
+    / "04_CookieKlicker"
+    / "04_CookieKlicker.natter"
 )
 
 
@@ -56,7 +56,7 @@ def test_natter_datei_als_kommandozeilenargument_wird_geoeffnet() -> None:
     _projekt_aus_argv_oeffnen(fenster, ["Natter.exe", str(_AMPEL_NATTER)])
 
     assert fenster.projekt is not None
-    assert fenster.projekt.name == "Ampel"
+    assert fenster.projekt.name == "04_CookieKlicker"
 
 
 def test_ohne_natter_argument_bleibt_kein_projekt_offen() -> None:

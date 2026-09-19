@@ -18,11 +18,11 @@ from ide.designer.canvas import DesignerCanvas
 from ide.designer.laden import formular_fuer_designer_laden
 from ide.inspector import Objektinspektor
 
-_AMPEL = Path(__file__).resolve().parent.parent / "beispielprojekte" / "Ampel"
+_AMPEL = Path(__file__).resolve().parent.parent / "beispielprojekte" / "04_CookieKlicker"
 
 
 def _designer_oeffnen(tmp_path: Path):
-    ziel = tmp_path / "Ampel"
+    ziel = tmp_path / "04_CookieKlicker"
     shutil.copytree(_AMPEL, ziel)
     pfm_pfad = ziel / "u_main.pfm"
     formular = formular_fuer_designer_laden(pfm_pfad)

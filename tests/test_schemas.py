@@ -1,4 +1,4 @@
-"""Schema-Tests für M0: siehe konzept-natter.md, Abschnitt 19 (Formate)."""
+"""Schema-Tests für M0: siehe docs/entwicklung.md, Abschnitt 19 (Formate)."""
 
 import json
 from pathlib import Path

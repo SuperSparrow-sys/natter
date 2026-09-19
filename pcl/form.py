@@ -1,6 +1,6 @@
 """Form: Basisklasse für Fenster.
 
-Siehe konzept-natter.md, Abschnitt 4.3, 5.2. `create_components()` wird
+Siehe README.md, Abschnitt 4.3, 5.2. `create_components()` wird
 vom generierten `u_*_design.py` überschrieben und erzeugt beim Aufruf die
 Kind-Komponenten (z. B. ``self.b_ein = Button(self)``).
 """

@@ -90,12 +90,14 @@ def test_designer_tab_schliesst_ohne_nachfrage_und_raeumt_buchhaltung_auf(
 ) -> None:
     import shutil
 
-    projekt_original = Path(__file__).resolve().parent.parent / "beispielprojekte" / "Ampel"
-    projekt_kopie = tmp_path / "Ampel"
+    projekt_original = (
+        Path(__file__).resolve().parent.parent / "beispielprojekte" / "04_CookieKlicker"
+    )
+    projekt_kopie = tmp_path / "CookieKlicker"
     shutil.copytree(projekt_original, projekt_kopie)
 
     fenster = HauptFenster()
-    fenster.projekt_oeffnen(projekt_kopie / "ampel.natter")
+    fenster.projekt_oeffnen(projekt_kopie / "04_CookieKlicker.natter")
     formular = fenster.designer_oeffnen(projekt_kopie / "u_main.pfm")
     assert fenster.editor_tabs.count() == 1
     assert formular._qwidget in fenster._widget_zu_canvas

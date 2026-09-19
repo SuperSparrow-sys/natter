@@ -1,6 +1,6 @@
 """Generator: `.pfm` → `u_*_design.py`.
 
-Siehe konzept-natter.md, Abschnitt 4.2 (Formularbeschreibung) und 4.3
+Siehe README.md, Abschnitt 4.2 (Formularbeschreibung) und 4.3
 (erzeugter Formular-Code). Die `.pfm` ist die einzige Quelle für den
 Designer und wird nie aus dem generierten Code zurückgelesen; die
 generierte Datei wird nie von Hand bearbeitet (Kopfzeile, `AGENTS.md`).

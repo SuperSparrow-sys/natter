@@ -1,6 +1,6 @@
 """Projekt: lädt/speichert `.natter`-Projektdateien.
 
-Siehe konzept-natter.md, Abschnitt 4.1, 23.2. Die Liste der Units und
+Siehe README.md, Abschnitt 4.1, 23.2. Die Liste der Units und
 Formulare wird aus dem Ordnerinhalt ermittelt statt nur aus der
 `.natter` gelesen, weil beim Einbinden einer Unit (Abschnitt 7.4) keine
 zusätzliche Eintragung in der Projektdatei vorgesehen ist.
@@ -91,6 +91,39 @@ class Projekt:
     def formulare(self) -> list[Path]:
         """Alle Formularbeschreibungen (`.pfm`) im Projektordner."""
         return sorted(self.ordner.glob("*.pfm"))
+
+    def zusammengehoerige_dateien(self, pfad: Path) -> list[Path]:
+        """Alle Dateien, die zu `pfad` gehören - die sichtbare und die
+        im Hintergrund erzeugten.
+
+        Eine Unit mit Formular besteht aus drei Dateien, von denen eine
+        Schülerin nur zwei zu sehen bekommt: `u_ampel.py` (ihr Code),
+        `u_ampel.pfm` (das Formular) und `u_ampel_design.py` (erzeugt,
+        deshalb im Explorer ausgeblendet). Wer die Unit löscht, meint
+        alle drei - bliebe die erzeugte Datei liegen, stünde im
+        Projektordner Code zu einem Formular, das es nicht mehr gibt.
+
+        Grundsatz des Nutzers (September 2026): hinzugefügt wird in den
+        Dateien, die man sieht; alles Übrige führt Natter im
+        Hintergrund nach - „und der Rest muss automatisch hinzugefügt
+        und gelöscht werden in den anderen Dateien im Hintergrund".
+        """
+        pfad = Path(pfad)
+        stamm = pfad.stem
+        if pfad.suffix == ".py" and stamm.endswith("_design"):
+            stamm = stamm[: -len("_design")]
+
+        kandidaten = [
+            self.ordner / f"{stamm}.py",
+            self.ordner / f"{stamm}.pfm",
+            self.ordner / f"{stamm}_design.py",
+        ]
+        # `pfad` selbst immer mit - auch wenn es etwas ist, das nicht in
+        # dieses Namensschema passt.
+        gefunden = [p for p in kandidaten if p.exists()]
+        if pfad.exists() and pfad not in gefunden:
+            gefunden.append(pfad)
+        return sorted(gefunden)
 
     def diagramme(self) -> list[Path]:
         """Alle Diagramme (`.pdiag`) im Unterordner `diagramme/`

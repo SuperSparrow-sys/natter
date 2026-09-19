@@ -1,0 +1,171 @@
+{
+  "format": "pfm/1",
+  "class": "Form1",
+  "type": "Form",
+  "properties": {
+    "caption": "Kontoverwaltung",
+    "width": 820,
+    "height": 560
+  },
+  "events": {
+    "on_create": "form_create"
+  },
+  "children": [
+    {
+      "name": "l_titel",
+      "type": "Label",
+      "properties": {
+        "left": 24,
+        "top": 16,
+        "width": 400,
+        "height": 28,
+        "caption": "Kontoverwaltung"
+      }
+    },
+    {
+      "name": "sg_konten",
+      "type": "StringGrid",
+      "properties": {
+        "left": 24,
+        "top": 56,
+        "width": 480,
+        "height": 380,
+        "row_count": 1,
+        "col_count": 3
+      }
+    },
+    {
+      "name": "l_neues_konto",
+      "type": "Label",
+      "properties": {
+        "left": 528,
+        "top": 56,
+        "width": 260,
+        "caption": "Neues Konto anlegen"
+      }
+    },
+    {
+      "name": "e_inhaber",
+      "type": "Edit",
+      "properties": {
+        "left": 528,
+        "top": 84,
+        "width": 260,
+        "text": "Erika Musterfrau"
+      }
+    },
+    {
+      "name": "b_anlegen",
+      "type": "Button",
+      "properties": {
+        "left": 528,
+        "top": 120,
+        "width": 260,
+        "caption": "Konto anlegen"
+      },
+      "events": {
+        "on_click": "b_anlegen_click"
+      }
+    },
+    {
+      "name": "l_buchen",
+      "type": "Label",
+      "properties": {
+        "left": 528,
+        "top": 176,
+        "width": 260,
+        "caption": "Buchen auf Konto Nr."
+      }
+    },
+    {
+      "name": "e_nummer",
+      "type": "Edit",
+      "properties": {
+        "left": 528,
+        "top": 204,
+        "width": 120,
+        "text": "1"
+      }
+    },
+    {
+      "name": "e_betrag",
+      "type": "Edit",
+      "properties": {
+        "left": 664,
+        "top": 204,
+        "width": 124,
+        "text": "50"
+      }
+    },
+    {
+      "name": "b_einzahlen",
+      "type": "Button",
+      "properties": {
+        "left": 528,
+        "top": 244,
+        "width": 120,
+        "caption": "Einzahlen"
+      },
+      "events": {
+        "on_click": "b_einzahlen_click"
+      }
+    },
+    {
+      "name": "b_abheben",
+      "type": "Button",
+      "properties": {
+        "left": 664,
+        "top": 244,
+        "width": 124,
+        "caption": "Abheben"
+      },
+      "events": {
+        "on_click": "b_abheben_click"
+      }
+    },
+    {
+      "name": "l_suche",
+      "type": "Label",
+      "properties": {
+        "left": 528,
+        "top": 300,
+        "width": 260,
+        "caption": "Nur Konten mit mindestens"
+      }
+    },
+    {
+      "name": "e_mindestens",
+      "type": "Edit",
+      "properties": {
+        "left": 528,
+        "top": 328,
+        "width": 120,
+        "text": "0"
+      }
+    },
+    {
+      "name": "b_filtern",
+      "type": "Button",
+      "properties": {
+        "left": 664,
+        "top": 328,
+        "width": 124,
+        "caption": "Anzeigen"
+      },
+      "events": {
+        "on_click": "b_filtern_click"
+      }
+    },
+    {
+      "name": "l_meldung",
+      "type": "Label",
+      "properties": {
+        "left": 24,
+        "top": 456,
+        "width": 764,
+        "height": 60,
+        "caption": ""
+      }
+    }
+  ]
+}

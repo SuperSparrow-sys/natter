@@ -1,0 +1,64 @@
+{
+  "format": "pdiag/1",
+  "type": "struktogramm",
+  "name": "konto_abheben",
+  "page": {
+    "size": "A4",
+    "orientation": "portrait"
+  },
+  "style": "modern-light",
+  "root": {
+    "id": "root",
+    "kind": "sequence",
+    "children": [
+      {
+        "id": "b1",
+        "kind": "branch",
+        "text": "Betrag kleiner oder gleich null?",
+        "then": [
+          {
+            "id": "b2",
+            "kind": "statement",
+            "text": "ValueError auslösen: nur Beträge über null"
+          },
+          {
+            "id": "b3",
+            "kind": "jump",
+            "text": "Ende (Abbruch)"
+          }
+        ],
+        "else": [
+          {
+            "id": "b4",
+            "kind": "branch",
+            "text": "Betrag größer als der Kontostand?",
+            "then": [
+              {
+                "id": "b5",
+                "kind": "statement",
+                "text": "NichtGenugGeld auslösen"
+              },
+              {
+                "id": "b6",
+                "kind": "jump",
+                "text": "Ende (Abbruch)"
+              }
+            ],
+            "else": [
+              {
+                "id": "b7",
+                "kind": "statement",
+                "text": "stand = stand - betrag"
+              },
+              {
+                "id": "b8",
+                "kind": "statement",
+                "text": "neuen Stand in die Datenbank schreiben"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -3,7 +3,7 @@
 Regeln für alle Beiträge zu Natter – verbindlich für Menschen und KI-Agenten,
 die an der Entwicklung der IDE mitarbeiten. KI-Agenten werden ausschließlich
 bei der Entwicklung von Natter eingesetzt, nicht in der fertigen IDE selbst
-(siehe konzept-natter.md, Abschnitt 1).
+(siehe README.md, Abschnitt 1).
 
 ## Sprache
 
@@ -29,7 +29,7 @@ bei der Entwicklung von Natter eingesetzt, nicht in der fertigen IDE selbst
   `QT_QPA_PLATFORM=offscreen` (pytest-qt), sobald PySide6-Code entsteht.
 - Tests werden zuerst gegen virtuelle Abbildungen geschrieben (headless,
   In-Memory-SQLite …), erst zuletzt gegen echte Systeme (siehe
-  konzept-natter.md, Abschnitt 19).
+  docs/entwicklung.md, Abschnitt 19).
 - Jedes Beispielprojekt muss auch ohne IDE mit `python main.py` laufen.
 - `HauptFenster.designer_oeffnen()`/`DesignerCanvas(..., pfm_pfad=...)`
   schreiben bei jeder Änderung automatisch in die zugrunde liegende
@@ -78,4 +78,4 @@ Ein Arbeitspaket (siehe `docs/arbeitspakete/`) gilt als abgeschlossen, wenn:
 ## Lizenzen von Abhängigkeiten
 
 Nur Abhängigkeiten mit freizügigen Lizenzen oder LGPL, kein PyQt, keine
-GPL-only-Qt-Module (z. B. Qt Charts). Siehe konzept-natter.md, Abschnitt 17.7.
+GPL-only-Qt-Module (z. B. Qt Charts). Siehe docs/entwicklung.md, Abschnitt 17.7.

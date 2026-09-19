@@ -1,6 +1,0 @@
-{
-  "format": "natter-project/1",
-  "name": "CsvAuswertung",
-  "type": "gui",
-  "main": "main.py"
-}

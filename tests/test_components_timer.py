@@ -1,6 +1,6 @@
 """Tests für `pcl/components/system.py`: Timer. Headless.
 
-Vorbild ist `t_hunger: TTimer` aus `referenz/lazarus/l_Pet/u_main.lfm`
+Vorbild ist `t_hunger: TTimer` aus `tests/daten/lazarus/l_Pet/u_main.lfm`
 (`OnTimer = t_hungerTimer`, im Quelltext über `t_hunger.enabled := true`
 geschaltet).
 """
@@ -93,23 +93,35 @@ def test_timer_auf_einem_formular(qtbot) -> None:
     assert empfangen[0] is formular.t_ampel
 
 
-def test_timer_ist_keine_control_komponente() -> None:
-    """Bewusst festgehalten: `Timer` ist nicht sichtbar und deshalb -
-    wie `SQLite3Connection` & Co. - keine `Control`. Daraus folgt, dass
-    der Designer ihn nicht kennt (siehe docs/komponenten.md, „Offene
-    Punkte"). Ändert sich das, soll dieser Test daran erinnern, die
-    Dokumentation mitzuziehen."""
+def test_timer_liegt_im_designer_auf_dem_formular() -> None:
+    """Nutzer-Hinweis September 2026: „der Timer muss als Komponente
+    auch mit rein, der ist wichtig".
+
+    Vorher war er bewusst keine `Control` und musste im Quelltext
+    erzeugt werden. Damit er sich ziehen, anklicken und im
+    Objektinspektor einstellen lässt, ist er jetzt eine gewöhnliche
+    `Control` - und bekommt dadurch von selbst Lage, Größe, einen
+    Eintrag im Komponentenbaum und einen in der `.pfm`.
+    """
     zeitgeber = Timer()
 
-    assert not isinstance(zeitgeber, Control)
-    assert not hasattr(zeitgeber, "left")
+    assert isinstance(zeitgeber, Control)
+    assert hasattr(zeitgeber, "left")
 
 
-def test_timer_ist_nicht_in_der_palette() -> None:
+def test_timer_ist_im_fertigen_programm_unsichtbar() -> None:
+    """Die andere Hälfte: auf dem Formular im Designer zeigt er eine
+    kleine Uhr, im laufenden Programm darf davon nichts zu sehen sein -
+    wie das Entwurfszeit-Symbol einer nicht sichtbaren Komponente in
+    Lazarus."""
+    assert Timer.nur_im_designer is True
+
+
+def test_timer_steht_in_der_palette() -> None:
     from ide.palette.palette import STANDARD_KOMPONENTEN, ZUSAETZLICH_KOMPONENTEN
 
-    assert Timer not in STANDARD_KOMPONENTEN
-    assert Timer not in ZUSAETZLICH_KOMPONENTEN
+    assert Timer not in STANDARD_KOMPONENTEN  # kein Grundbaustein wie Knopf oder Textfeld
+    assert Timer in ZUSAETZLICH_KOMPONENTEN
 
 
 def test_timer_prueft_typen_und_unbekannte_eigenschaften() -> None:
