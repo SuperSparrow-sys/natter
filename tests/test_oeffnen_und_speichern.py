@@ -335,3 +335,55 @@ def test_der_hinweis_nennt_die_haeufigen_gruende(
     assert geklappt is False
     assert "USB-Stick" in gezeigt[0]
     assert "schreibgeschützt" in gezeigt[0]
+
+
+# -- Rueckgaengig ---------------------------------------------------------
+
+
+def test_das_menue_macht_auch_im_designer_rueckgaengig(
+    fenster: HauptFenster, tmp_path: Path
+) -> None:
+    """Der Designer hörte auf Strg+Z, solange die Zeichenfläche den
+    Fokus hatte – der Menüeintrag daneben tat in einem Designer-Tab
+    gar nichts, weil er einen Texteditor suchte und keinen fand."""
+    fenster.oeffnen(_formular_anlegen(tmp_path / "p"))
+    canvas = fenster._aktueller_canvas
+    knopf = canvas.formular.b_ein
+    vorher = knopf.left
+    canvas.verschieben(16, 0, knopf)
+    assert knopf.left == vorher + 16
+
+    fenster._bearbeiten_rueckgaengig()
+
+    assert knopf.left == vorher
+
+
+def test_das_menue_wiederholt_auch_im_designer(
+    fenster: HauptFenster, tmp_path: Path
+) -> None:
+    fenster.oeffnen(_formular_anlegen(tmp_path / "p"))
+    canvas = fenster._aktueller_canvas
+    knopf = canvas.formular.b_ein
+    vorher = knopf.left
+    canvas.verschieben(16, 0, knopf)
+    fenster._bearbeiten_rueckgaengig()
+    assert knopf.left == vorher  # sonst prüft das Wiederholen unten nichts
+
+    fenster._bearbeiten_wiederholen()
+
+    assert knopf.left == vorher + 16
+
+
+def test_im_editor_bleibt_rueckgaengig_beim_text(
+    fenster: HauptFenster, tmp_path: Path
+) -> None:
+    """Der Fall, der vorher schon ging, muss weiter gehen."""
+    datei = tmp_path / "u_hilfe.py"
+    datei.write_text("alt" + chr(10), encoding="utf-8")
+    editor = fenster.datei_oeffnen(datei)
+    editor.selectAll()
+    editor.insertPlainText("neu" + chr(10))
+
+    fenster._bearbeiten_rueckgaengig()
+
+    assert "alt" in editor.toPlainText()

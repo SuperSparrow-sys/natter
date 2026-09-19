@@ -1522,14 +1522,28 @@ class HauptFenster(QMainWindow):
         return widget if isinstance(widget, QPlainTextEdit) else None
 
     def _bearbeiten_rueckgaengig(self) -> None:
+        """„Bearbeiten → Rückgängig“ (Strg+Z) – im Editor **und** im
+        Formular-Designer.
+
+        Der Designer hat seinen eigenen Kommandostapel und hörte auf
+        Strg+Z, solange die Zeichenfläche den Fokus hatte. Der
+        Menüeintrag daneben tat in einem Designer-Tab dagegen gar
+        nichts: er suchte einen Texteditor und fand keinen. Zwei Wege
+        zur selben Sache, von denen einer stumm bleibt, sind schlimmer
+        als einer (M11, Abschnitt 5)."""
         editor = self._aktueller_editor()
         if editor is not None:
             editor.undo()
+        elif self._aktueller_canvas is not None:
+            self._aktueller_canvas.rueckgaengig()
 
     def _bearbeiten_wiederholen(self) -> None:
+        """„Bearbeiten → Wiederholen“ – siehe `_bearbeiten_rueckgaengig`."""
         editor = self._aktueller_editor()
         if editor is not None:
             editor.redo()
+        elif self._aktueller_canvas is not None:
+            self._aktueller_canvas.wiederholen()
 
     def _bearbeiten_ausschneiden(self) -> None:
         editor = self._aktueller_editor()
