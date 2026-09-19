@@ -665,6 +665,7 @@ dependencies = [
     { name = "pyinstaller" },
     { name = "pymysql" },
     { name = "pyside6" },
+    { name = "ruff" },
     { name = "scikit-learn" },
     { name = "sqlalchemy" },
 ]
@@ -673,7 +674,6 @@ dependencies = [
 dev = [
     { name = "pytest" },
     { name = "pytest-qt" },
-    { name = "ruff" },
 ]
 prototypes = [
     { name = "cryptography" },
@@ -695,6 +695,7 @@ requires-dist = [
     { name = "pyinstaller", specifier = ">=6.11" },
     { name = "pymysql", specifier = ">=1.2.0" },
     { name = "pyside6", specifier = ">=6.8" },
+    { name = "ruff", specifier = ">=0.8" },
     { name = "scikit-learn", specifier = ">=1.6" },
     { name = "sqlalchemy", specifier = ">=2.0.54" },
 ]
@@ -703,7 +704,6 @@ requires-dist = [
 dev = [
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-qt", specifier = ">=4.4" },
-    { name = "ruff", specifier = ">=0.8" },
 ]
 prototypes = [
     { name = "cryptography", specifier = ">=42" },

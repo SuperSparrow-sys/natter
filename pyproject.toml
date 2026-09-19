@@ -24,6 +24,11 @@ dependencies = [
     "scikit-learn>=1.6",
     "pyinstaller>=6.11",
     "pip>=24.0",
+    # Laufzeit-, nicht nur Entwicklungswerkzeug: Natter lässt ruff vor
+    # **jedem** Start über das Schülerprojekt laufen (Abschnitt 8.2).
+    # Stand bis M13 nur in der dev-Gruppe - in einer ausgelieferten
+    # Installation hätte damit die Prüfung vor dem Start gefehlt.
+    "ruff>=0.8",
     # Prüft beim Start die Signatur des Prüfsummen-Manifests
     # (Abschnitt 17.8) - muss deshalb in der gebauten Exe stecken.
     "cryptography>=42",
@@ -32,7 +37,6 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "ruff>=0.8",
     "pytest>=8.0",
     "pytest-qt>=4.4",
 ]
@@ -51,9 +55,21 @@ packages = ["pcl", "ide"]
 [tool.ruff]
 target-version = "py313"
 line-length = 100
+# Die Prototypen aus der Vorarbeit bleiben, wie sie beim Abschluss des
+# jeweiligen Schritts waren - sie belegen eine Entscheidung und werden
+# nicht mehr angefasst. Sie mitzupruefen hiesse, sie zu veraendern.
+extend-exclude = ["prototypes"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# In einem Schuelerprojekt steht `u_main` neben `main.py` und ist damit
+# projekteigen - Ruff sieht darin von aussen aber ein fremdes Paket und
+# will es vor `pcl` sortieren. Die Reihenfolge in den Beispielen kommt
+# aus den Vorlagen (`templates/`) und ist so gewollt; alle uebrigen
+# Regeln gelten hier weiter.
+"beispielprojekte/**" = ["I001"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"
