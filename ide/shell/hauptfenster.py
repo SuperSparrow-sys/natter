@@ -338,10 +338,12 @@ class HauptFenster(QMainWindow):
         )
 
         self.palette = Komponentenpalette()
-        self.palette.standard_liste.itemActivated.connect(self._bei_palette_doppelklick)
-        self.palette.zusaetzlich_liste.itemActivated.connect(self._bei_palette_doppelklick)
-        self.palette.standard_liste.itemClicked.connect(self._bei_palette_klick)
-        self.palette.zusaetzlich_liste.itemClicked.connect(self._bei_palette_klick)
+        # Über *alle* Reiter, nicht über zwei namentlich genannte: sonst
+        # bliebe ein später ergänzter Reiter stumm - seine Kacheln wären
+        # zu sehen, ließen sich aber nicht aufs Formular legen (M15).
+        for liste in self.palette.listen:
+            liste.itemActivated.connect(self._bei_palette_doppelklick)
+            liste.itemClicked.connect(self._bei_palette_klick)
         self.palette_dock = self._dock_erzeugen(
             "Komponentenpalette", Qt.DockWidgetArea.TopDockWidgetArea, inhalt=self.palette
         )

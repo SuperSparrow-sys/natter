@@ -3,7 +3,13 @@ docs/arbeitspakete/M3.md, Schritt 6.
 """
 
 from ide.palette import Komponentenpalette
-from ide.palette.palette import STANDARD_KOMPONENTEN, TYP_ROLLE, ZUSAETZLICH_KOMPONENTEN
+from ide.palette.palette import (
+    ALLE_KOMPONENTEN,
+    REITER,
+    STANDARD_KOMPONENTEN,
+    TYP_ROLLE,
+    ZUSAETZLICH_KOMPONENTEN,
+)
 from pcl import Button, Shape
 
 
@@ -12,7 +18,7 @@ def test_jede_komponente_hat_ein_echtes_symbol() -> None:
     # (symbol() wirft absichtlich nie, siehe ide/assets/symbole.py) -
     # ohne diesen Test würde das nicht auffallen.
     palette = Komponentenpalette()
-    for liste in (palette.standard_liste, palette.zusaetzlich_liste):
+    for liste in palette.listen:
         for i in range(liste.count()):
             eintrag = liste.item(i)
             assert not eintrag.icon().isNull(), f"kein Symbol für {eintrag.toolTip()!r}"
@@ -77,3 +83,47 @@ def test_ausgewaehlter_typ_wechselt_mit_dem_reiter() -> None:
     palette.zusaetzlich_liste.setCurrentRow(2)  # Shape steht zuletzt
 
     assert palette.ausgewaehlter_typ() is Shape
+
+
+def test_jeder_reiter_aus_reiter_steht_wirklich_da() -> None:
+    """`REITER` ist die einzige Stelle, an der ein Reiter steht – also
+    muss die Palette genau daraus bestehen (M15)."""
+    palette = Komponentenpalette()
+
+    assert palette.count() == len(REITER)
+    for seite, (beschriftung, komponenten) in enumerate(REITER):
+        assert palette.tabText(seite) == beschriftung
+        liste = palette.widget(seite)
+        assert liste is palette.listen[seite]
+        assert liste.count() == len(komponenten)
+
+
+def test_alle_komponenten_fasst_jeden_reiter() -> None:
+    assert set(ALLE_KOMPONENTEN) == {typ for _, k in REITER for typ in k}
+    assert len(ALLE_KOMPONENTEN) == sum(len(k) for _, k in REITER)
+
+
+def test_liste_zu_findet_den_reiter_und_meckert_sonst() -> None:
+    import pytest
+
+    palette = Komponentenpalette()
+
+    assert palette.liste_zu("Standard") is palette.standard_liste
+    assert palette.liste_zu("Zusätzlich") is palette.zusaetzlich_liste
+    with pytest.raises(KeyError):
+        palette.liste_zu("Datenbank")
+
+
+def test_jeder_reiter_ist_im_hauptfenster_verdrahtet(qtbot) -> None:
+    """Der eigentliche Grund für `palette.listen`: vorher verband das
+    Hauptfenster zwei namentlich genannte Listen. Ein dritter Reiter
+    wäre stumm geblieben – seine Kacheln sichtbar, aber nicht
+    ablegbar. Dieser Test hält das fest, bevor es wieder passiert."""
+    from ide.shell.hauptfenster import HauptFenster
+
+    fenster = HauptFenster()
+    qtbot.addWidget(fenster)
+
+    for liste in fenster.palette.listen:
+        assert liste.receivers("2itemActivated(QListWidgetItem*)") > 0
+        assert liste.receivers("2itemClicked(QListWidgetItem*)") > 0

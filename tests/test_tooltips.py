@@ -26,9 +26,8 @@ from ide.actions import Aktion
 from ide.inspector import EigenschaftenTabelle
 from ide.inspector.ereignisse_tabelle import EreignisseTabelle
 from ide.palette.palette import (
-    STANDARD_KOMPONENTEN,
+    ALLE_KOMPONENTEN,
     TYP_ROLLE,
-    ZUSAETZLICH_KOMPONENTEN,
     Komponentenpalette,
     kurzbeschreibung,
 )
@@ -74,9 +73,7 @@ def test_eine_aktion_ohne_kuerzel_nennt_nur_den_namen(qtbot) -> None:
 # -- Komponentenpalette --------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    "typ", (*STANDARD_KOMPONENTEN, *ZUSAETZLICH_KOMPONENTEN), ids=lambda t: t.__name__
-)
+@pytest.mark.parametrize("typ", ALLE_KOMPONENTEN, ids=lambda t: t.__name__)
 def test_jede_palettenkachel_erklaert_ihre_komponente(typ: type) -> None:
     hinweis = kurzbeschreibung(typ)
 
@@ -92,7 +89,7 @@ def test_die_kacheln_tragen_den_hinweis_auch_wirklich(qtbot) -> None:
     palette = Komponentenpalette()
     qtbot.addWidget(palette)
 
-    for liste in (palette.standard_liste, palette.zusaetzlich_liste):
+    for liste in palette.listen:
         for zeile in range(liste.count()):
             eintrag = liste.item(zeile)
             assert eintrag.toolTip() == kurzbeschreibung(eintrag.data(TYP_ROLLE))

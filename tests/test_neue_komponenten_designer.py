@@ -155,8 +155,8 @@ def test_erzeugte_design_datei_ist_ausfuehrbarer_python(tmp_path: Path) -> None:
 
 
 def test_alle_neuen_sichtbaren_komponenten_sind_in_der_palette() -> None:
-    from ide.palette.palette import STANDARD_KOMPONENTEN, ZUSAETZLICH_KOMPONENTEN
+    from ide.palette.palette import ALLE_KOMPONENTEN
 
-    in_der_palette = set(STANDARD_KOMPONENTEN) | set(ZUSAETZLICH_KOMPONENTEN)
+    in_der_palette = set(ALLE_KOMPONENTEN)
     for typ in NEU:
         assert typ in in_der_palette, typ.__name__

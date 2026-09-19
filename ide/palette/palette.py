@@ -1,15 +1,27 @@
 """Komponentenpalette mit Reitern Standard/Zusätzlich.
 
 Siehe README.md, Abschnitt 7.3. Nur die bisher in `pcl`
-umgesetzten Komponenten (Stand M1/M3); `Allgemein`, `Dialoge`,
-`Datensteuerung`, `Datenzugriff`, `System` folgen, sobald es dort etwas
-zu platzieren gibt (Abschnitt 5.2). Ein eigener Reiter `Diagramm` lohnt
-sich mit einer einzigen Komponente noch nicht – `Chart` steht deshalb
-unter „Zusätzlich“.
+umgesetzten Komponenten; `Allgemein`, `Dialoge`, `Datensteuerung`,
+`Datenzugriff`, `System` folgen, sobald es dort etwas zu platzieren
+gibt (Abschnitt 5.2). Ein eigener Reiter `Diagramm` lohnt sich mit
+einer einzigen Komponente noch nicht – `Chart` steht deshalb unter
+„Zusätzlich“.
 
 Optik wie in Lazarus: ein einzeiliger, horizontal scrollbarer Streifen
 aus reinen Symbol-Kacheln je Reiter (kein Fließtext unter dem Symbol),
 der Komponentenname erscheint als Tooltip beim Überfahren mit der Maus.
+
+**Die Reiter stehen in `REITER`, und zwar nur dort** (M15). Vorher
+standen sie an drei Stellen: hier als zwei Konstanten, im
+`__init__` als zwei Zuweisungen, und im Hauptfenster als vier
+`connect`-Aufrufe auf genau diese beiden Listen. Ein dritter Reiter
+wäre dadurch stumm geblieben – die Kacheln wären zu sehen gewesen,
+ließen sich aber nicht aufs Formular legen. Das war der Grund, den
+Zeitgeber und `TrackBar`/`ProgressBar` in „Zusätzlich“ zu zwängen,
+obwohl sie in Lazarus eigene Reiter haben. Wer jetzt einen Reiter
+ergänzt, trägt ihn in `REITER` ein und ist fertig: das Hauptfenster
+verbindet `palette.listen`, und die Prüfungen laufen über
+`ALLE_KOMPONENTEN`.
 """
 
 from __future__ import annotations
@@ -77,11 +89,9 @@ ZUSAETZLICH_KOMPONENTEN = (
     # wie Knopf oder Textfeld (M10, Punkt 1).
     Chart,
     # `TrackBar` und `ProgressBar` gehören in Lazarus in den Reiter
-    # „Common Controls“. Ein dritter Reiter wäre hier zwar schnell
-    # angelegt, bliebe aber tot: `ide/shell/hauptfenster.py` verbindet
-    # die Klick-Signale von genau `standard_liste` und
-    # `zusaetzlich_liste` - eine Kachel in einem dritten Reiter ließe
-    # sich nicht auf dem Formular ablegen.
+    # „Common Controls“. Sie bleiben vorerst hier: ein eigener Reiter
+    # für zwei Kacheln lohnt sich nicht. Möglich wäre er seit M15 -
+    # dort ist die Verdrahtung auf alle Reiter umgestellt worden.
     SpinEdit,
     FloatSpinEdit,
     TrackBar,
@@ -90,12 +100,26 @@ ZUSAETZLICH_KOMPONENTEN = (
     # anzeigt - auf dem Formular steht nur sein Symbol, das im
     # laufenden Programm verschwindet (Nutzer-Hinweis September 2026:
     # „der Timer muss als Komponente auch mit rein, der ist wichtig").
-    # In Lazarus hat er einen eigenen Reiter „System"; einen dritten
-    # Reiter anzulegen scheitert an der Verdrahtung im Hauptfenster
-    # (siehe den Hinweis bei TrackBar oben).
+    # In Lazarus hat er einen eigenen Reiter „System"; hier steht er
+    # bei den übrigen, solange er dort allein stünde.
     Timer,
 )
 
+
+#: Die Reiter der Palette, in der Reihenfolge, in der sie erscheinen.
+#: Einzige Stelle, an der ein Reiter steht – siehe Modulkopf.
+REITER: tuple[tuple[str, tuple[type, ...]], ...] = (
+    ("Standard", STANDARD_KOMPONENTEN),
+    ("Zusätzlich", ZUSAETZLICH_KOMPONENTEN),
+)
+
+#: Jede Komponente, die sich auf ein Formular legen lässt. Prüfungen,
+#: die „alle Komponenten“ meinen (Eigenschaften-Rundlauf, Tooltips,
+#: Symbole), gehen hierüber und erfassen damit auch einen später
+#: hinzugekommenen Reiter.
+ALLE_KOMPONENTEN: tuple[type, ...] = tuple(
+    typ for _, komponenten in REITER for typ in komponenten
+)
 
 def kurzbeschreibung(typ: type) -> str:
     """Der Text, der beim Überfahren einer Kachel erscheint: Name und
@@ -121,13 +145,35 @@ def kurzbeschreibung(typ: type) -> str:
 class Komponentenpalette(QTabWidget):
     def __init__(self) -> None:
         super().__init__()
-        self.standard_liste = self._liste_erzeugen(STANDARD_KOMPONENTEN)
-        self.zusaetzlich_liste = self._liste_erzeugen(ZUSAETZLICH_KOMPONENTEN)
-        self.addTab(self.standard_liste, "Standard")
-        self.addTab(self.zusaetzlich_liste, "Zusätzlich")
+        #: Alle Kachel-Listen in der Reihenfolge der Reiter. Das
+        #: Hauptfenster verbindet seine Klick-Signale hierüber, damit
+        #: ein neuer Reiter nicht stumm bleibt.
+        self.listen: tuple[QListWidget, ...] = tuple(
+            self._liste_erzeugen(komponenten) for _, komponenten in REITER
+        )
+        for (beschriftung, _), liste in zip(REITER, self.listen, strict=True):
+            self.addTab(liste, beschriftung)
         # Kompakter, einzeiliger Streifen wie in Lazarus statt einer
         # beliebig hoch wachsenden Liste.
         self.setMaximumHeight(_KACHEL_GROESSE.height() + 34)
+
+    @property
+    def standard_liste(self) -> QListWidget:
+        """Der Reiter „Standard“. Bleibt als eigener Name erhalten,
+        weil ihn Tests und die Tastaturbedienung ansprechen."""
+        return self.liste_zu("Standard")
+
+    @property
+    def zusaetzlich_liste(self) -> QListWidget:
+        """Der Reiter „Zusätzlich“, siehe `standard_liste`."""
+        return self.liste_zu("Zusätzlich")
+
+    def liste_zu(self, beschriftung: str) -> QListWidget:
+        """Die Kachel-Liste des Reiters mit dieser Beschriftung."""
+        for (name, _), liste in zip(REITER, self.listen, strict=True):
+            if name == beschriftung:
+                return liste
+        raise KeyError(f"Kein Palettenreiter {beschriftung!r}.")
 
     def _liste_erzeugen(self, komponenten: tuple[type, ...]) -> QListWidget:
         liste = QListWidget()

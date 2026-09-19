@@ -39,7 +39,7 @@ from PySide6.QtCore import Qt
 
 from ide.designer.canvas import DesignerCanvas
 from ide.inspector.objektinspektor import Objektinspektor
-from ide.palette.palette import STANDARD_KOMPONENTEN, ZUSAETZLICH_KOMPONENTEN
+from ide.palette.palette import ALLE_KOMPONENTEN
 from pcl.form import Form
 from pcl.properties import (
     SAMMLUNGS_EIGENSCHAFTEN,
@@ -48,11 +48,13 @@ from pcl.properties import (
     wert_lesen,
 )
 
-#: Alle Komponenten, die sich überhaupt auf ein Formular setzen lassen –
-#: die beiden Reiter der Palette. Die `DB*`-Komponenten aus
+#: Alle Komponenten, die sich überhaupt auf ein Formular setzen lassen.
+#: Über `ALLE_KOMPONENTEN` statt über zwei namentlich genannte Reiter:
+#: so läuft eine später ergänzte Komponente hier von selbst mit, statt
+#: still durchzurutschen. Die `DB*`-Komponenten aus
 #: `pcl.components.data_controls` stehen (noch) in keinem Reiter und
 #: können deshalb auch nicht platziert werden.
-PALETTE = (*STANDARD_KOMPONENTEN, *ZUSAETZLICH_KOMPONENTEN)
+PALETTE = ALLE_KOMPONENTEN
 
 #: Eigenschaften mit einer festen Auswahl oder einem festen Format. Ein
 #: beliebiger Text („shape-neu“) wäre kein Wert, den ein Mensch je
