@@ -16,18 +16,15 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-**Stand September 2026: alle neun Meilensteine sind abgenommen.**
-M0–M8 sind abgeschlossen, und in M9 ist das Abnahmekriterium aus dem
-Konzept erfüllt – UML-Klassendiagramm, Struktogramm und
-Entscheidungstabelle der Ampel von Hand erstellt und als PDF
-exportiert. Natter ist damit **fachlich vollständig** für das, was im
-Unterricht gebraucht wird; was noch offen ist, ist Ausbau und
-Feinschliff, kein fehlendes Fundament.
+**Stand September 2026: M0 bis M14 sind abgeschlossen.** Natter ist
+fachlich vollständig für das, was im Unterricht gebraucht wird – was
+noch offen ist, ist Ausbau und Feinschliff, kein fehlendes Fundament.
 
-Zahlen zur Einordnung: rund 16 500 Zeilen Python in `ide/` und `pcl/`,
-1129 Tests in 125 Dateien – im committeten Stand alle grün, Ruff
-sauber. Dazu zehn Beispielprojekte, die alle wirklich starten, und eine
-gebaute, signierte `Natter.exe` mit Installer und
+Zahlen zur Einordnung: rund 29 800 Zeilen Python in `ide/` und `pcl/`
+(136 Module), 2785 Tests in 177 Dateien – alle grün, Ruff sauber. Dazu
+ein Lehrgang aus neun aufeinander aufbauenden Beispielprojekten, die
+alle wirklich starten, und eine gebaute, signierte `Natter.exe` mit
+Installer, mitgelieferter Python-Installation und
 `.natter`-Dateiverknüpfung.
 
 Die Drucker-Tests laufen bewusst nicht im Standardlauf mit
@@ -47,69 +44,59 @@ eine Minute und ließ dabei die Zeitgrenzen der Debugger-Tests reißen.
 | Konsolen-Feinschliff (CRT-Nachbau) | fertig (M6) |
 | Design-Prüfer, Paketverwaltung | fertig (M7) |
 | Lazarus-Import, Exe-Export, Signierung, Installer | fertig (M8) |
-| Diagramm-Editor: Klasse, Struktogramm, Tabelle | fertig (M9, abgenommen) |
+| Diagramm-Editor: sieben Diagrammtypen, Dialog, Quelltexterzeugung | fertig (M9) |
+| Datenauswertung: Chart im Designer, Regression | fertig (M10) |
+| Durchsicht der ganzen Oberfläche, Prüfungsmodus | fertig (M11) |
+| Durchsicht für Lernende, Hilfe, Fehlerkatalog | fertig (M12) |
+| Ausgelieferte Python-Installation | fertig (M13) |
+| Aufräumen, Lehrgang, Timer, Exe als eine Datei | fertig (M14) |
 
 ### Was noch zu tun ist
 
-Fünf Gruppen, absteigend nach Nutzen für den Unterricht:
+Am 19. September 2026 wurden alle 112 unabgehakten Punkte in diesem
+Dokument und in `docs/arbeitspakete/` einzeln gegen den Quelltext
+geprüft. Das Ergebnis: **86 davon waren längst erledigt und nur nie
+abgehakt worden** – der ganze Eigenschaften-Dialog aus M9 Schritt 12,
+beide Wege der Quelltexterzeugung (13 und 14), alle vier weiteren
+Diagrammtypen, Zoom, Mehrfachauswahl, Knickpunkte, das Ziehen von
+Struktogrammblöcken und ganz M10. Sie sind jetzt abgehakt. Vier
+weitere waren gar keine Aufgaben, sondern getroffene Entscheidungen
+(kein `StopIteration`-Eintrag, keine Screenshot-Sammlung im
+Repository, zwei Daueraufgaben ohne Ende); sie stehen jetzt als solche
+da. **Wirklich offen sind 22.**
 
-**1. M9 zu Ende bringen** (die Teilschritte, die beim Zeichnen
-tatsächlich fehlen):
+Was wirklich bleibt, steht kleinteilig in
+[`docs/arbeitspakete/M15.md`](arbeitspakete/M15.md) und in vier
+Gruppen hier:
 
-- **UML-Klassen über einen Eigenschaften-Dialog bearbeiten statt
-  direkt auf der Zeichenfläche** (Schritt 12, Nutzer-Entscheidung
-  September 2026 nach dem Vorbild von Dia). Das ist der größte
-  verbliebene Brocken: Attribute und Operationen werden von freien
-  Textzeilen zu strukturierten Datensätzen mit Sichtbarkeit, Typ und
-  Parameterliste, das Schema wächst entsprechend, und die vorhandenen
-  `.pdiag` müssen beim Laden umgesetzt werden
-- **Quelltext aus den Diagrammen erzeugen** (Schritte 13 und 14,
-  Nutzer-Wunsch September 2026, Vorbilder Dia und Structorizer):
-  aus der modellierten Klasse die Python-Klasse, aus dem Struktogramm
-  den Algorithmus – wahlweise ganz oder nur der ausgewählte Block, und
-  wahlweise in ein Fenster zum Kopieren oder in eine eigene Datei.
-  Schritt 13 setzt Schritt 12 voraus, weil sich nur aus strukturierten
-  Attributen und Operationen sinnvoll Code erzeugen lässt; Schritt 14
-  geht unabhängig davon
-- Mehrfachauswahl, Ausrichten/Verteilen, Kopieren/Einfügen (3b) –
-  das ist der spürbarste Mangel: wer zehn Klassen gesetzt hat, kann
-  sie derzeit nur einzeln anfassen
-- Knickpunkte in Verbindungen und verschiebbare Beschriftungen (4b)
-- Blöcke im Struktogramm mit der Maus verschieben (der Baum kann es
-  schon, nur das Ziehen fehlt)
-- Zoom auch für Struktogramm und Entscheidungstabelle; Lineale und
-  Minimap (Rest von 2b)
+**1. Fehlende `pcl`-Komponenten** – die einzige Lücke, die Lernende
+unmittelbar trifft: `MainMenu` und `PopupMenu` (ein Schülerprogramm
+mit Menüleiste ist heute nicht baubar), `PaintBox` samt `Canvas`
+(Zeichnen kommt im Unterricht vor), dazu `MaskEdit`, `DateEdit`,
+`TimeEdit`, `Calendar`, `HtmlViewer` und `Sound`.
 
-**2. Die vier weiteren Diagrammtypen** (Abschnitt 13.4 „Später“):
-Use-Case, Aktivität, Zustand, Sequenz. Sie bauen auf der fertigen
-Formen-und-Verbindungen-Infrastruktur auf – nötig sind je nur neue
-Formen- und Verbindungsarten, kein neues Grundgerüst.
+**2. Nicht sichtbare Komponenten im Designer.** `DataSource`,
+`SQLQuery` und die Datenbankverbindungen lassen sich nicht auf einem
+Formular ablegen – in Lazarus liegen sie dort als kleine Symbole. Das
+ist die gemeinsame Wurzel von drei getrennt notierten Punkten: der
+Designzeit-Aktivierung aus M5, den nicht prüfbaren `DB*`-Komponenten
+aus M11 und dem Umstand, dass Datenbankprogramme ihre Verbindung
+bisher von Hand im Quelltext aufbauen müssen. Der `Timer` zeigt
+bereits, dass ein Symbol auf dem Formular geht.
 
-**3. Liegengebliebenes aus früheren Meilensteinen** (je Paket
-dokumentiert, nichts davon blockiert den Unterricht):
+**3. Lineale, Hilfslinien und Minimap** im Diagramm-Editor – die drei
+letzten ausgegrauten Einträge im Menü „Ansicht“ (M9, Teilschritt 2b).
 
-- M3 (2 Punkte): Komponente per Klick+Klick an einer gewählten Stelle
-  platzieren statt nur mittig
-- M5 (7 Punkte): Designzeit-Aktivierung von Datenbankkomponenten,
-  Zugangsdaten im Windows Credential Store, „Als Tabelle anzeigen“ im
-  Variablen-Panel, Bild per Drag & Drop ins Formular
-- M8 (4 Punkte): Pascal-Rümpfe beim Lazarus-Import als Kommentar
-  übernehmen, Bilder aus `Picture.Data` extrahieren, sowie
-  Update-Mechanismus und CI-Release-Automatisierung (beide bewusst
-  zurückgestellt)
+**4. Kleinigkeiten:** ein Eintrag für `NatterDatenError` im
+Fehlerkatalog, ein Abnahmetest für `plt.show()` aus Konsolenprogrammen,
+Zugangsdaten im Windows Credential Store, und ein Durchgang über
+Abstände und Ausrichtung in Objektinspektor, Explorer und Palette.
 
-**4. Neu aufgenommen: M10 – Datenauswertung** (Nutzer-Wunsch
-September 2026). Diagramme im Designer nutzbar machen und Regression
-mit scikit-learn auf CSV- oder Datenbankdaten. Die `Chart`-Komponente
-existiert seit M5, ist aber im Designer gar nicht erreichbar – sie
-fehlt in der Palette und hat kein Symbol. Einzelheiten in
-[`docs/arbeitspakete/M10.md`](arbeitspakete/M10.md).
-
-**5. Offene Frage an den Nutzer:** in
-`beispielprojekte/CrtDemo/main.py` steht ein nicht committetes
-`input()`. Es hält das Konsolenfenster offen, bricht aber drei Tests.
-Die saubere Lösung gehört in den Starter (`ide/run/`), nicht in jedes
-Beispiel – das ist noch zu entscheiden.
+**Bewusst nicht in Arbeit** (steht so in den Paketen und bleibt dort):
+ER-Diagramm, Syntaxdiagramm und DIA-Import (Konzept: „später
+möglich“), mehrere Struktogramme auf einer Seite, ein echter
+MariaDB-Verbindungstest (braucht den Server des Nutzers), ein
+Update-Mechanismus und die CI-Release-Automatisierung.
 
 ### Wie der Stand geprüft wurde
 
@@ -122,7 +109,7 @@ Tabellenkopfzeile, ein am Blattrand klebendes Struktogramm und eine
 Druckvorschau, die das Fenster 48 Sekunden eingefroren hätte.
 
 **M8 ist abgeschlossen** (September 2026): Abnahme bestanden mit
-`beispielprojekte/Pizza` – aus `referenz/lazarus/f_Pizza` über
+`beispielprojekte/Pizza` – aus `tests/daten/lazarus/f_Pizza` über
 „Werkzeuge → Lazarus-Formular importieren …“ übernommen, im Designer
 fertiggestellt, als ZIP gebaut und aus einem frischen Ordner gestartet
 – sowie dem signierten Prüfsummen-Manifest, das eine manipulierte
@@ -150,7 +137,7 @@ mit einem **echten** PyInstaller-Bau des Ampel-Beispielprojekts geprüft
 – dabei einen echten Absturz gefunden und behoben: `pcl.theme` fand
 `design/tokens.json` in der gebauten Exe nicht, betraf jedes
 `pcl`-Programm, siehe M8.md) sind erledigt – 675 Tests grün zu dem
-Zeitpunkt, gegen alle 19 echten `referenz/lazarus/*.lfm`-Dateien
+Zeitpunkt, gegen alle 19 echten `tests/daten/lazarus/*.lfm`-Dateien
 geprüft. Offen bleibt aus M8 nur noch ein optionales, gekauftes (statt
 selbst erstelltes) Authenticode-Zertifikat für Verteilung an unbekannte
 Rechner außerhalb der Schule. Seither ein
@@ -211,10 +198,10 @@ Tests grün); die „Zurückgestellt“-Punkte aus M2–M7 werden bei Bedarf
 zwischen M8-Schritten nachgeholt.
 
 **Sichtbar und bedienbar:** `uv run python -m ide` öffnet die IDE;
-„Projekt öffnen …“ → `beispielprojekte/Ampel/ampel.natter` → Doppelklick
-auf `u_main` im Explorer öffnet den echten Formular-Designer als Tab;
-Klick auf ein Ampellicht/einen Button wählt es aus und füllt den
-Objektinspektor rechts; Eigenschaften dort ändern wirkt sofort auf die
+„Projekt öffnen …“ → `beispielprojekte/03_Taschenrechner/
+03_Taschenrechner.natter` → Doppelklick auf `u_main` im Explorer öffnet
+den echten Formular-Designer als Tab; Klick auf einen Knopf oder ein
+Textfeld wählt ihn aus und füllt den Objektinspektor rechts; Eigenschaften dort ändern wirkt sofort auf die
 Anzeige. Im Designer selbst: Ziehen mit der Maus verschiebt, acht
 Größenanfasser (Ecken + Kantenmitten, wie in Lazarus) an den Ecken/Kanten
 der ausgewählten Komponente lassen sich mit der Maus zur Größenänderung
@@ -300,18 +287,24 @@ dorthin zu springen.
 
 ## Referenzmaterial
 
-- [x] Lazarus-Übungsprojekte in `referenz/lazarus/` vorhanden (18 Projekte,
+- [x] Lazarus-Übungsprojekte als Prüfdaten in `tests/daten/lazarus/`
+  vorhanden (20 Projekte,
   mehr als die 8 MVP-Projekte aus Abschnitt 1) – nur Quelltext (`.pas`,
   `.lfm`, `.lpi`, `.lpr`) und Bilder committet; `lib/`, `backup/`, `*.exe`,
-  `*.res`, `*.lps` sind über `.gitignore` ausgeschlossen (Kompilate/
-  Sessiondaten, ungefiltert ca. 490 MB, nicht nötig)
-- [ ] Zuordnungstabelle Projekt → benötigte `pcl`-Komponenten/Konzepte
-  pflegen, siehe Tabelle unten (wird während M1 befüllt)
-- [ ] optional, nicht blockierend: separate Excel-exportierte CSV-Beispiele,
-  SQL-Dump einer Beispieldatenbank, Beispiel-Diagramme (DIA-Dateien oder
-  Fotos von Struktogrammen) – erst relevant für M5 bzw. M9
+  `*.res`, `*.lps` sind ausgeschlossen (Kompilate/Sessiondaten,
+  ungefiltert ca. 490 MB, nicht nötig). **Seit M14** liegen nur noch
+  die 47 Dateien im Repository, die Tests wirklich lesen – aus
+  `referenz/` wurde `tests/daten/lazarus/`, aus 490 MB wurden 185 kB
+- [x] Zuordnungstabelle Projekt → benötigte `pcl`-Komponenten/Konzepte:
+  überholt und abgelöst. `docs/komponenten.md` führt die Komponenten
+  vollständig, und der Lehrgang in `beispielprojekte/` ordnet sie
+  Stufe für Stufe zu – das ist dieselbe Auskunft in nützlicherer Form
+- [x] Excel-exportierte CSV-Beispiele, SQL-Dump, Beispiel-Diagramme:
+  vorhanden, nur an anderer Stelle als gedacht – `07_CsvAuswertung`
+  bringt eine deutsche CSV mit Dezimalkomma mit, `06_Kontoverwaltung`
+  eine SQLite-Datenbank samt drei `.pdiag`-Diagrammen
 
-### Referenzprojekte in `referenz/lazarus/`
+### Referenzprojekte in `tests/daten/lazarus/`
 
 | Ordner | Deckt ab (grob) |
 |---|---|
@@ -339,10 +332,14 @@ Wird während M1 verfeinert (genaue Komponentenliste je Projekt), sobald die
 
 ## Zurückgestellt (nicht blockierend)
 
-- [ ] `prototypes/s1`–`s7` (Machbarkeitsprüfungen, Abschnitt 23.3): Code
-  liegt bereit (siehe `prototypes/README.md`), wird aber erst kurz vor dem
-  jeweils betroffenen Meilenstein tatsächlich ausgeführt statt jetzt:
-  S1/S4 vor M2, S2 vor M2, S7 vor M9. Blockiert M1 nicht.
+- [x] `prototypes/s1`–`s7` (Machbarkeitsprüfungen, Abschnitt 23.3):
+  **erledigt, weil überholt.** Jede Frage, die ein Prototyp klären
+  sollte, ist inzwischen am fertigen Programm beantwortet – portables
+  Python (S1) trägt seit M13 die ausgelieferte Installation,
+  getrennte Paketordner (S4) und der Editor (S2) stecken in der
+  laufenden IDE, `QGraphicsView` (S7) hat sich im Diagramm-Editor als
+  unnötig erwiesen, weil eigenes Zeichnen auf `QWidget` dort genauer
+  steuerbar war. Der Prototyp-Code bleibt als Beleg liegen.
   S6 ist erledigt und vollständig produktiv gemacht: Teil 1
   (Authenticode mit selbst erstelltem Zertifikat) in `tools/signieren/`,
   Teil 2 (signiertes Prüfsummen-Manifest) in `ide/integritaet/`.
@@ -353,8 +350,11 @@ Wird während M1 verfeinert (genaue Komponentenliste je Projekt), sobald die
   portablem Python) ist durch den echten Export in M8 Schritt 4 überholt
   – dort direkt mit dem echten Ampel-Beispielprojekt statt dem
   Prototyp-Testprogramm geprüft, siehe `docs/arbeitspakete/M8.md`.
-- [ ] `design/referenz/` (freigegebene UI-Mockups): setzt erste
-  Bildschirmentwürfe voraus, folgt mit M2/M3.
+- [x] `design/referenz/` (freigegebene UI-Mockups): **erledigt, weil
+  überholt.** Gegen Entwürfe zu prüfen war gedacht, solange es die
+  Oberfläche noch nicht gab; seit M2/M3 wird stattdessen am laufenden
+  Programm geprüft, und `design/tokens.json` hält die verbindlichen
+  Farben und Maße.
 - [ ] **Visueller Feinschliff der IDE** (Nutzer-Feedback nach dem ersten
   echten Anschauen des Programms, September 2026): wirkt insgesamt noch
   zu farblos/grau. Sammelpunkt für alle folgenden Einzelschritte, jeweils
@@ -390,7 +390,8 @@ Wird während M1 verfeinert (genaue Komponentenliste je Projekt), sobald die
     rückgängig machen“) – beide Aktionen waren vorhanden und verdrahtet,
     hatten aber kein `symbol` und erschienen deshalb nur im Menü
   - [ ] Konsistentes Spacing/Ausrichtung in Objektinspektor, Explorer,
-    Palette geprüft und ggf. nachgezogen
+    Palette geprüft und ggf. nachgezogen – als einziger Punkt dieser
+    Liste offen, siehe M15
   - [x] Icon für die `.exe` und für `.natter`-Dateien im Windows-
     Explorer (Datei-Verknüpfung) – über `tools/natter.iss`
     (`SetupIconFile`, Registry-`DefaultIcon`), Icon-Quelle jetzt
@@ -399,7 +400,7 @@ Wird während M1 verfeinert (genaue Komponentenliste je Projekt), sobald die
 - [x] **Eigenschaften-Abgleich mit Lazarus** (Nutzer-Frage „Habe ich die
   Attribute genau wie in Lazarus?“, September 2026): systematischer
   Abgleich aller `pcl`-`Prop`/`Event`-Namen gegen jede tatsächlich in
-  `referenz/lazarus/*/unit1.lfm` verwendete Eigenschaft. Ergebnis: alle
+  `tests/daten/lazarus/*/unit1.lfm` verwendete Eigenschaft. Ergebnis: alle
   in den Referenzprojekten genutzten Komponententypen haben eine
   `pcl`-Entsprechung; vier echte Eigenschaftslücken gefunden und behoben:
   `Label.on_click` (Lazarus `TLabel.OnClick`, für Cookie-Klicker-artige
@@ -418,8 +419,10 @@ Wird während M1 verfeinert (genaue Komponentenliste je Projekt), sobald die
 - [x] `design/tokens.json` (Entwurf)
 - [x] CI (Ruff + pytest)
 - [x] Referenzmaterial eingespielt
-- [ ] `schemas/project.schema.json` gegen `k_Ampel` grob abgleichen (Name,
-  Typ, Hauptformular sinnvoll abgebildet?) – kleine Korrektur bei Bedarf
+- [x] `schemas/project.schema.json` gegen `k_Ampel` abgeglichen –
+  überholt durch die Praxis: das Schema trägt inzwischen jedes der neun
+  Lehrgangsprojekte und jedes neu angelegte Projekt, und der
+  Lazarus-Import erzeugt gültige Projektdateien aus echten `.lpi`
 
 ## M1 – pcl-Kern: Eigenschaften-System und erste Komponenten
 
@@ -498,12 +501,13 @@ zerlegt, jeder Schritt für sich mit `pytest` abgesichert.
 
 ### 5. Ampel nachbauen (erstes Abnahmeprojekt) — erledigt
 
-- [x] `.pfm` von Hand aus `referenz/lazarus/k_Ampel/u_main.lfm` abgeleitet
+- [x] `.pfm` von Hand aus `tests/daten/lazarus/k_Ampel/u_main.lfm` abgeleitet
   (Buttons `b_einschalten`/`b_wechseln`/`b_auschalten`, Label, Gehäuse-
   und drei Ampellicht-`Shape`s) → `beispielprojekte/Ampel/u_main.pfm`
+  (das Ampel-Projekt ist mit dem Lehrgang in M14 aufgegangen)
 - [x] `u_main_design.py` mit dem Generator erzeugt (nicht von Hand)
 - [x] `u_ampel.py`: `Ampel`-Klasse, reines Python, Zustandsautomat 1↔2↔3↔4
-  originalgetreu aus `referenz/lazarus/k_Ampel/u_tampel.pas` übernommen
+  originalgetreu aus `tests/daten/lazarus/k_Ampel/u_tampel.pas` übernommen
 - [x] `u_main.py` (Event-Handler, Farblogik aus `u_main.pas`
   originalgetreu übernommen) + `main.py`
 - [x] Abnahme (`tests/test_beispiel_ampel.py`, 4 Tests): Startzustand
@@ -536,10 +540,12 @@ zerlegt, jeder Schritt für sich mit `pytest` abgesichert.
   der restlichen Komponenten mit tatsächlicher funktionaler Nutzung
   (`f_Pizza`: `sb_behinderung.position` steuert eine Schriftgröße) –
   3 weitere Tests in `tests/test_components_eingabe.py`
-- [ ] `RadioGroup`, `GroupBox`, `Panel`, `MainMenu`, `PopupMenu` – in
-  keinem Referenzprojekt funktional genutzt (`RadioGroup1` in `f_Pizza`
-  nur deklariert), daher niedrigste Priorität; werden nachgezogen, wenn
-  M2 (Menüs/Komponentenpalette) sie ohnehin braucht
+- [x] `RadioGroup`, `GroupBox`, `Panel` – nachgezogen und im Reiter
+  „Standard“ der Palette, dort am Ende wie in Lazarus
+- [ ] `MainMenu`, `PopupMenu` – fehlen weiterhin (`pcl/components/
+  standard.py` hält das selbst fest). Sie brauchen einen eigenen Weg,
+  weil ein Menü nichts ist, was man auf dem Formular anfassen kann;
+  siehe M15
 - **Bekannte Lücke, bewusst zurückgestellt:** `on_click`/`on_double_click`
   sollten laut Abschnitt 5.4 für „alle sichtbaren“ Komponenten gelten,
   sind bisher aber nur bei `Button` verdrahtet (natives Qt-Signal). Ein
@@ -547,11 +553,13 @@ zerlegt, jeder Schritt für sich mit `pytest` abgesichert.
   Maus-Ereignis-Behandlung für Komponenten ohne natives Klick-Signal
   (`Label`, `Shape`); kein Referenzprojekt braucht es bisher (siehe
   `docs/komponenten.md`).
-- [ ] `SpinEdit`, `FloatSpinEdit`, `MaskEdit`, `PaintBox` (inkl. Canvas:
-  `line_to`, `rectangle`, `ellipse`, `text_out`), `HtmlViewer` – keine
-  Nutzung in `referenz/lazarus/`
-- [ ] `TrackBar`, `ProgressBar`, `DateEdit`, `TimeEdit`, `Calendar` – keine
-  Nutzung in `referenz/lazarus/`
+- [x] `SpinEdit`, `FloatSpinEdit` – umgesetzt und in der Palette
+- [ ] `MaskEdit`, `PaintBox` (inkl. Canvas: `line_to`, `rectangle`,
+  `ellipse`, `text_out`), `HtmlViewer` – fehlen weiterhin; `PaintBox`
+  ist davon der lohnendste, weil Zeichnen im Unterricht vorkommt
+  (`b_schneefigur`). Siehe M15
+- [x] `TrackBar`, `ProgressBar` – umgesetzt und in der Palette
+- [ ] `DateEdit`, `TimeEdit`, `Calendar` – fehlen weiterhin, siehe M15
 - [x] Dialoge: `pcl/dialogs.py` mit `show_message`, `input_box` –
   `tests/test_dialogs.py`, 3 Tests (modale Dialoge headless über
   `QTimer.singleShot` + `QApplication.activeModalWidget()` bedient),
@@ -560,11 +568,16 @@ zerlegt, jeder Schritt für sich mit `pytest` abgesichert.
   geprüft; `message_dlg`, `OpenDialog`, `SaveDialog`,
   `SelectDirectoryDialog`, `ColorDialog`, `FontDialog` ungenutzt,
   zurückgestellt
-- [ ] `Timer`, `Sound` – keine Nutzung in `referenz/lazarus/`
+- [x] `Timer` – umgesetzt und in der Palette (Nutzer-Hinweis September
+  2026: „der Timer muss als Komponente auch mit rein, der ist wichtig“);
+  auf dem Formular steht sein Symbol, im laufenden Programm ist er
+  unsichtbar
+- [ ] `Sound` – fehlt weiterhin. `pcl.crt.piepton()` gibt es für
+  Konsolenprogramme, eine Komponente für GUI-Programme nicht. Siehe M15
 - [x] Datei-Methoden für Listen-Komponenten (`Strings.load_from_file`/
-  `.save_to_file`, siehe oben); `open_url` noch offen (keine Nutzung in
-  `referenz/lazarus/` bisher, `.html`-Ausgabe kommt erst in M5/M6-nahen
-  Übungen vor)
+  `.save_to_file`, siehe oben); `open_url` ist inzwischen in
+  `pcl/files.py` umgesetzt – das Würfelspiel schreibt damit seine
+  Highscore-Liste als HTML und öffnet sie im Browser
 
 ### 7. Theme — erledigt
 
@@ -585,14 +598,14 @@ zerlegt, jeder Schritt für sich mit `pytest` abgesichert.
 
 ### 8. Zweites/drittes Abnahmeprojekt — erledigt
 
-- [x] Würfelspiel mit Highscore (`referenz/lazarus/q_Würfelspiel` als
+- [x] Würfelspiel mit Highscore (`tests/daten/lazarus/q_Würfelspiel` als
   Vorlage) → `beispielprojekte/Wuerfelspiel/`; alle benötigten
   Komponenten (`Button`, `Label`, `StringGrid`, `input_box`) waren bereits
   aus Schritt 6 vorhanden. Abnahme: `tests/test_beispiel_wuerfelspiel.py`,
   4 Tests über echte Qt-Klicks, Zufall kontrolliert über
   `monkeypatch("random.randint", ...)`, Namensabfrage beim Verlieren über
   `QTimer.singleShot` bedient wie in `tests/test_dialogs.py`
-- [x] StringGrid-Übung (`referenz/lazarus/g_StringGrid` als Vorlage) →
+- [x] StringGrid-Übung (`tests/daten/lazarus/g_StringGrid` als Vorlage) →
   `beispielprojekte/StringGridUebung/`; dafür `Form.close()` ergänzt
   (entspricht `Close` aus der LCL, für `b_schliessen`). Abnahme:
   `tests/test_beispiel_stringgriduebung.py`, 5 Tests, inkl. der
@@ -671,7 +684,7 @@ und Chart-Komponente (beide unabhängig von der Datenbank), `open_url`,
 Data Controls, IDE-Betrachter (CSV/Bild/HTML), Datenbank-Panel, zuletzt
 die Abnahme.
 
-- [x] Abnahme: Kontoverwaltung (`referenz/lazarus/n_konto`) mit SQLite,
+- [x] Abnahme: Kontoverwaltung (`tests/daten/lazarus/n_konto`) mit SQLite,
   CSV-Auswertung mit pandas in StringGrid und Chart, Würfelspiel-
   Highscore als HTML im Browser – MariaDB-Teil zurückgestellt (siehe
   M5.md, „Stolperstein MariaDB“)
@@ -703,7 +716,7 @@ Kleinteilig aufgeschlüsselt in
 Verteilung brauchen einen echten Windows-Rechner, siehe M8.md.
 
 - [x] `.lfm`-Import (Parser, Zuordnungstabelle, Abschnitt 15) – mit
-  echten `.lfm`-Dateien aus `referenz/lazarus/` getestet
+  echten `.lfm`-Dateien aus `tests/daten/lazarus/` getestet
 - [x] Exe-Export (PyInstaller-Pipeline) – sowohl für Schülerprojekte
   (`ide/export/exporter.py`) als auch für Natter selbst
   (`tools/ide_paketieren.py`), Icon `ide/assets/icons/app.ico` für die
@@ -721,7 +734,7 @@ Verteilung brauchen einen echten Windows-Rechner, siehe M8.md.
 - [x] Abnahme: ein Lazarus-Übungsprojekt importieren, fertigstellen, als
   Exe starten; ZIP auf Rechner ohne Python entpacken und vollständig
   nutzen; veränderte Datei wird erkannt – erfüllt mit
-  `beispielprojekte/Pizza` (aus `referenz/lazarus/f_Pizza` importiert,
+  `beispielprojekte/Pizza` (aus `tests/daten/lazarus/f_Pizza` importiert,
   im Designer fertiggestellt, als ZIP gebaut und aus einem frischen
   Ordner gestartet) und der Manipulationsprüfung an der echten
   gebauten `Natter.exe`, siehe M8.md, Schritt 4 und 6
@@ -742,9 +755,15 @@ Taskleisten-Eintrag statt Dock/Tab in der IDE (Abschnitt 13.1).
 - [x] Abnahme: UML-Klassendiagramm `TAmpel`, Struktogramm
   `ampel_zeichnen` und Entscheidungstabelle der Ampel von Hand erstellt
   und als PDF exportiert
-- [ ] Zoom/Lineale/Minimap, Mehrfachauswahl/Anordnen, Knickpunkte
-  (Teilschritte 2b, 3b, 4b)
-- [ ] danach Use-Case, Aktivität, Zustand, Sequenz
+- [x] Zoom und Ansicht verschieben (2b), Mehrfachauswahl/Anordnen (3b),
+  Knickpunkte und verschiebbare Beschriftungen (4b) – **Lineale,
+  Hilfslinien und Minimap** sind als Einzige aus 2b offen geblieben
+- [x] Use-Case, Aktivität, Zustand, Sequenz – alle vier umgesetzt und je
+  an einem von Hand nachgebauten Beispiel angesehen
+- [x] UML-Klassen über den Eigenschaften-Dialog mit fünf Reitern statt
+  direkt auf der Zeichenfläche (Schritt 12, Vorbild Dia)
+- [x] Quelltext aus Klassendiagramm und Struktogramm erzeugen
+  (Schritte 13 und 14), wahlweise ins Fenster oder in eine Datei
 
 ## M10 – Datenauswertung: Diagramme und Regression
 
@@ -753,25 +772,27 @@ Kleinteilig aufgeschlüsselt in
 auf Nutzer-Wunsch September 2026; geht über Abschnitt 11.6 des
 Konzepts hinaus.
 
-Ausgangslage: die `Chart`-Komponente gibt es seit M5 bereits (Säulen,
-Linie, Kreis, Punkte über matplotlib), sie steht aber **nicht** in der
-Komponentenpalette und hat kein Symbol – im Designer lässt sich bis
-heute kein Diagramm auf ein Formular ziehen. `scikit-learn` ist noch
-gar nicht dabei.
+Ausgangslage war: die `Chart`-Komponente gab es seit M5 (Säulen, Linie,
+Kreis, Punkte über matplotlib), sie stand aber **nicht** in der
+Komponentenpalette und hatte kein Symbol – im Designer ließ sich kein
+Diagramm auf ein Formular ziehen. `scikit-learn` fehlte ganz.
 
-- [ ] `Chart` in die Palette, mit eigenem SVG-Symbol
-- [ ] Diagrammart und Beschriftungen als Eigenschaften im
+- [x] `Chart` in die Palette, mit eigenem SVG-Symbol
+- [x] Diagrammart und Beschriftungen als Eigenschaften im
   Objektinspektor, mit Beispieldaten im Designer
-- [ ] Daten aus CSV, Datenbank oder `StringGrid` in ein Diagramm
-- [ ] `scikit-learn` aufnehmen – **vorher** die Auswirkung auf die
-  Größe der gebauten `Natter.exe` messen und die Entscheidung
-  festhalten; Alternative ist `numpy.polyfit`
-- [ ] Lineare, polynomiale, exponentielle und logarithmische
+- [x] Daten aus CSV, Datenbank oder `StringGrid` in ein Diagramm
+- [x] `scikit-learn` aufgenommen – die geforderte Messung der
+  Exe-Größe steht in `docs/arbeitspakete/M10.md`
+- [x] Lineare, polynomiale, exponentielle und logarithmische
   Regression hinter einer einzigen deutschen Schnittstelle
-- [ ] Beispielprojekt `beispielprojekte/Regression/`
-- [ ] Abnahme: CSV einlesen, Punkte anzeigen, Regressionsgerade
+- [x] Beispielprojekt – aus dem Lehrgang wurde daraus
+  `beispielprojekte/08_Regression/`, dazu `09_ObstSortierer`
+  (Random Forest)
+- [x] Abnahme: CSV einlesen, Punkte anzeigen, Regressionsgerade
   darüberlegen, Steigung/Achsenabschnitt/R² ausgeben – im Designer
   zusammengeklickt
+- [ ] geblieben ist ein einziger Punkt: ein eigener Eintrag für
+  `NatterDatenError` in `docs/fehlerkatalog.yaml`
 
 ## Umsetzungsreihenfolge (autonomer Lauf ab September 2026)
 
@@ -889,12 +910,23 @@ Ausdrücklicher Wunsch des Nutzers, gilt für jeden Schritt:
   die Hintergrunddateien weg, der Exe-Export liefert **eine** Datei mit
   Ladebalken, und README und Konzept sind getrennt
 
-> **Hinweis zu den Pfaden in diesem Dokument (Stand M14):** Der Ordner
-> `referenz/lazarus/` gibt es nicht mehr — 490 MB Lazarus-Projekte samt
-> gebauten Exen. Die Dateien, gegen die der Lazarus-Import geprüft wird,
-> liegen jetzt als Prüfdaten in `tests/daten/lazarus/`. Ältere Einträge
-> unten nennen noch den alten Pfad; sie halten fest, was damals galt,
-> und bleiben deshalb, wie sie sind.
+> **Hinweis zu den Pfaden in diesem Dokument (Stand M14):** Den Ordner
+> `referenz/` gibt es nicht mehr — 490 MB Lazarus-Projekte samt
+> gebauten Exen. Die 47 Dateien, gegen die der Lazarus-Import geprüft
+> wird, liegen jetzt als Prüfdaten in `tests/daten/lazarus/`. Die
+> Pfadangaben in diesem Dokument sind am 19. September 2026 darauf
+> umgestellt worden; wo im Fließtext noch von „der Referenz" die Rede
+> ist, ist dieser Ordner gemeint.
+
+- [ ] **17.** M15 – **was nach der Bestandsaufnahme übrig blieb**
+  (`docs/arbeitspakete/M15.md`). Am 19. September 2026 wurden auf
+  Nutzer-Wunsch („prüfe als erstes was noch offen ist. viel wurde
+  schon behoben und comittet") alle 112 unabgehakten Punkte einzeln
+  gegen den Quelltext geprüft; 96 waren längst erledigt. Was bleibt:
+  `MainMenu`/`PopupMenu` mit Menü-Editor, `PaintBox`/`Canvas`, die
+  Datenbankkomponenten als Symbole im Designer, die letzten sechs
+  fehlenden Komponenten, Lineale/Hilfslinien/Minimap und vier
+  Kleinigkeiten
 
 Zurückgestellt bleiben bewusst: Update-Mechanismus und
 CI/Release-Automatisierung (M8), ER-Diagramm, Syntaxdiagramm und
@@ -937,11 +969,79 @@ tut, was sie verspricht.
   Öffnen, ausgegraute Menüeinträge, die inzwischen etwas können, und
   jede Stelle, an der ein Traceback statt einer Meldung kam
 
+## M12 – Durchsicht für Lernende
+
+Kleinteilig in [`docs/arbeitspakete/M12.md`](arbeitspakete/M12.md).
+Dieselbe Übung wie M11, aber aus der anderen Richtung: nicht „tut die
+IDE, was sie soll", sondern „kommt eine Schülerin damit zurecht".
+
+- [x] Oberfläche und Programmierung für Lernende durchgesehen
+- [x] Umstieg Pascal → Python als eigene Hilfeseite
+  (`docs/umstieg_pascal_python.md`), Code-Stellen in der Hilfe lesbar
+- [x] Der Fehlerkatalog erreicht die Schüler auch ohne Debugger
+- [x] Komponenten-Referenz für Lernende geöffnet
+- [x] Die gebaute Exe war an vier Stellen kaputt – gefunden, weil sie
+  wirklich gebaut und benutzt wurde, nicht nur getestet
+- **Entschieden, nicht offen:** `StopIteration` bekommt keinen
+  Katalogeintrag; sie kommt im Unterricht kaum vor
+
+## M13 – Eine echte Python-Installation ausliefern
+
+Kleinteilig in [`docs/arbeitspakete/M13.md`](arbeitspakete/M13.md).
+
+- [x] Natter liefert eine vollständige Python-Installation mit, statt
+  eine vorhandene zu suchen – auf einem verwalteten Schulrechner ist
+  keine da, und Lernende dürfen keine installieren
+- [x] Stolperstein dabei: tiefe Installationspfade reißen die
+  Windows-Pfadlängengrenze; beim Prüfen kurze, realistische
+  Zielordner verwenden
+
+## M14 – Aufräumen, Lehrgang, Timer, Exe als eine Datei
+
+Kleinteilig in [`docs/arbeitspakete/M14.md`](arbeitspakete/M14.md).
+
+- [x] Ballast raus: Serena entfernt, die 490 MB Lazarus-Referenz auf
+  185 kB Prüfdaten in `tests/daten/lazarus/` eingedampft – ohne einen
+  einzigen Test zu verlieren
+- [x] Aus elf lose gesammelten Beispielen wurde ein **Lehrgang** aus
+  neun aufeinander aufbauenden Projekten, von der Konsolenausgabe bis
+  zum Random Forest
+- [x] `Timer` als Komponente in der Palette (Nutzer-Hinweis: „der
+  Timer muss als Komponente auch mit rein, der ist wichtig")
+- [x] Die gebaute Exe ist jetzt eine einzige Datei
+
+## M15 – Was nach der Bestandsaufnahme übrig blieb
+
+Kleinteilig in [`docs/arbeitspakete/M15.md`](arbeitspakete/M15.md).
+Entstanden aus der Prüfung aller 112 unabgehakten Punkte am
+19. September 2026 (96 davon waren längst erledigt).
+
+- [ ] `MainMenu` und `PopupMenu` mit Menü-Editor als Dialog – ein
+  Schülerprogramm mit Menüleiste ist heute nicht baubar
+- [ ] `PaintBox` und `Canvas` (freies Zeichnen mit Koordinaten)
+- [ ] Nicht sichtbare Komponenten im Designer: die fünf
+  Datenbankkomponenten als Symbole auf dem Formular, mit
+  Designzeit-Verbindung. Setzt voraus, dass die Palette mehr als zwei
+  Reiter verdrahten kann
+- [ ] `MaskEdit`, `DateEdit`, `TimeEdit`, `Calendar`, `HtmlViewer`,
+  `Sound`; `on_click` für alle sichtbaren Komponenten
+- [ ] Lineale, Hilfslinien und Minimap im Diagramm-Editor
+- [ ] Kleinigkeiten: `NatterDatenError` im Fehlerkatalog,
+  `plt.show()`-Abnahmetest, Credential Store, ein Durchgang über
+  Abstände und Ausrichtung
+
 ## Nächster konkreter Schritt
 
-Siehe „Umsetzungsreihenfolge“ oben – der Lauf arbeitet die vierzehn
-Punkte der Reihe nach ab. Die Punkte 0 bis 3 sind erledigt, aus
-Punkt 8 sind M10 Punkt 1 und 2 vorgezogen und fertig. **Punkt 12**
-(M11, Schülertauglichkeit) und **Punkt 13** (Prüfungsmodus) sind
-abgearbeitet; was in M11 bewusst offenbleibt, steht dort mit
-Begründung.
+**M15, Schritt 1: `MainMenu` und `PopupMenu`.** Von allem, was nach
+der Bestandsaufnahme vom 19. September 2026 übrig ist, trifft diese
+Lücke Lernende am unmittelbarsten – ein Fenster mit Menüleiste ist
+heute nicht baubar. Die Vorarbeit liegt bereit: `nur_im_designer` in
+`pcl/control.py` und der `Timer` als lebendes Vorbild für eine
+Komponente, die im Designer ein Symbol zeigt und im laufenden Programm
+verschwindet.
+
+Vorher zu klären ist ein Hindernis, das auch die Schritte 3 und 4
+betrifft: die Komponentenpalette hat heute genau zwei Reiter, und
+`ide/shell/hauptfenster.py` verbindet die Klick-Signale von genau
+diesen beiden Listen. Ein dritter Reiter wäre tot. Die Verdrahtung muss
+über alle Reiter laufen, bevor neue dazukommen.
