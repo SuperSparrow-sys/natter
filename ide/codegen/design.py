@@ -15,7 +15,11 @@ from typing import Any
 import jsonschema
 
 from ide.pfade import daten_ordner
-from pcl.properties import SAMMLUNGS_EIGENSCHAFTEN, VERSCHACHTELTE_EIGENSCHAFTEN
+from pcl.properties import (
+    BAUM_EIGENSCHAFTEN,
+    SAMMLUNGS_EIGENSCHAFTEN,
+    VERSCHACHTELTE_EIGENSCHAFTEN,
+)
 
 _EINRUECKUNG = "    "
 
@@ -39,7 +43,52 @@ def _python_literal(wert: Any) -> str:
         # stehen in der .pfm als Liste und werden im erzeugten Code am
         # Stück zugewiesen; der Setter überträgt sie in die Strings-Sammlung.
         return "[" + ", ".join(_python_literal(eintrag) for eintrag in wert) + "]"
+    if isinstance(wert, dict):
+        # Bäume (`entries`, pcl.properties.BAUM_EIGENSCHAFTEN): ein
+        # Menüeintrag. Die Schlüssel werden sortiert ausgegeben, damit
+        # zweimal Erzeugen aus derselben .pfm auch zweimal denselben
+        # Quelltext ergibt - sonst meldete Git bei jedem Speichern eine
+        # Änderung, die gar keine ist.
+        paare = ", ".join(
+            f"{_python_literal(schluessel)}: {_python_literal(wert[schluessel])}"
+            for schluessel in sorted(wert)
+        )
+        return "{" + paare + "}"
     return repr(wert)
+
+
+def _baum_zeilen(ziel: str, name: str, eintraege: list[Any]) -> list[str]:
+    """Ein Baum (`entries`) über mehrere Zeilen statt in einer einzigen.
+
+    Ein Menü mit drei Untermenüs ergibt sonst eine Zeile von über 800
+    Zeichen. Gelesen wird `u_*_design.py` zwar selten - Schüler
+    bekommen sie gar nicht zu sehen -, aber wenn, dann weil etwas
+    klemmt, und dann ist eine Bildschirmbreite voller geschweifter
+    Klammern das Letzte, was hilft.
+
+    Ein Eintrag je Zeile, seine Untereinträge eingerückt darunter.
+    """
+    zeilen = [f"{_EINRUECKUNG * 2}{ziel}.{name} = ["]
+    for eintrag in eintraege:
+        zeilen.extend(_eintrag_zeilen(eintrag, 3))
+    zeilen.append(f"{_EINRUECKUNG * 2}]")
+    return zeilen
+
+
+def _eintrag_zeilen(eintrag: Any, tiefe: int) -> list[str]:
+    if not isinstance(eintrag, dict) or not eintrag.get("children"):
+        return [f"{_EINRUECKUNG * tiefe}{_python_literal(eintrag)},"]
+
+    ohne_kinder = {name: wert for name, wert in eintrag.items() if name != "children"}
+    paare = ", ".join(
+        f"{_python_literal(name)}: {_python_literal(ohne_kinder[name])}"
+        for name in sorted(ohne_kinder)
+    )
+    zeilen = [f"{_EINRUECKUNG * tiefe}{{{paare}, \"children\": ["]
+    for kind in eintrag["children"]:
+        zeilen.extend(_eintrag_zeilen(kind, tiefe + 1))
+    zeilen.append(f"{_EINRUECKUNG * tiefe}]}},")
+    return zeilen
 
 
 def _eigenschaften_zeilen(ziel: str, eigenschaften: dict[str, Any]) -> list[str]:
@@ -48,12 +97,18 @@ def _eigenschaften_zeilen(ziel: str, eigenschaften: dict[str, Any]) -> list[str]
     # `item_index`, ginge eine im Designer gesetzte Vorauswahl beim Start
     # wieder verloren - real an der Mehrwertsteuer-Auswahl des
     # Pizza-Beispielprojekts aufgefallen.
-    namen = sorted(eigenschaften, key=lambda name: name not in SAMMLUNGS_EIGENSCHAFTEN)
-    return [
-        f"{_EINRUECKUNG * 2}{ziel}.{_eigenschaft_pfad(name)} = "
-        f"{_python_literal(eigenschaften[name])}"
-        for name in namen
-    ]
+    zuerst = SAMMLUNGS_EIGENSCHAFTEN + BAUM_EIGENSCHAFTEN
+    namen = sorted(eigenschaften, key=lambda name: name not in zuerst)
+    zeilen: list[str] = []
+    for name in namen:
+        if name in BAUM_EIGENSCHAFTEN:
+            zeilen.extend(_baum_zeilen(ziel, name, eigenschaften[name]))
+            continue
+        zeilen.append(
+            f"{_EINRUECKUNG * 2}{ziel}.{_eigenschaft_pfad(name)} = "
+            f"{_python_literal(eigenschaften[name])}"
+        )
+    return zeilen
 
 
 def _ereignisse_zeilen(ziel: str, ereignisse: dict[str, str]) -> list[str]:

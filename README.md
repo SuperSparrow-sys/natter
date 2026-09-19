@@ -107,17 +107,23 @@ mit `print()` und `input()` in einem eigenen Konsolenfenster.
 ### 5.1 Standard
 
 `Button`, `Label`, `Edit`, `CheckBox`, `Memo`, `ListBox`, `ComboBox`,
-`RadioButton`, `RadioGroup`, `ScrollBar`, `GroupBox`, `Panel`
+`RadioButton`, `RadioGroup`, `ScrollBar`, `GroupBox`, `Panel`,
+`MainMenu`, `PopupMenu`
+
+`MainMenu` ist die Menüleiste am oberen Rand des Fensters, `PopupMenu`
+das Klappmenü auf die rechte Maustaste. Ihre Einträge werden im
+Menü-Editor gefüllt: Doppelklick auf das Symbol, F2 oder die Zeile
+`entries` im Objektinspektor.
 
 ### 5.2 Zusätzlich
 
 `StringGrid`, `Image`, `Shape`, `Chart`, `SpinEdit`, `FloatSpinEdit`,
 `TrackBar`, `ProgressBar`, `Timer`
 
-Der `Timer` ist die einzige Komponente, die im laufenden Programm nichts
-anzeigt. Im Designer liegt er als kleine Uhr auf dem Formular, damit man
-ihn anklicken und einstellen kann — wie das Entwurfszeit-Symbol einer
-nicht sichtbaren Komponente in Lazarus.
+`Timer`, `MainMenu` und `PopupMenu` zeigen im laufenden Programm
+nichts an. Im Designer liegen sie als kleines Symbol auf dem Formular,
+damit man sie anklicken und einstellen kann — wie das
+Entwurfszeit-Symbol einer nicht sichtbaren Komponente in Lazarus.
 
 ### 5.3 Datenbank
 

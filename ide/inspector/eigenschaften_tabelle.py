@@ -18,9 +18,12 @@ from typing import Any
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QTableWidget, QTableWidgetItem
 
+from ide.inspector.menue_editor import MenueEditor
 from ide.inspector.sammlung_dialog import SammlungDialog
 from pcl.errors import NatterPropertyError
 from pcl.properties import (
+    BAUM_DOKU,
+    BAUM_EIGENSCHAFTEN,
     SAMMLUNGS_DOKU,
     SAMMLUNGS_EIGENSCHAFTEN,
     VERSCHACHTELTE_EIGENSCHAFTEN,
@@ -100,7 +103,11 @@ class EigenschaftenTabelle(QTableWidget):
             if hasattr(komponente, eintrag.attribut)
         ]
         sammlungen = [name for name in SAMMLUNGS_EIGENSCHAFTEN if hasattr(komponente, name)]
-        namen = sorted([*props, *verschachtelt, *sammlungen])
+        # `hasattr(type(...))` statt `hasattr(komponente, ...)`: ein
+        # Baum liefert auch dann eine (leere) Liste, wenn die
+        # Komponente ihn gar nicht kennt - nur die Klasse weiß es.
+        baeume = [name for name in BAUM_EIGENSCHAFTEN if hasattr(type(komponente), name)]
+        namen = sorted([*props, *verschachtelt, *sammlungen, *baeume])
         zeigt_name_zeile = name is not None and name_setzen is not None
         self.setRowCount(len(namen) + (1 if zeigt_name_zeile else 0))
 
@@ -121,7 +128,7 @@ class EigenschaftenTabelle(QTableWidget):
         self._aktualisierung_laeuft = False
 
     def _typ_von(self, name: str) -> type:
-        if name in SAMMLUNGS_EIGENSCHAFTEN:
+        if name in SAMMLUNGS_EIGENSCHAFTEN or name in BAUM_EIGENSCHAFTEN:
             return list
         verschachtelt = VERSCHACHTELTE_EIGENSCHAFTEN.get(name)
         if verschachtelt is not None:
@@ -151,6 +158,8 @@ class EigenschaftenTabelle(QTableWidget):
             return _NAME_DOKU
         if name in SAMMLUNGS_EIGENSCHAFTEN:
             return SAMMLUNGS_DOKU.get(name, "")
+        if name in BAUM_EIGENSCHAFTEN:
+            return BAUM_DOKU.get(name, "")
         verschachtelt = VERSCHACHTELTE_EIGENSCHAFTEN.get(name)
         if verschachtelt is not None:
             return verschachtelt.doc
@@ -187,7 +196,15 @@ class EigenschaftenTabelle(QTableWidget):
             # Wie in Lazarus nicht direkt in der Zelle bearbeitbar, sondern
             # per Doppelklick über `SammlungDialog` (dort „…“-Knopf).
             element.setFlags(element.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            element.setText(f"({len(wert)} Einträge)" if wert else "(leer)")
+            # Singular und Plural: „(1 Einträge)" stand real in der
+            # Zeile, sobald ein Menü genau einen obersten Eintrag hatte.
+            anzahl = len(wert)
+            if not anzahl:
+                element.setText("(leer)")
+            elif anzahl == 1:
+                element.setText("(1 Eintrag)")
+            else:
+                element.setText(f"({anzahl} Einträge)")
         else:
             element.setText(str(wert))
 
@@ -233,15 +250,38 @@ class EigenschaftenTabelle(QTableWidget):
         self.fehlertext = ""
 
     def _bei_doppelklick(self, element: QTableWidgetItem) -> None:
-        """Öffnet für Sammlungs-Eigenschaften (`items`, `lines`) den
-        Zeileneditor – wie der „…“-Knopf im Lazarus-Objektinspektor."""
+        """Öffnet den passenden Editor – wie der „…“-Knopf im
+        Lazarus-Objektinspektor.
+
+        Für Sammlungen (`items`, `lines`) den Zeileneditor, für Bäume
+        (`entries`) den Menü-Editor. Beide sind modal und liefern die
+        fertige Liste zurück; die Unterscheidung steht nur hier.
+        """
         name = element.data(_NAME_ROLLE)
+        if name in BAUM_EIGENSCHAFTEN:
+            self._menue_bearbeiten(element, name)
+            return
         if name not in SAMMLUNGS_EIGENSCHAFTEN:
             return
         dialog = SammlungDialog(name, self._wert_lesen(name), self)
         if dialog.exec() != SammlungDialog.DialogCode.Accepted:
             return
         self._wert_setzen(name, dialog.zeilen())
+        self._zelle_zuruecksetzen(element, list, name)
+        self.fehlertext = ""
+
+    def _menue_bearbeiten(self, element: QTableWidgetItem, name: str) -> None:
+        """Der Menü-Editor hinter der Zeile `entries`.
+
+        Übernommen wird auch nach „Schließen", sofern vorher
+        „Anwenden" gedrückt wurde – sonst wäre „Anwenden" ein Knopf,
+        dessen Wirkung beim Schließen wieder verschwindet.
+        """
+        dialog = MenueEditor(self._wert_lesen(name), self)
+        angenommen = dialog.exec() == MenueEditor.DialogCode.Accepted
+        if not angenommen and not dialog.uebernommen:
+            return
+        self._wert_setzen(name, dialog.eintraege())
         self._zelle_zuruecksetzen(element, list, name)
         self.fehlertext = ""
 

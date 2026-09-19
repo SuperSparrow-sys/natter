@@ -69,11 +69,11 @@ Was wirklich bleibt, steht kleinteilig in
 [`docs/arbeitspakete/M15.md`](arbeitspakete/M15.md) und in vier
 Gruppen hier:
 
-**1. Fehlende `pcl`-Komponenten** – die einzige Lücke, die Lernende
-unmittelbar trifft: `MainMenu` und `PopupMenu` (ein Schülerprogramm
-mit Menüleiste ist heute nicht baubar), `PaintBox` samt `Canvas`
-(Zeichnen kommt im Unterricht vor), dazu `MaskEdit`, `DateEdit`,
-`TimeEdit`, `Calendar`, `HtmlViewer` und `Sound`.
+**1. Fehlende `pcl`-Komponenten** – die Lücke, die Lernende
+unmittelbar trifft. `MainMenu` und `PopupMenu` sind seit M15 da; offen
+bleiben `PaintBox` samt `Canvas` (Zeichnen kommt im Unterricht vor),
+`MaskEdit`, `DateEdit`, `TimeEdit`, `Calendar`, `HtmlViewer` und
+`Sound`.
 
 **2. Nicht sichtbare Komponenten im Designer.** `DataSource`,
 `SQLQuery` und die Datenbankverbindungen lassen sich nicht auf einem
@@ -542,10 +542,9 @@ zerlegt, jeder Schritt für sich mit `pytest` abgesichert.
   3 weitere Tests in `tests/test_components_eingabe.py`
 - [x] `RadioGroup`, `GroupBox`, `Panel` – nachgezogen und im Reiter
   „Standard“ der Palette, dort am Ende wie in Lazarus
-- [ ] `MainMenu`, `PopupMenu` – fehlen weiterhin (`pcl/components/
-  standard.py` hält das selbst fest). Sie brauchen einen eigenen Weg,
-  weil ein Menü nichts ist, was man auf dem Formular anfassen kann;
-  siehe M15
+- [x] `MainMenu`, `PopupMenu` – nachgezogen in M15: beide liegen als
+  Symbol auf dem Formular (`Control.nur_im_designer`) und werden über
+  einen Menü-Editor gefüllt, wie in Lazarus
 - **Bekannte Lücke, bewusst zurückgestellt:** `on_click`/`on_double_click`
   sollten laut Abschnitt 5.4 für „alle sichtbaren“ Komponenten gelten,
   sind bisher aber nur bei `Button` verdrahtet (natives Qt-Signal). Ein
@@ -1016,8 +1015,10 @@ Kleinteilig in [`docs/arbeitspakete/M15.md`](arbeitspakete/M15.md).
 Entstanden aus der Prüfung aller 112 unabgehakten Punkte am
 19. September 2026 (96 davon waren längst erledigt).
 
-- [ ] `MainMenu` und `PopupMenu` mit Menü-Editor als Dialog – ein
-  Schülerprogramm mit Menüleiste ist heute nicht baubar
+- [x] `MainMenu` und `PopupMenu` mit Menü-Editor als Dialog – ein
+  Schülerprogramm mit Menüleiste war bis dahin nicht baubar. Dafür
+  verdrahtet die Komponentenpalette jetzt **alle** Reiter statt zwei
+  namentlich genannter; ein dritter wäre vorher stumm geblieben
 - [ ] `PaintBox` und `Canvas` (freies Zeichnen mit Koordinaten)
 - [ ] Nicht sichtbare Komponenten im Designer: die fünf
   Datenbankkomponenten als Symbole auf dem Formular, mit
@@ -1032,16 +1033,14 @@ Entstanden aus der Prüfung aller 112 unabgehakten Punkte am
 
 ## Nächster konkreter Schritt
 
-**M15, Schritt 1: `MainMenu` und `PopupMenu`.** Von allem, was nach
-der Bestandsaufnahme vom 19. September 2026 übrig ist, trifft diese
-Lücke Lernende am unmittelbarsten – ein Fenster mit Menüleiste ist
-heute nicht baubar. Die Vorarbeit liegt bereit: `nur_im_designer` in
-`pcl/control.py` und der `Timer` als lebendes Vorbild für eine
-Komponente, die im Designer ein Symbol zeigt und im laufenden Programm
-verschwindet.
+**M15, Schritt 2: `PaintBox` und `Canvas`.** Schritt 1
+(`MainMenu`/`PopupMenu` samt Menü-Editor) ist erledigt, und mit ihm das
+Hindernis, das auch die Schritte 3 und 4 blockierte: die
+Komponentenpalette verdrahtet jetzt alle Reiter statt zwei namentlich
+genannter.
 
-Vorher zu klären ist ein Hindernis, das auch die Schritte 3 und 4
-betrifft: die Komponentenpalette hat heute genau zwei Reiter, und
-`ide/shell/hauptfenster.py` verbindet die Klick-Signale von genau
-diesen beiden Listen. Ein dritter Reiter wäre tot. Die Verdrahtung muss
-über alle Reiter laufen, bevor neue dazukommen.
+Als Nächstes fehlt das freie Zeichnen. `Shape` liefert fertige Formen,
+aber Zeichnen mit Koordinaten – wie im Lazarus-Referenzprojekt
+`b_schneefigur` – geht nicht. Wichtig dabei: gezeichnet wird in ein
+`QPixmap`, sonst wäre alles beim ersten Neuzeichnen des Fensters weg,
+und das macht Lernende ratlos, weil ihr Code richtig aussieht.

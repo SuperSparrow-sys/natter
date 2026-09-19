@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- PopupMenu: ein freischwebendes Klappmenue mit dem Mauszeiger
+       davor. Kein Fensterrahmen und keine blaue Leiste - genau daran
+       ist es vom MainMenu zu unterscheiden. -->
+  <rect x="8.4" y="5.2" width="12.6" height="13.6" rx="1.4" fill="#f7f9fa" stroke="#37474f" stroke-width="1.2"/>
+  <path d="M10.6 8.8h8.2M10.6 12h8.2M10.6 15.2h5.6" fill="none"
+        stroke="#7b8f9a" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M3.2 3.4l6 6.4-2.8.3 1.4 3.2-1.6.7-1.4-3.2-1.6 2z"
+        fill="#f2b134" stroke="#37474f" stroke-width="1.2" stroke-linejoin="round"/>
+</svg>

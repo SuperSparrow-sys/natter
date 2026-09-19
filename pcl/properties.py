@@ -176,6 +176,24 @@ SAMMLUNGS_DOKU: dict[str, str] = {
 # `Strings`-Sammlung überträgt.
 SAMMLUNGS_EIGENSCHAFTEN: tuple[str, ...] = ("items", "lines")
 
+# Eigenschaften, deren Wert ein **Baum strukturierter Datensätze** ist
+# statt eines Einzelwerts oder einer Liste von Zeilen: die Einträge
+# eines Menüs (`MainMenu.entries`, `PopupMenu.entries`).
+#
+# Warum eine eigene Kategorie und nicht einfach eine Sammlung: ein
+# Menüeintrag ist kein Text, sondern hat Bezeichner, Beschriftung,
+# Tastenkürzel und Untereinträge. Derselbe Grundsatz wie bei den
+# UML-Attributen im Diagramm-Editor – was Felder hat, wird nicht als
+# Zeichenkette gespeichert. In der `.pfm` steht der Baum als
+# verschachtelte Liste von Objekten, im erzeugten Code als Zuweisung
+# desselben Literals.
+BAUM_EIGENSCHAFTEN: tuple[str, ...] = ("entries",)
+
+# Hilfetexte zu den Bäumen, für den Objektinspektor.
+BAUM_DOKU: dict[str, str] = {
+    "entries": "Die Einträge des Menüs (Doppelklick öffnet den Menü-Editor)",
+}
+
 
 def wert_lesen(komponente: Any, name: str) -> Any:
     """Liest eine Eigenschaft unter ihrem flachen Namen – egal ob echter
@@ -192,6 +210,17 @@ def wert_lesen(komponente: Any, name: str) -> Any:
     if name in SAMMLUNGS_EIGENSCHAFTEN:
         return list(getattr(komponente, name))
     return getattr(komponente, name)
+
+
+def hat_eigenschaft(komponente: Any, name: str) -> bool:
+    """Ob diese Komponente die Eigenschaft überhaupt hat.
+
+    Für Sammlungen und Bäume reicht `hasattr` nicht: `getattr` liefert
+    dort eine leere Liste, auch wenn die Komponente gar kein Menü und
+    keine Zeilen kennt."""
+    if name in SAMMLUNGS_EIGENSCHAFTEN or name in BAUM_EIGENSCHAFTEN:
+        return hasattr(type(komponente), name)
+    return name in eigenschaften(type(komponente)) or name in VERSCHACHTELTE_EIGENSCHAFTEN
 
 
 def wert_setzen(komponente: Any, name: str, wert: Any) -> None:

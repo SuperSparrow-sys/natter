@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QWidget
 
 from pcl.font import Font
@@ -49,6 +50,7 @@ class Control(Komponente):
         # Sonderfälle -, es bleibt nur elternlos und ungezeigt.
         eltern_widget: QWidget | None = parent._qwidget if parent is not None else None
         self._font = Font(self)
+        self._popup_menu: Any = None
         self._qwidget: QWidget = self._qwidget_erzeugen(eltern_widget)
         self._geometrie_anwenden()
         self._qwidget.setEnabled(self.enabled)
@@ -60,6 +62,34 @@ class Control(Komponente):
             self._qwidget.hide()
         elif parent is not None:
             self._qwidget.show()
+
+    @property
+    def popup_menu(self) -> Any:
+        """Das Klappmenü, das auf die rechte Maustaste erscheint (wie
+        `TControl.PopupMenu` in Lazarus), oder `None`.
+
+        Zugewiesen wird eine `PopupMenu`-Komponente vom Formular:
+        ``self.sg_tabelle.popup_menu = self.pm_tabelle``. Die Zuordnung
+        steht hier und nicht im Menü, weil dasselbe Klappmenü an
+        mehreren Komponenten hängen darf.
+        """
+        return self._popup_menu
+
+    @popup_menu.setter
+    def popup_menu(self, menue: Any) -> None:
+        self._popup_menu = menue
+        if menue is None:
+            self._qwidget.setContextMenuPolicy(Qt.ContextMenuPolicy.DefaultContextMenu)
+            return
+        # `CustomContextMenu` statt `ActionsContextMenu`: das Menü wird
+        # bei jedem Aufklappen neu gebaut, damit eine zur Laufzeit
+        # geänderte Beschriftung auch wirklich erscheint.
+        self._qwidget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._qwidget.customContextMenuRequested.connect(self._klappmenue_zeigen)
+
+    def _klappmenue_zeigen(self, punkt) -> None:
+        if self._popup_menu is not None:
+            self._popup_menu.aufklappen(self, punkt.x(), punkt.y())
 
     @property
     def font(self) -> Font:

@@ -18,8 +18,16 @@ bei der Entwicklung von Natter eingesetzt, nicht in der fertigen IDE selbst
 
 - Python 3.13, Typannotationen an öffentlichen Funktionen/Methoden und
   `Prop`/`Event`-Definitionen.
-- Formatierung und Lint über Ruff (`ruff format`, `ruff check`), Konfiguration
-  in `pyproject.toml`.
+- Lint über Ruff (`ruff check`), Konfiguration in `pyproject.toml`. Das ist
+  das verbindliche Tor, und es muss sauber durchlaufen.
+- **`ruff format` wird bewusst nicht angewandt.** Der Quelltext ist von Hand
+  auf rund 72 Zeichen umbrochen – eine Breite, die sich neben dem
+  Objektinspektor noch lesen lässt und zu den ausführlichen deutschen
+  Kommentaren passt, die in diesem Projekt begründen, warum etwas so ist.
+  `ruff format` würde sie auf die konfigurierte `line-length = 100`
+  zusammenziehen und dabei rund ein Drittel aller Dateien anfassen, ohne
+  dass sich am Verhalten etwas ändert. Neuer Code folgt dem Umbruch des
+  umgebenden Codes.
 - Keine neue Syntax, kein Präprozessor: Schülercode und `pcl` sind normales
   Python (Abschnitt 4.0).
 

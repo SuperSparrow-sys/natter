@@ -40,6 +40,7 @@ from pcl.components.additional import (
     TrackBar,
 )
 from pcl.components.chart import Chart
+from pcl.components.menus import MainMenu, PopupMenu
 from pcl.components.standard import (
     Button,
     CheckBox,
@@ -79,6 +80,12 @@ STANDARD_KOMPONENTEN = (
     GroupBox,
     Panel,
     RadioGroup,
+    # Die beiden Menüs stehen in Lazarus ebenfalls im Reiter
+    # „Standard" und dort ganz am Ende. Sie zeigen auf dem Formular
+    # nur ihr Symbol; die Leiste erscheint erst im laufenden Programm
+    # (M15, Schritt 1).
+    MainMenu,
+    PopupMenu,
 )
 
 ZUSAETZLICH_KOMPONENTEN = (

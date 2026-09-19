@@ -27,6 +27,7 @@ from pcl.components.data_access import (
     SQLTransaction,
 )
 from pcl.components.data_controls import DBComboBox, DBEdit, DBGrid, DBNavigator, DBText
+from pcl.components.menus import MainMenu, PopupMenu
 from pcl.components.standard import (
     Button,
     CheckBox,
@@ -83,6 +84,8 @@ __all__ = [
     "SQLite3Connection",
     "ScrollBar",
     "Shape",
+    "MainMenu",
+    "PopupMenu",
     "SpinEdit",
     "StringGrid",
     "Strings",

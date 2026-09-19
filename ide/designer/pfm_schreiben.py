@@ -22,6 +22,7 @@ from ide.inspector.komponentenbaum import kind_komponenten
 from ide.pfade import daten_ordner
 from pcl.form import Form
 from pcl.properties import (
+    BAUM_EIGENSCHAFTEN,
     SAMMLUNGS_EIGENSCHAFTEN,
     VERSCHACHTELTE_EIGENSCHAFTEN,
     eigenschaften,
@@ -50,6 +51,18 @@ def _eigenschaften_werte(komponente: Any) -> dict[str, Any]:
         sammlung = getattr(komponente, name, None)
         if sammlung:
             werte[name] = list(sammlung)
+
+    for name in BAUM_EIGENSCHAFTEN:
+        baum = getattr(komponente, name, None)
+        if baum:
+            # Knapp statt vollständig: in der `.pfm` soll nur stehen,
+            # was jemand wirklich eingestellt hat. Sonst stünde hinter
+            # jedem Menüeintrag `"enabled": true, "checked": false,
+            # "separator": false` - dreimal die Vorgabe, und die Datei
+            # wäre für einen Menschen nicht mehr zu lesen.
+            from pcl.components.menus import eintrag_knapp
+
+            werte[name] = [eintrag_knapp(eintrag) for eintrag in baum]
 
     return werte
 

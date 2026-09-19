@@ -9,7 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtWidgets import QWidget
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QMenuBar, QWidget
 
 from pcl.properties import Event, Komponente, Prop
 from pcl.theme import qss_erzeugen
@@ -39,6 +40,7 @@ class Form(Komponente):
 
     def __init__(self) -> None:
         self._qwidget = QWidget()
+        self._menueleiste: QMenuBar | None = None
         self._qwidget.setWindowTitle(self.caption)
         self._qwidget.resize(self.width, self.height)
         self._stylesheet_aktualisieren()
@@ -64,11 +66,74 @@ class Form(Komponente):
         if name == "caption":
             self._qwidget.setWindowTitle(wert)
         elif name in ("width", "height"):
-            self._qwidget.resize(self.width, self.height)
+            self._groesse_anwenden()
         elif name in ("theme", "color"):
             self._stylesheet_aktualisieren()
 
+    def _groesse_anwenden(self) -> None:
+        """Setzt die Fenstergröße aus `width`/`height`.
+
+        `height` ist die Höhe des **Arbeitsbereichs**, wie `top` bei
+        einer Komponente. Liegt ein Menü auf dem Formular, kommt seine
+        Leiste obendrauf – sonst schrumpfte das Fenster bei einem
+        `self.height = 400` zur Laufzeit um die Leistenhöhe, und die
+        unterste Zeile verschwände.
+        """
+        self._qwidget.resize(self.width, self.height + self._leistenhoehe())
+
+    def _leistenhoehe(self) -> int:
+        from pcl.components.menus import MENUELEISTE_HOEHE
+
+        return MENUELEISTE_HOEHE if self._menueleiste is not None else 0
+
+    def _menue_komponenten(self) -> list[Any]:
+        """Die `MainMenu`-Komponenten auf diesem Formular.
+
+        Der Import steht in der Methode, nicht oben: `pcl.components`
+        baut auf `pcl.form` auf, und ein Import in die andere Richtung
+        wäre ein Ring.
+        """
+        from pcl.components.menus import MainMenu
+
+        return [wert for wert in vars(self).values() if isinstance(wert, MainMenu)]
+
+    def _menueleiste_aufbauen(self) -> None:
+        """Baut die Menüleiste, falls ein `MainMenu` auf dem Formular
+        liegt – und verschiebt den Arbeitsbereich um ihre Höhe nach
+        unten.
+
+        Warum erst hier und nicht, sobald das Menü erzeugt wird: zu
+        diesem Zeitpunkt stehen **alle** Komponenten fest. Würde die
+        Leiste schon beim Erzeugen des Menüs Platz schaffen, käme es
+        darauf an, ob das Menü vor oder nach den Knöpfen angelegt
+        wurde – und `create_components()` legt sie in der Reihenfolge
+        an, in der sie zufällig in der `.pfm` stehen.
+
+        Verschoben wird der Inhalt statt die Leiste darüberzulegen,
+        weil Lazarus es genauso macht: ``Top = 0`` ist dort der obere
+        Rand des Arbeitsbereichs, nicht des Fensters. Wer einen Knopf
+        an den oberen Rand setzt, findet ihn im laufenden Programm
+        auch dort wieder und nicht hinter dem Menü.
+        """
+        from pcl.components.menus import MENUELEISTE_HOEHE
+
+        menues = self._menue_komponenten()
+        if not menues or self._menueleiste is not None:
+            return
+
+        self._menueleiste = QMenuBar(self._qwidget)
+        self._menueleiste.setGeometry(0, 0, self._qwidget.width(), MENUELEISTE_HOEHE)
+        for kind in self._qwidget.findChildren(QWidget, options=Qt.FindDirectChildrenOnly):
+            if kind is not self._menueleiste:
+                kind.move(kind.x(), kind.y() + MENUELEISTE_HOEHE)
+        self._groesse_anwenden()
+        self._menueleiste.show()
+
+        for menue in menues:
+            menue.in_leiste_aufbauen(self._menueleiste)
+
     def show(self) -> None:
+        self._menueleiste_aufbauen()
         self._qwidget.show()
 
     def close(self) -> None:

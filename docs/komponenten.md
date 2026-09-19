@@ -21,12 +21,11 @@ Stand: `Form`, `Button`, `Label`, `Shape`, `Edit`, `CheckBox`,
 `RadioButton`, `Memo`, `ListBox`, `ComboBox`, `StringGrid`, `Image`,
 `ScrollBar` sind umgesetzt (M1, Schritt 2/3/6), `Chart` dazu aus M10.
 Aus Schritt 6 kamen `SpinEdit`, `FloatSpinEdit`, `TrackBar`,
-`ProgressBar`, `Timer`, `GroupBox`, `Panel` und `RadioGroup` dazu.
-Rest folgt später – nur deklariert/nicht genutzt oder in
-keinem Referenzprojekt vorhanden, daher niedrigere Priorität:
-`MainMenu`, `PopupMenu`, `MaskEdit`,
-`PaintBox`, `HtmlViewer`, `DateEdit`, `TimeEdit`,
-`Calendar`, weitere Dialoge, `Sound`.
+`ProgressBar`, `Timer`, `GroupBox`, `Panel` und `RadioGroup` dazu, aus
+M15 `MainMenu` und `PopupMenu`. Rest folgt später – nur
+deklariert/nicht genutzt oder in keinem Referenzprojekt vorhanden,
+daher niedrigere Priorität: `MaskEdit`, `PaintBox`, `HtmlViewer`,
+`DateEdit`, `TimeEdit`, `Calendar`, weitere Dialoge, `Sound`.
 
 ## Form
 
@@ -380,6 +379,94 @@ sondern lässt Qt so oft auslösen, wie die Ereignisschleife es zulässt –
 wie in der LCL. `stop()`/`start()` gibt es bewusst nicht; `enabled`
 ist der eine Schalter, wie in Lazarus.
 
+## MainMenu
+
+Qt-Basis: `QMenuBar` (`pcl/components/menus.py`)
+
+| Eigenschaft | Typ | Standardwert | Kategorie | Hilfetext |
+|---|---|---|---|---|
+| left, top, enabled | wie `Control` | – | – | geerbt von `Control` |
+| width | int | 32 | Layout | Breite des Symbols |
+| height | int | 32 | Layout | Höhe des Symbols |
+| entries | Liste | [] | Allgemein | Die Einträge des Menüs (Doppelklick öffnet den Menü-Editor) |
+
+Keine eigenen Ereignisse – **jeder Eintrag** hat sein eigenes.
+
+Die Menüleiste am oberen Rand des Fensters, wie `TMainMenu` in
+Lazarus. Auf dem Formular liegt nur ein kleines Symbol; die Leiste
+selbst erscheint erst im laufenden Programm. Dieselbe Regel wie beim
+`Timer`: was im fertigen Programm keine Fläche einnimmt, nimmt im
+Designer auch keine weg.
+
+Die Leiste sitzt **über** dem Inhalt: das Fenster wächst um ihre Höhe,
+die Komponenten behalten ihre Koordinaten. Genau so verhält sich
+Lazarus auch – dort ist `Top = 0` der obere Rand des Arbeitsbereichs,
+nicht des Fensters. Ein Knopf, den du ganz nach oben setzt, steht im
+laufenden Programm auch ganz oben und nicht hinter dem Menü.
+
+### Die Einträge
+
+Ein Eintrag ist kein Text, sondern ein Datensatz mit diesen Feldern:
+
+| Feld | Bedeutung |
+|---|---|
+| `name` | Bezeichner im Quelltext, z. B. `mi_datei_beenden` |
+| `caption` | Was dasteht. Ein `&` macht den nächsten Buchstaben zum Zugriffsbuchstaben (`&Datei` → Alt+D) |
+| `shortcut` | Tastenkürzel, deutsch geschrieben: `Strg+Q`, `Strg+Umschalt+S` |
+| `enabled` | Ob der Eintrag anklickbar ist |
+| `checked` | Macht den Eintrag ankreuzbar und kreuzt ihn an |
+| `separator` | Eine Trennlinie – ohne Beschriftung und ohne Ereignis |
+| `on_click` | Name der Methode, die beim Anklicken läuft |
+| `children` | Untereinträge (zweite Ebene) |
+
+Ausgefüllt wird das im **Menü-Editor**: Doppelklick auf das Symbol,
+F2, oder die Zeile `entries` im Objektinspektor. Links steht der Baum
+der Einträge, rechts die Felder des ausgewählten. Ein Durchgang durch
+den Dialog ist ein Schritt für „Rückgängig", egal wie viel du darin
+geändert hast.
+
+Menüs gehen bis zur **zweiten Ebene** („Datei → Zuletzt geöffnet"),
+tiefer nicht – dort findet sich niemand mehr zurecht.
+
+Im Quelltext geht es auch:
+
+```python
+self.mm_haupt.entries = [
+    {"caption": "&Datei", "children": [
+        {"caption": "&Neu", "shortcut": "Strg+N", "on_click": "mi_neu_klick"},
+        {"separator": True},
+        {"caption": "B&eenden", "on_click": "mi_ende_klick"},
+    ]},
+]
+```
+
+Einen einzelnen Eintrag findest du über seinen Bezeichner und änderst
+ihn zur Laufzeit; danach `aktualisieren()` aufrufen:
+
+```python
+self.mm_haupt.eintrag("mi_speichern")["enabled"] = False
+self.mm_haupt.aktualisieren()
+```
+
+## PopupMenu
+
+Qt-Basis: `QMenu` (`pcl/components/menus.py`)
+
+Eigenschaften und Einträge wie bei `MainMenu`.
+
+Das Klappmenü auf die rechte Maustaste, wie `TPopupMenu` in Lazarus.
+Zugeordnet wird es über die Eigenschaft `popup_menu` einer sichtbaren
+Komponente:
+
+```python
+self.sg_tabelle.popup_menu = self.pm_tabelle
+```
+
+Die Zuordnung steht bei der Komponente und nicht beim Menü, weil
+dasselbe Klappmenü an mehreren Komponenten hängen darf. Ohne
+Zuordnung passiert nichts – ein Klappmenü ohne Ort, an dem es
+aufklappt, ist kein Fehler, sondern nur noch nicht fertig.
+
 ## GroupBox
 
 Qt-Basis: `QGroupBox` (`pcl/components/standard.py`)
@@ -668,7 +755,9 @@ die niemand mehr liest:
    also eine Eigenschaft, die auf eine andere Komponente zeigt — in der
    `.pfm`, im Objektinspektor und in der Codeerzeugung.
 3. **Standardgrößen beim Ablegen.** `_STANDARDGROESSEN` in
-   `ide/designer/canvas.py` kennt die neuen Komponenten nicht. Sie
+   `ide/designer/canvas.py` kennt die meisten neuen Komponenten nicht
+   (die beiden Menüs stehen seit M15 drin, weil ein Symbol quadratisch
+   sein muss). Sie
    bringen ihre Größe deshalb als `Prop`-Standard selbst mit (wie
    `Chart`) – das wirkt überall gleich und ist die bessere Lösung, aber
    der Eintrag dort bleibt der Vollständigkeit halber offen.
@@ -710,9 +799,10 @@ die niemand mehr liest:
    Komponenten, es gibt also auch keine echte Nutzung, an der sich die
    Wahl prüfen ließe (Abschnitt 21: „MVP strikt an den Übungsprojekten
    ausrichten“). Deshalb bewusst offen gelassen statt geraten.
-6. **Noch nicht umgesetzt:** `MainMenu`, `PopupMenu` (beide brauchen
-   einen eigenen Menü-Editor im Designer), `MaskEdit`, `PaintBox`,
-   `HtmlViewer`, `Sound` und die restlichen Dialoge aus Abschnitt 5.2.
+6. **Noch nicht umgesetzt:** `MaskEdit`, `PaintBox`, `HtmlViewer`,
+   `Sound` und die restlichen Dialoge aus Abschnitt 5.2.
+   `MainMenu` und `PopupMenu` standen hier bis M15; sie sind jetzt da,
+   samt Menü-Editor im Designer.
 
 ## Vorlage pro Komponente
 

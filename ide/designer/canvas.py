@@ -22,7 +22,7 @@ from typing import Any
 
 from PySide6.QtCore import QEvent, QMimeData, QObject, QPoint, Qt
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QMenu, QWidget
+from PySide6.QtWidgets import QDialog, QMenu, QWidget
 
 from ide.codegen.design import design_datei_erzeugen
 from ide.codegen.ereignis import handler_methode_einfuegen
@@ -216,8 +216,10 @@ _STANDARDGROESSEN: dict[str, tuple[int, int]] = {
     "Image": (100, 100),
     # Ein Zeitgeber zeigt nur sein Symbol - quadratisch und klein, wie
     # das Entwurfszeit-Symbol einer nicht sichtbaren Komponente in
-    # Lazarus.
+    # Lazarus. Für die beiden Menüs gilt dasselbe.
     "Timer": (32, 32),
+    "MainMenu": (32, 32),
+    "PopupMenu": (32, 32),
 }
 
 
@@ -446,7 +448,11 @@ class DesignerCanvas(QObject):
             self._ziehen_start_werte = None
             komponente = self._widget_zu_komponente.get(beobachtetes_objekt)
             if komponente is not None:
-                self.ereignis_handler_erzeugen(komponente)
+                # Ein Menü hat kein Standardereignis - seine Einträge
+                # haben jeweils eigene. Der Doppelklick öffnet deshalb
+                # den Menü-Editor, statt wirkungslos zu verpuffen.
+                if not self.menue_bearbeiten(komponente):
+                    self.ereignis_handler_erzeugen(komponente)
             return True
 
         if typ == QEvent.Type.MouseButtonPress and self._platzierungs_typ is not None:
@@ -654,6 +660,8 @@ class DesignerCanvas(QObject):
 
         if taste == Qt.Key.Key_Delete:
             self.loeschen()
+            return True
+        if taste == Qt.Key.Key_F2 and self.menue_bearbeiten(komponente):
             return True
         if taste == Qt.Key.Key_D and modifikatoren & Qt.KeyboardModifier.ControlModifier:
             self.duplizieren()
@@ -890,6 +898,37 @@ class DesignerCanvas(QObject):
         kommando = _UmbenennenKommando(self, komponente, neuer_name)
         self.kommandos.ausfuehren(kommando)
         self._nach_aenderung(komponente)
+
+    def menue_bearbeiten(self, komponente: Any) -> bool:
+        """Öffnet den Menü-Editor für `komponente`, wenn sie ein Menü
+        ist. Liefert `True`, wenn sie eines war – sonst `False`, damit
+        der Aufrufer wie bisher weitermachen kann.
+
+        Erreichbar per Doppelklick auf das Symbol, per F2 und über die
+        Zeile `entries` im Objektinspektor. Drei Wege zur selben Sache,
+        aber alle drei öffnen denselben Dialog – anders als bei dem
+        Fall aus M11, wo zwei Wege zu derselben Funktion sich
+        unterschiedlich verhielten.
+
+        Ein Dialogdurchgang ist **ein** Undo-Schritt: das ganze
+        Ergebnis geht als ein `EigenschaftKommando` auf den Stapel,
+        egal wie viele Einträge darin geändert wurden.
+        """
+        if not hasattr(type(komponente), "entries"):
+            return False
+
+        from ide.inspector.menue_editor import MenueEditor
+
+        dialog = MenueEditor(komponente.entries, self.formular._qwidget.window())
+        # Gegen `QDialog.DialogCode` und nicht gegen `MenueEditor`
+        # selbst: so lässt sich der Dialog in einem Test durch einen
+        # Platzhalter ersetzen, ohne dass hier etwas fehlt.
+        angenommen = dialog.exec() == QDialog.DialogCode.Accepted
+        if not angenommen and not dialog.uebernommen:
+            return True
+        self.kommandos.ausfuehren(EigenschaftKommando(komponente, {"entries": dialog.eintraege()}))
+        self._nach_aenderung(komponente)
+        return True
 
     def ereignis_handler_erzeugen(self, komponente: Any) -> str | None:
         """Doppelklick auf `komponente` (Abschnitt 4.4): erzeugt bei
