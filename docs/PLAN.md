@@ -843,9 +843,11 @@ Ausdrücklicher Wunsch des Nutzers, gilt für jeden Schritt:
   Referenzprojekt absichert), `MaskEdit`, `PaintBox`, `HtmlViewer`,
   `Sound` sowie `MainMenu`/`PopupMenu` (brauchen einen Menü-Editor im
   Designer). Alle Gründe stehen in `docs/komponenten.md`
-- [ ] **12.** M11 – Schülertauglichkeit: Funktionsprüfung mit
+- [x] **12.** M11 – Schülertauglichkeit: Funktionsprüfung mit
   Bildschirmfotos, Einrückungslinien, Symbole, Vervollständigung,
-  Startbild, Meldungen mit Lösungsvorschlag, Nutzerfreundlichkeit
+  Startbild, Meldungen mit Lösungsvorschlag, Nutzerfreundlichkeit.
+  Abschnitte 1 bis 6 sind abgearbeitet; was bewusst offenbleibt, steht
+  in `docs/arbeitspakete/M11.md` mit Begründung
 - [x] **13.** M11 Abschnitt 6 – **Prüfungsmodus**: vier Stunden ohne
   Lösungsvorschläge und ohne Quelltexterzeugung aus Klassendiagramm
   und Struktogramm. Übersteht einen Neustart, läuft von selbst aus
@@ -867,26 +869,35 @@ braucht. Hier geht es darum, dass es sich für Schülerinnen und Schüler
 auch **gut anfühlt** – und dass jede einzelne Funktion nachweislich
 tut, was sie verspricht.
 
-- [ ] Symbole neu gestalten: einheitliches Raster, `currentColor` statt
-  fest eingetragener Farbe, Symbole für den Diagramm-Editor (der hat
+- [x] Symbole neu gestalten: einheitliches Raster, `currentColor` statt
+  fest eingetragener Farbe, Symbole für den Diagramm-Editor (der hatte
   bisher gar keine)
-- [ ] Quelltexteditor: Einrückung sichtbar machen, Vervollständigung
+- [x] Quelltexteditor: Einrückung sichtbar machen, Vervollständigung
   nach den ersten Buchstaben, Fehler direkt im Text unterringeln
-- [ ] Funktionsprüfung **jeder** bedienbaren Stelle, mit Bildschirmfoto
-  – Menüeinträge, Knöpfe, Dialoge, jede Komponente samt ihren
-  Eigenschaften
-- [ ] Nutzerfreundlichkeit: Startbild, deutsche Meldungen mit
-  Lösungsvorschlag, Tastenkürzel-Übersicht, Prüfung auf einem
-  1366×768-Schulrechner
-- [ ] **Prüfungsmodus:** vier Stunden lang keine Lösungsvorschläge
+- [x] Funktionsprüfung **jeder** bedienbaren Stelle – Menüeinträge,
+  Knöpfe, Dialoge, Kontextmenüs und jede Komponente samt **jeder**
+  ihrer Eigenschaften, bis in das gestartete Programm hinein. Die
+  Bildschirmfotos waren dabei Arbeitsmaterial und sind es geblieben:
+  gefunden haben sie unter anderem, dass der Auswahlrahmen des
+  Designers die Komponenten selbst verschob
+- [x] Nutzerfreundlichkeit: Startbild, deutsche Meldungen mit
+  Lösungsvorschlag, Tastenkürzel-Übersicht, Kurzhinweise überall,
+  Bedienung allein mit der Tastatur, Papierkorb statt endgültigem
+  Löschen und die Prüfung auf einem 1366×768-Schulrechner
+- [x] **Prüfungsmodus:** vier Stunden lang keine Lösungsvorschläge
   und keine Quelltexterzeugung aus Klassendiagramm und
   Struktogramm. Übersteht einen Neustart von Natter und läuft von
   selbst aus
+- [x] Aufräumen, was dabei auffiel: der leere Reiter „Ausgabe“, ein
+  „Stopp“, das nur den Debugger beendete, zwei verschiedene Wege zum
+  Öffnen, ausgegraute Menüeinträge, die inzwischen etwas können, und
+  jede Stelle, an der ein Traceback statt einer Meldung kam
 
 ## Nächster konkreter Schritt
 
 Siehe „Umsetzungsreihenfolge“ oben – der Lauf arbeitet die vierzehn
 Punkte der Reihe nach ab. Die Punkte 0 bis 3 sind erledigt, aus
-Punkt 8 sind M10 Punkt 1 und 2 vorgezogen und fertig. Aktuell:
-**Punkt 12**, M11 – Schülertauglichkeit. Abschnitt 1 (Symbole) und
-2.1 (Einrückung) sind erledigt.
+Punkt 8 sind M10 Punkt 1 und 2 vorgezogen und fertig. **Punkt 12**
+(M11, Schülertauglichkeit) und **Punkt 13** (Prüfungsmodus) sind
+abgearbeitet; was in M11 bewusst offenbleibt, steht dort mit
+Begründung.
