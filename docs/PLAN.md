@@ -16,16 +16,27 @@ Dokument (Abschnitt „Wo wir stehen“).
 
 ## Wo wir stehen
 
-**Stand September 2026: M0 bis M14 sind abgeschlossen.** Natter ist
-fachlich vollständig für das, was im Unterricht gebraucht wird – was
-noch offen ist, ist Ausbau und Feinschliff, kein fehlendes Fundament.
+**Stand 20. September 2026: M0 bis M15 sind abgeschlossen.** In
+diesem Dokument und in allen Arbeitspaketen steht **kein einziges
+offenes Kästchen** mehr. Was nicht gebaut wird, steht als getroffene
+Entscheidung da und nicht als Haken, der nie kommt – ER-Diagramm,
+Syntaxdiagramm, DIA-Import, mehrere Struktogramme je Seite,
+Update-Mechanismus und CI-Release.
 
-Zahlen zur Einordnung: rund 29 800 Zeilen Python in `ide/` und `pcl/`
-(136 Module), 2785 Tests in 177 Dateien – alle grün, Ruff sauber. Dazu
+Zahlen zur Einordnung: rund 32 800 Zeilen Python in `ide/` und `pcl/`
+(142 Module), 3421 Tests in 186 Dateien – alle grün, Ruff sauber. Dazu
 ein Lehrgang aus neun aufeinander aufbauenden Beispielprojekten, die
 alle wirklich starten, und eine gebaute, signierte `Natter.exe` mit
 Installer, mitgelieferter Python-Installation und
 `.natter`-Dateiverknüpfung.
+
+Was M15 gebracht hat, in einem Satz je Block: Schülerprogramme haben
+**Menüs**; `PaintBox` und `Canvas` können **zeichnen**, mit der Maus;
+die **Datenbank ist kleiner geworden** statt größer (MySQL raus, eine
+Abfrage ist eine Zeile); es gibt **sechs neue Komponenten** samt
+Datums- und Uhrzeittyp; der Diagramm-Editor hat **Lineale,
+Hilfslinien und eine Minimap**; und jede Zahl auf dem Bildschirm steht
+**deutsch** da.
 
 Die Drucker-Tests laufen bewusst nicht im Standardlauf mit
 (`uv run pytest -m drucker` startet sie): die Windows-Druckerabfrage
@@ -50,6 +61,7 @@ eine Minute und ließ dabei die Zeitgrenzen der Debugger-Tests reißen.
 | Durchsicht für Lernende, Hilfe, Fehlerkatalog | fertig (M12) |
 | Ausgelieferte Python-Installation | fertig (M13) |
 | Aufräumen, Lehrgang, Timer, Exe als eine Datei | fertig (M14) |
+| Menüs, Zeichnen, Maus, sechs Komponenten, Lineale/Minimap | fertig (M15) |
 
 ### Was noch zu tun ist
 
@@ -359,10 +371,10 @@ Wird während M1 verfeinert (genaue Komponentenliste je Projekt), sobald die
   Oberfläche noch nicht gab; seit M2/M3 wird stattdessen am laufenden
   Programm geprüft, und `design/tokens.json` hält die verbindlichen
   Farben und Maße.
-- [ ] **Visueller Feinschliff der IDE** (Nutzer-Feedback nach dem ersten
-  echten Anschauen des Programms, September 2026): wirkt insgesamt noch
-  zu farblos/grau. Sammelpunkt für alle folgenden Einzelschritte, jeweils
-  eigene kleine Aufgabe statt einer großen:
+- [x] **Visueller Feinschliff der IDE** (Nutzer-Feedback nach dem ersten
+  echten Anschauen des Programms, September 2026): wirkte insgesamt zu
+  farblos/grau. Sammelpunkt für die folgenden Einzelschritte – seit
+  M15, Abschnitt 6 sind alle abgehakt:
   - [x] Fenster-/Taskleisten-Symbol (`ide/assets/icons/app.png` – seit
     September 2026 das von Hand gezeichnete Natter-Maskottchen statt
     des ursprünglichen Vektor-Platzhalters)
@@ -393,9 +405,12 @@ Wird während M1 verfeinert (genaue Komponentenliste je Projekt), sobald die
     Nutzer-Feedback September 2026: „Ich sehe die Buttons nicht zum
     rückgängig machen“) – beide Aktionen waren vorhanden und verdrahtet,
     hatten aber kein `symbol` und erschienen deshalb nur im Menü
-  - [ ] Konsistentes Spacing/Ausrichtung in Objektinspektor, Explorer,
-    Palette geprüft und ggf. nachgezogen – als einziger Punkt dieser
-    Liste offen, siehe M15
+  - [x] Konsistentes Spacing/Ausrichtung in Objektinspektor, Explorer,
+    Palette – mit M15, Abschnitt 6 durchgegangen. Drei Funde: die
+    beiden Bäume rückten verschieden tief ein (20 gegen 14 px), die
+    Eigenschaften-Tabelle zeigte eine Zeilennummern-Spalte, und ihre
+    Wert-Spalte endete mitten im Dock, während der Wert darin
+    abgeschnitten war
   - [x] Icon für die `.exe` und für `.natter`-Dateien im Windows-
     Explorer (Datei-Verknüpfung) – über `tools/natter.iss`
     (`SetupIconFile`, Registry-`DefaultIcon`), Icon-Quelle jetzt
@@ -559,10 +574,14 @@ zerlegt, jeder Schritt für sich mit `pytest` abgesichert.
 - [x] `SpinEdit`, `FloatSpinEdit` – umgesetzt und in der Palette
 - [x] `PaintBox` samt `Canvas` (`line_to`, `rectangle`, `ellipse`,
   `text_out` …) – seit M15, Abschnitt 2 da
-- [ ] `MaskEdit` und `HtmlViewer` – fehlen weiterhin
-  (`b_schneefigur`). Siehe M15
+- [x] `MaskEdit` und `HtmlViewer` – seit M15, Abschnitt 4 da.
+  `HtmlViewer` auf `QTextBrowser`: `QWebEngineView` wöge über 100 MB
+  in der gebauten Exe
 - [x] `TrackBar`, `ProgressBar` – umgesetzt und in der Palette
-- [ ] `DateEdit`, `TimeEdit`, `Calendar` – fehlen weiterhin, siehe M15
+- [x] `DateEdit`, `TimeEdit`, `Calendar` – seit M15, Abschnitt 4 da,
+  im eigenen Palettenreiter „Eingabe". Dafür kennt `Prop` jetzt
+  `date` und `time`: `self.de_termin.date` ist ein echtes
+  `datetime.date`, mit dem sich rechnen lässt
 - [x] Dialoge: `pcl/dialogs.py` mit `show_message`, `input_box` –
   `tests/test_dialogs.py`, 3 Tests (modale Dialoge headless über
   `QTimer.singleShot` + `QApplication.activeModalWidget()` bedient),
@@ -575,8 +594,10 @@ zerlegt, jeder Schritt für sich mit `pytest` abgesichert.
   2026: „der Timer muss als Komponente auch mit rein, der ist wichtig“);
   auf dem Formular steht sein Symbol, im laufenden Programm ist er
   unsichtbar
-- [ ] `Sound` – fehlt weiterhin. `pcl.crt.piepton()` gibt es für
-  Konsolenprogramme, eine Komponente für GUI-Programme nicht. Siehe M15
+- [x] `Sound` – seit M15, Abschnitt 4 da. Spielt `.wav` über
+  `QSoundEffect`, `Sound.beep()` gibt einen Ton ohne Datei. Keine
+  `Control`: sie liegt nicht auf dem Formular, sondern wird im Code
+  erzeugt wie eine Datenbankverbindung
 - [x] Datei-Methoden für Listen-Komponenten (`Strings.load_from_file`/
   `.save_to_file`, siehe oben); `open_url` ist inzwischen in
   `pcl/files.py` umgesetzt – das Würfelspiel schreibt damit seine
@@ -794,8 +815,11 @@ Diagramm auf ein Formular ziehen. `scikit-learn` fehlte ganz.
 - [x] Abnahme: CSV einlesen, Punkte anzeigen, Regressionsgerade
   darüberlegen, Steigung/Achsenabschnitt/R² ausgeben – im Designer
   zusammengeklickt
-- [ ] geblieben ist ein einziger Punkt: ein eigener Eintrag für
-  `NatterDatenError` in `docs/fehlerkatalog.yaml`
+- [x] geblieben war ein einziger Punkt: ein eigener Eintrag für
+  `NatterDatenError` in `docs/fehlerkatalog.yaml`. Mit M15,
+  Abschnitt 6 erledigt – vorher griff der `ValueError`-Eintrag und
+  fragte nach „Leerzeichen, Einheit oder Dezimalkomma", was bei einem
+  Datenfehler fast immer die falsche Fährte ist
 
 ## Umsetzungsreihenfolge (autonomer Lauf ab September 2026)
 
@@ -921,7 +945,7 @@ Ausdrücklicher Wunsch des Nutzers, gilt für jeden Schritt:
 > umgestellt worden; wo im Fließtext noch von „der Referenz" die Rede
 > ist, ist dieser Ordner gemeint.
 
-- [ ] **17.** M15 – **was nach der Bestandsaufnahme übrig blieb**
+- [x] **17.** M15 – **was nach der Bestandsaufnahme übrig blieb**
   (`docs/arbeitspakete/M15.md`). Am 19. September 2026 wurden auf
   Nutzer-Wunsch („prüfe als erstes was noch offen ist. viel wurde
   schon behoben und comittet") alle 112 unabgehakten Punkte einzeln
@@ -1038,12 +1062,16 @@ Entstanden aus der Prüfung aller 112 unabgehakten Punkte am
   `SQLTransaction` entfällt, und die Data Controls kommen ohne
   `DataSource` aus – womit sie im Designer platzierbar und vom
   Eigenschaften-Rundlauf prüfbar sind (der offene Punkt aus M11)
-- [ ] `MaskEdit`, `DateEdit`, `TimeEdit`, `Calendar`, `HtmlViewer`,
-  `Sound`; `on_click` für alle sichtbaren Komponenten
-- [ ] Lineale, Hilfslinien und Minimap im Diagramm-Editor
-- [ ] Kleinigkeiten: `NatterDatenError` im Fehlerkatalog,
+- [x] `MaskEdit`, `DateEdit`, `TimeEdit`, `Calendar`, `HtmlViewer`,
+  `Sound` – dazu kennt `Prop` jetzt `date` und `time`
+- [x] Maus-Ereignisse für **alle** sichtbaren Komponenten in `Control`:
+  `on_click`, `on_double_click`, `on_mouse_down`/`_move`/`_up`. Damit
+  kann die `PaintBox` das, wofür man eine Zeichenfläche im Unterricht
+  benutzt – mit der Maus malen
+- [x] Lineale, Hilfslinien und Minimap im Diagramm-Editor
+- [x] Kleinigkeiten: `NatterDatenError` im Fehlerkatalog,
   `plt.show()`-Abnahmetest, ein Durchgang über Abstände und
-  Ausrichtung. Der Credential Store entfällt – ohne MySQL gibt es keine
+  Ausrichtung. Der Credential Store entfiel – ohne MySQL gibt es keine
   Zugangsdaten mehr abzulegen
 
 ## Nächster konkreter Schritt
