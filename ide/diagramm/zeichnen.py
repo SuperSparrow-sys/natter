@@ -99,17 +99,30 @@ def mindesthoehe(shape: dict[str, Any]) -> float:
         # braucht dafür aber Höhe – sonst verschwinden die unteren
         # Zeilen hinter dem Rand.
         return _umbruchhoehe(shape) + 2 * INNENABSTAND
-    if kind in ("initial_state", "final_state", "decision"):
+    if kind in (
+        "initial_state",
+        "final_state",
+        "decision",
+        "fork",
+        "flow_final",
+        "activation",
+        "destruction",
+    ):
         # Reine Zeichen bzw. eine Raute: sie tragen keinen mehrzeiligen
         # Inhalt und dürfen so klein bleiben, wie sie platziert wurden.
         return 0.0
+    if kind in ("action", "object_node"):
+        # Beide brechen ihren Text um und brauchen dafür Höhe.
+        return _umbruchhoehe(shape) + 2 * INNENABSTAND
+    if kind in ("swimlane", "lifeline", "fragment"):
+        return KOPFHOEHE + 2 * INNENABSTAND
     if kind in ("state", "composite_state"):
         _, aktionen = zustandszeilen(shape)
         if not aktionen:
             return KOPFHOEHE + INNENABSTAND
         zeilenhoehe = QFontMetricsF(_mono_schrift()).height()
         return KOPFHOEHE + len(aktionen) * zeilenhoehe + INNENABSTAND
-    if kind == "actor":
+    if kind in ("actor", "actor_lifeline"):
         # Das Strichmännchen hat eine feste Höhe, darunter steht der
         # Name und darf umbrechen.
         return AKTEUR_HOEHE + _umbruchhoehe(shape) + INNENABSTAND
@@ -157,12 +170,22 @@ def mindestbreite(shape: dict[str, Any]) -> float:
         "note",
         "package",
         "actor",
+        "actor_lifeline",
         "use_case",
         "system_boundary",
         "initial_state",
         "final_state",
         "decision",
         "composite_state",
+        "action",
+        "object_node",
+        "swimlane",
+        "fork",
+        "flow_final",
+        "lifeline",
+        "activation",
+        "fragment",
+        "destruction",
     ):
         # Alle diese Formen brechen ihren Text um; eine Mindestbreite
         # würde sie reihenweise fälschlich als „zu schmal“ melden.
@@ -247,8 +270,16 @@ def form_zeichnen(
         _notiz_zeichnen(maler, shape, stil)
     elif kind == "package":
         _paket_zeichnen(maler, shape, stil)
-    elif kind == "actor":
+    elif kind in ("actor", "actor_lifeline"):
         _akteur_zeichnen(maler, shape, stil)
+    elif kind == "lifeline":
+        _lebenslinie_zeichnen(maler, shape, stil)
+    elif kind == "activation":
+        _aktivierungsbalken_zeichnen(maler, shape, stil)
+    elif kind == "fragment":
+        _fragment_zeichnen(maler, shape, stil)
+    elif kind == "destruction":
+        _zerstoerung_zeichnen(maler, shape, stil)
     elif kind == "use_case":
         _anwendungsfall_zeichnen(maler, shape, stil)
     elif kind == "system_boundary":
@@ -263,6 +294,16 @@ def form_zeichnen(
         _endzustand_zeichnen(maler, shape, stil)
     elif kind == "decision":
         _entscheidung_zeichnen(maler, shape, stil)
+    elif kind == "action":
+        _aktion_zeichnen(maler, shape, stil)
+    elif kind == "fork":
+        _gabelung_zeichnen(maler, shape, stil)
+    elif kind == "object_node":
+        _objektknoten_zeichnen(maler, shape, stil)
+    elif kind == "swimlane":
+        _verantwortungsbereich_zeichnen(maler, shape, stil)
+    elif kind == "flow_final":
+        _ablaufende_zeichnen(maler, shape, stil)
     else:
         # Unbekannte Form nicht verschlucken, sondern sichtbar als
         # schlichtes Rechteck malen - sonst „verschwindet“ sie
@@ -425,18 +466,39 @@ def _akteur_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
         QPointF(mitte_x, rumpf_unten), QPointF(mitte_x + bein, oben + hoehe)
     )
 
+    metrik = QFontMetricsF(_namensschrift(fett=False, groesse=schriftgroesse(shape)))
+    namensbereich = QRectF(
+        rechteck.left(),
+        oben + hoehe + 2,
+        rechteck.width(),
+        min(metrik.height() * 2, rechteck.bottom() - (oben + hoehe + 2)),
+    )
     maler.setPen(QColor(stil.text))
     maler.setFont(_namensschrift(fett=False, groesse=schriftgroesse(shape)))
     maler.drawText(
-        QRectF(
-            rechteck.left(),
-            oben + hoehe + 2,
-            rechteck.width(),
-            rechteck.bottom() - (oben + hoehe + 2),
+        namensbereich,
+        int(
+            Qt.AlignmentFlag.AlignHCenter
+            | Qt.AlignmentFlag.AlignTop
+            | Qt.TextFlag.TextWordWrap
         ),
-        int(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap),
         formname(shape),
     )
+
+    # Bleibt unter dem Namen Platz übrig, ist der Akteur eine
+    # Lebenslinie: genau so steht er im Sequenzdiagramm. Im
+    # Use-Case-Diagramm ist er nur so hoch wie Männchen und Name, dort
+    # entsteht also keine Linie.
+    rest = rechteck.bottom() - namensbereich.bottom()
+    if rest > metrik.height():
+        stift = QPen(QColor(stil.linie))
+        stift.setWidthF(LINIENBREITE)
+        stift.setStyle(Qt.PenStyle.DashLine)
+        maler.setPen(stift)
+        maler.drawLine(
+            QPointF(mitte_x, namensbereich.bottom() + 2),
+            QPointF(mitte_x, rechteck.bottom()),
+        )
 
 
 def _anwendungsfall_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
@@ -616,6 +678,186 @@ def _entscheidung_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
     maler.drawText(rechteck, Qt.AlignmentFlag.AlignCenter, text)
 
 
+def _aktion_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
+    """Abgerundetes Rechteck mit dem, was getan wird. Der Text bricht um
+    – eine Aktion wie „Bestellung prüfen und Rechnung schreiben“ passt
+    sonst in keinen Kasten."""
+    rechteck = form_rechteck(shape)
+    maler.setPen(_stift(stil, randfarbe(shape, stil)))
+    maler.setBrush(QBrush(QColor(fuellfarbe(shape, stil))))
+    maler.drawRoundedRect(rechteck, ZUSTANDSRADIUS, ZUSTANDSRADIUS)
+
+    maler.setPen(QColor(stil.text))
+    maler.setFont(_namensschrift(fett=False, groesse=schriftgroesse(shape)))
+    maler.drawText(
+        rechteck.adjusted(INNENABSTAND, INNENABSTAND, -INNENABSTAND, -INNENABSTAND),
+        int(Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap),
+        formname(shape),
+    )
+
+
+def _gabelung_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
+    """Dicker Balken. Ob er teilt (Gabelung) oder zusammenführt
+    (Vereinigung), sagen erst die Pfeile daran – das Zeichen ist
+    dasselbe."""
+    maler.setPen(Qt.PenStyle.NoPen)
+    maler.setBrush(QBrush(QColor(stil.text)))
+    maler.drawRect(form_rechteck(shape))
+
+
+def _objektknoten_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
+    """Schlichtes Rechteck – anders als die Aktion **nicht** abgerundet.
+    Genau daran unterscheidet man im Aktivitätsdiagramm ein Objekt von
+    einer Aktion."""
+    rechteck = form_rechteck(shape)
+    maler.setPen(_stift(stil, randfarbe(shape, stil)))
+    maler.setBrush(QBrush(QColor(fuellfarbe(shape, stil))))
+    maler.drawRect(rechteck)
+
+    maler.setPen(QColor(stil.text))
+    maler.setFont(_namensschrift(fett=False, groesse=schriftgroesse(shape)))
+    maler.drawText(
+        rechteck.adjusted(INNENABSTAND, INNENABSTAND, -INNENABSTAND, -INNENABSTAND),
+        int(Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap),
+        formname(shape),
+    )
+
+
+def _verantwortungsbereich_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
+    """Spalte mit Überschrift. Ungefüllt, weil die Aktionen darin
+    liegen."""
+    rechteck = form_rechteck(shape)
+    maler.setPen(_stift(stil, randfarbe(shape, stil)))
+    maler.setBrush(Qt.BrushStyle.NoBrush)
+    maler.drawRect(rechteck)
+
+    trenner = rechteck.top() + KOPFHOEHE
+    stift = QPen(QColor(stil.trennlinie))
+    stift.setWidthF(LINIENBREITE)
+    maler.setPen(stift)
+    maler.drawLine(rechteck.left(), trenner, rechteck.right(), trenner)
+
+    maler.setPen(QColor(stil.text))
+    maler.setFont(_namensschrift(fett=True, groesse=schriftgroesse(shape)))
+    maler.drawText(
+        QRectF(rechteck.left(), rechteck.top(), rechteck.width(), KOPFHOEHE),
+        Qt.AlignmentFlag.AlignCenter,
+        formname(shape),
+    )
+
+
+def _ablaufende_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
+    """Kreis mit Kreuz: **dieser** Zweig endet, die übrige Aktivität
+    läuft weiter. Nicht zu verwechseln mit dem Endknoten, der alles
+    beendet."""
+    rechteck = form_rechteck(shape)
+    seite = min(rechteck.width(), rechteck.height())
+    kreis = QRectF(rechteck.left(), rechteck.top(), seite, seite)
+    maler.setPen(_stift(stil, randfarbe(shape, stil)))
+    maler.setBrush(QBrush(QColor(fuellfarbe(shape, stil))))
+    maler.drawEllipse(kreis)
+
+    rand = seite * 0.22
+    innen = kreis.adjusted(rand, rand, -rand, -rand)
+    stift = QPen(QColor(stil.text))
+    stift.setWidthF(LINIENBREITE)
+    maler.setPen(stift)
+    maler.drawLine(innen.topLeft(), innen.bottomRight())
+    maler.drawLine(innen.topRight(), innen.bottomLeft())
+
+
+def _lebenslinie_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
+    """Kopf mit dem Namen, darunter die gestrichelte Linie.
+
+    Die **ganze** Höhe der Form ist die Lebenslinie, nicht nur der Kopf:
+    so lang, wie die Form ist, lebt das Objekt. Der Name wird
+    unterstrichen – das ist in UML das Zeichen dafür, dass es sich um
+    ein konkretes Objekt handelt und nicht um eine Klasse.
+    """
+    rechteck = form_rechteck(shape)
+    kopf = QRectF(rechteck.left(), rechteck.top(), rechteck.width(), KOPFHOEHE)
+    maler.setPen(_stift(stil, randfarbe(shape, stil)))
+    maler.setBrush(QBrush(QColor(fuellfarbe(shape, stil))))
+    maler.drawRect(kopf)
+
+    schrift = _namensschrift(fett=False, groesse=schriftgroesse(shape))
+    schrift.setUnderline(True)
+    maler.setPen(QColor(stil.text))
+    maler.setFont(schrift)
+    maler.drawText(kopf, Qt.AlignmentFlag.AlignCenter, formname(shape))
+
+    stift = QPen(QColor(stil.linie))
+    stift.setWidthF(LINIENBREITE)
+    stift.setStyle(Qt.PenStyle.DashLine)
+    maler.setPen(stift)
+    mitte = rechteck.center().x()
+    maler.drawLine(QPointF(mitte, kopf.bottom()), QPointF(mitte, rechteck.bottom()))
+
+
+def _aktivierungsbalken_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
+    """Schmaler Balken auf der Lebenslinie: solange er da ist, läuft
+    etwas."""
+    maler.setPen(_stift(stil, randfarbe(shape, stil)))
+    maler.setBrush(QBrush(QColor(fuellfarbe(shape, stil))))
+    maler.drawRect(form_rechteck(shape))
+
+
+def _fragment_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
+    """Rahmen mit abgeschrägtem Reiter oben links (`alt`, `opt`,
+    `loop`); die zweite Zeile ist die Bedingung und steht daneben.
+
+    Ungefüllt, weil die eingeschlossenen Nachrichten darin liegen.
+    """
+    rechteck = form_rechteck(shape)
+    maler.setPen(_stift(stil, randfarbe(shape, stil)))
+    maler.setBrush(Qt.BrushStyle.NoBrush)
+    maler.drawRect(rechteck)
+
+    art, weitere = zustandszeilen(shape)
+    metrik = QFontMetricsF(_namensschrift(fett=True, groesse=schriftgroesse(shape)))
+    breite = max(48.0, metrik.horizontalAdvance(art) + 2 * INNENABSTAND)
+    hoehe = KOPFHOEHE * 0.8
+    reiter = QPainterPath()
+    reiter.moveTo(rechteck.left(), rechteck.top())
+    reiter.lineTo(rechteck.left() + breite, rechteck.top())
+    reiter.lineTo(rechteck.left() + breite, rechteck.top() + hoehe - ECKE / 2)
+    reiter.lineTo(rechteck.left() + breite - ECKE / 2, rechteck.top() + hoehe)
+    reiter.lineTo(rechteck.left(), rechteck.top() + hoehe)
+    reiter.closeSubpath()
+    maler.setBrush(QBrush(QColor(stil.kopf)))
+    maler.drawPath(reiter)
+
+    maler.setPen(QColor(stil.text))
+    maler.setFont(_namensschrift(fett=True, groesse=schriftgroesse(shape)))
+    maler.drawText(
+        QRectF(rechteck.left(), rechteck.top(), breite, hoehe),
+        Qt.AlignmentFlag.AlignCenter,
+        art,
+    )
+    if weitere:
+        maler.setFont(_namensschrift(fett=False, groesse=schriftgroesse(shape)))
+        maler.drawText(
+            QRectF(
+                rechteck.left() + breite + INNENABSTAND,
+                rechteck.top(),
+                rechteck.width() - breite - 2 * INNENABSTAND,
+                hoehe,
+            ),
+            int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
+            " ".join(weitere),
+        )
+
+
+def _zerstoerung_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
+    """Das Kreuz am Ende einer Lebenslinie."""
+    rechteck = form_rechteck(shape)
+    stift = QPen(QColor(stil.linie))
+    stift.setWidthF(LINIENBREITE * 1.6)
+    maler.setPen(stift)
+    maler.drawLine(rechteck.topLeft(), rechteck.bottomRight())
+    maler.drawLine(rechteck.topRight(), rechteck.bottomLeft())
+
+
 def _paket_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
     rechteck = form_rechteck(shape)
     reiter = QRectF(rechteck.left(), rechteck.top(), rechteck.width() / 2.5, ECKE)
@@ -682,11 +924,43 @@ def _rand_punkt(rechteck: QRectF, richtung_auf: QPointF) -> QPointF:
     return QPointF(mitte.x() + dx * skalierung, mitte.y() + dy * skalierung)
 
 
+def nachrichtenhoehe(
+    verbindung: dict[str, Any], quelle: dict[str, Any], ziel: dict[str, Any]
+) -> float:
+    """Auf welcher Höhe eine waagerechte Nachricht läuft.
+
+    Ohne eigene Angabe ein Stück unterhalb der Köpfe – dort ist bei
+    einem frischen Sequenzdiagramm Platz, und die Nachricht liegt nicht
+    im Namen der Lebenslinie.
+    """
+    eigene = verbindung.get("y")
+    if eigene is not None:
+        return float(eigene)
+    oben = max(float(quelle["y"]), float(ziel["y"]))
+    return oben + KOPFHOEHE + 24
+
+
 def verbindungs_punkte(
     verbindung: dict[str, Any], quelle: dict[str, Any], ziel: dict[str, Any]
 ) -> list[QPointF]:
     """Alle Stützpunkte der Linie: Rand der Quelle, gesetzte
-    Knickpunkte, Rand des Ziels."""
+    Knickpunkte, Rand des Ziels.
+
+    Eine **waagerechte** Verbindung (die Nachrichten des
+    Sequenzdiagramms) ist der Sonderfall: sie läuft auf einer festen
+    Höhe von Lebenslinie zu Lebenslinie. Von Mitte zu Mitte zu zeigen
+    wäre dort sinnlos – bei nebeneinanderstehenden Lebenslinien lägen
+    alle Nachrichten übereinander auf halber Höhe, und die Reihenfolge,
+    die ein Sequenzdiagramm gerade ausmacht, ginge verloren.
+    """
+    from ide.diagramm.formen import verbindungs_art
+
+    if verbindungs_art(verbindung["kind"]).waagerecht:
+        hoehe = nachrichtenhoehe(verbindung, quelle, ziel)
+        quell_mitte = float(quelle["x"]) + float(quelle["w"]) / 2
+        ziel_mitte = float(ziel["x"]) + float(ziel["w"]) / 2
+        return [QPointF(quell_mitte, hoehe), QPointF(ziel_mitte, hoehe)]
+
     zwischen = [QPointF(x, y) for x, y in (verbindung.get("waypoints") or [])]
     quell_rechteck = form_rechteck(quelle)
     ziel_rechteck = form_rechteck(ziel)
@@ -790,7 +1064,12 @@ def _spitze_zeichnen(
     pfad.lineTo(links)
     pfad.lineTo(rechts)
     pfad.closeSubpath()
-    maler.setBrush(QBrush(QColor(stil.hintergrund)))  # leeres Dreieck
+    # „dreieck“ = leer (Vererbung), „gefuellt“ = ausgefüllt (synchrone
+    # Nachricht im Sequenzdiagramm). Beide sind dasselbe Dreieck, nur
+    # anders gefüllt.
+    maler.setBrush(
+        QBrush(maler.pen().color() if art == "gefuellt" else QColor(stil.hintergrund))
+    )
     maler.drawPath(pfad)
     maler.setBrush(Qt.BrushStyle.NoBrush)
 

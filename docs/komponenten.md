@@ -8,12 +8,13 @@ umgesetzt wird. Siehe konzept-natter.md, Abschnitt 5 und 23.2.
 Status: `Form`, `Button`, `Label`, `Shape`, `Edit`, `CheckBox`,
 `RadioButton`, `Memo`, `ListBox`, `ComboBox`, `StringGrid`, `Image`,
 `ScrollBar` sind umgesetzt (M1, Schritt 2/3/6), `Chart` dazu aus M10.
-Rest folgt später in Schritt 6 – nur deklariert/nicht genutzt oder in
+Aus Schritt 6 kamen `SpinEdit`, `FloatSpinEdit`, `TrackBar`,
+`ProgressBar`, `Timer`, `GroupBox`, `Panel` und `RadioGroup` dazu.
+Rest folgt später – nur deklariert/nicht genutzt oder in
 keinem Referenzprojekt vorhanden, daher niedrigere Priorität:
-`RadioGroup`, `GroupBox`, `Panel`,
-`MainMenu`, `PopupMenu`, `SpinEdit`, `FloatSpinEdit`, `MaskEdit`,
-`PaintBox`, `HtmlViewer`, `TrackBar`, `ProgressBar`, `DateEdit`, `TimeEdit`,
-`Calendar`, Dialoge, `Timer`, `Sound`.
+`MainMenu`, `PopupMenu`, `MaskEdit`,
+`PaintBox`, `HtmlViewer`, `DateEdit`, `TimeEdit`,
+`Calendar`, weitere Dialoge, `Sound`.
 
 ## Form
 
@@ -224,6 +225,234 @@ Qt-Basis: `QScrollBar`, horizontal (`pcl/components/standard.py`)
 Gegen die echte Nutzung in `f_Pizza` geprüft (`sb_behinderung.position`
 steuert dort die Schriftgröße eines Memos, Min=5/Max=50).
 
+## SpinEdit
+
+Qt-Basis: `QSpinBox` (`pcl/components/additional.py`)
+
+| Eigenschaft | Typ | Standardwert | Kategorie | Hilfetext |
+|---|---|---|---|---|
+| left, top, width, height, enabled | wie `Control` | – | – | geerbt von `Control` |
+| minimum | int | 0 | Verhalten | Kleinster möglicher Wert |
+| maximum | int | 100 | Verhalten | Größter möglicher Wert |
+| value | int | 0 | Verhalten | Aktueller Wert |
+| increment | int | 1 | Verhalten | Schrittweite der beiden Pfeilknöpfe |
+
+| Ereignis | Signatur | Auslöser |
+|---|---|---|
+| on_change | (self, sender) | Änderung des Wertes (Pfeilknopf, Tastatur oder Code) |
+
+`value` heißt wie Lazarus' `TSpinEdit.Value` – anders als bei
+`ScrollBar`/`TrackBar`, wo der Wert in der LCL `Position` heißt. Die
+`pcl`-Namen folgen hier bewusst der jeweiligen Lazarus-Komponente, damit
+ein aus dem Unterricht bekanntes Programm ohne Umdenken übertragbar
+bleibt.
+
+Ein Wert außerhalb von `minimum`..`maximum` wird von Qt auf die Grenze
+gekappt; `value` trägt danach den gekappten Wert, nicht den zugewiesenen.
+
+## FloatSpinEdit
+
+Qt-Basis: `QDoubleSpinBox` (`pcl/components/additional.py`)
+
+| Eigenschaft | Typ | Standardwert | Kategorie | Hilfetext |
+|---|---|---|---|---|
+| left, top, width, height, enabled | wie `Control` | – | – | geerbt von `Control` |
+| minimum | float | 0.0 | Verhalten | Kleinster möglicher Wert |
+| maximum | float | 100.0 | Verhalten | Größter möglicher Wert |
+| value | float | 0.0 | Verhalten | Aktueller Wert |
+| increment | float | 1.0 | Verhalten | Schrittweite der beiden Pfeilknöpfe |
+| decimals | int | 2 | Darstellung | Anzahl der angezeigten Nachkommastellen |
+
+| Ereignis | Signatur | Auslöser |
+|---|---|---|
+| on_change | (self, sender) | Änderung des Wertes (Pfeilknopf, Tastatur oder Code) |
+
+Wie bei jeder `float`-Eigenschaft darf auch eine ganze Zahl zugewiesen
+werden (`pcl.properties.Prop._passt_typ`); gelesen wird immer ein
+`float`. `decimals` rundet den Wert wie in Qt auch tatsächlich, nicht
+nur die Anzeige: nach `decimals = 1` ist aus `2.25` ein `2.3` geworden,
+und `value` liefert danach ebenfalls `2.3`.
+
+## TrackBar
+
+Qt-Basis: `QSlider`, horizontal (`pcl/components/additional.py`)
+
+| Eigenschaft | Typ | Standardwert | Kategorie | Hilfetext |
+|---|---|---|---|---|
+| left, top, enabled | wie `Control` | – | – | geerbt von `Control` |
+| width | int | 150 | Layout | Breite in Pixeln |
+| height | int | 30 | Layout | Höhe in Pixeln |
+| minimum | int | 0 | Verhalten | Kleinster möglicher Wert |
+| maximum | int | 10 | Verhalten | Größter möglicher Wert |
+| position | int | 0 | Verhalten | Aktueller Wert |
+| frequency | int | 1 | Darstellung | Abstand der Teilstriche unter dem Schieber; 0 = keine Teilstriche |
+
+| Ereignis | Signatur | Auslöser |
+|---|---|---|
+| on_change | (self, sender) | Änderung der Position (Ziehen, Tastatur oder Code) |
+
+`maximum` ist 10 und nicht 100, `frequency` ist 1 – beides wie
+`TTrackBar` in Lazarus. Mit `maximum = 100` und `frequency = 1` würden
+die Teilstriche bei 150 Pixeln Breite zu einem durchgehenden Balken
+verschmelzen.
+
+Die Standardgröße steht als `Prop`-Standard an der Komponente (wie bei
+`Chart`) und nicht in der Tabelle des Designers, damit erzeugter Code und
+eine von Hand geschriebene Komponente dieselbe Größe bekommen.
+
+## ProgressBar
+
+Qt-Basis: `QProgressBar` (`pcl/components/additional.py`)
+
+| Eigenschaft | Typ | Standardwert | Kategorie | Hilfetext |
+|---|---|---|---|---|
+| left, top, enabled | wie `Control` | – | – | geerbt von `Control` |
+| width | int | 150 | Layout | Breite in Pixeln |
+| height | int | 22 | Layout | Höhe in Pixeln |
+| minimum | int | 0 | Verhalten | Kleinster möglicher Wert |
+| maximum | int | 100 | Verhalten | Größter möglicher Wert |
+| position | int | 0 | Verhalten | Aktueller Wert (Füllstand) |
+| show_text | bool | True | Darstellung | Prozentzahl im Balken anzeigen |
+
+Keine Ereignisse (auch `TProgressBar` in Lazarus hat keine).
+
+`show_text` ist neu gegenüber Lazarus, wo der Balken nie eine Zahl
+trägt. Qt zeigt sie von sich aus an, und im Unterricht ist genau das
+hilfreich; `show_text = False` liefert die Lazarus-Optik.
+
+Ein `position` außerhalb von `minimum`..`maximum` wird auf die Grenze
+gekappt, wie bei `SpinEdit` und `TrackBar` auch. Das musste die
+Komponente selbst tun: `QProgressBar.setValue()` **ignoriert** einen zu
+großen Wert stillschweigend, statt ihn zu kappen – `position = 300` ließ
+den Balken kommentarlos auf 0 stehen.
+
+## Timer
+
+Qt-Basis: `QTimer` (`pcl/components/system.py`)
+
+| Eigenschaft | Typ | Standardwert | Kategorie | Hilfetext |
+|---|---|---|---|---|
+| enabled | bool | True | Verhalten | Legt fest, ob der Zeitgeber läuft |
+| interval | int | 1000 | Verhalten | Abstand zwischen zwei Auslösungen in Millisekunden |
+
+| Ereignis | Signatur | Auslöser |
+|---|---|---|
+| on_timer | (self, sender) | nach jeweils `interval` Millisekunden, solange `enabled` wahr ist |
+
+**Keine `Control`-Komponente**, sondern – wie `SQLite3Connection`,
+`SQLTransaction`, `SQLQuery` und `DataSource` – eine `Komponente` ohne
+Widget. Ein `Timer` hat deshalb weder `left`/`top` noch eine Kachel in
+der Palette; er entsteht im Quelltext:
+
+```python
+def create_components(self):
+    self.t_ampel = Timer()
+    self.t_ampel.interval = 2000
+    self.t_ampel.on_timer = self.t_ampel_timer
+```
+
+Lazarus zeigt für nicht sichtbare Komponenten zur Entwurfszeit ein
+Symbol auf dem Formular. Damit Natter das auch könnte, müsste der
+Designer nicht sichtbare Komponenten kennen (`.pfm`-Serialisierung,
+Komponentenbaum, Auswahlrahmen) – das betrifft `ide/designer/`,
+`ide/codegen/` und `ide/inspector/` und ist hier bewusst offen
+geblieben, siehe Abschnitt „Offene Punkte“ am Ende dieser Datei.
+
+`enabled` ist wie in Lazarus standardmäßig **wahr**: ein frisch
+erzeugter `Timer` läuft sofort los. `interval = 0` stoppt ihn nicht,
+sondern lässt Qt so oft auslösen, wie die Ereignisschleife es zulässt –
+wie in der LCL. `stop()`/`start()` gibt es bewusst nicht; `enabled`
+ist der eine Schalter, wie in Lazarus.
+
+## GroupBox
+
+Qt-Basis: `QGroupBox` (`pcl/components/standard.py`)
+
+| Eigenschaft | Typ | Standardwert | Kategorie | Hilfetext |
+|---|---|---|---|---|
+| left, top, enabled | wie `Control` | – | – | geerbt von `Control` |
+| width | int | 185 | Layout | Breite in Pixeln |
+| height | int | 105 | Layout | Höhe in Pixeln |
+| caption | str | "GroupBox1" | Darstellung | Beschriftung über dem Rahmen |
+
+Keine eigenen Ereignisse.
+
+## Panel
+
+Qt-Basis: `QFrame` mit eigener Beschriftung (`pcl/components/standard.py`)
+
+| Eigenschaft | Typ | Standardwert | Kategorie | Hilfetext |
+|---|---|---|---|---|
+| left, top, enabled | wie `Control` | – | – | geerbt von `Control` |
+| width | int | 185 | Layout | Breite in Pixeln |
+| height | int | 105 | Layout | Höhe in Pixeln |
+| caption | str | "Panel1" | Darstellung | Beschriftung, mittig auf der Fläche; leer = keine |
+| color | str (Hex) | "" | Darstellung | Hintergrundfarbe als #RRGGBB, leer = Farbe des Themes |
+
+Keine eigenen Ereignisse.
+
+Die Beschriftung wird selbst gezeichnet statt über ein Kind-`QLabel`
+gelegt: ein Kind-Widget läge sonst über den Komponenten, die später auf
+dem Panel entstehen, und finge deren Mausklicks ab.
+
+## Behälter: was `GroupBox`, `Panel` und `RadioGroup` schon können
+
+`Control` nimmt seit jeher ein beliebiges `parent` entgegen und hängt
+sich an dessen `_qwidget`. Ein `GroupBox` oder `Panel` als `parent`
+funktioniert damit zur **Laufzeit** vollständig: die Kind-Komponente
+wird auf den Behälter geklebt, `left`/`top` zählen ab dessen linker
+oberer Ecke, und `enabled = False` am Behälter sperrt den ganzen Inhalt
+auf einmal (das erledigt Qt).
+
+```python
+self.g_zahlung = GroupBox(self)
+self.rb_bar = RadioButton(self.g_zahlung)   # links/oben relativ zur GroupBox
+```
+
+Im **Designer** geht das noch nicht: dort landet jede abgelegte
+Komponente am Formular. Optisch ist das Ergebnis dasselbe (die
+Komponente liegt über dem Behälter), die `.pfm` beschreibt sie aber als
+Kind des Formulars. Was dafür fehlt, steht unter „Offene Punkte“.
+
+`RadioGroup` braucht das alles **nicht**: sie erzeugt ihre Optionsfelder
+wie `TRadioGroup` in Lazarus selbst aus `items` und ist damit auch im
+Designer vollständig benutzbar.
+
+## RadioGroup
+
+Qt-Basis: `QGroupBox` mit je einem `QRadioButton` pro Eintrag
+(`pcl/components/standard.py`)
+
+| Eigenschaft | Typ | Standardwert | Kategorie | Hilfetext |
+|---|---|---|---|---|
+| left, top, enabled | wie `Control` | – | – | geerbt von `Control` |
+| width | int | 185 | Layout | Breite in Pixeln |
+| height | int | 105 | Layout | Höhe in Pixeln |
+| caption | str | "RadioGroup1" | Darstellung | Beschriftung über dem Rahmen |
+| items | `Strings` | leer | Daten | Die Optionen; Sammlungs-Eigenschaft (siehe „Schrift und Sammlungen“) |
+| item_index | int | -1 | Verhalten | Index der gewählten Option, -1 = keine Auswahl |
+
+| Ereignis | Signatur | Auslöser |
+|---|---|---|
+| on_change | (self, sender) | Wechsel der Auswahl (Klick oder Code) |
+
+Gegen `RadioGroup1` aus `referenz/lazarus/f_Pizza` geprüft – dort zwar
+nur deklariert, aber mit denselben Eigenschaftsnamen wie `TRadioGroup`
+(`Items`, `ItemIndex`, `Caption`).
+
+Anders als bei einzelnen `RadioButton`-Komponenten ist die gegenseitige
+Ausschließlichkeit hier echt: Qt setzt sie innerhalb der `QGroupBox`
+automatisch durch, und `item_index` ist die eine Stelle, an der die
+Auswahl steht.
+
+`item_index` zeigt nie auf eine Option, die es nicht gibt: ein Index
+außerhalb von `0..len(items)-1` fällt auf `-1` zurück – sowohl beim
+Zuweisen als auch, wenn `items` kürzer wird. `item_index = -1` hebt die
+Auswahl wirklich auf. Das musste eigens gelöst werden: ein Optionsfeld
+in einer Gruppe lässt sich mit `setChecked(False)` nicht abwählen, weil
+Qt in einer Gruppe immer eine gewählte Schaltfläche haben will – die
+Komponente hebt `autoExclusive` dafür kurz auf.
+
 ## Chart
 
 Qt-Basis: `FigureCanvasQTAgg` aus matplotlib (`pcl/components/chart.py`)
@@ -393,6 +622,56 @@ Objektinspektor öffnet ein Doppelklick auf die Zeile einen Zeileneditor
 allen anderen Eigenschaften, weil das Füllen der Sammlung die Auswahl im
 Qt-Widget zurücksetzt und eine im Designer gesetzte `item_index`-
 Vorauswahl sonst wieder verloren ginge.
+
+## Offene Punkte
+
+Was den Komponenten aus Schritt 6 noch fehlt und **außerhalb von `pcl`**
+gelöst werden muss – festgehalten, damit es nicht in Modulen versickert,
+die niemand mehr liest:
+
+1. **Behälter im Designer.** Eine im Designer abgelegte Komponente wird
+   immer ein Kind des Formulars (`ide/designer/canvas.py`,
+   `_PlatzierenKommando`: `typ(canvas.formular)`). Damit ein `Panel` oder
+   eine `GroupBox` dort wirklich etwas aufnimmt, müssten vier Stellen
+   zusammenspielen: der Designer müsste beim Ablegen den Behälter unter
+   dem Mauszeiger als `parent` wählen und die Koordinaten umrechnen,
+   `ide/inspector/komponentenbaum.py` die Kinder am Behälter statt am
+   Formular suchen (`kind_komponenten` liest heute `vars(objekt)`, ein
+   Kind des Panels steht aber als Attribut des Formulars da),
+   `ide/designer/pfm_schreiben.py` sie in das bereits vorhandene
+   `children`-Feld des Behälters schreiben (`schemas/pfm.schema.json`
+   kann Verschachtelung schon) und `ide/codegen/design.py` daraus
+   `Button(self.p_feld)` statt `Button(self)` erzeugen.
+2. **Nicht sichtbare Komponenten im Designer.** `Timer` (und ebenso die
+   Datenbank-Komponenten aus M5) lassen sich nur im Quelltext erzeugen,
+   weil der Designer ausschließlich `Control`-Komponenten kennt. Lazarus
+   legt dafür ein Symbol auf das Formular, das nur zur Entwurfszeit zu
+   sehen ist. Dafür bräuchte es einen Entwurfszeit-Platzhalter im
+   Designer und eine `children`-Serialisierung, die nicht an `Control`
+   hängt.
+3. **Standardgrößen beim Ablegen.** `_STANDARDGROESSEN` in
+   `ide/designer/canvas.py` kennt die neuen Komponenten nicht. Sie
+   bringen ihre Größe deshalb als `Prop`-Standard selbst mit (wie
+   `Chart`) – das wirkt überall gleich und ist die bessere Lösung, aber
+   der Eintrag dort bleibt der Vollständigkeit halber offen.
+4. **`SpinEdit` verliert im Designer seine Pfeilspitzen.**
+   `ide/shell/theme.py` führt `QSpinBox` in derselben Regel wie
+   `QLineEdit`/`QComboBox` (Zeile ~254). Sobald eine Komponente auch nur
+   eine QSS-Regel abbekommt, zeichnet Qt sie vollständig aus dem
+   Stylesheet – und die beiden Pfeilspitzen fallen ersatzlos weg
+   (Bildvergleich, Schritt 6; `pcl/theme/__init__.py` nimmt `QSpinBox`
+   deshalb bewusst aus). Das Stylesheet des Hauptfensters kaskadiert in
+   das eingebettete Designer-Formular hinein, deshalb betrifft es dort
+   auch `SpinEdit`; ebenso die `QSpinBox`-Felder der IDE selbst
+   (`ide/diagramm/eigenschaften.py`, `ide/diagramm/klassendialog.py`).
+   `QDoubleSpinBox` steht nicht in der Regel und ist darum in Ordnung –
+   `FloatSpinEdit` sieht im Designer richtig aus. Die Korrektur ist ein
+   Wort: `, QSpinBox` aus diesem einen Selektor streichen. Außerhalb von
+   `pcl/` und deshalb hier nur festgehalten.
+5. **Noch nicht umgesetzt:** `MainMenu`, `PopupMenu` (beide brauchen
+   einen eigenen Menü-Editor im Designer), `MaskEdit`, `PaintBox`,
+   `HtmlViewer`, `DateEdit`, `TimeEdit`, `Calendar`, `Sound` und die
+   restlichen Dialoge aus Abschnitt 5.2.
 
 ## Vorlage pro Komponente
 

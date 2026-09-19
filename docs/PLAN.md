@@ -830,11 +830,12 @@ Ausdrücklicher Wunsch des Nutzers, gilt für jeden Schritt:
   Diagrammarten, Datenquellen (CSV/SQL/StringGrid), Regression über
   numpy, Beispielprojekt `beispielprojekte/Regression/`. Gemessen und
   im Paket festgehalten: scikit-learn kostet die Exe 108 MB
-- [ ] **9.** M9 „Danach“ – Use-Case-, Aktivitäts-, Zustands- und
+- [x] **9.** M9 „Danach“ – Use-Case-, Aktivitäts-, Zustands- und
   Sequenzdiagramm samt Abnahme
-- [ ] **10.** Reste aus früheren Paketen – M3 (Klick+Klick-Platzierung),
-  M5 (Designzeit-Aktivierung, Credential Store, „Als Tabelle
-  anzeigen“, Drag & Drop), M8 (Pascal-Rümpfe, Bild-Extraktion)
+- [x] **10.** Reste aus früheren Paketen – M3, M5 und M8. Offen bleibt
+  nur die Designzeit-Aktivierung der SQLdb-Komponenten: sie braucht
+  eine Designer-Integration für nicht-visuelle Komponenten, die es
+  bisher gar nicht gibt (in M5 seit langem so begründet)
 - [ ] **11.** Restliche `pcl`-Komponenten aus M1 Schritt 6 sowie die
   kleinen offenen Punkte aus M0 und dem Referenzmaterial
 - [ ] **12.** M11 – Schülertauglichkeit: Funktionsprüfung mit
@@ -883,4 +884,4 @@ tut, was sie verspricht.
 Siehe „Umsetzungsreihenfolge“ oben – der Lauf arbeitet die vierzehn
 Punkte der Reihe nach ab. Die Punkte 0 bis 3 sind erledigt, aus
 Punkt 8 sind M10 Punkt 1 und 2 vorgezogen und fertig. Aktuell:
-**Punkt 9**, die vier weiteren UML-Diagrammarten.
+**Punkt 11**, die restlichen `pcl`-Komponenten.

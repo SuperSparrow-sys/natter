@@ -51,6 +51,7 @@ from ide.diagramm.zeichnen import (
     knickpunkt_bei,
     knickpunkte_zeichnen,
     mindesthoehe,
+    nachrichtenhoehe,
     segment_bei,
     verbindung_zeichnen,
     verbindungsbeschriftungen_zeichnen,
@@ -137,6 +138,8 @@ class DiagrammCanvas(ZoomMischung, QWidget):
         self._hilfslinien: list[tuple[str, float]] = []
         #: Auswahlrahmen (von-Punkt, Bis-Punkt) während des Aufziehens
         self._rahmen: tuple[QPoint, QPoint] | None = None
+        #: Gezogene Nachricht: (Verbindung, Starthöhe, Start-y der Maus)
+        self._zieh_nachricht: tuple[dict[str, Any], float, int] | None = None
         #: Gezogener Knickpunkt: (Verbindung, Nummer, Startwert)
         self._zieh_knick: tuple[dict[str, Any], int, list] | None = None
         #: Gezogene Beschriftung: (Verbindung, „from“/„to“, Startversatz)
@@ -676,6 +679,7 @@ class DiagrammCanvas(ZoomMischung, QWidget):
             verbindung = self.verbindung_bei(punkt.x(), punkt.y())
             if verbindung is not None:
                 self._verbindung_auswaehlen(verbindung)
+                self._nachricht_greifen(verbindung, punkt)
                 return
             if not strg:
                 self.auswahl_aufheben()
@@ -845,6 +849,12 @@ class DiagrammCanvas(ZoomMischung, QWidget):
             self.update()
             return
 
+        if self._zieh_nachricht is not None:
+            verbindung, anfangshoehe, maus_y = self._zieh_nachricht
+            verbindung["y"] = _am_raster(anfangshoehe + punkt.y() - maus_y)
+            self.update()
+            return
+
         if self._zieh_knick is not None:
             verbindung, nummer, anfang = self._zieh_knick
             knicke = [list(paar) for paar in anfang]
@@ -909,6 +919,21 @@ class DiagrammCanvas(ZoomMischung, QWidget):
         if self._rahmen is not None:
             self._rahmen_beenden()
             return
+        if self._zieh_nachricht is not None:
+            verbindung, anfangshoehe, _ = self._zieh_nachricht
+            self._zieh_nachricht = None
+            jetzt = verbindung.get("y")
+            if jetzt is not None and jetzt != anfangshoehe:
+                # Live-Vorschau hat die Höhe schon verändert - deshalb
+                # die alte ausdrücklich mitgeben.
+                self.kommandos.ausfuehren(
+                    WerteKommando(
+                        verbindung, {"y": jetzt}, alte_werte={"y": anfangshoehe}
+                    )
+                )
+                self._nach_aenderung()
+            return
+
         if self._zieh_knick is not None:
             verbindung, _, anfang = self._zieh_knick
             self._zieh_knick = None
@@ -969,6 +994,32 @@ class DiagrammCanvas(ZoomMischung, QWidget):
             self._nach_aenderung()
         else:
             self.update()
+
+    def _nachricht_greifen(self, verbindung: dict[str, Any], punkt: QPoint) -> None:
+        """Eine waagerechte Nachricht lässt sich mit der Maus nach oben
+        und unten schieben.
+
+        Im Sequenzdiagramm sagt allein die **Höhe**, wann eine Nachricht
+        geschickt wird – die Reihenfolge ist der eigentliche Inhalt des
+        Diagramms. Sie über ein Zahlenfeld einzustellen wäre mühsam;
+        also zieht man sie wie alles andere auch.
+        """
+        if not verbindungs_art(verbindung["kind"]).waagerecht:
+            return
+        quelle = self.form_mit_id(verbindung.get("from"))
+        ziel = self.form_mit_id(verbindung.get("to"))
+        if quelle is None or ziel is None:
+            return
+        self._zieh_nachricht = (
+            verbindung,
+            nachrichtenhoehe(verbindung, quelle, ziel),
+            punkt.y(),
+        )
+
+    def nachricht_verschieben(self, verbindung: dict[str, Any], hoehe: float) -> None:
+        """Setzt die Höhe einer Nachricht als eigenen Undo-Schritt."""
+        self.kommandos.ausfuehren(WerteKommando(verbindung, {"y": _am_raster(hoehe)}))
+        self._nach_aenderung()
 
     def _rahmen_beenden(self) -> None:
         """Wählt alles aus, was **vollständig** im aufgezogenen Rahmen

@@ -251,6 +251,7 @@
         "kind": { "type": "string" },
         "from": { "type": "string" },
         "to": { "type": "string" },
+        "y": { "type": "number", "description": "Höhe einer waagerechten Nachricht im Sequenzdiagramm. Ihre Reihenfolge ergibt sich allein daraus." },
         "waypoints": {
           "type": "array",
           "items": {

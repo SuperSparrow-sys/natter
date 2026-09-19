@@ -22,6 +22,8 @@ MVP_TYPEN = (
     "entscheidungstabelle",
     "use_case",
     "state",
+    "activity",
+    "sequence",
 )
 
 TYP_BESCHRIFTUNGEN = {

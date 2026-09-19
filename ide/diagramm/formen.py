@@ -13,6 +13,7 @@ plus seine Darstellung in `zeichnen.py`.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -103,6 +104,11 @@ class VerbindungsArt:
     #: «include»/«extend» gehört er zur Notation und nicht zur
     #: Beschriftung, die die Bedienerin selbst setzt.
     stereotyp: str = ""
+    #: Die Linie läuft **waagerecht** auf einer festen Höhe, statt von
+    #: Mitte zu Mitte zu zeigen. So funktionieren die Nachrichten im
+    #: Sequenzdiagramm: sie gehen von Lebenslinie zu Lebenslinie, und
+    #: **wann** sie geschickt werden, sagt allein ihre Höhe.
+    waagerecht: bool = False
 
 
 ASSOZIATION = VerbindungsArt(
@@ -207,15 +213,38 @@ USE_CASE_VERBINDUNGEN: tuple[VerbindungsArt, ...] = (
     ),
 )
 
+#: Start, Ende und Entscheidung sehen im Zustands- und im
+#: Aktivitätsdiagramm gleich aus und heißen in UML auch gleich - deshalb
+#: **ein** Objekt für beide Paletten (siehe `NOTIZ`).
+STARTKNOTEN = FormArt(
+    kind="initial_state",
+    beschriftung="Startknoten",
+    beschreibung="ausgefüllter Kreis, wo der Ablauf beginnt",
+    breite=32,
+    hoehe=32,
+    standardname="",
+)
+
+ENDKNOTEN = FormArt(
+    kind="final_state",
+    beschriftung="Endknoten",
+    beschreibung="Ring mit ausgefülltem Kern",
+    breite=36,
+    hoehe=36,
+    standardname="",
+)
+
+ENTSCHEIDUNG = FormArt(
+    kind="decision",
+    beschriftung="Entscheidung",
+    beschreibung="Raute, an der sich der Ablauf teilt",
+    breite=96,
+    hoehe=72,
+    standardname="",
+)
+
 ZUSTANDSDIAGRAMM_FORMEN: tuple[FormArt, ...] = (
-    FormArt(
-        kind="initial_state",
-        beschriftung="Startzustand",
-        beschreibung="ausgefüllter Kreis, wo der Ablauf beginnt",
-        breite=32,
-        hoehe=32,
-        standardname="",
-    ),
+    STARTKNOTEN,
     FormArt(
         kind="state",
         beschriftung="Zustand",
@@ -232,22 +261,8 @@ ZUSTANDSDIAGRAMM_FORMEN: tuple[FormArt, ...] = (
         hoehe=240,
         standardname="Oberzustand",
     ),
-    FormArt(
-        kind="decision",
-        beschriftung="Entscheidung",
-        beschreibung="Raute, an der sich der Ablauf teilt",
-        breite=96,
-        hoehe=72,
-        standardname="",
-    ),
-    FormArt(
-        kind="final_state",
-        beschriftung="Endzustand",
-        beschreibung="Ring mit ausgefülltem Kern",
-        breite=36,
-        hoehe=36,
-        standardname="",
-    ),
+    ENTSCHEIDUNG,
+    ENDKNOTEN,
     NOTIZ,
 )
 
@@ -260,12 +275,167 @@ ZUSTANDSDIAGRAMM_VERBINDUNGEN: tuple[VerbindungsArt, ...] = (
     ),
 )
 
+AKTIVITAETSDIAGRAMM_FORMEN: tuple[FormArt, ...] = (
+    STARTKNOTEN,
+    FormArt(
+        kind="action",
+        beschriftung="Aktion",
+        beschreibung="abgerundetes Rechteck mit dem, was getan wird",
+        breite=176,
+        hoehe=56,
+        standardname="Aktion",
+    ),
+    ENTSCHEIDUNG,
+    FormArt(
+        # Gabelung und Vereinigung sind in UML **dasselbe** Zeichen; ob
+        # es teilt oder zusammenführt, sagen erst die Pfeile daran. Zwei
+        # Paletteneinträge für einen Balken wären eine Unterscheidung,
+        # die es beim Zeichnen gar nicht gibt.
+        kind="fork",
+        beschriftung="Gabelung/Vereinigung",
+        beschreibung="dicker Balken für nebenläufige Abläufe",
+        breite=200,
+        hoehe=12,
+        standardname="",
+    ),
+    FormArt(
+        kind="object_node",
+        beschriftung="Objektknoten",
+        beschreibung="Rechteck für ein Objekt, das weitergereicht wird",
+        breite=144,
+        hoehe=48,
+        standardname="Objekt",
+    ),
+    FormArt(
+        kind="swimlane",
+        beschriftung="Verantwortungsbereich",
+        beschreibung="Spalte mit Überschrift; wer die Aktionen darin ausführt",
+        breite=240,
+        hoehe=440,
+        standardname="Bereich",
+    ),
+    ENDKNOTEN,
+    FormArt(
+        kind="flow_final",
+        beschriftung="Ablaufende",
+        beschreibung="Kreis mit Kreuz: nur dieser Zweig endet",
+        breite=36,
+        hoehe=36,
+        standardname="",
+    ),
+    NOTIZ,
+)
+
+AKTIVITAETSDIAGRAMM_VERBINDUNGEN: tuple[VerbindungsArt, ...] = (
+    VerbindungsArt(
+        kind="control_flow",
+        beschriftung="Kontrollfluss",
+        beschreibung="Pfeil; die Bedingung steht in der Mitte",
+        spitze_am_ziel="offen",
+    ),
+    VerbindungsArt(
+        kind="object_flow",
+        beschriftung="Objektfluss",
+        beschreibung="gestrichelter Pfeil zu einem Objektknoten",
+        gestrichelt=True,
+        spitze_am_ziel="offen",
+    ),
+)
+
+SEQUENZDIAGRAMM_FORMEN: tuple[FormArt, ...] = (
+    FormArt(
+        kind="lifeline",
+        beschriftung="Lebenslinie",
+        beschreibung="Kopf mit Namen und gestrichelte Linie nach unten",
+        breite=160,
+        hoehe=400,
+        standardname="objekt: Klasse",
+    ),
+    FormArt(
+        # Eigene Kennung statt desselben "actor" wie im
+        # Use-Case-Diagramm: dort ist der Akteur 104 Pixel hoch und
+        # trägt keine Lebenslinie, hier 400 und trägt eine. Zwei Formen
+        # mit derselben Kennung und verschiedenen Maßen überschreiben
+        # sich gegenseitig - genau das ist hier real passiert.
+        kind="actor_lifeline",
+        beschriftung="Akteur",
+        beschreibung="Strichmännchen mit Lebenslinie darunter",
+        breite=80,
+        hoehe=400,
+        standardname="Akteur",
+    ),
+    FormArt(
+        kind="activation",
+        beschriftung="Aktivierungsbalken",
+        beschreibung="schmaler Balken auf der Lebenslinie, solange etwas läuft",
+        breite=16,
+        hoehe=96,
+        standardname="",
+    ),
+    FormArt(
+        kind="fragment",
+        beschriftung="Fragment",
+        beschreibung="Rahmen mit Reiter: alt, opt oder loop; darunter die Bedingung",
+        breite=320,
+        hoehe=160,
+        # Erste Zeile der Reiter, zweite die Bedingung – dasselbe
+        # Muster wie beim Zustand, damit es nur eine Art gibt, eine
+        # mehrteilige Form zu beschriften.
+        standardname="opt\n[Bedingung]",
+    ),
+    FormArt(
+        kind="destruction",
+        beschriftung="Zerstörung",
+        beschreibung="Kreuz am Ende einer Lebenslinie",
+        breite=28,
+        hoehe=28,
+        standardname="",
+    ),
+    NOTIZ,
+)
+
+SEQUENZDIAGRAMM_VERBINDUNGEN: tuple[VerbindungsArt, ...] = (
+    VerbindungsArt(
+        kind="sync_message",
+        beschriftung="Synchrone Nachricht",
+        beschreibung="durchgezogen mit gefüllter Spitze; der Sender wartet",
+        spitze_am_ziel="gefuellt",
+        waagerecht=True,
+    ),
+    VerbindungsArt(
+        kind="async_message",
+        beschriftung="Asynchrone Nachricht",
+        beschreibung="durchgezogen mit offener Spitze; der Sender wartet nicht",
+        spitze_am_ziel="offen",
+        waagerecht=True,
+    ),
+    VerbindungsArt(
+        kind="reply_message",
+        beschriftung="Antwort",
+        beschreibung="gestrichelt mit offener Spitze",
+        gestrichelt=True,
+        spitze_am_ziel="offen",
+        waagerecht=True,
+    ),
+    VerbindungsArt(
+        kind="create_message",
+        beschriftung="«create»",
+        beschreibung="gestrichelt; erzeugt das Objekt am Ziel",
+        gestrichelt=True,
+        spitze_am_ziel="offen",
+        stereotyp="create",
+        waagerecht=True,
+    ),
+)
+
 #: Diagrammtyp -> Formen der Palette (Abschnitt 13.2: Gruppen je
 #: Diagrammtyp).
 FORMEN_JE_TYP: dict[str, tuple[FormArt, ...]] = {
     "class": KLASSENDIAGRAMM_FORMEN,
     "use_case": USE_CASE_FORMEN,
     "state": ZUSTANDSDIAGRAMM_FORMEN,
+    "activity": AKTIVITAETSDIAGRAMM_FORMEN,
+    "sequence": SEQUENZDIAGRAMM_FORMEN,
 }
 
 #: Diagrammtyp -> Verbindungsarten der Palette.
@@ -273,12 +443,37 @@ VERBINDUNGEN_JE_TYP: dict[str, tuple[VerbindungsArt, ...]] = {
     "class": KLASSENDIAGRAMM_VERBINDUNGEN,
     "use_case": USE_CASE_VERBINDUNGEN,
     "state": ZUSTANDSDIAGRAMM_VERBINDUNGEN,
+    "activity": AKTIVITAETSDIAGRAMM_VERBINDUNGEN,
+    "sequence": SEQUENZDIAGRAMM_VERBINDUNGEN,
 }
 
-_NACH_KIND = {form.kind: form for formen in FORMEN_JE_TYP.values() for form in formen}
-_VERBINDUNG_NACH_KIND = {
-    art.kind: art for arten in VERBINDUNGEN_JE_TYP.values() for art in arten
-}
+def _nach_kind(je_typ: dict[str, tuple[Any, ...]], was: str) -> dict[str, Any]:
+    """Nachschlagetabelle über alle Diagrammtypen – und ein Wächter
+    dagegen, dass zwei **verschiedene** Einträge dieselbe Kennung
+    tragen.
+
+    Das ist real passiert: der Akteur des Sequenzdiagramms (80×400, mit
+    Lebenslinie) überschrieb stillschweigend den des Use-Case-Diagramms
+    (80×104), und dort stand plötzlich ein 400 Pixel hoher Akteur. Eine
+    gemeinsame Form ist erlaubt – dann aber **dasselbe** Objekt, wie bei
+    `NOTIZ` und `ASSOZIATION`.
+    """
+    tabelle: dict[str, Any] = {}
+    for eintraege in je_typ.values():
+        for eintrag in eintraege:
+            vorhanden = tabelle.get(eintrag.kind)
+            if vorhanden is not None and vorhanden is not eintrag:
+                raise ValueError(
+                    f"Zwei verschiedene {was} tragen die Kennung "
+                    f"{eintrag.kind!r}. Gemeinsame {was} müssen dasselbe "
+                    f"Objekt sein (siehe NOTIZ)."
+                )
+            tabelle[eintrag.kind] = eintrag
+    return tabelle
+
+
+_NACH_KIND = _nach_kind(FORMEN_JE_TYP, "Formen")
+_VERBINDUNG_NACH_KIND = _nach_kind(VERBINDUNGEN_JE_TYP, "Verbindungsarten")
 
 
 def formen_fuer(diagrammtyp: str) -> tuple[FormArt, ...]:

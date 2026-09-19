@@ -57,7 +57,14 @@ def _beschriftung(shape: dict[str, Any]) -> str:
 #: Formen, die andere Formen **umschließen sollen**. Eine Systemgrenze
 #: voller Anwendungsfälle ist kein Layout-Fehler, sondern genau ihr
 #: Zweck; ein Paket kann ebenso Klassen enthalten.
-BEHAELTERFORMEN = ("system_boundary", "package", "composite_state")
+BEHAELTERFORMEN = (
+    "system_boundary",
+    "package",
+    "composite_state",
+    "swimlane",
+    "fragment",
+    "lifeline",
+)
 
 
 def _umschliesst(aussen: dict[str, Any], innen: dict[str, Any]) -> bool:
