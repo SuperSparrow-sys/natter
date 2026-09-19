@@ -3,7 +3,7 @@ docs/arbeitspakete/M2.md, Schritt 1.
 """
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QTabWidget
+from PySide6.QtWidgets import QStackedWidget, QTabWidget
 
 from ide.inspector import Objektinspektor
 from ide.shell.hauptfenster import MENUETITEL, PANEL_REITER, HauptFenster
@@ -66,10 +66,15 @@ def test_menue_liefert_das_richtige_menue_ueber_seinen_titel() -> None:
 
 
 def test_zentrale_editor_tabs_sind_leer_und_schliessbar() -> None:
+    """Seit M11 steckt in der Mitte ein Stapel aus Startbild und
+    Editor-Tabs: solange nichts offen ist, steht dort, was man tun
+    kann, statt einer leeren grauen Fläche."""
     fenster = HauptFenster()
-    assert isinstance(fenster.centralWidget(), QTabWidget)
+    assert isinstance(fenster.centralWidget(), QStackedWidget)
+    assert isinstance(fenster.editor_tabs, QTabWidget)
     assert fenster.editor_tabs.count() == 0
     assert fenster.editor_tabs.tabsClosable() is True
+    assert fenster.mitte.currentWidget() is fenster.startbild
 
 
 def test_docks_an_den_richtigen_bereichen() -> None:

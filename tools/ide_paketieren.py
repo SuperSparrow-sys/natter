@@ -49,6 +49,8 @@ _DIST_ORDNER = _PROJEKT_WURZEL / "dist"
 _AUSGABE = _DIST_ORDNER / "Natter"
 _BUILD_ORDNER = _PROJEKT_WURZEL / "_pyinstaller_build_ide"
 _SPEC_ORDNER = _PROJEKT_WURZEL / "_pyinstaller_spec_ide"
+_BEISPIEL_ORDNER = _PROJEKT_WURZEL / "beispielprojekte"
+_DOCS_ORDNER = _PROJEKT_WURZEL / "docs"
 _LIZENZ_VORLAGEN = Path(__file__).resolve().parent / "lizenz_vorlagen"
 _SIGNIER_SKRIPT = Path(__file__).resolve().parent / "signieren" / "datei_signieren.ps1"
 _MANIFEST_SCHLUESSEL = Path(__file__).resolve().parent / "signieren" / "manifest-privat.pem"
@@ -109,6 +111,14 @@ def _pyinstaller_bauen() -> None:
         # weiterhin dorthin zeigt.
         "--add-data",
         f"{_ICONS_ORDNER}{os.pathsep}ide/assets/icons",
+        # Die zehn Beispielprojekte und die Anleitung. Das Startbild
+        # (M11) bietet beide an; ohne sie stuende dort in einer
+        # installierten Natter ein leerer Abschnitt, und genau die
+        # Beispiele sind der schnellste Weg hinein.
+        "--add-data",
+        f"{_BEISPIEL_ORDNER}{os.pathsep}beispielprojekte",
+        "--add-data",
+        f"{_DOCS_ORDNER}{os.pathsep}docs",
         # scikit-learn kommt sonst gar nicht mit. Nachgemessen (M10):
         # steht es nur in pyproject.toml, zieht PyInstaller allein
         # `scipy` hinein - weil numpy/matplotlib es über ihre Hooks

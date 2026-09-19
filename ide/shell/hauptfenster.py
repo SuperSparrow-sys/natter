@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QScrollArea,
+    QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
@@ -75,12 +76,14 @@ from ide.integritaet.start_pruefung import installation_pruefen
 from ide.lint import pruefen
 from ide.palette import Komponentenpalette
 from ide.palette.palette import TYP_ROLLE
+from ide.pfade import daten_ordner
 from ide.project import Projekt, projekt_erzeugen
 from ide.project.neu_dialog import NeuesProjektDialog
 from ide.run import projekt_pruefen, projekt_starten
 from ide.shell.explorer import PFAD_ROLLE, ProjektExplorer
 from ide.shell.quelltexteditor import SCHRIFTART_OPTIONEN, QuelltextEditor
 from ide.shell.schnellauswahl import SchnellAuswahl
+from ide.shell.startbild import Startbild, beispiel_kopieren, zuletzt_merken
 from ide.shell.suchen_dialog import SuchenErsetzenDialog
 from ide.shell.theme import ide_qss_erzeugen
 from ide.testrunner import Testergebnis, ergebnisse_als_html, tests_ausfuehren
@@ -210,7 +213,23 @@ class HauptFenster(QMainWindow):
         self.editor_tabs = QTabWidget()
         self.editor_tabs.setTabsClosable(True)
         self.editor_tabs.setMovable(True)
-        self.setCentralWidget(self.editor_tabs)
+
+        # Startbild statt leerer Fläche (M11, Abschnitt 4): solange
+        # nichts offen ist, steht hier, was man tun kann. Ein Stapel
+        # statt eines eigenen Tabs, damit `editor_tabs` derselbe bleibt
+        # und kein Test und kein Aufrufer eine Sonderzählung braucht.
+        self.startbild = Startbild(self._design_einstellungen)
+        self.startbild.neues_projekt_gewuenscht.connect(self._neues_projekt_dialog)
+        self.startbild.projekt_oeffnen_gewuenscht.connect(self._projekt_oeffnen_dialog)
+        self.startbild.erste_schritte_gewuenscht.connect(self._erste_schritte_aktion)
+        self.startbild.projekt_gewaehlt.connect(self.projekt_oeffnen)
+        self.startbild.beispiel_gewaehlt.connect(self.beispiel_oeffnen)
+
+        self.mitte = QStackedWidget()
+        self.mitte.addWidget(self.startbild)
+        self.mitte.addWidget(self.editor_tabs)
+        self.setCentralWidget(self.mitte)
+        self.editor_tabs.currentChanged.connect(self._startbild_umschalten)
 
         self.explorer = ProjektExplorer()
         self.explorer.itemDoubleClicked.connect(self._bei_explorer_doppelklick)
@@ -1042,10 +1061,49 @@ class HauptFenster(QMainWindow):
         """Liefert das Menü mit diesem Titel (Abschnitt 7.2)."""
         return self._menues[titel]
 
+    def _startbild_umschalten(self, *_werte: object) -> None:
+        """Zeigt das Startbild, solange kein Tab offen ist."""
+        leer = self.editor_tabs.count() == 0
+        self.mitte.setCurrentWidget(self.startbild if leer else self.editor_tabs)
+
+    def _erste_schritte_aktion(self) -> None:
+        """„Erste Schritte“ vom Startbild aus – dieselbe Anleitung wie
+        unter Hilfe."""
+        # `daten_ordner` statt eines quellcode-relativen Pfads: in der
+        # gebauten Exe liegt `docs/` im Bundle-Ordner, nicht neben
+        # dem Quelltext.
+        pfad = daten_ordner("docs") / "erste_schritte.md"
+        if pfad.exists():
+            self.datei_oeffnen(pfad)
+        else:
+            self.statusBar().showMessage(
+                "„Erste Schritte“ nicht gefunden. Die Anleitung liegt in "
+                "docs/erste_schritte.md."
+            )
+
+    def beispiel_oeffnen(self, projektdatei: Path) -> Projekt:
+        """Öffnet ein mitgeliefertes Beispielprojekt – als **Kopie** im
+        Dokumente-Ordner.
+
+        An Ort und Stelle zu öffnen ginge in einer installierten Natter
+        nicht: die Beispiele liegen dann im Programmordner, in den eine
+        Schülerin nicht schreiben darf. Und selbst wo es ginge, wäre es
+        falsch – das Beispiel soll beim nächsten Mal wieder im
+        Ursprungszustand dastehen.
+        """
+        kopie = beispiel_kopieren(Path(projektdatei))
+        projekt = self.projekt_oeffnen(kopie)
+        self.statusBar().showMessage(
+            f"Beispiel „{projekt.name}“ nach {kopie.parent} kopiert und geöffnet."
+        )
+        return projekt
+
     def projekt_oeffnen(self, pfad: Path) -> Projekt:
         """„Projekt öffnen …“ (Abschnitt 7.2): lädt das Projekt und füllt
         den Projekt-Explorer."""
         self.projekt = Projekt.laden(Path(pfad))
+        zuletzt_merken(self._design_einstellungen, Path(pfad))
+        self.startbild.aufbauen()
         self.explorer.projekt_anzeigen(self.projekt)
         self.statusBar().showMessage(f"Projekt {self.projekt.name} geöffnet")
         return self.projekt
@@ -1286,9 +1344,15 @@ class HauptFenster(QMainWindow):
     # -- Hilfe (Abschnitt 7.2) -------------------------------------------------
 
     def _komponenten_referenz_aktion(self) -> None:
-        pfad = Path(__file__).resolve().parent.parent.parent / "docs" / "komponenten.md"
+        # Derselbe Fund wie bei „Erste Schritte“: der quellcode-relative
+        # Pfad zeigte in der gebauten Exe ins Leere, und der Eintrag
+        # meldete dort immer „nicht gefunden“.
+        pfad = daten_ordner("docs") / "komponenten.md"
         if not pfad.exists():
-            self.statusBar().showMessage("Komponenten-Referenz nicht gefunden.")
+            self.statusBar().showMessage(
+                "Komponenten-Referenz nicht gefunden. Sie liegt in "
+                "docs/komponenten.md."
+            )
             return
         open_url(str(pfad))
 
