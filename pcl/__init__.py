@@ -9,7 +9,15 @@ Siehe konzept-natter.md, Abschnitt 5. Beispiel (Abschnitt 4.3):
 from pcl import analyse
 from pcl.analyse import Regressionsergebnis, regression
 from pcl.application import Application
-from pcl.components.additional import Image, Shape, StringGrid
+from pcl.components.additional import (
+    FloatSpinEdit,
+    Image,
+    ProgressBar,
+    Shape,
+    SpinEdit,
+    StringGrid,
+    TrackBar,
+)
 from pcl.components.chart import Chart
 from pcl.components.data_access import (
     DataSource,
@@ -24,12 +32,16 @@ from pcl.components.standard import (
     CheckBox,
     ComboBox,
     Edit,
+    GroupBox,
     Label,
     ListBox,
     Memo,
+    Panel,
     RadioButton,
+    RadioGroup,
     ScrollBar,
 )
+from pcl.components.system import Timer
 from pcl.control import Control
 from pcl.dialogs import input_box, show_message
 from pcl.files import open_url
@@ -40,8 +52,8 @@ from pcl.strings import Strings
 __all__ = [
     "Application",
     "Button",
-    "CheckBox",
     "Chart",
+    "CheckBox",
     "ComboBox",
     "Control",
     "DBComboBox",
@@ -52,22 +64,30 @@ __all__ = [
     "DataSource",
     "Edit",
     "Event",
+    "FloatSpinEdit",
     "Form",
+    "GroupBox",
     "Image",
     "Label",
     "ListBox",
     "Memo",
     "MySQLConnection",
+    "Panel",
+    "ProgressBar",
     "Prop",
     "RadioButton",
+    "RadioGroup",
     "Regressionsergebnis",
     "SQLQuery",
     "SQLTransaction",
     "SQLite3Connection",
     "ScrollBar",
     "Shape",
-    "Strings",
+    "SpinEdit",
     "StringGrid",
+    "Strings",
+    "Timer",
+    "TrackBar",
     "analyse",
     "input_box",
     "open_url",

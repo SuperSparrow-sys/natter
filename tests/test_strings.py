@@ -62,3 +62,32 @@ def test_load_and_save_to_file(tmp_path: Path) -> None:
     geladen = Strings()
     geladen.load_from_file(datei)
     assert geladen == ["Zeile 1", "Ümlaut äöü"]
+
+
+def test_eine_zeichenkette_wird_an_den_umbruechen_getrennt() -> None:
+    """In der Sichtprüfung real passiert: eine `RadioGroup` zeigte
+    vierzehn Optionsfelder mit je einem Buchstaben, weil Python eine
+    Zeichenkette gern Zeichen für Zeichen hergibt. `Items.Text` in
+    Lazarus trennt an den Zeilenumbrüchen – genau das tut es jetzt
+    auch."""
+    sammlung = Strings()
+
+    sammlung.zuweisen("rot\ngelb\ngruen")
+
+    assert list(sammlung) == ["rot", "gelb", "gruen"]
+
+
+def test_eine_liste_bleibt_eine_liste() -> None:
+    sammlung = Strings()
+
+    sammlung.zuweisen(["rot", "gelb"])
+
+    assert list(sammlung) == ["rot", "gelb"]
+
+
+def test_eine_einzelne_zeile_ohne_umbruch_ergibt_einen_eintrag() -> None:
+    sammlung = Strings()
+
+    sammlung.zuweisen("nur eine Zeile")
+
+    assert list(sammlung) == ["nur eine Zeile"]

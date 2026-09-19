@@ -18,17 +18,28 @@ from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import QListWidget, QListWidgetItem, QTabWidget
 
 from ide.assets import symbol
-from pcl.components.additional import Image, Shape, StringGrid
+from pcl.components.additional import (
+    FloatSpinEdit,
+    Image,
+    ProgressBar,
+    Shape,
+    SpinEdit,
+    StringGrid,
+    TrackBar,
+)
 from pcl.components.chart import Chart
 from pcl.components.standard import (
     Button,
     CheckBox,
     ComboBox,
     Edit,
+    GroupBox,
     Label,
     ListBox,
     Memo,
+    Panel,
     RadioButton,
+    RadioGroup,
     ScrollBar,
 )
 
@@ -48,6 +59,13 @@ STANDARD_KOMPONENTEN = (
     ListBox,
     ComboBox,
     ScrollBar,
+    # Die drei Behälter stehen wie in Lazarus im Reiter „Standard“ und
+    # dort am Ende - sie kommen im Unterricht später dran als Knopf und
+    # Textfeld, und die Reihenfolge der bisherigen Kacheln soll sich
+    # nicht verschieben.
+    GroupBox,
+    Panel,
+    RadioGroup,
 )
 
 ZUSAETZLICH_KOMPONENTEN = (
@@ -57,6 +75,16 @@ ZUSAETZLICH_KOMPONENTEN = (
     # „Zusätzlich“ statt „Standard“: ein Diagramm ist kein Grundbaustein
     # wie Knopf oder Textfeld (M10, Punkt 1).
     Chart,
+    # `TrackBar` und `ProgressBar` gehören in Lazarus in den Reiter
+    # „Common Controls“. Ein dritter Reiter wäre hier zwar schnell
+    # angelegt, bliebe aber tot: `ide/shell/hauptfenster.py` verbindet
+    # die Klick-Signale von genau `standard_liste` und
+    # `zusaetzlich_liste` - eine Kachel in einem dritten Reiter ließe
+    # sich nicht auf dem Formular ablegen.
+    SpinEdit,
+    FloatSpinEdit,
+    TrackBar,
+    ProgressBar,
 )
 
 

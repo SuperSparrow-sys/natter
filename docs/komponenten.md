@@ -668,10 +668,33 @@ die niemand mehr liest:
    `FloatSpinEdit` sieht im Designer richtig aus. Die Korrektur ist ein
    Wort: `, QSpinBox` aus diesem einen Selektor streichen. Außerhalb von
    `pcl/` und deshalb hier nur festgehalten.
-5. **Noch nicht umgesetzt:** `MainMenu`, `PopupMenu` (beide brauchen
+5. **`DateEdit`, `TimeEdit`, `Calendar`: erst die Frage klären, wie ein
+   Datum aussieht.** Die Komponenten selbst wären wieder dünne Mäntel
+   (`QDateEdit`, `QTimeEdit`, `QCalendarWidget`), aber `Prop` kennt
+   bisher nur `str`, `int`, `float`, `bool` – die vier Typen, die der
+   Objektinspektor anzeigen, die `.pfm` als JSON speichern und
+   `pcl/errors.py` in einer deutschen Meldung benennen kann. Ein Datum
+   braucht eine Entscheidung, die alle drei Stellen betrifft, und die
+   sollte nicht nebenbei fallen:
+   * als `str` in ISO-Form (`"2026-12-24"`) – serialisierbar ohne
+     Änderung am Format, aber der Schüler rechnet mit Text statt mit
+     `datetime.date`;
+   * als `str` in deutscher Schreibweise (`"24.12.2026"`) – passt zur
+     Oberfläche, ist aber zum Rechnen noch unhandlicher;
+   * als echter `date`-Typ im `Prop`-System – am saubersten, verlangt
+     aber einen neuen Typ in `_TYPNAMEN`, im Objektinspektor und in der
+     `.pfm` (Formatversion!).
+
+   Dazu kommt der Standardwert: `TDateEdit` zeigt in Lazarus *heute* an,
+   ein `Prop`-Standard muss aber konstant sein, sonst stünde in jeder
+   frisch gespeicherten `.pfm` das Datum des Tages, an dem sie entstand.
+   Kein Referenzprojekt in `referenz/lazarus/` benutzt eine dieser drei
+   Komponenten, es gibt also auch keine echte Nutzung, an der sich die
+   Wahl prüfen ließe (Abschnitt 21: „MVP strikt an den Übungsprojekten
+   ausrichten“). Deshalb bewusst offen gelassen statt geraten.
+6. **Noch nicht umgesetzt:** `MainMenu`, `PopupMenu` (beide brauchen
    einen eigenen Menü-Editor im Designer), `MaskEdit`, `PaintBox`,
-   `HtmlViewer`, `DateEdit`, `TimeEdit`, `Calendar`, `Sound` und die
-   restlichen Dialoge aus Abschnitt 5.2.
+   `HtmlViewer`, `Sound` und die restlichen Dialoge aus Abschnitt 5.2.
 
 ## Vorlage pro Komponente
 

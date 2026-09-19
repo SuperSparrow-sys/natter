@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Panel: erhabene Fläche ohne Beschriftungslücke im Rahmen. Die
+       helle Kante oben/links macht den Unterschied zur GroupBox auch
+       bei 16 px sichtbar - dort ist vom Rahmen selbst kaum noch etwas
+       zu unterscheiden. -->
+  <rect x="3.1" y="4.6" width="17.8" height="14.8" rx="2" fill="#90a4ae" stroke="#37474f" stroke-width="1.2"/>
+  <path d="M5.6 16.6V7.1h12.8" fill="none" stroke="#f7f9fa" stroke-width="1.5"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

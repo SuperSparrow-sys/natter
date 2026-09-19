@@ -32,12 +32,24 @@ class Strings:
         self._zeilen.clear()
         self._aendern()
 
-    def zuweisen(self, werte: Iterable[str]) -> None:
+    def zuweisen(self, werte: Iterable[str] | str) -> None:
         """Ersetzt den gesamten Inhalt auf einmal (wie `Items.Assign` in
         Lazarus). Der Setter von `ListBox.items`/`Memo.lines` ruft das
         auf, damit sowohl der erzeugte Formularcode
         (``self.lb.items = ["a", "b"]``) als auch der Objektinspektor die
-        Sammlung in einem Schritt setzen können."""
+        Sammlung in einem Schritt setzen können.
+
+        Eine **Zeichenkette** wird an den Zeilenumbrüchen getrennt, so
+        wie `Items.Text` in Lazarus. Ohne diese Regel zerfiele
+        ``self.rg.items = "rot
+gelb"`` in acht einzelne Einträge – einen
+        je Buchstabe –, weil Python eine Zeichenkette gern Zeichen für
+        Zeichen hergibt. Das ist in der Sichtprüfung real passiert: eine
+        `RadioGroup` zeigte vierzehn Optionsfelder mit je einem
+        Buchstaben.
+        """
+        if isinstance(werte, str):
+            werte = werte.splitlines()
         neu = list(werte)
         for zeile in neu:
             if not isinstance(zeile, str):

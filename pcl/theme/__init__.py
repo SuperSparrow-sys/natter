@@ -104,6 +104,34 @@ QLineEdit:focus, QPlainTextEdit:focus, QComboBox:focus {{
     border: 1px solid {farben["focus"]};
 }}
 
+/* `QSpinBox`/`QDoubleSpinBox` (SpinEdit, FloatSpinEdit) stehen hier
+   bewusst NICHT. Dieselbe Falle wie bei Kästchen und Optionsfeldern
+   weiter unten, nur mit umgekehrtem Ausgang: sobald die Komponente auch
+   nur eine Rahmenregel bekommt, zeichnet Qt sie vollständig aus dem
+   Stylesheet - und die beiden Pfeilspitzen fallen ersatzlos weg. Im
+   Bildvergleich standen an ihrer Stelle nur noch zwei Striche. Ein
+   Nachbau der Pfeile über `::up-arrow`/`::down-arrow` scheiterte
+   ebenfalls: Qt versteht den CSS-Trick „Dreieck aus Rahmen" nicht und
+   malte zwei schwarze Quadrate. Ohne eigene Regel rendert Qt beide
+   Komponenten von sich aus in den Farben des Themes, samt Fokusrahmen
+   und ausgegrautem Zustand. */
+
+/* Ohne diesen Block sieht eine gesperrte Komponente genauso aus wie eine
+   bedienbare: die Regel `QWidget {{ color: ... }}` ganz oben schlägt die
+   Farbe, die Qt sonst aus der Palette für den Zustand „disabled" nimmt.
+   Beim Bildvergleich einer `GroupBox` mit `enabled = False` aufgefallen -
+   Inhalt und Beschriftung standen in voller Schwärze da (M-Schritt 6,
+   Behälter). Bisher gab es nur `QPushButton:disabled`. */
+QWidget:disabled {{
+    color: {farben["text_muted"]};
+}}
+
+QLineEdit:disabled, QPlainTextEdit:disabled, QComboBox:disabled,
+QListWidget:disabled, QTableWidget:disabled {{
+    background-color: {farben["surface"]};
+    border-color: {farben["text_muted"]};
+}}
+
 QTableWidget::item, QListWidget::item {{
     background-color: {farben["bg"]};
     color: {farben["text"]};
@@ -186,5 +214,41 @@ QScrollBar::handle:vertical:hover {{
 QScrollBar::add-line, QScrollBar::sub-line {{
     width: 0;
     height: 0;
+}}
+
+/* Behälter (GroupBox, RadioGroup). Ohne eigene Regel setzte Qt die
+   Beschriftung über den Rahmen statt auf seine obere Kante - anders als
+   in Lazarus, wo der Rahmen genau durch die Schrift läuft. */
+QGroupBox {{
+    border: 1px solid {farben["border"]};
+    border-radius: {radius["panel"]}px;
+    margin-top: 7px;
+    padding: 6px 4px 4px 4px;
+}}
+QGroupBox::title {{
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 8px;
+    padding: 0 4px;
+}}
+QGroupBox:disabled {{
+    border-color: {farben["text_muted"]};
+}}
+
+/* TrackBar: **nur** der Griff wird umgefärbt, Rille und Teilstriche
+   bleiben dem Stil des Systems überlassen. Im Bildvergleich nachgemessen
+   (September 2026): sobald auch `QSlider::groove` eine Regel bekommt,
+   zeichnet Qt den Schieber vollständig aus dem Stylesheet - und QSS
+   kennt keine Teilstriche. `TrackBar.frequency` wäre damit wirkungslos
+   geworden, denn jedes pcl-Formular hat ein Stylesheet. Mit einer Regel
+   allein für den Griff bleiben die Teilstriche stehen. */
+QSlider::handle:horizontal {{
+    background: {farben["accent"]};
+    width: 12px;
+    margin: -5px 0;
+    border-radius: 7px;
+}}
+QSlider::handle:horizontal:disabled {{
+    background: {farben["text_muted"]};
 }}
 """

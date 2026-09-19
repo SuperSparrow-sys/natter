@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- FloatSpinEdit: wie SpinEdit, aber mit Komma im Feld - das grüne
+       Komma ist bei 16 px das einzige, was die beiden Symbole noch
+       unterscheidet, deshalb farbig statt grau. -->
+  <rect x="2.9" y="7.4" width="18.2" height="9.2" rx="1.5" fill="#f7f9fa"/>
+  <path d="M15.8 7.4h3.8a1.5 1.5 0 0 1 1.5 1.5v6.2a1.5 1.5 0 0 1-1.5 1.5h-3.8z" fill="#0067c0"/>
+  <path d="M16.5 10.9 18.5 8.7 20.5 10.9z" fill="#ffffff"/>
+  <path d="M16.5 13.1 18.5 15.3 20.5 13.1z" fill="#ffffff"/>
+  <path d="M5.4 12h2.6" stroke="#7b8f9a" stroke-width="1" stroke-linecap="round"/>
+  <path d="M9.6 12.6v1.3" stroke="#1e8e3e" stroke-width="2" stroke-linecap="round"/>
+  <path d="M11.4 12h2.2" stroke="#7b8f9a" stroke-width="1" stroke-linecap="round"/>
+  <rect x="2.9" y="7.4" width="18.2" height="9.2" rx="1.5" fill="none" stroke="#37474f" stroke-width="1.2"/>
+</svg>

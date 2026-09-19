@@ -836,8 +836,13 @@ Ausdrücklicher Wunsch des Nutzers, gilt für jeden Schritt:
   nur die Designzeit-Aktivierung der SQLdb-Komponenten: sie braucht
   eine Designer-Integration für nicht-visuelle Komponenten, die es
   bisher gar nicht gibt (in M5 seit langem so begründet)
-- [ ] **11.** Restliche `pcl`-Komponenten aus M1 Schritt 6 sowie die
-  kleinen offenen Punkte aus M0 und dem Referenzmaterial
+- [x] **11.** Restliche `pcl`-Komponenten: `SpinEdit`, `FloatSpinEdit`,
+  `TrackBar`, `ProgressBar`, `Timer`, `GroupBox`, `Panel`,
+  `RadioGroup`. Offen bleiben `DateEdit`/`TimeEdit`/`Calendar` (`Prop`
+  kennt keinen Datumstyp – eine Schnittstellenentscheidung, die kein
+  Referenzprojekt absichert), `MaskEdit`, `PaintBox`, `HtmlViewer`,
+  `Sound` sowie `MainMenu`/`PopupMenu` (brauchen einen Menü-Editor im
+  Designer). Alle Gründe stehen in `docs/komponenten.md`
 - [ ] **12.** M11 – Schülertauglichkeit: Funktionsprüfung mit
   Bildschirmfotos, Einrückungslinien, Symbole, Vervollständigung,
   Startbild, Meldungen mit Lösungsvorschlag, Nutzerfreundlichkeit
@@ -884,4 +889,5 @@ tut, was sie verspricht.
 Siehe „Umsetzungsreihenfolge“ oben – der Lauf arbeitet die vierzehn
 Punkte der Reihe nach ab. Die Punkte 0 bis 3 sind erledigt, aus
 Punkt 8 sind M10 Punkt 1 und 2 vorgezogen und fertig. Aktuell:
-**Punkt 11**, die restlichen `pcl`-Komponenten.
+**Punkt 12**, M11 – Schülertauglichkeit. Abschnitt 1 (Symbole) und
+2.1 (Einrückung) sind erledigt.

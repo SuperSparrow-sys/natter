@@ -251,7 +251,16 @@ QPushButton:disabled {{
     color: {farben["text_muted"]};
 }}
 
-QLineEdit, QPlainTextEdit, QComboBox, QSpinBox {{
+/* Ohne QSpinBox/QDoubleSpinBox, und das mit Absicht: sobald ein
+   Drehfeld irgendeine QSS-Regel abbekommt, zeichnet Qt es vollstaendig
+   aus dem Stylesheet - und damit ohne seine Pfeilspitzen. Uebrig blieb
+   ein Feld mit zwei leeren Knoepfen daneben. Ein Nachbau ueber
+   ::up-arrow hilft nicht, weil Qt den CSS-Trick "Dreieck aus Rahmen"
+   nicht kennt; dabei entstanden zwei schwarze Quadrate. Die Drehfelder
+   behalten deshalb den Systemstil - in der IDE (Eigenschaften des
+   Diagramm-Editors, Klassendialog) genauso wie in einem
+   Schuelerformular, in das dieses Stylesheet hineinkaskadiert. */
+QLineEdit, QPlainTextEdit, QComboBox {{
     background-color: {farben["bg"]};
     border: 1px solid {farben["border"]};
     border-radius: {radius["input"]}px;

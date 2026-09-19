@@ -1,10 +1,18 @@
 """Standard-Komponenten: Button, Label, Edit, CheckBox, RadioButton, Memo,
-ListBox, ComboBox, ScrollBar.
+ListBox, ComboBox, ScrollBar, GroupBox, Panel, RadioGroup.
 
-Siehe konzept-natter.md, Abschnitt 5.2 (Palette „Standard“). Weitere
-Standard-Komponenten (RadioGroup, GroupBox, Panel, MainMenu, PopupMenu)
-sind in keinem der 18 Referenzprojekte tatsächlich genutzt (`RadioGroup1`
-in `f_Pizza` ist nur deklariert) und daher zurückgestellt.
+Siehe konzept-natter.md, Abschnitt 5.2 (Palette „Standard“).
+
+`GroupBox` und `Panel` sind Behälter: `Control.__init__` hängt jede
+Komponente an das `_qwidget` ihres `parent`, ``Button(self.p_feld)``
+funktioniert also ohne weiteres Zutun. Im Designer lässt sich das noch
+nicht ablegen (dort wird jede Komponente ein Kind des Formulars) - was
+dafür fehlt, steht in `docs/komponenten.md` unter „Offene Punkte“.
+`RadioGroup` braucht das nicht: sie erzeugt ihre Optionsfelder wie
+`TRadioGroup` selbst aus `items`.
+
+`MainMenu` und `PopupMenu` fehlen weiterhin; sie brauchen einen eigenen
+Menü-Editor im Designer.
 """
 
 from __future__ import annotations
@@ -12,9 +20,12 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QPainter, QPalette
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QFrame,
+    QGroupBox,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -22,12 +33,24 @@ from PySide6.QtWidgets import (
     QPushButton,
     QRadioButton,
     QScrollBar,
+    QVBoxLayout,
     QWidget,
 )
 
 from pcl.control import Control
 from pcl.properties import Event, Prop
 from pcl.strings import Strings
+
+#: Innenabstand (links, oben, rechts, unten) der Optionsliste einer
+#: `RadioGroup`. Oben mehr, weil dort die Beschriftung der QGroupBox
+#: sitzt.
+_RADIOGROUP_RAENDER = (10, 8, 8, 6)
+#: Abstand zwischen zwei Optionsfeldern einer `RadioGroup` in Pixeln.
+_RADIOGROUP_ABSTAND = 2
+
+#: Objektname des `QFrame` hinter einem `Panel`, damit `Panel.color` als
+#: `QFrame#...`-Regel genau dieses Widget trifft (siehe `Panel._qss_teile`).
+_PANEL_OBJEKTNAME = "pcl_panel"
 
 
 class Button(Control):
@@ -353,3 +376,221 @@ class ScrollBar(Control):
             self._qwidget.setMaximum(wert)
         elif name == "position":
             self._qwidget.setValue(wert)
+
+
+class GroupBox(Control):
+    """Beschrifteter Rahmen, der andere Komponenten zusammenfasst.
+    Qt-Basis: `QGroupBox`. Entspricht `TGroupBox` in Lazarus.
+
+    Als Behälter braucht sie keinen eigenen Code: `Control.__init__`
+    hängt jede Komponente an das `_qwidget` ihres `parent`, also genügt
+    ``RadioButton(self.g_zahlung)``. `left`/`top` der Kind-Komponente
+    zählen dann ab der linken oberen Ecke der GroupBox, und
+    ``self.g_zahlung.enabled = False`` sperrt den ganzen Inhalt auf
+    einmal (das erledigt Qt).
+
+    Im Designer geht diese Verschachtelung noch nicht - siehe
+    `docs/komponenten.md`, „Offene Punkte“.
+    """
+
+    # Standardgröße als Prop-Standard (wie bei `Chart`): in 75x25 hätte
+    # der Rahmen nicht einmal für die eigene Beschriftung Platz.
+    width = Prop(int, 185, kategorie="Layout", doc="Breite in Pixeln")
+    height = Prop(int, 105, kategorie="Layout", doc="Höhe in Pixeln")
+
+    caption = Prop(str, "GroupBox1", kategorie="Darstellung", doc="Beschriftung über dem Rahmen")
+
+    def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
+        widget = QGroupBox(eltern_widget)
+        widget.setTitle(self.caption)
+        return widget
+
+    def _bei_prop_aenderung(self, name: str, wert: Any) -> None:
+        super()._bei_prop_aenderung(name, wert)
+        if name == "caption":
+            self._qwidget.setTitle(wert)
+
+
+class _PanelQWidget(QFrame):
+    """`QFrame`, der seine Beschriftung selbst mittig zeichnet.
+
+    Ein Kind-`QLabel` wäre der kürzere Weg, läge aber über den
+    Komponenten, die später auf dem Panel entstehen, und finge deren
+    Mausklicks ab. Gezeichnet wird mit der Schrift und der Textfarbe des
+    Widgets, damit `font`-Eigenschaft und Theme (hell/dunkel) wirken.
+    """
+
+    def __init__(self, eltern_widget: QWidget, panel: Panel) -> None:
+        super().__init__(eltern_widget)
+        self._panel = panel
+        # Fester Objektname, damit `Panel.color` als `QFrame#...`-Regel
+        # genau dieses Widget treffen kann und nicht jede Komponente
+        # darauf, die zufällig auch ein QFrame ist (QLabel, QTableWidget
+        # und QPlainTextEdit sind welche).
+        self.setObjectName(_PANEL_OBJEKTNAME)
+        self.setFrameShape(QFrame.Shape.StyledPanel)
+        self.setFrameShadow(QFrame.Shadow.Raised)
+
+    def paintEvent(self, event: Any) -> None:  # noqa: N802 (Qt-Konvention)
+        super().paintEvent(event)
+        if not self._panel.caption:
+            return
+        maler = QPainter(self)
+        maler.setPen(self.palette().color(QPalette.ColorRole.WindowText))
+        maler.setFont(self.font())
+        maler.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, self._panel.caption)
+
+
+class Panel(Control):
+    """Fläche, die andere Komponenten zusammenfasst. Qt-Basis: `QFrame`
+    mit selbst gezeichneter Beschriftung. Entspricht `TPanel` in Lazarus.
+
+    Behälter wie `GroupBox` - siehe dort.
+    """
+
+    # Standardgröße als Prop-Standard (wie bei `Chart`).
+    width = Prop(int, 185, kategorie="Layout", doc="Breite in Pixeln")
+    height = Prop(int, 105, kategorie="Layout", doc="Höhe in Pixeln")
+
+    caption = Prop(str, "Panel1", kategorie="Darstellung", doc="Beschriftung mittig auf der Fläche")
+    color = Prop(
+        str, "", kategorie="Darstellung", doc="Hintergrundfarbe als #RRGGBB, leer = Theme-Standard"
+    )
+
+    def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
+        return _PanelQWidget(eltern_widget, self)
+
+    def _bei_prop_aenderung(self, name: str, wert: Any) -> None:
+        super()._bei_prop_aenderung(name, wert)
+        if name == "caption":
+            self._qwidget.update()
+        elif name == "color":
+            self._eigenes_qss_anwenden()
+
+    def _qss_teile(self) -> list[str]:
+        teile = super()._qss_teile()
+        if self.color:
+            # Als eigene Regel auf genau dieses Widget, nicht als nackte
+            # Anweisung: ein Stylesheet kaskadiert in Qt auf die Kinder
+            # (Abschnitt 6), die Fläche soll aber nur das Panel selbst
+            # bekommen und nicht die Komponenten darauf - von denen sind
+            # einige (Label, StringGrid, Memo) ebenfalls ein QFrame.
+            teile.append(f"QFrame#{_PANEL_OBJEKTNAME} {{ background-color: {self.color}; }}")
+        return teile
+
+
+class RadioGroup(Control):
+    """Rahmen mit mehreren Optionsfeldern, von denen immer genau eines
+    gewählt ist. Qt-Basis: `QGroupBox` mit je einem `QRadioButton` pro
+    Eintrag. Entspricht `TRadioGroup` in Lazarus.
+
+    Anders als `GroupBox`/`Panel` ist dies **kein** offener Behälter: die
+    Optionsfelder entstehen aus `items`, genau wie `TRadioGroup.Items` in
+    Lazarus. Deshalb ist die Komponente auch im Designer vollständig
+    benutzbar, ohne dass er Verschachtelung beherrschen müsste.
+    """
+
+    # Standardgröße als Prop-Standard (wie bei `Chart`): Platz für
+    # Beschriftung und drei bis vier Optionen.
+    width = Prop(int, 185, kategorie="Layout", doc="Breite in Pixeln")
+    height = Prop(int, 105, kategorie="Layout", doc="Höhe in Pixeln")
+
+    caption = Prop(str, "RadioGroup1", kategorie="Darstellung", doc="Beschriftung über dem Rahmen")
+    item_index = Prop(
+        int, -1, kategorie="Verhalten", doc="Index der gewählten Option, -1 = keine Auswahl"
+    )
+    on_change = Event(doc="Wird beim Wechsel der Auswahl ausgelöst")
+
+    def __init__(self, parent: Control) -> None:
+        self._items = Strings(self._items_geaendert)
+        self._optionen: list[QRadioButton] = []
+        # Während `_optionen_neu_aufbauen()` löst jedes erzeugte und jedes
+        # gelöschte Optionsfeld ein `toggled` aus. Ohne diese Sperre
+        # überschriebe das den gerade gesetzten `item_index`.
+        self._baut_auf = False
+        super().__init__(parent)
+
+    @property
+    def items(self) -> Strings:
+        return self._items
+
+    @items.setter
+    def items(self, werte: list[str]) -> None:
+        self._items.zuweisen(werte)
+
+    def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
+        widget = QGroupBox(eltern_widget)
+        widget.setTitle(self.caption)
+        anordnung = QVBoxLayout(widget)
+        anordnung.setContentsMargins(*_RADIOGROUP_RAENDER)
+        anordnung.setSpacing(_RADIOGROUP_ABSTAND)
+        anordnung.addStretch(1)
+        return widget
+
+    def _items_geaendert(self) -> None:
+        self._optionen_neu_aufbauen()
+
+    def _optionen_neu_aufbauen(self) -> None:
+        self._baut_auf = True
+        try:
+            for option in self._optionen:
+                option.setParent(None)
+                option.deleteLater()
+            self._optionen = []
+            anordnung = self._qwidget.layout()
+            for nummer, text in enumerate(self._items):
+                option = QRadioButton(text, self._qwidget)
+                option.toggled.connect(
+                    lambda gewaehlt, index=nummer: self._bei_umschalten(gewaehlt, index)
+                )
+                # Vor den Dehnungsplatz am Ende, damit die Optionen oben
+                # stehen und nicht über die Höhe verteilt werden.
+                anordnung.insertWidget(anordnung.count() - 1, option)
+                option.show()
+                self._optionen.append(option)
+            # Ein Index, der auf einen weggefallenen Eintrag zeigte, wäre
+            # sonst eine Auswahl, die es nicht mehr gibt.
+            if not 0 <= self.item_index < len(self._optionen):
+                self.__dict__["_prop_item_index"] = -1
+            else:
+                self._optionen[self.item_index].setChecked(True)
+        finally:
+            self._baut_auf = False
+
+    def _bei_umschalten(self, gewaehlt: bool, index: int) -> None:
+        if self._baut_auf or not gewaehlt:
+            return
+        self.item_index = index
+        if self.on_change is not None:
+            self.on_change(self)
+
+    def _bei_prop_aenderung(self, name: str, wert: Any) -> None:
+        super()._bei_prop_aenderung(name, wert)
+        if name == "caption":
+            self._qwidget.setTitle(wert)
+        elif name == "item_index":
+            self._auswahl_anwenden(wert)
+
+    def _auswahl_anwenden(self, index: int) -> None:
+        self._baut_auf = True
+        try:
+            for nummer, option in enumerate(self._optionen):
+                soll = nummer == index
+                if option.isChecked() == soll:
+                    continue
+                # `setChecked(False)` prallt an einem Optionsfeld ab, das
+                # in einer Gruppe steht: Qt lässt genau die Schaltfläche,
+                # die gerade gewählt ist, nicht abwählen, weil in einer
+                # Gruppe immer eine gewählt sein soll. Ohne dieses
+                # kurzzeitige Aufheben blieb `item_index = -1` ohne
+                # Wirkung - die alte Auswahl stand weiter da.
+                option.setAutoExclusive(False)
+                option.setChecked(soll)
+                option.setAutoExclusive(True)
+        finally:
+            self._baut_auf = False
+        if index != -1 and not 0 <= index < len(self._optionen):
+            # Ein Index ohne Option wäre eine Auswahl, die niemand sieht:
+            # `item_index` stünde auf 2, angehakt wäre nichts. Dieselbe
+            # Regel wie beim Wegfallen eines Eintrags - zurück auf -1.
+            self.__dict__["_prop_item_index"] = -1

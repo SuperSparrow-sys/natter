@@ -1,10 +1,23 @@
-"""Additional-Komponenten: Shape, StringGrid, Image.
+"""Additional-Komponenten: Shape, StringGrid, Image, SpinEdit,
+FloatSpinEdit, TrackBar, ProgressBar.
 
-Siehe konzept-natter.md, Abschnitt 5.2 (Palette „Zusätzlich“). Weitere
-Additional-Komponenten (SpinEdit, FloatSpinEdit, MaskEdit, PaintBox,
-HtmlViewer) sind in keinem der 18 Referenzprojekte in `referenz/lazarus/`
-tatsächlich im Einsatz und daher zurückgestellt (Abschnitt 21: „MVP
-strikt an den Übungsprojekten ausrichten“).
+Siehe konzept-natter.md, Abschnitt 5.2 (Palette „Zusätzlich“). Die
+Wertkomponenten (SpinEdit, FloatSpinEdit, TrackBar, ProgressBar) sind
+jeweils ein dünner Mantel um ein Qt-Standardwidget: ein `Prop` je
+Lazarus-Eigenschaft, `_bei_prop_aenderung` reicht die Zuweisung an das
+Widget weiter, und das Signal des Widgets schreibt den Wert zurück in
+den `Prop`. Dadurch wirken Code und Bedienung in beide Richtungen, ohne
+dass es eine zweite Quelle für den Wert gäbe.
+
+`TrackBar` und `ProgressBar` gehören in Lazarus in den Reiter
+„Common Controls“. Einen eigenen Palettenreiter dafür gibt es in Natter
+noch nicht (`ide/shell/hauptfenster.py` verbindet die Klick-Signale von
+genau zwei Listen), deshalb stehen sie unter „Zusätzlich“.
+
+MaskEdit, PaintBox und HtmlViewer sind in keinem der 18
+Referenzprojekte in `referenz/lazarus/` im Einsatz und daher weiterhin
+zurückgestellt (Abschnitt 21: „MVP strikt an den Übungsprojekten
+ausrichten“).
 """
 
 from __future__ import annotations
@@ -13,11 +26,20 @@ from typing import Any
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPainter, QPixmap
-from PySide6.QtWidgets import QLabel, QTableWidget, QTableWidgetItem, QWidget
+from PySide6.QtWidgets import (
+    QDoubleSpinBox,
+    QLabel,
+    QProgressBar,
+    QSlider,
+    QSpinBox,
+    QTableWidget,
+    QTableWidgetItem,
+    QWidget,
+)
 
 from pcl.control import Control
 from pcl.errors import NatterPropertyError
-from pcl.properties import STANDARD_BRUSH_FARBE, Prop, typ_beschreibung
+from pcl.properties import STANDARD_BRUSH_FARBE, Event, Prop, typ_beschreibung
 
 _FORMEN = ("rectangle", "circle", "rounded_rectangle")
 _ECKENRADIUS = 12
@@ -221,3 +243,211 @@ class Image(Control):
         widget = QLabel(eltern_widget)
         widget.setScaledContents(True)
         return widget
+
+
+def _prop_gleichziehen(komponente: Control, name: str, wert: Any) -> None:
+    """Schreibt einen vom Qt-Widget abgeänderten Wert zurück in den `Prop`.
+
+    Qt kappt einen zu großen Wert an `maximum` und rundet bei
+    `QDoubleSpinBox` auf `decimals` – ohne diesen Abgleich stünde im
+    `Prop` danach eine Zahl, die das Widget gar nicht anzeigt. Die
+    Zuweisung geht bewusst am Deskriptor vorbei (direkt ins `__dict__`),
+    damit `Prop.__set__` nicht ein zweites Mal ins Widget schreibt;
+    dasselbe Vorgehen wie bei `connected` in
+    `pcl/components/data_access.py`.
+    """
+    komponente.__dict__[f"_prop_{name}"] = wert
+
+
+class SpinEdit(Control):
+    """Zahleneingabe mit Pfeilknöpfen. Qt-Basis: `QSpinBox`.
+
+    Entspricht `TSpinEdit` in Lazarus samt dessen Namen `Value` für den
+    Wert (während `ScrollBar`/`TrackBar` ihn `position` nennen - auch das
+    ist die Benennung der jeweiligen LCL-Komponente)."""
+
+    minimum = Prop(int, 0, kategorie="Verhalten", doc="Kleinster möglicher Wert")
+    maximum = Prop(int, 100, kategorie="Verhalten", doc="Größter möglicher Wert")
+    value = Prop(int, 0, kategorie="Verhalten", doc="Aktueller Wert")
+    increment = Prop(int, 1, kategorie="Verhalten", doc="Schrittweite der beiden Pfeilknöpfe")
+    on_change = Event(doc="Wird bei jeder Änderung des Wertes ausgelöst")
+
+    def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
+        widget = QSpinBox(eltern_widget)
+        # setRange statt zweier Einzelaufrufe: setMinimum(50) würde bei
+        # einem noch kleineren maximum das maximum stillschweigend
+        # mitziehen.
+        widget.setRange(self.minimum, self.maximum)
+        widget.setSingleStep(self.increment)
+        widget.setValue(self.value)
+        widget.valueChanged.connect(self._bei_wertaenderung)
+        return widget
+
+    def _bei_wertaenderung(self, wert: int) -> None:
+        self.value = wert
+        if self.on_change is not None:
+            self.on_change(self)
+
+    def _bei_prop_aenderung(self, name: str, wert: Any) -> None:
+        super()._bei_prop_aenderung(name, wert)
+        if name == "minimum":
+            self._qwidget.setMinimum(wert)
+        elif name == "maximum":
+            self._qwidget.setMaximum(wert)
+        elif name == "increment":
+            self._qwidget.setSingleStep(wert)
+        elif name == "value":
+            self._qwidget.setValue(wert)
+        if name in ("minimum", "maximum", "value"):
+            _prop_gleichziehen(self, "value", self._qwidget.value())
+
+
+class FloatSpinEdit(Control):
+    """Eingabe einer Kommazahl mit Pfeilknöpfen. Qt-Basis:
+    `QDoubleSpinBox`. Entspricht `TFloatSpinEdit` in Lazarus."""
+
+    minimum = Prop(float, 0.0, kategorie="Verhalten", doc="Kleinster möglicher Wert")
+    maximum = Prop(float, 100.0, kategorie="Verhalten", doc="Größter möglicher Wert")
+    value = Prop(float, 0.0, kategorie="Verhalten", doc="Aktueller Wert")
+    increment = Prop(float, 1.0, kategorie="Verhalten", doc="Schrittweite der beiden Pfeilknöpfe")
+    decimals = Prop(int, 2, kategorie="Darstellung", doc="Anzahl der angezeigten Nachkommastellen")
+    on_change = Event(doc="Wird bei jeder Änderung des Wertes ausgelöst")
+
+    def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
+        widget = QDoubleSpinBox(eltern_widget)
+        widget.setDecimals(self.decimals)
+        widget.setRange(float(self.minimum), float(self.maximum))
+        widget.setSingleStep(float(self.increment))
+        widget.setValue(float(self.value))
+        widget.valueChanged.connect(self._bei_wertaenderung)
+        return widget
+
+    def _bei_wertaenderung(self, wert: float) -> None:
+        self.value = wert
+        if self.on_change is not None:
+            self.on_change(self)
+
+    def _bei_prop_aenderung(self, name: str, wert: Any) -> None:
+        super()._bei_prop_aenderung(name, wert)
+        if name == "minimum":
+            self._qwidget.setMinimum(float(wert))
+        elif name == "maximum":
+            self._qwidget.setMaximum(float(wert))
+        elif name == "increment":
+            self._qwidget.setSingleStep(float(wert))
+        elif name == "decimals":
+            self._qwidget.setDecimals(wert)
+        elif name == "value":
+            self._qwidget.setValue(float(wert))
+        if name in ("minimum", "maximum", "increment", "decimals", "value"):
+            # Auch minimum/maximum/increment werden zurückgelesen: eine
+            # zugewiesene ganze Zahl (Prop lässt int für float durch) soll
+            # danach als float in der Eigenschaft stehen.
+            for prop_name, gelesen in (
+                ("minimum", self._qwidget.minimum()),
+                ("maximum", self._qwidget.maximum()),
+                ("increment", self._qwidget.singleStep()),
+                ("value", self._qwidget.value()),
+            ):
+                _prop_gleichziehen(self, prop_name, gelesen)
+
+
+class TrackBar(Control):
+    """Schieberegler zur Eingabe eines Zahlenwerts. Qt-Basis: `QSlider`
+    (waagerecht). Entspricht `TTrackBar` in Lazarus - daher `maximum = 10`
+    und `frequency = 1` als Standard und nicht die 100 der `ScrollBar`."""
+
+    # Standardgröße als Prop-Standard (wie bei `Chart`): mit den 75x25 aus
+    # `Control` wäre von den Teilstrichen nichts zu erkennen.
+    width = Prop(int, 150, kategorie="Layout", doc="Breite in Pixeln")
+    height = Prop(int, 30, kategorie="Layout", doc="Höhe in Pixeln")
+
+    minimum = Prop(int, 0, kategorie="Verhalten", doc="Kleinster möglicher Wert")
+    maximum = Prop(int, 10, kategorie="Verhalten", doc="Größter möglicher Wert")
+    position = Prop(int, 0, kategorie="Verhalten", doc="Aktueller Wert")
+    frequency = Prop(
+        int,
+        1,
+        kategorie="Darstellung",
+        doc="Abstand der Teilstriche unter dem Schieber; 0 = keine Teilstriche",
+    )
+    on_change = Event(doc="Wird bei Änderung der Position ausgelöst")
+
+    def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
+        widget = QSlider(Qt.Orientation.Horizontal, eltern_widget)
+        widget.setRange(self.minimum, self.maximum)
+        widget.setValue(self.position)
+        self._teilstriche_anwenden(widget, self.frequency)
+        widget.valueChanged.connect(self._bei_wertaenderung)
+        return widget
+
+    @staticmethod
+    def _teilstriche_anwenden(widget: QSlider, frequency: int) -> None:
+        widget.setTickInterval(frequency)
+        widget.setTickPosition(
+            QSlider.TickPosition.TicksBelow if frequency > 0 else QSlider.TickPosition.NoTicks
+        )
+
+    def _bei_wertaenderung(self, wert: int) -> None:
+        self.position = wert
+        if self.on_change is not None:
+            self.on_change(self)
+
+    def _bei_prop_aenderung(self, name: str, wert: Any) -> None:
+        super()._bei_prop_aenderung(name, wert)
+        if name == "minimum":
+            self._qwidget.setMinimum(wert)
+        elif name == "maximum":
+            self._qwidget.setMaximum(wert)
+        elif name == "position":
+            self._qwidget.setValue(wert)
+        elif name == "frequency":
+            self._teilstriche_anwenden(self._qwidget, wert)
+        if name in ("minimum", "maximum", "position"):
+            _prop_gleichziehen(self, "position", self._qwidget.value())
+
+
+class ProgressBar(Control):
+    """Fortschrittsbalken. Qt-Basis: `QProgressBar`. Entspricht
+    `TProgressBar` in Lazarus."""
+
+    # Standardgröße als Prop-Standard (wie bei `Chart`): 75x25 ergäbe
+    # einen Stummel, in dem die Prozentzahl nicht mehr lesbar ist.
+    width = Prop(int, 150, kategorie="Layout", doc="Breite in Pixeln")
+    height = Prop(int, 22, kategorie="Layout", doc="Höhe in Pixeln")
+
+    minimum = Prop(int, 0, kategorie="Verhalten", doc="Kleinster möglicher Wert")
+    maximum = Prop(int, 100, kategorie="Verhalten", doc="Größter möglicher Wert")
+    position = Prop(int, 0, kategorie="Verhalten", doc="Aktueller Wert (Füllstand)")
+    show_text = Prop(bool, True, kategorie="Darstellung", doc="Prozentzahl im Balken anzeigen")
+
+    def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
+        widget = QProgressBar(eltern_widget)
+        widget.setRange(self.minimum, self.maximum)
+        widget.setValue(self.position)
+        widget.setTextVisible(self.show_text)
+        widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        return widget
+
+    def _bei_prop_aenderung(self, name: str, wert: Any) -> None:
+        super()._bei_prop_aenderung(name, wert)
+        if name == "show_text":
+            self._qwidget.setTextVisible(wert)
+        elif name in ("minimum", "maximum", "position"):
+            self._wertebereich_anwenden()
+
+    def _wertebereich_anwenden(self) -> None:
+        """Setzt Bereich und Füllstand gemeinsam - und kappt den
+        Füllstand selbst.
+
+        `QProgressBar.setValue()` **ignoriert** einen Wert außerhalb des
+        Bereichs stillschweigend, statt ihn wie `QSpinBox`/`QSlider` auf
+        die Grenze zu kappen: `position = 300` bei `maximum = 100` ließ
+        den Balken kommentarlos auf 0 stehen. Für jemanden, der gerade
+        `position = fertig_prozent` schreibt, ist das die denkbar
+        unbrauchbarste Reaktion, deshalb hier dieselbe Kappung wie bei
+        den übrigen Wertkomponenten.
+        """
+        self._qwidget.setRange(self.minimum, self.maximum)
+        self._qwidget.setValue(max(self.minimum, min(self.maximum, self.position)))
+        _prop_gleichziehen(self, "position", self._qwidget.value())
