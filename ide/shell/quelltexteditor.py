@@ -70,6 +70,11 @@ _RAND_FARBEN = {
     "dark": {"hintergrund": "#252526", "zeilennummer": "#858585", "aktuelle_zeile": "#2a2d2e"},
 }
 
+# Farbe der Einrückungslinien (M11, Abschnitt 2.1). Bewusst blass: sie
+# sind eine Orientierungshilfe und dürfen den Quelltext nicht
+# übertönen. Dieselben Werte benutzt VS Code für `editorIndentGuide`.
+_EINZUGSLINIEN_FARBEN = {"light": "#e4e4e4", "dark": "#404040"}
+
 # Nutzer-Feedback (September 2026): Cascadia Code wirkte auf dem
 # echten Rechner trotz mitgelieferter Schriftdatei weiterhin wie die
 # Standardschrift - Consolas (ein garantierter Windows-Systemfont,
@@ -120,6 +125,9 @@ class QuelltextEditor(QPlainTextEdit):
         self._thema = thema
         self._rand_farben = _RAND_FARBEN.get(thema, _RAND_FARBEN["light"])
         self._hervorhebung = PythonHervorhebung(self.document(), thema)
+
+        #: Senkrechte Hilfslinien je Einrückungsebene (M11, 2.1)
+        self.einzugslinien_sichtbar = True
 
         self.breakpoints: set[int] = set()
         self._rand = _ZeilenNummernRand(self)
@@ -177,7 +185,30 @@ class QuelltextEditor(QPlainTextEdit):
         if event.key() == Qt.Key.Key_Tab and not event.modifiers():
             self.textCursor().insertText(_EINZUG)
             return
+        if event.key() == Qt.Key.Key_Backspace and self._einzugsebene_loeschen():
+            return
         super().keyPressEvent(event)
+
+    def _einzugsebene_loeschen(self) -> bool:
+        """Rücktaste im Einzug löscht eine **ganze** Ebene.
+
+        Mit vier Leerzeichen je Ebene bräuchte es sonst vier Anschläge,
+        um eine Zeile auszurücken – und wer dabei einmal zu oft oder zu
+        wenig drückt, bekommt in Python einen `IndentationError`, den er
+        nicht sieht. Nur wenn links vom Cursor ausschließlich
+        Leerzeichen stehen: mitten im Text bleibt die Rücktaste, was sie
+        ist.
+        """
+        cursor = self.textCursor()
+        if cursor.hasSelection():
+            return False
+        links = cursor.block().text()[: cursor.positionInBlock()]
+        if not links or links.strip():
+            return False
+        zurueck = len(links) % len(_EINZUG) or len(_EINZUG)
+        for _ in range(min(zurueck, len(links))):
+            cursor.deletePreviousChar()
+        return True
 
     def _einrueckende_neue_zeile_einfuegen(self) -> None:
         cursor = self.textCursor()
@@ -235,6 +266,56 @@ class QuelltextEditor(QPlainTextEdit):
         qfont.setPointSize(_CODE_SCHRIFTGROESSE)
         qfont.setFixedPitch(True)
         self.setFont(qfont)
+
+    # -- Einrückung sichtbar machen (M11, Abschnitt 2.1) ----------------
+
+    def einzugslinien_setzen(self, sichtbar: bool) -> None:
+        """Schaltet die senkrechten Hilfslinien je Einrückungsebene."""
+        if sichtbar == self.einzugslinien_sichtbar:
+            return
+        self.einzugslinien_sichtbar = sichtbar
+        self.viewport().update()
+
+    def einzugstiefe(self, blocknummer: int) -> int:
+        """Wie viele Ebenen tief diese Zeile eingerückt ist.
+
+        Eine **leere** Zeile hat für sich genommen keine Einrückung; sie
+        übernimmt deshalb die der nächsten Zeile mit Inhalt. Sonst
+        rissen die Linien mitten in einem Block ab, gerade dort, wo eine
+        Leerzeile zwei Absätze einer Funktion trennt – und genau dann
+        braucht man sie am meisten.
+        """
+        dokument = self.document()
+        block = dokument.findBlockByNumber(blocknummer)
+        while block.isValid():
+            text = block.text()
+            if text.strip():
+                return len(_EINZUG_MUSTER.match(text).group().expandtabs(4)) // len(
+                    _EINZUG
+                )
+            block = block.next()
+        return 0
+
+    def _einzugslinien_zeichnen(self, event: QPaintEvent) -> None:
+        """Eine senkrechte Linie je Einrückungsebene.
+
+        Bei Python **ist** die Einrückung die Syntax – wer sie nicht
+        sieht, sucht seinen Fehler an der falschen Stelle. Gezeichnet
+        wird hinter den Text, damit sie ihn nie verdeckt.
+        """
+        maler = QPainter(self.viewport())
+        maler.setPen(QColor(_EINZUGSLINIEN_FARBEN.get(self._thema, "#e4e4e4")))
+        spaltenbreite = self.fontMetrics().horizontalAdvance(_EINZUG)
+        links = round(self.contentOffset().x())
+        for blocknummer, oben, unten in self._fuer_jeden_sichtbaren_block(event.rect()):
+            for ebene in range(1, self.einzugstiefe(blocknummer)):
+                x = links + ebene * spaltenbreite
+                maler.drawLine(x, oben, x, unten)
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        if self.einzugslinien_sichtbar:
+            self._einzugslinien_zeichnen(event)
+        super().paintEvent(event)
 
     def _zeilennummern_zeichnen(self, event: QPaintEvent) -> None:
         maler = QPainter(self._rand)

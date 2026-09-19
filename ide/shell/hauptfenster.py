@@ -296,6 +296,19 @@ class HauptFenster(QMainWindow):
         ):
             self._menues["Ansicht"].addAction(dock.toggleViewAction())
 
+        # „Ansicht → Einrückungslinien“ (M11, Abschnitt 2.1). Bei Python
+        # **ist** die Einrückung die Syntax; wer sie nicht sieht, sucht
+        # seinen Fehler an der falschen Stelle. Abschaltbar bleibt sie
+        # trotzdem, wie jede Anzeigehilfe in Natter.
+        self.einzugslinien_aktion = self._menues["Ansicht"].addAction(
+            "Einrückungslinien"
+        )
+        self.einzugslinien_aktion.setCheckable(True)
+        self.einzugslinien_aktion.setChecked(
+            self._design_einstellungen.value("editor/einzugslinien", True, type=bool)
+        )
+        self.einzugslinien_aktion.toggled.connect(self._einzugslinien_umschalten)
+
         # „Ansicht → Design“ (Nutzer-Feedback, September 2026: „Hast du
         # den Darkmode schon implementiert?“) – Hell/Dunkel/System,
         # gemerkt über QSettings. Bewusst keine eigene `Aktion`-Hülle
@@ -1051,6 +1064,7 @@ class HauptFenster(QMainWindow):
         editor = QuelltextEditor(
             thema=theme_aufloesen(self._design_thema), schriftart=self._code_schriftart
         )
+        editor.einzugslinien_setzen(self.einzugslinien_aktion.isChecked())
         editor.setPlainText(pfad.read_text(encoding="utf-8"))
         editor.setProperty(_PFAD_EIGENSCHAFT, str(pfad))
         editor.document().modificationChanged.connect(
@@ -1213,6 +1227,15 @@ class HauptFenster(QMainWindow):
         self.aktionen.symbole_erneuern(thema)
         self.palette.symbole_erneuern(thema)
         self.setWindowIcon(symbol("app", thema))
+
+    def _einzugslinien_umschalten(self, sichtbar: bool) -> None:
+        """Schaltet die Einrückungslinien in allen offenen Editor-Tabs
+        und merkt sich die Wahl für den nächsten Start."""
+        self._design_einstellungen.setValue("editor/einzugslinien", sichtbar)
+        for index in range(self.editor_tabs.count()):
+            editor = self.editor_tabs.widget(index)
+            if isinstance(editor, QuelltextEditor):
+                editor.einzugslinien_setzen(sichtbar)
 
     def _code_schriftart_wechseln(self, schriftart: str) -> None:
         """„Ansicht → Schriftart“: wendet die gewählte Editor-Schrift
