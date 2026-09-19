@@ -291,3 +291,47 @@ def test_ein_gelungenes_speichern_raeumt_die_aenderungsmarke_weg(
 
     assert datei.read_text(encoding="utf-8") == "neu" + chr(10)
     assert editor.document().isModified() is False
+
+
+def test_auch_der_testprotokoll_export_meldet_sich(
+    fenster: HauptFenster, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Alles, was Natter auf Wunsch auf die Platte schreibt, geht durch
+    dieselbe Stelle – sonst hätte jede ihre eigene (oder gar keine)
+    Behandlung."""
+    from PySide6.QtWidgets import QFileDialog
+
+    from ide.testrunner.ausfuehrung import Testergebnis
+
+    gezeigt = _meldungen_abfangen(monkeypatch)
+    fenster._letzte_testergebnisse = [
+        Testergebnis(id="t.T.test_eins", status="bestanden", dauer=0.1, nachricht="")
+    ]
+    ziel = tmp_path / "protokoll.html"
+    monkeypatch.setattr(
+        QFileDialog, "getSaveFileName", lambda *_a, **_k: (str(ziel), "")
+    )
+    monkeypatch.setattr(
+        Path, "write_text", lambda *_a, **_k: (_ for _ in ()).throw(OSError("voll"))
+    )
+
+    fenster._testergebnisse_exportieren_aktion()
+
+    assert gezeigt, "Es kam keine Meldung."
+    assert "protokoll.html" in gezeigt[0]
+    assert "voll" in gezeigt[0]
+
+
+def test_der_hinweis_nennt_die_haeufigen_gruende(
+    fenster: HauptFenster, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gezeigt = _meldungen_abfangen(monkeypatch)
+    monkeypatch.setattr(
+        Path, "write_text", lambda *_a, **_k: (_ for _ in ()).throw(OSError("nein"))
+    )
+
+    geklappt = fenster.datei_schreiben_gemeldet(tmp_path / "x.txt", "inhalt")
+
+    assert geklappt is False
+    assert "USB-Stick" in gezeigt[0]
+    assert "schreibgeschützt" in gezeigt[0]

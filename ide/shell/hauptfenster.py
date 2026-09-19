@@ -1056,7 +1056,8 @@ class HauptFenster(QMainWindow):
             return
         titel = self.projekt.name if self.projekt is not None else "Testprotokoll"
         html = ergebnisse_als_html(self._letzte_testergebnisse, titel=titel)
-        Path(pfad).write_text(html, encoding="utf-8")
+        if not self.datei_schreiben_gemeldet(Path(pfad), html):
+            return
         self.statusBar().showMessage(f"Testprotokoll gespeichert: {pfad}")
 
     def _als_exe_exportieren_aktion(self) -> None:
@@ -1473,25 +1474,44 @@ class HauptFenster(QMainWindow):
         if not isinstance(editor, QPlainTextEdit):
             return
         pfad = Path(editor.property(_PFAD_EIGENSCHAFT))
+        # Ein gescheitertes Speichern ist der schlimmste Fall von allen:
+        # der Text steht noch im Fenster, die Datei auf der Platte ist
+        # die alte. Der Tab bleibt deshalb als geändert markiert, wenn
+        # es nicht geklappt hat (M11, Abschnitt 5).
+        if not self.datei_schreiben_gemeldet(
+            pfad, editor.toPlainText(), folge="Der Text steht noch im Editor."
+        ):
+            return
+        editor.document().setModified(False)
+
+    def datei_schreiben_gemeldet(
+        self, pfad: Path, inhalt: str, *, folge: str = ""
+    ) -> bool:
+        """Schreibt `inhalt` nach `pfad` und meldet ein Scheitern als
+        Fenster. Liefert, ob es geklappt hat.
+
+        Überall dort benutzt, wo Natter auf Wunsch der Nutzerin etwas
+        auf die Platte schreibt. Vorher stand an jeder dieser Stellen
+        ein nacktes `write_text()`: ein abgezogener USB-Stick, ein
+        schreibgeschützter Ordner oder eine in Word geöffnete Datei
+        ergaben einen Traceback, in der gebauten Exe ohne Konsole also
+        gar nichts (M11, Abschnitt 5). Bewusst ein Fenster und keine
+        Zeile in der Statusleiste: eine nicht geschriebene Datei ist zu
+        wichtig, um sie zu übersehen.
+        """
         try:
-            pfad.write_text(editor.toPlainText(), encoding="utf-8")
+            Path(pfad).write_text(inhalt, encoding="utf-8")
         except OSError as fehler:
-            # Ein gescheitertes Speichern ist der schlimmste Fall von
-            # allen: der Text steht noch im Fenster, die Datei auf der
-            # Platte ist die alte, und vorher flog nur ein Traceback -
-            # in der gebauten Exe also gar nichts. Deshalb hier als
-            # Fenster und nicht als Zeile in der Statusleiste, und der
-            # Tab bleibt als geändert markiert (M11, Abschnitt 5).
             QMessageBox.warning(
                 self,
                 "Nicht gespeichert",
-                f"„{pfad.name}“ konnte nicht gespeichert werden:\n{fehler}\n\n"
-                "Der Text steht noch im Editor. Häufige Gründe: der USB-Stick ist "
-                "abgezogen, die Datei ist schreibgeschützt oder in einem anderen "
-                "Programm geöffnet.",
+                f"„{Path(pfad).name}“ konnte nicht gespeichert werden:\n{fehler}\n\n"
+                + (f"{folge}\n\n" if folge else "")
+                + "Häufige Gründe: der USB-Stick ist abgezogen, die Datei ist "
+                "schreibgeschützt oder in einem anderen Programm geöffnet.",
             )
-            return
-        editor.document().setModified(False)
+            return False
+        return True
 
     # -- Bearbeiten (Abschnitt 7.2) -------------------------------------------
 
@@ -2181,9 +2201,12 @@ class HauptFenster(QMainWindow):
         )
         if not ziel:
             return
-        Path(ziel).write_text(
-            json.dumps(ergebnis.pfm, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-        )
+        if not self.datei_schreiben_gemeldet(
+            Path(ziel),
+            json.dumps(ergebnis.pfm, indent=2, ensure_ascii=False) + "\n",
+            folge="Das importierte Formular ist damit nicht angelegt worden.",
+        ):
+            return
 
         ziel_pfad = Path(ziel)
         bild_pfade = self._lazarus_bilder_schreiben(ergebnis, ziel_pfad)
