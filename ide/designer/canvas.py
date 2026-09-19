@@ -73,11 +73,20 @@ _ANFASSER_CURSOR: dict[str, Qt.CursorShape] = {
     "w": Qt.CursorShape.SizeHorCursor,
 }
 
-# Wird einmal an das Stylesheet des Formulars angehängt (kaskadiert zu
-# allen Kindern, Abschnitt 6) statt einzelne Widget-Stylesheets zu
-# überschreiben – so bleibt das Theme des Formulars unangetastet.
-_AUSWAHL_REGEL = '\n*[design_ausgewaehlt="true"] { border: 2px solid #0067c0; }'
-_MARKIERUNGS_EIGENSCHAFT = "design_ausgewaehlt"
+# Der Auswahlrahmen besteht aus vier dünnen Streifen, die über der
+# ausgewählten Komponente liegen – wie die acht Größenanfasser und wie
+# der Rahmen in Lazarus. Früher stand er als QSS-Regel
+# `*[design_ausgewaehlt="true"] { border: 2px solid ... }` im Stylesheet
+# des Formulars. Das war bequem, hat den Designer aber stillschweigend
+# vom laufenden Programm entfernt: sobald eine Komponente ein eigenes
+# Stylesheet bekam (Schriftart oder Hintergrundfarbe, siehe
+# `_eigenes_qss_anwenden`), übernahm Qts Stylesheet-Stil ihre Maße und
+# gab ihr die 2 px Rahmenbreite der Regel dauerhaft mit – auch wenn sie
+# gar nicht ausgewählt war. Ein `Label` rückte seinen Text dadurch um
+# 5 px nach rechts, eine `StringGrid` verlor ringsum 2 px: im Designer,
+# nicht im Programm (M11, Abschnitt 3).
+_RAHMEN_DICKE = 2
+_RAHMEN_FARBE = "#0067c0"
 RASTER = 8
 
 
@@ -287,8 +296,8 @@ class DesignerCanvas(QObject):
         # ohne `acceptDrops` dorthin weiter, die Position ist dann
         # bereits in Formular-Koordinaten.
         formular._qwidget.setAcceptDrops(True)
-        formular._qwidget.setStyleSheet(formular._qwidget.styleSheet() + _AUSWAHL_REGEL)
         self._ueberwachung_einrichten(formular)
+        self._rahmen_erzeugen()
         self._anfasser_erzeugen()
 
     def _ueberwachung_einrichten(self, objekt: Any) -> None:
@@ -297,6 +306,53 @@ class DesignerCanvas(QObject):
         widget.installEventFilter(self)
         for _, komponente in kind_komponenten(objekt):
             self._ueberwachung_einrichten(komponente)
+
+    def _rahmen_erzeugen(self) -> None:
+        """Die vier Streifen des Auswahlrahmens. Sie hängen wie die
+        Anfasser am Formular-Widget und nehmen keine Mausereignisse an –
+        sonst ließe sich eine Komponente an ihrem eigenen Rand weder
+        anklicken noch ziehen."""
+        self._rahmen_kanten = []
+        for _ in range(4):
+            kante = QWidget(self.formular._qwidget)
+            kante.setStyleSheet(f"background-color: {_RAHMEN_FARBE};")
+            kante.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+            kante.hide()
+            self._rahmen_kanten.append(kante)
+
+    def _rahmen_aktualisieren(self) -> None:
+        komponente = self.ausgewaehlte_komponente
+        if komponente is None:
+            for kante in self._rahmen_kanten:
+                kante.hide()
+            return
+
+        if komponente is self.formular:
+            # Das Formular selbst hat kein `left`/`top` auf sich selbst;
+            # der Rahmen liegt innen an seinen eigenen Kanten.
+            links, oben = 0, 0
+            breite, hoehe = self.formular._qwidget.width(), self.formular._qwidget.height()
+            aussen = 0
+        else:
+            links, oben = komponente.left, komponente.top
+            breite, hoehe = komponente.width, komponente.height
+            # Außen herum statt darüber: so verdeckt der Rahmen nichts
+            # von der Komponente selbst.
+            aussen = _RAHMEN_DICKE
+
+        d = _RAHMEN_DICKE
+        x, y = links - aussen, oben - aussen
+        b, h = breite + 2 * aussen, hoehe + 2 * aussen
+        geometrien = (
+            (x, y, b, d),  # oben
+            (x, y + h - d, b, d),  # unten
+            (x, y, d, h),  # links
+            (x + b - d, y, d, h),  # rechts
+        )
+        for kante, (kx, ky, kb, kh) in zip(self._rahmen_kanten, geometrien, strict=True):
+            kante.setGeometry(kx, ky, kb, kh)
+            kante.show()
+            kante.raise_()
 
     def _anfasser_erzeugen(self) -> None:
         for name in _ANFASSER_VERHALTEN:
@@ -423,6 +479,7 @@ class DesignerCanvas(QObject):
                 self._ziehen_komponente.top += delta.y()
                 self._ziehen_start = aktuell
                 self._anfasser_aktualisieren()
+                self._rahmen_aktualisieren()
             return True
 
         elif typ == QEvent.Type.MouseButtonRelease and self._anfasser_ziehen is not None:
@@ -521,6 +578,7 @@ class DesignerCanvas(QObject):
         komponente.width = max(1, start["width"] + breite_je_dx * delta.x())
         komponente.height = max(1, start["height"] + hoehe_je_dy * delta.y())
         self._anfasser_aktualisieren()
+        self._rahmen_aktualisieren()
 
     def _anfasser_ziehen_beenden(self) -> None:
         komponente = self.ausgewaehlte_komponente
@@ -647,16 +705,8 @@ class DesignerCanvas(QObject):
         self._aenderung_beobachter.append(beobachter)
 
     def _auswaehlen(self, komponente: Any) -> None:
-        if self.ausgewaehlte_komponente is not None:
-            self._markierung_setzen(self.ausgewaehlte_komponente._qwidget, False)
         self.ausgewaehlte_komponente = komponente
-        self._markierung_setzen(komponente._qwidget, True)
         self._benachrichtigen(komponente)
-
-    def _markierung_setzen(self, widget: QWidget, ausgewaehlt: bool) -> None:
-        widget.setProperty(_MARKIERUNGS_EIGENSCHAFT, ausgewaehlt)
-        widget.style().unpolish(widget)
-        widget.style().polish(widget)
 
     # -- Bearbeiten ---------------------------------------------------------
 
@@ -914,6 +964,7 @@ class DesignerCanvas(QObject):
 
     def _benachrichtigen(self, komponente: Any) -> None:
         self._anfasser_aktualisieren()
+        self._rahmen_aktualisieren()
         for beobachter in self._auswahl_beobachter:
             beobachter(komponente)
 

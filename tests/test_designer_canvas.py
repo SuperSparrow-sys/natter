@@ -6,7 +6,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 
 from ide.designer import DesignerCanvas
-from pcl import Button, Form, Shape
+from pcl import Button, Form, Label, Shape
 
 
 class _Formular(Form):
@@ -22,6 +22,15 @@ class _Formular(Form):
         self.s_rot.top = 100
         self.s_rot.width = 40
         self.s_rot.height = 40
+
+        # Ein `Label` zeigt als Einziges, ob der Auswahlrahmen die
+        # Komponente selbst verändert: mit Rahmenbreite rückt QLabel
+        # seinen Text ein.
+        self.l_titel = Label(self)
+        self.l_titel.left = 200
+        self.l_titel.top = 0
+        self.l_titel.width = 90
+        self.l_titel.height = 25
 
 
 def test_klick_bei_trifft_die_richtige_komponente() -> None:
@@ -43,16 +52,49 @@ def test_klick_auf_leeren_hintergrund_waehlt_das_formular_selbst() -> None:
     assert getroffen is formular
 
 
-def test_auswahl_setzt_markierungseigenschaft_und_entfernt_die_alte() -> None:
+def _rahmen_rechteck(canvas: DesignerCanvas) -> tuple[int, int, int, int]:
+    """Das von den vier Rahmenstreifen umschlossene Rechteck."""
+    kanten = [kante.geometry() for kante in canvas._rahmen_kanten]
+    links = min(k.left() for k in kanten)
+    oben = min(k.top() for k in kanten)
+    rechts = max(k.right() for k in kanten)
+    unten = max(k.bottom() for k in kanten)
+    return links, oben, rechts - links + 1, unten - oben + 1
+
+
+def test_der_auswahlrahmen_wandert_zur_neu_gewaehlten_komponente() -> None:
+    """Der Rahmen besteht aus vier Streifen über dem Formular, nicht
+    mehr aus einer QSS-Regel: ein Stylesheet an der Komponente selbst
+    hätte ihre Maße verändert und den Designer vom laufenden Programm
+    entfernt (M11, Abschnitt 3)."""
     formular = _Formular()
     canvas = DesignerCanvas(formular)
 
     canvas.klick_bei(20, 20)
-    assert formular.b_ein._qwidget.property("design_ausgewaehlt") is True
+    assert _rahmen_rechteck(canvas) == (10 - 2, 10 - 2, 80 + 4, 30 + 4)
 
     canvas.klick_bei(110, 110)
-    assert formular.s_rot._qwidget.property("design_ausgewaehlt") is True
-    assert formular.b_ein._qwidget.property("design_ausgewaehlt") is False
+    assert _rahmen_rechteck(canvas) == (100 - 2, 100 - 2, 40 + 4, 40 + 4)
+
+
+def test_der_auswahlrahmen_veraendert_die_komponente_nicht() -> None:
+    """Genau das war der Fehler: die QSS-Regel gab jeder Komponente mit
+    eigenem Stylesheet dauerhaft 2 px Rahmenbreite mit - ein `Label`
+    rückte seinen Text im Designer um 5 px nach rechts, im Programm
+    nicht."""
+    im_programm = _Formular()
+    im_programm.l_titel.font.bold = True
+
+    im_designer = _Formular()
+    canvas = DesignerCanvas(im_designer)
+    canvas.klick_bei(210, 10)
+    im_designer.l_titel.font.bold = True
+    canvas.klick_bei(250, 250)  # wieder abwählen
+
+    assert (
+        im_designer.l_titel._qwidget.grab().toImage()
+        == im_programm.l_titel._qwidget.grab().toImage()
+    )
 
 
 def test_beobachter_wird_bei_auswahl_benachrichtigt() -> None:

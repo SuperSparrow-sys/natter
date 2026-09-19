@@ -189,6 +189,15 @@ class EigenschaftenTabelle(QTableWidget):
             self._zelle_zuruecksetzen(element, typ, name)
             return
 
+        # Manche Komponenten berichtigen einen Wert, statt ihn
+        # abzulehnen: `RadioGroup.item_index = 6` ohne sechste Option
+        # fällt auf -1 zurück, weil eine Auswahl, die niemand sieht,
+        # schlimmer wäre. Ohne diesen Abgleich stünde in der Zelle
+        # weiter die 6, während die Komponente längst -1 führt - der
+        # Objektinspektor zeigte etwas an, das es nicht gibt.
+        if self._wert_lesen(name) != neuer_wert:
+            self._zelle_zuruecksetzen(element, typ, name)
+
         self.fehlertext = ""
 
     def _bei_doppelklick(self, element: QTableWidgetItem) -> None:

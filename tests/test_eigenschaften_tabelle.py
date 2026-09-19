@@ -5,7 +5,7 @@ Headless. Siehe docs/arbeitspakete/M3.md, Schritt 1.
 from PySide6.QtCore import Qt
 
 from ide.inspector import EigenschaftenTabelle
-from pcl import Button, CheckBox, Form
+from pcl import Button, CheckBox, Form, RadioGroup
 from pcl.components.additional import Shape
 
 
@@ -123,3 +123,37 @@ def test_komponente_wechseln_zeigt_die_neue_komponente() -> None:
     namen = [tabelle.item(z, 0).text() for z in range(tabelle.rowCount())]
     assert "checked" in namen
     assert "on_click" not in namen  # Ereignisse gehören zu Schritt 2
+
+
+def test_ein_berichtigter_wert_steht_auch_berichtigt_in_der_zelle() -> None:
+    """Manche Komponenten lehnen einen Wert nicht ab, sondern berichtigen
+    ihn: `RadioGroup.item_index = 6` ohne sechste Option fällt auf -1
+    zurück, weil eine Auswahl, die niemand sieht, schlimmer wäre. Die
+    Zelle zeigte danach weiter die 6 - der Objektinspektor behauptete
+    also etwas, das die Komponente gar nicht führt (M11, Abschnitt 3).
+    """
+    formular = _Formular()
+    gruppe = RadioGroup(formular)
+    gruppe.items = ["Rot", "Gelb"]
+    tabelle = EigenschaftenTabelle()
+    tabelle.komponente_anzeigen(gruppe)
+    zeile = _zeile_finden(tabelle, "item_index")
+
+    tabelle.item(zeile, 1).setText("6")
+
+    assert gruppe.item_index == -1
+    assert tabelle.item(zeile, 1).text() == "-1"
+
+
+def test_ein_angenommener_wert_bleibt_in_der_zelle_stehen() -> None:
+    formular = _Formular()
+    gruppe = RadioGroup(formular)
+    gruppe.items = ["Rot", "Gelb"]
+    tabelle = EigenschaftenTabelle()
+    tabelle.komponente_anzeigen(gruppe)
+    zeile = _zeile_finden(tabelle, "item_index")
+
+    tabelle.item(zeile, 1).setText("1")
+
+    assert gruppe.item_index == 1
+    assert tabelle.item(zeile, 1).text() == "1"
