@@ -96,7 +96,9 @@ def test_neues_diagramm_ohne_projekt_zeigt_hinweis() -> None:
 
     fenster._neues_diagramm_aktion()
 
-    assert fenster.statusBar().currentMessage() == "Kein Projekt offen."
+    meldung = fenster.statusBar().currentMessage()
+    assert meldung.startswith("Kein Projekt offen.")
+    assert "Projekt → Öffnen" in meldung
 
 
 def test_neues_diagramm_mit_vorhandenem_namen_zeigt_hinweis(tmp_path: Path, monkeypatch) -> None:

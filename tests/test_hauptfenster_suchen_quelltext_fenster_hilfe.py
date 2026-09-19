@@ -25,7 +25,9 @@ def _editor_mit_text(fenster: HauptFenster, tmp_path: Path, text: str, name: str
 def test_suchen_ohne_offenen_editor_zeigt_hinweis() -> None:
     fenster = HauptFenster()
     fenster._suchen_aktion()
-    assert fenster.statusBar().currentMessage() == "Kein Editor-Tab aktiv."
+    meldung = fenster.statusBar().currentMessage()
+    assert meldung.startswith("Kein Editor-Tab aktiv.")
+    assert "Projekt-Explorer" in meldung
 
 
 def test_suchen_oeffnet_den_dialog_fuer_den_aktiven_editor(tmp_path: Path) -> None:
@@ -72,7 +74,9 @@ def test_suchen_dialog_alle_ersetzen(tmp_path: Path) -> None:
 def test_gehe_zu_zeile_ohne_offenen_editor_zeigt_hinweis() -> None:
     fenster = HauptFenster()
     fenster._gehe_zu_zeile_aktion()
-    assert fenster.statusBar().currentMessage() == "Kein Editor-Tab aktiv."
+    meldung = fenster.statusBar().currentMessage()
+    assert meldung.startswith("Kein Editor-Tab aktiv.")
+    assert "Projekt-Explorer" in meldung
 
 
 def test_gehe_zu_zeile_bewegt_den_cursor(

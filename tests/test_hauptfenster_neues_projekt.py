@@ -68,7 +68,9 @@ def test_neues_projekt_ohne_name_oder_ordner_zeigt_hinweis(
 
     fenster._neues_projekt_dialog()
 
-    assert fenster.statusBar().currentMessage() == "Name und Ordner werden benötigt."
+    meldung = fenster.statusBar().currentMessage()
+    assert meldung.startswith("Name und Ordner werden benötigt")
+    assert "ausfüllen" in meldung
 
 
 def test_neues_projekt_in_nicht_leerem_ordner_zeigt_fehlermeldung(

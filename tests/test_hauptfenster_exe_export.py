@@ -26,7 +26,9 @@ def _projekt_kopie(tmp_path: Path) -> Path:
 def test_ohne_offenes_projekt_zeigt_hinweis() -> None:
     fenster = HauptFenster()
     fenster._als_exe_exportieren_aktion()
-    assert fenster.statusBar().currentMessage() == "Kein Projekt offen."
+    meldung = fenster.statusBar().currentMessage()
+    assert meldung.startswith("Kein Projekt offen.")
+    assert "Projekt → Öffnen" in meldung
 
 
 def test_erfolgreicher_export_meldet_den_ausgabepfad(

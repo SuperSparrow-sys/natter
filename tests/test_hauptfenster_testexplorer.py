@@ -39,7 +39,9 @@ def _projekt_mit_testdatei(fenster: HauptFenster, ordner: Path) -> None:
 def test_ohne_projekt_zeigt_hinweis() -> None:
     fenster = HauptFenster()
     fenster._alle_tests_ausfuehren_aktion()
-    assert fenster.statusBar().currentMessage() == "Kein Projekt offen."
+    meldung = fenster.statusBar().currentMessage()
+    assert meldung.startswith("Kein Projekt offen.")
+    assert "Projekt → Öffnen" in meldung
 
 
 def test_alle_tests_ausfuehren_befuellt_den_baum(tmp_path: Path) -> None:
@@ -92,7 +94,9 @@ def test_statusleiste_zeigt_anzahl_und_fehlschlaege(tmp_path: Path) -> None:
 
     fenster._alle_tests_ausfuehren_aktion()
 
-    assert fenster.statusBar().currentMessage() == "2 Test(s), 1 nicht bestanden"
+    meldung = fenster.statusBar().currentMessage()
+    assert meldung.startswith("2 Tests gelaufen, 1 nicht bestanden")
+    assert "Test-Explorer" in meldung
 
 
 def test_doppelklick_fuehrt_genau_diesen_test_erneut_aus(tmp_path: Path) -> None:
@@ -151,7 +155,9 @@ def test_neue_test_unit_erzeugt_eine_lauffaehige_unittest_datei(tmp_path: Path) 
 def test_export_ohne_vorherigen_lauf_zeigt_hinweis() -> None:
     fenster = HauptFenster()
     fenster._testergebnisse_exportieren_aktion()
-    assert fenster.statusBar().currentMessage() == "Noch keine Testergebnisse zum Exportieren."
+    meldung = fenster.statusBar().currentMessage()
+    assert meldung.startswith("Noch keine Testergebnisse zum Exportieren")
+    assert "Tests ausführen" in meldung
 
 
 def test_export_schreibt_eine_gueltige_html_datei(

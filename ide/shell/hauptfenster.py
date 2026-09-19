@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QDockWidget,
     QFileDialog,
     QInputDialog,
+    QLabel,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
@@ -79,6 +80,9 @@ from ide.palette.palette import TYP_ROLLE
 from ide.pfade import daten_ordner
 from ide.project import Projekt, projekt_erzeugen
 from ide.project.neu_dialog import NeuesProjektDialog
+from ide.pruefungsmodus import laeuft as pruefungsmodus_laeuft
+from ide.pruefungsmodus import restzeit_text
+from ide.pruefungsmodus import starten as pruefungsmodus_starten
 from ide.run import projekt_pruefen, projekt_starten
 from ide.shell.explorer import PFAD_ROLLE, ProjektExplorer
 from ide.shell.quelltexteditor import SCHRIFTART_OPTIONEN, QuelltextEditor
@@ -328,6 +332,22 @@ class HauptFenster(QMainWindow):
         )
         self.einzugslinien_aktion.toggled.connect(self._einzugslinien_umschalten)
 
+        # „Ansicht → Vervollständigung“ (M11, Abschnitt 2.2). Wie jede
+        # Schreibhilfe abschaltbar - und der Prüfungsmodus wird sie
+        # später von hier aus einschränken können.
+        self.vervollstaendigung_aktion = self._menues["Ansicht"].addAction(
+            "Vervollständigung"
+        )
+        self.vervollstaendigung_aktion.setCheckable(True)
+        self.vervollstaendigung_aktion.setChecked(
+            self._design_einstellungen.value(
+                "editor/vervollstaendigung", True, type=bool
+            )
+        )
+        self.vervollstaendigung_aktion.toggled.connect(
+            self._vervollstaendigung_umschalten
+        )
+
         # „Ansicht → Design“ (Nutzer-Feedback, September 2026: „Hast du
         # den Darkmode schon implementiert?“) – Hell/Dunkel/System,
         # gemerkt über QSettings. Bewusst keine eigene `Aktion`-Hülle
@@ -403,6 +423,13 @@ class HauptFenster(QMainWindow):
         self.letzte_tabellen_ansicht: TabellenAnsicht | None = None
 
         self.statusBar().showMessage("bereit")
+        # Dauerhaft rechts in der Statusleiste, solange eine Pruefung
+        # laeuft - eine Meldung, die nach drei Sekunden verschwindet,
+        # waere fuer einen Zustand falsch, der vier Stunden anhaelt.
+        self.pruefungsanzeige = QLabel()
+        self.pruefungsanzeige.setStyleSheet("padding: 0 8px; font-weight: bold;")
+        self.statusBar().addPermanentWidget(self.pruefungsanzeige)
+        self._statusleiste_pruefung_aktualisieren()
 
         self.aktionen = Aktionsregister()
         self.aktionen.registrieren(
@@ -633,6 +660,14 @@ class HauptFenster(QMainWindow):
                 callback=self._umgebung_pruefen_aktion,
             )
         )
+        self.aktionen.registrieren(
+            Aktion(
+                "werkzeuge.pruefungsmodus",
+                "Prüfungsmodus starten …",
+                menue="Werkzeuge",
+                callback=self._pruefungsmodus_aktion,
+            )
+        )
         self._design_pruefung_automatisch_aktion = self.aktionen.registrieren(
             Aktion(
                 "werkzeuge.design_pruefung_automatisch",
@@ -780,13 +815,18 @@ class HauptFenster(QMainWindow):
             return
         werte = dialog.werte()
         if werte is None:
-            self.statusBar().showMessage("Name und Ordner werden benötigt.")
+            self.statusBar().showMessage(
+                "Name und Ordner werden benötigt - beide Felder im Dialog ausfüllen."
+            )
             return
         vorlage, projektordner, name = werte
         try:
             projekt = projekt_erzeugen(vorlage, projektordner, name)
         except (ValueError, FileExistsError) as fehler:
-            self.statusBar().showMessage(f"Projekt konnte nicht angelegt werden: {fehler}")
+            self.statusBar().showMessage(
+                f"Projekt konnte nicht angelegt werden: {fehler}. Einen anderen Ordner wählen, "
+                f"in dem Schreibrechte bestehen."
+            )
             return
         self.projekt = projekt
         self.explorer.projekt_anzeigen(projekt)
@@ -838,7 +878,10 @@ class HauptFenster(QMainWindow):
         """„Neue Test-Unit“ (Abschnitt 8.6): legt `test_neu<n>.py` mit
         einer `unittest`-Grundstruktur an."""
         if self.projekt is None:
-            self.statusBar().showMessage("Kein Projekt offen.")
+            self.statusBar().showMessage(
+                "Kein Projekt offen. Zuerst über „Projekt → Öffnen …“ eines laden oder ein "
+                "neues anlegen."
+            )
             return
         vorhandene = {p.stem for p in self.projekt.units()}
         zaehler = 1
@@ -851,14 +894,19 @@ class HauptFenster(QMainWindow):
 
     def _alle_tests_ausfuehren_aktion(self) -> None:
         if self.projekt is None:
-            self.statusBar().showMessage("Kein Projekt offen.")
+            self.statusBar().showMessage(
+                "Kein Projekt offen. Zuerst über „Projekt → Öffnen …“ eines laden oder ein "
+                "neues anlegen."
+            )
             return
         ergebnisse = tests_ausfuehren(self.projekt.ordner)
         self._letzte_testergebnisse = ergebnisse
         self._tests_baum_befuellen(ergebnisse)
         anzahl_fehlgeschlagen = sum(1 for e in ergebnisse if e.status != "bestanden")
         self.statusBar().showMessage(
-            f"{len(ergebnisse)} Test(s), {anzahl_fehlgeschlagen} nicht bestanden"
+            f"{len(ergebnisse)} {'Test' if len(ergebnisse) == 1 else 'Tests'} gelaufen, "
+            f"{anzahl_fehlgeschlagen} nicht bestanden. Ein Klick auf einen Eintrag im "
+            f"Test-Explorer zeigt, woran es lag."
         )
         self.panels.setCurrentWidget(self.tests_baum)
 
@@ -866,7 +914,10 @@ class HauptFenster(QMainWindow):
         """„Testergebnisse als HTML exportieren“ (Abschnitt 8.6) – nutzt
         die Ergebnisse des letzten „Alle Tests ausführen“-Laufs."""
         if not self._letzte_testergebnisse:
-            self.statusBar().showMessage("Noch keine Testergebnisse zum Exportieren.")
+            self.statusBar().showMessage(
+                "Noch keine Testergebnisse zum Exportieren - zuerst „Projekt → Tests "
+                "ausführen“ starten."
+            )
             return
         pfad, _ = QFileDialog.getSaveFileName(
             self, "Testergebnisse exportieren", filter="HTML-Datei (*.html)"
@@ -884,7 +935,10 @@ class HauptFenster(QMainWindow):
         blockierend, wie „Alle Tests ausführen“ – ein Export dauert für
         ein Schulprojekt typischerweise 15-40 Sekunden."""
         if self.projekt is None:
-            self.statusBar().showMessage("Kein Projekt offen.")
+            self.statusBar().showMessage(
+                "Kein Projekt offen. Zuerst über „Projekt → Öffnen …“ eines laden oder ein "
+                "neues anlegen."
+            )
             return
 
         self.statusBar().showMessage("Exe wird erstellt … (kann etwas dauern)")
@@ -898,7 +952,9 @@ class HauptFenster(QMainWindow):
                 ["[Exe-Export fehlgeschlagen]", *ergebnis.protokoll.splitlines()[-40:]]
             )
             self.panels.setCurrentWidget(self.meldungen_liste)
-            self.statusBar().showMessage("Exe-Export fehlgeschlagen, siehe Meldungen.")
+            self.statusBar().showMessage(
+                "Exe-Export fehlgeschlagen. Die Ursache steht unten im Panel „Meldungen“."
+            )
             return
 
         self.statusBar().showMessage(f"Exe erstellt: {ergebnis.ausgabe_pfad}")
@@ -975,7 +1031,10 @@ class HauptFenster(QMainWindow):
 
     def _neue_unit_aktion(self) -> None:
         if self.projekt is None:
-            self.statusBar().showMessage("Kein Projekt offen.")
+            self.statusBar().showMessage(
+                "Kein Projekt offen. Zuerst über „Projekt → Öffnen …“ eines laden oder ein "
+                "neues anlegen."
+            )
             return
         self.unit_erzeugen()
 
@@ -992,13 +1051,18 @@ class HauptFenster(QMainWindow):
             neuer_name += ".py"
         ziel = pfad.parent / neuer_name
         if ziel.exists():
-            self.statusBar().showMessage(f"„{neuer_name}“ existiert bereits.")
+            self.statusBar().showMessage(
+                f"„{neuer_name}“ gibt es schon - bitte einen anderen Namen wählen."
+            )
             return
 
         try:
             pfad.rename(ziel)
         except OSError as fehler:
-            self.statusBar().showMessage(f"Umbenennen fehlgeschlagen: {fehler}")
+            self.statusBar().showMessage(
+                f"Umbenennen fehlgeschlagen: {fehler}. Ist die Datei gerade in einem anderen "
+                f"Programm geöffnet?"
+            )
             return
 
         self._offenen_tab_pfad_aktualisieren(pfad, ziel)
@@ -1012,7 +1076,8 @@ class HauptFenster(QMainWindow):
         antwort = QMessageBox.question(
             self,
             "Unit löschen",
-            f"„{pfad.name}“ wirklich unwiderruflich löschen?",
+            f"„{pfad.name}“ wirklich löschen? Die Datei landet nicht im Papierkorb "
+            "und lässt sich danach nicht zurückholen.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if antwort != QMessageBox.StandardButton.Yes:
@@ -1030,7 +1095,10 @@ class HauptFenster(QMainWindow):
         try:
             pfad.unlink()
         except OSError as fehler:
-            self.statusBar().showMessage(f"Löschen fehlgeschlagen: {fehler}")
+            self.statusBar().showMessage(
+                f"Löschen fehlgeschlagen: {fehler}. Ist die Datei gerade in einem anderen "
+                f"Programm geöffnet?"
+            )
             return
 
         if self.projekt is not None:
@@ -1123,6 +1191,9 @@ class HauptFenster(QMainWindow):
             thema=theme_aufloesen(self._design_thema), schriftart=self._code_schriftart
         )
         editor.einzugslinien_setzen(self.einzugslinien_aktion.isChecked())
+        editor.vervollstaendigung_setzen(
+            self.vervollstaendigung_aktion.isChecked()
+        )
         editor.setPlainText(pfad.read_text(encoding="utf-8"))
         editor.setProperty(_PFAD_EIGENSCHAFT, str(pfad))
         editor.document().modificationChanged.connect(
@@ -1197,7 +1268,10 @@ class HauptFenster(QMainWindow):
     def _suchen_aktion(self) -> None:
         editor = self._aktueller_editor()
         if editor is None:
-            self.statusBar().showMessage("Kein Editor-Tab aktiv.")
+            self.statusBar().showMessage(
+                "Kein Editor-Tab aktiv. Zuerst links im Projekt-Explorer eine Quelltextdatei "
+                "doppelklicken."
+            )
             return
         self._suchen_dialog = SuchenErsetzenDialog(editor, self)
         self._suchen_dialog.show()
@@ -1207,7 +1281,10 @@ class HauptFenster(QMainWindow):
     def _gehe_zu_zeile_aktion(self) -> None:
         editor = self._aktueller_editor()
         if editor is None:
-            self.statusBar().showMessage("Kein Editor-Tab aktiv.")
+            self.statusBar().showMessage(
+                "Kein Editor-Tab aktiv. Zuerst links im Projekt-Explorer eine Quelltextdatei "
+                "doppelklicken."
+            )
             return
         maximum = editor.document().blockCount()
         zeile, ok = QInputDialog.getInt(self, "Gehe zu Zeile", "Zeile:", 1, 1, maximum)
@@ -1294,6 +1371,59 @@ class HauptFenster(QMainWindow):
             editor = self.editor_tabs.widget(index)
             if isinstance(editor, QuelltextEditor):
                 editor.einzugslinien_setzen(sichtbar)
+
+    def _pruefungsmodus_aktion(self) -> bool:
+        """„Werkzeuge → Prüfungsmodus starten …“ (M11, Abschnitt 6).
+
+        Mit Rückfrage, weil er sich vier Stunden lang nicht mehr
+        abschalten lässt – und genau das ist sein Sinn. Läuft er schon,
+        sagt der Eintrag nur, wie lange noch: ein zweiter Start würde
+        die Zeit verlängern, was in einer Klausur niemand will.
+        """
+        if pruefungsmodus_laeuft():
+            self.statusBar().showMessage(
+                f"{restzeit_text()}. Er läuft von selbst aus; bis dahin bleiben "
+                "Lösungsvorschläge und Quelltexterzeugung gesperrt."
+            )
+            return False
+
+        antwort = QMessageBox.question(
+            self,
+            "Prüfungsmodus starten",
+            "Für vier Stunden werden keine Lösungsvorschläge angezeigt, und "
+            "aus Klassendiagramm und Struktogramm lässt sich kein Quelltext "
+            "erzeugen.\n\n"
+            "Er lässt sich bis dahin nicht abschalten und läuft danach von "
+            "selbst aus. Jetzt starten?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if antwort != QMessageBox.StandardButton.Yes:
+            self.statusBar().showMessage("Prüfungsmodus nicht gestartet.")
+            return False
+
+        pruefungsmodus_starten()
+        self._statusleiste_pruefung_aktualisieren()
+        self.statusBar().showMessage(
+            f"{restzeit_text()}. Lösungsvorschläge und Quelltexterzeugung sind "
+            "bis dahin gesperrt."
+        )
+        return True
+
+    def _statusleiste_pruefung_aktualisieren(self) -> None:
+        """Zeigt die Restzeit dauerhaft rechts in der Statusleiste. Wer
+        nicht sieht, dass der Modus an ist, sucht den Fehler bei
+        sich."""
+        self.pruefungsanzeige.setText(restzeit_text())
+        self.pruefungsanzeige.setVisible(bool(restzeit_text()))
+
+    def _vervollstaendigung_umschalten(self, an: bool) -> None:
+        """Schaltet die Vervollständigung in allen offenen Editor-Tabs
+        und merkt sich die Wahl für den nächsten Start."""
+        self._design_einstellungen.setValue("editor/vervollstaendigung", an)
+        for index in range(self.editor_tabs.count()):
+            editor = self.editor_tabs.widget(index)
+            if isinstance(editor, QuelltextEditor):
+                editor.vervollstaendigung_setzen(an)
 
     def _code_schriftart_wechseln(self, schriftart: str) -> None:
         """„Ansicht → Schriftart“: wendet die gewählte Editor-Schrift
@@ -1419,7 +1549,10 @@ class HauptFenster(QMainWindow):
         `.pdiag` im Ordner `diagramme/` des offenen Projekts an und
         öffnet sie im Diagramm-Editor."""
         if self.projekt is None:
-            self.statusBar().showMessage("Kein Projekt offen.")
+            self.statusBar().showMessage(
+                "Kein Projekt offen. Zuerst über „Projekt → Öffnen …“ eines laden oder ein "
+                "neues anlegen."
+            )
             return
 
         beschriftungen = [TYP_BESCHRIFTUNGEN[typ] for typ in MVP_TYPEN]
@@ -1438,7 +1571,9 @@ class HauptFenster(QMainWindow):
 
         pfad = self.projekt.diagramm_ordner / f"{name.strip()}.pdiag"
         if pfad.exists():
-            self.statusBar().showMessage(f"{pfad.name} gibt es schon.")
+            self.statusBar().showMessage(
+                f"{pfad.name} gibt es schon - bitte einen anderen Namen wählen."
+            )
             return
 
         pfad.parent.mkdir(parents=True, exist_ok=True)
@@ -1537,7 +1672,10 @@ class HauptFenster(QMainWindow):
         """Doppelklick in der Palette platziert die Komponente mittig im
         aktiven Formular-Designer (Abschnitt 7.3)."""
         if self._aktueller_canvas is None:
-            self.statusBar().showMessage("Kein Formular-Designer geöffnet.")
+            self.statusBar().showMessage(
+                "Kein Formular-Designer geöffnet. Zuerst links im Projekt-Explorer ein "
+                "Formular (.pfm) doppelklicken."
+            )
             return
         typ = eintrag.data(TYP_ROLLE)
         formular = self._aktueller_canvas.formular
@@ -1580,7 +1718,10 @@ class HauptFenster(QMainWindow):
         """„Werkzeuge → Design prüfen“: prüft das im Designer aktive
         Formular (nicht das ganze Projekt auf einmal)."""
         if self._aktueller_canvas is None:
-            self.statusBar().showMessage("Kein Formular-Designer geöffnet.")
+            self.statusBar().showMessage(
+                "Kein Formular-Designer geöffnet. Zuerst links im Projekt-Explorer ein "
+                "Formular (.pfm) doppelklicken."
+            )
             return
         self._design_pruefen(self._aktueller_canvas)
 
@@ -1599,7 +1740,11 @@ class HauptFenster(QMainWindow):
             self.meldungen_liste.addItem(eintrag)
         if befunde:
             self.panels.setCurrentWidget(self.meldungen_liste)
-        self.statusBar().showMessage(f"Design-Prüfung: {len(befunde)} Fund(e).")
+        self.statusBar().showMessage(
+            f"Design-Prüfung: {len(befunde)} {'Fund' if len(befunde) == 1 else 'Funde'}. Jeder "
+            f"Eintrag unten im Panel „Meldungen“ sagt, was sich ändern lässt; ein Klick "
+            f"markiert die Komponente."
+        )
 
     def _bei_meldung_geklickt(self, eintrag: QListWidgetItem) -> None:
         """Klick auf einen Design-Prüfer-Befund markiert die betroffene
@@ -1625,7 +1770,8 @@ class HauptFenster(QMainWindow):
         ergebnis = installation_pruefen(vollstaendig=True)
         if ergebnis is None:
             self.statusBar().showMessage(
-                "Keine Prüfung möglich: Natter läuft nicht aus einer gebauten Installation."
+                "Keine Prüfung möglich: Natter läuft nicht aus einer gebauten Installation. "
+                "Die Prüfung gilt nur für die ausgelieferte Natter.exe."
             )
             return
         if ergebnis.in_ordnung:
@@ -1653,7 +1799,10 @@ class HauptFenster(QMainWindow):
         try:
             lfm_objekt = parse_lfm(Path(quelle).read_text(encoding="utf-8"))
         except LfmParserError as fehler:
-            self.statusBar().showMessage(f"Import fehlgeschlagen: {fehler}")
+            self.statusBar().showMessage(
+                f"Import fehlgeschlagen: {fehler}. Ist die gewählte Datei wirklich ein "
+                f"Lazarus-Formular (.lfm)?"
+            )
             return
         ergebnis = lfm_zu_pfm(lfm_objekt)
 
@@ -1682,8 +1831,9 @@ class HauptFenster(QMainWindow):
             self.panels.setCurrentWidget(self.meldungen_liste)
 
         self.statusBar().showMessage(
-            f"{Path(quelle).name} importiert: {len(ergebnis.warnungen)} Hinweis(e) im "
-            "Importbericht."
+            f"{Path(quelle).name} importiert: {len(ergebnis.warnungen)} "
+            f"{'Hinweis' if len(ergebnis.warnungen) == 1 else 'Hinweise'} im Importbericht - "
+            f"dort steht, was von Hand nachzutragen ist."
         )
 
     def _lazarus_bilder_schreiben(
@@ -1779,7 +1929,9 @@ class HauptFenster(QMainWindow):
         try:
             pakete = installierte_pakete()
         except (OSError, PaketFehler) as fehler:
-            self.statusBar().showMessage(f"Paketliste nicht lesbar: {fehler}")
+            self.statusBar().showMessage(
+                f"Paketliste nicht lesbar: {fehler}. Besteht eine Verbindung zum Netz?"
+            )
             return
 
         dialog = QDialog(self)
@@ -1803,7 +1955,10 @@ class HauptFenster(QMainWindow):
         try:
             paket_installieren(name)
         except PaketFehler as fehler:
-            self.statusBar().showMessage(f"Installation fehlgeschlagen: {fehler}")
+            self.statusBar().showMessage(
+                f"Installation fehlgeschlagen: {fehler}. Ist der Paketname richtig "
+                f"geschrieben, und besteht eine Verbindung zum Netz?"
+            )
             return
         self.statusBar().showMessage(f"{name} installiert.")
 
@@ -1818,7 +1973,10 @@ class HauptFenster(QMainWindow):
         try:
             paketliste_exportieren(pfad)
         except (OSError, PaketFehler) as fehler:
-            self.statusBar().showMessage(f"Paketliste exportieren fehlgeschlagen: {fehler}")
+            self.statusBar().showMessage(
+                f"Paketliste exportieren fehlgeschlagen: {fehler}. Bestehen Schreibrechte im "
+                f"gewählten Ordner?"
+            )
             return
         self.statusBar().showMessage(f"Paketliste exportiert nach {pfad}.")
 
@@ -1866,10 +2024,15 @@ class HauptFenster(QMainWindow):
         eine weitere Instanz zu starten. Vor dem Start prüft Ruff das
         Projekt (Abschnitt 8.2); bei Funden wird nicht gestartet."""
         if self.projekt is None:
-            self.statusBar().showMessage("Kein Projekt offen.")
+            self.statusBar().showMessage(
+                "Kein Projekt offen. Zuerst über „Projekt → Öffnen …“ eines laden oder ein "
+                "neues anlegen."
+            )
             return
         if self.laufender_prozess is not None and self.laufender_prozess.poll() is None:
-            self.statusBar().showMessage(f"{self.projekt.name} läuft bereits.")
+            self.statusBar().showMessage(
+                f"{self.projekt.name} läuft bereits - zuerst über „Start → Stopp“ beenden."
+            )
             return
 
         funde = projekt_pruefen(self.projekt)
@@ -1878,7 +2041,9 @@ class HauptFenster(QMainWindow):
             self.meldungen_liste.addItems([str(fund) for fund in funde])
             self.panels.setCurrentWidget(self.meldungen_liste)
             self.statusBar().showMessage(
-                f"{len(funde)} Fund(e) vor dem Start - nicht gestartet."
+                f"{len(funde)} {'Fund' if len(funde) == 1 else 'Funde'} vor dem Start - nicht "
+                f"gestartet. Jeder Eintrag unten im Panel „Meldungen“ nennt Datei und Zeile; "
+                f"ein Klick führt dorthin."
             )
             return
 
@@ -1904,10 +2069,16 @@ class HauptFenster(QMainWindow):
         mit `DebugSitzung` – Breakpoints aus den offenen Editor-Tabs werden
         übernommen."""
         if self.projekt is None:
-            self.statusBar().showMessage("Kein Projekt offen.")
+            self.statusBar().showMessage(
+                "Kein Projekt offen. Zuerst über „Projekt → Öffnen …“ eines laden oder ein "
+                "neues anlegen."
+            )
             return
         if self.debug_sitzung is not None:
-            self.statusBar().showMessage(f"{self.projekt.name} läuft bereits (Debugger).")
+            self.statusBar().showMessage(
+                f"{self.projekt.name} läuft bereits (Debugger) - zuerst über „Start → Stopp“ "
+                f"beenden."
+            )
             return
 
         funde = projekt_pruefen(self.projekt)
@@ -1916,7 +2087,9 @@ class HauptFenster(QMainWindow):
             self.meldungen_liste.addItems([str(fund) for fund in funde])
             self.panels.setCurrentWidget(self.meldungen_liste)
             self.statusBar().showMessage(
-                f"{len(funde)} Fund(e) vor dem Start - nicht gestartet."
+                f"{len(funde)} {'Fund' if len(funde) == 1 else 'Funde'} vor dem Start - nicht "
+                f"gestartet. Jeder Eintrag unten im Panel „Meldungen“ nennt Datei und Zeile; "
+                f"ein Klick führt dorthin."
             )
             return
 
@@ -1983,7 +2156,10 @@ class HauptFenster(QMainWindow):
         editor.setTextCursor(cursor)
 
     def _debugger_beendet(self, exitcode: int) -> None:
-        self.statusBar().showMessage(f"Debugger beendet (Exitcode {exitcode})")
+        self.statusBar().showMessage(
+            f"Debugger beendet, das Programm endete mit Rückgabewert {exitcode}. 0 heißt: ohne "
+            f"Fehler."
+        )
         self.debug_sitzung = None
         self._aktueller_thread_id = None
         self._letzter_aufrufstapel = []
@@ -2073,7 +2249,10 @@ class HauptFenster(QMainWindow):
         kommt asynchron über das Signal `ausgewertet` in
         `_debugger_tabelle_bereit()`."""
         if self.debug_sitzung is None or not self._letzter_aufrufstapel:
-            self.statusBar().showMessage("Kein angehaltenes Programm - keine Tabelle möglich.")
+            self.statusBar().showMessage(
+                "Keine Tabelle möglich: Das Programm ist gerade nicht angehalten. Zuerst einen "
+                "Haltepunkt setzen und mit F5 starten."
+            )
             return
         try:
             # `debugpy` blendet im Variablen-Panel Sammelzeilen wie
@@ -2083,12 +2262,13 @@ class HauptFenster(QMainWindow):
             # verständlichen Antwort.
             compile(name, "<variable>", "eval")
         except SyntaxError:
-            self.statusBar().showMessage(f"{name!r} ist keine Variable, die sich auswerten lässt.")
+            self.statusBar().showMessage(
+                f"{name!r} ist keine Variable, die sich auswerten lässt. Im Panel „Variablen“ "
+                f"eine Zeile mit einem echten Variablennamen wählen."
+            )
             return
         self._tabellen_variable = name
-        self.debug_sitzung.auswerten(
-            tabellen_ausdruck(name), self._letzter_aufrufstapel[0]["id"]
-        )
+        self.debug_sitzung.auswerten(tabellen_ausdruck(name), self._letzter_aufrufstapel[0]["id"])
 
     def _debugger_tabelle_bereit(self, antwort: dict) -> None:
         """Antwort auf `variable_als_tabelle_zeigen()` (DAP `evaluate`).

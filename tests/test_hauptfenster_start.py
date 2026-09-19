@@ -27,7 +27,9 @@ def _projekt_ordner_schreiben(ordner: Path, main_inhalt: str) -> Path:
 def test_ohne_offenes_projekt_zeigt_hinweis() -> None:
     fenster = HauptFenster()
     fenster._projekt_starten_aktion()
-    assert fenster.statusBar().currentMessage() == "Kein Projekt offen."
+    meldung = fenster.statusBar().currentMessage()
+    assert meldung.startswith("Kein Projekt offen.")
+    assert "Projekt → Öffnen" in meldung
 
 
 def test_start_setzt_laufenden_prozess_und_zeigt_status(tmp_path: Path) -> None:
@@ -95,7 +97,9 @@ def test_erneuter_start_waehrend_das_programm_noch_laeuft_wird_abgelehnt(
         assert fenster.laufender_prozess is laufender_prozess
 
         fenster._projekt_starten_aktion()
-        assert fenster.statusBar().currentMessage() == "Test läuft bereits."
+        meldung = fenster.statusBar().currentMessage()
+        assert meldung.startswith("Test läuft bereits")
+        assert "Stopp" in meldung
     finally:
         laufender_prozess.kill()
         laufender_prozess.wait(timeout=10)

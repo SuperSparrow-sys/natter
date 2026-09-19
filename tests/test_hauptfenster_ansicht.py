@@ -21,6 +21,7 @@ def test_ansicht_menue_listet_alle_docks() -> None:
         "Datenbank",
         "Panels",
         "Einrückungslinien",
+        "Vervollständigung",
         "Design",
         "Schriftart",
     }

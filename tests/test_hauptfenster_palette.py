@@ -42,7 +42,9 @@ def test_doppelklick_ohne_offenen_designer_zeigt_hinweis() -> None:
 
     fenster.palette.standard_liste.itemDoubleClicked.emit(eintrag)
 
-    assert fenster.statusBar().currentMessage() == "Kein Formular-Designer geöffnet."
+    meldung = fenster.statusBar().currentMessage()
+    assert meldung.startswith("Kein Formular-Designer geöffnet.")
+    assert "Projekt-Explorer" in meldung
 
 
 def test_doppelklick_platziert_komponente_mittig_im_aktiven_formular(

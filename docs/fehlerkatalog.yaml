@@ -12,6 +12,17 @@
 # Nicht erlaubt: korrigierter Code, konkrete Ersatzzeilen, vollständige
 # Anweisungen, Namensvorschläge, Verweise auf Musterlösungen. Die
 # "Did you mean ...?"-Vorschläge von Python werden entfernt.
+#
+# "pruefe" ist Pflicht und darf nie leer sein (M11, Abschnitt 4: "jede
+# Meldung mit Lösungen"). Es ist der Teil, der sagt, was man tun kann -
+# als Leitfrage, nicht als Anweisung. Der Prüfungsmodus (M11,
+# Abschnitt 6) blendet genau diesen Teil wieder aus; alles, was zum
+# Verstehen des Fehlers nötig ist, gehört deshalb nach "was".
+# tests/test_meldungen_mit_loesung.py hält beides fest.
+#
+# Alles, was Python selbst formuliert ("list index out of range"), ist
+# englisch und erscheint nie unverändert: ide/debugger/fehlerkatalog.py
+# übersetzt die im Unterricht vorkommenden Standardmeldungen.
 
 format: fehlerkatalog/1
 
@@ -19,7 +30,7 @@ entries:
   - id: syntax_error
     exception: [SyntaxError, IndentationError]
     was: "Der Quelltext an der markierten Stelle ist kein gültiges Python."
-    pruefe: "Fehlt ein Doppelpunkt? Stimmt die Einrückung des Blocks?"
+    pruefe: "Fehlt ein Doppelpunkt am Blockanfang? Stimmt die Einrückung? Python nutzt Einrückung statt begin…end."
 
   - id: name_error
     exception: NameError
@@ -29,50 +40,50 @@ entries:
   - id: unbound_local_error
     exception: UnboundLocalError
     was: "{name} wird in dieser Funktion verändert, bevor ihm dort ein Wert zugewiesen wurde."
-    pruefe: "Ist {name} als lokale oder als globale Variable gemeint?"
+    pruefe: "Soll an dieser Stelle wirklich eine neue lokale Variable entstehen, oder war die gleichnamige globale gemeint?"
 
   - id: attribute_error
     exception: AttributeError
     was: "{objekt} besitzt keine Eigenschaft {name}."
-    pruefe: "Ist der Eigenschaftsname richtig geschrieben? Gehört er zu dieser Komponente?"
+    pruefe: "Ist der Eigenschaftsname richtig geschrieben? Gehört er zu dieser Komponente, oder steht in der Variablen ein anderer Objekttyp?"
     hinweis_kapselung: "Bei Zugriff auf __{name} von außen: Attribute mit zwei führenden Unterstrichen sind gekapselt und nur innerhalb der Klasse erreichbar (Namensumbildung)."
 
   - id: type_error
     exception: TypeError
     was: "Der Typ von {wert} passt nicht zur erwarteten Operation oder Parameterzahl."
-    pruefe: "Welchen Typ hat {wert} tatsächlich? Stimmt die Anzahl der Parameter?"
+    pruefe: "Welchen Typ hat {wert} tatsächlich? Stimmt die Anzahl der Parameter? Kommt der Wert aus einem Eingabefeld und ist damit ein Text?"
     hinweis_abstrakte_klasse: "Bei Instanziierung einer abstrakten Klasse: Welche mit @abstractmethod markierten Methoden sind in der Unterklasse noch nicht überschrieben?"
 
   - id: value_error
     exception: ValueError
     was: "Der Wert {wert} lässt sich nicht in den gewünschten Typ umwandeln."
-    pruefe: "Entspricht der Wert dem erwarteten Format?"
+    pruefe: "Entspricht der Wert dem erwarteten Format - ohne Leerzeichen, Einheit oder Dezimalkomma?"
     hinweis_dezimalkomma: "Bei einer Zahl mit Komma: Python erwartet einen Dezimalpunkt, kein Dezimalkomma."
 
   - id: zero_division_error
     exception: ZeroDivisionError
     was: "Es wurde durch 0 geteilt. Der markierte Teiler war zu diesem Zeitpunkt {teiler}."
-    pruefe: "Welche Werte kann der Teiler annehmen? Wird der Fall 0 vorher behandelt?"
+    pruefe: "Welche Werte kann der Teiler annehmen? Wird der Fall 0 vorher abgefangen?"
 
   - id: index_error
     exception: IndexError
     was: "Der Index {index} liegt außerhalb des gültigen Bereichs (0 bis {maximum})."
-    pruefe: "Welchen Wert hat {index} an dieser Stelle? Passt er zur Länge der Liste bzw. zu Spalten-/Zeilenanzahl?"
+    pruefe: "Welchen Wert hat {index} an dieser Stelle? Passt er zur Länge der Liste bzw. zur Spalten- und Zeilenanzahl? Gezählt wird ab 0."
 
   - id: key_error
     exception: KeyError
     was: "Der Schlüssel {schluessel} ist nicht vorhanden. Vorhandene Schlüssel: {vorhandene_schluessel}."
-    pruefe: "Ist der Schlüssel bzw. Spaltenname richtig geschrieben?"
+    pruefe: "Ist der Schlüssel bzw. Spaltenname richtig geschrieben, und stimmt die Groß-/Kleinschreibung? Welche Schlüssel enthält die Sammlung an dieser Stelle wirklich?"
 
   - id: file_not_found_error
     exception: FileNotFoundError
     was: "Die Datei {pfad} wurde nicht gefunden. Aktuelles Arbeitsverzeichnis: {arbeitsverzeichnis}."
-    pruefe: "Stimmt der Pfad? Liegt die Datei relativ zum Arbeitsverzeichnis am erwarteten Ort?"
+    pruefe: "Stimmt der Pfad? Liegt die Datei relativ zum Arbeitsverzeichnis am erwarteten Ort, also im Projektordner?"
 
   - id: permission_error
     exception: PermissionError
     was: "Auf {pfad} kann nicht zugegriffen werden."
-    pruefe: "Ist die Datei gerade in einem anderen Programm (z. B. Excel) geöffnet? Bestehen Schreibrechte?"
+    pruefe: "Ist die Datei gerade in einem anderen Programm (z. B. Excel) geöffnet? Bestehen Schreibrechte für diesen Ordner?"
 
   - id: unicode_decode_error
     exception: UnicodeDecodeError
@@ -82,8 +93,11 @@ entries:
   - id: pandas_parser_error
     exception: [ParserError, EmptyDataError]
     was: "Die Datei {pfad} lässt sich nicht als Tabelle einlesen. Erkannte Spaltenanzahl: {spaltenanzahl}."
-    pruefe: "Stimmt das angegebene Trennzeichen? Ist die Datei leer?"
+    pruefe: "Stimmt das angegebene Trennzeichen? Hat die Datei eine Kopfzeile, und ist sie überhaupt gefüllt?"
 
+  # Noch nicht umgesetzt: eine Ausnahme `NatterRuntimeError` gibt es in
+  # `pcl.errors` bisher nicht, und `input()` wird im GUI-Programm nicht
+  # abgefangen. Der Eintrag bleibt als Vorgabe stehen.
   - id: input_in_gui
     exception: NatterRuntimeError
     was: "In GUI-Programmen erfolgen Eingaben über Komponenten auf dem Formular."
@@ -92,4 +106,12 @@ entries:
   - id: pcl_property_error
     exception: NatterPropertyError
     was: "{komponente}.{eigenschaft} erwartet {erwarteter_typ}, erhalten wurde {erhaltener_typ}."
-    pruefe: "Welchen Typ liefert der zugewiesene Ausdruck tatsächlich?"
+    pruefe: "Welchen Typ liefert der zugewiesene Ausdruck tatsächlich? Kommt der Wert aus einem Eingabefeld und ist damit ein Text?"
+
+  # Ohne eigenen Eintrag fiel die Suche über die MRO bis `RuntimeError`
+  # durch, für den es keinen Eintrag gibt - das Schülerprogramm zeigte
+  # dann einen rohen Traceback statt einer Meldung (M11, Abschnitt 4).
+  - id: natter_datenbank_error
+    exception: NatterDatenbankError
+    was: "Die Datenbank ist nicht erreichbar oder die SQL-Anweisung ist fehlerhaft: {meldung}."
+    pruefe: "Steht die Verbindung zur Datenbank? Heißen Tabelle und Spalten wirklich so, und stimmt die Reihenfolge der SQL-Schlüsselwörter?"

@@ -57,6 +57,8 @@ from ide.diagramm.struktogramm_palette import BlockPalette
 from ide.diagramm.tabelle import regelanzahl
 from ide.diagramm.tabelle_canvas import TabellenCanvas
 from ide.diagramm.uml_modell import formname
+from ide.pruefungsmodus import GESPERRT_HINWEIS, restzeit_text
+from ide.pruefungsmodus import laeuft as pruefungsmodus_laeuft
 from ide.shell.theme import ide_qss_erzeugen
 
 #: Menüaufbau aus Abschnitt 13.2. `True` = in diesem Schritt bereits
@@ -492,6 +494,16 @@ class DiagrammFenster(QMainWindow):
         self.menuBar().insertMenu(self._menues["Hilfe"].menuAction(), menue)
         self._menues["Quelltext"] = menue
         aktion = menue.addAction("Erzeugen …")
+        # Im Pruefungsmodus gesperrt (M11, Abschnitt 6): aus einem
+        # Klassendiagramm oder einem Struktogramm Python erzeugen zu
+        # lassen waere in einer Leistungssituation die halbe Aufgabe.
+        # Sichtbar bleibt der Eintrag trotzdem - ein spurlos
+        # verschwundener Menueeintrag waere verwirrender als ein
+        # erklaerter.
+        if pruefungsmodus_laeuft():
+            aktion.setEnabled(False)
+            aktion.setToolTip(GESPERRT_HINWEIS)
+            menue.setToolTipsVisible(True)
         # Nicht Strg+G: das gehört seit Teilschritt 3b dem Gruppieren,
         # und Strg+G zum Gruppieren kennt jedes Zeichenprogramm. Zwei
         # aktive Aktionen auf derselben Taste lösen in Qt gar nichts
@@ -657,12 +669,15 @@ class DiagrammFenster(QMainWindow):
             if hasattr(self.zeichenflaeche, "raster_sichtbar")
             else ""
         )
+        pruefung = restzeit_text()
+        pruefungsteil = f"  │  {pruefung}" if pruefung else ""
         zoom = getattr(self.zeichenflaeche, "zoom", None)
         if zoom is not None:
             raster += f"Zoom {round(zoom * 100)} %  │  "
         self.statusBar().showMessage(
             f"{auswahl}  │  {raster}"
-            f"{seite['size']} {ausrichtung}  │  Stil: {self.diagramm.stil}{hinweis_text}"
+            f"{seite['size']} {ausrichtung}  │  Stil: {self.diagramm.stil}"
+            f"{hinweis_text}{pruefungsteil}"
         )
         # Die Meldungen selbst als Tooltip: eine Form kann außerhalb des
         # sichtbaren Ausschnitts liegen, dann wäre ihr Warnrahmen allein

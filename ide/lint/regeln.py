@@ -66,6 +66,29 @@ class Befund:
     schweregrad: str  # "hinweis" oder "warnung"
     komponente: str | None
     meldung: str
+    #: Was man tun kann – jeder Befund hat einen solchen Teil (M11,
+    #: Abschnitt 4: „jede Meldung mit Lösungen“). `meldung` endet immer
+    #: damit, damit die Oberfläche nichts zusammensetzen muss und der
+    #: Prüfungsmodus (M11, Abschnitt 6) ihn an einer einzigen Stelle
+    #: wieder abschneiden kann.
+    loesung: str = ""
+
+
+def _befund(
+    regel: str,
+    kategorie: str,
+    schweregrad: str,
+    komponente: str | None,
+    was: str,
+    loesung: str,
+) -> Befund:
+    """Baut einen `Befund`, dessen `meldung` mit dem Lösungsteil endet.
+
+    Alle Regeln gehen hierüber; von Hand zusammengesetzte Meldungen
+    hatten sonst mal einen Lösungsteil und mal keinen – genau der
+    Zustand, den M11 Abschnitt 4 abstellt.
+    """
+    return Befund(regel, kategorie, schweregrad, komponente, f"{was} {loesung}", loesung)
 
 
 def _eigenschaft(objekt: dict[str, Any], name: str, standard: Any = 0) -> Any:
@@ -118,22 +141,25 @@ def _geometrie_pruefen(pfm: dict[str, Any]) -> list[Befund]:
         left, top, width, height = _rechteck(kind)
         if left < 0 or top < 0 or left + width > form_breite or top + height > form_hoehe:
             befunde.append(
-                Befund(
+                _befund(
                     "geometrie.ausserhalb_formular",
                     "Geometrie",
                     "warnung",
                     kind["name"],
                     f"{kind['name']} liegt teilweise außerhalb des Formulars.",
+                    "Ins Formular hineinschieben oder das Formular größer machen - "
+                    "sonst fehlt sie im laufenden Programm.",
                 )
             )
         if left % RASTER != 0 or top % RASTER != 0:
             befunde.append(
-                Befund(
+                _befund(
                     "geometrie.nicht_am_raster",
                     "Geometrie",
                     "hinweis",
                     kind["name"],
                     f"{kind['name']} steht nicht am {RASTER}px-Raster.",
+                    f"„left“ und „top“ auf ein Vielfaches von {RASTER} setzen.",
                 )
             )
 
@@ -141,12 +167,14 @@ def _geometrie_pruefen(pfm: dict[str, Any]) -> list[Befund]:
         for b in kinder[i + 1 :]:
             if _ueberlappen(_rechteck(a), _rechteck(b)):
                 befunde.append(
-                    Befund(
+                    _befund(
                         "geometrie.ueberlappung",
                         "Geometrie",
                         "warnung",
                         a["name"],
                         f"{a['name']} überlappt mit {b['name']}.",
+                        "Eine der beiden verschieben oder schmaler machen, damit "
+                        "beide anklickbar bleiben.",
                     )
                 )
 
@@ -183,7 +211,7 @@ def _abstaende_pruefen(kinder: list[dict[str, Any]]) -> list[Befund]:
             luecken.append(bx - (ax + aw))
         if luecken and max(luecken) - min(luecken) > RASTER:
             befunde.append(
-                Befund(
+                _befund(
                     "geometrie.uneinheitliche_abstaende",
                     "Geometrie",
                     "hinweis",
@@ -191,6 +219,7 @@ def _abstaende_pruefen(kinder: list[dict[str, Any]]) -> list[Befund]:
                     "Die horizontalen Abstände zwischen "
                     + ", ".join(k["name"] for k in reihe)
                     + " sind uneinheitlich.",
+                    "Die Lücken in der Reihe auf denselben Wert bringen.",
                 )
             )
     return befunde
@@ -209,13 +238,15 @@ def _kanten_pruefen(kinder: list[dict[str, Any]]) -> list[Befund]:
             differenz = abs(ax - bx)
             if 0 < differenz <= toleranz:
                 befunde.append(
-                    Befund(
+                    _befund(
                         "geometrie.kante_nicht_buendig",
                         "Geometrie",
                         "hinweis",
                         a["name"],
                         f"{a['name']} und {b['name']} sind fast, aber nicht genau "
                         f"linksbündig ({differenz}px Unterschied).",
+                        "Beiden denselben „left“-Wert geben, wenn sie bündig "
+                        "sein sollen.",
                     )
                 )
     return befunde
@@ -250,14 +281,16 @@ def _lesbarkeit_pruefen(pfm: dict[str, Any]) -> list[Befund]:
             if verhaeltnis < _KONTRAST_MINDESTVERHAELTNIS:
                 ziel = name or "Das Formular"
                 befunde.append(
-                    Befund(
+                    _befund(
                         "lesbarkeit.kontrast",
                         "Lesbarkeit",
                         "warnung",
                         name,
-                        f"{ziel}: Kontrast von {farbe} zur {theme}en Textfarbe ist mit "
-                        f"{verhaeltnis:.1f}:1 niedriger als die WCAG-AA-Mindestgrenze "
-                        f"({_KONTRAST_MINDESTVERHAELTNIS}:1).",
+                        f"{ziel}: Der Text hebt sich von der Farbe {farbe} zu wenig "
+                        f"ab ({verhaeltnis:.1f}:1 statt der empfohlenen "
+                        f"{_KONTRAST_MINDESTVERHAELTNIS}:1 im "
+                        f"{'hellen' if theme == 'light' else 'dunklen'} Design).",
+                        "Eine deutlich hellere oder dunklere Farbe wählen.",
                     )
                 )
     return befunde
@@ -269,18 +302,26 @@ def _konsistenz_pruefen(pfm: dict[str, Any]) -> list[Befund]:
 
     buttons = [k for k in kinder if k["type"] == "Button"]
     if len(buttons) > 1:
-        groessen = [(_eigenschaft(b, "width", 0), _eigenschaft(b, "height", 0)) for b in buttons]
+        # Über _rechteck() statt direkt über _eigenschaft(): ein Button
+        # mit der Standardgröße hat in der .pfm gar keinen
+        # "width"/"height"-Schlüssel (Abschnitt 4.2), und mit der
+        # Vorbelegung 0 meldete die Regel dann „hat eine andere Größe
+        # (0×0)“ – eine Meldung, die den Schüler an die falsche Stelle
+        # schickt. In der Sichtprüfung des Panels „Meldungen“ gefunden.
+        groessen = [_rechteck(b)[2:] for b in buttons]
         haeufigste = max(set(groessen), key=groessen.count)
         for button, groesse in zip(buttons, groessen, strict=True):
             if groesse != haeufigste:
                 befunde.append(
-                    Befund(
+                    _befund(
                         "konsistenz.button_groesse",
                         "Konsistenz",
                         "hinweis",
                         button["name"],
                         f"{button['name']} hat eine andere Größe ({groesse[0]}×{groesse[1]}) "
                         f"als die übrigen Buttons ({haeufigste[0]}×{haeufigste[1]}).",
+                        f"Auf {haeufigste[0]}×{haeufigste[1]} angleichen, wenn die "
+                        f"Knöpfe gleichrangig sind.",
                     )
                 )
 
@@ -306,13 +347,14 @@ def _konsistenz_pruefen(pfm: dict[str, Any]) -> list[Befund]:
             _, ly, _, _ = _rechteck(naechstes_label)
             if abs(ly - ey) > 4:
                 befunde.append(
-                    Befund(
+                    _befund(
                         "konsistenz.label_ausrichtung",
                         "Konsistenz",
                         "hinweis",
                         eingabe["name"],
                         f"{naechstes_label['name']} ist nicht mit {eingabe['name']} "
                         "auf gleicher Höhe ausgerichtet.",
+                        "Beiden denselben „top“-Wert geben.",
                     )
                 )
     return befunde
@@ -328,7 +370,7 @@ def _bedienbarkeit_pruefen(pfm: dict[str, Any]) -> list[Befund]:
             width < _MINDEST_KLICKFLAECHE or height < _MINDEST_KLICKFLAECHE
         ):
             befunde.append(
-                Befund(
+                _befund(
                     "bedienbarkeit.klickflaeche",
                     "Bedienbarkeit",
                     "hinweis",
@@ -336,6 +378,8 @@ def _bedienbarkeit_pruefen(pfm: dict[str, Any]) -> list[Befund]:
                     f"{kind['name']} ist mit {width}×{height}px kleiner als die "
                     f"empfohlene Mindestklickfläche ({_MINDEST_KLICKFLAECHE}×"
                     f"{_MINDEST_KLICKFLAECHE}px).",
+                    f"Auf mindestens {_MINDEST_KLICKFLAECHE}×"
+                    f"{_MINDEST_KLICKFLAECHE}px vergrößern.",
                 )
             )
 
@@ -349,12 +393,14 @@ def _bedienbarkeit_pruefen(pfm: dict[str, Any]) -> list[Befund]:
         )
         if not hat_beschriftung:
             befunde.append(
-                Befund(
+                _befund(
                     "bedienbarkeit.ohne_beschriftung",
                     "Bedienbarkeit",
                     "hinweis",
                     eingabe["name"],
                     f"{eingabe['name']} hat kein Label in der Nähe.",
+                    "Ein Label links daneben oder darüber setzen, damit zu sehen "
+                    "ist, was einzutragen ist.",
                 )
             )
 
@@ -384,13 +430,15 @@ def _tab_reihenfolge_pruefen(kinder: list[dict[str, Any]]) -> list[Befund]:
     if [k["name"] for k in erwartete_reihenfolge] == [k["name"] for k in kinder]:
         return []
     return [
-        Befund(
+        _befund(
             "bedienbarkeit.tab_reihenfolge",
             "Bedienbarkeit",
             "hinweis",
             None,
-            "Die Reihenfolge der Komponenten entspricht nicht der visuellen "
-            "Lesereihenfolge (oben links nach unten rechts).",
+            "Die Komponenten stehen nicht in der Lesereihenfolge (oben links "
+            "nach unten rechts).",
+            "In dieser Reihenfolge anlegen - danach springt auch die "
+            "Tabulatortaste richtig weiter.",
         )
     ]
 
@@ -406,34 +454,39 @@ def _namenskonvention_pruefen(pfm: dict[str, Any]) -> list[Befund]:
         praefix = _PRAEFIXE.get(typ)
         if praefix is not None and not name.startswith(praefix):
             befunde.append(
-                Befund(
+                _befund(
                     "namenskonvention.praefix",
                     "Namenskonvention",
                     "hinweis",
                     name,
                     f"{name} ({typ}) hat nicht das übliche Präfix {praefix!r}.",
+                    f"Den Namen mit {praefix!r} beginnen lassen - dann ist im "
+                    f"Quelltext zu sehen, um welche Art Komponente es geht.",
                 )
             )
         if _STANDARDNAME_MUSTER.fullmatch(name) and name.lower().startswith(typ.lower()):
             befunde.append(
-                Befund(
+                _befund(
                     "namenskonvention.standardname",
                     "Namenskonvention",
                     "hinweis",
                     name,
                     f"{name} sieht wie ein unveränderter Standardname aus.",
+                    "Einen Namen vergeben, der sagt, wofür die Komponente da ist.",
                 )
             )
         beschriftung = _eigenschaft(kind, "caption", None)
         if isinstance(beschriftung, str) and re.fullmatch(rf"{re.escape(typ)}\d*", beschriftung):
             befunde.append(
-                Befund(
+                _befund(
                     "namenskonvention.standardtext",
                     "Namenskonvention",
                     "hinweis",
                     name,
                     f"{name}: Beschriftung {beschriftung!r} sieht wie ein unveränderter "
                     "Standardtext aus.",
+                    "Die Beschriftung auf den Text ändern, den man später lesen "
+                    "soll.",
                 )
             )
     return befunde

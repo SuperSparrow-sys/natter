@@ -37,6 +37,19 @@ class Hinweis:
     #: immer **beide** Formen – würde nur die erste markiert, wäre nicht
     #: zu sehen, womit sie sich überlappt (im Screenshot aufgefallen).
     elemente: tuple[str, ...] = ()
+    #: Was man tun kann. Jeder Hinweis hat einen solchen Teil (M11,
+    #: Abschnitt 4: „jede Meldung mit Lösungen“) – ein Hinweis, der nur
+    #: sagt, dass etwas nicht stimmt, hilft niemandem beim Aufräumen
+    #: eines Diagramms. `meldung` endet immer damit, damit die
+    #: Statusleiste und der Tooltip des Diagrammfensters nichts
+    #: zusammensetzen müssen und der Prüfungsmodus (M11, Abschnitt 6)
+    #: den Teil an einer einzigen Stelle abschneiden kann.
+    loesung: str = ""
+
+
+def _hinweis(regel: str, was: str, elemente: tuple[str, ...], loesung: str) -> Hinweis:
+    """Baut einen `Hinweis`, dessen `meldung` mit dem Lösungsteil endet."""
+    return Hinweis(regel, f"{was} {loesung}", elemente, loesung)
 
 
 def _rechteck(shape: dict[str, Any]) -> tuple[float, float, float, float]:
@@ -108,11 +121,14 @@ def ueberlappende_formen(daten: dict[str, Any]) -> list[Hinweis]:
         for zweite in formen[i + 1 :]:
             if _ueberschneidung(erste, zweite):
                 hinweise.append(
-                    Hinweis(
+                    _hinweis(
                         "ueberlappung",
                         f"„{_beschriftung(erste)}“ und „{_beschriftung(zweite)}“ "
                         f"überlappen sich.",
                         (erste["id"], zweite["id"]),
+                        "Eine der beiden zur Seite ziehen oder das Diagramm neu "
+                        "anordnen lassen - im Ausdruck ist sonst eine von beiden "
+                        "verdeckt.",
                     )
                 )
     return hinweise
@@ -127,20 +143,24 @@ def abgeschnittener_text(daten: dict[str, Any]) -> list[Hinweis]:
         _, _, breite, hoehe = _rechteck(form)
         if breite + 0.5 < mindestbreite(form):
             hinweise.append(
-                Hinweis(
+                _hinweis(
                     "abgeschnittener_text",
                     f"„{_beschriftung(form)}“ ist zu schmal, der Text wird "
                     f"abgeschnitten.",
                     (form["id"],),
+                    "Die Form am rechten Anfasser breiter ziehen oder die "
+                    "Beschriftung kürzer fassen.",
                 )
             )
         elif hoehe + 0.5 < mindesthoehe(form):
             hinweise.append(
-                Hinweis(
+                _hinweis(
                     "abgeschnittener_text",
                     f"„{_beschriftung(form)}“ ist zu niedrig, die letzten Zeilen "
                     f"werden abgeschnitten.",
                     (form["id"],),
+                    "Die Form am unteren Anfasser höher ziehen oder Zeilen aus "
+                    "der Beschriftung herausnehmen.",
                 )
             )
     return hinweise
@@ -156,11 +176,13 @@ def lose_verbindungsenden(daten: dict[str, Any]) -> list[Hinweis]:
         for ende in ("from", "to"):
             if verbindung.get(ende) not in vorhanden:
                 hinweise.append(
-                    Hinweis(
+                    _hinweis(
                         "loses_ende",
                         f"Verbindung „{verbindung.get('kind', '?')}“ hängt an keiner "
                         f"Form ({'Quelle' if ende == 'from' else 'Ziel'}).",
                         (verbindung["id"],),
+                        "Das lose Ende auf eine Form ziehen oder die Verbindung "
+                        "löschen - so gezeichnet ergibt sie keinen Sinn.",
                     )
                 )
     return hinweise
@@ -175,11 +197,14 @@ def ausserhalb_der_seite(daten: dict[str, Any]) -> list[Hinweis]:
         x, y, w, h = _rechteck(form)
         if x < links or y < oben or x + w > links + breite or y + h > oben + hoehe:
             hinweise.append(
-                Hinweis(
+                _hinweis(
                     "ausserhalb_der_seite",
                     f"„{_beschriftung(form)}“ liegt außerhalb des Seitenbereichs "
                     f"und fehlt im Ausdruck.",
                     (form["id"],),
+                    "Die Form in den Seitenbereich schieben oder unter "
+                    "„Seite einrichten“ ein größeres Format bzw. Querformat "
+                    "wählen.",
                 )
             )
     return hinweise

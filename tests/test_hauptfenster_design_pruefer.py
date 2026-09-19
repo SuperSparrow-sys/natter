@@ -36,7 +36,9 @@ def test_design_pruefen_ohne_offenen_designer_zeigt_hinweis() -> None:
 
     fenster._design_pruefen_aktion()
 
-    assert fenster.statusBar().currentMessage() == "Kein Formular-Designer geöffnet."
+    meldung = fenster.statusBar().currentMessage()
+    assert meldung.startswith("Kein Formular-Designer geöffnet.")
+    assert "Projekt-Explorer" in meldung
 
 
 def test_design_pruefen_findet_komponente_ausserhalb_des_formulars(tmp_path: Path) -> None:

@@ -846,10 +846,9 @@ Ausdrücklicher Wunsch des Nutzers, gilt für jeden Schritt:
 - [ ] **12.** M11 – Schülertauglichkeit: Funktionsprüfung mit
   Bildschirmfotos, Einrückungslinien, Symbole, Vervollständigung,
   Startbild, Meldungen mit Lösungsvorschlag, Nutzerfreundlichkeit
-- [ ] **13.** M11 Abschnitt 6 – **Prüfungsmodus**: vier Stunden ohne
+- [x] **13.** M11 Abschnitt 6 – **Prüfungsmodus**: vier Stunden ohne
   Lösungsvorschläge und ohne Quelltexterzeugung aus Klassendiagramm
-  und Struktogramm. Hängt an Punkt 12, weil er genau das wieder
-  ausblendet, was dort eingebaut wird
+  und Struktogramm. Übersteht einen Neustart, läuft von selbst aus
 
 Zurückgestellt bleiben bewusst: Update-Mechanismus und
 CI/Release-Automatisierung (M8), ER-Diagramm, Syntaxdiagramm und

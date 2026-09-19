@@ -26,7 +26,9 @@ def _projekt_oeffnen(fenster: HauptFenster, ordner: Path, main_inhalt: str) -> P
 def test_f5_ohne_projekt_zeigt_hinweis() -> None:
     fenster = HauptFenster()
     fenster._projekt_mit_debugger_starten_aktion()
-    assert fenster.statusBar().currentMessage() == "Kein Projekt offen."
+    meldung = fenster.statusBar().currentMessage()
+    assert meldung.startswith("Kein Projekt offen.")
+    assert "Projekt → Öffnen" in meldung
 
 
 def test_f5_mit_ruff_fund_startet_nicht(tmp_path: Path) -> None:
@@ -207,7 +209,9 @@ def test_als_tabelle_anzeigen_ohne_debugger_meldet_das() -> None:
 
     fenster.variable_als_tabelle_zeigen("irgendwas")
 
-    assert "Kein angehaltenes Programm" in fenster.statusBar().currentMessage()
+    meldung = fenster.statusBar().currentMessage()
+    assert "nicht angehalten" in meldung
+    assert "Haltepunkt" in meldung
 
 
 def test_special_variables_zeile_wird_nicht_als_ausdruck_geschickt(qtbot, tmp_path: Path) -> None:

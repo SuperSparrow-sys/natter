@@ -249,3 +249,59 @@ def test_befunde_sind_nie_fehler() -> None:
     befunde = pruefen(pfm)
 
     assert all(b.schweregrad in ("hinweis", "warnung") for b in befunde)
+
+
+def test_button_mit_standardgroesse_wird_nicht_als_abweichend_gemeldet() -> None:
+    """In der Sichtprüfung des Panels „Meldungen“ gefunden: die Regel
+    las `width`/`height` mit der Vorbelegung 0 statt mit der echten
+    Standardgröße. Ein Button, an dem niemand etwas geändert hatte,
+    erschien deshalb als „hat eine andere Größe (0×0)“ – und schickte
+    den Schüler an eine Stelle, an der nichts falsch war.
+    """
+    pfm = {
+        "name": "Form1",
+        "type": "Form",
+        "properties": {"width": 400, "height": 300},
+        # Alle drei gleich groß, aber nur der letzte trägt die Größe
+        # ausgeschrieben: eine .pfm speichert nur Eigenschaften, die vom
+        # Standardwert abweichen (Abschnitt 4.2).
+        "children": [
+            {"type": "Button", "name": "b_ja", "properties": {"left": 8, "top": 8}},
+            {"type": "Button", "name": "b_nein", "properties": {"left": 8, "top": 40}},
+            {
+                "type": "Button",
+                "name": "b_vielleicht",
+                "properties": {"left": 8, "top": 72, "width": 75, "height": 25},
+            },
+        ],
+    }
+
+    befunde = pruefen(pfm)
+
+    groessenbefunde = [b for b in befunde if b.regel == "konsistenz.button_groesse"]
+    assert not groessenbefunde, [b.meldung for b in groessenbefunde]
+
+
+def test_button_mit_abweichender_groesse_nennt_die_echte_standardgroesse() -> None:
+    pfm = {
+        "name": "Form1",
+        "type": "Form",
+        "properties": {"width": 400, "height": 300},
+        "children": [
+            {"type": "Button", "name": "b_ja", "properties": {"left": 8, "top": 8}},
+            {"type": "Button", "name": "b_nein", "properties": {"left": 8, "top": 40}},
+            {
+                "type": "Button",
+                "name": "b_gross",
+                "properties": {"left": 8, "top": 80, "width": 150, "height": 50},
+            },
+        ],
+    }
+
+    befunde = [b for b in pruefen(pfm) if b.regel == "konsistenz.button_groesse"]
+
+    assert len(befunde) == 1
+    assert "b_gross" in befunde[0].meldung
+    assert "150×50" in befunde[0].meldung
+    assert "75×25" in befunde[0].meldung
+    assert "0×0" not in befunde[0].meldung
