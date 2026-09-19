@@ -133,3 +133,119 @@ def test_ein_neuer_unitname_kollidiert_nicht_mit_der_startdatei(
 
     assert neu.name == "u_neu2.py"  # u_neu1 ist belegt, auch wenn unsichtbar
     assert (ordner / "main.py").read_text(encoding="utf-8") == "print('start')" + chr(10)
+
+
+# -- Konsolenprojekte: dort ist main.py das ganze Programm --------------
+#
+# Die Regel "was nicht bearbeitet wird, wird nicht gezeigt" galt
+# unterschiedslos, obwohl sie fuer GUI-Projekte gedacht war. Bei einem
+# Konsolenprojekt gibt es nur `main.py`, und genau darin steht der Code
+# der Schuelerin - die ersten beiden Stufen des Lehrgangs oeffneten sich
+# deshalb mit einem voellig leeren Projekt-Explorer.
+
+
+@pytest.fixture
+def konsolenprojekt(tmp_path: Path) -> Projekt:
+    return projekt_erzeugen("console", tmp_path / "k", "Konsole")
+
+
+def test_bei_einem_konsolenprojekt_ist_die_startdatei_die_unit(
+    konsolenprojekt: Projekt,
+) -> None:
+    assert [pfad.name for pfad in konsolenprojekt.units()] == ["main.py"]
+
+
+def test_der_explorer_eines_konsolenprojekts_ist_nicht_leer(
+    konsolenprojekt: Projekt, qtbot
+) -> None:
+    baum = ProjektExplorer()
+    qtbot.addWidget(baum)
+
+    baum.projekt_anzeigen(konsolenprojekt)
+
+    gezeigt = {
+        baum.units_gruppe.child(i).text(0)
+        for i in range(baum.units_gruppe.childCount())
+    }
+    assert gezeigt == {"main.py"}
+
+
+def test_die_startdatei_eines_konsolenprojekts_hat_kein_kontextmenue(
+    konsolenprojekt: Projekt, qtbot
+) -> None:
+    """„Löschen …“ hiesse, das einzige Stueck Programm zu entfernen;
+    „Umbenennen …“ zoege einen Eintrag in der `.natter` nach sich, den
+    es nicht nachfuehrt."""
+    baum = ProjektExplorer()
+    qtbot.addWidget(baum)
+
+    baum.projekt_anzeigen(konsolenprojekt)
+
+    eintrag = baum.units_gruppe.child(0)
+    assert eintrag.text(0) == "main.py"
+    assert baum.itemWidget(eintrag, 1) is None
+
+
+def test_eine_gewoehnliche_unit_behaelt_ihr_kontextmenue(
+    projekt: Projekt, qtbot, tmp_path: Path
+) -> None:
+    (tmp_path / "p" / "u_extra.py").write_text("# etwas\n", encoding="utf-8")
+    baum = ProjektExplorer()
+    qtbot.addWidget(baum)
+
+    baum.projekt_anzeigen(projekt)
+
+    eintrag = next(
+        baum.units_gruppe.child(i)
+        for i in range(baum.units_gruppe.childCount())
+        if baum.units_gruppe.child(i).text(0) == "u_extra.py"
+    )
+    assert baum.itemWidget(eintrag, 1) is not None
+
+
+# -- Leere Gruppen stehen nicht als leere Ueberschrift da ----------------
+
+
+def test_ein_konsolenprojekt_zeigt_keine_gruppe_formulare(
+    konsolenprojekt: Projekt, qtbot
+) -> None:
+    """Ein Konsolenprojekt kann ueberhaupt keine Formulare haben."""
+    baum = ProjektExplorer()
+    qtbot.addWidget(baum)
+
+    baum.projekt_anzeigen(konsolenprojekt)
+
+    assert baum.formulare_gruppe.isHidden()
+    assert baum.diagramme_gruppe.isHidden()
+    assert not baum.units_gruppe.isHidden()
+
+
+def test_ein_guiprojekt_ohne_diagramme_zeigt_die_gruppe_nicht(
+    projekt: Projekt, qtbot
+) -> None:
+    baum = ProjektExplorer()
+    qtbot.addWidget(baum)
+
+    baum.projekt_anzeigen(projekt)
+
+    assert baum.diagramme_gruppe.isHidden()
+    assert not baum.formulare_gruppe.isHidden()
+
+
+def test_eine_gruppe_taucht_wieder_auf_sobald_sie_etwas_enthaelt(
+    projekt: Projekt, qtbot, tmp_path: Path
+) -> None:
+    """Das Ausblenden darf nicht kleben bleiben: wer ein Diagramm
+    anlegt, muss es danach im Baum sehen."""
+    baum = ProjektExplorer()
+    qtbot.addWidget(baum)
+    baum.projekt_anzeigen(projekt)
+    assert baum.diagramme_gruppe.isHidden()
+
+    ordner = tmp_path / "p" / "diagramme"
+    ordner.mkdir()
+    (ordner / "ablauf.pdiag").write_text("{}", encoding="utf-8")
+    baum.projekt_anzeigen(projekt)
+
+    assert not baum.diagramme_gruppe.isHidden()
+    assert baum.diagramme_gruppe.child(0).text(0) == "ablauf"

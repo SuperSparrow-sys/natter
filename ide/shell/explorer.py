@@ -88,12 +88,32 @@ class ProjektExplorer(QTreeWidget):
         for pfad in projekt.units():
             if pfad.stem in formular_stems:
                 continue  # gehört zu einem Formular, dort schon aufgeführt
-            self._eintrag_hinzufuegen(self.units_gruppe, pfad.name, pfad, mit_menue=True)
+            # Die Startdatei eines Konsolenprojekts steht hier (sie ist
+            # dort das ganze Programm), bekommt aber **kein** „⋮“-Menü:
+            # „Löschen …“ hieße, das einzige Stück Programm zu
+            # entfernen, und „Umbenennen …“ zöge einen Eintrag in der
+            # `.natter` nach sich, den es nicht nachführt. Beides wäre
+            # ein Projekt, das sich nicht mehr starten lässt.
+            startdatei = pfad == projekt.haupt_datei
+            self._eintrag_hinzufuegen(
+                self.units_gruppe, pfad.name, pfad, mit_menue=not startdatei
+            )
 
         for pfad in projekt.diagramme():
             # öffnet den Diagramm-Editor in einem eigenen Fenster
             # (Abschnitt 13.1), nicht den Rohtext
             self._eintrag_hinzufuegen(self.diagramme_gruppe, pfad.stem, pfad)
+
+        # Eine leere Gruppe wird ausgeblendet. Der Explorer zeigt, was
+        # das Projekt **hat**; eine fette Überschrift ohne einen einzigen
+        # Eintrag darunter sieht aus, als wäre etwas kaputtgegangen. Ein
+        # Konsolenprojekt kann überhaupt keine Formulare haben, und acht
+        # der neun Beispielprojekte haben keine Diagramme - in allen
+        # dreien standen trotzdem die Überschriften. Ganz leer wird der
+        # Baum dadurch nie: ein Konsolenprojekt hat immer seine
+        # `main.py`, ein GUI-Projekt immer sein Hauptformular.
+        for gruppe in (self.formulare_gruppe, self.units_gruppe, self.diagramme_gruppe):
+            gruppe.setHidden(gruppe.childCount() == 0)
 
         self.expandAll()
 

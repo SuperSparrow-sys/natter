@@ -67,16 +67,26 @@ class Projekt:
         """Die Units, an denen gearbeitet wird.
 
         Ohne die automatisch erzeugten `*_design.py` (Abschnitt 4.1:
-        nicht bearbeiten) **und ohne die Startdatei** (`main`): die
-        schreibt Natter beim Anlegen des Projekts, danach ändert sie
-        niemand mehr. In Lazarus steht die entsprechende Projektdatei
-        (`.lpr`) aus demselben Grund nicht im Projektinspektor, sondern
-        nur hinter einem eigenen Menüweg (M12).
+        nicht bearbeiten). Bei einem **GUI-Projekt** außerdem ohne die
+        Startdatei (`main`): die schreibt Natter beim Anlegen, danach
+        ändert sie niemand mehr. In Lazarus steht die entsprechende
+        Projektdatei (`.lpr`) aus demselben Grund nicht im
+        Projektinspektor, sondern nur hinter einem eigenen Menüweg (M12).
+
+        **Bei einem Konsolenprojekt bleibt sie sichtbar**, denn dort ist
+        sie das ganze Programm: ein Konsolenprojekt hat nur `main.py`
+        (Abschnitt 4.1), und genau darin schreibt die Schülerin ihren
+        Code. Sie mitzuverstecken war der Fehler, der die ersten beiden
+        Stufen des Lehrgangs mit einem **völlig leeren** Projekt-Explorer
+        öffnen ließ - drei fette Überschriften ohne einen einzigen
+        Eintrag darunter, und kein Weg zum eigenen Quelltext. Die Regel
+        „was nicht bearbeitet wird, wird nicht gezeigt" galt
+        unterschiedslos, obwohl sie für GUI-Projekte gedacht war.
 
         Für Namenskollisionen ist `alle_python_dateien()` gemeint, nicht
         diese Liste - sonst ließe sich eine Unit auf den Namen der
         Startdatei umbenennen und diese damit überschreiben."""
-        versteckt = {self.haupt_datei.name}
+        versteckt = {self.haupt_datei.name} if self.typ != "console" else set()
         return sorted(
             p
             for p in self.ordner.glob("*.py")

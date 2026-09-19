@@ -66,16 +66,44 @@ def explorer(qtbot, tmp_path: Path) -> ProjektExplorer:
     return baum
 
 
-#: Die erste Unit im Baum. Seit M12 steht die Startdatei `main.py`
-#: nicht mehr darin - sie wird erzeugt und nicht bearbeitet.
+#: Die Unit, um die es hier geht - eine gewoehnliche, die sich
+#: umbenennen und loeschen laesst.
 ERSTE_UNIT = "u_hilfe.py"
 
 
 def _punkt_der_unit(baum: ProjektExplorer) -> QPoint:
-    """Die Mitte der ersten Unit-Zeile."""
-    eintrag = baum.units_gruppe.child(0)
+    """Die Mitte der `u_hilfe.py`-Zeile.
+
+    **Ueber den Namen gesucht, nicht ueber den Index.** Das Projekt hier
+    ist ein Konsolenprojekt, und dort steht seit September 2026 auch
+    `main.py` im Baum - sie ist das ganze Programm, und vorher oeffnete
+    sich ein Konsolenprojekt mit einem voellig leeren Explorer. Sie
+    steht alphabetisch **vor** `u_hilfe.py` und hat bewusst kein
+    Kontextmenue (loeschen hiesse: das einzige Stueck Programm weg).
+    `child(0)` traf damit die falsche Zeile."""
+    eintrag = next(
+        baum.units_gruppe.child(i)
+        for i in range(baum.units_gruppe.childCount())
+        if baum.units_gruppe.child(i).text(0) == ERSTE_UNIT
+    )
     kasten = baum.visualItemRect(eintrag)
     return kasten.center()
+
+
+def test_die_startdatei_eines_konsolenprojekts_bietet_kein_menue(
+    explorer: ProjektExplorer,
+) -> None:
+    """Sie steht im Baum, weil sie der Quelltext ist - aber
+    „Umbenennen …"/„Loeschen …" waeren dort beide ein kaputtes
+    Projekt."""
+    eintrag = next(
+        explorer.units_gruppe.child(i)
+        for i in range(explorer.units_gruppe.childCount())
+        if explorer.units_gruppe.child(i).text(0) == "main.py"
+    )
+    punkt = explorer.visualItemRect(eintrag).center()
+
+    assert explorer.kontextmenue_fuer(punkt) is None
 
 
 def test_die_rechte_maustaste_bietet_dasselbe_wie_der_knopf(

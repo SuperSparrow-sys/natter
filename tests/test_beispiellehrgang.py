@@ -27,6 +27,7 @@ import json
 from pathlib import Path
 
 import pytest
+from PySide6.QtCore import Qt
 
 from ide.codegen.design import design_code_erzeugen
 from ide.project.projekt import Projekt
@@ -156,3 +157,118 @@ def test_jedes_projekt_erklaert_seine_stufe(name: str) -> None:
 
     nummer = int(name[:2])
     assert f"Stufe {nummer} von 9" in kopf
+
+
+# -- Was der Projekt-Explorer bei jedem Beispiel zeigt -------------------
+#
+# Anlass (September 2026, Nutzer-Auftrag): "Pruefe ob bei allen
+# Beispielprogrammen die Units alle korrekt gezeigt werden und ob auch
+# die Diagramme und Struktogramme richtig gezeigt werden. Das soll bei
+# allen der Fall sein."
+#
+# Dabei kam heraus: die beiden Konsolenstufen oeffneten sich mit einem
+# **voellig leeren** Explorer. Ihre einzige Datei ist `main.py`, und die
+# war als "automatisch erzeugt, nicht bearbeiten" ausgeblendet - eine
+# Regel, die fuer GUI-Projekte richtig ist und hier den ganzen Quelltext
+# verschwinden liess. Genau das faengt der erste Test hier ab.
+
+
+@pytest.mark.parametrize("name", NAMEN)
+def test_der_explorer_zeigt_bei_jedem_beispiel_etwas(name: str, qtbot) -> None:
+    from ide.shell.explorer import ProjektExplorer
+
+    baum = ProjektExplorer()
+    qtbot.addWidget(baum)
+    baum.projekt_anzeigen(Projekt.laden(BEISPIELE / name))
+
+    eintraege = [
+        gruppe.child(i).text(0)
+        for gruppe in (baum.formulare_gruppe, baum.units_gruppe, baum.diagramme_gruppe)
+        for i in range(gruppe.childCount())
+    ]
+    assert eintraege, f"{name}: der Projekt-Explorer ist leer"
+
+
+@pytest.mark.parametrize("name", NAMEN)
+def test_jede_sichtbare_gruppe_hat_auch_eintraege(name: str, qtbot) -> None:
+    """Keine fette Ueberschrift ohne einen einzigen Eintrag darunter -
+    das sieht aus, als waere etwas kaputtgegangen."""
+    from ide.shell.explorer import ProjektExplorer
+
+    baum = ProjektExplorer()
+    qtbot.addWidget(baum)
+    baum.projekt_anzeigen(Projekt.laden(BEISPIELE / name))
+
+    for gruppe in (baum.formulare_gruppe, baum.units_gruppe, baum.diagramme_gruppe):
+        if not gruppe.isHidden():
+            assert gruppe.childCount(), f"{name}: Gruppe {gruppe.text(0)!r} ist leer"
+
+
+@pytest.mark.parametrize("name", NAMEN)
+def test_jede_eigene_python_datei_steht_im_explorer(name: str, qtbot) -> None:
+    """Jede Datei, an der gearbeitet wird, muss erreichbar sein - als
+    Unit-Eintrag oder als Formular-Eintrag (eine Formular-Unit steht
+    bewusst als **ein** Eintrag da, wie im Projektinspektor von
+    Lazarus)."""
+    from ide.shell.explorer import ProjektExplorer
+
+    projekt = Projekt.laden(BEISPIELE / name)
+    baum = ProjektExplorer()
+    qtbot.addWidget(baum)
+    baum.projekt_anzeigen(projekt)
+
+    erreichbar = {
+        Path(gruppe.child(i).data(0, Qt.ItemDataRole.UserRole)).stem
+        for gruppe in (baum.formulare_gruppe, baum.units_gruppe)
+        for i in range(gruppe.childCount())
+    }
+    for pfad in projekt.units():
+        assert pfad.stem in erreichbar, f"{name}: {pfad.name} ist im Explorer nicht zu finden"
+
+
+def test_die_diagramme_der_kontoverwaltung_stehen_im_explorer(qtbot) -> None:
+    """Das einzige Beispiel mit Diagrammen - Struktogramm,
+    Entscheidungstabelle und Klassendiagramm."""
+    from ide.shell.explorer import ProjektExplorer
+
+    baum = ProjektExplorer()
+    qtbot.addWidget(baum)
+    baum.projekt_anzeigen(Projekt.laden(BEISPIELE / "06_Kontoverwaltung"))
+
+    gezeigt = [
+        baum.diagramme_gruppe.child(i).text(0)
+        for i in range(baum.diagramme_gruppe.childCount())
+    ]
+    assert gezeigt == ["konto_abheben", "konto_entscheidung", "konto_klassen"]
+
+
+@pytest.mark.parametrize(
+    ("datei", "typ"),
+    [
+        ("konto_abheben", "struktogramm"),
+        ("konto_entscheidung", "entscheidungstabelle"),
+        ("konto_klassen", "class"),
+    ],
+)
+def test_jedes_diagramm_laesst_sich_wirklich_oeffnen(datei: str, typ: str, qtbot) -> None:
+    """Nicht nur laden: das Fenster aufbauen und nachsehen, dass auf der
+    Zeichenflaeche wirklich etwas steht."""
+    from ide.diagramm.datei import Diagramm
+    from ide.diagramm.fenster import DiagrammFenster
+
+    pfad = BEISPIELE / "06_Kontoverwaltung" / "diagramme" / f"{datei}.pdiag"
+    diagramm = Diagramm.laden(pfad)
+    assert diagramm.typ == typ
+
+    fenster = DiagrammFenster(diagramm)
+    qtbot.addWidget(fenster)
+    fenster.resize(1000, 720)
+
+    bild = fenster.grab().toImage()
+    gezeichnet = sum(
+        1
+        for y in range(0, bild.height(), 6)
+        for x in range(0, bild.width(), 6)
+        if bild.pixelColor(x, y).name() not in ("#ffffff", "#f3f3f3")
+    )
+    assert gezeichnet > 200, f"{datei}: das Fenster ist praktisch leer"
