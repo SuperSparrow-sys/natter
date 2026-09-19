@@ -19,7 +19,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import jsonschema
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from ide.deutsch import deutsch_einschalten
@@ -68,10 +67,9 @@ def _projekt_aus_argv_oeffnen(fenster: HauptFenster, argv: list[str]) -> None:
     beim Start abstürzen zu lassen."""
     if len(argv) <= 1 or not argv[1].lower().endswith(".natter"):
         return
-    try:
-        fenster.projekt_oeffnen(Path(argv[1]))
-    except (OSError, ValueError, jsonschema.ValidationError) as fehler:
-        QMessageBox.warning(fenster, "Projekt konnte nicht geöffnet werden", str(fehler))
+    # Dieselbe Meldung wie über „Projekt → Öffnen …“ und über „Zuletzt
+    # geöffnet“ - drei Wege, ein Verhalten (M11, Abschnitt 5).
+    fenster.projekt_oeffnen_gemeldet(Path(argv[1]))
 
 
 def main() -> int:

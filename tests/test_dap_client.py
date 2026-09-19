@@ -124,8 +124,12 @@ def test_ein_belegter_port_fuehrt_zu_einem_zweiten_versuch(
     try:
         client.starten(skript, arbeitsordner=tmp_path)
 
-        assert len(versuche) == 2
-        assert versuche[0] != versuche[1]  # neue Nummer, nicht dieselbe
+        # Mindestens zwei: der erzwungene Fehlschlag und der Versuch
+        # danach. Mehr sind erlaubt - im Gesamtlauf ist real auch der
+        # zweite Versuch einmal gescheitert und erst der dritte
+        # durchgekommen. Genau davor soll die Wiederholung schuetzen.
+        assert 2 <= len(versuche) <= modul._STARTVERSUCHE
+        assert len(set(versuche)) == len(versuche)  # jedes Mal eine neue Nummer
         assert client.prozess is not None
     finally:
         if client.prozess is not None:

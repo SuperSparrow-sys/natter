@@ -1,4 +1,4 @@
-"""Ein Weg zum Öffnen, nicht zwei (M11, Abschnitt 5).
+"""Öffnen und Speichern: ein Weg, und Fehler als Meldung (M11, 5).
 
 Der Projekt-Explorer sah sich die Endung an und öffnete eine `.pfm` im
 Designer, ein `.pdiag` im Diagramm-Editor, ein Bild in der Vorschau.
@@ -9,6 +9,13 @@ damit rechnete, dass jemand ein Bild „öffnet“.
 
 Zwei Wege zur selben Sache, die sich verschieden verhalten, sind
 schlimmer als einer. Beide gehen jetzt durch `HauptFenster.oeffnen()`.
+
+Dazu das, was beim Durchgehen derselben Frage noch auffiel: ein Projekt,
+dessen `.natter`-Datei fehlt oder beschädigt ist, flog als
+`FileNotFoundError` bzw. `JSONDecodeError` aus einem Qt-Signal heraus –
+und ein gescheitertes **Speichern** ebenso. Das ist der schlimmste Fall
+von allen: der Text steht noch im Fenster, die Datei auf der Platte ist
+die alte, und in der gebauten Exe ohne Konsole sah man gar nichts.
 """
 
 from __future__ import annotations
@@ -171,3 +178,116 @@ def test_ein_beschaedigtes_diagramm_meldet_sich_ebenfalls(
     fenster.oeffnen(kaputt)
 
     assert "beschädigt" in fenster.statusBar().currentMessage()
+
+
+# -- Projekte ------------------------------------------------------------
+
+
+def _meldungen_abfangen(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Die Warnung als Text statt als Fenster, auf das niemand klickt."""
+    from PySide6.QtWidgets import QMessageBox
+
+    gezeigt: list[str] = []
+    monkeypatch.setattr(
+        QMessageBox,
+        "warning",
+        lambda _eltern, _titel, text, *_rest: gezeigt.append(text),
+    )
+    return gezeigt
+
+
+def test_ein_beschaedigtes_projekt_meldet_sich_statt_abzustuerzen(
+    fenster: HauptFenster, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Eine `.natter`-Datei, die jemand in einem Editor offen hatte – der
+    `JSONDecodeError` flog vorher aus einem Qt-Signal heraus."""
+    gezeigt = _meldungen_abfangen(monkeypatch)
+    kaputt = tmp_path / "kaputt.natter"
+    kaputt.write_text('{"format": "natter-project/1",', encoding="utf-8")
+
+    assert fenster.projekt_oeffnen_gemeldet(kaputt) is None
+    assert fenster.projekt is None
+    assert "beschädigt" in gezeigt[0]
+
+
+def test_ein_verschwundenes_projekt_nennt_den_wahrscheinlichen_grund(
+    fenster: HauptFenster, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Der häufigste Fall im Unterricht: der Stick steckt nicht mehr."""
+    gezeigt = _meldungen_abfangen(monkeypatch)
+
+    assert fenster.projekt_oeffnen_gemeldet(tmp_path / "weg.natter") is None
+    assert "USB-Stick" in gezeigt[0]
+
+
+def test_ein_gutes_projekt_geht_weiterhin_auf(
+    fenster: HauptFenster, tmp_path: Path
+) -> None:
+    ordner = tmp_path / "p"
+    ordner.mkdir()
+    (ordner / "main.py").write_text("x = 1" + chr(10), encoding="utf-8")
+    (ordner / "gut.natter").write_text(
+        json.dumps(
+            {
+                "format": "natter-project/1",
+                "name": "Gut",
+                "type": "console",
+                "main": "main.py",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    projekt = fenster.projekt_oeffnen_gemeldet(ordner / "gut.natter")
+
+    assert projekt is not None
+    assert projekt.name == "Gut"
+
+
+# -- Speichern -----------------------------------------------------------
+
+
+def test_ein_gescheitertes_speichern_meldet_sich_und_behaelt_den_text(
+    fenster: HauptFenster, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Der schlimmste Fall von allen: der Text steht im Fenster, die
+    Datei auf der Platte ist die alte – und vorher flog nur ein
+    Traceback, in der gebauten Exe also gar nichts."""
+    gezeigt = _meldungen_abfangen(monkeypatch)
+    datei = tmp_path / "u_arbeit.py"
+    datei.write_text("alt" + chr(10), encoding="utf-8")
+    editor = fenster.datei_oeffnen(datei)
+    # Wie von Hand getippt: `setPlainText` gilt Qt als Laden und setzt
+    # die Änderungsmarke gerade zurück.
+    editor.selectAll()
+    editor.insertPlainText("neu" + chr(10))
+
+    def _verweigern(*_a, **_k):
+        raise OSError("Der Datenträger ist schreibgeschützt")
+
+    monkeypatch.setattr(Path, "write_text", _verweigern)
+
+    fenster._aktuelle_datei_speichern()
+
+    assert gezeigt, "Es kam keine Meldung."
+    assert "u_arbeit.py" in gezeigt[0]
+    assert "schreibgeschützt" in gezeigt[0]
+    # Der Tab bleibt als geändert markiert - sonst glaubte man, es sei
+    # gespeichert.
+    assert editor.document().isModified() is True
+    assert editor.toPlainText() == "neu" + chr(10)
+
+
+def test_ein_gelungenes_speichern_raeumt_die_aenderungsmarke_weg(
+    fenster: HauptFenster, tmp_path: Path
+) -> None:
+    datei = tmp_path / "u_arbeit.py"
+    datei.write_text("alt" + chr(10), encoding="utf-8")
+    editor = fenster.datei_oeffnen(datei)
+    editor.selectAll()
+    editor.insertPlainText("neu" + chr(10))
+
+    fenster._aktuelle_datei_speichern()
+
+    assert datei.read_text(encoding="utf-8") == "neu" + chr(10)
+    assert editor.document().isModified() is False

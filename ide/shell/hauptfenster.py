@@ -269,7 +269,7 @@ class HauptFenster(QMainWindow):
         self.startbild.neues_projekt_gewuenscht.connect(self._neues_projekt_dialog)
         self.startbild.projekt_oeffnen_gewuenscht.connect(self._projekt_oeffnen_dialog)
         self.startbild.erste_schritte_gewuenscht.connect(self._erste_schritte_aktion)
-        self.startbild.projekt_gewaehlt.connect(self.projekt_oeffnen)
+        self.startbild.projekt_gewaehlt.connect(self.projekt_oeffnen_gemeldet)
         self.startbild.beispiel_gewaehlt.connect(self.beispiel_oeffnen)
 
         self.mitte = QStackedWidget()
@@ -934,7 +934,7 @@ class HauptFenster(QMainWindow):
             self, "Projekt öffnen", filter="Natter-Projekte (*.natter)"
         )
         if pfad:
-            self.projekt_oeffnen(Path(pfad))
+            self.projekt_oeffnen_gemeldet(Path(pfad))
 
     def _neues_projekt_dialog(self) -> None:
         """„Projekt → Neues Projekt …“ (Abschnitt 7.2): fragt Vorlage,
@@ -1366,6 +1366,41 @@ class HauptFenster(QMainWindow):
         self.statusBar().showMessage(f"Projekt {self.projekt.name} geöffnet")
         return self.projekt
 
+    def projekt_oeffnen_gemeldet(self, pfad: Path) -> Projekt | None:
+        """`projekt_oeffnen()` mit Meldung statt Traceback – der Weg für
+        alles, was von einem Klick kommt („Projekt → Öffnen …“, ein
+        Eintrag unter „Zuletzt geöffnet“).
+
+        Eine `.natter`-Datei kann fehlen, weil der USB-Stick nicht mehr
+        steckt, oder beschädigt sein, weil sie jemand in einem Editor
+        offen hatte. Beides flog vorher als `FileNotFoundError` bzw.
+        `JSONDecodeError` aus einem Qt-Signal heraus (M11, Abschnitt 5).
+        """
+        try:
+            return self.projekt_oeffnen(pfad)
+        except FileNotFoundError:
+            QMessageBox.warning(
+                self,
+                "Projekt nicht gefunden",
+                f"„{Path(pfad).name}“ liegt nicht (mehr) unter\n{pfad}\n\n"
+                "Wurde der Ordner verschoben oder der USB-Stick abgezogen?",
+            )
+        except (json.JSONDecodeError, jsonschema.ValidationError, KeyError) as fehler:
+            QMessageBox.warning(
+                self,
+                "Projekt konnte nicht geöffnet werden",
+                f"„{Path(pfad).name}“ ist beschädigt und lässt sich nicht lesen.\n\n"
+                f"{fehler}\n\nDie Datei wird von Natter geschrieben und sollte nicht "
+                "von Hand bearbeitet werden.",
+            )
+        except OSError as fehler:
+            QMessageBox.warning(
+                self,
+                "Projekt konnte nicht geöffnet werden",
+                f"„{Path(pfad).name}“ lässt sich nicht öffnen: {fehler}",
+            )
+        return None
+
     def datei_oeffnen(self, pfad: Path) -> QPlainTextEdit | None:
         """„Öffnen …“ (Abschnitt 7.2): öffnet eine einzelne Datei in
         einem Editor-Tab, unabhängig vom Projekt. Bereits offene Dateien
@@ -1438,7 +1473,24 @@ class HauptFenster(QMainWindow):
         if not isinstance(editor, QPlainTextEdit):
             return
         pfad = Path(editor.property(_PFAD_EIGENSCHAFT))
-        pfad.write_text(editor.toPlainText(), encoding="utf-8")
+        try:
+            pfad.write_text(editor.toPlainText(), encoding="utf-8")
+        except OSError as fehler:
+            # Ein gescheitertes Speichern ist der schlimmste Fall von
+            # allen: der Text steht noch im Fenster, die Datei auf der
+            # Platte ist die alte, und vorher flog nur ein Traceback -
+            # in der gebauten Exe also gar nichts. Deshalb hier als
+            # Fenster und nicht als Zeile in der Statusleiste, und der
+            # Tab bleibt als geändert markiert (M11, Abschnitt 5).
+            QMessageBox.warning(
+                self,
+                "Nicht gespeichert",
+                f"„{pfad.name}“ konnte nicht gespeichert werden:\n{fehler}\n\n"
+                "Der Text steht noch im Editor. Häufige Gründe: der USB-Stick ist "
+                "abgezogen, die Datei ist schreibgeschützt oder in einem anderen "
+                "Programm geöffnet.",
+            )
+            return
         editor.document().setModified(False)
 
     # -- Bearbeiten (Abschnitt 7.2) -------------------------------------------
