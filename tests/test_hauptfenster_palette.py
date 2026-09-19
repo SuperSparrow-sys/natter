@@ -40,7 +40,7 @@ def test_doppelklick_ohne_offenen_designer_zeigt_hinweis() -> None:
     fenster.palette.standard_liste.setCurrentRow(0)
     eintrag = fenster.palette.standard_liste.currentItem()
 
-    fenster.palette.standard_liste.itemDoubleClicked.emit(eintrag)
+    fenster.palette.standard_liste.itemActivated.emit(eintrag)
 
     meldung = fenster.statusBar().currentMessage()
     assert meldung.startswith("Kein Formular-Designer geöffnet.")
@@ -56,7 +56,7 @@ def test_doppelklick_platziert_komponente_mittig_im_aktiven_formular(
 
     fenster.palette.standard_liste.setCurrentRow(0)  # Button steht zuerst
     eintrag = fenster.palette.standard_liste.currentItem()
-    fenster.palette.standard_liste.itemDoubleClicked.emit(eintrag)
+    fenster.palette.standard_liste.itemActivated.emit(eintrag)
 
     neue_namen = set(vars(formular)) - namen_vorher
     assert len(neue_namen) == 1

@@ -58,7 +58,10 @@ class EigenschaftenTabelle(QTableWidget):
         self._aktueller_name: str | None = None
         self._aktualisierung_laeuft = False
         self.itemChanged.connect(self._bei_zellenaenderung)
-        self.itemDoubleClicked.connect(self._bei_doppelklick)
+        # `itemActivated` meldet Doppelklick **und** Eingabetaste -
+        # der Zeileneditor für `items`/`lines` war sonst nur mit der
+        # Maus erreichbar (M11, Abschnitt 4).
+        self.itemActivated.connect(self._bei_doppelklick)
 
     def komponente_anzeigen(
         self,

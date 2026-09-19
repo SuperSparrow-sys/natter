@@ -80,15 +80,18 @@ def test_layout_zuruecksetzen_ignoriert_die_gespeicherte_anordnung() -> None:
     # "Layout zurücksetzen" muss zum echten Ausgangszustand zurückkehren,
     # nicht nur zur zuletzt gespeicherten (sonst gäbe es keinen Ausweg,
     # wenn man sich "verklickt" hat).
+    # Beispiel ist der Projekt-Explorer und nicht mehr die Datenbank:
+    # die ist seit M11, Abschnitt 4 voreingestellt zu, taugt hier also
+    # nicht als „war offen, wurde geschlossen, kommt zurück“.
     fenster = HauptFenster()
     fenster.show()
-    fenster.datenbank_dock.close()
+    fenster.explorer_dock.close()
     fenster.close()
 
     neues_fenster = HauptFenster()
     neues_fenster.show()
-    assert neues_fenster.datenbank_dock.isVisible() is False
+    assert neues_fenster.explorer_dock.isVisible() is False
 
     neues_fenster._layout_zuruecksetzen_aktion()
 
-    assert neues_fenster.datenbank_dock.isVisible() is True
+    assert neues_fenster.explorer_dock.isVisible() is True

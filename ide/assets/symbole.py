@@ -19,7 +19,10 @@ Kontur), keine reine Strichzeichnung.
 * Alles Sichtbare liegt zwischen 2 und 22, also in einer Zeichenfläche
   von 20 × 20 – **einschließlich** der halben Strichbreite. Der Rand von
   2 px verhindert, dass Qt beim Skalieren Kanten abschneidet.
-* Einzige Ausnahme: `tab_schliessen.svg`, siehe unten.
+* Ausgenommen sind die drei `tab_schliessen*.svg` (`tab_schliessen`,
+  `tab_schliessen_hell`, `tab_schliessen_dunkel`): 16 × 16 statt
+  24 × 24, siehe unten. Der Satz nannte lange nur die erste davon –
+  inzwischen sind es drei.
 
 **Strichstärken** (vier, mehr nicht – `tests/test_assets_symbole.py`
 lässt keine andere durch)

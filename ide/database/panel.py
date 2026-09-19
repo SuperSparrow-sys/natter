@@ -116,11 +116,26 @@ class DatenbankPanel(QWidget):
         self._ausfuehren_knopf.clicked.connect(self._sql_ausfuehren)
         self._ergebnis_tabelle = QTableWidget()
 
-        self._csv_importieren_knopf = QPushButton("CSV in Datenbank importieren …")
+        # Kurze Beschriftungen, der ganze Satz steht als Kurzhinweis
+        # daneben: die drei langen Namen nebeneinander gaben dem Dock
+        # eine Mindestbreite, mit der auf einem 1366-Pixel-Bildschirm
+        # für die Panels daneben kaum noch etwas übrig blieb (M11,
+        # Abschnitt 4).
+        self._csv_importieren_knopf = QPushButton("CSV importieren …")
+        self._csv_importieren_knopf.setToolTip(
+            "Eine CSV-Datei als neue Tabelle in die Datenbank übernehmen"
+        )
         self._csv_importieren_knopf.clicked.connect(self._csv_importieren_dialog)
-        self._csv_exportieren_knopf = QPushButton("Tabelle als CSV exportieren …")
+        self._csv_exportieren_knopf = QPushButton("CSV exportieren …")
+        self._csv_exportieren_knopf.setToolTip(
+            "Die gewählte Tabelle als CSV-Datei speichern (z. B. für Excel)"
+        )
         self._csv_exportieren_knopf.clicked.connect(self._csv_exportieren_dialog)
-        self._sql_dump_exportieren_knopf = QPushButton("Tabelle als SQL-Dump exportieren …")
+        self._sql_dump_exportieren_knopf = QPushButton("SQL-Dump …")
+        self._sql_dump_exportieren_knopf.setToolTip(
+            "Die gewählte Tabelle als SQL-Datei speichern – CREATE TABLE und INSERTs, "
+            "mit denen sie sich anderswo wieder anlegen lässt"
+        )
         self._sql_dump_exportieren_knopf.clicked.connect(self._sql_dump_exportieren_dialog)
         werkzeuge_zeile = QHBoxLayout()
         werkzeuge_zeile.addWidget(self._csv_importieren_knopf)

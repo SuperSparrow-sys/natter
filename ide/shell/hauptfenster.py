@@ -16,6 +16,7 @@ import sys
 import time
 from pathlib import Path
 
+import jsonschema
 from PySide6.QtCore import QSettings, QSize, Qt, QTimer
 from PySide6.QtGui import QActionGroup, QCloseEvent, QColor, QFont, QTextCursor
 from PySide6.QtWidgets import (
@@ -79,6 +80,7 @@ from ide.integritaet.start_pruefung import installation_pruefen
 from ide.lint import pruefen
 from ide.palette import Komponentenpalette
 from ide.palette.palette import TYP_ROLLE
+from ide.papierkorb import in_den_papierkorb, papierkorb_verfuegbar
 from ide.pfade import daten_ordner
 from ide.project import Projekt, projekt_erzeugen
 from ide.project.neu_dialog import NeuesProjektDialog
@@ -277,7 +279,12 @@ class HauptFenster(QMainWindow):
         self.editor_tabs.currentChanged.connect(self._startbild_umschalten)
 
         self.explorer = ProjektExplorer()
-        self.explorer.itemDoubleClicked.connect(self._bei_explorer_doppelklick)
+        # `itemActivated` statt `itemDoubleClicked`: Qt meldet damit den
+        # Doppelklick **und** die Eingabetaste. Mit der Maus allein zu
+        # arbeiten ist eine Annahme, keine Selbstverständlichkeit - und
+        # wer den Explorer mit Tab erreicht und mit den Pfeiltasten
+        # durchgeht, kam bis dahin nicht weiter (M11, Abschnitt 4).
+        self.explorer.itemActivated.connect(self._bei_explorer_doppelklick)
         self.explorer.umbenennen_angefordert.connect(self._unit_umbenennen)
         self.explorer.loeschen_angefordert.connect(self._unit_loeschen)
         self.explorer_dock = self._dock_erzeugen(
@@ -289,8 +296,8 @@ class HauptFenster(QMainWindow):
         )
 
         self.palette = Komponentenpalette()
-        self.palette.standard_liste.itemDoubleClicked.connect(self._bei_palette_doppelklick)
-        self.palette.zusaetzlich_liste.itemDoubleClicked.connect(self._bei_palette_doppelklick)
+        self.palette.standard_liste.itemActivated.connect(self._bei_palette_doppelklick)
+        self.palette.zusaetzlich_liste.itemActivated.connect(self._bei_palette_doppelklick)
         self.palette.standard_liste.itemClicked.connect(self._bei_palette_klick)
         self.palette.zusaetzlich_liste.itemClicked.connect(self._bei_palette_klick)
         self.palette_dock = self._dock_erzeugen(
@@ -322,20 +329,22 @@ class HauptFenster(QMainWindow):
         self._letzte_funde: list[RuffFund] = []
         self.meldungen_liste = QListWidget()
         self.meldungen_liste.itemClicked.connect(self._bei_meldung_geklickt)
+        self.meldungen_liste.itemActivated.connect(self._bei_meldung_geklickt)
         self.variablen_baum = QTreeWidget()
         self.variablen_baum.setHeaderLabels(["Eigenschaft", "Wert"])
         # „Als Tabelle anzeigen“ (Abschnitt 11.6): Rechtsklick oder
         # Doppelklick auf eine Variable im Panel „Variablen“.
         self.variablen_baum.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.variablen_baum.customContextMenuRequested.connect(self._variablen_menue_zeigen)
-        self.variablen_baum.itemDoubleClicked.connect(
+        self.variablen_baum.itemActivated.connect(
             lambda eintrag, _spalte: self.variable_als_tabelle_zeigen(eintrag.text(0))
         )
         self.aufrufstapel_liste = QListWidget()
         self.aufrufstapel_liste.itemClicked.connect(self._bei_aufrufstapel_klick)
+        self.aufrufstapel_liste.itemActivated.connect(self._bei_aufrufstapel_klick)
         self.tests_baum = QTreeWidget()
         self.tests_baum.setHeaderLabels(["Test", "Status", "Dauer (s)"])
-        self.tests_baum.itemDoubleClicked.connect(self._bei_test_doppelklick)
+        self.tests_baum.itemActivated.connect(self._bei_test_doppelklick)
         # Der Reiter „Ausgabe“ war bis hierher ein leeres graues Feld:
         # angelegt, benannt, nie gefüllt. Das Schülerprogramm läuft in
         # einem eigenen Fenster (Abschnitt 7.8), seine `print`-Zeilen
@@ -479,6 +488,19 @@ class HauptFenster(QMainWindow):
         self.resizeDocks(
             [self.datenbank_dock, self.panels_dock], [200, 200], Qt.Orientation.Vertical
         )
+
+        # Auf einem 1366×768-Schulrechner bleiben nach Taskleiste und
+        # Fensterrahmen rund 728 Pixel Höhe. Davon nahm das Dock
+        # „Datenbank“ allein 300 - der Designer behielt 251 und schnitt
+        # das Formular nach dem ersten Drittel ab; die Panels rechts
+        # daneben wurden auf 317 Pixel Breite gequetscht, sodass ihre
+        # Reiter nur noch mit Pfeilen erreichbar waren (M11, Abschnitt
+        # 4, am Bildschirmfoto gemessen). Eine Datenbank braucht im
+        # Unterricht erst, wer bei M6/M7 angekommen ist; die ersten
+        # Wochen gehen ohne. Deshalb ist das Dock voreingestellt zu und
+        # kommt über „Ansicht → Datenbank“ zurück - danach bleibt es
+        # offen, weil die Sichtbarkeit gemerkt wird.
+        self.datenbank_dock.hide()
 
         # „Fenster → Layout zurücksetzen“ (Abschnitt 7.2): merkt sich die
         # ursprüngliche Dock-/Werkzeugleisten-Anordnung, sobald alle
@@ -905,7 +927,7 @@ class HauptFenster(QMainWindow):
     def _datei_oeffnen_dialog(self) -> None:
         pfad, _ = QFileDialog.getOpenFileName(self, "Öffnen")
         if pfad:
-            self.datei_oeffnen(Path(pfad))
+            self.oeffnen(Path(pfad))
 
     def _projekt_oeffnen_dialog(self) -> None:
         pfad, _ = QFileDialog.getOpenFileName(
@@ -1180,12 +1202,25 @@ class HauptFenster(QMainWindow):
 
     def _unit_loeschen(self, pfad: Path) -> None:
         """„⋮ → Löschen …“ im Projekt-Explorer: fragt nach, schließt
-        einen ggf. offenen Editor-Tab und löscht die Datei."""
+        einen ggf. offenen Editor-Tab und legt die Datei in den
+        Papierkorb.
+
+        Der Papierkorb ist hier das „Rückgängig“ (M11, Abschnitt 4):
+        vorher wurde endgültig gelöscht, und die Nachfrage sagte das
+        auch ehrlich. In einem Klassenraum ist aber genau der Fall
+        häufig, dass jemand die falsche Unit erwischt – und die Arbeit
+        einer Doppelstunde ist nicht wiederzubekommen."""
+        mit_papierkorb = papierkorb_verfuegbar()
+        folge = (
+            "Die Datei landet im Papierkorb und lässt sich von dort zurückholen."
+            if mit_papierkorb
+            else "Die Datei landet nicht im Papierkorb und lässt sich danach nicht "
+            "zurückholen."
+        )
         antwort = QMessageBox.question(
             self,
             "Unit löschen",
-            f"„{pfad.name}“ wirklich löschen? Die Datei landet nicht im Papierkorb "
-            "und lässt sich danach nicht zurückholen.",
+            f"„{pfad.name}“ wirklich löschen? {folge}",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if antwort != QMessageBox.StandardButton.Yes:
@@ -1201,7 +1236,8 @@ class HauptFenster(QMainWindow):
                 break
 
         try:
-            pfad.unlink()
+            if not in_den_papierkorb(pfad):
+                pfad.unlink()
         except OSError as fehler:
             self.statusBar().showMessage(
                 f"Löschen fehlgeschlagen: {fehler}. Ist die Datei gerade in einem anderen "
@@ -1330,10 +1366,16 @@ class HauptFenster(QMainWindow):
         self.statusBar().showMessage(f"Projekt {self.projekt.name} geöffnet")
         return self.projekt
 
-    def datei_oeffnen(self, pfad: Path) -> QPlainTextEdit:
+    def datei_oeffnen(self, pfad: Path) -> QPlainTextEdit | None:
         """„Öffnen …“ (Abschnitt 7.2): öffnet eine einzelne Datei in
         einem Editor-Tab, unabhängig vom Projekt. Bereits offene Dateien
-        werden nur aktiviert statt doppelt geöffnet."""
+        werden nur aktiviert statt doppelt geöffnet.
+
+        Liefert `None`, wenn die Datei sich nicht als Text lesen lässt –
+        dann steht der Grund in der Statuszeile. Vorher flog der
+        `UnicodeDecodeError` bis nach oben durch: bei einer `.exe` oder
+        einer alten, nicht in UTF-8 gespeicherten Pascal-Datei war
+        Natter einfach weg (M11, Abschnitt 5)."""
         pfad = Path(pfad)
         for index in range(self.editor_tabs.count()):
             editor = self.editor_tabs.widget(index)
@@ -1351,7 +1393,21 @@ class HauptFenster(QMainWindow):
         editor.zeilenumbruch_setzen(self.zeilenumbruch_aktion.isChecked())
         editor.leerzeichen_setzen(self.leerzeichen_aktion.isChecked())
         editor.definition_gesucht.connect(self._zur_definition_springen)
-        editor.setPlainText(pfad.read_text(encoding="utf-8"))
+        try:
+            inhalt = pfad.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            self.statusBar().showMessage(
+                f"„{pfad.name}“ ist keine Textdatei (oder nicht in UTF-8 gespeichert) und "
+                f"lässt sich deshalb nicht im Editor öffnen."
+            )
+            return None
+        except OSError as fehler:
+            self.statusBar().showMessage(
+                f"„{pfad.name}“ lässt sich nicht öffnen: {fehler}. Ist die Datei gerade in "
+                f"einem anderen Programm geöffnet?"
+            )
+            return None
+        editor.setPlainText(inhalt)
         editor.setProperty(_PFAD_EIGENSCHAFT, str(pfad))
         # Ein Tab, der nach der Prüfung aufgeht, zeigt seine Funde
         # trotzdem - sonst müsste man erst neu starten, um sie zu sehen.
@@ -1581,6 +1637,8 @@ class HauptFenster(QMainWindow):
         else:
             if fundstelle.pfad is not None:
                 editor = self.datei_oeffnen(Path(fundstelle.pfad))
+            if editor is None:
+                return
             editor.zu_zeile_springen(fundstelle.zeile, fundstelle.spalte)
             wo = (
                 Path(fundstelle.pfad).name
@@ -2241,13 +2299,44 @@ class HauptFenster(QMainWindow):
         pfad = eintrag.data(0, PFAD_ROLLE)
         if pfad is None:
             return
+        self.oeffnen(Path(pfad))
+
+    def oeffnen(self, pfad: Path) -> None:
+        """Öffnet `pfad` in der Ansicht, die dazu passt – Designer,
+        Diagramm-Editor, Betrachter oder Quelltexteditor.
+
+        Der **eine** Weg dorthin, für den Projekt-Explorer wie für
+        „Datei → Öffnen …“. Vorher hatte nur der Explorer diese
+        Unterscheidung: über „Öffnen …“ landete eine `.pfm` als roher
+        JSON-Text im Editor, ein Diagramm ebenso, und ein PNG brachte
+        Natter mit einem `UnicodeDecodeError` zum Absturz. Zwei Wege zur
+        selben Sache, die sich verschieden verhalten, sind schlimmer als
+        einer (M11, Abschnitt 5).
+        """
         pfad = Path(pfad)
         endung = pfad.suffix.lower()
-        if endung == ".pfm":
-            self.designer_oeffnen(pfad)
-        elif endung == ".pdiag":
-            self.diagramm_oeffnen(pfad)
-        elif endung == ".csv":
+        if endung in (".pfm", ".pdiag"):
+            # Eine von Hand verbogene oder abgeschnittene Beschreibung
+            # flog vorher als `JSONDecodeError` bzw.
+            # `jsonschema.ValidationError` bis nach oben durch - in der
+            # gebauten Exe hieße das: Natter ist weg (M11, Abschnitt 5).
+            try:
+                if endung == ".pfm":
+                    self.designer_oeffnen(pfad)
+                else:
+                    self.diagramm_oeffnen(pfad)
+            except (json.JSONDecodeError, jsonschema.ValidationError, KeyError) as fehler:
+                self.statusBar().showMessage(
+                    f"„{pfad.name}“ lässt sich nicht öffnen: die Datei ist beschädigt "
+                    f"({fehler}). Sie wird von Natter geschrieben und sollte nicht von "
+                    f"Hand bearbeitet werden."
+                )
+            except OSError as fehler:
+                self.statusBar().showMessage(
+                    f"„{pfad.name}“ lässt sich nicht öffnen: {fehler}"
+                )
+            return
+        if endung == ".csv":
             self.datei_ansicht_oeffnen(pfad, lambda: CsvAnsicht(pfad))
         elif endung in _BILD_ENDUNGEN:
             self.datei_ansicht_oeffnen(pfad, lambda: BildVorschau(pfad))
@@ -2485,6 +2574,8 @@ class HauptFenster(QMainWindow):
         if not pfad.exists():
             return
         editor = self.datei_oeffnen(pfad)
+        if editor is None:
+            return
         cursor = editor.textCursor()
         cursor.movePosition(cursor.MoveOperation.Start)
         cursor.movePosition(cursor.MoveOperation.Down, cursor.MoveMode.MoveAnchor, zeile - 1)
@@ -2537,6 +2628,8 @@ class HauptFenster(QMainWindow):
         if not pfad.exists():
             return
         editor = self.datei_oeffnen(pfad)
+        if editor is None:
+            return
         cursor = editor.textCursor()
         cursor.movePosition(cursor.MoveOperation.Start)
         cursor.movePosition(

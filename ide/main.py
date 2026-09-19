@@ -23,6 +23,7 @@ import jsonschema
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from ide.deutsch import deutsch_einschalten
+from ide.fehlermeldung import fehlerhaken_einrichten
 from ide.integritaet.start_pruefung import installation_pruefen
 from ide.shell.hauptfenster import HauptFenster
 
@@ -47,6 +48,11 @@ def integritaet_bestaetigen(fenster: HauptFenster) -> bool:
 
 def erstellen() -> tuple[QApplication, HauptFenster]:
     app = QApplication.instance() or QApplication(sys.argv)
+    # Ohne Namen legt Qt anwendungseigene Dateien unter „python3“ ab -
+    # die Protokolldatei aus `ide/fehlermeldung.py` landete so in einem
+    # Ordner, in dem sie niemand vermutet (M11, Abschnitt 5).
+    app.setOrganizationName("Natter")
+    app.setApplicationName("Natter")
     # Qts eigene Texte auf Deutsch, bevor das Fenster entsteht: die
     # Tastenkürzel in den Menüs („Strg+S“ statt „Ctrl+S“) werden beim
     # Aufbau gesetzt (M11, Abschnitt 4).
@@ -70,6 +76,12 @@ def _projekt_aus_argv_oeffnen(fenster: HauptFenster, argv: list[str]) -> None:
 
 def main() -> int:
     app, fenster = erstellen()
+    # Ab hier endet ein Fehler in Natter selbst in einer deutschen
+    # Meldung statt in einem Traceback, den in der gebauten Exe ohnehin
+    # niemand zu sehen bekäme (M11, Abschnitt 5). Bewusst erst hier und
+    # nicht in `erstellen()`: in den Tests soll ein Fehler weiterhin den
+    # Test scheitern lassen und kein Fenster öffnen.
+    fehlerhaken_einrichten()
     if not integritaet_bestaetigen(fenster):
         return 1
     _projekt_aus_argv_oeffnen(fenster, sys.argv)

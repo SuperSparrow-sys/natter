@@ -49,7 +49,7 @@ def test_explorer_doppelklick_auf_pfm_oeffnet_den_designer(tmp_path: Path) -> No
     fenster.projekt_oeffnen(_ampel_kopie(tmp_path))
 
     formular_eintrag = fenster.explorer.formulare_gruppe.child(0)
-    fenster.explorer.itemDoubleClicked.emit(formular_eintrag, 0)
+    fenster.explorer.itemActivated.emit(formular_eintrag, 0)
 
     assert fenster.editor_tabs.count() == 1
     assert fenster.editor_tabs.tabText(0) == "u_main (Designer)"

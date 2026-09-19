@@ -25,6 +25,16 @@ def test_erstellen_liefert_anwendung_und_hauptfenster() -> None:
     assert isinstance(fenster, HauptFenster)
 
 
+def test_die_anwendung_hat_einen_namen() -> None:
+    """Ohne Namen legt Qt anwendungseigene Dateien unter „python3“ ab -
+    die Protokolldatei aus `ide/fehlermeldung.py` landete so in einem
+    Ordner, in dem sie niemand vermutet (M11, Abschnitt 5)."""
+    app, _ = erstellen()
+
+    assert app.applicationName() == "Natter"
+    assert app.organizationName() == "Natter"
+
+
 def test_erstellen_wiederverwendet_vorhandene_anwendung() -> None:
     app1, _ = erstellen()
     app2, _ = erstellen()

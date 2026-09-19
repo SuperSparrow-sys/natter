@@ -105,9 +105,14 @@ _MENUES: dict[str, tuple[tuple[str, bool], ...]] = {
     ),
     "Format": (
         ("Stilvorlage …", True),
-        ("Füllung …", False),
-        ("Linie …", False),
-        ("Schrift …", False),
+        # Füllung, Linie und Schrift waren ausgegraut, weil es sie noch
+        # nicht gab. Der Eigenschaften-Bereich rechts kann seither
+        # beides - die Menüeinträge führen jetzt dorthin (M11,
+        # Abschnitt 5: „ausgegraute Menüeinträge, die inzwischen etwas
+        # könnten“).
+        ("Füllung …", True),
+        ("Linie …", True),
+        ("Schrift …", True),
         ("Stil übertragen", True),
     ),
     "Hilfe": (("Über den Diagramm-Editor", True),),
@@ -277,6 +282,45 @@ class DiagrammFenster(QMainWindow):
         self.addDockWidget(bereich, dock)
         return dock
 
+    def _gewaehlte_form(self) -> dict | None:
+        """Die ausgewählte Form, oder `None` samt Hinweis in der
+        Statuszeile – die drei Format-Einträge brauchen alle eine."""
+        form = getattr(self.zeichenflaeche, "ausgewaehlte_form", None)
+        if form is None:
+            self.statusBar().showMessage(
+                "Keine Form ausgewählt. Zuerst eine Form anklicken.", 3000
+            )
+        return form
+
+    def _fuellung_waehlen(self) -> None:
+        """„Format → Füllung …“ (M11, Abschnitt 5).
+
+        Die drei Einträge „Füllung“, „Linie“ und „Schrift“ waren
+        ausgegraut, weil es sie noch nicht gab. Der Eigenschaften-Bereich
+        rechts kann das inzwischen – also führen sie jetzt dorthin,
+        statt weiter grau dazustehen. Bewusst dieselben Bedienelemente
+        und nicht ein zweiter, eigener Dialog: zwei Wege zur selben
+        Sache, die sich verschieden verhalten, sind schlimmer als einer.
+        """
+        if self._gewaehlte_form() is not None:
+            self.eigenschaften.fuellung.click()
+
+    def _linienfarbe_waehlen(self) -> None:
+        """„Format → Linie …“ – siehe `_fuellung_waehlen`."""
+        if self._gewaehlte_form() is not None:
+            self.eigenschaften.linie.click()
+
+    def _schriftgroesse_waehlen(self) -> None:
+        """„Format → Schrift …“ – siehe `_fuellung_waehlen`. Für die
+        Größe gibt es keinen Farbdialog, also das Drehfeld im
+        Eigenschaften-Bereich: es bekommt den Fokus und seinen Wert
+        ausgewählt, sodass man die neue Zahl direkt eintippen kann."""
+        if self._gewaehlte_form() is None:
+            return
+        self.eigenschaften_dock.show()
+        self.eigenschaften.schrift.setFocus()
+        self.eigenschaften.schrift.selectAll()
+
     def _stil_uebertragen(self) -> None:
         """„Format → Stil übertragen“ (Abschnitt 13.3): erster Aufruf
         merkt sich die Vorlage, der zweite überträgt sie auf die dann
@@ -359,6 +403,9 @@ class DiagrammFenster(QMainWindow):
             ("Bearbeiten/Löschen", "Del", lambda: self.zeichenflaeche.loeschen()),
             ("Datei/Speichern", "Ctrl+S", None),
             ("Format/Stil übertragen", "Ctrl+Shift+V", self._stil_uebertragen),
+            ("Format/Füllung …", "", self._fuellung_waehlen),
+            ("Format/Linie …", "", self._linienfarbe_waehlen),
+            ("Format/Schrift …", "", self._schriftgroesse_waehlen),
             ("Ansicht/Zoom vergrößern", "Ctrl++", lambda: self._zoomen(1.25)),
             ("Ansicht/Zoom verkleinern", "Ctrl+-", lambda: self._zoomen(1 / 1.25)),
             ("Ansicht/Alles anzeigen", "Ctrl+0", self.alles_anzeigen),
@@ -477,6 +524,9 @@ class DiagrammFenster(QMainWindow):
             ("Ansicht/Zoom 100 %", "zoom_setzen"),
             ("Bearbeiten/Duplizieren", "duplizieren"),
             ("Format/Stil übertragen", "ausgewaehlte_form"),
+            ("Format/Füllung …", "ausgewaehlte_form"),
+            ("Format/Linie …", "ausgewaehlte_form"),
+            ("Format/Schrift …", "ausgewaehlte_form"),
             ("Ansicht/Raster", "raster_sichtbar"),
             ("Ansicht/Seitenränder", "seitenrand_sichtbar"),
             ("Ansicht/Layout-Hinweise", "hinweise_sichtbar"),

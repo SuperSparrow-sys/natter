@@ -156,14 +156,17 @@ def test_naechster_und_vorheriger_tab(tmp_path: Path) -> None:
 
 
 def test_layout_zuruecksetzen_stellt_geschlossene_docks_wieder_her() -> None:
+    # Der Projekt-Explorer als Beispiel: die Datenbank ist seit M11,
+    # Abschnitt 4 voreingestellt zu und käme deshalb zu Recht nicht
+    # zurück.
     fenster = HauptFenster()
     fenster.show()
-    fenster.datenbank_dock.close()
-    assert fenster.datenbank_dock.isVisible() is False
+    fenster.explorer_dock.close()
+    assert fenster.explorer_dock.isVisible() is False
 
     fenster._layout_zuruecksetzen_aktion()
 
-    assert fenster.datenbank_dock.isVisible() is True
+    assert fenster.explorer_dock.isVisible() is True
 
 
 # -- Hilfe -------------------------------------------------------------

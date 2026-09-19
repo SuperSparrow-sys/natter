@@ -53,7 +53,10 @@ def test_noch_nicht_umgesetzte_eintraege_sind_ausgegraut(tmp_path: Path) -> None
     assert fenster.aktionen["Bearbeiten/Kopieren"].isEnabled() is True
     assert fenster.aktionen["Ansicht/Minimap"].isEnabled() is False
     assert fenster.aktionen["Ansicht/Lineale"].isEnabled() is False
-    assert fenster.aktionen["Format/Füllung …"].isEnabled() is False
+    # „Füllung …“ stand hier einmal als Beispiel für „noch nicht da“.
+    # Seit M11, Abschnitt 5 führt der Eintrag in den
+    # Eigenschaften-Bereich, der das längst kann.
+    assert fenster.aktionen["Format/Füllung …"].isEnabled() is True
 
 
 def test_bearbeiten_menue_wirkt_auf_die_zeichenflaeche(tmp_path: Path) -> None:
@@ -160,3 +163,40 @@ def test_speichern_unter_wechselt_pfad_und_titel(tmp_path: Path) -> None:
     assert ziel.exists()
     assert fenster.diagramm.pfad == ziel
     assert fenster.windowTitle().startswith("kopie.pdiag")
+
+
+def test_fuellung_linie_und_schrift_fuehren_in_den_eigenschaften_bereich(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Die drei Format-Einträge waren ausgegraut, weil es sie noch nicht
+    gab – der Eigenschaften-Bereich rechts kann das inzwischen. Sie
+    benutzen bewusst dieselben Bedienelemente und keinen zweiten, eigenen
+    Dialog (M11, Abschnitt 5)."""
+    fenster = _fenster(tmp_path, "class")
+    form = fenster.zeichenflaeche.form_platzieren("class", 40, 40)
+    fenster.zeichenflaeche.ausgewaehlte_form = form
+
+    geklickt: list[str] = []
+    monkeypatch.setattr(
+        fenster.eigenschaften.fuellung, "click", lambda: geklickt.append("fuellung")
+    )
+    monkeypatch.setattr(
+        fenster.eigenschaften.linie, "click", lambda: geklickt.append("linie")
+    )
+
+    fenster.aktionen["Format/Füllung …"].trigger()
+    fenster.aktionen["Format/Linie …"].trigger()
+    fenster.aktionen["Format/Schrift …"].trigger()
+
+    assert geklickt == ["fuellung", "linie"]
+    # `hasFocus()` braucht ein aktives Fenster, das es hier nicht gibt;
+    # `focusWidget()` sagt dasselbe innerhalb des Bereichs.
+    assert fenster.eigenschaften.focusWidget() is fenster.eigenschaften.schrift
+
+
+def test_ohne_ausgewaehlte_form_sagt_der_eintrag_was_fehlt(tmp_path: Path) -> None:
+    fenster = _fenster(tmp_path, "class")
+
+    fenster.aktionen["Format/Füllung …"].trigger()
+
+    assert "Keine Form ausgewählt" in fenster.statusBar().currentMessage()

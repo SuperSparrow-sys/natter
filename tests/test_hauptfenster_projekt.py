@@ -61,7 +61,7 @@ def test_explorer_doppelklick_oeffnet_die_datei() -> None:
     fenster.projekt_oeffnen(_AMPEL_ORDNER)
 
     eintrag = fenster.explorer.units_gruppe.child(0)  # main.py oder u_ampel.py
-    fenster.explorer.itemDoubleClicked.emit(eintrag, 0)
+    fenster.explorer.itemActivated.emit(eintrag, 0)
 
     assert fenster.editor_tabs.count() == 1
     assert fenster.editor_tabs.tabText(0) == eintrag.text(0)
