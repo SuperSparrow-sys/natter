@@ -38,6 +38,19 @@ from ide.debugger.eigener_code import ist_eigener_code
 # docs/arbeitspakete/M4.md, Hinweis zu den DAP-Tests).
 _STANDARD_ZEITLIMIT = 30.0
 
+#: So oft wird ein Start versucht, bevor aufgegeben wird.
+#:
+#: `_freien_port_finden()` bindet Port 0, liest die vergebene Nummer und
+#: gibt sie wieder frei – erst danach bindet `debugpy` sie. In dieser
+#: Lücke kann ein anderer Prozess dieselbe Nummer bekommen; dann verbindet
+#: sich Natter entweder gar nicht oder mit dem Falschen, und der
+#: Handshake geht schief. Das ist selten, aber real: in langen
+#: Testläufen, in denen viele `debugpy`-Prozesse kurz hintereinander
+#: starten, fiel mehrfach genau einer der DAP-Tests aus und lief einzeln
+#: sofort wieder durch. Ein zweiter Versuch mit einer neuen Nummer kostet
+#: nichts und nimmt dem Zufall die Gelegenheit.
+_STARTVERSUCHE = 3
+
 
 class DapFehler(Exception):
     """Verbindungsfehler oder eine Fehlerantwort (`success: false`) vom
@@ -76,22 +89,49 @@ class DapClient:
         ausgeführten Zeile nicht verpasst wird. Nach Rückkehr ist die
         Sitzung konfiguriert (`configurationDone` bereits gesendet) und
         der Debuggee läuft (bzw. steht bereits an einem Breakpoint)."""
-        port = _freien_port_finden()
-        self.prozess = subprocess.Popen(
-            [
-                sys.executable,
-                "-m",
-                "debugpy",
-                "--listen",
-                str(port),
-                "--wait-for-client",
-                str(skriptpfad),
-            ],
-            cwd=arbeitsordner,
-        )
-        self._socket = self._verbinden(port, zeitlimit)
-        self._socket.settimeout(zeitlimit)
-        self._handshake(anfangs_breakpoints or {})
+        letzter_fehler: Exception | None = None
+        for _ in range(_STARTVERSUCHE):
+            port = _freien_port_finden()
+            self.prozess = subprocess.Popen(
+                [
+                    sys.executable,
+                    "-m",
+                    "debugpy",
+                    "--listen",
+                    str(port),
+                    "--wait-for-client",
+                    str(skriptpfad),
+                ],
+                cwd=arbeitsordner,
+            )
+            try:
+                self._socket = self._verbinden(port, zeitlimit)
+                self._socket.settimeout(zeitlimit)
+                self._handshake(anfangs_breakpoints or {})
+                return
+            except (DapFehler, OSError) as fehler:
+                letzter_fehler = fehler
+                self._fehlstart_aufraeumen()
+        raise DapFehler(
+            f"Der Debugger ließ sich nach {_STARTVERSUCHE} Versuchen nicht starten: "
+            f"{letzter_fehler}"
+        ) from letzter_fehler
+
+    def _fehlstart_aufraeumen(self) -> None:
+        """Räumt einen missglückten Startversuch weg, damit der nächste
+        auf einem sauberen Zustand aufsetzt – und vor allem, damit kein
+        `debugpy`-Prozess zurückbleibt, der weiter auf einen Debugger
+        wartet, der nie kommt."""
+        if self._socket is not None:
+            self._socket.close()
+            self._socket = None
+        if self.prozess is not None and self.prozess.poll() is None:
+            self.prozess.kill()
+        self.prozess = None
+        self._puffer = b""
+        self._naechste_seq = 1
+        self._aufgehobene_antworten.clear()
+        self.ereignisse.clear()
 
     def _verbinden(self, port: int, zeitlimit: float) -> socket.socket:
         ende = time.monotonic() + zeitlimit

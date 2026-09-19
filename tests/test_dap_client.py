@@ -97,3 +97,72 @@ def test_zwei_clients_koennen_unabhaengig_gleichzeitig_laufen(tmp_path: Path) ->
 
     assert (ordner_a / "a.txt").exists()
     assert (ordner_b / "b.txt").exists()
+
+
+def test_ein_belegter_port_fuehrt_zu_einem_zweiten_versuch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`_freien_port_finden()` gibt die Nummer wieder frei, bevor
+    `debugpy` sie bindet – in dieser Lücke kann sie ein anderer Prozess
+    bekommen. Der Start gibt dann nicht auf, sondern nimmt eine neue
+    Nummer (M11, Abschnitt 5)."""
+    import ide.debugger.dap_client as modul
+
+    skript = _skript_schreiben(tmp_path, "marker = 1" + chr(10))
+    echtes_verbinden = modul.DapClient._verbinden
+    versuche: list[int] = []
+
+    def _einmal_scheitern(selbst, port, zeitlimit):
+        versuche.append(port)
+        if len(versuche) == 1:
+            raise DapFehler("Port schon belegt")
+        return echtes_verbinden(selbst, port, zeitlimit)
+
+    monkeypatch.setattr(modul.DapClient, "_verbinden", _einmal_scheitern)
+
+    client = DapClient()
+    try:
+        client.starten(skript, arbeitsordner=tmp_path)
+
+        assert len(versuche) == 2
+        assert versuche[0] != versuche[1]  # neue Nummer, nicht dieselbe
+        assert client.prozess is not None
+    finally:
+        if client.prozess is not None:
+            client.prozess.kill()
+        client.beenden()
+
+
+def test_ein_fehlstart_laesst_keinen_debugpy_prozess_zurueck(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Sonst sammelten sich genau die Waisen an, die beim Aufräumen nach
+    der Funktionsprüfung schon einmal zu neunundvierzig wartenden
+    `debugpy`-Prozessen geführt haben."""
+    import ide.debugger.dap_client as modul
+
+    skript = _skript_schreiben(tmp_path, "marker = 1" + chr(10))
+    prozesse = []
+    echtes_popen = modul.subprocess.Popen
+
+    def _merken(*args, **kwargs):
+        prozess = echtes_popen(*args, **kwargs)
+        prozesse.append(prozess)
+        return prozess
+
+    monkeypatch.setattr(modul.subprocess, "Popen", _merken)
+    monkeypatch.setattr(
+        modul.DapClient,
+        "_verbinden",
+        lambda selbst, port, zeitlimit: (_ for _ in ()).throw(DapFehler("nichts da")),
+    )
+
+    client = DapClient()
+    with pytest.raises(DapFehler, match="Versuchen"):
+        client.starten(skript, arbeitsordner=tmp_path)
+
+    assert len(prozesse) == modul._STARTVERSUCHE
+    for prozess in prozesse:
+        prozess.wait(timeout=10)
+        assert prozess.poll() is not None
+    assert client.prozess is None
