@@ -207,17 +207,72 @@ USE_CASE_VERBINDUNGEN: tuple[VerbindungsArt, ...] = (
     ),
 )
 
+ZUSTANDSDIAGRAMM_FORMEN: tuple[FormArt, ...] = (
+    FormArt(
+        kind="initial_state",
+        beschriftung="Startzustand",
+        beschreibung="ausgefüllter Kreis, wo der Ablauf beginnt",
+        breite=32,
+        hoehe=32,
+        standardname="",
+    ),
+    FormArt(
+        kind="state",
+        beschriftung="Zustand",
+        beschreibung="abgerundetes Rechteck; weitere Zeilen sind entry/do/exit",
+        breite=176,
+        hoehe=72,
+        standardname="Zustand",
+    ),
+    FormArt(
+        kind="composite_state",
+        beschriftung="Zusammengesetzter Zustand",
+        beschreibung="Zustand, der weitere Zustände enthält",
+        breite=360,
+        hoehe=240,
+        standardname="Oberzustand",
+    ),
+    FormArt(
+        kind="decision",
+        beschriftung="Entscheidung",
+        beschreibung="Raute, an der sich der Ablauf teilt",
+        breite=96,
+        hoehe=72,
+        standardname="",
+    ),
+    FormArt(
+        kind="final_state",
+        beschriftung="Endzustand",
+        beschreibung="Ring mit ausgefülltem Kern",
+        breite=36,
+        hoehe=36,
+        standardname="",
+    ),
+    NOTIZ,
+)
+
+ZUSTANDSDIAGRAMM_VERBINDUNGEN: tuple[VerbindungsArt, ...] = (
+    VerbindungsArt(
+        kind="transition",
+        beschriftung="Übergang",
+        beschreibung="Pfeil mit „Ereignis [Bedingung] / Aktion“ in der Mitte",
+        spitze_am_ziel="offen",
+    ),
+)
+
 #: Diagrammtyp -> Formen der Palette (Abschnitt 13.2: Gruppen je
 #: Diagrammtyp).
 FORMEN_JE_TYP: dict[str, tuple[FormArt, ...]] = {
     "class": KLASSENDIAGRAMM_FORMEN,
     "use_case": USE_CASE_FORMEN,
+    "state": ZUSTANDSDIAGRAMM_FORMEN,
 }
 
 #: Diagrammtyp -> Verbindungsarten der Palette.
 VERBINDUNGEN_JE_TYP: dict[str, tuple[VerbindungsArt, ...]] = {
     "class": KLASSENDIAGRAMM_VERBINDUNGEN,
     "use_case": USE_CASE_VERBINDUNGEN,
+    "state": ZUSTANDSDIAGRAMM_VERBINDUNGEN,
 }
 
 _NACH_KIND = {form.kind: form for formen in FORMEN_JE_TYP.values() for form in formen}

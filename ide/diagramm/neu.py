@@ -16,7 +16,13 @@ from ide.diagramm.datei import FORMEN_TYPEN, Diagramm
 
 #: Typen, die „Datei → Neu“ anbietet. Die ersten drei stammen aus dem
 #: M9-Abnahmekriterium, die übrigen aus Abschnitt 13.4.
-MVP_TYPEN = ("class", "struktogramm", "entscheidungstabelle", "use_case")
+MVP_TYPEN = (
+    "class",
+    "struktogramm",
+    "entscheidungstabelle",
+    "use_case",
+    "state",
+)
 
 TYP_BESCHRIFTUNGEN = {
     "class": "Klassendiagramm",

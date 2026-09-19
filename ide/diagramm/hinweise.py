@@ -44,13 +44,20 @@ def _rechteck(shape: dict[str, Any]) -> tuple[float, float, float, float]:
 
 
 def _beschriftung(shape: dict[str, Any]) -> str:
-    return formname(shape) or str(shape.get("kind", "Form"))
+    """Wie die Form in einer Meldung heißt.
+
+    Nur die **erste** Zeile: der Name eines Zustands trägt darunter noch
+    seine Aktionen, und eine dreizeilige Meldung in der Liste war
+    unlesbar (in der Sichtprüfung aufgefallen).
+    """
+    name = formname(shape).splitlines()
+    return (name[0].strip() if name else "") or str(shape.get("kind", "Form"))
 
 
 #: Formen, die andere Formen **umschließen sollen**. Eine Systemgrenze
 #: voller Anwendungsfälle ist kein Layout-Fehler, sondern genau ihr
 #: Zweck; ein Paket kann ebenso Klassen enthalten.
-BEHAELTERFORMEN = ("system_boundary", "package")
+BEHAELTERFORMEN = ("system_boundary", "package", "composite_state")
 
 
 def _umschliesst(aussen: dict[str, Any], innen: dict[str, Any]) -> bool:

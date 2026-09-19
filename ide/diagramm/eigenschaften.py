@@ -106,6 +106,15 @@ class EigenschaftenPanel(QWidget):
         )
         self._layout.addRow("Ende Ziel", self.beschriftung_zu)
 
+        # Beschriftung in der Mitte der Linie. Im Zustandsdiagramm trägt
+        # sie den ganzen Übergang („Ereignis [Bedingung] / Aktion“), im
+        # Klassendiagramm den Namen einer Assoziation.
+        self.beschriftung_mitte = QLineEdit()
+        self.beschriftung_mitte.editingFinished.connect(
+            lambda: self._label_setzen("mitte", self.beschriftung_mitte)
+        )
+        self._layout.addRow("Mitte", self.beschriftung_mitte)
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.hinweis)
@@ -135,7 +144,11 @@ class EigenschaftenPanel(QWidget):
                 self._zeile_zeigen(self.felder[name], form is not None)
             for widget in (self.fuellung, self.linie, self.schrift):
                 self._zeile_zeigen(widget, form is not None)
-            for widget in (self.beschriftung_von, self.beschriftung_zu):
+            for widget in (
+                self.beschriftung_von,
+                self.beschriftung_zu,
+                self.beschriftung_mitte,
+            ):
                 self._zeile_zeigen(widget, verbindung is not None)
 
             if form is not None:
@@ -150,6 +163,7 @@ class EigenschaftenPanel(QWidget):
                 self.hinweis.setText(f"Verbindung: {verbindung['kind']}")
                 labels = verbindung.get("labels") or {}
                 self.beschriftung_von.setText(str(labels.get("from", "")))
+                self.beschriftung_mitte.setText(str(labels.get("mitte", "")))
                 self.beschriftung_zu.setText(str(labels.get("to", "")))
             else:
                 self.hinweis.setText("Nichts ausgewählt")
