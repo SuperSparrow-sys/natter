@@ -144,7 +144,13 @@ def test_statusleiste_zaehlt_formen_und_zeigt_die_auswahl(tmp_path: Path) -> Non
 
     fenster.zeichenflaeche.auswahl_aufheben()
     fenster._statusleiste_aktualisieren()
-    assert "1 Formen" in fenster.statusBar().currentMessage()
+    # Eine Form, nicht „1 Formen".
+    assert "1 Form  │" in fenster.statusBar().currentMessage()
+
+    fenster.zeichenflaeche.form_platzieren("class", 400, 200)
+    fenster.zeichenflaeche.auswahl_aufheben()
+    fenster._statusleiste_aktualisieren()
+    assert "2 Formen" in fenster.statusBar().currentMessage()
 
 
 def test_aenderung_markiert_den_titel_und_speichern_raeumt_ihn_wieder_ab(

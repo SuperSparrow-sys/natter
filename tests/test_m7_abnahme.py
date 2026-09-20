@@ -16,7 +16,6 @@ from ide.lint.regeln import pruefen
 
 _ALLE_REGEL_IDS = {
     "geometrie.ausserhalb_formular",
-    "geometrie.nicht_am_raster",
     "geometrie.ueberlappung",
     "geometrie.kante_nicht_buendig",
     "geometrie.uneinheitliche_abstaende",

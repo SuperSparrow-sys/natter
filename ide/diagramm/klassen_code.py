@@ -134,7 +134,43 @@ def _klassenattribute(shape: dict[str, Any]) -> list[str]:
     return [*zeilen, ""] if zeilen else []
 
 
-def _operation_zeilen(operation: dict[str, Any]) -> list[str]:
+def _zuweisungen_fuer_init(
+    operation: dict[str, Any], shape: dict[str, Any]
+) -> list[str]:
+    """Die Rumpfzeilen eines **selbst modellierten** `__init__`.
+
+    Ist der Konstruktor im Diagramm eingetragen, erzeugt
+    `_init_zeilen` keinen zweiten - so weit richtig. Bis September
+    2026 blieb der Rumpf dann aber bei `...`, und die modellierten
+    Attribute standen nirgends: aus einer Klasse `Buchung` mit
+    `+datum`, `+zweck`, `+betrag` und `+__init__(datum, zweck,
+    betrag)` wurde ein Konstruktor, der nichts tut, und drei
+    Attribute, die es nie gibt. Im Durchgang durch den Schuelerweg
+    aufgefallen.
+
+    Zugewiesen wird nur, was sich eindeutig zuordnen laesst: ein
+    Parameter, dessen Name zu einem Attribut passt. Alles andere
+    bleibt dem Schueler - hier soll keine Logik entstehen, nur das,
+    was er ohnehin abschreiben muesste.
+    """
+    felder = {
+        str(a.get("name", "")).lstrip("_"): _bezeichner(
+            str(a.get("name", "")), a.get("visibility", "public")
+        )
+        for a in attribute(shape)
+        if not a.get("class_scope") and str(a.get("name", "")).strip()
+    }
+    zeilen = []
+    for parameter in operation.get("parameters") or []:
+        roh = str(parameter.get("name", "")).strip().lstrip("_")
+        if roh in felder:
+            zeilen.append(f"{EINRUECKUNG * 2}self.{felder[roh]} = {roh}")
+    return zeilen
+
+
+def _operation_zeilen(
+    operation: dict[str, Any], shape: dict[str, Any] | None = None
+) -> list[str]:
     name = _bezeichner(
         str(operation.get("name", "")), operation.get("visibility", "public")
     )
@@ -166,10 +202,17 @@ def _operation_zeilen(operation: dict[str, Any]) -> list[str]:
     zeilen.append(kopf)
     zeilen.extend(_docstring(str(operation.get("comment", "")), 2))
 
+    zuweisungen = (
+        _zuweisungen_fuer_init(operation, shape)
+        if shape is not None and name == "__init__"
+        else []
+    )
     if operation.get("inheritance") == "abstract":
         # Abstrakt heißt: muss von einer Unterklasse gefüllt werden.
         # Ein stiller `...`-Rumpf verschluckte den Fehler zur Laufzeit.
         zeilen.append(f"{EINRUECKUNG * 2}raise NotImplementedError")
+    elif zuweisungen:
+        zeilen.extend(zuweisungen)
     else:
         zeilen.append(f"{EINRUECKUNG * 2}...")
     zeilen.append("")
@@ -197,7 +240,7 @@ def klasse_als_python(shape: dict[str, Any], daten: dict[str, Any] | None = None
     rumpf.extend(_klassenattribute(shape))
     rumpf.extend(_init_zeilen(shape))
     for operation in operationen(shape):
-        rumpf.extend(_operation_zeilen(operation))
+        rumpf.extend(_operation_zeilen(operation, shape))
 
     if not rumpf:
         # Eine Klasse ohne Inhalt braucht trotzdem einen Rumpf.

@@ -364,7 +364,20 @@ def test_statusleiste_zaehlt_zeilen_und_regeln(fenster: DiagrammFenster) -> None
     fenster._statusleiste_aktualisieren()
 
     meldung = fenster.statusBar().currentMessage()
-    assert "Zeilen" in meldung and "Regeln" in meldung
+    assert "3 Zeilen" in meldung and "1 Regel" in meldung
+
+
+def test_die_statusleiste_zaehlt_auf_deutsch(fenster: DiagrammFenster) -> None:
+    """Dort stand real „2 Zeilen │ 1 Regeln" - die Zahl im Singular,
+    das Wort im Plural. Bei den Layout-Hinweisen daneben war es von
+    Anfang an richtig."""
+    fenster._statusleiste_aktualisieren()
+    assert "1 Regel  │" in fenster.statusBar().currentMessage()
+
+    fenster.zeichenflaeche.regel_hinzufuegen()
+    fenster._statusleiste_aktualisieren()
+
+    assert "2 Regeln" in fenster.statusBar().currentMessage()
 
 
 def test_andere_diagrammtypen_haben_kein_tabellenmenue(tmp_path: Path) -> None:

@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
 )
 
 from ide.assets import symbol
+from ide.deutsch import mehrzahl
 from ide.diagramm.bloecke import alle_bloecke
 from ide.diagramm.canvas import DiagrammCanvas
 from ide.diagramm.codefenster import CodeFenster, CodeOptionenDialog, in_datei_schreiben
@@ -759,11 +760,7 @@ class DiagrammFenster(QMainWindow):
             return None
 
         if ziel == "datei":
-            vorschlag = pfad or (
-                self.diagramm.pfad.parent.parent
-                / "units"
-                / f"u_{self.diagramm.pfad.stem.lower()}.py"
-            )
+            vorschlag = pfad or self._vorschlag_fuer_unit()
             geschrieben = in_datei_schreiben(
                 quelltext, vorschlag, self, fragen=pfad is None
             )
@@ -775,6 +772,27 @@ class DiagrammFenster(QMainWindow):
         if pfad is None:
             fenster.exec()
         return fenster
+
+    def _vorschlag_fuer_unit(self) -> Path:
+        """Wohin „Quelltext → Erzeugen …" vorschlägt zu schreiben.
+
+        **In den Projektordner**, denn dort liegen die Units eines
+        Natter-Projekts - `Projekt.units()` liest `ordner.glob("*.py")`.
+        Vorgeschlagen wurde bis September 2026 ein Unterordner `units/`;
+        die Datei landete damit an einer Stelle, die das Projekt nie
+        ansieht. Sie tauchte weder im Projekt-Explorer auf noch ließ sie
+        sich importieren - der Schüler hatte seine Klasse erzeugt und
+        fand sie nirgends wieder. Im Durchgang durch den ganzen
+        Schuelerweg aufgefallen.
+
+        Ein Diagramm liegt in `<projekt>/diagramme/`; eine Ebene
+        darüber ist der Projektordner. Liegt es woanders - jemand hat
+        eine `.pdiag` einzeln geöffnet -, kommt die Datei daneben.
+        """
+        ordner = self.diagramm.pfad.parent
+        if ordner.name == "diagramme":
+            ordner = ordner.parent
+        return ordner / f"u_{self.diagramm.pfad.stem.lower()}.py"
 
     def _stilvorlagen_menue_aufbauen(self) -> None:
         """„Format → Stilvorlage“ als Untermenü mit den drei Vorlagen aus
@@ -880,22 +898,25 @@ class DiagrammFenster(QMainWindow):
             zeilen = len(self.diagramm.daten.get("conditions") or []) + len(
                 self.diagramm.daten.get("actions") or []
             )
-            return f"{zeilen} Zeilen  │  {regelanzahl(self.diagramm.daten)} Regeln"
+            return (
+                f"{mehrzahl(zeilen, 'Zeile')}  │  "
+                f"{mehrzahl(regelanzahl(self.diagramm.daten), 'Regel')}"
+            )
 
         if self.diagramm.typ == "struktogramm":
             block = self.zeichenflaeche.ausgewaehlter_block
             if block is not None:
                 return f"{BLOCK_BESCHRIFTUNGEN.get(block.get('kind'), 'Block')} ausgewählt"
             anzahl = len(alle_bloecke(self.diagramm.daten)) - 1  # ohne die Wurzel
-            return f"{anzahl} Blöcke"
+            return mehrzahl(anzahl, "Block", "Blöcke")
 
         auswahl = getattr(self.zeichenflaeche, "auswahl", ())
         if len(auswahl) > 1:
-            return f"{len(auswahl)} Formen ausgewählt"
+            return f"{mehrzahl(len(auswahl), 'Form', 'Formen')} ausgewählt"
         ausgewaehlt = getattr(self.zeichenflaeche, "ausgewaehlte_form", None)
         if ausgewaehlt:
             return f"{formname(ausgewaehlt) or ausgewaehlt['kind']} ausgewählt"
-        return f"{len(self.diagramm.daten.get('shapes', []))} Formen"
+        return mehrzahl(len(self.diagramm.daten.get("shapes", [])), "Form", "Formen")
 
     def _statusleiste_aktualisieren(self) -> None:
         """Statusleiste nach Abschnitt 13.2 (Auswahl, Raster, Einrasten,
@@ -905,7 +926,7 @@ class DiagrammFenster(QMainWindow):
         auswahl = self._auswahltext()
         hinweise = getattr(self.zeichenflaeche, "hinweise", [])
         hinweis_text = (
-            f"  │  {len(hinweise)} Layout-Hinweis" + ("e" if len(hinweise) != 1 else "")
+            "  │  " + mehrzahl(len(hinweise), "Layout-Hinweis", "Layout-Hinweise")
             if hinweise
             else ""
         )

@@ -33,7 +33,9 @@ def test_platzieren_erzeugt_die_richtige_komponentenklasse() -> None:
     komponente = canvas.komponente_platzieren(Button, 40, 60)
 
     assert isinstance(komponente, Button)
-    assert (komponente.left, komponente.top) == (40, 60)
+    # Eingerastet am 8px-Raster, wie in Lazarus bei "Snap to grid":
+    # aus 60 wird 64.
+    assert (komponente.left, komponente.top) == (40, 64)
     assert canvas._attributname(komponente) == "button"
 
 
@@ -123,7 +125,7 @@ def test_platzierungsmodus_platziert_beim_naechsten_klick_auf_das_formular() -> 
 
     assert getroffen is True
     assert isinstance(formular.button, Button)
-    assert (formular.button.left, formular.button.top) == (40, 60)
+    assert (formular.button.left, formular.button.top) == (40, 64)
 
 
 def test_platzierungsmodus_endet_automatisch_nach_dem_klick() -> None:
@@ -163,4 +165,5 @@ def test_platzierung_auf_einer_bestehenden_komponente_rechnet_die_position_um() 
     canvas.platzierungsmodus_setzen(Button)
     canvas.eventFilter(bestehend._qwidget, _klick(5, 5))
 
-    assert (formular.button2.left, formular.button2.top) == (105, 105)
+    # Eingerastet: aus (105, 105) wird (104, 104).
+    assert (formular.button2.left, formular.button2.top) == (104, 104)

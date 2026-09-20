@@ -150,17 +150,6 @@ def _geometrie_pruefen(pfm: dict[str, Any]) -> list[Befund]:
                     "sonst fehlt sie im laufenden Programm.",
                 )
             )
-        if left % RASTER != 0 or top % RASTER != 0:
-            befunde.append(
-                _befund(
-                    "geometrie.nicht_am_raster",
-                    "Geometrie",
-                    "hinweis",
-                    kind["name"],
-                    f"{kind['name']} steht nicht am {RASTER}px-Raster.",
-                    f"„left“ und „top“ auf ein Vielfaches von {RASTER} setzen.",
-                )
-            )
 
     for i, a in enumerate(kinder):
         for b in kinder[i + 1 :]:

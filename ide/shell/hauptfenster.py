@@ -552,6 +552,14 @@ class HauptFenster(QMainWindow):
         # offen, weil die Sichtbarkeit gemerkt wird.
         self.datenbank_dock.hide()
 
+        # Zwei Docks nebeneinander in denselben Bereich legen dürfen -
+        # sonst lässt sich die Anordnung nur umsortieren, nicht
+        # erweitern. Ohne das kann man etwa Explorer und
+        # Objektinspektor nicht untereinander an dieselbe Seite hängen.
+        # Gefahrlos, weil „Fenster → Layout zurücksetzen“ jederzeit den
+        # Ausgangszustand wiederherstellt.
+        self.setDockNestingEnabled(True)
+
         # „Fenster → Layout zurücksetzen“ (Abschnitt 7.2): merkt sich die
         # ursprüngliche Dock-/Werkzeugleisten-Anordnung, sobald alle
         # Docks platziert sind - VOR dem Wiederherstellen der zuletzt

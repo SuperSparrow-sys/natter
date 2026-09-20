@@ -35,6 +35,23 @@ _UEBERSETZER: list[QTranslator] = []
 DATEIEN = ("qtbase_de", "qt_de")
 
 
+def mehrzahl(anzahl: int, einzahl: str, mehrzahl_form: str | None = None) -> str:
+    """„1 Regel", aber „3 Regeln" - die Zahl mit dem passenden Wort.
+
+    Klingt nach einer Kleinigkeit und ist trotzdem der Unterschied
+    zwischen einer Oberfläche, die jemand gebaut hat, und einer, die
+    Zeichenketten zusammenklebt. In der Statusleiste des
+    Diagramm-Editors stand real „2 Zeilen │ 1 Regeln"; bei den
+    Layout-Hinweisen daneben war es von Anfang an richtig.
+
+    Ohne `mehrzahl_form` wird ein „n" angehängt - das trägt Regel/Regeln
+    und Zeile/Zeilen, nicht aber Form/Formen oder Block/Blöcke; die
+    bekommen ihre Mehrzahl mitgegeben.
+    """
+    wort = einzahl if anzahl == 1 else (mehrzahl_form or f"{einzahl}n")
+    return f"{anzahl} {wort}"
+
+
 def deutsch_einschalten(app: QApplication | None = None) -> int:
     """Lädt Qts deutsche Oberflächentexte. Liefert, wie viele Dateien
     geladen wurden.

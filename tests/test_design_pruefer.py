@@ -41,12 +41,24 @@ def test_geometrie_komponente_ausserhalb_des_formulars() -> None:
     assert "geometrie.ausserhalb_formular" not in _regeln(innerhalb)
 
 
-def test_geometrie_nicht_am_raster() -> None:
-    schief = _pfm([_komponente("b_x", "Button", left=5, top=8)])
-    am_raster = _pfm([_komponente("b_x", "Button", left=8, top=8)])
+def test_krumme_koordinaten_sind_kein_befund() -> None:
+    """Die Regel „steht nicht am 8px-Raster" gab es bis September 2026
+    und ist auf Nutzer-Wunsch entfallen.
 
-    assert "geometrie.nicht_am_raster" in _regeln(schief)
-    assert "geometrie.nicht_am_raster" not in _regeln(am_raster)
+    Sie meldete etwas ohne sichtbare Folge und traf dabei ausgerechnet
+    die mitgelieferten Beispiele: 35 von 76 Komponenten dort stehen
+    zwischen den Rasterpunkten, weil ihre Layouts von Hand gesetzt
+    sind. Mechanisch aufs Raster zu rücken machte sie nachweislich
+    schlechter - im Versuch entstanden dadurch vier neue
+    Überlappungen im Cookie-Klicker. Was wirklich schief aussieht,
+    melden `uneinheitliche_abstaende` und `kante_nicht_buendig`.
+
+    Neu abgelegte Komponenten rasten seither beim Ablegen selbst ein
+    (`ide.designer.canvas`), also dort, wo es nichts kostet.
+    """
+    schief = _pfm([_komponente("b_x", "Button", left=5, top=3)])
+
+    assert _regeln(schief) == set()
 
 
 def test_geometrie_ueberlappung() -> None:

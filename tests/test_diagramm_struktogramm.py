@@ -353,7 +353,15 @@ def test_statusleiste_zaehlt_bloecke_statt_formen(fenster: DiagrammFenster) -> N
     fenster.zeichenflaeche.auswaehlen(None)
     fenster._statusleiste_aktualisieren()
 
-    assert "1 Blöcke" in fenster.statusBar().currentMessage()
+    # Ein Block, nicht „1 Blöcke".
+    assert "1 Block" in fenster.statusBar().currentMessage()
+
+    fenster.zeichenflaeche.block_einfuegen(
+        "statement", Einfuegestelle(fenster.zeichenflaeche.wurzel, "children", 1)
+    )
+    fenster.zeichenflaeche.auswaehlen(None)
+    fenster._statusleiste_aktualisieren()
+    assert "2 Blöcke" in fenster.statusBar().currentMessage()
 
 
 def test_menue_rueckgaengig_wirkt_auf_die_blockflaeche(fenster: DiagrammFenster) -> None:

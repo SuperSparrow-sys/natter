@@ -394,9 +394,15 @@ def _zeilen_zeichnen(
         y = oben + INNENABSTAND / 2 + nummer * zeilenhoehe
         if y + zeilenhoehe > rechteck.bottom():
             break  # unterhalb der Form nicht weiterzeichnen
+        # Wer den Kasten von Hand schmaler zieht, als sein Inhalt
+        # braucht, soll das sehen: „…" sagt „da steht noch mehr", ein
+        # harter Schnitt mitten im Wort sieht nach einem Fehler aus.
+        nutzbar = rechteck.width() - 2 * INNENABSTAND
+        zeile = QFontMetricsF(schrift).elidedText(
+            zeile, Qt.TextElideMode.ElideRight, int(nutzbar)
+        )
         maler.drawText(
-            QRectF(rechteck.left() + INNENABSTAND, y, rechteck.width() - 2 * INNENABSTAND,
-                   zeilenhoehe),
+            QRectF(rechteck.left() + INNENABSTAND, y, nutzbar, zeilenhoehe),
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
             zeile,
         )

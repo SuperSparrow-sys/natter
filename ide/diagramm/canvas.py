@@ -380,7 +380,15 @@ class DiagrammCanvas(ZoomMischung, QWidget):
     def hoehe_anpassen(self, form: dict[str, Any]) -> None:
         """Vergrößert `form`, bis ihr Text vollständig hineinpasst
         (Abschnitt 13.6). Verkleinert nie – eine von Hand größer
-        gezogene Form soll groß bleiben."""
+        gezogene Form soll groß bleiben.
+
+        **Nur die Höhe, mit Absicht.** Eine Mindestbreite gibt es
+        (`zeichnen.mindestbreite`), sie wird aber nicht erzwungen: sonst
+        zöge jede Eingabe eines langen Methodennamens die Form ruckartig
+        breiter. Zu schmale Formen meldet stattdessen der
+        Layout-Hinweis in der Statusleiste, und beim Zeichnen endet eine
+        zu lange Zeile mit „…" statt mitten im Wort.
+        """
         noetig = _raster_aufrunden(mindesthoehe(form))
         if noetig > form["h"]:
             form["h"] = noetig

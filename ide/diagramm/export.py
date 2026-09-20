@@ -25,7 +25,12 @@ from PySide6.QtSvg import QSvgGenerator
 
 from ide.diagramm.seite import DPI, satzspiegel, seitengroesse
 from ide.diagramm.stil import stil as stil_zu_namen
-from ide.diagramm.struktogramm import struktogramm_layout, struktogramm_zeichnen
+from ide.diagramm.struktogramm import (
+    KOPFHOEHE,
+    kopfzeile,
+    struktogramm_layout,
+    struktogramm_zeichnen,
+)
 from ide.diagramm.tabelle import tabelle_zeichnen, tabellengroesse
 from ide.diagramm.zeichnen import (
     form_rechteck,
@@ -54,8 +59,17 @@ def inhaltsbereich(daten: dict[str, Any]) -> QRectF:
     Für PNG/SVG besser als die volle Blattgröße: ein Diagramm mit drei
     Klassen soll kein Bild mit 80 % weißer Fläche ergeben."""
     if daten.get("type") == "struktogramm":
-        rechteck = struktogramm_layout(daten).rechteck
-        return QRectF(rechteck).adjusted(-RAND, -RAND, RAND, RAND)
+        rechteck = QRectF(struktogramm_layout(daten).rechteck)
+        # **Die Kopfzeile gehört dazu.** `struktogramm_layout` liefert
+        # den Wurzelblock, und der beginnt bei einem benannten
+        # Struktogramm erst **unterhalb** des Namens - der Name stand
+        # damit außerhalb des Bereichs und wurde im PNG oben
+        # abgeschnitten (im Durchgang durch den Schuelerweg am
+        # exportierten Bild gesehen: von „kasse_buchen" war nur die
+        # untere Hälfte der Buchstaben da).
+        if kopfzeile(daten):
+            rechteck.setTop(rechteck.top() - KOPFHOEHE)
+        return rechteck.adjusted(-RAND, -RAND, RAND, RAND)
     if daten.get("type") == "entscheidungstabelle":
         breite, hoehe = tabellengroesse(daten)
         return QRectF(-RAND, -RAND, breite + 2 * RAND, hoehe + 2 * RAND)

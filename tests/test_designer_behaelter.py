@@ -69,7 +69,8 @@ def test_die_koordinaten_zaehlen_ab_dem_behaelter(canvas: DesignerCanvas) -> Non
 
     knopf = canvas.komponente_platzieren(Button, 60, 70)
 
-    assert (knopf.left, knopf.top) == (20, 30)
+    # Eingerastet am 8px-Raster: aus (20, 30) wird (16, 32).
+    assert (knopf.left, knopf.top) == (16, 32)
 
 
 def test_neben_dem_panel_bleibt_alles_beim_formular(canvas: DesignerCanvas) -> None:
@@ -78,7 +79,7 @@ def test_neben_dem_panel_bleibt_alles_beim_formular(canvas: DesignerCanvas) -> N
     schild = canvas.komponente_platzieren(Label, 300, 300)
 
     assert schild.eltern is canvas.formular
-    assert (schild.left, schild.top) == (300, 300)
+    assert (schild.left, schild.top) == (304, 304)  # am Raster
 
 
 def test_auch_eine_groupbox_nimmt_auf(canvas: DesignerCanvas) -> None:

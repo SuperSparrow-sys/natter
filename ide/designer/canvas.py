@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import QEvent, QMimeData, QObject, QPoint, Qt
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QColor, QPainter, QPixmap
 from PySide6.QtWidgets import QDialog, QMenu, QWidget
 
 from ide.codegen.design import design_datei_erzeugen
@@ -112,6 +112,20 @@ _RAHMEN_DICKE = 2
 _RAHMEN_FARBE = "#0067c0"
 RASTER = 8
 
+#: Die Rasterpunkte auf dem Formular. Hell genug, um beim Entwerfen
+#: nicht zu stören, dunkel genug, um die Fläche überhaupt zu zeigen -
+#: `border` aus `design/tokens.json`.
+_RASTER_FARBE = "#d0d0d0"
+
+#: Die Kante des Formulars. Dieselbe Farbe, eine Spur kräftiger wäre
+#: ein Rahmen, den man für eine Auswahl halten könnte.
+_FORMULAR_KANTE = "#b8b8b8"
+
+
+def _am_raster(wert: int) -> int:
+    """Den nächsten Rasterpunkt zu `wert` - nie unter null."""
+    return max(0, round(wert / RASTER) * RASTER)
+
 
 def _groessenwerte(komponente: Any) -> dict[str, int]:
     """Position und Größe einer Komponente - beim Formular nur die
@@ -122,6 +136,27 @@ def _groessenwerte(komponente: Any) -> dict[str, int]:
         werte["top"] = komponente.top
     return werte
 
+
+
+class _RasterFlaeche(QWidget):
+    """Zeichnet die Rasterpunkte des Designers."""
+
+    def paintEvent(self, ereignis: Any) -> None:  # noqa: N802 (Qt-Konvention)
+        maler = QPainter(self)
+        maler.setPen(QColor(_RASTER_FARBE))
+        breite, hoehe = self.width(), self.height()
+        y = 0
+        while y < hoehe:
+            x = 0
+            while x < breite:
+                maler.drawPoint(x, y)
+                x += RASTER
+            y += RASTER
+        # Die Kante des Formulars mitzeichnen: ohne sie endet der Raster
+        # irgendwo zwischen zwei Punkten, und das sieht aus wie ein
+        # Zufall statt wie ein Rand.
+        maler.setPen(QColor(_FORMULAR_KANTE))
+        maler.drawRect(0, 0, breite - 1, hoehe - 1)
 
 
 def _ereignis_kurzname(ereignis_name: str) -> str:
@@ -327,8 +362,16 @@ class _PlatzierenKommando:
         # des Behälters, nicht ab der des Formulars.
         eltern, ex, ey = canvas._behaelter_bei(x, y)
         self.neue_komponente = typ(eltern)
-        self.neue_komponente.left = ex
-        self.neue_komponente.top = ey
+        # **Am Raster einrasten**, wie in Lazarus bei „Snap to grid".
+        # Ohne das legte der Designer Komponenten auf krumme
+        # Koordinaten, und der Design-Prüfer meldete anschließend
+        # „steht nicht am 8px-Raster" - für etwas, das der Schüler gar
+        # nicht verursacht hat, sondern das Werkzeug selbst (im
+        # Durchgang durch den Schuelerweg aufgefallen). Die Pfeiltasten
+        # verschieben seit jeher in Rasterschritten; das Ablegen zieht
+        # damit nach.
+        self.neue_komponente.left = _am_raster(ex)
+        self.neue_komponente.top = _am_raster(ey)
         breite, hoehe = _STANDARDGROESSEN.get(typ.__name__, (None, None))
         if breite is not None:
             self.neue_komponente.width = breite
@@ -373,6 +416,7 @@ class DesignerCanvas(QObject):
         # bereits in Formular-Koordinaten.
         formular._qwidget.setAcceptDrops(True)
         self._ueberwachung_einrichten(formular)
+        self._raster_erzeugen()
         self._rahmen_erzeugen()
         self._anfasser_erzeugen()
 
@@ -388,6 +432,39 @@ class DesignerCanvas(QObject):
             widget.show()
         for _, komponente in kind_komponenten(objekt):
             self._ueberwachung_einrichten(komponente)
+
+    def _raster_erzeugen(self) -> None:
+        """Der Punkteraster auf dem Formular - wie in Lazarus.
+
+        Ein frisch angelegtes Formular war im Designer **gar nicht zu
+        sehen**: es ist weiß, die Arbeitsfläche darum war es auch, und
+        ohne eine einzige Komponente gab es nichts, woran sich die Kante
+        erkennen ließ. Wer ein neues Projekt anlegte, sah eine leere
+        weiße Seite und wusste nicht, wohin er etwas ziehen soll.
+
+        Der Raster zeigt beides auf einmal: wo das Formular aufhört und
+        in welchen Schritten eine Komponente einrastet (`RASTER`).
+
+        Ein eigenes Kind-Widget statt eines Übermalens: es liegt
+        **unter** allen Komponenten (`lower()`), nimmt keine
+        Mausereignisse an - sonst gäbe `childAt` es statt des Formulars
+        zurück, und der Klick auf den Hintergrund wählte nichts mehr aus
+        - und geht bei jeder Größenänderung einfach mit.
+        """
+        self._raster_widget = _RasterFlaeche(self.formular._qwidget)
+        self._raster_widget.setAttribute(
+            Qt.WidgetAttribute.WA_TransparentForMouseEvents
+        )
+        self._raster_widget.lower()
+        self._raster_aktualisieren()
+
+    def _raster_aktualisieren(self) -> None:
+        widget = getattr(self, "_raster_widget", None)
+        if widget is None:
+            return
+        widget.setGeometry(self.formular._qwidget.rect())
+        widget.lower()
+        widget.show()
 
     def _rahmen_erzeugen(self) -> None:
         """Die vier Streifen des Auswahlrahmens. Sie hängen wie die
@@ -686,6 +763,7 @@ class DesignerCanvas(QObject):
             neu["top"] = start["top"] + oben_je_dy * delta.y()
         for name, wert in neu.items():
             setattr(komponente, name, wert)
+        self._raster_aktualisieren()
         self._anfasser_aktualisieren()
         self._rahmen_aktualisieren()
 

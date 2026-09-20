@@ -283,7 +283,8 @@ def test_echtes_drop_ereignis_legt_das_bild_ab(tmp_path: Path) -> None:
     assert canvas.eventFilter(canvas.formular._qwidget, ereignis) is True
     bilder = [k for _, k in _kinder(canvas) if isinstance(k, Image)]
     assert len(bilder) == 1
-    assert (bilder[0].left, bilder[0].top) == (150, 90)
+    # Eingerastet am 8px-Raster: aus (150, 90) wird (152, 88).
+    assert (bilder[0].left, bilder[0].top) == (152, 88)
 
 
 def test_drop_mehrerer_bilder_erzeugt_versetzte_komponenten(tmp_path: Path) -> None:
@@ -303,7 +304,7 @@ def test_drop_mehrerer_bilder_erzeugt_versetzte_komponenten(tmp_path: Path) -> N
     bilder = sorted(
         (k for _, k in _kinder(canvas) if isinstance(k, Image)), key=lambda k: k.left
     )
-    assert [(b.left, b.top) for b in bilder] == [(100, 100), (116, 116)]
+    assert [(b.left, b.top) for b in bilder] == [(96, 96), (112, 112)]
 
 
 def test_ohne_pfm_pfad_wird_nicht_kopiert(tmp_path: Path) -> None:

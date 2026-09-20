@@ -31,7 +31,8 @@ def test_platzieren_erzeugt_ein_diagramm_in_sinnvoller_groesse() -> None:
     diagramm = canvas.komponente_platzieren(Chart, 30, 40)
 
     assert isinstance(diagramm, Chart)
-    assert (diagramm.left, diagramm.top) == (30, 40)
+    # Eingerastet am 8px-Raster: aus 30 wird 32.
+    assert (diagramm.left, diagramm.top) == (32, 40)
     # Deutlich größer als ein Knopf, sonst wäre nur der Rahmen der Figur
     # zu sehen.
     assert (diagramm.width, diagramm.height) == (320, 240)
@@ -46,7 +47,7 @@ def test_platzieren_erzeugt_den_erwarteten_pfm_eintrag() -> None:
     eintrag = _pfm_eintrag(formular)
     assert eintrag["name"] == "chart"
     assert eintrag["type"] == "Chart"
-    assert eintrag["properties"] == {"left": 30, "top": 40}
+    assert eintrag["properties"] == {"left": 32, "top": 40}
 
 
 @pytest.mark.parametrize("art", _ARTEN)

@@ -50,7 +50,7 @@ def test_platzieren_erzeugt_den_erwarteten_pfm_eintrag(typ: type) -> None:
     kind = next(k for k in daten["children"] if k["type"] == typ.__name__)
     assert kind["name"] == canvas._attributname(komponente)
     assert kind["properties"]["left"] == 40
-    assert kind["properties"]["top"] == 60
+    assert kind["properties"]["top"] == 64  # am Raster
 
 
 @pytest.mark.parametrize("typ", NEU, ids=lambda typ: typ.__name__)
@@ -78,7 +78,8 @@ def test_rundreise_speichern_laden_erhaelt_die_komponente(typ: type, tmp_path: P
 
     zurueck = getattr(wieder_geladen, name)
     assert type(zurueck) is typ
-    assert (zurueck.left, zurueck.top) == (33, 44)
+    # Abgelegt bei (33, 44), eingerastet auf (32, 48).
+    assert (zurueck.left, zurueck.top) == (32, 48)
     assert (zurueck.width, zurueck.height) == (komponente.width, komponente.height)
 
 

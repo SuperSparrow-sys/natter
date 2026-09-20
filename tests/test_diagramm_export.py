@@ -376,3 +376,57 @@ def test_export_nimmt_die_stilvorlage_des_diagramms_nicht_das_ide_theme(
         for y in range(0, bild.height(), 4)
     }
     assert all(f[1:3] == f[3:5] == f[5:7] for f in farben)
+
+
+def test_die_kopfzeile_eines_struktogramms_kommt_mit_aufs_bild() -> None:
+    """Sie stand real ausserhalb des Exportbereichs: `struktogramm_layout`
+    liefert den Wurzelblock, und der beginnt bei einem benannten
+    Struktogramm erst **unterhalb** des Namens. Im exportierten PNG war
+    von "kasse_buchen" nur die untere Haelfte der Buchstaben zu sehen -
+    im Durchgang durch den Schuelerweg am Bild aufgefallen."""
+    from ide.diagramm.struktogramm import KOPFHOEHE, struktogramm_layout
+
+    daten = {
+        "format": "pdiag/1",
+        "type": "struktogramm",
+        "name": "kasse_buchen",
+        "page": {"size": "A4", "orientation": "portrait"},
+        "style": "modern-light",
+        "root": {
+            "id": "root",
+            "kind": "sequence",
+            "children": [{"id": "b1", "kind": "statement", "text": "tu etwas"}],
+        },
+    }
+
+    bereich = inhaltsbereich(daten)
+    block = struktogramm_layout(daten).rechteck
+
+    assert bereich.top() < block.top() - KOPFHOEHE + 1, (
+        f"Der Bereich beginnt bei {bereich.top()}, der Block bei {block.top()} - "
+        f"die {KOPFHOEHE}px hohe Kopfzeile dazwischen fehlt"
+    )
+    assert bereich.height() >= block.height() + KOPFHOEHE
+
+
+def test_ohne_namen_bleibt_der_bereich_knapp() -> None:
+    """Kein Name, keine Kopfzeile - dann waere zusaetzlicher Rand oben
+    nur weisse Flaeche."""
+    ohne = {
+        "format": "pdiag/1",
+        "type": "struktogramm",
+        "name": "",
+        "page": {"size": "A4", "orientation": "portrait"},
+        "style": "modern-light",
+        "root": {
+            "id": "root",
+            "kind": "sequence",
+            "children": [{"id": "b1", "kind": "statement", "text": "tu etwas"}],
+        },
+    }
+    from ide.diagramm.struktogramm import struktogramm_layout
+
+    bereich = inhaltsbereich(ohne)
+    block = struktogramm_layout(ohne).rechteck
+
+    assert abs(bereich.height() - block.height()) < 40

@@ -15,6 +15,7 @@ import pytest
 from PySide6.QtCore import QEvent, QPointF, Qt
 from PySide6.QtGui import QMouseEvent
 
+from ide.designer.canvas import RASTER
 from ide.shell.hauptfenster import HauptFenster
 from pcl import Button
 
@@ -62,8 +63,9 @@ def test_doppelklick_platziert_komponente_mittig_im_aktiven_formular(
     assert len(neue_namen) == 1
     neue_komponente = getattr(formular, neue_namen.pop())
     assert isinstance(neue_komponente, Button)
-    assert neue_komponente.left == formular.width // 2
-    assert neue_komponente.top == formular.height // 2
+    # Mittig abgelegt und dabei aufs Raster gerundet.
+    assert abs(neue_komponente.left - formular.width // 2) <= RASTER // 2
+    assert abs(neue_komponente.top - formular.height // 2) <= RASTER // 2
 
 
 def test_einfacher_klick_macht_die_komponente_scharf_fuer_platzierung(
@@ -113,7 +115,7 @@ def test_klick_auf_das_formular_platziert_dort_und_landet_automatisch_im_code(
     assert len(neue_namen) == 1
     neue_komponente = getattr(formular, neue_namen.pop())
     assert isinstance(neue_komponente, Button)
-    assert (neue_komponente.left, neue_komponente.top) == (30, 40)
+    assert (neue_komponente.left, neue_komponente.top) == (32, 40)  # am Raster
 
     design_pfad = ampel_pfm_kopie.with_name("u_main_design.py")
     generierter_code = design_pfad.read_text(encoding="utf-8")
