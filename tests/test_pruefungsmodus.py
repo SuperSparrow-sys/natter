@@ -366,3 +366,110 @@ class Form1(Form):
         for i in range(editor.vorschlagsliste.count())
     ]
     assert not any("   –   " in zeile for zeile in zeilen), zeilen
+
+
+# ------------------------------- Kein Weg an fremden Code im Pruefmodus
+#
+# Punkt 8 der offenen Punkte. Die Liste "Zuletzt geoeffnet" fuehrt zu
+# dem, was in der Stunde davor bearbeitet wurde - in einer Klausur
+# moeglicherweise zur Loesung der Aufgabe, die gerade gestellt ist. Die
+# Beispielprojekte enthalten ausformulierte Loesungen zu genau den
+# Themen, die geprueft werden.
+
+
+_EIN_PROJEKT = (
+    Path(__file__).resolve().parent.parent
+    / "beispielprojekte"
+    / "01_Begruessung"
+    / "01_Begruessung.natter"
+)
+
+
+def _beispiel_menue(fenster):
+    for aktion in fenster.menue("Datei").actions():
+        if aktion.text().startswith("Beispielprojekte"):
+            return aktion
+    return None
+
+
+def test_im_pruefungsmodus_fehlt_zuletzt_geoeffnet(echte_einstellungen, qtbot) -> None:
+    from ide.shell.hauptfenster import HauptFenster
+    from ide.shell.startbild import zuletzt_merken
+    from pcl.pruefungsmodus import starten
+
+    fenster = HauptFenster()
+    qtbot.addWidget(fenster)
+    zuletzt_merken(fenster.startbild._einstellungen, _EIN_PROJEKT)
+    fenster.startbild.aufbauen()
+    assert any(n.startswith("zuletzt:") for n in fenster.startbild.knoepfe)
+
+    starten()
+    fenster.startbild.aufbauen()
+
+    assert not [n for n in fenster.startbild.knoepfe if n.startswith("zuletzt:")]
+
+
+def test_im_pruefungsmodus_ist_das_beispielmenue_gesperrt(echte_einstellungen, qtbot) -> None:
+    from ide.shell.hauptfenster import HauptFenster
+    from pcl.pruefungsmodus import starten
+
+    fenster = HauptFenster()
+    qtbot.addWidget(fenster)
+    assert _beispiel_menue(fenster).isEnabled()
+
+    starten()
+    fenster._beispielmenue_pruefen()
+
+    eintrag = _beispiel_menue(fenster)
+    assert not eintrag.isEnabled()
+    # Gesperrt und nicht verschwunden: wer ihn sucht, soll sehen, dass
+    # es ihn gibt und dass er gerade nicht geht.
+    assert "gesperrt" in eintrag.text()
+
+
+def test_nach_dem_einschalten_frischt_sich_beides_auf(
+    echte_einstellungen, monkeypatch, qtbot
+) -> None:
+    """Sonst bliebe die Liste stehen, bis jemand das Fenster wechselt -
+    also genau so lange, wie es darauf ankommt."""
+    from PySide6.QtWidgets import QMessageBox
+
+    from ide.shell.hauptfenster import HauptFenster
+    from ide.shell.startbild import zuletzt_merken
+
+    fenster = HauptFenster()
+    qtbot.addWidget(fenster)
+    zuletzt_merken(fenster.startbild._einstellungen, _EIN_PROJEKT)
+    fenster.startbild.aufbauen()
+    monkeypatch.setattr(
+        QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.StandardButton.Yes)
+    )
+
+    assert fenster._pruefungsmodus_aktion() is True
+
+    assert not [n for n in fenster.startbild.knoepfe if n.startswith("zuletzt:")]
+    assert not _beispiel_menue(fenster).isEnabled()
+
+
+def test_nach_ablauf_ist_beides_wieder_da(echte_einstellungen, qtbot) -> None:
+    """Ein Riegel, der nach der Klausur liegenbleibt, sperrt den
+    Schulrechner."""
+    from datetime import datetime, timedelta
+
+    from ide.shell.hauptfenster import HauptFenster
+    from ide.shell.startbild import zuletzt_merken
+    from pcl.pruefungsmodus import ENDE_SCHLUESSEL
+
+    # Ein Modus, der vor einer Stunde ausgelaufen ist.
+    echte_einstellungen.setValue(
+        ENDE_SCHLUESSEL, (datetime.now() - timedelta(hours=1)).isoformat(timespec="seconds")
+    )
+
+    fenster = HauptFenster()
+    qtbot.addWidget(fenster)
+    zuletzt_merken(fenster.startbild._einstellungen, _EIN_PROJEKT)
+    fenster.startbild.aufbauen()
+    fenster._beispielmenue_pruefen()
+
+    assert [n for n in fenster.startbild.knoepfe if n.startswith("zuletzt:")]
+    assert _beispiel_menue(fenster).isEnabled()

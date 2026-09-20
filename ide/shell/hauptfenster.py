@@ -1033,6 +1033,8 @@ class HauptFenster(QMainWindow):
             eintrag.triggered.connect(lambda _geklickt=False, p=pfad: self.beispiel_oeffnen(p))
         if beispiel_menue.isEmpty():
             beispiel_menue.setEnabled(False)
+        self._beispiel_menue = beispiel_menue
+        self._beispielmenue_pruefen()
 
         # „Ansicht → Formular und Code wechseln“ (Abschnitt 7.9). Stand
         # seit M2 als Vermerk im Explorer („folgt später“) und ist der
@@ -1314,6 +1316,26 @@ class HauptFenster(QMainWindow):
         self.statusBar().showMessage(f"Exe erstellt: {ergebnis.ausgabe_pfad}")
         if sys.platform == "win32":
             os.startfile(ergebnis.ausgabe_pfad.parent)
+
+    def _beispielmenue_pruefen(self) -> None:
+        """Sperrt „Datei → Beispielprojekte" im Prüfungsmodus.
+
+        Die Beispiele enthalten ausformulierte Lösungen zu genau den
+        Themen, die geprüft werden. Gesperrt und nicht verschwunden:
+        wer den Eintrag sucht, soll sehen, dass es ihn gibt und dass er
+        gerade nicht geht - ein Menü, das sich von Stunde zu Stunde
+        ändert, verwirrt mehr, als es schützt.
+        """
+        menue = getattr(self, "_beispiel_menue", None)
+        if menue is None:
+            return
+        laeuft = pruefungsmodus_laeuft()
+        menue.setEnabled(not laeuft and not menue.isEmpty())
+        menue.setTitle(
+            "Beispielprojekte (im Prüfungsmodus gesperrt)"
+            if laeuft
+            else "Beispielprojekte"
+        )
 
     # -- Arbeit, die nebenher läuft -----------------------------------
 
@@ -2165,7 +2187,8 @@ class HauptFenster(QMainWindow):
             "Prüfungsmodus starten",
             "Für vier Stunden werden keine Lösungsvorschläge angezeigt, und "
             "aus Klassendiagramm und Struktogramm lässt sich kein Quelltext "
-            "erzeugen.\n\n"
+            "erzeugen. Die zuletzt geöffneten Projekte und die "
+            "Beispielprojekte sind in dieser Zeit nicht erreichbar.\n\n"
             "Er lässt sich bis dahin nicht abschalten und läuft danach von "
             "selbst aus. Jetzt starten?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -2176,6 +2199,11 @@ class HauptFenster(QMainWindow):
 
         pruefungsmodus_starten()
         self._statusleiste_pruefung_aktualisieren()
+        # Ohne diese beiden Zeilen bliebe die Liste „Zuletzt geöffnet"
+        # stehen und das Beispielmenü offen, bis jemand das Fenster
+        # wechselt - also genau so lange, wie es darauf ankommt.
+        self._beispielmenue_pruefen()
+        self.startbild.aufbauen()
         self.statusBar().showMessage(
             f"{restzeit_text()}. Lösungsvorschläge und Quelltexterzeugung sind "
             "bis dahin gesperrt."

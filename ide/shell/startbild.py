@@ -39,6 +39,7 @@ from PySide6.QtWidgets import (
 
 from ide.pfade import daten_ordner
 from ide.shell.theme import STARTBILD_EINTRAG
+from pcl.pruefungsmodus import laeuft as pruefungsmodus_laeuft
 
 #: Wie viele zuletzt geöffnete Projekte gemerkt werden. Mehr als acht
 #: wären auf einem Schulrechner ohnehin nicht wiederzuerkennen.
@@ -280,6 +281,15 @@ class Startbild(QScrollArea):
         return abschnitt
 
     def _abschnitt_zuletzt(self) -> _Abschnitt | None:
+        """Die zuletzt geöffneten Projekte - außer im Prüfungsmodus.
+
+        Die Liste führt zu dem, was in der Stunde davor bearbeitet
+        wurde, in einer Klausur also möglicherweise zur Lösung der
+        Aufgabe, die gerade gestellt ist. Sie fällt deshalb weg,
+        solange geprüft wird.
+        """
+        if pruefungsmodus_laeuft():
+            return None
         zuletzt = zuletzt_geoeffnet(self._einstellungen)
         if not zuletzt:
             return None
