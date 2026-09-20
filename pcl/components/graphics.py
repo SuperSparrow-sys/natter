@@ -25,7 +25,6 @@ im Pixmap, und das `paintEvent` legt es nur noch hin.
 Ohne Kantenglättung. Eine gezeichnete Linie hat exakt die Farbe,
 die im Stift steht – sonst lieferte `canvas.pixels[x, y]` an jeder Kante
 eine Mischfarbe, und „ist dieser Punkt rot?" wäre nicht zu beantworten.
-Lazarus' `TCanvas` glättet ebenfalls nicht.
 
 Eigene `Pen`- und `Brush`-Klassen, obwohl `Shape` in
 `additional.py` schon einen `Brush` hat. Der Plan in
@@ -49,8 +48,8 @@ from pcl.control import Control
 from pcl.errors import NatterPropertyError
 from pcl.properties import Event, Prop, typ_beschreibung
 
-#: Füllarten einer `Brush` (wie `TBrushStyle` in Lazarus, auf die zwei
-#: im Unterricht gebrauchten eingedampft).
+#: Füllarten einer `Brush`, auf die zwei im Unterricht gebrauchten
+#: eingedampft.
 FUELLARTEN = ("solid", "clear")
 
 _STANDARD_HINTERGRUND = "#ffffff"
@@ -73,7 +72,7 @@ def _farbe_pruefen(wer: str, wert: Any) -> str:
 
 
 class Pen:
-    """Der Stift einer `Canvas` (wie `TPen` in Lazarus): Farbe und
+    """Der Stift einer `Canvas`: Farbe und
     Breite der Linien, die `line_to`, `rectangle` und `ellipse`
     ziehen."""
 
@@ -110,11 +109,10 @@ class Pen:
 
 
 class Brush:
-    """Die Füllung einer `Canvas` (wie `TBrush` in Lazarus): womit
+    """Die Füllung einer `Canvas`: womit
     `rectangle` und `ellipse` innen gefüllt werden.
 
-    ``style = "clear"`` zeichnet nur den Umriss – dasselbe, was
-    ``Brush.Style := bsClear`` in Lazarus tut."""
+    ``style = "clear"`` zeichnet nur den Umriss, ohne jede Füllung."""
 
     def __init__(self) -> None:
         self._farbe = _STANDARD_FUELLUNG
@@ -146,8 +144,8 @@ class Brush:
 
 class Pixels:
     """Einzelne Bildpunkte einer `Canvas`, Zugriff über
-    ``self.pb_bild.canvas.pixels[x, y]`` (wie ``Canvas.Pixels[x, y]`` in
-    Lazarus). Lesen liefert die Farbe als ``#RRGGBB``, Zuweisen setzt
+    ``self.pb_bild.canvas.pixels[x, y]``. Lesen liefert die Farbe als
+    ``#RRGGBB``, Zuweisen setzt
     den Punkt."""
 
     def __init__(self, besitzer: Canvas) -> None:
@@ -182,10 +180,10 @@ class Pixels:
 
 
 class Canvas:
-    """Die Zeichenfläche einer `PaintBox` (wie `TCanvas` in Lazarus).
+    """Die Zeichenfläche einer `PaintBox`.
 
     Der Ursprung liegt links oben, `x` läuft nach rechts, `y` nach
-    unten – wie in Lazarus und wie überall in der Bildschirmgrafik.
+    unten – wie überall in der Bildschirmgrafik.
     """
 
     def __init__(self, besitzer: PaintBox) -> None:
@@ -257,8 +255,8 @@ class Canvas:
 
     def text_out(self, x: int, y: int, text: str) -> None:
         """Schreibt `text` an die Stelle ``(x, y)``. ``(x, y)`` ist die
-        linke obere Ecke des Textes – in Lazarus ebenso, während Qt
-        von sich aus die Schriftlinie meint."""
+        linke obere Ecke des Textes, während Qt von sich aus die
+        Schriftlinie meint."""
         if not isinstance(text, str):
             raise NatterPropertyError(
                 f"Canvas.text_out erwartet {typ_beschreibung(str)}, "
@@ -274,7 +272,7 @@ class Canvas:
 
     def fill_rect(self, x1: int, y1: int, x2: int, y2: int) -> None:
         """Füllt ein Rechteck vollständig mit `brush.color`, ohne
-        Rand (wie `FillRect` in Lazarus)."""
+        Rand."""
         maler = self._maler()
         maler.fillRect(*self._rechteck(x1, y1, x2, y2), QColor(self._brush.color))
         maler.end()
@@ -290,7 +288,7 @@ class Canvas:
 
     def _maler(self) -> QPainter:
         # Ohne Kantenglättung, mit Absicht. Qt glättet von sich aus
-        # nicht, Lazarus' `TCanvas` auch nicht - und hier hängt mehr
+        # nicht - und hier hängt mehr
         # daran als das Aussehen: mit Glättung liegt an der Kante einer
         # roten Linie nicht Rot, sondern eine Mischfarbe. `pixels[x, y]`
         # gäbe dann `#e1958d` zurück, wo eine Schülerin `#c42b1c`
@@ -365,7 +363,7 @@ class _PaintBoxQWidget(QWidget):
 
 
 class PaintBox(Control):
-    """Freie Zeichenfläche (entspricht ``TPaintBox`` in Lazarus).
+    """Freie Zeichenfläche zum eigenen Malen.
     Qt-Basis: eigenes Painting auf einem `QWidget` über ein `QPixmap`.
 
     Gezeichnet wird über `canvas`::
@@ -407,7 +405,7 @@ class PaintBox(Control):
 
     def repaint(self) -> None:
         """Löst `on_paint` von Hand aus, damit sich das Bild neu
-        aufbauen lässt (wie `Invalidate` in Lazarus)."""
+        aufbauen lässt."""
         if self.on_paint is not None:
             self.on_paint(self)
 

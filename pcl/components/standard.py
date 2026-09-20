@@ -8,8 +8,8 @@ Komponente an das `_qwidget` ihres `parent`, ``Button(self.p_feld)``
 funktioniert also ohne weiteres Zutun. Im Designer lässt sich das noch
 nicht ablegen (dort wird jede Komponente ein Kind des Formulars) - was
 dafür fehlt, steht in `docs/komponenten.md` unter „Offene Punkte“.
-`RadioGroup` braucht das nicht: sie erzeugt ihre Optionsfelder wie
-`TRadioGroup` selbst aus `items`.
+`RadioGroup` braucht das nicht: sie erzeugt ihre Optionsfelder selbst
+aus `items`.
 
 `MainMenu` und `PopupMenu` fehlen weiterhin; sie brauchen einen eigenen
 Menü-Editor im Designer.
@@ -84,8 +84,8 @@ class Button(Control):
 class Label(Control):
     """Textanzeige, per `on_click` auch anklickbar. Qt-Basis: `QLabel`.
 
-    `color`/`transparent` wie bei Lazarus' `TLabel`: ein Label kann eine
-    eigene Hintergrundfarbe zeigen - nützlich, um es sichtbar über einer
+    Über `color`/`transparent` kann ein Label eine eigene
+    Hintergrundfarbe zeigen - nützlich, um es sichtbar über einer
     `Shape` zu platzieren."""
 
     caption = Prop(str, "Label1", kategorie="Darstellung", doc="Anzeigetext")
@@ -382,7 +382,7 @@ class ScrollBar(Control):
 
 class GroupBox(Control):
     """Beschrifteter Rahmen, der andere Komponenten zusammenfasst.
- Qt-Basis: `QGroupBox`. Entspricht `TGroupBox` in Lazarus.
+ Qt-Basis: `QGroupBox`.
 
  Als Behälter braucht sie keinen eigenen Code: `Control.__init__`
  hängt jede Komponente an das `_qwidget` ihres `parent`, also genügt
@@ -449,7 +449,7 @@ class _PanelQWidget(QFrame):
 
 class Panel(Control):
     """Fläche, die andere Komponenten zusammenfasst. Qt-Basis: `QFrame`
-    mit selbst gezeichneter Beschriftung. Entspricht `TPanel` in Lazarus.
+    mit selbst gezeichneter Beschriftung.
 
     Behälter wie `GroupBox` - siehe dort.
     """
@@ -490,11 +490,11 @@ class Panel(Control):
 class RadioGroup(Control):
     """Rahmen mit mehreren Optionsfeldern, von denen immer genau eines
     gewählt ist. Qt-Basis: `QGroupBox` mit je einem `QRadioButton` pro
-    Eintrag. Entspricht `TRadioGroup` in Lazarus.
+    Eintrag.
 
     Anders als `GroupBox`/`Panel` ist dies kein offener Behälter: die
-    Optionsfelder entstehen aus `items`, genau wie `TRadioGroup.Items` in
-    Lazarus. Deshalb ist die Komponente auch im Designer vollständig
+    Optionsfelder entstehen aus `items`. Deshalb ist die Komponente auch
+    im Designer vollständig
     benutzbar, ohne dass er Verschachtelung beherrschen müsste.
     """
 

@@ -1,6 +1,6 @@
 """Tests für `pcl/components/system.py`: Timer. Headless.
 
-Vorbild ist `t_hunger: TTimer` aus `tests/daten/lazarus/l_Pet/u_main.lfm`
+Vorbild ist `t_hunger: TTimer` aus `tests/daten/lfm/l_Pet/u_main.lfm`
 (`OnTimer = t_hungerTimer`, im Quelltext über `t_hunger.enabled := true`
 geschaltet).
 """

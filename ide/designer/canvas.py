@@ -8,7 +8,7 @@ Rasterschritt, Alt+Pfeil = 1 px, Umschalt+Pfeil = Größe, Entf = löschen,
 Strg+D = duplizieren, dazu Strg+Z/Strg+Umschalt+Z bzw. Strg+Y für
 Rückgängig/Wiederholen, Command-Pattern). `komponente_platzieren()` ist
 das Gegenstück für die Komponentenpalette (Abschnitt 7.3). Acht sichtbare
-Größenanfasser (wie in Lazarus) an der ausgewählten Komponente lassen
+Größenanfasser an der ausgewählten Komponente lassen
 sich zusätzlich zur Tastatur mit der Maus ziehen (`_Anfasser`,
 `_ANFASSER_VERHALTEN`).
 """
@@ -41,7 +41,7 @@ from pcl.properties import eigenschaften, ereignisse
 _MEHRFACH_VERSATZ = 16
 
 #: Größte Kantenlänge einer per Drag & Drop erzeugten `Image`-Komponente;
-#: ein 2500×2500-Foto (wie in `tests/daten/lazarus/l_Pet`) soll das Formular
+#: ein 2500×2500-Foto (wie in `tests/daten/lfm/l_Pet`) soll das Formular
 #: nicht sprengen.
 _BILD_MAXKANTE = 240
 
@@ -97,8 +97,8 @@ _ANFASSER_CURSOR: dict[str, Qt.CursorShape] = {
 }
 
 # Der Auswahlrahmen besteht aus vier dünnen Streifen, die über der
-# ausgewählten Komponente liegen – wie die acht Größenanfasser und wie
-# der Rahmen in Lazarus. Früher stand er als QSS-Regel
+# ausgewählten Komponente liegen – wie die acht Größenanfasser.
+# Früher stand er als QSS-Regel
 # `*[design_ausgewaehlt="true"] { border: 2px solid ... }` im Stylesheet
 # des Formulars. Das war bequem, hat den Designer aber stillschweigend
 # vom laufenden Programm entfernt: sobald eine Komponente ein eigenes
@@ -282,8 +282,8 @@ class _UmbenennenKommando:
 
     Die selbst erzeugten Ereignismethoden gehen mit. Wer
     `cb_ausgabe` in `cb_minus` umbenennt, will nicht
-    `cb_minus.on_change = self.cb_ausgabe_change` zurückbehalten -
-    Lazarus zieht die Handler dort ebenfalls mit. Umbenannt wird nur,
+    `cb_minus.on_change = self.cb_ausgabe_change` zurückbehalten.
+    Umbenannt wird nur,
     was Natter selbst angelegt hat, erkennbar am Namen
     `<komponente>_<ereignis>`; einen Namen, den der Schüler selbst
     vergeben hat, fasst niemand an.
@@ -342,8 +342,8 @@ class _UmbenennenKommando:
 
 
 # Sinnvolle Startgrößen je Komponententyp beim Ablegen aus der Palette
-# (wie in Lazarus - dort bekommt z. B. ein frisches TStringGrid ebenfalls
-# eine größere Startfläche als ein TCheckBox). Der einheitliche
+# - ein frisches `StringGrid` braucht mehr Platz als ein `CheckBox`.
+# Der einheitliche
 # `Control`-Standard 75×25 (`pcl/control.py`) passt nur für die
 # kompakten Komponenten; bei einer 5×5-StringGrid oder einer
 # horizontalen ScrollBar sah er beim Rundgang durch alle Palettentypen
@@ -360,9 +360,9 @@ _STANDARDGROESSEN: dict[str, tuple[int, int]] = {
     "Image": (100, 100),
     # Eine Zeichenfläche im Querformat, gross genug zum Zeichnen.
     "PaintBox": (200, 150),
-    # Ein Zeitgeber zeigt nur sein Symbol - quadratisch und klein, wie
-    # das Entwurfszeit-Symbol einer nicht sichtbaren Komponente in
-    # Lazarus. Für die beiden Menüs gilt dasselbe.
+    # Ein Zeitgeber zeigt nur sein Symbol - quadratisch und klein, so
+    # wie jede Komponente, die im laufenden Programm unsichtbar ist.
+    # Für die beiden Menüs gilt dasselbe.
     "Timer": (32, 32),
     "MainMenu": (32, 32),
     "PopupMenu": (32, 32),
@@ -403,12 +403,12 @@ class _PlatzierenKommando:
         self.name = canvas._eindeutigen_namen_finden(typ.__name__.lower())
 
         # Liegt an dieser Stelle ein Behälter, gehört die Komponente
-        # hinein - wie in Lazarus, wo ein Knopf über einem Panel dessen
-        # Kind wird. `left`/`top` zählen dann ab der linken oberen Ecke
+        # hinein: ein Knopf über einem Panel wird dessen Kind.
+        # `left`/`top` zählen dann ab der linken oberen Ecke
         # des Behälters, nicht ab der des Formulars.
         eltern, ex, ey = canvas._behaelter_bei(x, y)
         self.neue_komponente = typ(eltern)
-        # Am Raster einrasten, wie in Lazarus bei „Snap to grid".
+        # Am Raster einrasten.
         # Ohne das legte der Designer Komponenten auf krumme
         # Koordinaten, und der Design-Prüfer meldete anschließend
         # „steht nicht am 8px-Raster" - für etwas, das der Schüler gar
@@ -480,7 +480,7 @@ class DesignerCanvas(QObject):
             self._ueberwachung_einrichten(komponente)
 
     def _raster_erzeugen(self) -> None:
-        """Der Punkteraster auf dem Formular - wie in Lazarus.
+        """Der Punkteraster auf dem Formular.
 
         Ein frisch angelegtes Formular war im Designer gar nicht zu
         sehen: es ist weiß, die Arbeitsfläche darum war es auch, und
@@ -733,7 +733,7 @@ class DesignerCanvas(QObject):
 
         Die drei Dinge gab es alle schon – aber nur über Tasten (Entf,
         Strg+D) oder einen Doppelklick. Wer sie nicht kennt, probiert
-        die rechte Maustaste; in Lazarus liegt dort das Menü zu einer
+        die rechte Maustaste, und dort liegt das Menü zu einer
         Komponente. Die Tastenkürzel stehen daneben, damit man sie beim
         nächsten Mal direkt benutzt.
 
@@ -1070,12 +1070,13 @@ class DesignerCanvas(QObject):
 
     def platzierungsmodus_setzen(self, typ: type | None) -> None:
         """„Klick auf ein Palettensymbol, dann Klick auf das Formular“
-        (Abschnitt 7.3, wie in Lazarus) – Ergänzung zum bisherigen
+        (Abschnitt 7.3) – Ergänzung zum bisherigen
         Doppelklick (der immer mittig platziert). `typ=None` bricht den
         Modus ab (z. B. Escape). Der nächste Klick auf das Formular oder
         eine seiner Komponenten platziert `typ` genau dort und beendet
-        den Modus wieder automatisch (kein „Anheften“, wie in Lazarus'
-        einfachem Modus ohne Reißnadel-Symbol)."""
+        den Modus wieder automatisch - ein „Anheften“, das mehrere
+        Komponenten desselben Typs hintereinander setzt, gibt es
+        nicht."""
         self._platzierungs_typ = typ
         cursor = Qt.CursorShape.CrossCursor if typ is not None else Qt.CursorShape.ArrowCursor
         self.formular._qwidget.setCursor(cursor)
@@ -1239,7 +1240,7 @@ class DesignerCanvas(QObject):
         """Der Name (Formular-Attribut) von `komponente`, z. B.
         `"b_anmelden"` – für den Objektinspektor (Abschnitt 7.6), der
         `caption`/`text` (Anzeigetext) und `name` (Bezeichner im Code)
-        auseinanderhält, wie in Lazarus."""
+        auseinanderhält."""
         return self._attributname(komponente)
 
     def _attributname(self, komponente: Any) -> str | None:

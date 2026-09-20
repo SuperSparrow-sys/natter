@@ -65,8 +65,8 @@ def qss_erzeugen(theme: str, tokens: dict[str, Any] | None = None) -> str:
     # Gemeldet: 12pt (sizes_pt[1]) wirkte zu groß
     # - dieselbe Korrektur wie zuvor für die IDE-Hülle
     # (ide/shell/theme.py). Real gefunden: bei 12pt passte "Button1"
-    # nicht mehr in einen 52px breiten Button (Lazarus-Referenzgröße),
-    # der Text wurde abgeschnitten.
+    # nicht mehr in einen 52px breiten Button, der Text wurde
+    # abgeschnitten.
     basis_pt = schrift["sizes_pt"][0]
 
     return f"""\
@@ -217,8 +217,8 @@ QScrollBar::add-line, QScrollBar::sub-line {{
 }}
 
 /* Behälter (GroupBox, RadioGroup). Ohne eigene Regel setzte Qt die
-   Beschriftung über den Rahmen statt auf seine obere Kante - anders als
-   in Lazarus, wo der Rahmen genau durch die Schrift läuft. */
+   Beschriftung über den Rahmen statt auf seine obere Kante; gewollt ist,
+   dass der Rahmen genau durch die Schrift läuft. */
 QGroupBox {{
     border: 1px solid {farben["border"]};
     border-radius: {radius["panel"]}px;

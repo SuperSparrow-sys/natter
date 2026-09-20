@@ -42,7 +42,7 @@ def _bilder_zeilen(bild_pfade: dict[str, str]) -> list[str]:
     zeilen = [
         f"{_EINRUECKUNG}def create_components(self):",
         f"{_EINRUECKUNG * 2}super().create_components()",
-        f"{_EINRUECKUNG * 2}# Bilder aus dem Lazarus-Import (Picture.Data), nach assets/",
+        f"{_EINRUECKUNG * 2}# Bilder aus dem Import (Picture.Data), nach assets/",
         f"{_EINRUECKUNG * 2}# ausgepackt. Die .pfm speichert die Eigenschaft `picture` noch",
         f"{_EINRUECKUNG * 2}# nicht, deshalb steht die Zuweisung hier im Code.",
     ]
@@ -84,12 +84,12 @@ def unit_quelltext_erzeugen(
 
     for methodenname in _handler_namen(pfm):
         block = [f"{_EINRUECKUNG}def {methodenname}(self, sender):"]
-        lazarus_name = handler_quellen.get(methodenname, "")
-        rumpf = pascal_ruempfe.get(lazarus_name)
+        quell_name = handler_quellen.get(methodenname, "")
+        rumpf = pascal_ruempfe.get(quell_name)
         if rumpf:
             herkunft = f" aus {pas_dateiname}" if pas_dateiname else ""
             block.append(
-                f"{_EINRUECKUNG * 2}# Pascal-Rumpf von {lazarus_name}{herkunft} (Lazarus-Import),"
+                f"{_EINRUECKUNG * 2}# Pascal-Rumpf von {quell_name}{herkunft},"
             )
             block.append(f"{_EINRUECKUNG * 2}# bitte nach Python übersetzen:")
             block.extend(rumpf_als_kommentar(rumpf, einrueckung=_EINRUECKUNG * 2))

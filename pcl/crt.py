@@ -5,8 +5,8 @@ in Windows Terminal und der Eingabeaufforderung), Tastatureingabe über
 Python, keine Voraussetzung für andere `pcl`-Module – deshalb bewusst
 nicht in `pcl/__init__.py` re-exportiert, siehe docs/arbeitspakete/M6.md.
 
-Farbnamen entsprechen den klassischen Turbo-Pascal-CRT-Konstanten,
-wahlweise auch als Zahl 0–15.
+Farbnamen sind die klassischen sechzehn Konsolenfarben, wahlweise auch
+als Zahl 0–15.
 
 `msvcrt`/`winsound` werden lokal in den jeweiligen Funktionen importiert
 (nicht auf Modulebene), damit `pcl.crt` auch auf dem Linux-CI-Runner

@@ -3,7 +3,7 @@
 
 Alle vier sind ein dünner Mantel um ein Qt-Standardwidget, nach demselben
 Muster wie `SpinEdit` und Geschwister in `additional.py`: ein `Prop` je
-Lazarus-Eigenschaft, `_bei_prop_aenderung` reicht die Zuweisung an das
+Eigenschaft, `_bei_prop_aenderung` reicht die Zuweisung an das
 Widget weiter, und das Signal des Widgets schreibt den Wert zurück in den
 `Prop`. Dadurch wirken Code und Bedienung in beide Richtungen, ohne dass
 es eine zweite Quelle für den Wert gäbe.
@@ -57,7 +57,7 @@ def _als_time(wert: QTime) -> time:
 
 
 class MaskEdit(Control):
-    """Textfeld mit Eingabemaske (entspricht ``TMaskEdit`` in Lazarus).
+    """Textfeld mit Eingabemaske.
     Qt-Basis: `QLineEdit` mit `setInputMask`.
 
     Die Maske sagt, was an welcher Stelle stehen darf - alles andere
@@ -68,7 +68,7 @@ class MaskEdit(Control):
         self.me_plz.mask = "00000"             # 12345
         self.me_telefon.mask = "00000-000000"
 
-    Die Zeichen der Maske sind die von Qt und Lazarus: `0` eine Ziffer
+    Die Zeichen der Maske sind die von Qt: `0` eine Ziffer
     (Pflicht), `9` eine Ziffer (freiwillig), `A` ein Buchstabe
     (Pflicht), `N` Buchstabe oder Ziffer. Alles andere steht fest da.
 
@@ -133,7 +133,7 @@ class MaskEdit(Control):
 
 
 class DateEdit(Control):
-    """Datumsfeld mit Aufklapp-Kalender (entspricht ``TDateEdit``).
+    """Datumsfeld mit Aufklapp-Kalender.
     Qt-Basis: `QDateEdit`.
 
     ``self.de_termin.date`` ist ein gewöhnliches `datetime.date`::
@@ -175,7 +175,7 @@ class DateEdit(Control):
 
 
 class TimeEdit(Control):
-    """Uhrzeitfeld (entspricht ``TTimeEdit``). Qt-Basis: `QTimeEdit`.
+    """Uhrzeitfeld. Qt-Basis: `QTimeEdit`.
 
     ``self.te_beginn.time`` ist ein gewöhnliches `datetime.time`.
     """
@@ -207,7 +207,7 @@ class TimeEdit(Control):
 
 
 class Calendar(Control):
-    """Monatskalender zum Anklicken (entspricht ``TCalendar``).
+    """Monatskalender zum Anklicken.
     Qt-Basis: `QCalendarWidget`, mit deutschen Monats- und Tagesnamen.
     """
 

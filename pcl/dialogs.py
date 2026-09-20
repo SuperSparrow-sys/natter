@@ -19,7 +19,7 @@ BILDER_FILTER = "Bilder (*.png *.jpg *.jpeg *.bmp *.gif);;Alle Dateien (*.*)"
 
 
 def show_message(text: str) -> None:
-    """Entspricht `ShowMessage` aus der LCL (Abschnitt 5.1)."""
+    """Zeigt eine Meldung in einem kleinen Fenster (Abschnitt 5.1)."""
     box = QMessageBox()
     box.setWindowTitle("Natter")
     box.setIcon(QMessageBox.Icon.Information)
@@ -28,8 +28,8 @@ def show_message(text: str) -> None:
 
 
 def input_box(titel: str, frage: str, standard: str = "") -> str:
-    """Entspricht `InputBox` aus der LCL (Abschnitt 5.1). Liefert bei
-    Abbruch `standard` zurück, wie in Lazarus."""
+    """Fragt einen Text in einem kleinen Dialog ab (Abschnitt 5.1).
+    Liefert bei Abbruch `standard` zurück."""
     text, bestaetigt = QInputDialog.getText(None, titel, frage, text=standard)
     return text if bestaetigt else standard
 
@@ -37,14 +37,13 @@ def input_box(titel: str, frage: str, standard: str = "") -> str:
 def open_dialog(titel: str = "Datei öffnen", filter: str = BILDER_FILTER) -> str:
     """Lässt eine vorhandene Datei auswählen und liefert ihren Pfad.
 
-    Entspricht Lazarus' `TOpenDialog`: dort zieht man die Komponente
-    aufs Formular und ruft `Execute`. Hier genügt ein Funktionsaufruf -
+    Ein Funktionsaufruf genügt dafür -
     eine unsichtbare Komponente, die nur zum Öffnen eines Dialogs auf
     dem Formular liegt, wäre für Lernende eher verwirrend als hilfreich.
 
     Bei Abbruch kommt ein leerer Text zurück; das ist die Antwort, auf
     die ein Programm ohnehin prüfen muss, und erspart eine zweite
-    Rückgabe wie Lazarus' `Execute`-Wahrheitswert.
+    Rückgabe neben dem Pfad.
     """
     pfad, _ = QFileDialog.getOpenFileName(None, titel, "", filter)
     return pfad

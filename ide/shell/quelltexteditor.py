@@ -182,7 +182,7 @@ class QuelltextEditor(QPlainTextEdit):
         #: Senkrechte Hilfslinien je Einrückungsebene (M11, 2.1)
         self.einzugslinien_sichtbar = True
 
-        # Kein Zeilenumbruch, wie in Lazarus (M11, Abschnitt 2.3). Qt
+        # Kein Zeilenumbruch (M11, Abschnitt 2.3). Qt
         # bricht von sich aus um; in Python trägt die Einrückung aber
         # Bedeutung, und eine umgebrochene Zeile sieht aus wie zwei -
         # mitsamt einer Einrückung, die gar nicht im Text steht.
@@ -518,8 +518,8 @@ class QuelltextEditor(QPlainTextEdit):
         self.vorschlagsliste.clear()
         # Im Prüfungsmodus ohne die deutschen Erklärungen (M11,
         # Abschnitt 6). Die Liste selbst bleibt an - sie ist
-        # Schreibhilfe, und Lazarus hat sie im Unterricht auch; „Wird
-        # beim Klicken ausgelöst“ neben `on_click` ist dagegen nah an
+        # Schreibhilfe; „Wird beim Klicken ausgelöst“ neben
+        # `on_click` ist dagegen nah an
         # der Antwort auf genau die Frage, die in der Klausur steht.
         mit_erklaerung = not pruefungsmodus_laeuft()
         for vorschlag in gefunden:
@@ -1037,8 +1037,8 @@ class QuelltextEditor(QPlainTextEdit):
         """Ein kleines Dreieck: nach rechts für „zugeklappt“, nach unten
         für „offen“ – dieselbe Sprache wie im Projekt-Explorer daneben.
 
-        Filigran wie in Lazarus, nicht als Kasten mit Plus darin: der
-        Rand soll die Zeilennummern nicht überstimmen.
+        Filigran, nicht als Kasten mit Plus darin: der Rand soll die
+        Zeilennummern nicht überstimmen.
         """
         mitte_x = self._rand.width() - _FALT_SPALTE_BREITE / 2
         mitte_y = oben + hoehe / 2
@@ -1063,8 +1063,7 @@ class QuelltextEditor(QPlainTextEdit):
         """Links im Rand der Haltepunkt, rechts das Falten.
 
         Der Streifen ganz rechts gehört dem Falten, alles übrige dem
-        Haltepunkt - so wie in Lazarus, wo der Haltepunkt ebenfalls
-        neben der Zeilennummer sitzt.
+        Haltepunkt, der damit direkt neben der Zeilennummer sitzt.
         """
         rect = QRect(0, 0, self._rand.width(), self._rand.height())
         falten = x >= self._rand.width() - _FALT_SPALTE_BREITE

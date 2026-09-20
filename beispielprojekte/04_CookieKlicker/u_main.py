@@ -9,8 +9,8 @@
 #                  im Designer als kleine Uhr auf dem Formular und ist
 #                  im laufenden Programm unsichtbar.
 #
-# Die Idee stammt aus einem Lazarus-Projekt und ist hier ausgebaut:
-# Ausbaustufen, Helfer, die von selbst backen, und ein Risikoknopf.
+# Das Spiel hat drei Ausbaustufen, Helfer, die von selbst backen,
+# und einen Risikoknopf.
 
 import random
 from pathlib import Path

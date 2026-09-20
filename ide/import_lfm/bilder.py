@@ -10,7 +10,7 @@ Delphi/LCL-`TPersistent`-Stream:
 4. die Bilddatei selbst, Byte für Byte (eine vollständige PNG-/BMP-/
    JPEG-Datei).
 
-Nachgeprüft an `tests/daten/lazarus/l_Pet/u_main.lfm`:
+Nachgeprüft an `tests/daten/lfm/l_Pet/u_main.lfm`:
 ``1754506F727461626C654E6574776F726B47726170686963A1C62D0089504E47…``
 → ``0x17`` = 23 Zeichen ``TPortableNetworkGraphic``, ``A1C62D00`` =
 2 999 969 Byte, danach die PNG-Signatur ``89 50 4E 47``.

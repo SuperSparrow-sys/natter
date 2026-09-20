@@ -1,10 +1,9 @@
 """Menü-Editor: der Dialog, in dem die Einträge eines `MainMenu` oder
 `PopupMenu` bearbeitet werden.
 
-Siehe `docs/arbeitspakete/M15.md`, Schritt 1. Vorbild ist der
-Menü-Editor von Lazarus, der Aufbau der von `ide/diagramm/
-klassendialog.py`: die Zeichenfläche ordnet an, der Dialog füllt
-aus. Diese Entscheidung hat der Nutzer für die
+Siehe `docs/arbeitspakete/M15.md`, Schritt 1. Der Aufbau folgt
+`ide/diagramm/klassendialog.py`: die Zeichenfläche ordnet an, der
+Dialog füllt aus. Diese Entscheidung hat der Nutzer für die
 UML-Klassen getroffen, und ein Menü ist derselbe Fall – ein Eintrag
 hat Bezeichner, Beschriftung, Tastenkürzel und Untereinträge, das
 bearbeitet niemand sinnvoll an Ort und Stelle auf dem Formular.

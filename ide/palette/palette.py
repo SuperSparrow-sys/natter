@@ -7,8 +7,8 @@ gibt (Abschnitt 5.2). Ein eigener Reiter `Diagramm` lohnt sich mit
 einer einzigen Komponente noch nicht – `Chart` steht deshalb unter
 „Zusätzlich“.
 
-Optik wie in Lazarus: ein einzeiliger, horizontal scrollbarer Streifen
-aus reinen Symbol-Kacheln je Reiter (kein Fließtext unter dem Symbol),
+Ein einzeiliger, horizontal scrollbarer Streifen aus reinen
+Symbol-Kacheln je Reiter (kein Fließtext unter dem Symbol),
 der Komponentenname erscheint als Tooltip beim Überfahren mit der Maus.
 
 Die Reiter stehen in `REITER`, und zwar nur dort (M15). Vorher
@@ -18,7 +18,7 @@ standen sie an drei Stellen: hier als zwei Konstanten, im
 wäre dadurch stumm geblieben – die Kacheln wären zu sehen gewesen,
 ließen sich aber nicht aufs Formular legen. Das war der Grund, den
 Zeitgeber und `TrackBar`/`ProgressBar` in „Zusätzlich“ zu zwängen,
-obwohl sie in Lazarus eigene Reiter haben. Wer jetzt einen Reiter
+obwohl sie thematisch woanders hingehören. Wer jetzt einen Reiter
 ergänzt, trägt ihn in `REITER` ein und ist fertig: das Hauptfenster
 verbindet `palette.listen`, und die Prüfungen laufen über
 `ALLE_KOMPONENTEN`.
@@ -61,8 +61,8 @@ from pcl.components.standard import (
 from pcl.components.system import Timer
 
 TYP_ROLLE = Qt.ItemDataRole.UserRole
-# Gemeldet: insgesamt kompakter, näher an
-# Lazarus' eigener, schmaler Symbolleiste (~24px Symbole).
+# Gemeldet: insgesamt kompakter, eine schmale Symbolleiste mit
+# rund 24px großen Symbolen.
 _SYMBOL_GROESSE = QSize(22, 22)
 _KACHEL_GROESSE = QSize(32, 32)
 
@@ -76,24 +76,23 @@ STANDARD_KOMPONENTEN = (
     ListBox,
     ComboBox,
     ScrollBar,
-    # Die drei Behälter stehen wie in Lazarus im Reiter „Standard“ und
-    # dort am Ende - sie kommen im Unterricht später dran als Knopf und
-    # Textfeld, und die Reihenfolge der bisherigen Kacheln soll sich
-    # nicht verschieben.
+    # Die drei Behälter stehen im Reiter „Standard“ und dort am Ende -
+    # sie kommen im Unterricht später dran als Knopf und Textfeld, und
+    # die Reihenfolge der bisherigen Kacheln soll sich nicht
+    # verschieben.
     GroupBox,
     Panel,
     RadioGroup,
-    # Die beiden Menüs stehen in Lazarus ebenfalls im Reiter
-    # „Standard" und dort ganz am Ende. Sie zeigen auf dem Formular
+    # Die beiden Menüs stehen ebenfalls im Reiter „Standard" und dort
+    # ganz am Ende. Sie zeigen auf dem Formular
     # nur ihr Symbol; die Leiste erscheint erst im laufenden Programm
     # (M15, Schritt 1).
     MainMenu,
     PopupMenu,
 )
 
-#: Eingaben mit festem Format. In Lazarus stehen `MaskEdit`,
-#: `DateEdit`/`TimeEdit` und `Calendar` verstreut in „Misc" und
-#: „Common Controls"; hier bilden sie einen eigenen Reiter „Eingabe" -
+#: Eingaben mit festem Format: `MaskEdit`, `DateEdit`/`TimeEdit` und
+#: `Calendar` bilden einen eigenen Reiter „Eingabe" -
 #: sie gehören sichtbar zusammen, und seit M15 kostet ein weiterer
 #: Reiter nichts mehr (vorher wäre er stumm geblieben).
 EINGABE_KOMPONENTEN = (
@@ -114,8 +113,8 @@ ZUSAETZLICH_KOMPONENTEN = (
     # „Zusätzlich“ statt „Standard“: ein Diagramm ist kein Grundbaustein
     # wie Knopf oder Textfeld (M10, Punkt 1).
     Chart,
-    # `TrackBar` und `ProgressBar` gehören in Lazarus in den Reiter
-    # „Common Controls“. Sie bleiben vorerst hier: ein eigener Reiter
+    # `TrackBar` und `ProgressBar` wären einen eigenen Reiter wert.
+    # Sie bleiben vorerst hier: ein eigener Reiter
     # für zwei Kacheln lohnt sich nicht. Möglich wäre er seit M15 -
     # dort ist die Verdrahtung auf alle Reiter umgestellt worden.
     SpinEdit,
@@ -126,8 +125,8 @@ ZUSAETZLICH_KOMPONENTEN = (
     # anzeigt - auf dem Formular steht nur sein Symbol, das im
     # laufenden Programm verschwindet (Nutzer-Hinweis :
     # „der Timer muss als Komponente auch mit rein, der ist wichtig").
-    # In Lazarus hat er einen eigenen Reiter „System"; hier steht er
-    # bei den übrigen, solange er dort allein stünde.
+    # Ein eigener Reiter „System" wäre denkbar; solange er dort allein
+    # stünde, steht der Zeitgeber bei den übrigen.
     Timer,
 )
 
@@ -180,8 +179,8 @@ class Komponentenpalette(QTabWidget):
         )
         for (beschriftung, _), liste in zip(REITER, self.listen, strict=True):
             self.addTab(liste, beschriftung)
-        # Kompakter, einzeiliger Streifen wie in Lazarus statt einer
-        # beliebig hoch wachsenden Liste.
+        # Kompakter, einzeiliger Streifen statt einer beliebig hoch
+        # wachsenden Liste.
         self.setMaximumHeight(_KACHEL_GROESSE.height() + 34)
 
     @property

@@ -1,8 +1,7 @@
 # Erste Schritte mit Natter
 
 Diese Seite führt in zehn Minuten vom leeren Bildschirm zum laufenden
-Programm. Wer Lazarus kennt, findet fast alles wieder – nur die Sprache
-ist Python statt Pascal.
+Programm.
 
 ## 1. Ein Projekt anlegen
 
@@ -18,12 +17,11 @@ Im Projekt-Explorer links stehen genau zwei Dinge:
 Im Ordner liegen noch zwei weitere Dateien, die Natter selbst schreibt
 und die niemand von Hand bearbeitet – deshalb stehen sie auch nicht im
 Baum: `u_main_design.py` (aus dem Formular erzeugt) und `main.py`
-(startet das Programm). Genau so hält es Lazarus mit der Projektdatei
-`.lpr`. Wer trotzdem hineinsehen will: **Projekt → Startdatei
+(startet das Programm). Wer trotzdem hineinsehen will: **Projekt → Startdatei
 anzeigen**.
 
-Die Trennung von `u_main.pfm` und `u_main.py` ist derselbe Gedanke wie
-`.lfm` und `.pas` in Lazarus.
+`u_main.pfm` hält fest, wie das Fenster aussieht; `u_main.py` hält
+fest, was es tut. Deshalb zwei Dateien.
 
 ## 2. Das Formular bauen
 
@@ -61,8 +59,8 @@ def b_start_click(self, sender):
     self.l_ausgabe.caption = "Hallo!"
 ```
 
-Jede Komponente ist über `self.` und ihren Namen erreichbar – genauso
-wie in Lazarus. Der Name steht im Objektinspektor in der ersten Zeile
+Jede Komponente ist über `self.` und ihren Namen erreichbar. Der Name
+steht im Objektinspektor in der ersten Zeile
 (`name`), und die Eigenschaften heißen dort genauso wie hier:
 
 ```python
@@ -83,7 +81,7 @@ self.b_ok.on_click = self.b_ok_click
 schreibt Natter beim Speichern des Formulars nach `u_main_design.py`,
 zusammen mit allem anderen aus dem Designer. Diese Datei wird erzeugt
 und nie von Hand geändert – deshalb taucht sie im Projekt-Explorer
-nicht auf. Genau so macht es Lazarus mit der `.lfm`.
+nicht auf.
 
 `on_click` lässt sich trotzdem selbst setzen: im Code ist es eine
 Eigenschaft wie jede andere. Im Unterricht braucht man das selten –
@@ -98,8 +96,8 @@ gedrückt wurde.
 ### Zwischen Formular und Code wechseln
 
 **Umschalt+F12** springt vom Designer in die zugehörige `u_main.py`
-und wieder zurück – wie F12 in Lazarus. (F12 selbst ist in Natter
-„Zur Definition springen“, wie in VS Code.)
+und wieder zurück. (F12 selbst ist in Natter „Zur Definition
+springen“.)
 
 Zwei Hilfen im Editor: die **senkrechten Linien** zeigen die
 Einrückungsebenen (bei Python ist die Einrückung die Syntax!), und die

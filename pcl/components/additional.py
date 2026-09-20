@@ -4,15 +4,15 @@ FloatSpinEdit, TrackBar, ProgressBar.
 Siehe README.md, Abschnitt 5.2 (Palette „Zusätzlich“). Die
 Wertkomponenten (SpinEdit, FloatSpinEdit, TrackBar, ProgressBar) sind
 jeweils ein dünner Mantel um ein Qt-Standardwidget: ein `Prop` je
-Lazarus-Eigenschaft, `_bei_prop_aenderung` reicht die Zuweisung an das
+Eigenschaft, `_bei_prop_aenderung` reicht die Zuweisung an das
 Widget weiter, und das Signal des Widgets schreibt den Wert zurück in
 den `Prop`. Dadurch wirken Code und Bedienung in beide Richtungen, ohne
 dass es eine zweite Quelle für den Wert gäbe.
 
-`TrackBar` und `ProgressBar` gehören in Lazarus in den Reiter
-„Common Controls“. Einen eigenen Palettenreiter dafür gibt es in Natter
-noch nicht (`ide/shell/hauptfenster.py` verbindet die Klick-Signale von
-genau zwei Listen), deshalb stehen sie unter „Zusätzlich“.
+`TrackBar` und `ProgressBar` wären einen eigenen Palettenreiter wert.
+Den gibt es in Natter noch nicht (`ide/shell/hauptfenster.py` verbindet
+die Klick-Signale von genau zwei Listen), deshalb stehen sie unter
+„Zusätzlich“.
 
 MaskEdit, PaintBox und HtmlViewer standen hier bis M15 als
 zurückgestellt; sie sind inzwischen gebaut und wohnen in
@@ -95,8 +95,8 @@ class _ShapeQWidget(QWidget):
 
 class Shape(Control):
     """Einfache geometrische Form zum Zeichnen. Qt-Basis: eigenes Painting
- (`QPainter` auf einem `QWidget`). Wie in Lazarus sind Füllung
- (`brush.color`) und Rand (`pen_color`) unabhängig voneinander -
+ (`QPainter` auf einem `QWidget`). Füllung (`brush.color`) und Rand
+ (`pen_color`) sind unabhängig voneinander -
  Gewünscht: „Rahmen, Rahmenfarbe“ fehlte bisher,
  Rand und Füllung nutzten dieselbe Farbe."""
 
@@ -107,13 +107,16 @@ class Shape(Control):
         doc=f"Form der Zeichnung: {' oder '.join(_FORMEN)}",
     )
     pen_color = Prop(
-        str, "#000000", kategorie="Darstellung", doc="Randfarbe als #RRGGBB (wie Lazarus Pen.Color)"
+        str,
+        "#000000",
+        kategorie="Darstellung",
+        doc="Randfarbe als #RRGGBB, unabhängig von der Füllfarbe",
     )
     transparent = Prop(
         bool,
         False,
         kategorie="Darstellung",
-        doc="Wenn wahr, keine Füllung - nur der Rand (wie Lazarus Brush.Style=bsClear)",
+        doc="Wenn wahr, keine Füllung - nur der Rand wird gezeichnet",
     )
 
     def __init__(self, parent: Control) -> None:
@@ -170,10 +173,9 @@ class Cells:
 class StringGrid(Control):
     """Tabelle aus Text-Zellen. Qt-Basis: `QTableWidget`.
 
-    Die beiden Ereignisse entsprechen `OnSelectCell` und
-    `OnEditingDone` in Lazarus. Beide bekommen `spalte` und `zeile`
-    mit - in dieser Reihenfolge, wie Lazarus' `(ACol, ARow)` und wie
-    `cells[spalte, zeile]` -, `on_edit_cell` zusätzlich den neuen Text.
+    Beide Ereignisse bekommen `spalte` und `zeile` mit - in dieser
+    Reihenfolge, wie `cells[spalte, zeile]` -, `on_edit_cell`
+    zusätzlich den neuen Text.
     """
 
     row_count = Prop(int, 5, kategorie="Daten", doc="Anzahl der Zeilen")
@@ -183,7 +185,7 @@ class StringGrid(Control):
     on_edit_cell = Event(doc="Wird ausgelöst, nachdem eine Zelle geändert wurde")
 
     #: Ein Doppelklick im Designer meint die Auswahl, nicht die
-    #: Änderung - wie `OnSelectCell` in Lazarus.
+    #: Änderung.
     standard_ereignis = "on_select_cell"
 
     def __init__(self, parent: Control) -> None:
@@ -283,19 +285,17 @@ class Image(Control):
     """Bildanzeige, per `on_click` auch anklickbar. Qt-Basis: `QLabel`
     mit `QPixmap`.
 
-    `on_click` wie Lazarus' `TImage.OnClick`: im Beispielprojekt
-    `04_CookieKlicker` ist das anklickbare Bild die ganze Spielidee,
+    Ein Bild hat `on_click`, weil es häufig gebraucht wird: im
+    Beispielprojekt `04_CookieKlicker` ist das anklickbare Bild die
+    ganze Spielidee,
     und ohne dieses Ereignis müsste ein durchsichtiger Knopf darüber
     gelegt werden - ein Kniff, den kein Lehrbuch erklärt.
 
-    Die drei Eigenschaften `stretch`, `proportional` und `center`
-    heißen und wirken wie in Lazarus; nur der Standardwert von
-    `stretch` ist ein anderer. In Lazarus steht er auf `False`, und
-    ein zu großes Bild wird oben links abgeschnitten. Natter zeigt es
-    stattdessen von Anfang an passend: die Kekse in
-    `04_CookieKlicker` sind 512×512 Punkte groß und liegen in einem
-    300×300 großen `Image` - mit Lazarus' Standard sähe man ein Viertel
-    Keks. Wer das Lazarus-Verhalten will, schreibt
+    `stretch` steht auf `True`, und das aus gutem Grund: ohne
+    Skalierung wird ein zu großes Bild oben links abgeschnitten. Die
+    Kekse in `04_CookieKlicker` sind 512×512 Punkte groß und liegen in
+    einem 300×300 großen `Image` - unskaliert sähe man ein Viertel
+    Keks. Wer das Bild in Originalgröße will, schreibt
     ``self.i_bild.stretch = False``.
     """
 
@@ -394,9 +394,9 @@ def _prop_gleichziehen(komponente: Control, name: str, wert: Any) -> None:
 class SpinEdit(Control):
     """Zahleneingabe mit Pfeilknöpfen. Qt-Basis: `QSpinBox`.
 
-    Entspricht `TSpinEdit` in Lazarus samt dessen Namen `Value` für den
-    Wert (während `ScrollBar`/`TrackBar` ihn `position` nennen - auch das
-    ist die Benennung der jeweiligen LCL-Komponente)."""
+    Der Wert heißt hier `value`, während `ScrollBar` und `TrackBar` ihn
+    `position` nennen: bei einem Schieber ist die Stellung gemeint, bei
+    einem Zahlenfeld die Zahl."""
 
     minimum = Prop(int, 0, kategorie="Verhalten", doc="Kleinster möglicher Wert")
     maximum = Prop(int, 100, kategorie="Verhalten", doc="Größter möglicher Wert")
@@ -436,7 +436,7 @@ class SpinEdit(Control):
 
 class FloatSpinEdit(Control):
     """Eingabe einer Kommazahl mit Pfeilknöpfen. Qt-Basis:
-    `QDoubleSpinBox`. Entspricht `TFloatSpinEdit` in Lazarus."""
+    `QDoubleSpinBox`."""
 
     minimum = Prop(float, 0.0, kategorie="Verhalten", doc="Kleinster möglicher Wert")
     maximum = Prop(float, 100.0, kategorie="Verhalten", doc="Größter möglicher Wert")
@@ -486,8 +486,9 @@ class FloatSpinEdit(Control):
 
 class TrackBar(Control):
     """Schieberegler zur Eingabe eines Zahlenwerts. Qt-Basis: `QSlider`
-    (waagerecht). Entspricht `TTrackBar` in Lazarus - daher `maximum = 10`
-    und `frequency = 1` als Standard und nicht die 100 der `ScrollBar`."""
+    (waagerecht). `maximum = 10` und `frequency = 1` als Standard und
+    nicht die 100 der `ScrollBar`: ein Regler mit sichtbaren
+    Teilstrichen braucht wenige, große Schritte."""
 
     # Standardgröße als Prop-Standard (wie bei `Chart`): mit den 75x25 aus
     # `Control` wäre von den Teilstrichen nichts zu erkennen.
@@ -540,8 +541,7 @@ class TrackBar(Control):
 
 
 class ProgressBar(Control):
-    """Fortschrittsbalken. Qt-Basis: `QProgressBar`. Entspricht
-    `TProgressBar` in Lazarus."""
+    """Fortschrittsbalken. Qt-Basis: `QProgressBar`."""
 
     # Standardgröße als Prop-Standard (wie bei `Chart`): 75x25 ergäbe
     # einen Stummel, in dem die Prozentzahl nicht mehr lesbar ist.

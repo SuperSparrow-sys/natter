@@ -110,8 +110,8 @@ class Form(Komponente):
         an, in der sie zufällig in der `.pfm` stehen.
 
         Verschoben wird der Inhalt statt die Leiste darüberzulegen,
-        weil Lazarus es genauso macht: ``Top = 0`` ist dort der obere
-        Rand des Arbeitsbereichs, nicht des Fensters. Wer einen Knopf
+        damit ``Top = 0`` den oberen Rand des Arbeitsbereichs meint und
+        nicht den des Fensters. Wer einen Knopf
         an den oberen Rand setzt, findet ihn im laufenden Programm
         auch dort wieder und nicht hinter dem Menü.
         """
@@ -137,5 +137,5 @@ class Form(Komponente):
         self._qwidget.show()
 
     def close(self) -> None:
-        """Entspricht `Close` aus der LCL."""
+        """Schließt das Fenster."""
         self._qwidget.close()

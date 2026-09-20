@@ -30,8 +30,8 @@ import pcl
 from ide.import_lfm.bilder import LfmBild, LfmBildFehler, bild_aus_binaerblock
 from pcl.properties import VERSCHACHTELTE_EIGENSCHAFTEN
 
-# Lazarus-Klasse -> pcl-Komponente. Nur die im Kursmaterial
-# (tests/daten/lazarus/) tatsächlich verwendeten Typen (siehe
+# Klasse in der `.lfm` -> pcl-Komponente. Nur die im Kursmaterial
+# (tests/daten/lfm/) tatsächlich verwendeten Typen (siehe
 # docs/komponenten.md).
 _KLASSEN: dict[str, str] = {
     "TButton": "Button",
@@ -46,9 +46,10 @@ _KLASSEN: dict[str, str] = {
     "TComboBox": "ComboBox",
     "TScrollBar": "ScrollBar",
     "TImage": "Image",
+    "TTimer": "Timer",
 }
 
-# Lazarus-Formen (TShape.Shape) -> pcl Shape.shape.
+# Formen (TShape.Shape) -> pcl Shape.shape.
 _FORMEN: dict[str, str] = {
     "stRectangle": "rectangle",
     "stSquare": "rectangle",
@@ -59,8 +60,8 @@ _FORMEN: dict[str, str] = {
 }
 
 # clXxx-Konstanten. clBlack/clGray/clSilver/clYellow kommen tatsächlich
-# in tests/daten/lazarus/ vor, der Rest ist die Standard-VCL/LCL-Palette
-# für zukünftige Importe.
+# in tests/daten/lfm/ vor, der Rest ist die übliche Farbpalette für
+# zukünftige Importe.
 _FARBEN: dict[str, str] = {
     "clBlack": "#000000",
     "clMaroon": "#800000",
@@ -136,7 +137,7 @@ def _schriftgroesse_aus_hoehe(wert: Any) -> int:
     return round(abs(wert) * 0.75)
 
 
-# Lazarus-Eigenschaften, die auf mehrere pcl-Eigenschaften zugleich
+# Eigenschaften, die auf mehrere pcl-Eigenschaften zugleich
 # abbilden (`Font.Style = [fsBold, fsItalic]` -> `font_bold`/`font_italic`).
 _SCHRIFTSTILE: dict[str, str] = {"fsBold": "font_bold", "fsItalic": "font_italic"}
 
@@ -153,7 +154,7 @@ def _schriftstil_konvertieren(wert: Any, name: str, warnungen: list[str]) -> dic
     return ergebnis
 
 
-# Lazarus-Eigenschaft -> (pcl-Eigenschaft, Konverter). Klassenunabhängig
+# Eigenschaft in der `.lfm` -> (pcl-Eigenschaft, Konverter). Klassenunabhängig
 # (Namen wie "Caption" bedeuten in jeder Klasse dasselbe pcl-Prop).
 _EIGENSCHAFTEN: dict[str, tuple[str, Any]] = {
     "Caption": ("caption", str),
@@ -179,12 +180,14 @@ _EIGENSCHAFTEN: dict[str, tuple[str, Any]] = {
     "Font.Name": ("font_name", str),
     "Font.Height": ("font_size", _schriftgroesse_aus_hoehe),
     "Font.Size": ("font_size", int),
+    "Interval": ("interval", int),
 }
 
 _EREIGNISSE: dict[str, str] = {
     "OnClick": "on_click",
     "OnChange": "on_change",
     "OnCreate": "on_create",
+    "OnTimer": "on_timer",
 }
 
 
@@ -196,8 +199,8 @@ def _schlange(text: str) -> str:
 
 
 def _handler_konvertieren(ereignis_schluessel: str, handler: str) -> str:
-    """`OnClick`/`b_startClick` -> `b_start_click` (Lazarus hängt den
-    Ereignisnamen direkt an den Komponentennamen an; das Ergebnis deckt
+    """`OnClick`/`b_startClick` -> `b_start_click` (der Ereignisname
+    hängt direkt am Komponentennamen; das Ergebnis deckt
     sich mit der tatsächlichen Methodenbenennung in den bestehenden
     `beispielprojekte/*/u_main.py`, z. B. `FormCreate` -> `form_create`)."""
     if ereignis_schluessel.startswith("On"):

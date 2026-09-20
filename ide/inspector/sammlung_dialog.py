@@ -1,7 +1,7 @@
 """Zeileneditor für Sammlungs-Eigenschaften (`items`, `lines`).
 
-Entspricht dem Zeichenketten-Editor hinter dem „…“-Knopf im Lazarus-
-Objektinspektor: eine Zeile je Eintrag. Siehe README.md,
+Steckt hinter dem „…“-Knopf im Objektinspektor: eine Zeile je
+Eintrag. Siehe README.md,
 Abschnitt 7.6 und `pcl.properties.SAMMLUNGS_EIGENSCHAFTEN`.
 """
 

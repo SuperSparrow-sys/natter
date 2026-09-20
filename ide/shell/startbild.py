@@ -233,7 +233,7 @@ class Startbild(QScrollArea):
         layout.addWidget(gruss)
 
         untertitel = QLabel(
-            "Programmieren in Python – mit der Oberfläche aus Lazarus."
+            "Oberfläche entwerfen, Code schreiben, Programm starten."
         )
         untertitel.setStyleSheet(_UNTERTITEL_STIL)
         layout.addWidget(untertitel)

@@ -1,6 +1,6 @@
 """Tests für den `.lfm`-Parser (Abschnitt 15). Siehe
 docs/arbeitspakete/M8.md, Schritt 1. Gegen echte `.lfm`-Dateien aus
-`tests/daten/lazarus/`, kein Mock.
+`tests/daten/lfm/`, kein Mock.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ import pytest
 
 from ide.import_lfm.parser import LfmParserError, parse_lfm
 
-_REFERENZ = Path(__file__).resolve().parent / "daten" / "lazarus"
+_REFERENZ = Path(__file__).resolve().parent / "daten" / "lfm"
 
 _ALLE_LFM_DATEIEN = sorted(_REFERENZ.glob("*/unit1.lfm")) + sorted(_REFERENZ.glob("*/u_main.lfm"))
 

@@ -57,7 +57,7 @@ def kind_komponenten(objekt: Any) -> list[tuple[str, Control]]:
     Gesucht wird in den Attributen des Formulars, gefiltert nach der
     Elternbeziehung. Beides zusammen, weil in Natter zweierlei
     gleichzeitig gilt: die Namen bleiben flach (`self.b_ok`, auch wenn
-    der Knopf in einem Panel liegt – wie in Lazarus), die Zugehörigkeit
+    der Knopf in einem Panel liegt), die Zugehörigkeit
     ist aber verschachtelt. Wer nur `vars(objekt)` liest, findet an
     einem Panel nichts, weil das Kind als Attribut des Formulars
     dasteht; wer nur `vars(formular)` liest, hängt es ans Formular,

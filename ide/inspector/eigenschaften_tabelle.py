@@ -45,7 +45,7 @@ _NAME_ZEILE = object()
 
 #: Hilfetext der Zeile „name“. Sie ist keine `Prop` und hat deshalb
 #: auch keinen `doc` – dabei ist gerade sie erklärungsbedürftig, weil
-#: „name“ und „caption“ aus Lazarus-Sicht leicht verwechselt werden.
+#: „name“ und „caption“ leicht verwechselt werden.
 _NAME_DOKU = (
     "Der Bezeichner im Quelltext, z. B. b_anmelden – nicht der "
     "angezeigte Text (das ist „caption“ bzw. „text“)."
@@ -57,8 +57,7 @@ class EigenschaftenTabelle(QTableWidget):
         super().__init__(0, 2)
         self.setHorizontalHeaderLabels(["Eigenschaft", "Wert"])
         # Ohne Zeilennummern: niemand spricht eine Eigenschaft als
-        # „Nummer 3" an, und in Lazarus' Objektinspektor steht dort
-        # auch nichts. Die Spalte kostete nur Platz - links vom Namen,
+        # „Nummer 3" an. Die Spalte kostete nur Platz - links vom Namen,
         # genau dort, wo der Dock auf einem Schulrechner am
         # knappsten ist (M15, Abschnitt 6).
         self.verticalHeader().setVisible(False)
@@ -100,7 +99,7 @@ class EigenschaftenTabelle(QTableWidget):
 
  `name`/`name_setzen` zeigen zusätzlich ganz oben die Zeile „name“
  (der Bezeichner im generierten Code, z. B. `b_anmelden`) –
- getrennt von `caption`/`text` (dem Anzeigetext), wie in Lazarus
+ getrennt von `caption`/`text` (dem Anzeigetext)
  (Gewünscht: „caption und name sind
  unterschiedlich und der Name muss vom Nutzer frei veränderbar
  sein“). Ohne beide Argumente (z. B. außerhalb eines offenen
@@ -208,8 +207,8 @@ class EigenschaftenTabelle(QTableWidget):
             )
             element.setCheckState(Qt.CheckState.Checked if wert else Qt.CheckState.Unchecked)
         elif typ is list:
-            # Wie in Lazarus nicht direkt in der Zelle bearbeitbar, sondern
-            # per Doppelklick über `SammlungDialog` (dort „…“-Knopf).
+            # Nicht direkt in der Zelle bearbeitbar, sondern per
+            # Doppelklick über `SammlungDialog` (dort „…“-Knopf).
             element.setFlags(element.flags() & ~Qt.ItemFlag.ItemIsEditable)
             # Singular und Plural: „(1 Einträge)" stand real in der
             # Zeile, sobald ein Menü genau einen obersten Eintrag hatte.
@@ -267,8 +266,8 @@ class EigenschaftenTabelle(QTableWidget):
         self.fehlertext = ""
 
     def _bei_doppelklick(self, element: QTableWidgetItem) -> None:
-        """Öffnet den passenden Editor – wie der „…“-Knopf im
-        Lazarus-Objektinspektor.
+        """Öffnet den passenden Editor – das ist der „…“-Knopf in
+        der Wertspalte.
 
         Für Sammlungen (`items`, `lines`) den Zeileneditor, für Bäume
         (`entries`) den Menü-Editor. Beide sind modal und liefern die

@@ -111,8 +111,8 @@ class Vorschlag:
 
         `mit_erklaerung=False` lässt den deutschen Hilfetext weg – im
         Prüfungsmodus (M11, Abschnitt 6). Die Liste selbst bleibt: sie
-        ist Schreibhilfe, kein Lösungshinweis, und Lazarus hat sie im
-        Unterricht auch. „Wird beim Klicken ausgelöst“ neben `on_click`
+        ist Schreibhilfe, kein Lösungshinweis. „Wird beim Klicken
+        ausgelöst“ neben `on_click`
         ist dagegen nah an der Antwort auf genau die Frage, die in einer
         Klausur gestellt wird.
         """

@@ -78,10 +78,7 @@ class Projekt:
 
  Ohne die automatisch erzeugten `*_design.py` (Abschnitt 4.1:
  nicht bearbeiten) und ohne die Startdatei (`main`): die schreibt
- Natter beim Anlegen, danach ändert sie niemand mehr. In Lazarus
- steht die entsprechende Projektdatei (`.lpr`) aus demselben
- Grund nicht im Projektinspektor, sondern nur hinter einem
- eigenen Menüweg (M12).
+ Natter beim Anlegen, danach ändert sie niemand mehr (M12).
 
  Das gilt für jeden Projekttyp, auch für Konsolenprojekte. Dort stand der
  ganze Schülercode früher in `main.py` selbst - die Startdatei war damit

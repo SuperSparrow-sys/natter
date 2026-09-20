@@ -58,8 +58,8 @@ class ProjektExplorer(QTreeWidget):
         # unstyled, mitten im Baum eingeblendetes Eingabefeld, das gar
         # nicht unsere eigene Umbenennen-Funktion war).
         self.setEditTriggers(QTreeWidget.EditTrigger.NoEditTriggers)
-        # Dateien stehen eingerückt unter ihrer Gruppenüberschrift, wie
-        # im Projektinspektor von Lazarus. Die „zwei blauen Balken“, die
+        # Dateien stehen eingerückt unter ihrer Gruppenüberschrift. Die
+        # „zwei blauen Balken“, die
         # dabei früher auftraten (Nutzer-Screenshot), lagen nicht an der
         # Einrückung selbst: Qt malt die Hover-/Auswahlfläche einer
         # Zeile zweimal (`::item` und `::branch`), und zwei
@@ -71,8 +71,8 @@ class ProjektExplorer(QTreeWidget):
         # Rechte Maustaste öffnet dasselbe Menü wie der „⋮“-Knopf
         # (M11, Abschnitt 3). Der Knopf steht nur in der Zeile, über
         # der die Maus gerade schwebt; wer ihn nicht bemerkt, probiert
-        # als Nächstes die rechte Maustaste – in Lazarus liegt genau
-        # dort das Menü zu einer Datei.
+        # als Nächstes die rechte Maustaste, und dort liegt dasselbe
+        # Menü.
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self._kontextmenue_zeigen)
 

@@ -1,8 +1,7 @@
 """Menü-Komponenten: `MainMenu` und `PopupMenu`.
 
 Siehe README.md, Abschnitt 5.2 (Palette „Standard") und
-`docs/arbeitspakete/M15.md`, Schritt 1. Vorbild sind `TMainMenu` und
-`TPopupMenu` aus Lazarus.
+`docs/arbeitspakete/M15.md`, Schritt 1.
 
 Bis M15 war ein Schülerprogramm mit Menüleiste in Natter nicht
 baubar – die Lücke stand im Kopf von `pcl/components/standard.py`
@@ -23,7 +22,7 @@ ein `dict` mit diesen Schlüsseln:
     findet ein Programm den Eintrag wieder (`eintrag_suchen`).
 ``caption``
     Was dasteht. Ein ``&`` davor macht den folgenden Buchstaben zum
-    Zugriffsbuchstaben, genau wie in Lazarus (``&Datei`` → Alt+D).
+    Zugriffsbuchstaben (``&Datei`` → Alt+D).
 ``shortcut``
     Tastenkürzel in Qt-Schreibweise (``Strg+Q`` wird angenommen und
     umgesetzt, damit niemand ``Ctrl`` tippen muss).
@@ -193,9 +192,9 @@ class _MenueSymbol(QWidget):
     Linienstärke passt sich der Größe an.
 
     Die Striche sind bewusst dünn (`seite / 26`): der Nutzer hat für
-    die Symbole „filigraner, wie in Lazarus, und ein wenig bunter"
-    festgelegt. Ein erster Entwurf mit `seite / 16` sah auf dem
-    Formular aus wie ein Balkendiagramm.
+    die Symbole „filigraner und ein wenig bunter" festgelegt. Ein
+    erster Entwurf mit `seite / 16` sah auf dem Formular aus wie ein
+    Balkendiagramm.
     """
 
     RAHMEN = QColor("#37474f")
@@ -407,8 +406,7 @@ class _Menue(Control):
 
 
 class MainMenu(_Menue):
-    """Menüleiste am oberen Rand des Fensters, wie `TMainMenu` in
-    Lazarus.
+    """Menüleiste am oberen Rand des Fensters.
 
     Auf dem Formular liegt nur ein kleines Symbol; die Leiste selbst
     erscheint erst im laufenden Programm. Das ist dieselbe Regel wie
@@ -416,9 +414,9 @@ class MainMenu(_Menue):
     nimmt im Designer auch keine weg.
 
     Die Leiste sitzt über dem Inhalt des Formulars: das Fenster
-    wächst um ihre Höhe, die Komponenten behalten ihre Koordinaten.
-    Genau so verhält sich Lazarus auch – dort ist ``Top = 0`` der
-    obere Rand des Arbeitsbereichs, nicht des Fensters.
+    wächst um ihre Höhe, die Komponenten behalten ihre Koordinaten:
+    ``Top = 0`` ist der obere Rand des Arbeitsbereichs, nicht des
+    Fensters.
     """
 
     SYMBOL = _HauptmenueSymbol
@@ -445,7 +443,7 @@ class MainMenu(_Menue):
 
 
 class PopupMenu(_Menue):
-    """Klappmenü auf die rechte Maustaste, wie `TPopupMenu` in Lazarus.
+    """Klappmenü auf die rechte Maustaste.
 
     Zugeordnet wird es über die Eigenschaft ``popup_menu`` einer
     sichtbaren Komponente: ``self.sg_tabelle.popup_menu =

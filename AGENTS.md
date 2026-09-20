@@ -71,6 +71,12 @@ bei der Entwicklung von Natter eingesetzt, nicht in der fertigen IDE selbst
   „Nutzer-Feedback September 2026:". Die Begründung selbst ist wertvoll
   und gehört in den Kommentar; das Etikett davor nicht.
 - Geprüft wird beides in `tests/test_textstil.py`.
+- Natter erklärt sich aus sich heraus. Kein Text, kein Kommentar und
+  keine Hilfeseite verweist auf Lazarus, Delphi oder die LCL - ein
+  Vergleich wie „wie Lazarus `TLabel.Color`“ sagt jemandem, der Lazarus
+  nie benutzt hat, nichts. Die Eigenschaft wird stattdessen aus sich
+  heraus beschrieben. Einzige Ausnahme ist `ide/import_lfm/`: dort ist
+  das fremde Dateiformat der Gegenstand des Codes.
 
 ## Generierte Dateien
 

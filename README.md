@@ -1,12 +1,11 @@
 # Natter
 
-**Eine Lazarus-artige Entwicklungsumgebung für Python** — für
-Schülerinnen und Schüler, die von Pascal/Lazarus auf Python umsteigen.
-Oberfläche, Hilfetexte und Meldungen sind vollständig auf Deutsch.
-Zielplattform: Windows.
+**Eine Entwicklungsumgebung für Python** — für Schülerinnen und
+Schüler im Informatikunterricht. Oberfläche, Hilfetexte und Meldungen
+sind vollständig auf Deutsch. Zielplattform: Windows.
 
-Wer Lazarus kennt, findet sich sofort zurecht: Menüleiste,
-Werkzeugleisten, Komponentenpalette, Formular-Designer, Objektinspektor,
+Alles Gewohnte liegt an seinem Platz: Menüleiste, Werkzeugleisten,
+Komponentenpalette, Formular-Designer, Objektinspektor,
 Projekt-Explorer. Wer Python kennt, findet gewöhnliches Python vor — kein
 Dialekt, keine versteckte Umschreibung.
 
@@ -21,7 +20,7 @@ ausgeliefert wird, steht in [`docs/entwicklung.md`](docs/entwicklung.md).
 
 - Alles ist normales Python: Klassen, Variablen, Listen, Dateien, in
   Konsolenprogrammen `input()`/`print()` — ohne Spracherweiterung
-- GUI-Programme wie in Lazarus: Ein- und Ausgabe ausschließlich über
+- GUI-Programme: Ein- und Ausgabe ausschließlich über
   Komponenten (Edit, Memo, RadioGroup, ComboBox, StringGrid, Dialoge …)
 - Visuelle Oberflächenentwicklung: Formular-Designer, Objektinspektor
   für Eigenschaften und Ereignisse, Doppelklick erzeugt die Methode
@@ -35,14 +34,15 @@ ausgeliefert wird, steht in [`docs/entwicklung.md`](docs/entwicklung.md).
 - Debugger mit schülergerechten Fehlermeldungen, die keine Lösung
   vorsagen
 - Diagramm-Editor für UML, Struktogramme und Entscheidungstabellen
-- Import vorhandener Lazarus-Formulare (`.lfm`)
+- Import vorhandener `.lfm`-Formulare
 - Export des eigenen Programms als Windows-Programm (`.exe`)
 
 **Was Natter bewusst nicht tut**
 
-- Pascal-Code nach Python übersetzen (nur Formulare werden importiert)
+- Fremden Quelltext nach Python übersetzen (nur Formulare werden
+  importiert)
 - Andere Betriebssysteme als Windows, andere Sprachen als Deutsch
-- Pascal-Aliasse für Python-Namen
+- Deutsche oder anderssprachige Aliasse für Python-Namen
 - KI-Funktionen in der IDE
 
 ## 2. Worauf Natter aufbaut
@@ -88,14 +88,13 @@ MeinProjekt/
 
 **Sichtbar ist, was bearbeitet wird.** `main.py` und `u_main_design.py`
 erzeugt Natter selbst und führt sie selbst nach — im Projekt-Explorer
-tauchen sie nicht auf, genau wie Lazarus die `.lpr` nicht anzeigt. Wird
+tauchen sie nicht auf. Wird
 eine Unit gelöscht, verschwinden ihr Formular und ihre erzeugte Datei
 mit ihr.
 
 **Was sichtbar ist, hat ein festes Gerüst.** Eine neue Unit ist nie eine
 leere Datei, sondern kommt mit den nötigen Importen und einem
-Klassenrumpf — wie `unit …; interface; uses …; implementation; end.` in
-Lazarus.
+Klassenrumpf.
 
 ### 4.1 Konsolenprojekte
 
@@ -150,8 +149,7 @@ Koordinaten stehen in der Ereignis-Methode.
 
 `Timer`, `MainMenu` und `PopupMenu` zeigen im laufenden Programm
 nichts an. Im Designer liegen sie als kleines Symbol auf dem Formular,
-damit man sie anklicken und einstellen kann — wie das
-Entwurfszeit-Symbol einer nicht sichtbaren Komponente in Lazarus.
+damit man sie anklicken und einstellen kann.
 
 ### 5.2a Eingabe
 
@@ -181,9 +179,8 @@ gespeichert wird in der `.pfm` als ISO-Datum.
 `Sound` (spielt `.wav` ab, `Sound.beep()` für einen kurzen Ton),
 `analyse`
 
-Jede Komponente hat dieselben Eigenschaften wie ihr Lazarus-Vorbild,
-nur in Python-Schreibweise: `caption` statt `Caption`, `on_click` statt
-`OnClick`.
+Die Eigenschaften heißen in Python-Schreibweise: `caption`,
+`on_click`, `read_only`.
 
 ## 6. Design
 
@@ -313,11 +310,12 @@ Regelbasierte Hinweise auf Formulare, die unordentlich aussehen würden:
 überlappende Komponenten, Text, der aus seinem Feld läuft, uneinheitliche
 Abstände.
 
-## 15. Lazarus-Import
+## 15. Formular-Import
 
 Vorhandene `.lfm`-Formulare lassen sich einlesen; eingebettete Bilder
-landen als Dateien im Projekt, und der zugehörige Pascal-Code wird als
-Kommentar übernommen, damit man ihn beim Übersetzen danebenlegen kann.
+landen als Dateien im Projekt, und der zugehörige Pascal-Code aus der
+`.pas` wird als Kommentar übernommen, damit man ihn beim Übersetzen
+danebenlegen kann.
 
 ## 16. Exe-Export
 

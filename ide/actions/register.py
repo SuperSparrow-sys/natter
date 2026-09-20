@@ -42,7 +42,7 @@ class Aktion:
         self.bereich = bereich
         self.symbol = symbol
         # nur für die Werkzeugleiste: gruppiert z. B. "Start" optisch von
-        # den Datei-Aktionen ab (Abschnitt 7.3, wie in Lazarus üblich)
+        # den Datei-Aktionen ab (Abschnitt 7.3)
         self.trennlinie_davor = trennlinie_davor
 
         self.qaction = QAction(name)

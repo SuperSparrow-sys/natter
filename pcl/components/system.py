@@ -3,10 +3,9 @@
 Siehe README.md, Abschnitt 5.2 (Palette „System“). Ein `Timer`
 zeigt im laufenden Programm nichts an - er tickt nur. Im Designer muss
 man ihn trotzdem anfassen können, um im Objektinspektor sein Intervall
-einzustellen. Lazarus löst das seit jeher mit einem kleinen Symbol auf
-dem Formular, das im fertigen Programm verschwindet, und genau so macht
-Natter es auch: `Timer` ist eine gewöhnliche `Control` mit
-`nur_im_designer = True`.
+einzustellen. Dafür liegt ein kleines Symbol auf dem Formular, das im
+fertigen Programm verschwindet: `Timer` ist eine gewöhnliche `Control`
+mit `nur_im_designer = True`.
 
 Dass er damit im Designer liegt, ist kein Beiwerk (Nutzer-Hinweis
 : „der Timer muss als Komponente auch mit rein, der ist
@@ -17,10 +16,8 @@ Sonderregel, die man erst kennen muss:
  self.t_ampel.interval = 2000
  self.t_ampel.on_timer = self.t_ampel_timer
 
-Vorbild ist `TTimer` aus Lazarus (`t_hunger: TTimer` mit
-`OnTimer = t_hungerTimer`, im Quelltext über `t_hunger.enabled := true`
-geschaltet) - deshalb dieselben beiden Eigenschaften
-`enabled`/`interval` und dasselbe eine Ereignis.
+Mehr als `enabled` und `interval` braucht ein Zeitgeber nicht, und
+mehr als ein Ereignis auch nicht.
 """
 
 from __future__ import annotations
@@ -76,7 +73,7 @@ class Timer(Control):
     """Zeitgeber, der in festem Abstand `on_timer` auslöst. Qt-Basis:
     `QTimer`.
 
-    Wie `TTimer` in Lazarus läuft ein frisch erzeugter `Timer` sofort
+    Ein frisch erzeugter `Timer` läuft sofort
     (`enabled` ist standardmäßig wahr) und wird über `enabled` an- und
     abgeschaltet - ein `start()`/`stop()` gibt es bewusst nicht, damit es
     nur einen Schalter gibt.

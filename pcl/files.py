@@ -1,6 +1,5 @@
 """Datei-/Pfad-Hilfen (Abschnitt 11.1, 11.3): ``open_url`` löst relative
-Pfade zum Arbeitsverzeichnis auf und öffnet sie im Standardbrowser
-(entspricht ``OpenURL`` aus ``LCLIntf``).
+Pfade zum Arbeitsverzeichnis auf und öffnet sie im Standardbrowser.
 """
 
 from __future__ import annotations

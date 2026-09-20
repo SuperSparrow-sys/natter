@@ -1,4 +1,4 @@
-"""Strings: zeilenweise Textsammlung, wie `TStrings` in Lazarus.
+"""Strings: zeilenweise Textsammlung.
 
 Trägt `items` (ComboBox, ListBox, RadioGroup) und `lines` (Memo) –
 verschachtelte, aufklappbare Untereigenschaften (Abschnitt 5.0), kein
@@ -33,14 +33,14 @@ class Strings:
         self._aendern()
 
     def zuweisen(self, werte: Iterable[str] | str) -> None:
-        """Ersetzt den gesamten Inhalt auf einmal (wie `Items.Assign` in
-        Lazarus). Der Setter von `ListBox.items`/`Memo.lines` ruft das
-        auf, damit sowohl der erzeugte Formularcode
+        """Ersetzt den gesamten Inhalt auf einmal. Der Setter von
+        `ListBox.items`/`Memo.lines` ruft das auf, damit sowohl der
+        erzeugte Formularcode
         (``self.lb.items = ["a", "b"]``) als auch der Objektinspektor die
         Sammlung in einem Schritt setzen können.
 
-        Eine Zeichenkette wird an den Zeilenumbrüchen getrennt, so
-        wie `Items.Text` in Lazarus. Ohne diese Regel zerfiele
+        Eine Zeichenkette wird an den Zeilenumbrüchen getrennt. Ohne
+        diese Regel zerfiele
         ``self.rg.items = "rot
 gelb"`` in acht einzelne Einträge – einen
         je Buchstabe –, weil Python eine Zeichenkette gern Zeichen für

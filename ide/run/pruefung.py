@@ -102,9 +102,8 @@ class RuffFund:
         also so, wie man es lernt –, bekam sein Programm nicht gestartet,
         obwohl es einwandfrei gelaufen wäre. Dasselbe beim Auskommentieren
         einer Zeile zum Ausprobieren: die Variable darüber wird ungenutzt,
-        und der Start ist blockiert. In Lazarus ist eine ungenutzte Unit
-        im `uses` ein Hinweis, kein Fehler – das Programm übersetzt und
-        läuft.
+        und der Start ist blockiert. Ein ungenutzter Import ist ein Hinweis,
+        kein Fehler – das Programm läuft einwandfrei.
 
         Umgekehrt ist es richtig, bei einem Syntaxfehler oder einem
         unbekannten Namen gar nicht erst zu starten: das Programm würde

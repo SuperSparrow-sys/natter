@@ -28,8 +28,7 @@ from pcl.properties import Komponente, Prop
 
 
 class HtmlViewer(Control):
-    """Zeigt HTML an, ohne den Browser zu öffnen (entspricht
-    ``THtmlViewer`` bzw. `TIpHtmlPanel` in Lazarus). Qt-Basis:
+    """Zeigt HTML an, ohne den Browser zu öffnen. Qt-Basis:
     `QTextBrowser`.
 
     Zwei Wege hinein::
@@ -79,7 +78,7 @@ class HtmlViewer(Control):
 
 
 class Sound(Komponente):
-    """Spielt einen Klang ab (entspricht ``TSoundPlayer``/`PlaySound`).
+    """Spielt einen Klang ab.
     Qt-Basis: `QSoundEffect` für `.wav`.
 
     `Sound` ist keine `Control`: sie liegt nicht auf dem Formular,

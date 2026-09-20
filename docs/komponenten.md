@@ -42,7 +42,7 @@ Qt-Basis: `QWidget` (`pcl/form.py`)
 |---|---|---|
 | on_create | (self, sender) | unmittelbar vor der ersten Anzeige |
 
-Methoden: `show()`, `close()` (entspricht `Close` aus der LCL).
+Methoden: `show()`, `close()`.
 
 Besonderheit: einziger Komponententyp mit `neue_attribute_erlaubt = True`
 (Abschnitt 5.0) – eigene Attribute wie `self.ampel = Ampel()` bleiben
@@ -70,8 +70,8 @@ Qt-Basis: `QLabel` (`pcl/components/standard.py`)
 |---|---|---|---|---|
 | left, top, width, height, enabled | wie `Control` | – | – | geerbt von `Control` |
 | caption | str | "Label1" | Darstellung | Anzeigetext |
-| color | str (Hex) | "" | Darstellung | Hintergrundfarbe (nur bei transparent=False), wie Lazarus `TLabel.Color` |
-| transparent | bool | True | Darstellung | Wenn wahr (Standard), kein eigener Hintergrund, wie Lazarus `TLabel.Transparent` |
+| color | str (Hex) | "" | Darstellung | Hintergrundfarbe (nur bei transparent=False) |
+| transparent | bool | True | Darstellung | Wenn wahr (Standard), kein eigener Hintergrund |
 
 Keine eigenen Ereignisse.
 
@@ -84,16 +84,15 @@ Qt-Basis: eigenes Painting (`QPainter` auf `QWidget`, `pcl/components/additional
 | left, top, width, height, enabled | wie `Control` | – | – | geerbt von `Control` |
 | shape | str | "rectangle" | Darstellung | Form der Zeichnung: rectangle oder circle |
 | brush.color | str (Hex) | "#c0c0c0" | Darstellung | Füllfarbe; aufklappbare Untereigenschaft, kein eigenständiges `Prop` |
-| pen_color | str (Hex) | "#000000" | Darstellung | Randfarbe, unabhängig von `brush.color` (wie Lazarus `Pen.Color`) |
-| transparent | bool | False | Darstellung | Wenn wahr, keine Füllung - nur der Rand (wie Lazarus `Brush.Style=bsClear`) |
+| pen_color | str (Hex) | "#000000" | Darstellung | Randfarbe, unabhängig von `brush.color` |
+| transparent | bool | False | Darstellung | Wenn wahr, keine Füllung - nur der Rand |
 
 Keine eigenen Ereignisse. `shape` ist aktuell ein einfacher `str` ohne
 Aufzählungs-Editor im Inspektor (Abschnitt 5.0 sieht dafür später einen
 echten Enum-Typ vor, sobald `Align`/`BorderStyle` u. Ä. eingeführt werden).
 
 `Control` (alle Komponenten) hat außerdem `nach_vorne_bringen()`/
-`nach_hinten_schicken()` (Z-Ebene, wie Lazarus `BringToFront`/
-`SendToBack`) - keine Inspektor-Zeile, da eine Aktion statt einer
+`nach_hinten_schicken()` (Z-Ebene) - keine Inspektor-Zeile, da eine Aktion statt einer
 Eigenschaft (Nutzer-Feedback September 2026: „Z-Ebene“).
 
 ## Edit
@@ -149,12 +148,12 @@ Qt-Basis: `QPlainTextEdit` (`pcl/components/standard.py`)
 |---|---|---|---|---|
 | left, top, width, height, enabled | wie `Control` | – | – | geerbt von `Control` |
 | lines | `Strings` | leer | Daten | mehrzeiliger Text; Sammlungs-Eigenschaft (siehe „Schrift und Sammlungen“ unten) |
-| read_only | bool | False | Verhalten | Wenn wahr, nicht bearbeitbar (wie Lazarus `TMemo.ReadOnly`) |
+| read_only | bool | False | Verhalten | Wenn wahr, nicht bearbeitbar |
 
 Keine eigenen Ereignisse. `lines` synchronisiert bisher nur in eine
 Richtung (Zuweisung/`add`/`clear` → Anzeige); von Benutzern eingetippter
 Text wird nicht in `lines` zurückgeschrieben (kein Referenzprojekt braucht
-das bisher, siehe `tests/daten/lazarus/*` – nur `.Lines.Add`/`.Clear`).
+das bisher, siehe `tests/daten/lfm/*` – nur `.Lines.Add`/`.Clear`).
 
 ## ListBox
 
@@ -199,8 +198,7 @@ Qt-Basis: `QTableWidget` (`pcl/components/additional.py`)
 | on_select_cell | eine andere Zelle wird ausgewählt | `sender`, `spalte`, `zeile` |
 | on_edit_cell | eine Zelle wurde geändert | `sender`, `spalte`, `zeile`, `text` |
 
-`spalte` und `zeile` in dieser Reihenfolge – wie `OnSelectCell(Sender,
-ACol, ARow, …)` in Lazarus und wie `cells[spalte, zeile]`.
+`spalte` und `zeile` in dieser Reihenfolge – wie `cells[spalte, zeile]`.
 
 **`on_edit_cell` meint die Änderung durch den Benutzer.** Was das
 Programm selbst hineinschreibt (`cells[…] = …`, `load_dataframe`),
@@ -224,12 +222,11 @@ Qt-Basis: `QLabel` mit `QPixmap` (`pcl/components/additional.py`)
 
 Keine eigenen Ereignisse außer den Maus-Ereignissen aus `Control`.
 
-**`stretch` steht auf `True` – anders als in Lazarus.** Dort ist der
-Standard `False`, und ein zu großes Bild wird oben links abgeschnitten.
-Die Kekse in `04_CookieKlicker` sind 512×512 Punkte groß und liegen in
-einem 300×300 großen `Image`; mit Lazarus' Standard sähe man ein
-Viertel Keks. Wer das Lazarus-Verhalten will, schreibt
-`self.i_bild.stretch = False`.
+**`stretch` steht auf `True`.** Ohne Skalierung würde ein zu großes
+Bild oben links abgeschnitten. Die Kekse in `04_CookieKlicker` sind
+512×512 Punkte groß und liegen in einem 300×300 großen `Image`;
+unskaliert sähe man ein Viertel Keks. Wer das Bild in Originalgröße
+will, schreibt `self.i_bild.stretch = False`.
 
 Gerechnet wird immer vom **ungeskalierten** Bild
 (`picture.original`): wer zweimal hintereinander skaliert, bekommt
@@ -276,11 +273,9 @@ Qt-Basis: `QSpinBox` (`pcl/components/additional.py`)
 |---|---|---|
 | on_change | (self, sender) | Änderung des Wertes (Pfeilknopf, Tastatur oder Code) |
 
-`value` heißt wie Lazarus' `TSpinEdit.Value` – anders als bei
-`ScrollBar`/`TrackBar`, wo der Wert in der LCL `Position` heißt. Die
-`pcl`-Namen folgen hier bewusst der jeweiligen Lazarus-Komponente, damit
-ein aus dem Unterricht bekanntes Programm ohne Umdenken übertragbar
-bleibt.
+Der Wert heißt hier `value` – anders als bei `ScrollBar`/`TrackBar`,
+wo er `position` heißt. Bei einem Schieber ist die Stellung gemeint,
+bei einem Zahlenfeld die Zahl.
 
 Ein Wert außerhalb von `minimum`..`maximum` wird von Qt auf die Grenze
 gekappt; `value` trägt danach den gekappten Wert, nicht den zugewiesenen.
@@ -326,8 +321,8 @@ Qt-Basis: `QSlider`, horizontal (`pcl/components/additional.py`)
 |---|---|---|
 | on_change | (self, sender) | Änderung der Position (Ziehen, Tastatur oder Code) |
 
-`maximum` ist 10 und nicht 100, `frequency` ist 1 – beides wie
-`TTrackBar` in Lazarus. Mit `maximum = 100` und `frequency = 1` würden
+`maximum` ist 10 und nicht 100, `frequency` ist 1. Mit `maximum = 100`
+und `frequency = 1` würden
 die Teilstriche bei 150 Pixeln Breite zu einem durchgehenden Balken
 verschmelzen.
 
@@ -349,11 +344,11 @@ Qt-Basis: `QProgressBar` (`pcl/components/additional.py`)
 | position | int | 0 | Verhalten | Aktueller Wert (Füllstand) |
 | show_text | bool | True | Darstellung | Prozentzahl im Balken anzeigen |
 
-Keine Ereignisse (auch `TProgressBar` in Lazarus hat keine).
+Keine Ereignisse – ein Fortschrittsbalken wird nur angezeigt.
 
-`show_text` ist neu gegenüber Lazarus, wo der Balken nie eine Zahl
-trägt. Qt zeigt sie von sich aus an, und im Unterricht ist genau das
-hilfreich; `show_text = False` liefert die Lazarus-Optik.
+`show_text` blendet die Prozentzahl im Balken ein. Qt zeigt sie von
+sich aus an, und im Unterricht ist genau das hilfreich;
+`show_text = False` lässt den Balken leer.
 
 Ein `position` außerhalb von `minimum`..`maximum` wird auf die Grenze
 gekappt, wie bei `SpinEdit` und `TrackBar` auch. Das musste die
@@ -419,7 +414,7 @@ stift.text_out(30, 30, "Mit Koordinaten gezeichnet")
 nicht bei jedem Neuzeichnen von vorn – ein Fenster, das darüberfährt,
 löscht nichts, und beim Größerziehen bleibt erhalten, was schon da war.
 
-**Ohne Kantenglättung**, wie `TCanvas` in Lazarus: eine rote Linie
+**Ohne Kantenglättung**: eine rote Linie
 hinterlässt genau Rot. Mit Glättung stünde an ihrer Kante eine
 Mischfarbe, und `pixels[x, y]` gäbe etwas zurück, das aussieht wie rot,
 aber keins ist.
@@ -440,7 +435,7 @@ Qt-Basis: `QTimer` (`pcl/components/system.py`)
 **Die einzige Komponente, die im laufenden Programm nichts anzeigt.**
 Im Designer liegt sie als kleine Uhr auf dem Formular — anklickbar,
 verschiebbar, im Objektinspektor einstellbar —, im fertigen Programm
-ist sie unsichtbar. Genau so hält Lazarus es mit `TTimer`.
+ist sie unsichtbar.
 
 Der Zeitgeber wird also wie jede andere Komponente aus der Palette
 „Zusätzlich" auf das Formular und stellst `interval` und `enabled` im
@@ -460,11 +455,11 @@ Technisch ist sie eine gewöhnliche `Control` mit
 Komponentenbaum, Objektinspektor, `.pfm`-Schreiber und Codeerzeugung
 keinen einzigen Sonderfall (M14).
 
-`enabled` ist wie in Lazarus standardmäßig **wahr**: ein frisch
+`enabled` ist standardmäßig **wahr**: ein frisch
 erzeugter `Timer` läuft sofort los. `interval = 0` stoppt ihn nicht,
 sondern lässt Qt so oft auslösen, wie die Ereignisschleife es zulässt –
-wie in der LCL. `stop()`/`start()` gibt es bewusst nicht; `enabled`
-ist der eine Schalter, wie in Lazarus.
+`stop()`/`start()` gibt es bewusst nicht; `enabled` ist der eine
+Schalter.
 
 ## MainMenu
 
@@ -479,16 +474,14 @@ Qt-Basis: `QMenuBar` (`pcl/components/menus.py`)
 
 Keine eigenen Ereignisse – **jeder Eintrag** hat sein eigenes.
 
-Die Menüleiste am oberen Rand des Fensters, wie `TMainMenu` in
-Lazarus. Auf dem Formular liegt nur ein kleines Symbol; die Leiste
+Die Menüleiste am oberen Rand des Fensters. Auf dem Formular liegt nur ein kleines Symbol; die Leiste
 selbst erscheint erst im laufenden Programm. Dieselbe Regel wie beim
 `Timer`: was im fertigen Programm keine Fläche einnimmt, nimmt im
 Designer auch keine weg.
 
 Die Leiste sitzt **über** dem Inhalt: das Fenster wächst um ihre Höhe,
-die Komponenten behalten ihre Koordinaten. Genau so verhält sich
-Lazarus auch – dort ist `Top = 0` der obere Rand des Arbeitsbereichs,
-nicht des Fensters. Ein Knopf ganz oben steht auch im
+die Komponenten behalten ihre Koordinaten: `Top = 0` ist der obere
+Rand des Arbeitsbereichs, nicht des Fensters. Ein Knopf ganz oben steht auch im
 laufenden Programm auch ganz oben und nicht hinter dem Menü.
 
 ### Die Einträge
@@ -541,7 +534,7 @@ Qt-Basis: `QMenu` (`pcl/components/menus.py`)
 
 Eigenschaften und Einträge wie bei `MainMenu`.
 
-Das Klappmenü auf die rechte Maustaste, wie `TPopupMenu` in Lazarus.
+Das Klappmenü auf die rechte Maustaste.
 Zugeordnet wird es über die Eigenschaft `popup_menu` einer sichtbaren
 Komponente:
 
@@ -605,7 +598,7 @@ Komponente liegt über dem Behälter), die `.pfm` beschreibt sie aber als
 Kind des Formulars. Was dafür fehlt, steht unter „Offene Punkte“.
 
 `RadioGroup` braucht das alles **nicht**: sie erzeugt ihre Optionsfelder
-wie `TRadioGroup` in Lazarus selbst aus `items` und ist damit auch im
+selbst aus `items` und ist damit auch im
 Designer vollständig benutzbar.
 
 ## RadioGroup
@@ -626,7 +619,7 @@ Qt-Basis: `QGroupBox` mit je einem `QRadioButton` pro Eintrag
 |---|---|---|
 | on_change | (self, sender) | Wechsel der Auswahl (Klick oder Code) |
 
-Gegen `RadioGroup1` aus `tests/daten/lazarus/f_Pizza` geprüft – dort zwar
+Gegen `RadioGroup1` aus `tests/daten/lfm/f_Pizza` geprüft – dort zwar
 nur deklariert, aber mit denselben Eigenschaftsnamen wie `TRadioGroup`
 (`Items`, `ItemIndex`, `Caption`).
 
@@ -761,8 +754,7 @@ Legende `y = 1,00·x²` steht.
 ## Dialogfunktionen
 
 `pcl/dialogs.py`. Keine Komponenten, sondern modale Funktionen auf
-Modulebene (Abschnitt 5.1, 5.2), analog `ShowMessage`/`InputBox` in der
-LCL. `message_dlg`, `OpenDialog`, `SaveDialog`, `SelectDirectoryDialog`,
+Modulebene (Abschnitt 5.1, 5.2). `message_dlg`, `OpenDialog`, `SaveDialog`, `SelectDirectoryDialog`,
 `ColorDialog`, `FontDialog` sind in keinem Referenzprojekt genutzt und
 daher zurückgestellt.
 
@@ -856,7 +848,7 @@ nimmt das Feld gar nicht erst an.
 |---|---|
 | on_change | bei jeder Änderung des Textes |
 
-Die Zeichen der Maske sind die von Qt und Lazarus: `0` eine Ziffer
+Die Zeichen der Maske sind die von Qt: `0` eine Ziffer
 (Pflicht), `9` eine Ziffer (freiwillig), `A` ein Buchstabe (Pflicht),
 `N` Buchstabe oder Ziffer. Alles andere steht fest da.
 
@@ -985,7 +977,7 @@ Zeichenfläche.
 | on_mouse_up | Maustaste losgelassen | `sender`, `x`, `y` |
 
 `x` und `y` zählen ab der **linken oberen Ecke der Komponente**, nicht
-ab der des Fensters – wie in Lazarus. Wer nur wissen will, *dass*
+ab der des Fensters. Wer nur wissen will, *dass*
 geklickt wurde, nimmt `on_click`; wer wissen will, *wo*, nimmt
 `on_mouse_down`.
 
@@ -1020,15 +1012,15 @@ tauchen deshalb nicht in jeder Tabelle oben einzeln auf.
 
 ### font (jede `Control`-Komponente)
 
-Entspricht `TFont` in Lazarus (`pcl/font.py`), aufklappbare
+Sammelt Schriftart, Größe und Stil (`pcl/font.py`), aufklappbare
 Untereigenschaft wie `Shape.brush`:
 
 | Untereigenschaft | Typ | Standardwert | Hilfetext |
 |---|---|---|---|
 | font.name | str | "" | Schriftart; leer = Schriftart des Themes |
 | font.size | int | 0 | Schriftgröße in Punkt; 0 = Größe des Themes |
-| font.bold | bool | False | Fettschrift (Lazarus `Font.Style = [fsBold]`) |
-| font.italic | bool | False | Kursivschrift (Lazarus `fsItalic`) |
+| font.bold | bool | False | Fettschrift |
+| font.italic | bool | False | Kursivschrift |
 
 In der `.pfm`, im erzeugten Code und im Objektinspektor erscheinen sie
 flach als `font_name`, `font_size`, `font_bold`, `font_italic`
@@ -1047,7 +1039,7 @@ lässt sich der ganze Inhalt auf einmal zuweisen:
 
 In der `.pfm` stehen sie als Liste von Zeichenketten; im
 Objektinspektor öffnet ein Doppelklick auf die Zeile einen Zeileneditor
-(wie der „…“-Knopf in Lazarus). Der Codegenerator schreibt sie **vor**
+(der „…“-Knopf in der Wertspalte). Der Codegenerator schreibt sie **vor**
 allen anderen Eigenschaften, weil das Füllen der Sammlung die Auswahl im
 Qt-Widget zurücksetzt und eine im Designer gesetzte `item_index`-
 Vorauswahl sonst wieder verloren ginge.
@@ -1076,12 +1068,12 @@ die niemand mehr liest:
    Kind.
 
    **Die Namen bleiben flach.** Ein Knopf im Panel heißt weiter
-   `self.b_ok`, wie in Lazarus – verschachtelt ist nur, woran er hängt.
+   `self.b_ok` – verschachtelt ist nur, woran er hängt.
    Geprüft in `tests/test_designer_behaelter.py`.
 2. **Die Datenbank-Komponenten im Designer — entfällt.** Das stand
    hier lange als offener Punkt: `SQLite3Connection`, `SQLQuery` und
-   `DataSource` sollten als Symbole auf dem Formular liegen, wie in
-   Lazarus. Im September 2026 ist die Entscheidung anders gefallen (M15,
+   `DataSource` sollten als Symbole auf dem Formular liegen. Im
+   September 2026 ist die Entscheidung anders gefallen (M15,
    Abschnitt 3): die Verbindung ist eine Zeile Code
    (`SQLite3Connection("konten.sqlite")`) und eine Abfrage auch
    (`db.query(...)`) — ein Symbol auf dem Formular spart dabei nichts
@@ -1134,14 +1126,13 @@ Aus der Liste oben bleibt nach der Durchsicht im September 2026 genau
 Nachgezogen wurden dabei auch die beiden Eigenschaftslücken, die hier
 lange als „kein Referenzprojekt braucht sie" standen:
 
-- `Image.stretch`, `proportional`, `center` (Abschnitt 11.4). **Eine
-  Abweichung von Lazarus, mit Absicht:** `stretch` steht auf `True`.
-  Die Kekse in `04_CookieKlicker` sind 512×512 Punkte groß und liegen
-  in einem 300×300 großen `Image` – mit Lazarus' Standard sähe man ein
-  Viertel Keks.
+- `Image.stretch`, `proportional`, `center` (Abschnitt 11.4).
+  `stretch` steht auf `True`: die Kekse in `04_CookieKlicker` sind
+  512×512 Punkte groß und liegen in einem 300×300 großen `Image` –
+  unskaliert sähe man ein Viertel Keks.
 - `StringGrid.on_select_cell`, `on_edit_cell` (Abschnitt 5.4). Beide
-  bekommen `spalte` und `zeile` in dieser Reihenfolge – wie Lazarus'
-  `(ACol, ARow)` und wie `cells[spalte, zeile]` –, `on_edit_cell`
+  bekommen `spalte` und `zeile` in dieser Reihenfolge – wie
+  `cells[spalte, zeile]` –, `on_edit_cell`
   zusätzlich den neuen Text. Was das **Programm** selbst in eine Zelle
   schreibt, löst `on_edit_cell` nicht aus; gemeint ist die Änderung
   durch den Benutzer, sonst feuerte schon `load_dataframe` hundert

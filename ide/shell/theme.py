@@ -58,7 +58,7 @@ def _ueber_grund(farbe_hex: str, alpha: float, grund_hex: str) -> str:
     """Mischt `farbe_hex` mit der Deckkraft `alpha` über `grund_hex` zu
     einer deckenden `#rrggbb`-Farbe.
 
-    Sanfte, helle Auswahl-/Hover-Flächen wie in Lazarus/Windows 11, bei
+    Sanfte, helle Auswahl-/Hover-Flächen wie in Windows 11, bei
     denen farbige Symbole lesbar bleiben müssen, statt einer deckenden
     Akzentfarbe wie bei Menüs/Tabs. Früher stand hier ein einfaches
     `rgba(...)` mit derselben Deckkraft; das ging in Baumansichten
@@ -91,7 +91,7 @@ def ide_qss_erzeugen(
     schrift = daten["font"]
     # Gemeldet: 12pt (sizes_pt[1]) wirkte über die
     # ganze IDE hinweg zu groß/klobig für ein dichtes, professionelles
-    # Werkzeug wie Lazarus/VS Code - 10pt (sizes_pt[0]) ist die
+    # Entwicklungswerkzeug - 10pt (sizes_pt[0]) ist die
     # eigentliche Fließtextgröße aus den Design-Tokens.
     basis_pt = schrift["sizes_pt"][0]
     tab_schliessen = _tab_schliessen_symbol(aufgeloest)

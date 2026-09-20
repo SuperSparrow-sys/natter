@@ -22,8 +22,8 @@ def _hat_methode(klasse: cst.ClassDef, methodenname: str) -> bool:
 
 #: Steht in jeder frisch erzeugten Ereignis-Methode über dem `pass`.
 #:
-#: `pass` ist für jemanden, der von Pascal kommt, ein rätselhaftes Wort:
-#: es sieht aus wie eine Anweisung, tut aber nichts. Die Zeile darüber
+#: `pass` ist ein rätselhaftes Wort: es sieht aus wie eine Anweisung,
+#: tut aber nichts. Die Zeile darüber
 #: sagt, wofür der leere Rumpf da ist, und verschwindet von selbst,
 #: sobald die erste eigene Zeile sie ersetzt (M12).
 RUMPF_HINWEIS = "Hier steht, was passieren soll."
@@ -112,8 +112,8 @@ class _MethodeUmbenennen(cst.CSTTransformer):
 def handler_methode_umbenennen(quelltext: str, alt: str, neu: str) -> tuple[str, bool]:
     """Benennt die Ereignismethode `alt` in `neu` um.
 
-    Gebraucht beim Umbenennen einer Komponente im Designer: Lazarus
-    zieht die Ereignismethoden dort mit, und wer `cb_ausgabe` in
+    Gebraucht beim Umbenennen einer Komponente im Designer: die
+    Ereignismethoden ziehen mit, denn wer `cb_ausgabe` in
     `cb_minus` umbenennt, will nicht `cb_minus.on_change =
     self.cb_ausgabe_change` zurückbehalten.
 

@@ -45,7 +45,6 @@ TEXTDATEIEN = [
     WURZEL / "tools" / "lizenz_vorlagen" / "INSTALLER_LIZENZ.txt",
     WURZEL / "tools" / "lizenz_vorlagen" / "INSTALLER_HINWEIS.txt",
     WURZEL / "docs" / "erste_schritte.md",
-    WURZEL / "docs" / "umstieg_pascal_python.md",
     WURZEL / "docs" / "komponenten.md",
 ]
 
@@ -238,3 +237,51 @@ def test_der_installer_liest_seine_texte_als_utf8() -> None:
 
     iss = (WURZEL / "tools" / "natter.iss").read_bytes()
     assert iss.startswith(b"\xef\xbb\xbf"), "natter.iss hat keine BOM"
+
+
+# ------------------------------------------------------- Eigenständig
+#
+# Natter erklärt sich aus sich heraus. Ein Vergleich wie „wie Lazarus
+# `TLabel.Color`" sagt jemandem, der Lazarus nie benutzt hat, nichts -
+# und stellt Natter als Nachbau dar, der es nicht sein soll.
+#
+# Eine Ausnahme: `ide/import_lfm/`. Dort ist das fremde Dateiformat der
+# Gegenstand des Codes, und ohne seinen Namen wäre nicht mehr zu
+# verstehen, was die Module eigentlich lesen.
+
+FREMDE_WERKZEUGE = re.compile(r"\bLazarus\b|\bLCL\w*\b|\bDelphi\b")
+
+AUSGENOMMEN = ("import_lfm",)
+
+
+def _ohne_ausnahmen(dateien: list[Path]) -> list[Path]:
+    return [p for p in dateien if not any(teil in p.parts for teil in AUSGENOMMEN)]
+
+
+def test_der_quelltext_erklaert_sich_ohne_fremdes_werkzeug() -> None:
+    treffer = []
+    for pfad in _ohne_ausnahmen(ALLE_PYTHON):
+        for nummer, zeile in enumerate(pfad.read_text(encoding="utf-8").splitlines(), 1):
+            if FREMDE_WERKZEUGE.search(zeile):
+                treffer.append(f"{pfad.relative_to(WURZEL)}:{nummer}: {zeile.strip()[:70]}")
+    assert not treffer, "Verweis auf ein fremdes Werkzeug:\n" + "\n".join(treffer[:10])
+
+
+SEITEN_FUER_LERNENDE = [
+    WURZEL / "README.md",
+    WURZEL / "docs" / "erste_schritte.md",
+    WURZEL / "docs" / "komponenten.md",
+    *sorted((WURZEL / "templates").rglob("*.template")),
+]
+
+
+@pytest.mark.parametrize("pfad", SEITEN_FUER_LERNENDE, ids=lambda p: p.name)
+def test_die_seiten_fuer_lernende_stehen_fuer_sich(pfad: Path) -> None:
+    treffer = [
+        f"Zeile {nummer}: {zeile.strip()[:70]}"
+        for nummer, zeile in enumerate(_lesen(pfad).splitlines(), 1)
+        if FREMDE_WERKZEUGE.search(zeile)
+    ]
+    assert not treffer, f"{pfad.name} verweist auf ein fremdes Werkzeug:\n" + "\n".join(
+        treffer[:5]
+    )

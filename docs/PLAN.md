@@ -127,8 +127,8 @@ Tabellenkopfzeile, ein am Blattrand klebendes Struktogramm und eine
 Druckvorschau, die das Fenster 48 Sekunden eingefroren hätte.
 
 **M8 ist abgeschlossen** (September 2026): Abnahme bestanden mit
-`beispielprojekte/Pizza` – aus `tests/daten/lazarus/f_Pizza` über
-„Werkzeuge → Lazarus-Formular importieren …“ übernommen, im Designer
+`beispielprojekte/Pizza` – aus `tests/daten/lfm/f_Pizza` über
+„Werkzeuge → Formular importieren (.lfm) …“ übernommen, im Designer
 fertiggestellt, als ZIP gebaut und aus einem frischen Ordner gestartet
 – sowie dem signierten Prüfsummen-Manifest, das eine manipulierte
 `Natter.exe`-Installation beim Start erkennt (Details in
@@ -147,7 +147,7 @@ sodass in **jedem** Schülerprogramm der Markierungszustand fehlte.
 Der bisherige Verlauf von M8, kleinteilig aufgeschlüsselt in
 [`docs/arbeitspakete/M8.md`](arbeitspakete/M8.md) (wie M1–M7): Schritt 1
 (`.lfm`-Parser), Schritt 2 (Klassen-/Eigenschaftszuordnung nach `.pfm`),
-Schritt 3 (IDE-Verdrahtung „Werkzeuge → Lazarus-Formular importieren …“,
+Schritt 3 (IDE-Verdrahtung „Werkzeuge → Formular importieren (.lfm) …“,
 per Screenshot gegen das echte `k_Ampel`-`.lfm` geprüft; Pascal-Rumpf-
 Übernahme und Bild-Extraktion daraus zurückgestellt) und der Kern von
 Schritt 4 (PyInstaller-Export über „Projekt → Als Exe exportieren …“,
@@ -155,7 +155,7 @@ mit einem **echten** PyInstaller-Bau des Ampel-Beispielprojekts geprüft
 – dabei einen echten Absturz gefunden und behoben: `pcl.theme` fand
 `design/tokens.json` in der gebauten Exe nicht, betraf jedes
 `pcl`-Programm, siehe M8.md) sind erledigt – 675 Tests grün zu dem
-Zeitpunkt, gegen alle 19 echten `tests/daten/lazarus/*.lfm`-Dateien
+Zeitpunkt, gegen alle 19 echten `tests/daten/lfm/*.lfm`-Dateien
 geprüft. Offen bleibt aus M8 nur noch ein optionales, gekauftes (statt
 selbst erstelltes) Authenticode-Zertifikat für Verteilung an unbekannte
 Rechner außerhalb der Schule. Seither ein
@@ -305,14 +305,14 @@ dorthin zu springen.
 
 ## Referenzmaterial
 
-- [x] Lazarus-Übungsprojekte als Prüfdaten in `tests/daten/lazarus/`
+- [x] Lazarus-Übungsprojekte als Prüfdaten in `tests/daten/lfm/`
   vorhanden (20 Projekte,
   mehr als die 8 MVP-Projekte aus Abschnitt 1) – nur Quelltext (`.pas`,
   `.lfm`, `.lpi`, `.lpr`) und Bilder committet; `lib/`, `backup/`, `*.exe`,
   `*.res`, `*.lps` sind ausgeschlossen (Kompilate/Sessiondaten,
   ungefiltert ca. 490 MB, nicht nötig). **Seit M14** liegen nur noch
   die 47 Dateien im Repository, die Tests wirklich lesen – aus
-  `referenz/` wurde `tests/daten/lazarus/`, aus 490 MB wurden 185 kB
+  `referenz/` wurde `tests/daten/lfm/`, aus 490 MB wurden 185 kB
 - [x] Zuordnungstabelle Projekt → benötigte `pcl`-Komponenten/Konzepte:
   überholt und abgelöst. `docs/komponenten.md` führt die Komponenten
   vollständig, und der Lehrgang in `beispielprojekte/` ordnet sie
@@ -322,7 +322,7 @@ dorthin zu springen.
   bringt eine deutsche CSV mit Dezimalkomma mit, `06_Kontoverwaltung`
   eine SQLite-Datenbank samt drei `.pdiag`-Diagrammen
 
-### Referenzprojekte in `tests/daten/lazarus/`
+### Referenzprojekte in `tests/daten/lfm/`
 
 | Ordner | Deckt ab (grob) |
 |---|---|
@@ -420,7 +420,7 @@ Wird während M1 verfeinert (genaue Komponentenliste je Projekt), sobald die
 - [x] **Eigenschaften-Abgleich mit Lazarus** (Nutzer-Frage „Habe ich die
   Attribute genau wie in Lazarus?“, September 2026): systematischer
   Abgleich aller `pcl`-`Prop`/`Event`-Namen gegen jede tatsächlich in
-  `tests/daten/lazarus/*/unit1.lfm` verwendete Eigenschaft. Ergebnis: alle
+  `tests/daten/lfm/*/unit1.lfm` verwendete Eigenschaft. Ergebnis: alle
   in den Referenzprojekten genutzten Komponententypen haben eine
   `pcl`-Entsprechung; vier echte Eigenschaftslücken gefunden und behoben:
   `Label.on_click` (Lazarus `TLabel.OnClick`, für Cookie-Klicker-artige
@@ -521,13 +521,13 @@ zerlegt, jeder Schritt für sich mit `pytest` abgesichert.
 
 ### 5. Ampel nachbauen (erstes Abnahmeprojekt) — erledigt
 
-- [x] `.pfm` von Hand aus `tests/daten/lazarus/k_Ampel/u_main.lfm` abgeleitet
+- [x] `.pfm` von Hand aus `tests/daten/lfm/k_Ampel/u_main.lfm` abgeleitet
   (Buttons `b_einschalten`/`b_wechseln`/`b_auschalten`, Label, Gehäuse-
   und drei Ampellicht-`Shape`s) → `beispielprojekte/Ampel/u_main.pfm`
   (das Ampel-Projekt ist mit dem Lehrgang in M14 aufgegangen)
 - [x] `u_main_design.py` mit dem Generator erzeugt (nicht von Hand)
 - [x] `u_ampel.py`: `Ampel`-Klasse, reines Python, Zustandsautomat 1↔2↔3↔4
-  originalgetreu aus `tests/daten/lazarus/k_Ampel/u_tampel.pas` übernommen
+  originalgetreu aus `tests/daten/lfm/k_Ampel/u_tampel.pas` übernommen
 - [x] `u_main.py` (Event-Handler, Farblogik aus `u_main.pas`
   originalgetreu übernommen) + `main.py`
 - [x] Abnahme (`tests/test_beispiel_ampel.py`, 4 Tests): Startzustand
@@ -621,14 +621,14 @@ zerlegt, jeder Schritt für sich mit `pytest` abgesichert.
 
 ### 8. Zweites/drittes Abnahmeprojekt — erledigt
 
-- [x] Würfelspiel mit Highscore (`tests/daten/lazarus/q_Würfelspiel` als
+- [x] Würfelspiel mit Highscore (`tests/daten/lfm/q_Würfelspiel` als
   Vorlage) → `beispielprojekte/Wuerfelspiel/`; alle benötigten
   Komponenten (`Button`, `Label`, `StringGrid`, `input_box`) waren bereits
   aus Schritt 6 vorhanden. Abnahme: `tests/test_beispiel_wuerfelspiel.py`,
   4 Tests über echte Qt-Klicks, Zufall kontrolliert über
   `monkeypatch("random.randint", ...)`, Namensabfrage beim Verlieren über
   `QTimer.singleShot` bedient wie in `tests/test_dialogs.py`
-- [x] StringGrid-Übung (`tests/daten/lazarus/g_StringGrid` als Vorlage) →
+- [x] StringGrid-Übung (`tests/daten/lfm/g_StringGrid` als Vorlage) →
   `beispielprojekte/StringGridUebung/`; dafür `Form.close()` ergänzt
   (entspricht `Close` aus der LCL, für `b_schliessen`). Abnahme:
   `tests/test_beispiel_stringgriduebung.py`, 5 Tests, inkl. der
@@ -709,7 +709,7 @@ und Chart-Komponente (beide unabhängig von der Datenbank), `open_url`,
 Data Controls, IDE-Betrachter (CSV/Bild/HTML), Datenbank-Panel, zuletzt
 die Abnahme.
 
-- [x] Abnahme: Kontoverwaltung (`tests/daten/lazarus/n_konto`) mit SQLite,
+- [x] Abnahme: Kontoverwaltung (`tests/daten/lfm/n_konto`) mit SQLite,
   CSV-Auswertung mit pandas in StringGrid und Chart, Würfelspiel-
   Highscore als HTML im Browser – MariaDB-Teil zurückgestellt (siehe
   M5.md, „Stolperstein MariaDB“)
@@ -741,7 +741,7 @@ Kleinteilig aufgeschlüsselt in
 Verteilung brauchen einen echten Windows-Rechner, siehe M8.md.
 
 - [x] `.lfm`-Import (Parser, Zuordnungstabelle, Abschnitt 15) – mit
-  echten `.lfm`-Dateien aus `tests/daten/lazarus/` getestet
+  echten `.lfm`-Dateien aus `tests/daten/lfm/` getestet
 - [x] Exe-Export (PyInstaller-Pipeline) – sowohl für Schülerprojekte
   (`ide/export/exporter.py`) als auch für Natter selbst
   (`tools/ide_paketieren.py`), Icon `ide/assets/icons/app.ico` für die
@@ -759,7 +759,7 @@ Verteilung brauchen einen echten Windows-Rechner, siehe M8.md.
 - [x] Abnahme: ein Lazarus-Übungsprojekt importieren, fertigstellen, als
   Exe starten; ZIP auf Rechner ohne Python entpacken und vollständig
   nutzen; veränderte Datei wird erkannt – erfüllt mit
-  `beispielprojekte/Pizza` (aus `tests/daten/lazarus/f_Pizza` importiert,
+  `beispielprojekte/Pizza` (aus `tests/daten/lfm/f_Pizza` importiert,
   im Designer fertiggestellt, als ZIP gebaut und aus einem frischen
   Ordner gestartet) und der Manipulationsprüfung an der echten
   gebauten `Natter.exe`, siehe M8.md, Schritt 4 und 6
@@ -941,7 +941,7 @@ Ausdrücklicher Wunsch des Nutzers, gilt für jeden Schritt:
 > **Hinweis zu den Pfaden in diesem Dokument (Stand M14):** Den Ordner
 > `referenz/` gibt es nicht mehr — 490 MB Lazarus-Projekte samt
 > gebauten Exen. Die 47 Dateien, gegen die der Lazarus-Import geprüft
-> wird, liegen jetzt als Prüfdaten in `tests/daten/lazarus/`. Die
+> wird, liegen jetzt als Prüfdaten in `tests/daten/lfm/`. Die
 > Pfadangaben in diesem Dokument sind am 19. September 2026 darauf
 > umgestellt worden; wo im Fließtext noch von „der Referenz" die Rede
 > ist, ist dieser Ordner gemeint.
@@ -1011,8 +1011,8 @@ Dieselbe Übung wie M11, aber aus der anderen Richtung: nicht „tut die
 IDE, was sie soll", sondern „kommt eine Schülerin damit zurecht".
 
 - [x] Oberfläche und Programmierung für Lernende durchgesehen
-- [x] Umstieg Pascal → Python als eigene Hilfeseite
-  (`docs/umstieg_pascal_python.md`), Code-Stellen in der Hilfe lesbar
+- [x] Code-Stellen in der Hilfe lesbar (die Umstiegsseite selbst ist
+  im September 2026 entfallen)
 - [x] Der Fehlerkatalog erreicht die Schüler auch ohne Debugger
 - [x] Komponenten-Referenz für Lernende geöffnet
 - [x] Die gebaute Exe war an vier Stellen kaputt – gefunden, weil sie
@@ -1036,7 +1036,7 @@ Kleinteilig in [`docs/arbeitspakete/M13.md`](arbeitspakete/M13.md).
 Kleinteilig in [`docs/arbeitspakete/M14.md`](arbeitspakete/M14.md).
 
 - [x] Ballast raus: Serena entfernt, die 490 MB Lazarus-Referenz auf
-  185 kB Prüfdaten in `tests/daten/lazarus/` eingedampft – ohne einen
+  185 kB Prüfdaten in `tests/daten/lfm/` eingedampft – ohne einen
   einzigen Test zu verlieren
 - [x] Aus elf lose gesammelten Beispielen wurde ein **Lehrgang** aus
   neun aufeinander aufbauenden Projekten, von der Konsolenausgabe bis

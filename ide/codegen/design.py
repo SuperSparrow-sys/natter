@@ -161,7 +161,7 @@ def _kinder_mit_eltern(
     `children` eingesammelt wird.
 
     Die Namen bleiben dabei flach - ein Knopf im Panel heißt weiter
-    `self.b_ok`, wie in Lazarus. Verschachtelt ist nur, woran er hängt.
+    `self.b_ok`. Verschachtelt ist nur, woran er hängt.
     """
     ergebnis: list[tuple[dict[str, Any], str]] = []
     for kind in eintrag.get("children", []):

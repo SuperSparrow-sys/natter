@@ -272,9 +272,9 @@ class DBNavigator(_DatenControl):
     bewegen direkt den Datensatzzeiger von ``data_source.dataset`` und
     benachrichtigen die `DataSource` automatisch. Einfügen/Löschen/
     Speichern/Abbrechen lösen dagegen nur die Ereignisse
-    ``on_insert``/``on_delete``/``on_save``/``on_cancel`` aus – anders
-    als in Lazarus, wo der Dataset automatisch die passende SQL-
-    Anweisung erzeugt, schreibt der Kurs SQL immer selbst
+    ``on_insert``/``on_delete``/``on_save``/``on_cancel`` aus – eine
+    passende SQL-Anweisung entsteht nicht von selbst, der Kurs schreibt
+    SQL immer selbst
     (Abschnitt 10.1: ``self.query.sql = ...`` / ``exec_sql()``);
     `DBNavigator` stellt dafür nur die Schaltfläche und den Auslöser
     bereit, die tatsächliche Anweisung schreibt die Ereignis-Methode."""

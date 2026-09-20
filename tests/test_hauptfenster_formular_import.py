@@ -1,6 +1,6 @@
 """Tests für „Werkzeuge → Lazarus-Formular importieren …“ (Abschnitt 15).
 Siehe docs/arbeitspakete/M8.md, Schritt 3. Ein eigenes, minimales `.lfm`
-in `tmp_path` (kein Zugriff auf `tests/daten/lazarus/`, dessen echte
+in `tmp_path` (kein Zugriff auf `tests/daten/lfm/`, dessen echte
 Dateien sind bereits in tests/test_lfm_parser.py/test_lfm_zuordnung.py
 abgedeckt - hier nur die IDE-Verdrahtung).
 """
@@ -59,7 +59,7 @@ def test_import_erzeugt_gueltiges_pfm_und_oeffnet_den_designer(
     _dialoge_vorbereiten(monkeypatch, tmp_path, quelle=quelle, ziel=ziel)
     fenster = HauptFenster()
 
-    fenster._lazarus_formular_importieren_aktion()
+    fenster._formular_importieren_aktion()
 
     assert ziel.exists()
     daten = json.loads(ziel.read_text(encoding="utf-8"))
@@ -80,7 +80,7 @@ def test_import_zeigt_importbericht_fuer_nicht_unterstuetzte_komponente(
     _dialoge_vorbereiten(monkeypatch, tmp_path, quelle=quelle, ziel=ziel)
     fenster = HauptFenster()
 
-    fenster._lazarus_formular_importieren_aktion()
+    fenster._formular_importieren_aktion()
 
     meldungen = [
         fenster.meldungen_liste.item(i).text() for i in range(fenster.meldungen_liste.count())
@@ -95,7 +95,7 @@ def test_import_abgebrochen_bei_der_quelle_tut_nichts(
     monkeypatch.setattr(QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: ("", "")))
     fenster = HauptFenster()
 
-    fenster._lazarus_formular_importieren_aktion()
+    fenster._formular_importieren_aktion()
 
     assert fenster.editor_tabs.count() == 0
 
@@ -111,7 +111,7 @@ def test_import_abgebrochen_beim_ziel_schreibt_keine_datei(
     monkeypatch.setattr(QFileDialog, "getSaveFileName", staticmethod(lambda *a, **k: ("", "")))
     fenster = HauptFenster()
 
-    fenster._lazarus_formular_importieren_aktion()
+    fenster._formular_importieren_aktion()
 
     assert fenster.editor_tabs.count() == 0
 
@@ -126,7 +126,7 @@ def test_import_mit_ungueltigem_lfm_zeigt_fehlermeldung(
     )
     fenster = HauptFenster()
 
-    fenster._lazarus_formular_importieren_aktion()
+    fenster._formular_importieren_aktion()
 
     assert "fehlgeschlagen" in fenster.statusBar().currentMessage()
     assert fenster.editor_tabs.count() == 0
@@ -134,7 +134,7 @@ def test_import_mit_ungueltigem_lfm_zeigt_fehlermeldung(
 
 # -- Pascal-Rümpfe und Bilder aus Picture.Data (M8, Schritt 3) --------------
 
-_REFERENZ = Path(__file__).resolve().parent / "daten" / "lazarus"
+_REFERENZ = Path(__file__).resolve().parent / "daten" / "lfm"
 
 _PAS_TEXT = """\
 unit unit1;
@@ -167,14 +167,14 @@ def test_import_uebernimmt_pascal_ruempfe_als_kommentar_in_die_unit(
     _dialoge_vorbereiten(monkeypatch, tmp_path, quelle=quelle, ziel=ziel)
     fenster = HauptFenster()
 
-    fenster._lazarus_formular_importieren_aktion()
+    fenster._formular_importieren_aktion()
 
     unit = tmp_path / "u_main.py"
     assert unit.exists()
     quelltext = unit.read_text(encoding="utf-8")
     assert "class Form1(Form1Design):" in quelltext
     assert "def b_start_click(self, sender):" in quelltext
-    assert "# Pascal-Rumpf von b_startClick aus unit1.pas (Lazarus-Import)," in quelltext
+    assert "# Pascal-Rumpf von b_startClick aus unit1.pas," in quelltext
     assert "#   ShowMessage('los');" in quelltext
     assert "def form_create(self, sender):" in quelltext
     assert "#   Caption := 'Start';" in quelltext
@@ -191,7 +191,7 @@ def test_import_ohne_pas_datei_meldet_das_und_legt_leere_methoden_an(
     _dialoge_vorbereiten(monkeypatch, tmp_path, quelle=quelle, ziel=ziel)
     fenster = HauptFenster()
 
-    fenster._lazarus_formular_importieren_aktion()
+    fenster._formular_importieren_aktion()
 
     meldungen = [
         fenster.meldungen_liste.item(i).text() for i in range(fenster.meldungen_liste.count())
@@ -214,7 +214,7 @@ def test_import_ueberschreibt_vorhandene_unit_nicht(
     _dialoge_vorbereiten(monkeypatch, tmp_path, quelle=quelle, ziel=ziel)
     fenster = HauptFenster()
 
-    fenster._lazarus_formular_importieren_aktion()
+    fenster._formular_importieren_aktion()
 
     assert unit.read_text(encoding="utf-8") == "# eigener Code\n"
     meldungen = [
@@ -226,7 +226,7 @@ def test_import_ueberschreibt_vorhandene_unit_nicht(
 def test_import_schreibt_bilder_aus_picture_data_nach_assets(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Gegen eine echte Lazarus-Datei aus `tests/daten/lazarus/`: erst
+    """Gegen eine echte Lazarus-Datei aus `tests/daten/lfm/`: erst
     in `tmp_path` kopieren (AGENTS.md - eingecheckte Dateien nie im
     Test verändern), dann importieren."""
     quelle = tmp_path / "u_quelle.lfm"
@@ -236,7 +236,7 @@ def test_import_schreibt_bilder_aus_picture_data_nach_assets(
     _dialoge_vorbereiten(monkeypatch, tmp_path, quelle=quelle, ziel=ziel)
     fenster = HauptFenster()
 
-    fenster._lazarus_formular_importieren_aktion()
+    fenster._formular_importieren_aktion()
 
     bild = tmp_path / "assets" / "Image1.png"
     assert bild.exists()

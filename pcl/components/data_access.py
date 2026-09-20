@@ -54,8 +54,7 @@ from pcl.properties import Komponente, Prop
 
 
 class SQLite3Connection(Komponente):
-    """Verbindung zu einer SQLite-Datenbank (entspricht
-    ``TSQLite3Connection`` in Lazarus). ``database_name`` ist ein
+    """Verbindung zu einer SQLite-Datenbank. ``database_name`` ist ein
     Dateipfad oder ``":memory:"``.
 
     Der kurze Weg öffnet im Konstruktor::
@@ -199,7 +198,7 @@ class SQLite3Connection(Komponente):
 
 
 class _Feld:
-    """Ergebnis von ``SQLQuery.field_by_name()`` (entspricht ``TField``):
+    """Ergebnis von ``SQLQuery.field_by_name()``:
     ein einzelner Zellenwert des aktuellen Datensatzes, typisiert
     abrufbar."""
 
@@ -366,9 +365,9 @@ class DataSource(Komponente):
     """Bindeglied zwischen einer `SQLQuery` und den Data Controls:
     ``dataset`` verweist auf die anzuzeigende Abfrage.
 
-    Vereinfachung, bewusst dokumentiert: anders als `TDataSet` in
-    Lazarus, das gebundene Controls automatisch benachrichtigt, ruft hier
-    `aktualisieren()` die Benachrichtigung bewusst explizit aus – von
+    Vereinfachung, bewusst dokumentiert: die gebundenen Controls
+    erfahren nichts von selbst, `aktualisieren()` löst die
+    Benachrichtigung ausdrücklich aus – von
     `DBNavigator` intern nach jeder Navigation, sonst nach eigenem
     `query.open()`/`query.set_field()` selbst aufzurufen."""
 

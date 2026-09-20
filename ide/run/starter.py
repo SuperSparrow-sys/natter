@@ -30,7 +30,7 @@ from ide.run.interpreter import python_befehl
 #: ist dann weg, bevor jemand sie lesen konnte. Genau deshalb hatte der
 #: Nutzer angefangen, `input()` von Hand ans Ende seiner Beispiele zu
 #: schreiben; das gehört aber in den Starter und nicht in jedes
-#: Programm. Lazarus und Delphi machen es genauso.
+#: Programm.
 #:
 #: Die Pause kommt auch nach einem Absturz – gerade dann will man
 #: den Fehler lesen können. Deshalb `finally` und nicht nur der
@@ -47,8 +47,7 @@ _KONSOLEN_HUELLE = (
     "titel, skript = sys.argv[1], sys.argv[2]\n"
     "sys.argv = sys.argv[2:]\n"
     # Fenstertitel setzen, sonst steht dort der ganze Python-Aufruf mit
-    # dem Hüllen-Quelltext darin. Lazarus benennt sein Konsolenfenster
-    # genauso nach dem Programm.
+    # dem Hüllen-Quelltext darin; im Titel steht der Programmname.
     "if sys.platform == 'win32':\n"
     "    try:\n"
     "        import ctypes\n"

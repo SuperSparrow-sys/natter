@@ -34,8 +34,8 @@ __all__ = ["Control", "EREIGNIS_PARAMETER", "MAUS_EREIGNISSE"]
 
 #: Was eine Ereignis-Methode über `sender` hinaus bekommt.
 #:
-#: `on_click` und `on_double_click` bleiben bei `(self, sender)` - wie
-#: `OnClick(Sender)` in Lazarus. Wer weiß, wo geklickt wurde, nimmt
+#: `on_click` und `on_double_click` bleiben bei `(self, sender)`: mehr
+#: braucht ein Klick nicht. Wer weiß, wo geklickt wurde, nimmt
 #: `on_mouse_down`; dort stehen die Koordinaten dabei, gezählt von der
 #: linken oberen Ecke der Komponente. Der Ereignis-Generator
 #: (`ide/codegen/ereignis.py`) legt die Methode danach mit der richtigen
@@ -45,9 +45,8 @@ EREIGNIS_PARAMETER: dict[str, tuple[str, ...]] = {
     "on_mouse_move": ("x", "y"),
     "on_mouse_up": ("x", "y"),
     # `StringGrid`: welche Zelle. Ohne Spalte und Zeile müsste der
-    # Schüler im Handler erst `sender` nach der Auswahl fragen - genau
-    # die Umständlichkeit, die Lazarus' `OnSelectCell(Sender, ACol,
-    # ARow, …)` sich spart.
+    # Schüler im Handler erst `sender` nach der Auswahl fragen - eine
+    # Umständlichkeit, die zwei Parameter erledigen.
     "on_select_cell": ("spalte", "zeile"),
     "on_edit_cell": ("spalte", "zeile", "text"),
 }
@@ -99,9 +98,8 @@ class Control(Komponente):
     #: Manche Komponenten haben nichts anzuzeigen - ein Zeitgeber etwa
     #: tickt nur. Im Designer braucht man sie trotzdem: man muss sie
     #: anklicken können, um im Objektinspektor ihr Intervall
-    #: einzustellen. Lazarus löst das seit jeher mit einem kleinen
-    #: Symbol auf dem Formular, das im laufenden Programm verschwindet;
-    #: genau das macht diese Angabe.
+    #: einzustellen. Dafür steht ein kleines Symbol auf dem Formular, das
+    #: im laufenden Programm verschwindet; genau das macht diese Angabe.
     #:
     #: Der Rest der IDE braucht dafür keine Sonderfälle: solche
     #: Komponenten sind gewöhnliche `Control`s und tauchen damit von
@@ -195,8 +193,8 @@ class Control(Komponente):
 
     @property
     def popup_menu(self) -> Any:
-        """Das Klappmenü, das auf die rechte Maustaste erscheint (wie
-        `TControl.PopupMenu` in Lazarus), oder `None`.
+        """Das Klappmenü, das auf die rechte Maustaste erscheint, oder
+        `None`.
 
         Zugewiesen wird eine `PopupMenu`-Komponente vom Formular:
         ``self.sg_tabelle.popup_menu = self.pm_tabelle``. Die Zuordnung
@@ -223,7 +221,7 @@ class Control(Komponente):
 
     @property
     def font(self) -> Font:
-        """Schriftart der Komponente (wie `TFont` in Lazarus), z. B.
+        """Schriftart der Komponente, z. B.
         ``self.m_zettel.font.size = 12``."""
         return self._font
 
@@ -263,18 +261,17 @@ class Control(Komponente):
 
     def _maus_melden(self, name: str, ereignis: Any) -> None:
         """Wie `_ereignis_ausloesen`, aber mit den Koordinaten des
-        Zeigers - gezählt von der linken oberen Ecke der Komponente,
-        wie in Lazarus."""
+        Zeigers - gezählt von der linken oberen Ecke der Komponente."""
         stelle = ereignis.position()
         self._ereignis_ausloesen(name, int(stelle.x()), int(stelle.y()))
 
     def nach_vorne_bringen(self) -> None:
         """Holt die Komponente vor alle überlappenden Geschwister-
-        Komponenten (Z-Ebene, wie Lazarus' `BringToFront`) - z. B. ein
+        Komponenten (Z-Ebene) - z. B. ein
         `Label`, das über einer `Shape` liegen soll."""
         self._qwidget.raise_()
 
     def nach_hinten_schicken(self) -> None:
         """Schickt die Komponente hinter alle überlappenden Geschwister-
-        Komponenten (wie Lazarus' `SendToBack`)."""
+        Komponenten (Z-Ebene)."""
         self._qwidget.lower()

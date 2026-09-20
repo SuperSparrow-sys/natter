@@ -12,7 +12,7 @@ from ide.import_lfm.pascal import (
     rumpf_als_kommentar,
 )
 
-_REFERENZ = Path(__file__).resolve().parent / "daten" / "lazarus"
+_REFERENZ = Path(__file__).resolve().parent / "daten" / "lfm"
 
 _PAS = """\
 unit u_main;
@@ -138,7 +138,7 @@ def test_rumpf_als_kommentar_ruecken_ein_und_lassen_leerzeilen_ohne_leerzeichen(
 
 
 def test_echte_referenzdatei_l_pet() -> None:
-    """Gegen eine echte Lazarus-Unit aus `tests/daten/lazarus/` statt nur
+    """Gegen eine echte Lazarus-Unit aus `tests/daten/lfm/` statt nur
     gegen ein Fixture (nur lesend)."""
     pfad = _REFERENZ / "l_Pet" / "u_main.pas"
     ruempfe = prozedur_ruempfe_lesen(pas_text_lesen(pfad))

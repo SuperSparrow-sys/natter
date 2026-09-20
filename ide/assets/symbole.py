@@ -7,10 +7,9 @@ in `ide/actions/register.py`.
 Symbolraster (M11, Abschnitt 1 – verbindlich für jedes neue Symbol)
 =====================================================================
 
-Vorgabe des Nutzers: *filigraner als bisher, näher an Lazarus, etwas
-bunter*. Die Zielgruppe kennt Lazarus aus dem Unterricht; ein Symbol
-soll deshalb ein kleines Bild der Sache sein (gefüllte Fläche mit
-Kontur), keine reine Strichzeichnung.
+Vorgabe des Nutzers: filigraner als bisher und etwas bunter. Ein Symbol
+soll ein kleines Bild der Sache sein (gefüllte Fläche mit Kontur),
+keine reine Strichzeichnung.
 
 Fläche und Innenabstand
 

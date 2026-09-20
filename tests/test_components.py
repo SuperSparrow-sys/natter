@@ -81,7 +81,7 @@ def _klicken(widget) -> None:
 
 def test_label_klick_loest_on_click_mit_sender_aus() -> None:
     # Anklickbares Label wie in Lazarus (TLabel.OnClick), z. B. für
-    # Cookie-Klicker-artige Übungen (tests/daten/lazarus/d_Cookie_klicker).
+    # Cookie-Klicker-artige Übungen (tests/daten/lfm/d_Cookie_klicker).
     formular = _Formular()
     empfangen = []
     formular.l_titel.on_click = lambda sender: empfangen.append(sender)
@@ -123,7 +123,7 @@ def test_shape_shape_eigenschaft_aenderbar() -> None:
 
 def test_shape_rounded_rectangle_ist_eine_gueltige_form() -> None:
     # Entspricht Lazarus TShape.Shape = stRoundSquare
-    # (tests/daten/lazarus/b_schneefigur/unit1.lfm).
+    # (tests/daten/lfm/b_schneefigur/unit1.lfm).
     formular = _Formular()
     formular.s_rot.shape = "rounded_rectangle"
     assert formular.s_rot.shape == "rounded_rectangle"

@@ -136,9 +136,9 @@ PANEL_REITER = ("Meldungen", "Ausgabe", "Variablen", "Aufrufstapel", "Tests")
 _LAUFZEIT_TAKT_MS = 500
 
 #: Kurzhinweise zu den Reitern unten und zu den Docks (M11, Abschnitt 4).
-#: „Aufrufstapel“ oder „Objektinspektor“ sagen jemandem, der gerade von
-#: Lazarus kommt, noch nichts – und ein Fenster, dessen Zweck man raten
-#: muss, wird nicht benutzt.
+#: „Aufrufstapel“ oder „Objektinspektor“ sagen einem Anfänger noch
+#: nichts – und ein Fenster, dessen Zweck man raten muss, wird nicht
+#: benutzt.
 PANEL_HINWEISE = {
     "Meldungen": "Fehler und Hinweise aus der Prüfung vor dem Start",
     "Ausgabe": "Was das laufende Programm ausgibt (print) und was man ihm eintippt",
@@ -229,13 +229,11 @@ def _kommentar_umschalten_zeilen(zeilen: list[str]) -> list[str]:
 def neue_unit_vorlage(name: str) -> str:
     """Das Gerüst, mit dem eine neue Unit entsteht.
 
- Bis M12 legte „Neue Unit“ eine völlig leere Datei an. In Lazarus bekommt
- man dagegen `unit …; interface; uses …; implementation; end.` und weiß
- auf einen Blick, wohin was gehört (Gemeldet: „wenn es muss wie bei
- Lazarus eine konkrete Abfolge geben und eine Struktur“). Dieselben drei
- Dinge stehen hier: wofür die Unit da ist, wo die Importe hingehören und
- wie andere Units an ihren Inhalt kommen – das Gegenstück zu Lazarus'
- `uses`.
+ Bis M12 legte „Neue Unit“ eine völlig leere Datei an, und vor einer
+ leeren Datei weiß niemand, wohin was gehört (Gemeldet: „es muss eine
+ konkrete Abfolge geben und eine Struktur“). Drei Dinge stehen deshalb
+ von Anfang an darin: wofür die Unit da ist, wo die Importe hingehören
+ und wie andere Units an ihren Inhalt kommen.
  """
     return f'''\
 """{name} – wofür ist diese Unit da?
@@ -299,7 +297,7 @@ class HauptFenster(QMainWindow):
         self.werkzeugleiste.setObjectName("Haupt-Werkzeugleiste")
         self.werkzeugleiste.setMovable(False)
         # Gemeldet: die obere Leiste sollte
-        # insgesamt kompakter sein, wie in Lazarus/VS Code.
+        # insgesamt kompakter sein.
         self.werkzeugleiste.setIconSize(QSize(18, 18))
 
         self.editor_tabs = QTabWidget()
@@ -465,8 +463,8 @@ class HauptFenster(QMainWindow):
             self._vervollstaendigung_umschalten
         )
 
-        # „Ansicht → Zeilenumbruch“ (M11, Abschnitt 2.3). Aus, wie in
-        # Lazarus: in Python trägt die Einrückung Bedeutung, und eine
+        # „Ansicht → Zeilenumbruch“ (M11, Abschnitt 2.3). Standardmäßig
+        # aus: in Python trägt die Einrückung Bedeutung, und eine
         # umgebrochene Zeile sieht aus wie zwei. Wer eine lange Zeile
         # ganz sehen will, schaltet ihn dazu.
         self.zeilenumbruch_aktion = self._menues["Ansicht"].addAction(
@@ -733,14 +731,6 @@ class HauptFenster(QMainWindow):
         )
         self.aktionen.registrieren(
             Aktion(
-                "hilfe.umstieg",
-                "Umstieg Pascal → Python",
-                menue="Hilfe",
-                callback=self._umstieg_aktion,
-            )
-        )
-        self.aktionen.registrieren(
-            Aktion(
                 "hilfe.komponenten_referenz",
                 "Komponenten-Referenz",
                 menue="Hilfe",
@@ -882,10 +872,10 @@ class HauptFenster(QMainWindow):
         )
         self.aktionen.registrieren(
             Aktion(
-                "werkzeuge.lazarus_formular_importieren",
-                "Lazarus-Formular importieren …",
+                "werkzeuge.formular_importieren",
+                "Formular importieren (.lfm) …",
                 menue="Werkzeuge",
-                callback=self._lazarus_formular_importieren_aktion,
+                callback=self._formular_importieren_aktion,
             )
         )
         self._design_pruefung_automatisch_aktion.qaction.setCheckable(True)
@@ -1001,14 +991,13 @@ class HauptFenster(QMainWindow):
 
         # „Ansicht → Formular und Code wechseln“ (Abschnitt 7.9). Stand
         # seit M2 als Vermerk im Explorer („folgt später“) und ist der
-        # eine Handgriff, den jemand aus Lazarus als Erstes vermisst:
-        # dort liegt er auf F12.
+        # Handgriff, der beim Bauen einer Oberfläche am häufigsten
+        # gebraucht wird.
         #
         # Hier auf Umschalt+F12, nicht auf F12. Das gehört im Editor
         # seit M11 zu „Zur Definition springen“, wie in VS Code - und
         # ein Tastenkürzel, das je nach Reiter etwas anderes tut, ist
-        # schlimmer als eins, das man einmal neu lernt. Umschalt+F12
-        # liegt in Lazarus auf der Formularliste, also nah genug.
+        # schlimmer als eins, das man einmal neu lernt.
         #
         # Als richtige `Aktion` registriert, aber von Hand ins Menü
         # gehängt: nur als Aktion steht sie in der
@@ -1142,8 +1131,7 @@ class HauptFenster(QMainWindow):
         Sie steht bewusst nicht im Projekt-Explorer: Natter schreibt sie
         beim Anlegen des Projekts, danach ändert sie niemand mehr. Eine
         Datei, die man nicht bearbeiten soll, gehört nicht zwischen die,
-        an denen man arbeitet – genau so hält es Lazarus mit der
-        Projektdatei `.lpr` (M12). Wer trotzdem hineinsehen will, kommt
+        an denen man arbeitet (M12). Wer trotzdem hineinsehen will, kommt
         über diesen Eintrag hin."""
         if self.projekt is None:
             self.statusBar().showMessage(
@@ -1536,19 +1524,6 @@ class HauptFenster(QMainWindow):
         self.hilfe_zeigen(titel, pfad.read_text(encoding="utf-8"))
         return True
 
-    def _umstieg_aktion(self) -> bool:
-        """„Hilfe → Umstieg Pascal → Python“.
-
-        Im Konzept (Abschnitt 7.2) seit jeher vorgesehen, gebaut wurde
-        sie nie – dabei ist sie für die Zielgruppe das, was am
-        häufigsten nachgeschlagen wird: `begin…end` gegen Einrückung,
-        `:=` gegen `=`, `writeln` gegen `print`. Die Tabellen standen
-        bis M12 nur in `README.md` und waren damit für genau die
-        Leute unerreichbar, die sie brauchen."""
-        return self._hilfedatei_zeigen(
-            "umstieg_pascal_python.md", "Umstieg Pascal → Python"
-        )
-
     def _erste_schritte_aktion(self) -> bool:
         """„Erste Schritte“ – vom Startbild und aus dem Menü „Hilfe“.
 
@@ -1641,7 +1616,7 @@ class HauptFenster(QMainWindow):
         Liefert `None`, wenn die Datei sich nicht als Text lesen lässt –
         dann steht der Grund in der Statuszeile. Vorher flog der
         `UnicodeDecodeError` bis nach oben durch: bei einer `.exe` oder
-        einer alten, nicht in UTF-8 gespeicherten Pascal-Datei war
+        einer alten, nicht in UTF-8 gespeicherten Textdatei war
         Natter einfach weg (M11, Abschnitt 5).
 
         „Bereits offen“ heißt: in einem Editor offen. Ein Betrachter
@@ -2130,8 +2105,8 @@ class HauptFenster(QMainWindow):
         QMessageBox.about(
             self,
             "Über Natter",
-            "<h3>Natter</h3><p>Eine Lazarus-artige IDE für Python – "
-            "Umstieg von Pascal/Lazarus auf Python.</p>",
+            "<h3>Natter</h3><p>Eine Entwicklungsumgebung für Python – "
+            "Oberfläche entwerfen, Code schreiben, Programm starten.</p>",
         )
 
     def designer_oeffnen(self, pfad: Path) -> Form:
@@ -2225,7 +2200,7 @@ class HauptFenster(QMainWindow):
         """Bringt `u_*_design.py` auf den Stand der `.pfm` beim Öffnen.
 
         Der Designer selbst kompiliert den erzeugten Code nur im
-        Speicher. Real gefunden beim Lazarus-Import: das importierte
+        Speicher. Real gefunden beim Formular-Import: das importierte
         Formular erschien vollständig im Designer, aber die `.pfm` war
         die einzige Datei, die geschrieben wurde - `u_main_design.py`
         blieb das leere Vorlagenformular, das gestartete Programm zeigte
@@ -2272,9 +2247,9 @@ class HauptFenster(QMainWindow):
         """Springt zwischen dem Formular und seiner Unit hin und her
         (Abschnitt 7.9, Umschalt+F12).
 
-        In Lazarus ist das der meistbenutzte Handgriff überhaupt: man
-        legt einen Knopf ab, schreibt seinen Code, schaut wieder aufs
-        Formular. In Natter lagen beide bisher zwar als Reiter
+        Es ist der meistbenutzte Handgriff überhaupt: man legt einen
+        Knopf ab, schreibt seinen Code, schaut wieder aufs Formular.
+        In Natter lagen beide bisher zwar als Reiter
         nebeneinander, aber man musste sie suchen – und wenn die Unit
         noch gar nicht offen war, half auch das Suchen nicht.
 
@@ -2374,7 +2349,7 @@ class HauptFenster(QMainWindow):
         """Einfacher Klick in der Palette (Rückmeldung September
  2026: „ich möchte per Klick neue Objekte auf der GUI
  hinzufügen"): macht die Komponente „scharf" (Fadenkreuz-Cursor
- im Designer, wie in Lazarus) - der nächste Klick auf das
+ im Designer) - der nächste Klick auf das
  Formular platziert sie genau dort, automatisch in `.pfm` und den
  generierten Code übernommen (`_nach_aenderung`)."""
         if self._aktueller_canvas is None:
@@ -2467,15 +2442,15 @@ class HauptFenster(QMainWindow):
         self.panels.setCurrentWidget(self.meldungen_liste)
         self.statusBar().showMessage(ergebnis.als_meldung())
 
-    def _lazarus_formular_importieren_aktion(self) -> None:
-        """„Werkzeuge → Lazarus-Formular importieren …“ (Abschnitt 15):
+    def _formular_importieren_aktion(self) -> None:
+        """„Werkzeuge → Formular importieren (.lfm) …“ (Abschnitt 15):
         `.lfm` wählen, in `.pfm` umwandeln, unter einem gewählten Pfad
         speichern, im Designer öffnen und direkt durch den Design-Prüfer
         aus M7 laufen lassen. Nicht unterstützte Komponenten/
         Eigenschaften landen als Hinweis im Importbericht (Panel
         „Meldungen“), zusammen mit den Design-Prüfer-Funden."""
         quelle, _ = QFileDialog.getOpenFileName(
-            self, "Lazarus-Formular importieren", filter="Lazarus-Formulare (*.lfm)"
+            self, "Formular importieren", filter="Formulardateien (*.lfm)"
         )
         if not quelle:
             return
@@ -2484,7 +2459,7 @@ class HauptFenster(QMainWindow):
         except LfmParserError as fehler:
             self.statusBar().showMessage(
                 f"Import fehlgeschlagen: {fehler}. Ist die gewählte Datei wirklich ein "
-                f"Lazarus-Formular (.lfm)?"
+                f"Formular im .lfm-Format?"
             )
             return
         ergebnis = lfm_zu_pfm(lfm_objekt)
@@ -2505,14 +2480,14 @@ class HauptFenster(QMainWindow):
             return
 
         ziel_pfad = Path(ziel)
-        bild_pfade = self._lazarus_bilder_schreiben(ergebnis, ziel_pfad)
-        self._lazarus_unit_schreiben(ergebnis, Path(quelle), ziel_pfad, bild_pfade)
+        bild_pfade = self._import_bilder_schreiben(ergebnis, ziel_pfad)
+        self._import_unit_schreiben(ergebnis, Path(quelle), ziel_pfad, bild_pfade)
 
         formular = self.designer_oeffnen(Path(ziel))
         canvas = self._widget_zu_canvas[formular._qwidget]
         self._design_pruefen(canvas)
         for warnung in ergebnis.warnungen:
-            self.meldungen_liste.addItem(f"[Lazarus-Import] {warnung}")
+            self.meldungen_liste.addItem(f"[Formular-Import] {warnung}")
         if ergebnis.warnungen:
             self.panels.setCurrentWidget(self.meldungen_liste)
 
@@ -2522,7 +2497,7 @@ class HauptFenster(QMainWindow):
             f"dort steht, was von Hand nachzutragen ist."
         )
 
-    def _lazarus_bilder_schreiben(
+    def _import_bilder_schreiben(
         self, ergebnis: LfmImportErgebnis, ziel_pfad: Path
     ) -> dict[str, str]:
         """Schreibt die aus `Picture.Data` ausgepackten Bilder nach
@@ -2553,7 +2528,7 @@ class HauptFenster(QMainWindow):
             )
         return bild_pfade
 
-    def _lazarus_unit_schreiben(
+    def _import_unit_schreiben(
         self,
         ergebnis: LfmImportErgebnis,
         quelle: Path,
@@ -2599,8 +2574,8 @@ class HauptFenster(QMainWindow):
 
         uebernommen = sum(
             1
-            for methodenname, lazarus_name in ergebnis.handler_quellen.items()
-            if methodenname and lazarus_name in ruempfe
+            for methodenname, quell_name in ergebnis.handler_quellen.items()
+            if methodenname and quell_name in ruempfe
         )
         ergebnis.warnungen.append(
             f"{unit_pfad.name} angelegt: {uebernommen} Pascal-Rumpf/-Rümpfe als "

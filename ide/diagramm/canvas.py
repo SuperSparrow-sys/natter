@@ -639,7 +639,7 @@ class DiagrammCanvas(ZoomMischung, QWidget):
 
         if self._platzierungs_kind is not None:
             kind = self._platzierungs_kind
-            self.platzierungsmodus_setzen(None)  # einmalig, wie in Lazarus
+            self.platzierungsmodus_setzen(None)  # gilt für genau eine Form
             self.form_platzieren(kind, punkt.x(), punkt.y())
             return
 
@@ -1197,8 +1197,8 @@ class DiagrammCanvas(ZoomMischung, QWidget):
     # -- Anordnen (Teilschritt 3b) --------------------------------------
 
     #: Ausgerichtet wird immer an der führenden Form, also der
-    #: zuletzt angeklickten - dasselbe Verhalten wie in Lazarus und in
-    #: Dia. Sonst müsste man raten, welche Form stehen bleibt.
+    #: zuletzt angeklickten. Sonst müsste man raten, welche Form
+    #: stehen bleibt.
     AUSRICHTUNGEN = (
         "links",
         "rechts",
