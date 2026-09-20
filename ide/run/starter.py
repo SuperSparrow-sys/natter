@@ -4,7 +4,8 @@ Debugger).
 Siehe README.md, Abschnitt 7.8:
 
 - GUI-Projekte: eigenes Programmfenster, keine Konsole, IDE bleibt
-  bedienbar
+  bedienbar. Die Ausgabe des Programms geht durch ein Rohr ins Panel
+  „Ausgabe“ - ohne Konsole gäbe es sonst keinen Ort dafür.
 - Konsolenprojekte: eigenes Konsolenfenster unter Windows
   (`CREATE_NEW_CONSOLE`); auf anderen Plattformen (Entwicklung/Tests)
   läuft die Konsole im aktuellen Terminal weiter, da es dort kein
@@ -20,6 +21,7 @@ import subprocess
 import sys
 
 from ide.project import Projekt
+from ide.prozess import ohne_konsole
 from ide.run.interpreter import python_befehl
 
 #: Hülle für Konsolenprogramme: führt das Schülerprogramm aus und hält
@@ -81,6 +83,22 @@ _KONSOLEN_HUELLE = (
 
 
 def projekt_starten(projekt: Projekt) -> subprocess.Popen:
+    """Startet das Projekt als eigenen Prozess und liefert ihn zurück.
+
+    Ein GUI-Programm bekommt kein Konsolenfenster. Das klang oben seit
+    jeher so, stimmte aber nicht: `python_befehl()` liefert den
+    Interpreter mit Konsole, und weil Natter selbst als Fensterprogramm
+    ohne Konsole läuft, legte Windows für das Schülerprogramm eine neue
+    an. Hinter dem Fenster des Programms stand also ein schwarzer
+    Kasten, den niemand bestellt hatte.
+
+    Weil ein Programm ohne Konsole nirgendwohin schreiben könnte, geht
+    seine Ausgabe stattdessen durch ein Rohr - der Aufrufer liest sie
+    mit `ide/shell/hintergrund.AusgabeLeser` und zeigt sie im Panel
+    „Ausgabe“, wo sie ohnehin hingehört. Das gilt auch für
+    Fehlermeldungen: `stderr` läuft in dasselbe Rohr, damit ein Absturz
+    nicht spurlos bleibt.
+    """
     zusatz_optionen: dict[str, object] = {}
     befehl = [*python_befehl(), projekt.haupt_datei.name]
 
@@ -97,5 +115,17 @@ def projekt_starten(projekt: Projekt) -> subprocess.Popen:
         ]
         if sys.platform == "win32":
             zusatz_optionen["creationflags"] = subprocess.CREATE_NEW_CONSOLE
+        return subprocess.Popen(befehl, cwd=projekt.ordner, **zusatz_optionen)
 
-    return subprocess.Popen(befehl, cwd=projekt.ordner, **zusatz_optionen)
+    return subprocess.Popen(
+        befehl,
+        **ohne_konsole(
+            cwd=projekt.ordner,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
+        ),
+    )

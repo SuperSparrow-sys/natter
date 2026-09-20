@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ide.project import Projekt
+from ide.prozess import ohne_konsole
 from ide.run.interpreter import ruff_befehl
 from pcl.pruefungsmodus import laeuft as pruefungsmodus_laeuft
 
@@ -152,8 +153,7 @@ def projekt_pruefen(projekt: Projekt) -> list[RuffFund]:
             "--output-format=json",
             str(projekt.ordner),
         ],
-        capture_output=True,
-        text=True,
+        **ohne_konsole(capture_output=True, text=True),
     )
     if not ergebnis.stdout.strip():
         return []

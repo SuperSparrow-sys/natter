@@ -10,6 +10,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from ide.prozess import ohne_konsole
+
 _HARNESS_PFAD = Path(__file__).resolve().parent / "harness.py"
 _STANDARD_ZEITLIMIT = 60.0
 
@@ -45,10 +47,12 @@ def tests_ausfuehren(
 
     ergebnis = subprocess.run(
         befehl,
-        cwd=projekt_ordner,
-        capture_output=True,
-        text=True,
-        timeout=zeitlimit,
+        **ohne_konsole(
+            cwd=projekt_ordner,
+            capture_output=True,
+            text=True,
+            timeout=zeitlimit,
+        ),
     )
     if not ergebnis.stdout.strip():
         return []

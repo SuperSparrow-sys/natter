@@ -17,10 +17,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import jsonschema
-
 from ide.diagramm.uml_modell import umrechnen
 from ide.pfade import daten_ordner
+from ide.schema import pruefen as schema_pruefen
 
 _SCHEMAS_DIR = daten_ordner("schemas")
 _PDIAG_SCHEMA = json.loads((_SCHEMAS_DIR / "pdiag.schema.json").read_text(encoding="utf-8"))
@@ -57,7 +56,7 @@ class Diagramm:
     def laden(cls, pfad: Path) -> Diagramm:
         pfad = Path(pfad)
         daten = json.loads(pfad.read_text(encoding="utf-8"))
-        jsonschema.validate(daten, _PDIAG_SCHEMA)
+        schema_pruefen(daten, _PDIAG_SCHEMA)
         # Seit M9 Schritt 12 sind Attribute und Operationen strukturiert
         # statt freier Text. Ältere Dateien werden beim Laden einmalig
         # umgerechnet - sonst wären die Abnahmediagramme aus Schritt 11
@@ -68,7 +67,7 @@ class Diagramm:
         return cls(pfad=pfad, daten=daten)
 
     def speichern(self, pfad: Path | None = None) -> None:
-        jsonschema.validate(self.daten, _PDIAG_SCHEMA)
+        schema_pruefen(self.daten, _PDIAG_SCHEMA)
         ziel = Path(pfad) if pfad is not None else self.pfad
         ziel.parent.mkdir(parents=True, exist_ok=True)
         ziel.write_text(

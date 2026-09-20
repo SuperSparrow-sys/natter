@@ -13,9 +13,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import jsonschema
-
 from ide.pfade import daten_ordner
+from ide.schema import pruefen as schema_pruefen
 
 _SCHEMAS_DIR = daten_ordner("schemas")
 _PROJECT_SCHEMA = json.loads((_SCHEMAS_DIR / "project.schema.json").read_text(encoding="utf-8"))
@@ -63,11 +62,11 @@ class Projekt:
             pfad = kandidaten[0]
 
         daten = json.loads(pfad.read_text(encoding="utf-8"))
-        jsonschema.validate(daten, _PROJECT_SCHEMA)
+        schema_pruefen(daten, _PROJECT_SCHEMA)
         return cls(ordner=pfad.parent, daten=daten)
 
     def speichern(self, pfad: Path | None = None) -> None:
-        jsonschema.validate(self.daten, _PROJECT_SCHEMA)
+        schema_pruefen(self.daten, _PROJECT_SCHEMA)
         ziel = pfad if pfad is not None else self.ordner / f"{self.name}.natter"
         ziel.write_text(
             json.dumps(self.daten, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"

@@ -13,9 +13,8 @@ from datetime import date, time
 from pathlib import Path
 from typing import Any
 
-import jsonschema
-
 from ide.pfade import daten_ordner
+from ide.schema import pruefen as schema_pruefen
 from pcl.properties import (
     BAUM_EIGENSCHAFTEN,
     SAMMLUNGS_EIGENSCHAFTEN,
@@ -180,7 +179,7 @@ def design_code_erzeugen(pfm: dict[str, Any], pfm_dateiname: str) -> str:
     """Erzeugt den Python-Quelltext von `u_*_design.py` aus einer bereits
     geladenen `.pfm`. Validiert `pfm` gegen `schemas/pfm.schema.json`."""
 
-    jsonschema.validate(pfm, _PFM_SCHEMA)
+    schema_pruefen(pfm, _PFM_SCHEMA)
 
     klassenname = f"{pfm['class']}Design"
     basisklasse = pfm["type"]

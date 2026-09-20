@@ -39,6 +39,7 @@ def test_pakete_anzeigen_zeigt_installierte_pakete(monkeypatch: pytest.MonkeyPat
 
 def test_paket_installieren_ruft_installation_mit_eingegebenem_namen_auf(
     monkeypatch: pytest.MonkeyPatch,
+ hintergrund_abwarten
 ) -> None:
     aufgerufen = []
     monkeypatch.setattr(QInputDialog, "getText", staticmethod(lambda *a, **k: ("requests", True)))
@@ -48,6 +49,7 @@ def test_paket_installieren_ruft_installation_mit_eingegebenem_namen_auf(
     fenster = HauptFenster()
 
     fenster._paket_installieren_aktion()
+    hintergrund_abwarten(fenster)
 
     assert aufgerufen == ["requests"]
     assert fenster.statusBar().currentMessage() == "requests installiert."
@@ -68,7 +70,10 @@ def test_paket_installieren_abgebrochen_installiert_nichts(
     assert aufgerufen == []
 
 
-def test_paket_installieren_bei_fehler_zeigt_meldung(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_paket_installieren_bei_fehler_zeigt_meldung(
+    monkeypatch: pytest.MonkeyPatch,
+    hintergrund_abwarten,
+) -> None:
     monkeypatch.setattr(QInputDialog, "getText", staticmethod(lambda *a, **k: ("kaputt", True)))
 
     def fake_installieren(name: str) -> str:
@@ -78,6 +83,7 @@ def test_paket_installieren_bei_fehler_zeigt_meldung(monkeypatch: pytest.MonkeyP
     fenster = HauptFenster()
 
     fenster._paket_installieren_aktion()
+    hintergrund_abwarten(fenster)
 
     assert "fehlgeschlagen" in fenster.statusBar().currentMessage()
 

@@ -16,10 +16,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-import jsonschema
-
 from ide.inspector.komponentenbaum import kind_komponenten
 from ide.pfade import daten_ordner
+from ide.schema import pruefen as schema_pruefen
 from pcl.form import Form
 from pcl.properties import (
     BAUM_EIGENSCHAFTEN,
@@ -114,7 +113,7 @@ def pfm_aus_formular(formular: Form) -> dict[str, Any]:
     if kinder:
         daten["children"] = kinder
 
-    jsonschema.validate(daten, _PFM_SCHEMA)
+    schema_pruefen(daten, _PFM_SCHEMA)
     return daten
 
 

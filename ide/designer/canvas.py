@@ -11,6 +11,11 @@ das Gegenstück für die Komponentenpalette (Abschnitt 7.3). Acht sichtbare
 Größenanfasser an der ausgewählten Komponente lassen
 sich zusätzlich zur Tastatur mit der Maus ziehen (`_Anfasser`,
 `_ANFASSER_VERHALTEN`).
+
+`ide.codegen.ereignis` wird erst dort importiert, wo es gebraucht wird,
+und nicht am Kopf: es zieht `libcst` nach sich, und das kostet beim
+Start der IDE 130 Millisekunden - für eine Bibliothek, die erst beim
+Doppelklick auf eine Komponente etwas zu tun bekommt.
 """
 
 from __future__ import annotations
@@ -25,7 +30,6 @@ from PySide6.QtGui import QColor, QPainter, QPixmap
 from PySide6.QtWidgets import QDialog, QMenu, QWidget
 
 from ide.codegen.design import design_datei_erzeugen
-from ide.codegen.ereignis import handler_methode_einfuegen, handler_methode_umbenennen
 from ide.designer.bilder import bild_in_assets_uebernehmen, ist_bilddatei
 from ide.designer.kommando import EigenschaftKommando, Kommandostapel
 from ide.designer.laden import platzhalter_erzeugen
@@ -318,6 +322,8 @@ class _UmbenennenKommando:
         quelltext = self.canvas.unit_pfad.read_text(encoding="utf-8")
         for ereignis_name, alt_name, neu_name in self.umbenannte_methoden:
             von, nach = (neu_name, alt_name) if rueckwaerts else (alt_name, neu_name)
+            from ide.codegen.ereignis import handler_methode_umbenennen
+
             quelltext, gefunden = handler_methode_umbenennen(quelltext, von, nach)
             if not gefunden:
                 continue
@@ -1194,6 +1200,8 @@ class DesignerCanvas(QObject):
 
         klassenname = type(self.formular).__name__
         quelltext = self.unit_pfad.read_text(encoding="utf-8")
+        from ide.codegen.ereignis import handler_methode_einfuegen
+
         neuer_quelltext = handler_methode_einfuegen(
             quelltext,
             klassenname,

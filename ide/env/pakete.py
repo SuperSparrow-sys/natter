@@ -18,6 +18,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from ide.prozess import ohne_konsole
+
 
 @dataclass(frozen=True)
 class Paket:
@@ -55,8 +57,7 @@ def installierte_pakete() -> list[Paket]:
  Meldung zu liefern)."""
     ergebnis = subprocess.run(
         [sys.executable, "-m", "pip", "list", "--format=json"],
-        capture_output=True,
-        text=True,
+        **ohne_konsole(capture_output=True, text=True),
     )
     if ergebnis.returncode != 0:
         raise PaketFehler(ergebnis.stderr.strip() or ergebnis.stdout.strip())
@@ -69,8 +70,7 @@ def paket_installieren(name: str) -> str:
     Erfolg, löst `PaketFehler` bei Misserfolg aus."""
     ergebnis = subprocess.run(
         [sys.executable, "-m", "pip", "install", name],
-        capture_output=True,
-        text=True,
+        **ohne_konsole(capture_output=True, text=True),
     )
     if ergebnis.returncode != 0:
         raise PaketFehler(_mit_rechtehinweis(ergebnis))
@@ -97,8 +97,7 @@ def paketliste_exportieren(pfad: str | Path) -> None:
     fehlschlägt (siehe `installierte_pakete`)."""
     ergebnis = subprocess.run(
         [sys.executable, "-m", "pip", "freeze"],
-        capture_output=True,
-        text=True,
+        **ohne_konsole(capture_output=True, text=True),
     )
     if ergebnis.returncode != 0:
         raise PaketFehler(ergebnis.stderr.strip() or ergebnis.stdout.strip())

@@ -160,7 +160,18 @@ def test_gui_projekt_bekommt_kein_eigenes_konsolenfenster(
 
     projekt_starten(projekt)
 
-    assert "creationflags" not in aufrufe[0][1]
+    # Bis September 2026 stand hier `"creationflags" not in ...` - und
+    # damit war das Gegenteil dessen zugesichert, was der Testname
+    # sagt. Ohne Kennzeichen legt Windows für einen Unterprozess aus
+    # dem Konsolen-Subsystem gerade ein neues Konsolenfenster an, weil
+    # Natter als Fensterprogramm keines zum Erben hat. Hinter dem
+    # Fenster des Schülerprogramms stand also ein schwarzer Kasten.
+    if sys.platform == "win32":
+        assert aufrufe[0][1]["creationflags"] & subprocess.CREATE_NO_WINDOW
     # Ein GUI-Programm hat sein eigenes Fenster - eine Eingabe-
     # aufforderung wäre dort sinnlos, die Konsole gibt es gar nicht.
     assert "-c" not in aufrufe[0][0][0]
+    # Ohne Konsole braucht die Ausgabe ein Rohr, sonst ginge sie
+    # verloren; gelesen wird sie vom Panel „Ausgabe“.
+    assert aufrufe[0][1]["stdout"] is subprocess.PIPE
+    assert aufrufe[0][1]["stderr"] is subprocess.STDOUT

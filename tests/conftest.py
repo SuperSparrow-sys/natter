@@ -57,3 +57,31 @@ def _qsettings_isoliert(tmp_path):
     QSettings.setDefaultFormat(QSettings.Format.IniFormat)
     QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, str(tmp_path))
     yield
+
+
+@pytest.fixture
+def hintergrund_abwarten():
+    """Wartet, bis der nebenher laufende Vorgang eines Fensters durch ist.
+
+    Export, Testlauf und Paketinstallation laufen seit September 2026 in
+    einem eigenen Faden, damit sich die IDE währenddessen bedienen
+    lässt. Ein Test, der direkt nach dem Auslösen nachsieht, findet
+    deshalb noch nichts.
+
+    Gewartet wird über `QThread.wait()` und nicht über das Signal
+    `finished`: der Faden kann schon fertig sein, bevor der Test sich
+    auf das Signal legt, und dann wartete er auf etwas, das längst
+    vorbei ist. Die Runde Ereignisse danach stellt die Signale
+    `fertig`/`fehlgeschlagen` zu, denn erst die schreiben ins Fenster.
+    """
+
+    def warten(fenster, zeitlimit_ms: int = 20_000) -> None:
+        from PySide6.QtWidgets import QApplication
+
+        lauf = fenster._hintergrundarbeit
+        assert lauf is not None, "Es wurde gar keine Hintergrundarbeit gestartet"
+        assert lauf.wait(zeitlimit_ms), "Der Faden ist nicht fertig geworden"
+        for _ in range(5):
+            QApplication.processEvents()
+
+    return warten

@@ -37,6 +37,7 @@ def _projekt_mit_testdatei(fenster: HauptFenster, ordner: Path) -> None:
 
 
 def test_ohne_projekt_zeigt_hinweis() -> None:
+    """Ohne Projekt laeuft gar nichts an - es gibt nichts abzuwarten."""
     fenster = HauptFenster()
     fenster._alle_tests_ausfuehren_aktion()
     meldung = fenster.statusBar().currentMessage()
@@ -44,11 +45,12 @@ def test_ohne_projekt_zeigt_hinweis() -> None:
     assert "Projekt → Öffnen" in meldung
 
 
-def test_alle_tests_ausfuehren_befuellt_den_baum(tmp_path: Path) -> None:
+def test_alle_tests_ausfuehren_befuellt_den_baum(tmp_path: Path, hintergrund_abwarten) -> None:
     fenster = HauptFenster()
     _projekt_mit_testdatei(fenster, tmp_path)
 
     fenster._alle_tests_ausfuehren_aktion()
+    hintergrund_abwarten(fenster)
 
     assert fenster.tests_baum.topLevelItemCount() == 1  # ein Modul: test_beispiel
     modul_eintrag = fenster.tests_baum.topLevelItem(0)
@@ -59,11 +61,12 @@ def test_alle_tests_ausfuehren_befuellt_den_baum(tmp_path: Path) -> None:
     assert klassen_eintrag.childCount() == 2  # zwei Testmethoden
 
 
-def test_status_und_dauer_werden_pro_test_angezeigt(tmp_path: Path) -> None:
+def test_status_und_dauer_werden_pro_test_angezeigt(tmp_path: Path, hintergrund_abwarten) -> None:
     fenster = HauptFenster()
     _projekt_mit_testdatei(fenster, tmp_path)
 
     fenster._alle_tests_ausfuehren_aktion()
+    hintergrund_abwarten(fenster)
 
     klassen_eintrag = fenster.tests_baum.topLevelItem(0).child(0)
     eintraege = {klassen_eintrag.child(i).text(0): klassen_eintrag.child(i) for i in range(2)}
@@ -78,11 +81,15 @@ def test_status_und_dauer_werden_pro_test_angezeigt(tmp_path: Path) -> None:
     assert float(dauer.replace(",", ".")) >= 0
 
 
-def test_fehlgeschlagener_test_zeigt_soll_ist_als_tooltip(tmp_path: Path) -> None:
+def test_fehlgeschlagener_test_zeigt_soll_ist_als_tooltip(
+    tmp_path: Path,
+    hintergrund_abwarten,
+) -> None:
     fenster = HauptFenster()
     _projekt_mit_testdatei(fenster, tmp_path)
 
     fenster._alle_tests_ausfuehren_aktion()
+    hintergrund_abwarten(fenster)
 
     klassen_eintrag = fenster.tests_baum.topLevelItem(0).child(0)
     fehlschlag = next(
@@ -94,21 +101,26 @@ def test_fehlgeschlagener_test_zeigt_soll_ist_als_tooltip(tmp_path: Path) -> Non
     assert "Ist: 45" in fehlschlag.toolTip(1)
 
 
-def test_statusleiste_zeigt_anzahl_und_fehlschlaege(tmp_path: Path) -> None:
+def test_statusleiste_zeigt_anzahl_und_fehlschlaege(tmp_path: Path, hintergrund_abwarten) -> None:
     fenster = HauptFenster()
     _projekt_mit_testdatei(fenster, tmp_path)
 
     fenster._alle_tests_ausfuehren_aktion()
+    hintergrund_abwarten(fenster)
 
     meldung = fenster.statusBar().currentMessage()
     assert meldung.startswith("2 Tests gelaufen, 1 nicht bestanden")
     assert "Test-Explorer" in meldung
 
 
-def test_doppelklick_fuehrt_genau_diesen_test_erneut_aus(tmp_path: Path) -> None:
+def test_doppelklick_fuehrt_genau_diesen_test_erneut_aus(
+    tmp_path: Path,
+    hintergrund_abwarten,
+) -> None:
     fenster = HauptFenster()
     _projekt_mit_testdatei(fenster, tmp_path)
     fenster._alle_tests_ausfuehren_aktion()
+    hintergrund_abwarten(fenster)
 
     klassen_eintrag = fenster.tests_baum.topLevelItem(0).child(0)
     bestehend = next(
@@ -125,10 +137,14 @@ def test_doppelklick_fuehrt_genau_diesen_test_erneut_aus(tmp_path: Path) -> None
     assert bestehend.text(1) == "bestanden"
 
 
-def test_doppelklick_auf_klassen_knoten_aktualisiert_alle_ihre_tests(tmp_path: Path) -> None:
+def test_doppelklick_auf_klassen_knoten_aktualisiert_alle_ihre_tests(
+    tmp_path: Path,
+    hintergrund_abwarten,
+) -> None:
     fenster = HauptFenster()
     _projekt_mit_testdatei(fenster, tmp_path)
     fenster._alle_tests_ausfuehren_aktion()
+    hintergrund_abwarten(fenster)
 
     modul_eintrag = fenster.tests_baum.topLevelItem(0)
     klassen_eintrag = modul_eintrag.child(0)
@@ -140,7 +156,10 @@ def test_doppelklick_auf_klassen_knoten_aktualisiert_alle_ihre_tests(tmp_path: P
     assert status == {"test_bestehend": "bestanden", "test_fehlschlagend": "fehlgeschlagen"}
 
 
-def test_neue_test_unit_erzeugt_eine_lauffaehige_unittest_datei(tmp_path: Path) -> None:
+def test_neue_test_unit_erzeugt_eine_lauffaehige_unittest_datei(
+    tmp_path: Path,
+    hintergrund_abwarten,
+) -> None:
     fenster = HauptFenster()
     _projekt_mit_testdatei(fenster, tmp_path)
 
@@ -151,6 +170,7 @@ def test_neue_test_unit_erzeugt_eine_lauffaehige_unittest_datei(tmp_path: Path) 
     assert "unittest" in neue_datei.read_text(encoding="utf-8")
 
     fenster._alle_tests_ausfuehren_aktion()
+    hintergrund_abwarten(fenster)
     module = {
         fenster.tests_baum.topLevelItem(i).text(0)
         for i in range(fenster.tests_baum.topLevelItemCount())
@@ -168,10 +188,11 @@ def test_export_ohne_vorherigen_lauf_zeigt_hinweis() -> None:
 
 def test_export_schreibt_eine_gueltige_html_datei(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+, hintergrund_abwarten) -> None:
     fenster = HauptFenster()
     _projekt_mit_testdatei(fenster, tmp_path)
     fenster._alle_tests_ausfuehren_aktion()
+    hintergrund_abwarten(fenster)
 
     ziel = tmp_path / "protokoll.html"
     monkeypatch.setattr(

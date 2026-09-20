@@ -54,6 +54,7 @@ from pathlib import Path
 
 import pcl
 from ide.project import Projekt
+from ide.prozess import ohne_konsole
 from ide.run.interpreter import python_befehl
 
 _GUI_PROJEKTTYPEN = {"gui", "gui_db"}
@@ -299,13 +300,15 @@ def exe_exportieren(
     zeilen: list[str] = []
     lauf = subprocess.Popen(
         befehl,
-        cwd=projekt.ordner,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        bufsize=1,
+        **ohne_konsole(
+            cwd=projekt.ordner,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
+        ),
     )
     # Zeile für Zeile lesen statt am Ende auf einmal: nur so kann der
     # Ladebalken überhaupt mitlaufen.

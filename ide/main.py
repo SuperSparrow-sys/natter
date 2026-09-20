@@ -18,14 +18,23 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from ide.deutsch import deutsch_einschalten
 from ide.fehlermeldung import fehlerhaken_einrichten
 from ide.integritaet.start_pruefung import installation_pruefen
+from ide.ladeanzeige import Ladeanzeige
 from ide.run.interpreter import PYTHON_FLAGGE, als_python_ausfuehren
-from ide.shell.hauptfenster import HauptFenster
+
+if TYPE_CHECKING:
+    from ide.shell.hauptfenster import HauptFenster
+
+#: Steht auf dem Startbild. Von Hand gepflegt und nicht über
+#: `importlib.metadata` gelesen: die Paketangaben nachzuschlagen dauert
+#: länger als das Bild, das sie zeigen soll.
+VERSION = "0.2.1"
 
 
 def integritaet_bestaetigen(fenster: HauptFenster) -> bool:
@@ -46,7 +55,13 @@ def integritaet_bestaetigen(fenster: HauptFenster) -> bool:
     return antwort == QMessageBox.StandardButton.Yes
 
 
-def erstellen() -> tuple[QApplication, HauptFenster]:
+def anwendung_erzeugen() -> QApplication:
+    """Die `QApplication`, fertig benannt und auf Deutsch gestellt.
+
+    Getrennt von `erstellen()`, damit das Startbild schon stehen kann,
+    bevor die Module der IDE geladen werden - vorher gibt es kein Qt,
+    das etwas anzeigen könnte, und nachher ist es zu spät.
+    """
     app = QApplication.instance() or QApplication(sys.argv)
     # Ohne Namen legt Qt anwendungseigene Dateien unter „python3“ ab -
     # die Protokolldatei aus `ide/fehlermeldung.py` landete so in einem
@@ -57,6 +72,26 @@ def erstellen() -> tuple[QApplication, HauptFenster]:
     # Tastenkürzel in den Menüs („Strg+S“ statt „Ctrl+S“) werden beim
     # Aufbau gesetzt (M11, Abschnitt 4).
     deutsch_einschalten(app)
+    return app
+
+
+def erstellen(anzeige: Ladeanzeige | None = None) -> tuple[QApplication, HauptFenster]:
+    """Baut Anwendung und Hauptfenster auf, ohne sie zu zeigen.
+
+    Der Import des Hauptfensters steht bewusst hier und nicht am Kopf
+    der Datei: er zieht die halbe IDE nach sich und dauert rund 200
+    Millisekunden. Am Kopf liefe er, bevor irgendetwas auf dem
+    Bildschirm steht - hier läuft er, während das Startbild schon
+    sichtbar ist.
+    """
+    app = anwendung_erzeugen()
+    if anzeige is not None:
+        anzeige.melden("Oberfläche wird geladen …")
+
+    from ide.shell.hauptfenster import HauptFenster
+
+    if anzeige is not None:
+        anzeige.melden("Fenster wird aufgebaut …")
     fenster = HauptFenster()
     return app, fenster
 
@@ -82,7 +117,16 @@ def main() -> int:
     if len(sys.argv) > 1 and sys.argv[1] == PYTHON_FLAGGE:
         return als_python_ausfuehren(sys.argv[2:])
 
-    app, fenster = erstellen()
+    # Das Startbild zuerst, noch vor allem Übrigen: von hier an dauert
+    # es etwa eine Sekunde, bis das Hauptfenster steht, und eine
+    # Sekunde ohne jede Rückmeldung führt dazu, dass jemand ein
+    # zweites Mal doppelklickt.
+    app = anwendung_erzeugen()
+    anzeige = Ladeanzeige(VERSION)
+    anzeige.show()
+    anzeige.melden("Natter wird gestartet …")
+
+    app, fenster = erstellen(anzeige)
     # Ab hier endet ein Fehler in Natter selbst in einer deutschen
     # Meldung statt in einem Traceback, den in der gebauten Exe ohnehin
     # niemand zu sehen bekäme (M11, Abschnitt 5). Bewusst erst hier und
@@ -91,8 +135,12 @@ def main() -> int:
     fehlerhaken_einrichten()
     if not integritaet_bestaetigen(fenster):
         return 1
+    anzeige.melden("Projekt wird geöffnet …")
     _projekt_aus_argv_oeffnen(fenster, sys.argv)
     fenster.show()
+    # `finish` blendet das Bild genau dann aus, wenn das Hauptfenster
+    # zu sehen ist - sonst blitzt der Schreibtisch dazwischen auf.
+    anzeige.finish(fenster)
     return app.exec()
 
 

@@ -28,6 +28,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from ide.prozess import ohne_konsole
 from ide.run.interpreter import python_befehl
 from pcl.eigener_code import ist_eigener_code
 
@@ -102,7 +103,7 @@ class DapClient:
                     "--wait-for-client",
                     str(skriptpfad),
                 ],
-                cwd=arbeitsordner,
+                **ohne_konsole(cwd=arbeitsordner),
             )
             try:
                 self._socket = self._verbinden(port, zeitlimit)

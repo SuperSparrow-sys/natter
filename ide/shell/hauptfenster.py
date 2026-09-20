@@ -14,13 +14,13 @@ import os
 import re
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
-import jsonschema
 from PySide6.QtCore import QSettings, QSize, Qt, QTimer
 from PySide6.QtGui import QActionGroup, QCloseEvent, QColor, QFont, QTextCursor
 from PySide6.QtWidgets import (
-    QApplication,
     QDialog,
     QDockWidget,
     QFileDialog,
@@ -87,7 +87,9 @@ from ide.project import Projekt, projekt_erzeugen
 from ide.project.neu_dialog import NeuesProjektDialog
 from ide.run import projekt_pruefen, projekt_starten
 from ide.run.pruefung import RuffFund
+from ide.schema import schema_fehler
 from ide.shell.explorer import PFAD_ROLLE, ProjektExplorer
+from ide.shell.hintergrund import AusgabeLeser, Hintergrundarbeit
 from ide.shell.quelltexteditor import SCHRIFTART_OPTIONEN, QuelltextEditor
 from ide.shell.schnellauswahl import SchnellAuswahl
 from ide.shell.startbild import Startbild, beispiel_kopieren, zuletzt_merken
@@ -359,6 +361,13 @@ class HauptFenster(QMainWindow):
         #: ersten langen Vorgang (siehe `_fortschritt_zeigen`).
         self._fortschritt_balken: QProgressBar | None = None
         self.laufender_prozess = None
+        #: Sammelt die Ausgabe eines GUI-Programms ein. Ohne
+        #: Konsolenfenster gibt es keinen anderen Ort dafür.
+        self._ausgabe_leser: AusgabeLeser | None = None
+        #: Der eine lange Vorgang, der gerade nebenher läuft. Genau
+        #: einer auf einmal: zwei gleichzeitige Exporte schrieben in
+        #: dieselbe Exe, zwei `pip install` in dieselbe Umgebung.
+        self._hintergrundarbeit: Hintergrundarbeit | None = None
         self._offene_canvases: list[DesignerCanvas] = []
         self._pfad_zu_formular: dict[str, Form] = {}
         # Diagramme sind eigene Fenster (Abschnitt 13.1), keine Tabs -
@@ -1180,7 +1189,18 @@ class HauptFenster(QMainWindow):
                 "neues anlegen."
             )
             return
-        ergebnisse = tests_ausfuehren(self.projekt.ordner)
+        if not self._hintergrund_frei("Der Testlauf"):
+            return
+        ordner = self.projekt.ordner
+        self.statusBar().showMessage("Tests laufen - die IDE bleibt bedienbar.")
+        self._hintergrund_starten(
+            lambda _melden: tests_ausfuehren(ordner),
+            self._tests_fertig,
+            "Testlauf fehlgeschlagen",
+        )
+
+    def _tests_fertig(self, ergebnisse: object) -> None:
+        """Die Auswertung des Testlaufs, zurück im Faden der Oberfläche."""
         self._letzte_testergebnisse = ergebnisse
         self._tests_baum_befuellen(ergebnisse)
         anzahl_fehlgeschlagen = sum(1 for e in ergebnisse if e.status != "bestanden")
@@ -1216,11 +1236,12 @@ class HauptFenster(QMainWindow):
         M8 Schritt 4, M14): baut das Projekt mit PyInstaller zu einer
         einzigen Exe.
 
-        Läuft blockierend, wie „Alle Tests ausführen“ – dafür mit
-        Ladebalken in der untersten Zeile, so vorgegeben. Ein Export
-        dauert für ein Schulprojekt typischerweise eine halbe bis eine
-        Minute; ohne sichtbaren Fortschritt sieht das nach einem
-        Absturz aus.
+        Läuft nebenher, nicht blockierend. Bis dahin stand die IDE
+        währenddessen still: ein Export dauert für ein Schulprojekt eine
+        halbe bis eine Minute, und in dieser Zeit nahm das Fenster keine
+        Klicks an. Ein Ladebalken, der sich über `processEvents()` noch
+        bewegt, ändert daran nichts - bedienen ließ sich das Programm
+        trotzdem nicht.
         """
         if self.projekt is None:
             self.statusBar().showMessage(
@@ -1228,16 +1249,21 @@ class HauptFenster(QMainWindow):
                 "neues anlegen."
             )
             return
+        if not self._hintergrund_frei("Der Export"):
+            return
 
-        self.statusBar().showMessage("Exe wird erstellt … (kann etwas dauern)")
+        projekt = self.projekt
+        self.statusBar().showMessage("Exe wird erstellt - die IDE bleibt bedienbar.")
         self._fortschritt_zeigen(0)
-        QApplication.processEvents()
+        self._hintergrund_starten(
+            lambda melden: exe_exportieren(projekt, fortschritt=melden),
+            self._export_fertig,
+            "Exe-Export fehlgeschlagen",
+        )
 
-        try:
-            ergebnis = exe_exportieren(self.projekt, fortschritt=self._export_fortschritt)
-        finally:
-            self._fortschritt_verbergen()
-
+    def _export_fertig(self, ergebnis: object) -> None:
+        """Die Nachbereitung des Exports, zurück im Faden der Oberfläche."""
+        self._fortschritt_verbergen()
         if not ergebnis.erfolgreich:
             self.meldungen_liste.clear()
             self.meldungen_liste.addItems(
@@ -1252,6 +1278,63 @@ class HauptFenster(QMainWindow):
         self.statusBar().showMessage(f"Exe erstellt: {ergebnis.ausgabe_pfad}")
         if sys.platform == "win32":
             os.startfile(ergebnis.ausgabe_pfad.parent)
+
+    # -- Arbeit, die nebenher läuft -----------------------------------
+
+    def _hintergrund_frei(self, was: str) -> bool:
+        """Ob gerade kein anderer langer Vorgang läuft.
+
+        Genau einer auf einmal, und zwar aus einem handfesten Grund:
+        zwei gleichzeitige Exporte schrieben in dieselbe Exe, zwei
+        `pip install` in dieselbe Umgebung. Wer den zweiten Vorgang
+        anstößt, bekommt gesagt, worauf zu warten ist - statt dass
+        stillschweigend nichts passiert.
+        """
+        laeuft = self._hintergrundarbeit
+        if laeuft is not None and laeuft.isRunning():
+            self.statusBar().showMessage(
+                f"{was} wartet: es läuft schon ein Vorgang. Sobald er fertig ist, "
+                f"geht es erneut."
+            )
+            return False
+        return True
+
+    def _hintergrund_starten(
+        self,
+        arbeit: Callable[[Callable[[int, str], None]], Any],
+        fertig: Callable[[Any], None],
+        fehlertext: str,
+    ) -> Hintergrundarbeit:
+        """Lässt `arbeit` in einem eigenen Faden laufen.
+
+        Das Ergebnis kommt über ein Signal zurück und damit wieder im
+        Faden der Oberfläche an - nur dort darf an Widgets geschrieben
+        werden.
+        """
+        lauf = Hintergrundarbeit(arbeit, self)
+        lauf.fortschritt.connect(self._export_fortschritt)
+        lauf.fertig.connect(fertig)
+        lauf.fehlgeschlagen.connect(
+            lambda meldung: self._hintergrund_fehler(fehlertext, meldung)
+        )
+        self._hintergrundarbeit = lauf
+        lauf.start()
+        return lauf
+
+    def _hintergrund_fehler(self, was: str, meldung: str) -> None:
+        """Eine Ausnahme aus einem Nebenfaden.
+
+        Sie darf die IDE nicht mitreißen: ein fehlgeschlagener Export
+        ist ein Fall für die Statuszeile und das Panel „Meldungen“,
+        nicht für einen Absturz.
+        """
+        self._fortschritt_verbergen()
+        self.meldungen_liste.clear()
+        self.meldungen_liste.addItem(f"[{was}] {meldung}")
+        self.panels.setCurrentWidget(self.meldungen_liste)
+        self.statusBar().showMessage(
+            f"{was}: {meldung} Mehr steht unten im Panel „Meldungen“."
+        )
 
     # -- Ladebalken in der Statuszeile ---------------------------------
 
@@ -1275,11 +1358,15 @@ class HauptFenster(QMainWindow):
             self._fortschritt_balken.hide()
 
     def _export_fortschritt(self, prozent: int, text: str) -> None:
-        """Rückruf für `exe_exportieren` – aus demselben Thread, deshalb
-        genügt `processEvents()`, damit sich der Balken auch bewegt."""
+        """Der Fortschritt eines nebenher laufenden Vorgangs.
+
+        Kommt über ein Signal aus `Hintergrundarbeit` und damit im
+        Faden der Oberfläche an - `processEvents()` braucht es nicht
+        mehr, und die Oberfläche antwortet die ganze Zeit von selbst.
+        """
         self._fortschritt_zeigen(prozent)
-        self.statusBar().showMessage(f"Exe wird erstellt: {text}")
-        QApplication.processEvents()
+        if text:
+            self.statusBar().showMessage(text)
 
     def _tests_baum_befuellen(self, ergebnisse: list[Testergebnis]) -> None:
         self.tests_baum.clear()
@@ -1592,7 +1679,7 @@ class HauptFenster(QMainWindow):
                 f"„{Path(pfad).name}“ liegt nicht (mehr) unter\n{pfad}\n\n"
                 "Wurde der Ordner verschoben oder der USB-Stick abgezogen?",
             )
-        except (json.JSONDecodeError, jsonschema.ValidationError, KeyError) as fehler:
+        except (json.JSONDecodeError, schema_fehler(), KeyError) as fehler:
             QMessageBox.warning(
                 self,
                 "Projekt konnte nicht geöffnet werden",
@@ -2084,6 +2171,7 @@ class HauptFenster(QMainWindow):
             self.laufender_prozess.kill()
             beendet += 1
         self.laufender_prozess = None
+        self._ausgabe_leser_beenden()
         # Sonst schlägt die Uhr weiter auf ein Fenster, das es gleich
         # nicht mehr gibt.
         self._laufzeit_uhr.stop()
@@ -2613,15 +2701,18 @@ class HauptFenster(QMainWindow):
         name, ok = QInputDialog.getText(self, "Paket installieren", "Paketname:")
         if not ok or not name:
             return
-        try:
-            paket_installieren(name)
-        except PaketFehler as fehler:
-            self.statusBar().showMessage(
-                f"Installation fehlgeschlagen: {fehler}. Ist der Paketname richtig "
-                f"geschrieben, und besteht eine Verbindung zum Netz?"
-            )
+        if not self._hintergrund_frei("Die Installation"):
             return
-        self.statusBar().showMessage(f"{name} installiert.")
+
+        self.statusBar().showMessage(
+            f"{name} wird installiert - das kann je nach Netz dauern, die IDE bleibt "
+            f"bedienbar."
+        )
+        self._hintergrund_starten(
+            lambda _melden: paket_installieren(name),
+            lambda _ergebnis: self.statusBar().showMessage(f"{name} installiert."),
+            f"Installation von {name} fehlgeschlagen",
+        )
 
     def _paketliste_exportieren_aktion(self) -> None:
         """„Pakete → Paketliste exportieren …“: `pip freeze` in eine
@@ -2664,14 +2755,14 @@ class HauptFenster(QMainWindow):
         if endung in (".pfm", ".pdiag"):
             # Eine von Hand verbogene oder abgeschnittene Beschreibung
             # flog vorher als `JSONDecodeError` bzw.
-            # `jsonschema.ValidationError` bis nach oben durch - in der
+            # `schema_fehler()` bis nach oben durch - in der
             # gebauten Exe hieße das: Natter ist weg (M11, Abschnitt 5).
             try:
                 if endung == ".pfm":
                     self.designer_oeffnen(pfad)
                 else:
                     self.diagramm_oeffnen(pfad)
-            except (json.JSONDecodeError, jsonschema.ValidationError, KeyError) as fehler:
+            except (json.JSONDecodeError, schema_fehler(), KeyError) as fehler:
                 self.statusBar().showMessage(
                     f"„{pfad.name}“ lässt sich nicht öffnen: die Datei ist beschädigt "
                     f"({fehler}). Sie wird von Natter geschrieben und sollte nicht von "
@@ -2772,6 +2863,7 @@ class HauptFenster(QMainWindow):
             return
 
         self.laufender_prozess = projekt_starten(self.projekt)
+        self._ausgabe_leser_starten()
         self._start_zeitpunkt = time.monotonic()
         self.ausgabe_zeile(f"{self.projekt.name} gestartet ({self.projekt.haupt_datei.name})")
         self.panels.setCurrentWidget(self.ausgabe_liste)
@@ -2816,6 +2908,35 @@ class HauptFenster(QMainWindow):
             f"„Meldungen“ - das Programm läuft trotzdem."
         )
         return False
+
+    def _ausgabe_leser_starten(self) -> None:
+        """Hängt den Leser an die Ausgabe des gestarteten Programms.
+
+        Ein GUI-Programm läuft ohne Konsolenfenster; was es schreibt,
+        ginge sonst in ein Rohr, aus dem niemand liest - und ein volles
+        Rohr hält das Programm an, sobald es genug geschrieben hat. Ein
+        Konsolenprojekt hat sein eigenes Fenster und braucht den Leser
+        nicht.
+        """
+        self._ausgabe_leser_beenden()
+        prozess = self.laufender_prozess
+        if prozess is None or prozess.stdout is None:
+            return
+        leser = AusgabeLeser(prozess, self)
+        leser.zeile.connect(self.ausgabe_zeile)
+        self._ausgabe_leser = leser
+        leser.start()
+
+    def _ausgabe_leser_beenden(self) -> None:
+        """Wartet kurz auf den Leser, statt ihn stehenzulassen.
+
+        Beim Beenden des Programms geht sein Rohr zu, und der Leser
+        kommt von selbst zum Ende - das dauert aber einen Augenblick.
+        """
+        leser = self._ausgabe_leser
+        self._ausgabe_leser = None
+        if leser is not None and leser.isRunning():
+            leser.wait(1000)
 
     def ausgabe_zeile(self, text: str) -> None:
         """Eine Zeile im Panel „Ausgabe“, mit der Uhrzeit davor."""
