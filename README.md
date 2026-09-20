@@ -53,6 +53,12 @@ Warnung von Windows beim ersten Start, wo Programm und Schülerdaten
 liegen, den Prüfungsmodus und sämtliche Tastenkürzel. Ohne
 Programmierkenntnisse lesbar.
 
+## 1b. Was noch offen ist
+
+[`docs/offene_punkte.md`](docs/offene_punkte.md) sammelt gefundene
+Fehler und ungeklärte Fragen, die noch nicht behoben sind — jeweils
+mit dem, was nachgewiesen ist, und dem, was noch zu prüfen bleibt.
+
 ## 2. Worauf Natter aufbaut
 
 | Bereich | Technik |
