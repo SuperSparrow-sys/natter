@@ -1,7 +1,7 @@
 [project]
 name = "natter"
 version = "0.2.0"
-description = "Lazarus-artige IDE für Python – Umstieg von Pascal/Lazarus auf Python"
+description = "Entwicklungsumgebung für Python im Informatikunterricht – deutsch, für Windows"
 readme = "README.md"
 requires-python = ">=3.13"
 license = { file = "LICENSE" }

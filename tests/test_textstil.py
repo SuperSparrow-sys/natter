@@ -268,6 +268,12 @@ def test_der_quelltext_erklaert_sich_ohne_fremdes_werkzeug() -> None:
 
 
 SEITEN_FUER_LERNENDE = [
+    # Auch die Paketangabe: sie steht im gebauten Wheel, in `pip show
+    # natter` und damit in jeder Auslieferung. Sie war die eine Stelle,
+    # die beim Aufraeumen stehengeblieben ist, weil der Test nur
+    # Python-Dateien und Hilfeseiten kannte.
+    WURZEL / "pyproject.toml",
+    WURZEL / "tools" / "natter.iss",
     WURZEL / "README.md",
     WURZEL / "docs" / "erste_schritte.md",
     WURZEL / "docs" / "komponenten.md",
