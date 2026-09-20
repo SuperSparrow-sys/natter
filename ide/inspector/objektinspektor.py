@@ -70,6 +70,12 @@ class Objektinspektor(QWidget):
         # Dieselbe Meldung wie bei den Eigenschaften: eine hier gewählte
         # Verknüpfung muss in die `.pfm` und den erzeugten Code, sonst
         # tut der Knopf im gestarteten Programm nichts (M12).
+        # `methode_anlegen`: ein Doppelklick auf eine Zeile im Reiter
+        # „Ereignisse" schreibt die Methode in die Unit. Die Tabelle
+        # kennt die Datei nicht - der Designer schon.
+        anlegen = (
+            self._canvas.ereignis_handler_erzeugen if self._canvas is not None else None
+        )
         self.ereignisse_tabelle.anzeigen(
-            komponente, self._formular, bei_aenderung=bei_aenderung
+            komponente, self._formular, bei_aenderung, methode_anlegen=anlegen
         )

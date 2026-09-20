@@ -19,6 +19,7 @@ from typing import Any
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QComboBox, QTableWidget, QTableWidgetItem
 
+from pcl.control import EREIGNIS_PARAMETER
 from pcl.properties import ereignisse
 
 _SPALTE_NAME = 0
@@ -26,7 +27,31 @@ _SPALTE_HANDLER = 1
 KEIN_HANDLER = "(kein)"
 
 
-def passende_methoden(formular: Any) -> list[str]:
+def erwartete_parameter(ereignis_name: str) -> int:
+    """Wie viele Parameter eine Methode für dieses Ereignis hat.
+
+    `sender` hat jede, dazu kommt, was das Ereignis mitbringt:
+    `on_mouse_down` die beiden Koordinaten, `on_edit_cell` Spalte,
+    Zeile und Text. Die Liste steht in `EREIGNIS_PARAMETER`.
+    """
+    return 1 + len(EREIGNIS_PARAMETER.get(ereignis_name, ()))
+
+
+def passende_methoden(formular: Any, ereignis_name: str = "") -> list[str]:
+    """Die Methoden des Formulars, die zu diesem Ereignis passen.
+
+    „Passend" hieß bis September 2026 „genau ein Parameter außer
+    `self`". Das stimmte, solange jedes Ereignis `(self, sender)` war.
+    Mit den Maus-Ereignissen aus M15 stimmt es nicht mehr: eine
+    richtig geschriebene Methode `(self, sender, x, y)` hat zwei und
+    fiel damit durch den Filter. Sie erschien nie im Auswahlfeld, und
+    zwar ohne jede Meldung - wer nicht wusste, warum, konnte das
+    Ereignis im Objektinspektor überhaupt nicht verknüpfen.
+
+    Ohne `ereignis_name` bleibt es beim alten Maßstab; das ist der
+    Fall für Aufrufer, die kein bestimmtes Ereignis meinen.
+    """
+    erwartet = erwartete_parameter(ereignis_name) if ereignis_name else 1
     namen = []
     for name in dir(type(formular)):
         if name.startswith("_"):
@@ -39,7 +64,7 @@ def passende_methoden(formular: Any) -> list[str]:
         except (TypeError, ValueError):
             continue
         parameter = [p for p in signatur.parameters if p != "self"]
-        if len(parameter) == 1:
+        if len(parameter) == erwartet:
             namen.append(name)
     return sorted(namen)
 
@@ -51,13 +76,45 @@ class EreignisseTabelle(QTableWidget):
         self._komponente: Any = None
         self._formular: Any = None
         self._bei_aenderung: Callable[[Any, str, Any, Any], None] | None = None
+        #: Legt die Methode zu einem Ereignis an und liefert ihren
+        #: Namen. Wird von außen gesetzt, weil die Tabelle die
+        #: Unit-Datei nicht kennt - das weiß der Designer.
+        self._methode_anlegen: Callable[[Any, str], str | None] | None = None
+        # Ein Doppelklick auf eine Zeile legt die Methode an. Dieselbe
+        # Geste wie im Designer, wo ein Doppelklick auf die Komponente
+        # die Methode zum kennzeichnenden Ereignis schreibt.
+        self.cellDoubleClicked.connect(self._bei_doppelklick)
+
+    def _bei_doppelklick(self, zeile: int, _spalte: int) -> None:
+        """Legt die Methode zu dieser Zeile an, wenn es sie noch nicht
+        gibt, und verknüpft sie.
+
+        Gibt es sie schon, passiert nichts - der Designer hält es
+        genauso, und ein zweiter Doppelklick soll keine zweite Methode
+        schreiben.
+        """
+        if self._methode_anlegen is None or self._komponente is None:
+            return
+        element = self.item(zeile, _SPALTE_NAME)
+        if element is None:
+            return
+        name = self._methode_anlegen(self._komponente, element.text())
+        if name is None:
+            return
+        self.anzeigen(
+            self._komponente,
+            self._formular,
+            self._bei_aenderung,
+            methode_anlegen=self._methode_anlegen,
+        )
 
     def anzeigen(
         self,
         komponente: Any,
         formular: Any,
-        *,
         bei_aenderung: Callable[[Any, str, Any, Any], None] | None = None,
+        *,
+        methode_anlegen: Callable[[Any, str], str | None] | None = None,
     ) -> None:
         """`bei_aenderung` meldet eine hier gewählte Verknüpfung an den
         Designer weiter, damit sie in die `.pfm` und den erzeugten Code
@@ -76,10 +133,10 @@ class EreignisseTabelle(QTableWidget):
         self._komponente = komponente
         self._formular = formular
         self._bei_aenderung = bei_aenderung
+        self._methode_anlegen = methode_anlegen
         events = ereignisse(type(komponente))
         namen = sorted(events)
         self.setRowCount(len(namen))
-        methoden = passende_methoden(formular)
 
         for zeile, name in enumerate(namen):
             name_element = QTableWidgetItem(name)
@@ -90,7 +147,13 @@ class EreignisseTabelle(QTableWidget):
             # wurde aber nirgends angezeigt (M11, Abschnitt 4).
             name_element.setToolTip(events[name].doc)
             self.setItem(zeile, _SPALTE_NAME, name_element)
-            self.setCellWidget(zeile, _SPALTE_HANDLER, self._auswahl_erzeugen(name, methoden))
+            # Je Zeile eine eigene Liste: eine Methode für `on_click`
+            # passt nicht auf `on_mouse_down`.
+            self.setCellWidget(
+                zeile,
+                _SPALTE_HANDLER,
+                self._auswahl_erzeugen(name, passende_methoden(formular, name)),
+            )
 
     def _auswahl_erzeugen(self, ereignis_name: str, methoden: list[str]) -> QComboBox:
         auswahl = QComboBox()

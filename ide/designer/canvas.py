@@ -1173,17 +1173,28 @@ class DesignerCanvas(QObject):
         self._nach_aenderung(komponente)
         return True
 
-    def ereignis_handler_erzeugen(self, komponente: Any) -> str | None:
-        """Doppelklick auf `komponente` (Abschnitt 4.4): erzeugt bei
-        Bedarf die Standard-Ereignis-Methode in der Formular-Unit (per
-        `libcst`, ohne Formatierungsverlust) und verknüpft sie. Ohne
-        zugrunde liegende `.pfm`-Datei oder ohne eindeutiges Standard-
-        ereignis passiert nichts (`None`). Bereits verknüpfte Ereignisse
-        werden nicht erneut erzeugt, nur der vorhandene Name geliefert."""
+    def ereignis_handler_erzeugen(
+        self, komponente: Any, ereignis_name: str | None = None
+    ) -> str | None:
+        """Erzeugt bei Bedarf eine Ereignis-Methode und verknüpft sie.
+
+        Ohne `ereignis_name` ist das kennzeichnende Ereignis gemeint -
+        der Doppelklick auf die Komponente im Designer (Abschnitt 4.4).
+        Mit Namen ist genau dieses Ereignis gemeint; so ruft der Reiter
+        „Ereignisse" des Objektinspektors an, wo jede Zeile für sich
+        steht. Geschrieben wird per `libcst`, also ohne dass die
+        Formatierung der Unit leidet.
+
+        Ohne zugrunde liegende `.pfm`-Datei oder ohne eindeutiges
+        Standardereignis passiert nichts (`None`). Bereits verknüpfte
+        Ereignisse werden nicht erneut erzeugt, nur der vorhandene Name
+        geliefert.
+        """
         if self.unit_pfad is None:
             return None
-        ereignis_name = _standard_ereignis(type(komponente))
         if ereignis_name is None:
+            ereignis_name = _standard_ereignis(type(komponente))
+        if ereignis_name is None or ereignis_name not in ereignisse(type(komponente)):
             return None
 
         vorhandener_handler = getattr(komponente, ereignis_name)

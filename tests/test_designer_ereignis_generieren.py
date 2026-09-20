@@ -186,3 +186,80 @@ def test_stringgrid_nennt_sein_kennzeichnendes_ereignis(tmp_path: Path) -> None:
         "def sg_tabelle_select_cell(self, sender, spalte, zeile):"
         in unit_pfad.read_text(encoding="utf-8")
     )
+
+
+# ----------------------------------------- Ein bestimmtes Ereignis
+#
+# Seit September 2026 nimmt `ereignis_handler_erzeugen` auch einen
+# Ereignisnamen entgegen. So ruft der Reiter "Ereignisse" des
+# Objektinspektors an, wo jede Zeile fuer sich steht - vorher liess
+# sich dort nur verknuepfen, was schon da war.
+
+
+def test_ein_bestimmtes_ereignis_laesst_sich_anlegen(tmp_path: Path) -> None:
+    unit_pfad = _unit_datei_vorbereiten(tmp_path)
+    formular = _Formular()
+    canvas = DesignerCanvas(formular, pfm_pfad=tmp_path / "test.pfm")
+
+    ergebnis = canvas.ereignis_handler_erzeugen(formular.b_ein, "on_double_click")
+
+    assert ergebnis == "b_ein_double_click"
+    assert "def b_ein_double_click(self, sender):" in unit_pfad.read_text(encoding="utf-8")
+
+
+def test_die_signatur_stimmt_zum_ereignis(tmp_path: Path) -> None:
+    """Der eigentliche Punkt: `on_mouse_down` bekommt `x` und `y`.
+
+    Geprueft ueber den Syntaxbaum und nicht ueber eine Textsuche - eine
+    Textsuche uebersaehe eine zusaetzliche Zeile Einrueckung genauso
+    wie eine vertauschte Reihenfolge der Parameter.
+    """
+    import ast
+
+    from pcl.control import EREIGNIS_PARAMETER
+
+    unit_pfad = _unit_datei_vorbereiten(tmp_path)
+    formular = _Formular()
+    canvas = DesignerCanvas(formular, pfm_pfad=tmp_path / "test.pfm")
+
+    for ereignis in ("on_mouse_down", "on_mouse_move", "on_mouse_up"):
+        name = canvas.ereignis_handler_erzeugen(formular.b_ein, ereignis)
+        assert name is not None, ereignis
+
+    baum = ast.parse(unit_pfad.read_text(encoding="utf-8"))
+    methoden = {
+        knoten.name: [p.arg for p in knoten.args.args]
+        for knoten in ast.walk(baum)
+        if isinstance(knoten, ast.FunctionDef)
+    }
+
+    for ereignis, zusatz in EREIGNIS_PARAMETER.items():
+        if not ereignis.startswith("on_mouse"):
+            continue
+        name = f"b_ein_{ereignis.removeprefix('on_')}"
+        assert methoden[name] == ["self", "sender", *zusatz], name
+
+
+def test_ein_fremdes_ereignis_wird_abgelehnt(tmp_path: Path) -> None:
+    """Ein Button hat kein `on_timer`. Es anzulegen hiesse, eine Methode
+    zu schreiben, die nie aufgerufen wird."""
+    unit_pfad = _unit_datei_vorbereiten(tmp_path)
+    formular = _Formular()
+    canvas = DesignerCanvas(formular, pfm_pfad=tmp_path / "test.pfm")
+    vorher = unit_pfad.read_text(encoding="utf-8")
+
+    assert canvas.ereignis_handler_erzeugen(formular.b_ein, "on_timer") is None
+    assert unit_pfad.read_text(encoding="utf-8") == vorher
+
+
+def test_zweimal_dasselbe_ereignis_schreibt_nur_einmal(tmp_path: Path) -> None:
+    unit_pfad = _unit_datei_vorbereiten(tmp_path)
+    formular = _Formular()
+    canvas = DesignerCanvas(formular, pfm_pfad=tmp_path / "test.pfm")
+
+    erster = canvas.ereignis_handler_erzeugen(formular.b_ein, "on_mouse_up")
+    nach_dem_ersten = unit_pfad.read_text(encoding="utf-8")
+    zweiter = canvas.ereignis_handler_erzeugen(formular.b_ein, "on_mouse_up")
+
+    assert erster == zweiter
+    assert unit_pfad.read_text(encoding="utf-8") == nach_dem_ersten
