@@ -807,12 +807,27 @@ aus, ohne fett zu wirken.
   den Anschluss.
 - **Tabellen:** `border-collapse`, ein Rahmen statt zweier, und
   Innenabstand in den Zellen. Heute kleben die Einträge am Strich.
+- **Codeblöcke absetzen.** Heute stehen sie ohne Hintergrund und ohne
+  Rahmen mitten im Fließtext. In der Komponenten-Referenz steht unter
+  „Vorlage pro Komponente" eine Markdown-Tabelle **absichtlich** als
+  Text — sie ist die Vorlage zum Abschreiben. Ohne Absetzung sieht das
+  aus wie eine Tabelle, deren Formatierung fehlt, und nicht wie ein
+  Beispiel. Ausprobiert: `pre { background-color: …; padding: 10px; }`
+  greift über den HTML-Umweg und setzt den Block sichtbar ab.
 - **Abstand** zwischen Absätzen und über Überschriften.
 - **Die Fließtextschrift** festlegen statt zu nehmen, was Qt gerade
   greift.
 
 ### Noch zu prüfen
 
+- **Die Schriftstärke gehört am echten Bildschirm entschieden, nicht
+  hier.** 500 ist ein Anhaltspunkt, keine Festlegung: der Eindruck
+  „zu dünn" entsteht durch helle Schrift auf dunklem Grund, und
+  zwischen 400 und 600 liegt der Unterschied zwischen kraftlos und
+  klobig. Beide Themen nebeneinander ansehen und dann entscheiden.
+  Die Bilder aus einem Offscreen-Lauf taugen dafür nicht — dort
+  greift eine Ersatzschrift mit fehlerhaften Glyphen (siehe
+  AGENTS.md, Abschnitt „Tests").
 - Ob die Vorlage zum Thema passen muss. Die Farben kommen heute vom
   Widget; eine Vorlage, die Farben festschreibt, würde im dunklen
   Thema falsch aussehen. Vermutlich also nur Maße und Stärke in der
