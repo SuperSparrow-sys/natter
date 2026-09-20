@@ -430,3 +430,93 @@ def test_ohne_namen_bleibt_der_bereich_knapp() -> None:
     block = struktogramm_layout(ohne).rechteck
 
     assert abs(bereich.height() - block.height()) < 40
+
+
+# ------------------------------------------------- Drucken: Massstab
+#
+# Punkt 3 der offenen Punkte. auf_seite_zeichnen() rechnete mit
+# min(1.0, ...) - "verkleinert nur, vergroessert nie". Das stimmte fuer
+# den Bildschirm, wo ein Punkt ein Punkt ist. Auf einem Drucker mit
+# 600 dpi blieb der Faktor damit bei 1,0, und ein Diagramm von 884x456
+# wurde auf einer Seite von 4818x6876 nur 3,7 cm breit statt 20,4.
+
+
+def _belegter_anteil(daten, seite_breite, seite_hoehe, aufloesung, monkeypatch):
+    """Welchen Anteil der Seitenbreite das Diagramm einnimmt.
+
+    Gemessen an der echten Funktion und nicht an einer zweiten
+    Rechnung daneben: der Maßstab wird dem Maler abgelesen, kurz bevor
+    er zu zeichnen beginnt. Eine nachgebaute Formel bliebe gruen, auch
+    wenn jemand `auf_seite_zeichnen` zurueckdrehte - sie prueft dann
+    nur sich selbst.
+    """
+    from PySide6.QtGui import QImage, QPainter
+
+    from ide.diagramm import export as export_modul
+    from ide.diagramm.export import inhaltsbereich
+
+    gemessen: list[float] = []
+
+    def maszstab_ablesen(maler, _daten):
+        gemessen.append(maler.transform().m11())
+
+    monkeypatch.setattr(export_modul, "diagramm_zeichnen", maszstab_ablesen)
+
+    bild = QImage(10, 10, QImage.Format.Format_ARGB32)
+    maler = QPainter(bild)
+    export_modul.auf_seite_zeichnen(
+        maler, daten, seite_breite, seite_hoehe, aufloesung=aufloesung
+    )
+    maler.end()
+
+    assert gemessen, "auf_seite_zeichnen hat gar nicht gezeichnet"
+    return inhaltsbereich(daten).width() * gemessen[0] / seite_breite
+
+
+def test_das_diagramm_fuellt_die_seite(daten: dict, monkeypatch) -> None:
+    """Mit dem alten Stand belegte es 18 Prozent - das ist der Beleg."""
+
+    # A4 hochkant bei 600 dpi, wie ein gewoehnlicher Drucker.
+    anteil = _belegter_anteil(daten, 4818, 6876, 600, monkeypatch)
+
+    assert anteil > 0.5, f"Nur {anteil:.0%} der Seitenbreite belegt"
+
+
+def test_bei_96_dpi_aendert_sich_nichts(daten: dict, monkeypatch) -> None:
+    """Der Weg fuer den Bildschirm und das PDF bleibt, wie er war."""
+
+    anteil = _belegter_anteil(daten, 771, 1100, 96, monkeypatch)
+
+    assert anteil > 0.5
+
+
+def test_ein_kleines_diagramm_wird_nicht_aufgeblasen(daten: dict, monkeypatch) -> None:
+    """Die Regel "vergroessert nie" gilt weiter - gerechnet wird sie
+    jetzt nur in Bildschirmpunkten statt in Geraetepunkten."""
+    from ide.diagramm.export import inhaltsbereich
+
+    bereich = inhaltsbereich(daten)
+
+    # Eine sehr grosse Seite: das Diagramm soll dort nicht auf
+    # Plakatgroesse wachsen.
+    anteil = _belegter_anteil(daten, 96 * 100, 96 * 100, 96, monkeypatch)
+
+    assert anteil < 0.2
+    assert bereich.width() < 96 * 100
+
+
+def test_der_drucker_wird_auf_96_dpi_gestellt() -> None:
+    """Derselbe Weg, den als_pdf() seit jeher geht."""
+    quelle = (
+        Path(__file__).resolve().parent.parent / "ide" / "diagramm" / "fenster.py"
+    ).read_text(encoding="utf-8")
+
+    assert "setResolution(96)" in quelle
+
+
+def test_die_aufloesung_wird_an_das_zeichnen_durchgereicht() -> None:
+    quelle = (
+        Path(__file__).resolve().parent.parent / "ide" / "diagramm" / "fenster.py"
+    ).read_text(encoding="utf-8")
+
+    assert "aufloesung=drucker.resolution()" in quelle

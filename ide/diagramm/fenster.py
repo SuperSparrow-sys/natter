@@ -1074,6 +1074,20 @@ class DiagrammFenster(QMainWindow):
             QApplication.processEvents()
             try:
                 self._drucker = QPrinter(QPrinter.PrinterMode.HighResolution)
+                # Auf 96 dpi, genau wie `als_pdf()` in
+                # `ide/diagramm/export.py`. Dann entspricht ein
+                # Gerätepunkt einem Bildschirmpunkt, und das Diagramm
+                # landet auf dem Papier in denselben Verhältnissen wie
+                # am Schirm.
+                #
+                # Ohne das rechnete der Drucker in 600 dpi: die Kästen
+                # folgten dem Anpassungsfaktor, die Schriften aber der
+                # Geräteauflösung, denn Qt rechnet Punktgrößen darüber
+                # um. Das Diagramm wurde 3,7 cm breit und die Namen
+                # liefen trotzdem aus ihren Kästen. Die Ausgabe bleibt
+                # dabei Vektor; 96 dpi ist das Koordinatensystem, nicht
+                # die Druckqualität.
+                self._drucker.setResolution(96)
             finally:
                 QApplication.restoreOverrideCursor()
                 self.statusBar().clearMessage()
@@ -1088,7 +1102,19 @@ class DiagrammFenster(QMainWindow):
         return self._drucker
 
     def _auf_drucker_zeichnen(self, drucker: QPrinter) -> None:
+        """Zeichnet das Diagramm auf eine Druckseite.
+
+        Die Auflösung des Druckers gehört dazu: ohne sie rechnet
+        `auf_seite_zeichnen` mit Bildschirmpunkten und bekommt
+        Gerätepunkte - bei 600 dpi ein Unterschied um das Sechsfache.
+        """
         maler = QPainter(drucker)
         bereich = drucker.pageRect(QPrinter.Unit.DevicePixel)
-        auf_seite_zeichnen(maler, self.diagramm.daten, bereich.width(), bereich.height())
+        auf_seite_zeichnen(
+            maler,
+            self.diagramm.daten,
+            bereich.width(),
+            bereich.height(),
+            aufloesung=drucker.resolution(),
+        )
         maler.end()

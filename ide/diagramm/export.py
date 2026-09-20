@@ -301,15 +301,49 @@ def als_pdf(daten: dict[str, Any], pfad: Path) -> Path:
     return pfad
 
 
-def auf_seite_zeichnen(maler: QPainter, daten: dict[str, Any], breite: float, hoehe: float) -> None:
+def auf_seite_zeichnen(
+    maler: QPainter,
+    daten: dict[str, Any],
+    breite: float,
+    hoehe: float,
+    *,
+    aufloesung: int = 96,
+) -> None:
     """Zeichnet das Diagramm so groß wie möglich auf eine Seite der
-    Größe `breite`×`hoehe` – „Anpassen an Seite“ beim Drucken
-    (Abschnitt 13.2). Verkleinert nur, vergrößert nie: ein kleines
-    Diagramm soll nicht auf Plakatgröße aufgeblasen werden."""
+    Größe `breite`×`hoehe` – „Anpassen an Seite“ (Abschnitt 13.2).
+
+    `breite` und `hoehe` sind Gerätepunkte der Zielseite, `aufloesung`
+    deren Punkte je Zoll. Beides gehört zusammen: ein Bildschirm hat
+    96 dpi, ein Drucker 600. Das Diagramm ist in Bildschirmpunkten
+    beschrieben, und die Schriften sind in Punkt angegeben, die Qt
+    über die Geräteauflösung umrechnet.
+
+    Bis September 2026 stand hier `min(1.0, …)` - „verkleinert nur,
+    vergrößert nie". Das stimmte für den Bildschirm, wo ein Punkt ein
+    Punkt ist. Auf einem Drucker mit 600 dpi blieb der Faktor damit
+    bei 1,0, und ein Diagramm von 884×456 Punkten wurde auf einer
+    Seite von 4818×6876 Punkten 3,7 cm breit statt 20,4. Die
+    Schriften wuchsen dabei trotzdem mit der Geräteauflösung und
+    liefen aus ihren Kästen - Geometrie und Schrift folgten
+    verschiedenen Maßstäben.
+
+    Deshalb wird zuerst auf 96 dpi umgerechnet: danach entspricht ein
+    Gerätepunkt wieder einem Bildschirmpunkt, und der Anpassungsfaktor
+    wirkt auf beides gleich. Denselben Weg geht `als_pdf()` seit jeher,
+    dort über `setResolution(96)`.
+    """
     bereich = inhaltsbereich(daten)
     if bereich.width() <= 0 or bereich.height() <= 0:
         return
-    faktor = min(1.0, breite / bereich.width(), hoehe / bereich.height())
-    maler.scale(faktor, faktor)
+
+    # Von Gerätepunkten auf Bildschirmpunkte.
+    geraet = (aufloesung or 96) / 96
+    breite_in_punkten = breite / geraet
+    hoehe_in_punkten = hoehe / geraet
+
+    faktor = min(
+        1.0, breite_in_punkten / bereich.width(), hoehe_in_punkten / bereich.height()
+    )
+    maler.scale(geraet * faktor, geraet * faktor)
     maler.translate(-bereich.left(), -bereich.top())
     diagramm_zeichnen(maler, daten)
