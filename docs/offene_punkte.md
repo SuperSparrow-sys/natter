@@ -529,12 +529,33 @@ Liste je Zeile eine andere — was richtig ist, denn eine Methode für
 
 **Noch zu prüfen:**
 
-- Ob der Reiter „Ereignisse" eine Methode auch **anlegen** können soll.
-  Heute kann er das nicht; der Modulkopf sagt, das sei für einen
-  späteren Schritt vorgesehen. Das Werkzeug dafür gibt es längst:
-  `handler_methode_einfuegen()` in `ide/codegen/ereignis.py`, das der
-  Doppelklick im Designer benutzt. Ohne das bleibt für alles außer dem
-  einen Standardereignis nur der Weg über die Tastatur.
+**Der Reiter soll Methoden auch anlegen können.** So vom Nutzer
+entschieden — und zwar „nur das, was möglich ist": angeboten wird
+ausschließlich, was die Komponente wirklich hat und was sich auch
+verknüpfen lässt. Ein Eintrag, der nach dem Anlegen doch nicht wirkt,
+wäre schlimmer als keiner.
+
+Das Werkzeug dafür gibt es längst: `handler_methode_einfuegen()` in
+`ide/codegen/ereignis.py`, das der Doppelklick im Designer benutzt. Es
+schreibt die Methode mit der richtigen Signatur, denn es bekommt die
+Parameter übergeben. Es ist nur nicht an den Objektinspektor
+angeschlossen.
+
+Der Name folgt derselben Regel wie beim Doppelklick:
+`<komponente>_<ereignis ohne on_>`, also `i_keks_mouse_down`.
+
+**Noch zu prüfen:**
+
+- Wie das Anlegen ausgelöst wird. Ein Doppelklick auf die Zeile wäre
+  das Naheliegende — er legt im Designer schon die Standardmethode an.
+  Ein zusätzlicher Eintrag „(neue Methode)" ganz oben im Auswahlfeld
+  wäre der zweite Weg und erklärt sich von selbst.
+- Was geschieht, wenn es die Methode schon gibt: dann nicht noch einmal
+  anlegen, sondern hinspringen. So macht es der Doppelklick im
+  Designer auch.
+- Ob die Unit dafür offen sein muss. Der Designer braucht `unit_pfad`;
+  ohne Datei passiert dort schlicht nichts, und das sollte hier eine
+  Meldung sein statt Stillschweigen.
 - Ob im Auswahlfeld sichtbar werden soll, welche Signatur erwartet
   wird. Wer nicht weiß, dass `on_mouse_down` zwei Zahlen mitbringt,
   schreibt die Methode falsch und findet sie dann nicht in der Liste —
@@ -542,3 +563,45 @@ Liste je Zeile eine andere — was richtig ist, denn eine Methode für
 - Ob der `DBNavigator` betroffen ist: er hat mehrere Ereignisse und
   kein Standardereignis, für ihn legt der Doppelklick also gar nichts
   an.
+
+---
+
+## 14. Das Formular selbst kennt die Maus nicht
+
+**Vorgabe des Nutzers:** Das Formular soll die Position des
+Mauszeigers verfolgen können.
+
+**Stand heute:** `Form` hat genau ein Ereignis, `on_create`. Es erbt
+von `Komponente` und nicht von `Control`, und damit fehlen ihm
+`on_click`, `on_double_click` und die drei Maus-Ereignisse, die jede
+sichtbare Komponente seit M15 hat. Nachgesehen mit
+`ereignisse(Form)` — die Liste hat einen Eintrag, die eines `Button`
+fünf.
+
+**Was das im Unterricht bedeutet:** Wer ein Zeichenprogramm oder ein
+kleines Spiel bauen will, braucht den Ort des Klicks auf der Fläche —
+nicht auf einem Knopf. Heute geht das nur über einen Umweg: eine
+`PaintBox` oder ein `Panel` über das ganze Formular legen und dessen
+Maus-Ereignisse benutzen. Das muss man wissen, und es steht nirgends.
+
+**Noch zu prüfen:**
+
+- Welche Ereignisse das Formular bekommen soll. `on_mouse_move` ist
+  das, was „verfolgen" meint; `on_mouse_down`/`on_mouse_up` gehören
+  dazu, `on_click` und `on_double_click` vermutlich auch.
+- Ob `Form` dafür von `Control` erben kann oder ob die Ereignisse
+  einzeln hinzukommen. `Form` ist kein Kind eines anderen Fensters und
+  hat weder `left`/`top` im selben Sinn noch einen `parent` — ein
+  Wechsel der Basisklasse ist also nicht nur eine Zeile.
+- Ob die Koordinaten vom Arbeitsbereich aus zählen und nicht vom
+  Fensterrahmen. `Top = 0` ist in Natter der obere Rand des
+  Arbeitsbereichs (siehe `pcl/form.py`); die Maus-Koordinaten müssen
+  demselben Maß folgen, sonst stimmt die Stelle nicht, an der etwas
+  gezeichnet wird.
+- Ob `on_mouse_move` ohne gedrückte Taste zu viele Ereignisse
+  auslöst. Qt liefert sie nur bei gedrückter Taste, solange
+  `setMouseTracking` aus ist — für ein Zeichenprogramm ist genau das
+  richtig, für eine Positionsanzeige nicht.
+- Ob der Objektinspektor das Formular überhaupt anzeigt: die neuen
+  Zeilen müssen im Reiter „Ereignisse" erscheinen, wenn das Formular
+  selbst ausgewählt ist.
