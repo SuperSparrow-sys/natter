@@ -746,44 +746,82 @@ Editor sichtbar sein muss.
 
 ---
 
-## 17. Die Markdown-Ansicht ist zu eng gesetzt
+## 17. Hilfeseiten und Markdown-Ansicht sind ungestaltet
 
 **Vorgabe des Nutzers:** Zeilenabstand und Schriftart sollen besser
-werden.
+werden, die Schrift unter anderem kräftiger.
 
-**Beobachtet:** Ein längeres Dokument im Reiter läuft über die ganze
-Fensterbreite, die Zeilen stehen dicht übereinander, und der Text ist
-dadurch mühsam zu lesen — besonders bei einem breiten Fenster, wo eine
-Zeile 150 Zeichen und mehr erreicht.
+**Beobachtet:** Ein längeres Dokument läuft über die ganze
+Fensterbreite, die Zeilen stehen dicht übereinander, und in den
+Tabellen kleben die Einträge an den Rahmen. Betroffen sind beide Wege,
+denn sie benutzen dieselbe Klasse: die Hilfeseiten unter „Hilfe" und
+jede `.md`, die jemand öffnet.
 
 **Stand heute:** `HilfeAnsicht` in `ide/viewers/hilfe_ansicht.py` ist
 ein `QTextBrowser` mit `setMarkdown()`. Eingestellt wird daran genau
 eines: für Code-Stellen wird die Gattungsfamilie „monospace" durch
 eine ersetzt, die es unter Windows wirklich gibt. Zeilenabstand,
-Fließtextschrift, Ränder und Zeilenbreite sind Qts Vorgaben, also gar
-nicht eingestellt.
+Fließtextschrift, Schriftstärke, Ränder, Zeilenbreite und alles an den
+Tabellen sind Qts Vorgaben.
 
-**Was zu ändern ist:**
+### Der Weg dorthin — ausprobiert und nachgemessen
 
-- **Zeilenabstand** auf etwa das Anderthalbfache der Schrifthöhe. Über
-  `QTextBlockFormat.setLineHeight()` für jeden Absatz, oder über eine
-  Vorlage.
-- **Höchstbreite des Textes.** Lesbar sind rund 70 bis 90 Zeichen je
-  Zeile; darüber verliert das Auge beim Zeilenwechsel den Anschluss.
-  Der Rest des Fensters bleibt Rand.
-- **Abstand zwischen Absätzen** und über Überschriften, damit die
-  Gliederung ohne Linien erkennbar ist.
-- **Die Fließtextschrift.** Heute ist es, was Qt gerade nimmt. Dieselbe
-  Schrift wie in der übrigen Oberfläche wäre das Naheliegende.
+`document().setDefaultStyleSheet()` wirkt nur beim Einlesen von HTML;
+`setMarkdown()` geht daran vorbei. Das steht schon im Modul und war
+der Grund, warum die Code-Schrift von Hand über die Textblöcke gesetzt
+wird.
 
-**Noch zu prüfen:**
+Der Ausweg ist ein Zwischenschritt über HTML:
 
-- Ob `document().setDefaultStyleSheet()` hier greift. Im selben Modul
-  steht der Hinweis, dass es beim Einlesen von HTML wirkt, `setMarkdown`
-  aber daran vorbeigeht — nachgemessen, die Schriftfamilie blieb
-  „monospace". Dann bleibt nur der Weg über die Textblöcke, wie ihn
-  `_code_schrift_setzen()` schon geht.
-- Ob dieselbe Einstellung für die Hilfeseiten gilt. Sie benutzen
-  dieselbe Klasse, und was dort lesbarer wird, ist es hier auch.
-- Ob die Breite mitwandern soll, wenn jemand die Schrift über
+    zwischen = QTextDocument()
+    zwischen.setMarkdown(markdown)
+    self.document().setDefaultStyleSheet(vorlage)
+    self.setHtml(zwischen.toHtml())
+
+Damit greift die Vorlage. Gegenübergestellt und angesehen: mit
+`setMarkdown` bleibt alles bei Qts Vorgaben, über den Umweg stehen
+Zellenabstand, Rahmen, Ränder und ein Zeilenabstand von 160 %
+tatsächlich im Bild.
+
+**Die Schriftstärke lässt sich so setzen**, und zwar feiner als nur
+fett. Gemessen, welche Angaben Qt annimmt:
+
+| Angabe | Ergebnis |
+|---|---|
+| ohne Angabe | 400 (normal) |
+| `font-weight: 500` | 500 |
+| `font-weight: 600` | 600 |
+| `font-weight: bold` | 700 |
+
+`body { font-weight: 500; }` vererbt sich dabei auf die Absätze. Für
+das dunkle Thema ist das der richtige Hebel: helle Schrift auf dunklem
+Grund wirkt dünner als dieselbe Schrift umgekehrt, und 500 gleicht das
+aus, ohne fett zu wirken.
+
+### Was in die Vorlage gehört
+
+- **Schriftstärke** 500 im dunklen Thema, 400 im hellen.
+- **Zeilenabstand** etwa 160 %.
+- **Höchstbreite** von 70 bis 90 Zeichen je Zeile; der Rest des
+  Fensters bleibt Rand. Darüber verliert das Auge beim Zeilenwechsel
+  den Anschluss.
+- **Tabellen:** `border-collapse`, ein Rahmen statt zweier, und
+  Innenabstand in den Zellen. Heute kleben die Einträge am Strich.
+- **Abstand** zwischen Absätzen und über Überschriften.
+- **Die Fließtextschrift** festlegen statt zu nehmen, was Qt gerade
+  greift.
+
+### Noch zu prüfen
+
+- Ob die Vorlage zum Thema passen muss. Die Farben kommen heute vom
+  Widget; eine Vorlage, die Farben festschreibt, würde im dunklen
+  Thema falsch aussehen. Vermutlich also nur Maße und Stärke in der
+  Vorlage, Farben weiter vom Thema.
+- Ob `_code_schrift_setzen()` danach noch gebraucht wird. Über HTML
+  ließe sich `code { font-family: Consolas; }` in die Vorlage
+  schreiben — dann fiele der Umweg über die Textblöcke weg.
+- Ob die Breite mitwandert, wenn jemand die Schrift über
   `Strg+Mausrad` vergrößert.
+- Ob `toHtml()` alles überträgt, was `setMarkdown` erzeugt hat:
+  Tabellen, Listen, Verweise, Code-Blöcke. Ein Verlust dabei wäre
+  schlimmer als das heutige Aussehen.
