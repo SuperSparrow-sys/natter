@@ -102,7 +102,78 @@ Dialoge funktionieren ja.
 
 ---
 
-## 3. Die Lizenzseite des Installers ist nie angesehen worden
+## 3. Die Druckvorschau zeigt das Diagramm winzig und mit zerlaufener Schrift
+
+**Beobachtet:** „Datei → Drucken …" im Diagramm-Editor zeigt eine
+Vorschau, in der fast nichts zu sehen ist: eine große graue Fläche, die
+Zoomanzeige steht auf „0,0 %", und vom Diagramm ist nur ein Fleck
+übrig.
+
+**Nachgestellt** mit `konto_klassen.pdiag` und einem
+`QPrintPreviewWidget`. Es sind **zwei** Fehler, die zusammenfallen.
+
+### 3a. Das Diagramm wird 3,7 cm breit gedruckt statt 20 cm
+
+`ide/diagramm/export.py`, Zeile 312:
+
+```python
+faktor = min(1.0, breite / bereich.width(), hoehe / bereich.height())
+```
+
+Die `1.0` bedeutet „verkleinert nur, vergrößert nie". Das ist für den
+Bildschirm gedacht, wo ein Punkt ein Punkt ist. Ein Drucker rechnet
+aber in 600 dpi:
+
+| | |
+|---|---|
+| Inhalt des Diagramms | 884 × 456 Punkte |
+| Druckseite | 4818 × 6876 Punkte bei 600 dpi |
+| Faktor mit der Grenze | **1,00** → 18 % der Seitenbreite, **3,7 cm** |
+| Faktor ohne die Grenze | 5,45 → 100 % der Seitenbreite, **20,4 cm** |
+
+Streicht man die Grenze, füllt das Diagramm die Seite — nachgestellt
+und angesehen.
+
+### 3b. Die Schrift skaliert nicht mit
+
+Auch mit richtiger Geometrie bleibt der Text unbrauchbar: Namen laufen
+aus ihren Kästen, Zeilen überlagern sich, von einer Notiz ist nur das
+erste Wort zu sehen.
+
+Der Grund: die Schriften werden in **Punkt** angelegt
+(`QFont(_SCHRIFT, groesse)` in `zeichnen.py`, `struktogramm.py`,
+`tabelle.py`). Qt rechnet Punkt über die Auflösung des Ausgabegeräts in
+Gerätepunkte um — bei 600 dpi also 6,25-mal so groß wie bei den 96 dpi
+des Bildschirms. Der Maßstab des Malers vergrößert danach noch einmal.
+Die Kästen wachsen mit dem einen Faktor, die Schrift mit beiden.
+
+**Der Vergleich, der es zeigt:** der PDF-Export hat dasselbe Problem
+nicht, und zwar weil `als_pdf` in `export.py` ausdrücklich auf 96 dpi
+stellt — mit dem Kommentar „dann entspricht eine PDF-Einheit genau
+einem Pixel der Zeichenfläche". Beim Drucken fehlt dieser Schritt.
+
+**Richtung für die Behebung:** beim Drucken denselben Weg gehen wie
+beim PDF — das Koordinatensystem vor dem Zeichnen auf 96 dpi bringen
+(`maler.scale(96 / drucker.resolution(), …)`) und erst darauf den
+Anpassungsfaktor rechnen. Dann skalieren Geometrie und Schrift
+gemeinsam, und die Auflösung des Druckers bleibt trotzdem erhalten.
+
+**Noch zu prüfen:**
+
+- Ob die Vorschau danach auch einen sinnvollen Zoomwert anzeigt; „0,0 %"
+  ist noch nicht erklärt und könnte ein dritter, eigener Punkt sein.
+- Struktogramm und Entscheidungstabelle gehen durch dieselbe Funktion
+  und sind noch nicht gedruckt worden.
+- Querformat, denn dort greift der Faktor über die andere Kante.
+- Ob ein Test das festhalten kann, etwa: auf eine Seite gezeichnet muss
+  der belegte Bereich mindestens die halbe Seitenbreite einnehmen.
+- Die PNG- und SVG-Exporte sehen richtig aus (in dieser Sitzung
+  angesehen), das PDF wurde nur auf seine Dateigröße geprüft — einmal
+  öffnen und ansehen.
+
+---
+
+## 4. Die Lizenzseite des Installers ist nie angesehen worden
 
 **Beobachtet:** Die Textdateien `tools/lizenz_vorlagen/*.txt` sind
 geprüft — Umlaute, Byte-Order-Mark, Inhalt. Wie sie im Installer
@@ -119,7 +190,7 @@ Umlauten und ohne abgeschnittene Zeilen erscheinen.
 
 ---
 
-## 4. Welcher Test in den Dokumente-Ordner schreibt, ist unbekannt
+## 5. Welcher Test in den Dokumente-Ordner schreibt, ist unbekannt
 
 **Beobachtet:** Nach einigen Testläufen standen 27 Ordner im
 Projektstamm — `01_Begruessung`, `01_Begruessung 2`, `… 3` für alle
@@ -142,7 +213,7 @@ laufenden Programm an einer unerwarteten Stelle landen.
 
 ---
 
-## 5. Prozesszeiten sind auf diesem Rechner nicht messbar
+## 6. Prozesszeiten sind auf diesem Rechner nicht messbar
 
 **Beobachtet:** Weder `Get-Process | Select CPU` noch die
 WMI-Zähler `UserModeTime`/`KernelModeTime` liefern etwas anderes als
@@ -165,7 +236,7 @@ die Laufzeit-Angaben sonst nur aus Erfahrung stammen.
 
 ---
 
-## 6. Der Starter braucht die Hälfte der Startzeit
+## 7. Der Starter braucht die Hälfte der Startzeit
 
 **Beobachtet:** Vom Doppelklick bis zum Fenster vergehen rund 1,65
 Sekunden. Davon entfallen etwa 790 Millisekunden auf `Natter.exe`,
