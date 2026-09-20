@@ -13,18 +13,20 @@ Tests dazu und woran das Erledigtsein erkennbar ist.
 
 ## Stand am 20. September 2026
 
-Achtzehn der zwanzig Punkte sind erledigt oder geklärt. Was ein
+Achtzehn der einundzwanzig Punkte sind erledigt oder geklärt. Was ein
 gestrichener Eintrag noch enthält, ist die Vorgeschichte: was
 beobachtet wurde, was die Ursache war und woran das Ergebnis hängt.
 Gelöscht wird nichts davon - beim nächsten ähnlichen Fehler ist die
 Spur mehr wert als ein leeres Blatt.
 
-Offen bleiben zwei, und bei beiden liegt es nicht an der Arbeit:
+Offen bleiben drei:
 
 * **Punkt 4** — die Lizenzseite des Installers von Hand durchklicken.
   Dafür braucht es einen Menschen vor dem Bildschirm.
 * **Punkt 6** — die Prozesszeiten dieses Rechners. Keine Aufgabe,
   sondern eine Einschränkung der Umgebung.
+* **Punkt 21** — beim Deinstallieren bleibt ein Ordner zurück.
+  Aufgefallen beim Bau von 0.3.0.
 
 Zurückgestellt ist **Punkt 7**, die zweite Hälfte der Startzeit.
 
@@ -1201,3 +1203,33 @@ verschiebt sie nicht von sich aus.
 
 **Gehalten von** `tests/test_pfade.py`, samt der Gegenprobe, dass der
 Zielordner nicht im Entwicklungsbaum liegt.
+
+---
+
+## 21. Nach dem Deinstallieren bleibt ein Ordner zurück
+
+**Beobachtet:** Beim Durchgang zu 0.3.0 entfernte der Uninstaller
+30.375 Dateien und ließ acht liegen — einen `.ruff_cache` im
+Programmordner, und damit den Ordner selbst.
+
+**Ursache — nachgewiesen.** Den Cache legt die Prüfung vor dem Start
+an, also während des Unterrichts und lange nach der Installation.
+Inno Setup entfernt beim Deinstallieren, was es selbst geschrieben
+hat; alles andere bleibt. Derselbe Fall wie beim Uninstaller im
+Manifest (siehe `docs/arbeitspakete/M13.md`), nur andersherum.
+
+**Was das bedeutet:** Wer Natter entfernt, findet unter
+`%LOCALAPPDATA%\Programs\Natter` weiterhin einen Ordner. Auf einem
+Schulrechner, der zwischen zwei Halbjahren aufgeräumt wird, sieht das
+nach einer halben Deinstallation aus.
+
+**Zu tun:**
+
+- Eine `[UninstallDelete]`-Regel für `{app}\.ruff_cache` in
+  `tools/natter.iss`, und eine für den Ordner selbst.
+- Nachsehen, was die IDE sonst noch neben sich schreibt: `__pycache__`
+  in `site-packages` entsteht beim ersten Import und dürfte dasselbe
+  Problem haben. Beim Bau von 0.2.0 waren es über achtzig `.pyc`.
+- Prüfen, ob eine solche Regel etwas löscht, das ein Schüler dort
+  abgelegt hat. Im Programmordner hat er nichts zu suchen, aber
+  „nichts zu suchen" ist kein Beweis.
