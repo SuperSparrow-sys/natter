@@ -49,11 +49,26 @@ class FarbKnopf(QPushButton):
 
     def farbe_zeigen(self, farbe: str, eigen: bool) -> None:
         self.farbe = farbe if eigen else None
-        self.setStyleSheet(f"background-color: {farbe}; border: 1px solid #808080;")
+        # Mit Selektor und nicht als nackte Anweisung: ein Stylesheet
+        # ohne Selektor gilt in Qt für dieses Widget *und für jedes
+        # Kind*. Als der Farbdialog noch an diesem Knopf hing, bekam
+        # dadurch jede Beschriftung und jeder Knopf darin einen grauen
+        # Rahmen - der Dialog sah aus, als wäre er abgeschaltet.
+        self.setStyleSheet(
+            f"QPushButton {{ background-color: {farbe}; border: 1px solid #808080; }}"
+        )
         self.setText("" if eigen else "(Stilvorlage)")
 
     def farbe_waehlen(self) -> str | None:
-        gewaehlt = QColorDialog.getColor(QColor(self.farbe or "#ffffff"), self)
+        """Öffnet den Farbdialog.
+
+        Als Elternteil das Fenster und nicht der Knopf: ein Dialog gilt
+        in Qt als Kind seines Elternteils und erbt dessen Stylesheet.
+        Am Knopf hing damit die Rahmenzeile von oben in jedem Label und
+        jedem Knopf des Dialogs. Am Fenster erbt er das Thema der IDE,
+        und genau das soll er.
+        """
+        gewaehlt = QColorDialog.getColor(QColor(self.farbe or "#ffffff"), self.window())
         return gewaehlt.name() if gewaehlt.isValid() else None
 
 
