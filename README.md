@@ -50,7 +50,7 @@ ausgeliefert wird, steht in [`docs/entwicklung.md`](docs/entwicklung.md).
 | Bereich | Technik |
 |---|---|
 | Oberfläche (IDE und Schülerprogramme) | PySide6 (Qt 6) |
-| Code-Editor | Monaco, der Editor von VS Code |
+| Code-Editor | Qt (`QPlainTextEdit`) mit eigener Python-Hervorhebung |
 | Vervollständigung, Signaturen, Gehe-zu | Jedi |
 | Prüfung vor dem Start | Ruff |
 | Debugger | debugpy über das Debug Adapter Protocol |
@@ -201,7 +201,8 @@ Farben von Hand setzt.
 | Formular-Designer | echte `pcl`-Komponenten, Ziehen mit Maus und Tastatur, acht Größenanfasser, Rückgängig |
 | Komponentenpalette | zwei Reiter, „Standard" und „Zusätzlich" |
 | Objektinspektor | Eigenschaften und Ereignisse; Doppelklick auf ein Ereignis legt die Methode an |
-| Quelltexteditor | Monaco: Einrückungslinien, Klammerpaar-Farben, Vervollständigung, Fehler direkt unterringelt |
+| Quelltexteditor | Zeilennummern, Syntax-Hervorhebung in den Farben von VS Code, Einrückungslinien, Vervollständigung, Fehler direkt unterringelt |
+| Betrachter | CSV als sortierbare Tabelle, Bilder, HTML — und Markdown gesetzt statt als Rohtext |
 | Ausgabe-Panel | Programmausgabe, Fehler und Prüfmeldungen |
 | Test-Explorer | Unit- und Klassentests mit Soll-/Ist-Vergleich |
 | Startbild | zuletzt geöffnete Projekte, neues Projekt, die Beispielprojekte |

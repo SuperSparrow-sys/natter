@@ -35,7 +35,11 @@ def test_projekt_oeffnen_fuellt_den_explorer() -> None:
     # Seit M12 steht die Startdatei nicht mehr bei den Units: sie wird
     # erzeugt und nicht bearbeitet, wie die `.lpr` in Lazarus. Erreichbar
     # bleibt sie über „Projekt → Startdatei anzeigen“.
-    assert set(units) == {"u_konto.py"}
+    #
+    # `u_main.py` steht seit September 2026 dabei: unter „Formulare"
+    # liegt die Oberfläche, hier der Code - und genau der ist die Datei,
+    # in die der Schüler schreibt.
+    assert set(units) == {"u_main.py", "u_konto.py"}
 
 
 def test_datei_oeffnen_zeigt_inhalt_in_neuem_tab() -> None:

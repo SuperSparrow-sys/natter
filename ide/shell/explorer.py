@@ -1,8 +1,14 @@
 """ProjektExplorer: Baumansicht mit Formularen und Units.
 
-Siehe README.md, Abschnitt 7.4: „Gruppen Formulare, Units,
-Assets; Formular-Units als ein Eintrag“. `Assets` folgt, sobald Bild-/
-Sound-Komponenten Dateien in `assets/` erwarten (siehe `pcl.Image`).
+Siehe README.md, Abschnitt 7.4: „Gruppen Formulare, Units, Assets“.
+`Assets` folgt, sobald Bild-/Sound-Komponenten Dateien in `assets/`
+erwarten (siehe `pcl.Image`).
+
+Dort stand bis September 2026 auch „Formular-Units als ein Eintrag“.
+Das ist zurückgenommen: ein Formular und seine Unit sind nicht
+dasselbe - das eine ist die Oberfläche, das andere der Code, und der
+Code ist die Datei, in die der Schüler schreibt. Zusammengefasst nahm
+sie ihm genau die aus dem Blick.
 """
 
 from __future__ import annotations
@@ -89,23 +95,40 @@ class ProjektExplorer(QTreeWidget):
         formular_stems = {pfad.stem for pfad in projekt.formulare()}
 
         for pfad in projekt.formulare():
-            # öffnet den Designer (Abschnitt 7.7), nicht den Rohtext;
-            # "Formular/Code umschalten" (Abschnitt 7.9) folgt später
+            # öffnet den Designer (Abschnitt 7.7), nicht den Rohtext.
+            # Von dort geht es mit Umschalt+F12 zur Unit und zurück
+            # ("Ansicht → Formular und Code wechseln", Abschnitt 7.9)
             self._eintrag_hinzufuegen(self.formulare_gruppe, pfad.stem, pfad)
 
         for pfad in projekt.units():
-            if pfad.stem in formular_stems:
-                continue  # gehört zu einem Formular, dort schon aufgeführt
+            # **Auch die Unit zu einem Formular.** Sie stand hier bis
+            # September 2026 nicht, weil das Formular schon eine Zeile
+            # darüber hat - aber die beiden sind nicht dasselbe: unter
+            # „Formulare“ liegt die Oberfläche, hier der Code, und
+            # genau der ist die Datei, in die der Schüler schreibt. Wer
+            # ein neues Projekt anlegte, sah deshalb nur den Designer
+            # und fand nirgends, wo sein Programm hingehört
+            # (Nutzer-Meldung: „wenn ich ein neues Projekt erstelle muss
+            # auch die u_main.py für den code angezeigt werden nicht nur
+            # der designer“).
+            #
             # Kein „⋮“-Menü für die Unit, die das Programm trägt: bei
             # einem Konsolenprojekt ist das `u_main.py`, und `main.py`
             # importiert genau diesen Namen. „Umbenennen …“ zöge den
             # Import nicht nach, „Löschen …“ nähme dem Projekt seinen
-            # ganzen Inhalt. Bei einem GUI-Projekt stellt sich die
-            # Frage nicht - dort steht die Hauptunit unter „Formulare“
-            # und hat aus demselben Grund schon keines.
+            # ganzen Inhalt.
+            #
+            # Ebenso wenig für die Unit eines Formulars: sie und die
+            # `.pfm` heißen gleich, und das ist keine Schreibweise,
+            # sondern die Verbindung zwischen beiden (Abschnitt 4.1).
+            # Eine davon allein umzubenennen zerrisse das Paar.
             traegt_das_programm = pfad.stem == projekt.haupt_unit
+            gehoert_zu_formular = pfad.stem in formular_stems
             self._eintrag_hinzufuegen(
-                self.units_gruppe, pfad.name, pfad, mit_menue=not traegt_das_programm
+                self.units_gruppe,
+                pfad.name,
+                pfad,
+                mit_menue=not (traegt_das_programm or gehoert_zu_formular),
             )
 
         for pfad in projekt.diagramme():

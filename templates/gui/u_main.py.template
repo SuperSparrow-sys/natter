@@ -1,11 +1,43 @@
-# Hier steht dein Code.
+# Hier steht dein Code. Alles, was du programmierst, kommt in diese
+# Datei.
 #
-# Die Klasse erbt alles, was du im Designer angelegt hast - jede
-# Komponente erreichst du über self. und ihren Namen, z. B.
-# self.l_titel.caption = "Hallo".
 #
-# Methoden für Ereignisse legt Natter selbst an: Doppelklick auf eine
-# Komponente im Designer.
+# EINE KOMPONENTE ANSPRECHEN
+#
+# Jede Komponente, die du im Designer ablegst, bekommt dort einen Namen
+# (im Objektinspektor die erste Zeile, "name"). Unter genau diesem
+# Namen erreichst du sie hier - mit self. davor:
+#
+#     self.l_titel.caption = "Hallo"
+#     self.e_name.text = ""
+#     self.b_ok.enabled = False
+#
+# Die Eigenschaften heissen genauso wie im Objektinspektor. Was du dort
+# einstellen kannst, kannst du auch hier setzen - und umgekehrt.
+#
+#
+# AUF EINEN KLICK REAGIEREN
+#
+# Doppelklick auf den Knopf im Designer. Natter legt dann hier eine
+# Methode an:
+#
+#     def b_ok_click(self, sender):
+#         self.l_titel.caption = "Geklickt!"
+#
+# Die Zeile self.b_ok.on_click = self.b_ok_click, die den Knopf mit
+# dieser Methode verbindet, musst du nicht schreiben: sie steht in
+# u_main_design.py, und die schreibt Natter aus dem Designer. Deshalb
+# findest du hier nur die Methoden - das Verbinden ist schon erledigt.
+#
+# sender ist die Komponente, die das Ereignis ausgeloest hat. Wenn
+# mehrere Knoepfe dieselbe Methode benutzen, erkennst du daran, welcher
+# es war.
+#
+#
+# ETWAS BEIM START TUN
+#
+# Doppelklick auf den freien Bereich des Formulars legt form_create an
+# - das laeuft einmal, bevor das Fenster erscheint.
 
 from u_main_design import Form1Design
 

@@ -100,8 +100,7 @@ class Vorschlag:
     signatur: str
     rang: int
 
-    @property
-    def anzeige(self) -> str:
+    def anzeige_text(self, mit_erklaerung: bool = True) -> str:
         """Die Zeile, wie sie in der Liste steht.
 
         Die Signatur nur, wenn sie auch mit dem Namen anfängt: bei einem
@@ -109,9 +108,23 @@ class Vorschlag:
         Standardwerts, nicht der Name. Im Bildschirmfoto stand dort
         wirklich „NoneType()   –   Wird beim Klicken ausgelöst“, und
         niemand hätte erraten, dass das `on_click` ist.
+
+        `mit_erklaerung=False` lässt den deutschen Hilfetext weg – im
+        Prüfungsmodus (M11, Abschnitt 6). Die Liste selbst bleibt: sie
+        ist Schreibhilfe, kein Lösungshinweis, und Lazarus hat sie im
+        Unterricht auch. „Wird beim Klicken ausgelöst“ neben `on_click`
+        ist dagegen nah an der Antwort auf genau die Frage, die in einer
+        Klausur gestellt wird.
         """
         links = self.signatur if self.signatur.startswith(self.name) else self.name
-        return f"{links}   –   {self.erklaerung}" if self.erklaerung else links
+        if not mit_erklaerung or not self.erklaerung:
+            return links
+        return f"{links}   –   {self.erklaerung}"
+
+    @property
+    def anzeige(self) -> str:
+        """Die vollständige Zeile, mit Erklärung."""
+        return self.anzeige_text()
 
 
 @cache

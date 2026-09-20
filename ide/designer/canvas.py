@@ -63,6 +63,28 @@ _ANFASSER_VERHALTEN: dict[str, tuple[int, int, int, int]] = {
     "w": (1, -1, 0, 0),
 }
 
+#: Die Anfasser, die das **Formular** bekommt.
+#:
+#: Nur rechts, unten und in der rechten unteren Ecke: im Designer sitzt
+#: das Formular fest in der linken oberen Ecke seines Rollbereichs, und
+#: `left`/`top` gibt es an einem Formular gar nicht - ein Zug an „nw"
+#: müsste es also verschieben, und verschieben lässt es sich nicht.
+#:
+#: Vorher hatte es **gar keine**: `_anfasser_aktualisieren` blendete
+#: alle aus, sobald das Formular ausgewählt war. Die Fenstergröße ließ
+#: sich damit nur über `width`/`height` im Objektinspektor ändern -
+#: vom Nutzer gemeldet („der designer hat eine zu kleine fläche, diese
+#: soll anpassbar sein über die ecken zum ziehen", September 2026).
+_ANFASSER_FUER_FORMULAR = ("e", "s", "se")
+
+#: Kleiner darf ein **Formular** beim Ziehen nicht werden. Bei einem
+#: Pixel lägen seine drei Anfasser übereinander in einem Punkt, und ein
+#: versehentlich zusammengezogenes Formular wäre nicht mehr
+#: aufzuziehen. Eine gewöhnliche Komponente darf weiter bis auf einen
+#: Pixel schrumpfen - sie lässt sich über den Objektinspektor immer
+#: wieder vergrößern.
+_MINDESTGROESSE_FORMULAR = 16
+
 _ANFASSER_CURSOR: dict[str, Qt.CursorShape] = {
     "nw": Qt.CursorShape.SizeFDiagCursor,
     "se": Qt.CursorShape.SizeFDiagCursor,
@@ -91,6 +113,17 @@ _RAHMEN_FARBE = "#0067c0"
 RASTER = 8
 
 
+def _groessenwerte(komponente: Any) -> dict[str, int]:
+    """Position und Größe einer Komponente - beim Formular nur die
+    Größe, denn `left`/`top` gibt es dort nicht."""
+    werte = {"width": komponente.width, "height": komponente.height}
+    if hasattr(komponente, "left"):
+        werte["left"] = komponente.left
+        werte["top"] = komponente.top
+    return werte
+
+
+
 def _ereignis_kurzname(ereignis_name: str) -> str:
     """Methodenname nutzt `<ereignis>` ohne das `on_`-Präfix des
     Attributnamens (Abschnitt 4.4/9: `on_click` -> `b_ein_click`, nicht
@@ -113,12 +146,18 @@ def _standard_ereignis(typ: type) -> str | None:
     lieferte er für **jede** Komponente `None`, und der Doppelklick im
     Designer legte gar keine Methode mehr an.
 
-    `None` bleibt es, wenn eine Komponente mehrere eigene Ereignisse
-    hat (der `DBNavigator` mit Einfügen/Löschen/Speichern/Abbrechen):
-    dort wäre jede Wahl geraten.
+    Hat eine Komponente mehrere eigene Ereignisse, muss sie selbst
+    sagen, welches gemeint ist - über `standard_ereignis`. Das
+    `StringGrid` etwa hat `on_select_cell` und `on_edit_cell`;
+    kennzeichnend ist die Auswahl. Sagt sie nichts, bleibt es bei
+    `None` (der `DBNavigator` mit Einfügen/Löschen/Speichern/Abbrechen:
+    dort wäre jede Wahl geraten).
     """
     alle = ereignisse(typ)
     eigene = [name for name in alle if name not in MAUS_EREIGNISSE]
+    genannt = getattr(typ, "standard_ereignis", None)
+    if genannt is not None and genannt in alle:
+        return genannt
     if len(eigene) == 1:
         return eigene[0]
     if eigene:
@@ -282,9 +321,14 @@ class _PlatzierenKommando:
         self.canvas = canvas
         self.name = canvas._eindeutigen_namen_finden(typ.__name__.lower())
 
-        self.neue_komponente = typ(canvas.formular)
-        self.neue_komponente.left = x
-        self.neue_komponente.top = y
+        # Liegt an dieser Stelle ein Behälter, gehört die Komponente
+        # hinein - wie in Lazarus, wo ein Knopf über einem Panel dessen
+        # Kind wird. `left`/`top` zählen dann ab der linken oberen Ecke
+        # des Behälters, nicht ab der des Formulars.
+        eltern, ex, ey = canvas._behaelter_bei(x, y)
+        self.neue_komponente = typ(eltern)
+        self.neue_komponente.left = ex
+        self.neue_komponente.top = ey
         breite, hoehe = _STANDARDGROESSEN.get(typ.__name__, (None, None))
         if breite is not None:
             self.neue_komponente.width = breite
@@ -406,26 +450,45 @@ class DesignerCanvas(QObject):
 
     def _anfasser_aktualisieren(self) -> None:
         komponente = self.ausgewaehlte_komponente
-        if komponente is None or komponente is self.formular:
+        if komponente is None:
             for anfasser in self._anfasser_widget_zu_name:
                 anfasser.hide()
             return
 
-        h = _ANFASSER_GROESSE
-        mitte = h // 2
+        ist_formular = komponente is self.formular
+        # Das Formular sitzt fest in der linken oberen Ecke und hat kein
+        # `left`/`top`; gezogen wird es nur nach rechts und nach unten.
+        links = 0 if ist_formular else komponente.left
+        oben = 0 if ist_formular else komponente.top
+        erlaubt = _ANFASSER_FUER_FORMULAR if ist_formular else tuple(_ANFASSER_VERHALTEN)
+
+        mitte = _ANFASSER_GROESSE // 2
+        breite, hoehe = komponente.width, komponente.height
         positionen = {
-            "nw": (komponente.left, komponente.top),
-            "n": (komponente.left + komponente.width // 2, komponente.top),
-            "ne": (komponente.left + komponente.width, komponente.top),
-            "e": (komponente.left + komponente.width, komponente.top + komponente.height // 2),
-            "se": (komponente.left + komponente.width, komponente.top + komponente.height),
-            "s": (komponente.left + komponente.width // 2, komponente.top + komponente.height),
-            "sw": (komponente.left, komponente.top + komponente.height),
-            "w": (komponente.left, komponente.top + komponente.height // 2),
+            "nw": (links, oben),
+            "n": (links + breite // 2, oben),
+            "ne": (links + breite, oben),
+            "e": (links + breite, oben + hoehe // 2),
+            "se": (links + breite, oben + hoehe),
+            "s": (links + breite // 2, oben + hoehe),
+            "sw": (links, oben + hoehe),
+            "w": (links, oben + hoehe // 2),
         }
         for anfasser, name in self._anfasser_widget_zu_name.items():
+            if name not in erlaubt:
+                anfasser.hide()
+                continue
             x, y = positionen[name]
-            anfasser.move(x - mitte, y - mitte)
+            # Am Formular liegen die drei Anfasser **innen** an der
+            # Kante: ein Anfasser, der halb über den Rand hinausragt,
+            # wäre außerhalb des Formular-Widgets und damit unsichtbar.
+            if ist_formular:
+                x = min(x - mitte, breite - _ANFASSER_GROESSE)
+                y = min(y - mitte, hoehe - _ANFASSER_GROESSE)
+            else:
+                x, y = x - mitte, y - mitte
+            anfasser.move(x, y)
+            anfasser.raise_()
             anfasser.show()
             anfasser.raise_()
 
@@ -491,12 +554,7 @@ class DesignerCanvas(QObject):
                 komponente = self.ausgewaehlte_komponente
                 self._anfasser_ziehen = anfasser_name
                 self._anfasser_start = ereignis.globalPosition().toPoint()
-                self._anfasser_start_werte = {
-                    "left": komponente.left,
-                    "top": komponente.top,
-                    "width": komponente.width,
-                    "height": komponente.height,
-                }
+                self._anfasser_start_werte = _groessenwerte(komponente)
                 return True
 
             komponente = self._widget_zu_komponente.get(beobachtetes_objekt)
@@ -615,22 +673,26 @@ class DesignerCanvas(QObject):
         links_je_dx, breite_je_dx, oben_je_dy, hoehe_je_dy = _ANFASSER_VERHALTEN[
             self._anfasser_ziehen
         ]
-        komponente.left = start["left"] + links_je_dx * delta.x()
-        komponente.top = start["top"] + oben_je_dy * delta.y()
-        komponente.width = max(1, start["width"] + breite_je_dx * delta.x())
-        komponente.height = max(1, start["height"] + hoehe_je_dy * delta.y())
+        kleinste = (
+            _MINDESTGROESSE_FORMULAR if komponente is self.formular else 1
+        )
+        neu = {
+            "width": max(kleinste, start["width"] + breite_je_dx * delta.x()),
+            "height": max(kleinste, start["height"] + hoehe_je_dy * delta.y()),
+        }
+        # `left`/`top` nur, wenn es sie gibt: ein Formular hat keine.
+        if "left" in start:
+            neu["left"] = start["left"] + links_je_dx * delta.x()
+            neu["top"] = start["top"] + oben_je_dy * delta.y()
+        for name, wert in neu.items():
+            setattr(komponente, name, wert)
         self._anfasser_aktualisieren()
         self._rahmen_aktualisieren()
 
     def _anfasser_ziehen_beenden(self) -> None:
         komponente = self.ausgewaehlte_komponente
         startwerte = self._anfasser_start_werte
-        endwerte = {
-            "left": komponente.left,
-            "top": komponente.top,
-            "width": komponente.width,
-            "height": komponente.height,
-        }
+        endwerte = _groessenwerte(komponente)
 
         self._anfasser_ziehen = None
         self._anfasser_start = None
@@ -639,10 +701,8 @@ class DesignerCanvas(QObject):
         if endwerte == startwerte:
             return  # keine tatsächliche Größenänderung, kein Kommando nötig
 
-        komponente.left = startwerte["left"]
-        komponente.top = startwerte["top"]
-        komponente.width = startwerte["width"]
-        komponente.height = startwerte["height"]
+        for name, wert in startwerte.items():
+            setattr(komponente, name, wert)
         self.kommandos.ausfuehren(
             EigenschaftKommando(komponente, endwerte, alte_werte=startwerte)
         )
@@ -727,6 +787,32 @@ class DesignerCanvas(QObject):
         self._nach_aenderung(self.ausgewaehlte_komponente or self.formular)
 
     # -- Auswahl ----------------------------------------------------------
+
+    def _behaelter_bei(self, x: int, y: int) -> tuple[Any, int, int]:
+        """Wohin eine bei Formular-Koordinaten (x, y) abgelegte
+        Komponente gehört: `(Eltern, x, y)`, die Koordinaten umgerechnet
+        auf die Eltern.
+
+        Gesucht wird der **innerste** Behälter an dieser Stelle – ein
+        Panel in einer GroupBox nimmt die Komponente auf, nicht die
+        GroupBox darum. Liegt dort keiner, bleibt es beim Formular.
+
+        Der Auswahlrahmen und die Anfasser liegen als eigene Widgets auf
+        dem Formular und würden `childAt` beantworten, obwohl sie keine
+        Komponenten sind; sie stehen nicht in `_widget_zu_komponente`
+        und fallen deshalb von selbst heraus.
+        """
+        widget = self.formular._qwidget.childAt(x, y)
+        while widget is not None and widget is not self.formular._qwidget:
+            komponente = self._widget_zu_komponente.get(widget)
+            if komponente is not None and getattr(type(komponente), "ist_behaelter", False):
+                # `mapFrom` statt einer Subtraktion von `left`/`top`:
+                # bei einem Behälter im Behälter stimmt die Differenz
+                # sonst nur eine Ebene tief.
+                punkt = widget.mapFrom(self.formular._qwidget, QPoint(x, y))
+                return komponente, punkt.x(), punkt.y()
+            widget = widget.parentWidget()
+        return self.formular, x, y
 
     def klick_bei(self, x: int, y: int) -> Any:
         """Findet die Komponente an Formular-Koordinaten (x, y) – für
@@ -1014,7 +1100,12 @@ class DesignerCanvas(QObject):
             self._auswaehlen(self.formular)
 
     def _komponente_wiederherstellen(self, name: str, komponente: Any) -> None:
-        komponente._qwidget.setParent(self.formular._qwidget)
+        # Zurück an die **eigenen** Eltern, nicht pauschal ans Formular:
+        # sonst sprang eine rückgängig gemachte Löschung aus ihrem Panel
+        # heraus und lag danach auf dem Formular, an einer Stelle, die
+        # sich aus Panel-Koordinaten ergab.
+        eltern = komponente.eltern if komponente.eltern is not None else self.formular
+        komponente._qwidget.setParent(eltern._qwidget)
         komponente._qwidget.show()
         setattr(self.formular, name, komponente)
         self._widget_zu_komponente[komponente._qwidget] = komponente

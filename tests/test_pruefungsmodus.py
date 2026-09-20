@@ -301,3 +301,68 @@ def test_die_anzeige_bleibt_leer_ohne_pruefung(echte_einstellungen: QSettings, q
     qtbot.addWidget(fenster)
 
     assert fenster.pruefungsanzeige.text() == ""
+
+
+# -- Vervollstaendigung --------------------------------------------------
+#
+# Die letzte offene Frage aus M11, Abschnitt 6, jetzt entschieden: die
+# Liste bleibt an - sie ist Schreibhilfe, und Lazarus hat sie im
+# Unterricht auch. Die deutschen Erklaerungen daneben fallen weg;
+# "Wird beim Klicken ausgeloest" neben `on_click` ist nah an der
+# Antwort auf genau die Frage, die in der Klausur steht.
+
+
+def _vorschlag():
+    from ide.shell.vervollstaendigung import RANG_PCL, Vorschlag
+
+    return Vorschlag(
+        name="on_click",
+        art="statement",
+        erklaerung="Wird beim Klicken ausgelöst",
+        signatur="NoneType()",
+        rang=RANG_PCL,
+    )
+
+
+def test_ausserhalb_der_pruefung_steht_die_erklaerung_dabei() -> None:
+    assert "Wird beim Klicken ausgelöst" in _vorschlag().anzeige_text()
+
+
+def test_in_der_pruefung_bleibt_nur_der_name() -> None:
+    assert _vorschlag().anzeige_text(mit_erklaerung=False) == "on_click"
+
+
+def test_die_liste_selbst_bleibt_an(
+    echte_einstellungen: QSettings, tmp_path: Path
+) -> None:
+    """Geprueft wird am Editor, nicht an der Datenklasse: die Liste muss
+    Eintraege zeigen, und zwar ohne Erklaerung."""
+    from ide.shell.quelltexteditor import QuelltextEditor
+
+    quelltext = """from pcl import Form, Button
+
+
+class Form1(Form):
+    def create_components(self):
+        self.b_start = Button(self)
+
+    def b_start_click(self, sender):
+        self.b_start.
+"""
+    starten(echte_einstellungen)
+    editor = QuelltextEditor()
+    editor.setPlainText(quelltext)
+    cursor = editor.textCursor()
+    cursor.movePosition(cursor.MoveOperation.End)
+    cursor.movePosition(cursor.MoveOperation.Up)
+    cursor.movePosition(cursor.MoveOperation.EndOfLine)
+    editor.setTextCursor(cursor)
+
+    anzahl = editor.vorschlaege_anzeigen()
+
+    assert anzahl > 0, "Die Vervollstaendigung ist im Pruefungsmodus abgeschaltet"
+    zeilen = [
+        editor.vorschlagsliste.item(i).text()
+        for i in range(editor.vorschlagsliste.count())
+    ]
+    assert not any("   –   " in zeile for zeile in zeilen), zeilen

@@ -102,7 +102,7 @@ Die enthaltenen Fremdkomponenten behalten ihre eigenen Lizenzen. Daraus folgen R
 
 | Regel | Umsetzung |
 |---|---|
-| Nur Komponenten mit freizügigen Lizenzen oder LGPL | PySide6/Qt (LGPLv3), Monaco, Jedi, Ruff, libcst, debugpy, SQLAlchemy, openpyxl (MIT), pandas, numpy (BSD), matplotlib (PSF-basiert), Lucide (ISC), Codicons (CC BY 4.0) |
+| Nur Komponenten mit freizügigen Lizenzen oder LGPL | PySide6/Qt (LGPLv3), Jedi, Ruff, libcst, debugpy, SQLAlchemy, openpyxl (MIT), pandas, numpy (BSD), matplotlib (PSF-basiert), Lucide (ISC), Codicons (CC BY 4.0) |
 | Keine Qt-Module, die nur unter GPL stehen | **Qt Charts und Qt Data Visualization werden nicht verwendet** und aus dem Paket entfernt; die Chart-Komponente basiert auf matplotlib |
 | Kein PyQt | PyQt steht unter GPL, PySide6 unter LGPL |
 | LGPL-Pflichten für Qt/PySide6 | Qt-Bibliotheken bleiben austauschbare Dateien im Programmordner (kein statisches Einbinden), Lizenztexte und Quellenhinweise in `lizenzen/` und im Über-Dialog |
@@ -152,31 +152,40 @@ natter/
     shell/             Hauptfenster, Menüleiste, Werkzeugleisten, Aktivitätsleiste, Panels, Befehlspalette
     actions/           Aktionsregister (Menü, Werkzeugleiste, Tastenkürzel, Befehlspalette), Tastenkürzel-Editor
     palette/           Komponentenpalette mit Reitern
-    editor/            Monaco-Brücke (QWebChannel), Jedi, Ruff
     designer/          Canvas, Auswahl, Anfasser, Raster, Undo
-    inspector/         Eigenschaften-/Ereignis-Editoren
+    inspector/         Objektinspektor, Eigenschaften-/Ereignis-Tabelle, Menü-Editor
     codegen/           design.py-Generator, libcst-Operationen
     debugger/          DAP-Client, Fehlerkatalog, Tabellenansicht für Variablen
-    testing/           Test-Explorer (unittest)
-    viewers/           CSV-Tabellenansicht, Bildvorschau, HTML-Vorschau
-    help/              Kontexthilfe, Komponenten- und Umstiegs-Referenz
+    testrunner/        Test-Explorer (unittest)
+    viewers/           CSV-Tabellenansicht, Bildvorschau, HTML-Vorschau, Markdown-Ansicht, Hilfeansicht
     database/          DB-Panel
-    project/units/     Unit-Verwaltung, Import-Einfügen, Kreisbezug-Erkennung, Sitzung
+    project/           Projektdatei, Vorlagen, Unit-Verwaltung, Sitzung
     lint/              Design-Prüfer
-    diagram/           Diagramm-Editor: Fenster, Szene, Formen, Verbindungen, Struktogramm-Blöcke, Entscheidungstabelle, Export
+    diagramm/          Diagramm-Editor: Fenster, Formen, Verbindungen, Struktogramm-Blöcke, Entscheidungstabelle, Lineale, Minimap, Export
     env/               Paketordner, Paketverwaltung (pip), Umgebungsprüfung
-  launcher/            Starter Natter.exe (Pfade, Startprüfungen: Mark of the Web, OneDrive, Pfadlänge, Manifest-Signatur)
-  build/               Build-Skripte: portables Paket, Manifest, Signatur
-    importer/          .lfm-Parser und Zuordnung
-    export/            PyInstaller-Pipeline
-    project/           Projektdatei, Vorlagen
-  icons/               SVG-Symbole (Aktionen, Komponenten)
-  web/monaco/          gebündeltes Monaco
+    export/            PyInstaller-Pipeline für Schülerprojekte
+    import_lfm/        .lfm-Parser und Zuordnung
+    integritaet/       Prüfsummen-Manifest, Startprüfung
+    run/               Programmstart, Prüfung vor dem Start
+    assets/icons/      SVG-Symbole (Aktionen, Komponenten)
+  tools/               Entwicklungswerkzeuge des Maintainers:
+                       auslieferung_bauen.py (der ganze Weg zur Setup-Exe),
+                       ide_paketieren.py, launcher.py (Natter.exe),
+                       natter.iss (Inno Setup), signieren/, screenshot.py
   schemas/             pfm.schema.json, project.schema.json, pdiag.schema.json
   templates/           gui/, console/, gui_db/
+  beispielprojekte/    die neun Projekte des Lehrgangs
+  design/              tokens.json (Farben und Maße für IDE und Programme)
   tests/
-  installer/
 ```
+
+> **Stand September 2026.** Der Baum oben ist der wirkliche, nicht der
+> geplante. Drei Abweichungen gegenüber der ursprünglichen Planung sind
+> Entscheidungen, keine Lücken: es gibt **kein `web/monaco/`** (der
+> Editor ist ein `QPlainTextEdit` mit eigener Hervorhebung, siehe
+> unten), **kein `launcher/`** und **kein `build/`** als Pakete – beides
+> liegt in `tools/`, weil es Werkzeuge des Maintainers sind und nicht
+> Teil des ausgelieferten `ide`-Pakets.
 
 ## 19. Teststrategie
 
@@ -220,7 +229,7 @@ Jede Phase hat festgelegte Schnittstellen (Schemas, `Prop`-API, Aktionsregister,
 |-------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | M0 | Technische Machbarkeitsprüfungen (siehe 23.3), Repository, CI, Schemas, Design-Tokens, Design-Referenz | alle Prüfungen laufen auf einem Windows-Rechner ohne installiertes Python; Schema-Tests grün; Design-Referenz freigegeben |
 | M1    | Eigenschaften-System (`Prop`/`Event`), Ereignisse, `pcl` Standard-, Additional- und Common-Controls-Komponenten inkl. Image/PaintBox/HtmlViewer, Datei-Methoden der Komponenten, `open_url`, Generator `.pfm` → `design.py`, Theme hell/dunkel, Dialoge, Timer, Sound           | Ampel, Würfelspiel, StringGrid-Übung laufen mit `python main.py`                                                                                                                  |
-| M2    | IDE-Grundgerüst, Aktionsregister, alle Menüs und Werkzeugleisten, SVG-Symbole, Monaco, Themes, Explorer, Neu-Dialog, Units (Tabs, geteilte Ansicht, Einbinden), portable Laufzeit mit getrennten Paketordnern, Ausführung in eigenen Fenstern (GUI + Konsole), Tastenkürzel-Tab | Projekt aus M1 in der IDE öffnen, alle Datei-Menüfunktionen funktionieren, Projekt `u_pflanzen`/`u_garten` anlegen und starten, Konsolenprogramm mit `input()` im eigenen Fenster |
+| M2    | IDE-Grundgerüst, Aktionsregister, alle Menüs und Werkzeugleisten, SVG-Symbole, Quelltexteditor, Themes, Explorer, Neu-Dialog, Units (Tabs, geteilte Ansicht, Einbinden), portable Laufzeit mit getrennten Paketordnern, Ausführung in eigenen Fenstern (GUI + Konsole), Tastenkürzel-Tab | Projekt aus M1 in der IDE öffnen, alle Datei-Menüfunktionen funktionieren, Projekt `u_pflanzen`/`u_garten` anlegen und starten, Konsolenprogramm mit `input()` im eigenen Fenster |
 | M3    | Designer, Objektinspektor mit allen Editoren und Reitern, Komponentenpalette mit Reitern, Ereignis-Codegenerierung, Undo                                                                                                                                                        | Ampel komplett in der IDE erstellen, alle Eigenschaften nur über den Inspektor gesetzt                                                                                            |
 | M4    | Ruff-Prüfung, Debugger inkl. Tabellenansicht, Fehlerkatalog (Wo/Was/Prüfe), Test-Explorer                                                                                                                                                                                       | Fehlerbeispiele liefern korrekte Meldungen, Breakpoints/Step funktionieren, Tests mit Soll/Ist-Anzeige                                                                            |
 | M5    | SQLdb- und Data-Control-Komponenten, DB-Panel mit CSV-Import/-Export, pandas-Anbindung, Chart, CSV-/Bild-/HTML-Ansichten in der IDE                                                                                                                                             | Kontoverwaltung mit SQLite; CSV-Auswertung mit pandas in StringGrid und Chart; Würfelspiel-Highscore als HTML im Browser                                              |
@@ -233,13 +242,13 @@ Jede Phase hat festgelegte Schnittstellen (Schemas, `Prop`-API, Aktionsregister,
 
 | Risiko                                                  | Gegenmaßnahme                                                                                    |
 |---------------------------------------------------------|--------------------------------------------------------------------------------------------------|
-| Monaco-Integration in Qt aufwendig                      | früher Prototyp in M2; Ausweichlösung QScintilla                                                 |
+| ~~Monaco-Integration in Qt aufwendig~~ **eingetreten**  | Statt Monaco ein `QPlainTextEdit` mit eigener, regelbasierter Python-Hervorhebung in den Farben von VS Code. Kostet keine 100 MB QtWebEngine und reicht für den Unterricht; Jedi liefert die Vervollständigung unabhängig davon |
 | Designer-Komplexität (Undo, Mehrfachauswahl, Anker)     | Command-Pattern von Anfang an, Designer rendert echte `pcl`-Komponenten                          |
 | Ausnahmen in Qt-Handlern gehen verloren                 | zentrale Ausnahmebehandlung in `pcl` ab M1                                                       |
 | Eigener Code im erzeugten `design.py` geht verloren     | Datei klar gekennzeichnet, Editor zeigt sie schreibgeschützt an                                  |
 | Schülerpakete beschädigen die Umgebung                  | getrennte Paketordner, Reparaturfunktion                                                         |
 | Portabler Ordner sehr groß                              | Größe nach erstem Build messen, doppelte Teile vermeiden                                         |
-| Tastenkürzel kollidieren mit Monaco-internen Kürzeln    | Aktionsregister leitet Kürzel zentral, Konfliktprüfung im Test                                   |
+| Tastenkürzel kollidieren untereinander                  | Aktionsregister leitet Kürzel zentral, Konfliktprüfung im Test                                   |
 | Virenscanner blockieren Exes                            | Ordner-Export als Standard                                                                       |
 | Installationsgröße                                      | akzeptiert; WebEngine nur einmal gebündelt                                                       |
 | Diagramm-Editor: Linienführung und Andocken aufwendig   | zuerst gerade und rechtwinklige Linien mit manuellen Knickpunkten, keine automatische Wegfindung |

@@ -73,15 +73,65 @@ def test_ausgewaehlte_komponente_zeigt_acht_anfasser_an_den_richtigen_stellen() 
         assert not canvas.anfasser_widget(name).isHidden()
 
 
-def test_formular_ausgewaehlt_versteckt_alle_anfasser() -> None:
+def test_das_formular_bekommt_drei_anfasser() -> None:
+    """Bis September 2026 waren es **null**: wer das Formular anklickte,
+    sah gar keine, und die Fenstergroesse liess sich nur ueber
+    `width`/`height` im Objektinspektor aendern (Nutzer-Meldung: „der
+    designer hat eine zu kleine flaeche, diese soll anpassbar sein ueber
+    die ecken zum ziehen").
+
+    Drei, nicht acht: im Designer sitzt das Formular fest in der linken
+    oberen Ecke, und `left`/`top` gibt es an einem Formular gar nicht -
+    ein Zug an „nw" muesste es verschieben."""
     formular = _Formular()
     canvas = DesignerCanvas(formular)
     canvas.klick_bei(105, 105)
 
     canvas.klick_bei(5, 5)  # Formular-Hintergrund
 
-    for name in ("nw", "n", "ne", "e", "se", "s", "sw", "w"):
-        assert canvas.anfasser_widget(name).isHidden()
+    sichtbar = {
+        name
+        for name in ("nw", "n", "ne", "e", "se", "s", "sw", "w")
+        if not canvas.anfasser_widget(name).isHidden()
+    }
+    assert sichtbar == {"e", "s", "se"}
+
+
+def test_die_anfasser_des_formulars_liegen_innen() -> None:
+    """Ein Anfasser, der halb ueber den Rand hinausragt, laege
+    ausserhalb des Formular-Widgets und waere unsichtbar."""
+    formular = _Formular()
+    canvas = DesignerCanvas(formular)
+
+    canvas.klick_bei(5, 5)
+
+    for name in ("e", "s", "se"):
+        x, y = canvas.anfasser_widget(name).pos().toTuple()
+        assert 0 <= x <= formular.width - 7
+        assert 0 <= y <= formular.height - 7
+
+
+def test_das_formular_laesst_sich_groesser_ziehen() -> None:
+    formular = _Formular()
+    canvas = DesignerCanvas(formular)
+    canvas.klick_bei(5, 5)
+    vorher = (formular.width, formular.height)
+
+    _ziehen(canvas, "se", 120, 80)
+
+    assert (formular.width, formular.height) == (vorher[0] + 120, vorher[1] + 80)
+
+
+def test_ein_zusammengezogenes_formular_bleibt_anfassbar() -> None:
+    """Bei einem Pixel laegen die drei Anfasser uebereinander in einem
+    Punkt - das Formular waere nicht mehr aufzuziehen."""
+    formular = _Formular()
+    canvas = DesignerCanvas(formular)
+    canvas.klick_bei(5, 5)
+
+    _ziehen(canvas, "se", -10_000, -10_000)
+
+    assert (formular.width, formular.height) == (16, 16)
 
 
 def test_se_anfasser_aendert_nur_breite_und_hoehe() -> None:

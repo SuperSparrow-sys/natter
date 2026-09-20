@@ -7,6 +7,13 @@ werden aus den eigenen Attributen ermittelt (wie sie `create_components`
 keine Container-Komponente mit eigenen Kindern, der Baum ist aktuell
 also immer flach, die Rekursion ist aber bereits allgemein für künftige
 Container (`GroupBox`, `Panel`, Abschnitt 5.2) vorbereitet.
+
+**Jede Zeile trägt das Symbol ihrer Komponente** – dasselbe wie in der
+Palette. Es stand seit M15, Abschnitt 6 als offener Rest da: die Palette
+bekam damals ihre Symbole, der Baum daneben blieb eine Textliste. Auf
+einem Formular mit fünfzehn Kindern ist „`b_ok: Button`“ in einer Spalte
+gleich langer Zeilen aber schwerer zu finden als ein Knopf-Symbol, und
+die Zuordnung zur Palette geht dabei ganz verloren.
 """
 
 from __future__ import annotations
@@ -16,15 +23,52 @@ from typing import Any
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem
 
+from ide.assets import symbol
 from ide.shell.explorer import EINRUECKUNG
 from pcl.control import Control
 from pcl.form import Form
 
 KOMPONENTE_ROLLE = Qt.ItemDataRole.UserRole
 
+#: Das Symbol des Formulars selbst. Es steht in der Palette nicht (man
+#: legt kein Formular auf ein Formular), im Baum aber an der Wurzel.
+FORM_SYMBOL = "komponente_form"
+
+
+def symbolname(objekt: Any) -> str:
+    """Der Symbolname zu einer Komponente – dieselbe Regel wie in der
+    Palette (`ide/palette/palette.py`), damit beide dasselbe Bild zeigen,
+    ohne dass es eine Liste gäbe, die auseinanderlaufen kann."""
+    if isinstance(objekt, Form):
+        return FORM_SYMBOL
+    return f"komponente_{type(objekt).__name__.lower()}"
+
+
+def formular_von(objekt: Any) -> Any:
+    """Das Formular, zu dem `objekt` gehört – über die Elternkette."""
+    while isinstance(objekt, Control) and objekt.eltern is not None:
+        objekt = objekt.eltern
+    return objekt
+
 
 def kind_komponenten(objekt: Any) -> list[tuple[str, Control]]:
-    return [(name, wert) for name, wert in vars(objekt).items() if isinstance(wert, Control)]
+    """Die Komponenten, die unmittelbar in `objekt` liegen.
+
+    **Gesucht wird in den Attributen des Formulars, gefiltert nach der
+    Elternbeziehung.** Beides zusammen, weil in Natter zweierlei
+    gleichzeitig gilt: die Namen bleiben flach (`self.b_ok`, auch wenn
+    der Knopf in einem Panel liegt – wie in Lazarus), die Zugehörigkeit
+    ist aber verschachtelt. Wer nur `vars(objekt)` liest, findet an
+    einem Panel nichts, weil das Kind als Attribut des **Formulars**
+    dasteht; wer nur `vars(formular)` liest, hängt es ans Formular,
+    obwohl es im Panel liegt.
+    """
+    wurzel = formular_von(objekt)
+    return [
+        (name, wert)
+        for name, wert in vars(wurzel).items()
+        if isinstance(wert, Control) and wert.eltern is objekt
+    ]
 
 
 class Komponentenbaum(QTreeWidget):
@@ -35,18 +79,32 @@ class Komponentenbaum(QTreeWidget):
         # stehen gleichzeitig im Fenster, und unterschiedlich tiefe
         # Stufen fallen sofort auf (M15, Abschnitt 6).
         self.setIndentation(EINRUECKUNG)
+        self._theme = "system"
+        self._formular: Form | None = None
 
     def formular_anzeigen(self, formular: Form) -> None:
         self.clear()
+        self._formular = formular
         wurzel = QTreeWidgetItem([f"{type(formular).__name__}: Form"])
+        wurzel.setIcon(0, symbol(FORM_SYMBOL, self._theme))
         wurzel.setData(0, KOMPONENTE_ROLLE, formular)
         self.addTopLevelItem(wurzel)
         self._kinder_hinzufuegen(wurzel, formular)
         self.expandAll()
 
+    def symbole_erneuern(self, theme: str = "system") -> None:
+        """Lädt die Symbole im angegebenen Theme neu – nötig nach
+        „Ansicht → Design“, weil ein `QIcon` sich seine Farben merkt
+        (dieselbe Falle wie bei der Palette)."""
+        self._theme = theme
+        if self._formular is not None:
+            formular_anzeigen = self._formular
+            self.formular_anzeigen(formular_anzeigen)
+
     def _kinder_hinzufuegen(self, eltern_element: QTreeWidgetItem, objekt: Any) -> None:
         for name, komponente in kind_komponenten(objekt):
             element = QTreeWidgetItem([f"{name}: {type(komponente).__name__}"])
+            element.setIcon(0, symbol(symbolname(komponente), self._theme))
             element.setData(0, KOMPONENTE_ROLLE, komponente)
             eltern_element.addChild(element)
             self._kinder_hinzufuegen(element, komponente)

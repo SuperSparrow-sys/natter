@@ -194,8 +194,21 @@ Qt-Basis: `QTableWidget` (`pcl/components/additional.py`)
 | col_count | int | 5 | Daten | Anzahl der Spalten |
 | cells\[spalte, zeile\] | str | "" | – | Zellinhalt; aufklappbare Untereigenschaft, kein eigenständiges `Prop` |
 
-Keine eigenen Ereignisse (`on_select_cell`/`on_edit_cell` aus Abschnitt
-5.4 sind noch offen, kein Referenzprojekt braucht sie bisher).
+| Ereignis | Wann | Bekommt |
+|---|---|---|
+| on_select_cell | eine andere Zelle wird ausgewählt | `sender`, `spalte`, `zeile` |
+| on_edit_cell | eine Zelle wurde geändert | `sender`, `spalte`, `zeile`, `text` |
+
+`spalte` und `zeile` in dieser Reihenfolge – wie `OnSelectCell(Sender,
+ACol, ARow, …)` in Lazarus und wie `cells[spalte, zeile]`.
+
+**`on_edit_cell` meint die Änderung durch den Benutzer.** Was das
+Programm selbst hineinschreibt (`cells[…] = …`, `load_dataframe`),
+löst es nicht aus – sonst feuerte schon das Füllen der Tabelle hundert
+Ereignisse.
+
+Ein Doppelklick im Designer legt `on_select_cell` an: das ist das
+kennzeichnende Ereignis der Tabelle (`standard_ereignis`).
 
 ## Image
 
@@ -205,18 +218,29 @@ Qt-Basis: `QLabel` mit `QPixmap` (`pcl/components/additional.py`)
 |---|---|---|---|---|
 | left, top, width, height, enabled | wie `Control` | – | – | geerbt von `Control` |
 | picture.load_from_file(pfad) / picture.clear() | Methoden | – | – | aufklappbare Untereigenschaft, kein eigenständiges `Prop` |
+| stretch | bool | True | Darstellung | Bild auf die Größe der Komponente ziehen |
+| proportional | bool | False | Darstellung | beim Ziehen das Seitenverhältnis behalten |
+| center | bool | False | Darstellung | Bild mittig setzen, wenn es kleiner ist als die Komponente |
 
-Keine eigenen Ereignisse. `stretch`/`proportional`/`center` aus Abschnitt
-11.4 sind noch offen (kein Referenzprojekt braucht sie bisher; alle drei
-Bild-Projekte zeigen ein Bild einfach in Originalgröße an).
+Keine eigenen Ereignisse außer den Maus-Ereignissen aus `Control`.
 
-**Bekannte Lücke:** `on_click`/`on_double_click` gelten laut Abschnitt 5.4
-für „alle sichtbaren“ Komponenten. Bisher ist `on_click` nur bei `Button`
-umgesetzt (dort über das native Qt-`clicked`-Signal). Ein komponenten-
-übergreifendes `on_click` über `Control` (inkl. eigener Maus-Ereignis-
-Behandlung für Komponenten ohne natives Klick-Signal wie `Label`/`Shape`)
-ist noch offen und wird nachgezogen, sobald ein Referenzprojekt es
-tatsächlich braucht (bisher nutzt keines der Übungsprojekte das).
+**`stretch` steht auf `True` – anders als in Lazarus.** Dort ist der
+Standard `False`, und ein zu großes Bild wird oben links abgeschnitten.
+Die Kekse in `04_CookieKlicker` sind 512×512 Punkte groß und liegen in
+einem 300×300 großen `Image`; mit Lazarus' Standard sähe man ein
+Viertel Keks. Wer das Lazarus-Verhalten will, schreibt
+`self.i_bild.stretch = False`.
+
+Gerechnet wird immer vom **ungeskalierten** Bild
+(`picture.original`): wer zweimal hintereinander skaliert, bekommt
+sonst Treppen.
+
+**Diese Lücke ist geschlossen.** Bis M15 war `on_click` nur am
+`Button` verdrahtet, weil nur er ein natives Qt-Signal dafür hat. Seither
+trägt `Control` selbst einen Ereignisfilter, und **jede sichtbare
+Komponente** hat `on_click`, `on_double_click` sowie
+`on_mouse_down`/`_move`/`_up` – siehe den Abschnitt „Maus-Ereignisse“
+weiter unten.
 
 ## ScrollBar
 
@@ -1034,19 +1058,26 @@ Was den Komponenten aus Schritt 6 noch fehlt und **außerhalb von `pcl`**
 gelöst werden muss – festgehalten, damit es nicht in Modulen versickert,
 die niemand mehr liest:
 
-1. **Behälter im Designer.** Eine im Designer abgelegte Komponente wird
-   immer ein Kind des Formulars (`ide/designer/canvas.py`,
-   `_PlatzierenKommando`: `typ(canvas.formular)`). Damit ein `Panel` oder
-   eine `GroupBox` dort wirklich etwas aufnimmt, müssten vier Stellen
-   zusammenspielen: der Designer müsste beim Ablegen den Behälter unter
-   dem Mauszeiger als `parent` wählen und die Koordinaten umrechnen,
-   `ide/inspector/komponentenbaum.py` die Kinder am Behälter statt am
-   Formular suchen (`kind_komponenten` liest heute `vars(objekt)`, ein
-   Kind des Panels steht aber als Attribut des Formulars da),
-   `ide/designer/pfm_schreiben.py` sie in das bereits vorhandene
-   `children`-Feld des Behälters schreiben (`schemas/pfm.schema.json`
-   kann Verschachtelung schon) und `ide/codegen/design.py` daraus
-   `Button(self.p_feld)` statt `Button(self)` erzeugen.
+1. **Behälter im Designer — erledigt (September 2026).** Eine im
+   Designer abgelegte Komponente wurde immer ein Kind des Formulars;
+   ein `Panel` war dort eine Fläche, auf der nichts liegen konnte. Im
+   Code ging es die ganze Zeit (`RadioButton(self.g_zahlung)`), nur im
+   Designer nicht.
+
+   Die vier genannten Stellen spielen jetzt zusammen:
+   `Control` merkt sich seine `eltern` und sagt über `ist_behaelter`,
+   ob es aufnehmen darf (`Panel` und `GroupBox` tun es);
+   `DesignerCanvas._behaelter_bei` sucht beim Ablegen den **innersten**
+   Behälter unter dem Mauszeiger und rechnet die Koordinaten auf ihn
+   um; `kind_komponenten` gruppiert nach der Elternbeziehung statt flach
+   über `vars()`; `pfm_schreiben` füllt das `children`-Feld, das im
+   Schema seit jeher steht; und `ide/codegen/design.py` erzeugt daraus
+   `Button(self.p_feld)` statt `Button(self)`, den Behälter vor seinem
+   Kind.
+
+   **Die Namen bleiben flach.** Ein Knopf im Panel heißt weiter
+   `self.b_ok`, wie in Lazarus – verschachtelt ist nur, woran er hängt.
+   Geprüft in `tests/test_designer_behaelter.py`.
 2. **Die Datenbank-Komponenten im Designer — entfällt.** Das stand
    hier lange als offener Punkt: `SQLite3Connection`, `SQLQuery` und
    `DataSource` sollten als Symbole auf dem Formular liegen, wie in
@@ -1066,48 +1097,55 @@ die niemand mehr liest:
    bringen ihre Größe deshalb als `Prop`-Standard selbst mit (wie
    `Chart`) – das wirkt überall gleich und ist die bessere Lösung, aber
    der Eintrag dort bleibt der Vollständigkeit halber offen.
-4. **`SpinEdit` verliert im Designer seine Pfeilspitzen.**
-   `ide/shell/theme.py` führt `QSpinBox` in derselben Regel wie
-   `QLineEdit`/`QComboBox` (Zeile ~254). Sobald eine Komponente auch nur
-   eine QSS-Regel abbekommt, zeichnet Qt sie vollständig aus dem
-   Stylesheet – und die beiden Pfeilspitzen fallen ersatzlos weg
-   (Bildvergleich, Schritt 6; `pcl/theme/__init__.py` nimmt `QSpinBox`
-   deshalb bewusst aus). Das Stylesheet des Hauptfensters kaskadiert in
-   das eingebettete Designer-Formular hinein, deshalb betrifft es dort
-   auch `SpinEdit`; ebenso die `QSpinBox`-Felder der IDE selbst
-   (`ide/diagramm/eigenschaften.py`, `ide/diagramm/klassendialog.py`).
-   `QDoubleSpinBox` steht nicht in der Regel und ist darum in Ordnung –
-   `FloatSpinEdit` sieht im Designer richtig aus. Die Korrektur ist ein
-   Wort: `, QSpinBox` aus diesem einen Selektor streichen. Außerhalb von
-   `pcl/` und deshalb hier nur festgehalten.
-5. **`DateEdit`, `TimeEdit`, `Calendar`: erst die Frage klären, wie ein
-   Datum aussieht.** Die Komponenten selbst wären wieder dünne Mäntel
-   (`QDateEdit`, `QTimeEdit`, `QCalendarWidget`), aber `Prop` kennt
-   bisher nur `str`, `int`, `float`, `bool` – die vier Typen, die der
-   Objektinspektor anzeigen, die `.pfm` als JSON speichern und
-   `pcl/errors.py` in einer deutschen Meldung benennen kann. Ein Datum
-   braucht eine Entscheidung, die alle drei Stellen betrifft, und die
-   sollte nicht nebenbei fallen:
-   * als `str` in ISO-Form (`"2026-12-24"`) – serialisierbar ohne
-     Änderung am Format, aber der Schüler rechnet mit Text statt mit
-     `datetime.date`;
-   * als `str` in deutscher Schreibweise (`"24.12.2026"`) – passt zur
-     Oberfläche, ist aber zum Rechnen noch unhandlicher;
-   * als echter `date`-Typ im `Prop`-System – am saubersten, verlangt
-     aber einen neuen Typ in `_TYPNAMEN`, im Objektinspektor und in der
-     `.pfm` (Formatversion!).
+4. **`SpinEdit` verlor im Designer seine Pfeilspitzen — behoben.**
+   `ide/shell/theme.py` führte `QSpinBox` in derselben Regel wie
+   `QLineEdit`/`QComboBox`. Sobald eine Komponente auch nur eine
+   QSS-Regel abbekommt, zeichnet Qt sie vollständig aus dem Stylesheet –
+   und die beiden Pfeilspitzen fielen ersatzlos weg (am Bildvergleich
+   gefunden). Das Stylesheet des Hauptfensters kaskadiert in das
+   eingebettete Designer-Formular hinein, deshalb betraf es dort auch
+   `SpinEdit` und ebenso die `QSpinBox`-Felder der IDE selbst.
+   `QSpinBox` und `QDoubleSpinBox` stehen jetzt ausdrücklich **nicht**
+   mehr in dem Selektor, mit einem Kommentar daneben, damit sie nicht
+   beim nächsten Aufräumen wieder hineinrutschen.
+5. **`DateEdit`, `TimeEdit`, `Calendar` — gebaut, die Frage ist
+   entschieden.** Offen war nicht die Komponente, sondern der Typ: `Prop`
+   kannte nur `str`, `int`, `float` und `bool`. Zur Wahl standen ein
+   ISO-String, ein deutscher String und ein echter `date`-Typ. Gefallen
+   ist die Entscheidung in M15 auf den **echten Typ**: `date` und `time`
+   stehen jetzt in `_TYPNAMEN`, der Objektinspektor zeigt sie in
+   deutscher Schreibweise (`24.12.2026`), und die `.pfm` speichert sie in
+   ISO-Form – das eine für den Menschen, das andere für die Datei.
+   Der Standardwert ist bewusst leer statt „heute“: ein `Prop`-Standard
+   muss konstant sein, sonst stünde in jeder frisch gespeicherten `.pfm`
+   das Datum des Tages, an dem sie entstand.
+6. **Alle Komponenten aus Abschnitt 5.2 sind da.** Hier stand bis M15
+   eine Liste des Fehlenden: `MainMenu`, `PopupMenu`, `MaskEdit`,
+   `PaintBox`, `HtmlViewer`, `Sound` und die Dialoge aus Abschnitt 5.4.
+   Nichts davon fehlt noch.
 
-   Dazu kommt der Standardwert: `TDateEdit` zeigt in Lazarus *heute* an,
-   ein `Prop`-Standard muss aber konstant sein, sonst stünde in jeder
-   frisch gespeicherten `.pfm` das Datum des Tages, an dem sie entstand.
-   Kein Referenzprojekt in `tests/daten/lazarus/` benutzt eine dieser drei
-   Komponenten, es gibt also auch keine echte Nutzung, an der sich die
-   Wahl prüfen ließe (Abschnitt 21: „MVP strikt an den Übungsprojekten
-   ausrichten“). Deshalb bewusst offen gelassen statt geraten.
-6. **Noch nicht umgesetzt:** `MaskEdit`, `PaintBox`, `HtmlViewer`,
-   `Sound` und die restlichen Dialoge aus Abschnitt 5.2.
-   `MainMenu` und `PopupMenu` standen hier bis M15; sie sind jetzt da,
-   samt Menü-Editor im Designer.
+## Wirklich noch offen
+
+Aus der Liste oben bleibt nach der Durchsicht im September 2026 genau
+**ein** Punkt übrig, und der ist bewusst so gelöst: Punkt 3
+(Standardgrößen beim Ablegen – die Komponenten bringen ihre Größe als
+`Prop`-Standard selbst mit, das wirkt überall gleich).
+
+Nachgezogen wurden dabei auch die beiden Eigenschaftslücken, die hier
+lange als „kein Referenzprojekt braucht sie" standen:
+
+- `Image.stretch`, `proportional`, `center` (Abschnitt 11.4). **Eine
+  Abweichung von Lazarus, mit Absicht:** `stretch` steht auf `True`.
+  Die Kekse in `04_CookieKlicker` sind 512×512 Punkte groß und liegen
+  in einem 300×300 großen `Image` – mit Lazarus' Standard sähe man ein
+  Viertel Keks.
+- `StringGrid.on_select_cell`, `on_edit_cell` (Abschnitt 5.4). Beide
+  bekommen `spalte` und `zeile` in dieser Reihenfolge – wie Lazarus'
+  `(ACol, ARow)` und wie `cells[spalte, zeile]` –, `on_edit_cell`
+  zusätzlich den neuen Text. Was das **Programm** selbst in eine Zelle
+  schreibt, löst `on_edit_cell` nicht aus; gemeint ist die Änderung
+  durch den Benutzer, sonst feuerte schon `load_dataframe` hundert
+  Ereignisse.
 
 ## Vorlage pro Komponente
 

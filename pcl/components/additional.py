@@ -14,10 +14,9 @@ dass es eine zweite Quelle für den Wert gäbe.
 noch nicht (`ide/shell/hauptfenster.py` verbindet die Klick-Signale von
 genau zwei Listen), deshalb stehen sie unter „Zusätzlich“.
 
-MaskEdit, PaintBox und HtmlViewer sind in keinem der 18
-Referenzprojekte in `tests/daten/lazarus/` im Einsatz und daher weiterhin
-zurückgestellt (Abschnitt 21: „MVP strikt an den Übungsprojekten
-ausrichten“).
+MaskEdit, PaintBox und HtmlViewer standen hier bis M15 als
+zurückgestellt; sie sind inzwischen gebaut und wohnen in
+`pcl/components/eingaben.py`, `graphics.py` und `medien.py`.
 """
 
 from __future__ import annotations
@@ -154,21 +153,46 @@ class Cells:
             )
         spalte, zeile = index
         widget = self._besitzer._qwidget
-        element = widget.item(zeile, spalte)
-        if element is None:
-            element = QTableWidgetItem()
-            widget.setItem(zeile, spalte, element)
-        element.setText(wert)
+        # `on_edit_cell` meint die Änderung durch den Benutzer. Was das
+        # Programm selbst hineinschreibt, ist keine - sonst löste schon
+        # das Füllen der Tabelle hundert Ereignisse aus.
+        self._besitzer._schreibt_selbst = True
+        try:
+            element = widget.item(zeile, spalte)
+            if element is None:
+                element = QTableWidgetItem()
+                widget.setItem(zeile, spalte, element)
+            element.setText(wert)
+        finally:
+            self._besitzer._schreibt_selbst = False
 
 
 class StringGrid(Control):
-    """Tabelle aus Text-Zellen. Qt-Basis: `QTableWidget`."""
+    """Tabelle aus Text-Zellen. Qt-Basis: `QTableWidget`.
+
+    Die beiden Ereignisse entsprechen `OnSelectCell` und
+    `OnEditingDone` in Lazarus. Beide bekommen `spalte` und `zeile`
+    mit - in dieser Reihenfolge, wie Lazarus' `(ACol, ARow)` und wie
+    `cells[spalte, zeile]` -, `on_edit_cell` zusätzlich den neuen Text.
+    """
 
     row_count = Prop(int, 5, kategorie="Daten", doc="Anzahl der Zeilen")
     col_count = Prop(int, 5, kategorie="Daten", doc="Anzahl der Spalten")
 
+    on_select_cell = Event(doc="Wird ausgelöst, wenn eine andere Zelle ausgewählt wird")
+    on_edit_cell = Event(doc="Wird ausgelöst, nachdem eine Zelle geändert wurde")
+
+    #: Ein Doppelklick im Designer meint die Auswahl, nicht die
+    #: Änderung - wie `OnSelectCell` in Lazarus.
+    standard_ereignis = "on_select_cell"
+
     def __init__(self, parent: Control) -> None:
         self._cells = Cells(self)
+        # Solange das Programm selbst schreibt (`cells[...] = ...`,
+        # `load_dataframe`), darf `on_edit_cell` nicht feuern: gemeint
+        # ist die Änderung **durch den Benutzer**, sonst löste schon das
+        # Füllen der Tabelle hundert Ereignisse aus.
+        self._schreibt_selbst = False
         super().__init__(parent)
 
     @property
@@ -179,7 +203,23 @@ class StringGrid(Control):
         widget = QTableWidget(eltern_widget)
         widget.setRowCount(self.row_count)
         widget.setColumnCount(self.col_count)
+        widget.currentCellChanged.connect(self._bei_zellwechsel)
+        widget.itemChanged.connect(self._bei_zellaenderung)
         return widget
+
+    def _bei_zellwechsel(self, zeile: int, spalte: int, *_vorher: int) -> None:
+        # Qt zeigt mit -1 an, dass gar keine Zelle mehr ausgewählt ist
+        # (etwa nachdem die letzte Zeile gelöscht wurde). Das ist keine
+        # Auswahl und soll deshalb auch keine melden.
+        if zeile >= 0 and spalte >= 0:
+            self._ereignis_ausloesen("on_select_cell", spalte, zeile)
+
+    def _bei_zellaenderung(self, eintrag: Any) -> None:
+        if self._schreibt_selbst:
+            return
+        self._ereignis_ausloesen(
+            "on_edit_cell", eintrag.column(), eintrag.row(), eintrag.text()
+        )
 
     def _bei_prop_aenderung(self, name: str, wert: Any) -> None:
         super()._bei_prop_aenderung(name, wert)
@@ -209,6 +249,7 @@ class Picture:
     def __init__(self, besitzer: Image) -> None:
         self._besitzer = besitzer
         self._pfad: str | None = None
+        self._original = QPixmap()
 
     @property
     def pfad(self) -> str | None:
@@ -221,11 +262,21 @@ class Picture:
                 f"erhalten wurde {typ_beschreibung(type(pfad))}."
             )
         self._pfad = pfad
-        self._besitzer._qwidget.setPixmap(QPixmap(pfad))
+        # Das ungeskalierte Bild bleibt hier liegen: `stretch` und
+        # `proportional` rechnen bei jeder Größenänderung neu, und wer
+        # zweimal hintereinander skaliert, bekommt Treppen.
+        self._original = QPixmap(pfad)
+        self._besitzer._bild_anzeigen()
 
     def clear(self) -> None:
         self._pfad = None
+        self._original = QPixmap()
         self._besitzer._qwidget.clear()
+
+    @property
+    def original(self) -> QPixmap:
+        """Das geladene Bild in seiner eigenen Größe."""
+        return self._original
 
 
 class Image(Control):
@@ -236,7 +287,36 @@ class Image(Control):
     `04_CookieKlicker` ist das anklickbare Bild die ganze Spielidee,
     und ohne dieses Ereignis müsste ein durchsichtiger Knopf darüber
     gelegt werden - ein Kniff, den kein Lehrbuch erklärt.
+
+    Die drei Eigenschaften `stretch`, `proportional` und `center`
+    heißen und wirken wie in Lazarus; **nur der Standardwert von
+    `stretch` ist ein anderer.** In Lazarus steht er auf `False`, und
+    ein zu großes Bild wird oben links abgeschnitten. Natter zeigt es
+    stattdessen von Anfang an passend: die Kekse in
+    `04_CookieKlicker` sind 512×512 Punkte groß und liegen in einem
+    300×300 großen `Image` - mit Lazarus' Standard sähe man ein Viertel
+    Keks. Wer das Lazarus-Verhalten will, schreibt
+    ``self.i_bild.stretch = False``.
     """
+
+    stretch = Prop(
+        bool,
+        True,
+        kategorie="Darstellung",
+        doc="Bild auf die Größe der Komponente ziehen",
+    )
+    proportional = Prop(
+        bool,
+        False,
+        kategorie="Darstellung",
+        doc="Beim Ziehen das Seitenverhältnis behalten",
+    )
+    center = Prop(
+        bool,
+        False,
+        kategorie="Darstellung",
+        doc="Bild mittig setzen, wenn es kleiner ist als die Komponente",
+    )
 
     def __init__(self, parent: Control) -> None:
         self._picture = Picture(self)
@@ -247,9 +327,54 @@ class Image(Control):
         return self._picture
 
     def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
-        widget = QLabel(eltern_widget)
-        widget.setScaledContents(True)
-        return widget
+        return QLabel(eltern_widget)
+
+    def _bei_prop_aenderung(self, name: str, wert: Any) -> None:
+        super()._bei_prop_aenderung(name, wert)
+        if name in ("stretch", "proportional", "center", "width", "height"):
+            self._bild_anzeigen()
+
+    def _bild_anzeigen(self) -> None:
+        """Setzt das Bild so ins `QLabel`, wie die drei Eigenschaften es
+        verlangen.
+
+        `setScaledContents` allein reicht nur für den einfachsten Fall.
+        Es zieht das Bild **ohne** Rücksicht auf das Seitenverhältnis
+        auf die volle Fläche; für `proportional` muss deshalb von Hand
+        skaliert werden. Und weil `setScaledContents(True)` jede
+        Ausrichtung überfährt, darf es gleichzeitig mit `center` gar
+        nicht an sein.
+        """
+        original = self._picture.original
+        widget = self._qwidget
+        if original.isNull():
+            widget.clear()
+            return
+
+        widget.setAlignment(
+            Qt.AlignmentFlag.AlignCenter
+            if self.center
+            else Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
+        )
+
+        if self.stretch and not self.proportional:
+            widget.setScaledContents(True)
+            widget.setPixmap(original)
+            return
+
+        widget.setScaledContents(False)
+        if not self.stretch:
+            widget.setPixmap(original)
+            return
+
+        widget.setPixmap(
+            original.scaled(
+                self.width,
+                self.height,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        )
 
 
 def _prop_gleichziehen(komponente: Control, name: str, wert: Any) -> None:

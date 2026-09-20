@@ -44,6 +44,12 @@ EREIGNIS_PARAMETER: dict[str, tuple[str, ...]] = {
     "on_mouse_down": ("x", "y"),
     "on_mouse_move": ("x", "y"),
     "on_mouse_up": ("x", "y"),
+    # `StringGrid`: welche Zelle. Ohne Spalte und Zeile müsste der
+    # Schüler im Handler erst `sender` nach der Auswahl fragen - genau
+    # die Umständlichkeit, die Lazarus' `OnSelectCell(Sender, ACol,
+    # ARow, …)` sich spart.
+    "on_select_cell": ("spalte", "zeile"),
+    "on_edit_cell": ("spalte", "zeile", "text"),
 }
 
 
@@ -103,6 +109,26 @@ class Control(Komponente):
     #: auf.
     nur_im_designer = False
 
+    #: Welches Ereignis ein Doppelklick im Designer anlegt.
+    #:
+    #: Nur nötig, wenn eine Komponente **mehrere** eigene Ereignisse
+    #: hat und trotzdem eines davon das kennzeichnende ist - beim
+    #: `StringGrid` die Auswahl einer Zelle, nicht deren Änderung. Bei
+    #: einer Komponente mit genau einem Ereignis findet der Designer es
+    #: von selbst, und wo jede Wahl geraten wäre (`DBNavigator`), bleibt
+    #: die Angabe bewusst leer.
+    standard_ereignis: str | None = None
+
+    #: Ob andere Komponenten in dieser hier liegen dürfen.
+    #:
+    #: Im Code ging das immer schon - `RadioButton(self.g_zahlung)`
+    #: hängt den Knopf an die `GroupBox`, das erledigt `__init__` von
+    #: selbst. Der **Designer** legte bis September 2026 trotzdem jede
+    #: abgelegte Komponente ans Formular; ein Panel war dort eine
+    #: Fläche, auf der nichts liegen konnte. Diese Angabe sagt ihm,
+    #: wohin er eine Ablage geben darf.
+    ist_behaelter = False
+
     #: Ob die Komponente ihr `on_click` selbst auslöst. Nur der
     #: `Button` tut das - er hat ein natives Qt-Klicksignal, und ohne
     #: diese Angabe feuerte sein `on_click` zweimal.
@@ -134,6 +160,12 @@ class Control(Komponente):
         # entsteht trotzdem - so braucht der Rest der Klasse keine
         # Sonderfälle -, es bleibt nur elternlos und ungezeigt.
         eltern_widget: QWidget | None = parent._qwidget if parent is not None else None
+        # Die Komponente merkt sich, woran sie hängt. Qt weiß es zwar
+        # auch (`_qwidget.parentWidget()`), aber nicht als `pcl`-Objekt
+        # - und der Designer, der Komponentenbaum und das Speichern in
+        # die `.pfm` brauchen genau das: zu welcher **Komponente** ein
+        # Kind gehört, nicht zu welchem Widget.
+        self._eltern = parent
         self._font = Font(self)
         self._popup_menu: Any = None
         self._qwidget: QWidget = self._qwidget_erzeugen(eltern_widget)
@@ -153,6 +185,13 @@ class Control(Komponente):
             self._qwidget.installEventFilter(self._maus_filter)
             if parent is not None:
                 self._qwidget.show()
+
+    @property
+    def eltern(self) -> Komponente | None:
+        """Die Komponente, in der diese hier liegt – das Formular oder
+        ein Behälter (`Panel`, `GroupBox`). `None` bei einer Komponente,
+        die im Code ohne Eltern erzeugt wurde."""
+        return self._eltern
 
     @property
     def popup_menu(self) -> Any:

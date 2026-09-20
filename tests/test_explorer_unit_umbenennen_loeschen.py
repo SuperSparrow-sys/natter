@@ -26,11 +26,19 @@ def test_explorer_zeigt_einen_knopf_fuer_jede_unit(tmp_path: Path) -> None:
     fenster = HauptFenster()
     projekt = fenster.projekt_oeffnen(_projekt_kopie(tmp_path) / "06_Kontoverwaltung.natter")
 
+    mit_knopf = set()
+    ohne_knopf = set()
     for index in range(fenster.explorer.units_gruppe.childCount()):
         eintrag = fenster.explorer.units_gruppe.child(index)
-        assert fenster.explorer.itemWidget(eintrag, 1) is not None
+        ziel = mit_knopf if fenster.explorer.itemWidget(eintrag, 1) else ohne_knopf
+        ziel.add(eintrag.text(0))
 
     assert projekt.units()  # sanity: es gibt überhaupt Units
+    assert mit_knopf == {"u_konto.py"}
+    # `u_main.py` heisst wie `u_main.pfm`, und das ist keine
+    # Schreibweise, sondern die Verbindung zwischen beiden. Eine davon
+    # allein umzubenennen zerrisse das Paar - deshalb kein Menue.
+    assert ohne_knopf == {"u_main.py"}
 
 
 def test_unit_umbenennen(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

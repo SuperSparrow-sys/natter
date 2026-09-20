@@ -398,8 +398,7 @@ Wird während M1 verfeinert (genaue Komponentenliste je Projekt), sobald die
     Schriftart/Farben sollen zu VS Code passen) – regelbasiert, an VS
     Codes Light+-Farben angelehnt (Schlüsselwörter/Zeichenketten/
     Kommentare/Zahlen/eingebaute Funktionen wie `print` unterscheidbar);
-    echte Monaco-Integration mit vollständiger Grammatik bleibt trotzdem
-    ein eigener, späterer Schritt (`prototypes/s2`). Editor-Schriftart
+    **Monaco entfällt damit** (siehe unten). Editor-Schriftart
     jetzt `Cascadia Code`/`Consolas`/`Courier New` (wie
     `design/tokens.json`, `family_mono`) statt der UI-Schriftart
   - [x] Knöpfe für Rückgängig/Wiederholen in der Werkzeugleiste
@@ -566,13 +565,11 @@ zerlegt, jeder Schritt für sich mit `pytest` abgesichert.
 - [x] `MainMenu`, `PopupMenu` – nachgezogen in M15: beide liegen als
   Symbol auf dem Formular (`Control.nur_im_designer`) und werden über
   einen Menü-Editor gefüllt, wie in Lazarus
-- **Bekannte Lücke, bewusst zurückgestellt:** `on_click`/`on_double_click`
-  sollten laut Abschnitt 5.4 für „alle sichtbaren“ Komponenten gelten,
-  sind bisher aber nur bei `Button` verdrahtet (natives Qt-Signal). Ein
-  komponentenübergreifendes `on_click` über `Control` bräuchte eigene
-  Maus-Ereignis-Behandlung für Komponenten ohne natives Klick-Signal
-  (`Label`, `Shape`); kein Referenzprojekt braucht es bisher (siehe
-  `docs/komponenten.md`).
+- [x] **`on_click`/`on_double_click` für alle sichtbaren Komponenten** –
+  seit M15 da. `Control` trägt einen eigenen Ereignisfilter; dazu kamen
+  `on_mouse_down`/`_move`/`_up` mit Koordinaten relativ zur Komponente.
+  Der `Button` behält sein natives Qt-Signal und markiert das über
+  `_klick_kommt_vom_widget`, sonst feuerte sein `on_click` zweimal.
 - [x] `SpinEdit`, `FloatSpinEdit` – umgesetzt und in der Palette
 - [x] `PaintBox` samt `Canvas` (`line_to`, `rectangle`, `ellipse`,
   `text_out` …) – seit M15, Abschnitt 2 da
@@ -669,7 +666,9 @@ Prozess ohne Debugger. 164 Tests grün.
   Windows-Laptop zu verifizieren (headless nicht möglich)
 
 Zurückgestellt innerhalb M2 (Details und Begründung in
-`docs/arbeitspakete/M2.md`): Monaco, vollständige Menüs/Werkzeugleisten,
+`docs/arbeitspakete/M2.md`): Monaco – seit September 2026 **entfällt**,
+der eigene Editor kann inzwischen, was er können sollte –,
+vollständige Menüs/Werkzeugleisten,
 Units-Feinschliff (Einbinden-Dialog, Umbenennen, Kreisbezug, geteilte
 Ansicht), Sitzung, portable Laufzeit, Start-Vorlauf (Speichern/Ruff),
 Pause/Stopp/Neustart, Tastenkürzel-Tab/Befehlspalette.
@@ -957,10 +956,17 @@ Ausdrücklicher Wunsch des Nutzers, gilt für jeden Schritt:
   fehlenden Komponenten, Lineale/Hilfslinien/Minimap und vier
   Kleinigkeiten
 
-Zurückgestellt bleiben bewusst: Update-Mechanismus und
-CI/Release-Automatisierung (M8), ER-Diagramm, Syntaxdiagramm und
-`.dia`-Import (M9) – alle vier sind im jeweiligen Paket als
-zurückgestellt begründet.
+Zurückgestellt bleiben bewusst: Update-Mechanismus (M8), ER-Diagramm,
+Syntaxdiagramm und `.dia`-Import (M9) – alle vier sind im jeweiligen
+Paket als zurückgestellt begründet.
+
+Die **Release-Automatisierung** stand bis September 2026 in derselben
+Zeile und ist seither erledigt: `tools/auslieferung_bauen.py` baut aus
+dem Arbeitsbaum in einem Befehl eine signierte `Natter-Setup.exe` und
+prüft nach jedem der zehn Schritte das Ergebnis (siehe
+`docs/arbeitspakete/M13.md`). Was zurückgestellt bleibt, ist der
+**Update-Mechanismus** – dass Natter sich selbst aktualisiert. Auf
+verwalteten Schulrechnern verteilt die Systembetreuung.
 
 
 ## M11 – Schülertauglichkeit und Prüfungsmodus

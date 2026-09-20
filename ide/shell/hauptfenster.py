@@ -96,11 +96,14 @@ from ide.shell.tastenkuerzel import als_markdown as tastenkuerzel_als_markdown
 from ide.shell.theme import ide_qss_erzeugen
 from ide.testrunner import Testergebnis, ergebnisse_als_html, tests_ausfuehren
 from ide.viewers import (
+    MARKDOWN_ENDUNGEN,
     BildVorschau,
     CsvAnsicht,
     HilfeAnsicht,
     HtmlVorschau,
+    MarkdownAnsicht,
     TabellenAnsicht,
+    ueberschrift_lesen,
 )
 from pcl.form import Form
 from pcl.pruefungsmodus import laeuft as pruefungsmodus_laeuft
@@ -988,6 +991,36 @@ class HauptFenster(QMainWindow):
         )
         self.aktionen.an_hauptfenster_anhaengen(self)
 
+        # „Ansicht → Formular und Code wechseln“ (Abschnitt 7.9). Stand
+        # seit M2 als Vermerk im Explorer („folgt später“) und ist der
+        # eine Handgriff, den jemand aus Lazarus als Erstes vermisst:
+        # dort liegt er auf F12.
+        #
+        # **Hier auf Umschalt+F12**, nicht auf F12. Das gehört im Editor
+        # seit M11 zu „Zur Definition springen“, wie in VS Code - und
+        # ein Tastenkürzel, das je nach Reiter etwas anderes tut, ist
+        # schlimmer als eins, das man einmal neu lernt. Umschalt+F12
+        # liegt in Lazarus auf der Formularliste, also nah genug.
+        #
+        # Als richtige `Aktion` registriert, aber von Hand ins Menü
+        # gehängt: nur als Aktion steht sie in der
+        # Tastenkürzel-Übersicht und in der Befehlspalette - ein
+        # Kürzel, das nirgends nachzuschlagen ist, findet niemand. Und
+        # nur von Hand steht sie **oben** im Ansicht-Menü statt hinter
+        # den Untermenüs „Design“ und „Schriftart“.
+        self.aktionen.registrieren(
+            Aktion(
+                "ansicht.formular_code",
+                "Formular und Code wechseln",
+                tastenkuerzel="Shift+F12",
+                callback=self._formular_code_umschalten,
+            )
+        )
+        self.formular_code_aktion = self.aktionen["ansicht.formular_code"].qaction
+        ansicht = self._menues["Ansicht"]
+        ansicht.insertAction(ansicht.actions()[0], self.formular_code_aktion)
+        ansicht.insertSeparator(ansicht.actions()[1])
+
     def _datei_oeffnen_dialog(self) -> None:
         pfad, _ = QFileDialog.getOpenFileName(self, "Öffnen")
         if pfad:
@@ -1024,7 +1057,35 @@ class HauptFenster(QMainWindow):
             return
         self.projekt = projekt
         self.explorer.projekt_anzeigen(projekt)
+        self._projekt_startdateien_oeffnen(projekt)
         self.statusBar().showMessage(f"Projekt {projekt.name} angelegt")
+
+    def _projekt_startdateien_oeffnen(self, projekt: Projekt) -> None:
+        """Öffnet nach dem Anlegen, womit man anfängt: das Formular
+        **und** die Unit dazu.
+
+        Ein frisch angelegtes GUI-Projekt zeigte bis September 2026 gar
+        nichts an - man landete in einem leeren Fenster und musste im
+        Explorer erst suchen, wo das Programm hingehört. Danach ging
+        über einen Doppelklick nur der Designer auf; die Datei, in die
+        der Code kommt, blieb unsichtbar (Nutzer-Meldung: „wenn ich ein
+        neues Projekt erstelle muss auch die u_main.py für den code
+        angezeigt werden nicht nur der designer“).
+
+        Vorn liegt am Ende der **Designer**: bei einem GUI-Projekt legt
+        man zuerst die Oberfläche an, und die Unit steht als zweiter
+        Reiter daneben. Ein Konsolenprojekt hat kein Formular - dort
+        bleibt es bei der einen Datei.
+        """
+        unit = next(
+            (pfad for pfad in projekt.units() if pfad.stem == projekt.haupt_unit), None
+        )
+        if unit is not None and unit.exists():
+            self.datei_oeffnen(unit)
+
+        formulare = projekt.formulare()
+        if formulare:
+            self.designer_oeffnen(formulare[0])
 
     def projekt_dateien(self) -> list[Path]:
         """Alle Units und Formulare des offenen Projekts, für „Unit
@@ -1573,11 +1634,18 @@ class HauptFenster(QMainWindow):
         dann steht der Grund in der Statuszeile. Vorher flog der
         `UnicodeDecodeError` bis nach oben durch: bei einer `.exe` oder
         einer alten, nicht in UTF-8 gespeicherten Pascal-Datei war
-        Natter einfach weg (M11, Abschnitt 5)."""
+        Natter einfach weg (M11, Abschnitt 5).
+
+        „Bereits offen“ heißt: in **einem Editor** offen. Ein Betrachter
+        auf dieselbe Datei zählt nicht, sonst täte „Quelltext
+        bearbeiten“ in der Markdown-Ansicht nichts – der Pfad stimmte,
+        und der vorhandene Reiter käme nur wieder nach vorn."""
         pfad = Path(pfad)
         for index in range(self.editor_tabs.count()):
             editor = self.editor_tabs.widget(index)
-            if editor.property(_PFAD_EIGENSCHAFT) == str(pfad):
+            if isinstance(editor, QuelltextEditor) and (
+                editor.property(_PFAD_EIGENSCHAFT) == str(pfad)
+            ):
                 self.editor_tabs.setCurrentIndex(index)
                 return editor
 
@@ -1825,6 +1893,7 @@ class HauptFenster(QMainWindow):
         # Farben, bis Natter neu gestartet wurde.
         self.aktionen.symbole_erneuern(thema)
         self.palette.symbole_erneuern(thema)
+        self.objektinspektor.baum.symbole_erneuern(thema)
         self.setWindowIcon(symbol("app", thema))
 
     def _einzugslinien_umschalten(self, sichtbar: bool) -> None:
@@ -2190,6 +2259,49 @@ class HauptFenster(QMainWindow):
             if self._tab_inhalt(self.editor_tabs.widget(index)) is inhalt:
                 return index
         return -1
+
+    def _formular_code_umschalten(self) -> None:
+        """Springt zwischen dem Formular und seiner Unit hin und her
+        (Abschnitt 7.9, Umschalt+F12).
+
+        In Lazarus ist das der meistbenutzte Handgriff überhaupt: man
+        legt einen Knopf ab, schreibt seinen Code, schaut wieder aufs
+        Formular. In Natter lagen beide bisher zwar als Reiter
+        nebeneinander, aber man musste sie suchen – und wenn die Unit
+        noch gar nicht offen war, half auch das Suchen nicht.
+
+        Beide Richtungen führen über `oeffnen()`/`datei_oeffnen()`: ein
+        schon offener Reiter kommt nach vorn, ein noch nicht offener
+        geht auf.
+        """
+        widget = self._tab_inhalt(self.editor_tabs.currentWidget())
+        canvas = self._widget_zu_canvas.get(widget)
+        if canvas is not None and canvas.unit_pfad is not None:
+            if canvas.unit_pfad.exists():
+                self.datei_oeffnen(canvas.unit_pfad)
+            else:
+                self.statusBar().showMessage(
+                    f"Zu „{canvas.pfm_pfad.stem}“ gibt es keine Unit "
+                    f"„{canvas.unit_pfad.name}“."
+                )
+            return
+
+        pfad = widget.property(_PFAD_EIGENSCHAFT) if widget is not None else None
+        if pfad:
+            formular = Path(pfad).with_suffix(".pfm")
+            if formular.exists():
+                self.designer_oeffnen(formular)
+                return
+            self.statusBar().showMessage(
+                f"Zu „{Path(pfad).name}“ gehört kein Formular "
+                f"(„{formular.name}“ gibt es nicht)."
+            )
+            return
+
+        self.statusBar().showMessage(
+            "Hier gibt es nichts umzuschalten - der Handgriff wirkt auf ein "
+            "Formular oder auf die Unit, die dazugehört."
+        )
 
     def _bei_tab_wechsel(self, index: int) -> None:
         widget = self._tab_inhalt(self.editor_tabs.widget(index))
@@ -2593,24 +2705,65 @@ class HauptFenster(QMainWindow):
             self.datei_ansicht_oeffnen(pfad, lambda: BildVorschau(pfad))
         elif endung in _HTML_ENDUNGEN:
             self.datei_ansicht_oeffnen(pfad, lambda: HtmlVorschau(pfad))
+        elif endung in MARKDOWN_ENDUNGEN:
+            # Bis September 2026 landete jede `.md` im Quelltexteditor:
+            # `## Überschrift` und Tabellen aus Strichen, in einem
+            # Fenster mit Zeilennummern und Syntaxhervorhebung. Für die
+            # vier eingebauten Hilfeseiten war das seit M11 gelöst, für
+            # eine selbst geöffnete Datei nicht (Abschnitt 11.6).
+            self.datei_ansicht_oeffnen(
+                pfad, lambda: self._markdown_ansicht(pfad), self._markdown_titel(pfad)
+            )
         else:
             self.datei_oeffnen(pfad)
 
-    def datei_ansicht_oeffnen(self, pfad: Path, fabrik) -> QWidget:
+    def _markdown_titel(self, pfad: Path) -> str:
+        """Die Überschrift der Datei als Reiterbeschriftung.
+
+        Sonst stünde beim Klick auf „Quelltext bearbeiten“ zweimal
+        „README.md“ nebeneinander, ohne Unterschied.
+        """
+        try:
+            text = pfad.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return pfad.name
+        return ueberschrift_lesen(text) or pfad.name
+
+    def _markdown_ansicht(self, pfad: Path) -> MarkdownAnsicht:
+        """Eine Markdown-Ansicht, deren Verweise in Natter aufgehen.
+
+        Ein Klick auf `u_main.py` oder `docs/komponenten.md` im Text
+        führt über `oeffnen()` in die Ansicht, die dazu passt - nicht an
+        Windows vorbei in irgendein fremdes Programm.
+        """
+        ansicht = MarkdownAnsicht(pfad)
+        ansicht.datei_angefordert.connect(self.oeffnen)
+        ansicht.bearbeiten_angefordert.connect(self.datei_oeffnen)
+        return ansicht
+
+    def datei_ansicht_oeffnen(self, pfad: Path, fabrik, titel: str | None = None) -> QWidget:
         """Öffnet eine CSV-/Bild-/HTML-Datei in ihrem passenden
         Betrachter-Tab (Abschnitt 11.4, 11.5, 11.3) statt im
         Quelltexteditor. Bereits offene Betrachter werden nur aktiviert
-        statt erneut geöffnet, wie bei `datei_oeffnen()`."""
+        statt erneut geöffnet, wie bei `datei_oeffnen()`.
+
+        Ein **Editor** auf dieselbe Datei zählt dabei nicht: wer eine
+        `.md` im Editor offen hat und sie aus dem Explorer anklickt,
+        will sie gesetzt sehen. Beide Reiter nebeneinander sind hier
+        gewollt – die Ansicht lädt sich neu, sobald im Editor
+        gespeichert wird."""
         pfad = Path(pfad)
         for index in range(self.editor_tabs.count()):
             widget = self.editor_tabs.widget(index)
-            if widget.property(_PFAD_EIGENSCHAFT) == str(pfad):
+            if not isinstance(widget, QuelltextEditor) and (
+                widget.property(_PFAD_EIGENSCHAFT) == str(pfad)
+            ):
                 self.editor_tabs.setCurrentIndex(index)
                 return widget
 
         widget = fabrik()
         widget.setProperty(_PFAD_EIGENSCHAFT, str(pfad))
-        index = self.editor_tabs.addTab(widget, pfad.name)
+        index = self.editor_tabs.addTab(widget, titel or pfad.name)
         self.editor_tabs.setCurrentIndex(index)
         return widget
 

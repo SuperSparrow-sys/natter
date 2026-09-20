@@ -72,9 +72,32 @@ hält:
   Richtige tut. Dafür gibt es die fachlichen Tests daneben
 - Dialoge werden stillgelegt, als hätte man abgebrochen; der Weg durch
   einen ausgefüllten Dialog ist nicht mitgeprüft
-- Kontextmenüs sind noch nicht dabei
-- „Jede Eigenschaft jeder Komponente im Objektinspektor ändern und
-  nachsehen, ob die Änderung ankommt“ (M11, Abschnitt 3) steht noch aus
+
+Zwei Punkte standen hier bis September 2026 und stehen es nicht mehr:
+
+- **Kontextmenüs** sind inzwischen im Rundlauf
+  (`_alle_kontextmenues`): jeder Eintrag des Explorers, des Designers
+  und der Reiterleiste wird wirklich ausgelöst.
+- **„Jede Eigenschaft jeder Komponente im Objektinspektor ändern und
+  nachsehen, ob die Änderung ankommt“** (M11, Abschnitt 3) gibt es
+  jetzt als eigenen Durchlauf:
+  `tests/test_objektinspektor_rundlauf.py`, 116 Prüfungen über alle
+  29 Komponenten der Palette.
+
+  Geprüft wird dort nicht „der neue Wert steht danach in der
+  Komponente“ – das wäre zu streng. Manche Komponenten *berichtigen*
+  einen Wert, statt ihn abzulehnen: `RadioGroup.item_index = 6` ohne
+  sechste Option fällt auf -1 zurück, weil eine Auswahl, die niemand
+  sieht, schlimmer wäre. Geprüft wird die Eigenschaft, die in beiden
+  Fällen gelten muss: **Zelle und Komponente sind sich danach einig.**
+  Zeigte der Inspektor eine 6 an, während die Komponente längst -1
+  führt, stünde dort etwas, das es nicht gibt.
+
+  Dazu: eine unsinnige Eingabe („viel“ in einer Zahlzeile) muss
+  abgewiesen werden, mit dem alten Wert zurück in der Zelle und einer
+  deutschen Meldung daneben; und eine Sammlung (`Memo.lines`,
+  `MainMenu.entries`) darf sich in der Zelle gar nicht erst bearbeiten
+  lassen, sondern nur über ihren Dialog.
 
 ## Bildschirmfotos
 

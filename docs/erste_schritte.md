@@ -57,7 +57,45 @@ def b_start_click(self, sender):
 ```
 
 Jede Komponente erreichst du über `self.` und ihren Namen – genauso wie
-in Lazarus.
+in Lazarus. Der Name steht im Objektinspektor in der ersten Zeile
+(`name`), und die Eigenschaften heißen dort genauso wie hier:
+
+```python
+self.l_titel.caption = "Hallo"
+self.e_name.text = ""
+self.b_ok.enabled = False
+```
+
+### „Wo steht eigentlich das `on_click`?“
+
+In `u_main.py` findest du nur die **Methoden** – keine Zeile, die sie
+mit dem Knopf verbindet. Das ist Absicht. Die Verbindung
+
+```python
+self.b_ok.on_click = self.b_ok_click
+```
+
+schreibt Natter beim Speichern des Formulars nach `u_main_design.py`,
+zusammen mit allem anderen, was du im Designer eingestellt hast. Diese
+Datei wird erzeugt und nie von Hand geändert – deshalb siehst du sie
+auch nicht im Projekt-Explorer. Genau so macht es Lazarus mit der
+`.lfm`.
+
+Du kannst `on_click` trotzdem selbst setzen, wenn du willst: im Code
+ist es eine Eigenschaft wie jede andere. Im Unterricht braucht man das
+nur selten – etwa wenn zwei Knöpfe dieselbe Methode benutzen sollen.
+Dafür gibt es aber auch den Reiter **Ereignisse** im Objektinspektor,
+und der schreibt es ordentlich in die `.pfm` zurück.
+
+`sender` ist übrigens die Komponente, die das Ereignis ausgelöst hat.
+Wenn mehrere Knöpfe an derselben Methode hängen, erkennst du daran,
+welcher gedrückt wurde.
+
+### Zwischen Formular und Code wechseln
+
+**Umschalt+F12** springt vom Designer in die zugehörige `u_main.py`
+und wieder zurück – wie F12 in Lazarus. (F12 selbst ist in Natter
+„Zur Definition springen“, wie in VS Code.)
 
 Zwei Hilfen im Editor: die **senkrechten Linien** zeigen dir die
 Einrückungsebenen (bei Python ist die Einrückung die Syntax!), und die
@@ -110,6 +148,7 @@ zum Abschreiben, kein fertiges Programm.
 | Strg+Z | Rückgängig |
 | Strg+G | Gehe zu Zeile … (im Diagramm-Editor: Gruppieren) |
 | Strg+Umschalt+E | Quelltext aus dem Diagramm erzeugen |
+| Umschalt+F12 | Zwischen Formular und Code wechseln |
 
 ## Und wenn ich nicht weiterkomme?
 

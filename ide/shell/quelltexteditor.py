@@ -47,6 +47,7 @@ from ide.shell.vervollstaendigung import (
     parameterhilfe,
     vorschlaege,
 )
+from pcl.pruefungsmodus import laeuft as pruefungsmodus_laeuft
 
 _SCHRIFT_DATEI = (
     Path(__file__).resolve().parent.parent / "assets" / "fonts" / "CascadiaCode-Regular.ttf"
@@ -514,8 +515,14 @@ class QuelltextEditor(QPlainTextEdit):
 
         self._vorschlaege = gefunden
         self.vorschlagsliste.clear()
+        # Im Prüfungsmodus ohne die deutschen Erklärungen (M11,
+        # Abschnitt 6). Die Liste selbst bleibt an - sie ist
+        # Schreibhilfe, und Lazarus hat sie im Unterricht auch; „Wird
+        # beim Klicken ausgelöst“ neben `on_click` ist dagegen nah an
+        # der Antwort auf genau die Frage, die in der Klausur steht.
+        mit_erklaerung = not pruefungsmodus_laeuft()
         for vorschlag in gefunden:
-            self.vorschlagsliste.addItem(vorschlag.anzeige)
+            self.vorschlagsliste.addItem(vorschlag.anzeige_text(mit_erklaerung))
         self.vorschlagsliste.setCurrentRow(0)
         self._vorschlagsliste_platzieren()
         self.vorschlagsliste.show()

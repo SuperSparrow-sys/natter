@@ -149,6 +149,33 @@ def _ereignisse_zeilen(ziel: str, ereignisse: dict[str, str]) -> list[str]:
     ]
 
 
+def _kinder_mit_eltern(
+    eintrag: dict[str, Any], eltern_ausdruck: str
+) -> list[tuple[dict[str, Any], str]]:
+    """Alle Komponenten der `.pfm` in Reihenfolge, jede mit dem Python-
+    Ausdruck ihrer Eltern (`"self"` oder `"self.p_feld"`).
+
+    Ein Behälter muss **vor** seinen Kindern stehen: `Button(self.p_feld)`
+    setzt voraus, dass `self.p_feld` schon existiert. Die Reihenfolge
+    ergibt sich hier von selbst, weil jeder Eintrag vor seinen eigenen
+    `children` eingesammelt wird.
+
+    Die Namen bleiben dabei flach - ein Knopf im Panel heißt weiter
+    `self.b_ok`, wie in Lazarus. Verschachtelt ist nur, woran er hängt.
+    """
+    ergebnis: list[tuple[dict[str, Any], str]] = []
+    for kind in eintrag.get("children", []):
+        ergebnis.append((kind, eltern_ausdruck))
+        ergebnis.extend(_kinder_mit_eltern(kind, f"self.{kind['name']}"))
+    return ergebnis
+
+
+def _alle_kinder(eintrag: dict[str, Any]) -> list[dict[str, Any]]:
+    """Alle Komponenten der `.pfm`, egal wie tief - für die
+    Typannotationen und die Importzeile."""
+    return [kind for kind, _ in _kinder_mit_eltern(eintrag, "self")]
+
+
 def design_code_erzeugen(pfm: dict[str, Any], pfm_dateiname: str) -> str:
     """Erzeugt den Python-Quelltext von `u_*_design.py` aus einer bereits
     geladenen `.pfm`. Validiert `pfm` gegen `schemas/pfm.schema.json`."""
@@ -157,7 +184,7 @@ def design_code_erzeugen(pfm: dict[str, Any], pfm_dateiname: str) -> str:
 
     klassenname = f"{pfm['class']}Design"
     basisklasse = pfm["type"]
-    kinder: list[dict[str, Any]] = pfm.get("children", [])
+    kinder: list[dict[str, Any]] = _alle_kinder(pfm)
     benoetigte_typen = sorted({basisklasse} | {kind["type"] for kind in kinder})
 
     kopf: list[str] = [
@@ -183,10 +210,10 @@ def design_code_erzeugen(pfm: dict[str, Any], pfm_dateiname: str) -> str:
     )
     zeilen.extend(_ereignisse_zeilen("self", pfm.get("events", {})))
 
-    for kind in kinder:
+    for kind, eltern in _kinder_mit_eltern(pfm, "self"):
         if len(zeilen) > rumpf_start:
             zeilen.append("")
-        zeilen.append(f"{_EINRUECKUNG * 2}self.{kind['name']} = {kind['type']}(self)")
+        zeilen.append(f"{_EINRUECKUNG * 2}self.{kind['name']} = {kind['type']}({eltern})")
         zeilen.extend(
             _eigenschaften_zeilen(
                 f"self.{kind['name']}",

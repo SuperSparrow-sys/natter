@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Form: das Fenster selbst, die Wurzel des Komponentenbaums. Die
+       Titelleiste ist blau wie jedes Bedienelement (FARBEN "blau"), die
+       drei Punkte darin stehen für die Fensterknöpfe - bei 16 px bleibt
+       davon ein erkennbarer Streifen, eine gezeichnete Kreuz/Minus-
+       Gruppe verschmiert dort zu einem Klumpen. -->
+  <rect x="2.6" y="4.1" width="18.8" height="15.8" rx="2" fill="#f7f9fa" stroke="#37474f" stroke-width="1.2"/>
+  <path d="M2.6 8.4V6.1a2 2 0 012-2h14.8a2 2 0 012 2v2.3z" fill="#0067c0"/>
+  <path d="M2.6 8.4h18.8" stroke="#37474f" stroke-width="1.2"/>
+  <circle cx="17.1" cy="6.3" r="0.85" fill="#ffffff"/>
+  <circle cx="19.5" cy="6.3" r="0.85" fill="#ffffff"/>
+  <path d="M5.6 12.2h7.4M5.6 15.4h10.6" stroke="#7b8f9a" stroke-width="1.2" stroke-linecap="round"/>
+</svg>

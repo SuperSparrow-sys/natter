@@ -10,12 +10,16 @@ from ide.shell.hauptfenster import HauptFenster
 def test_ansicht_menue_listet_alle_docks() -> None:
     fenster = HauptFenster()
     titel = {aktion.text() for aktion in fenster.menue("Ansicht").actions()}
+    # "Formular und Code wechseln" (Abschnitt 7.9) ist keine Dock-Umschaltung,
+    # sondern der Handgriff, der zwischen Designer und Unit springt.
     # "Design" und "Schriftart" sind eigene Untermenüs (eigene Tests in
     # test_hauptfenster_design_wechsel.py/test_hauptfenster_schriftart_
     # wechsel.py), "Einrückungslinien", "Vervollständigung",
     # "Zeilenumbruch" und "Leerzeichen anzeigen" sind Anzeigeschalter
     # (M11) – keines davon ist eine Dock-Umschaltung.
     assert titel == {
+        "Formular und Code wechseln",
+        "",  # die Trennlinie dahinter
         "Projekt-Explorer",
         "Objektinspektor",
         "Komponentenpalette",

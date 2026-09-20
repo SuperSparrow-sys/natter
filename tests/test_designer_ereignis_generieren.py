@@ -164,3 +164,25 @@ def test_doppelklick_auf_das_formular_erzeugt_form_create(tmp_path: Path) -> Non
     assert ergebnis == "form_create"
     assert "def form_create(self, sender):" in unit_pfad.read_text(encoding="utf-8")
     assert formular.on_create.__name__ == "form_create"
+
+
+def test_stringgrid_nennt_sein_kennzeichnendes_ereignis(tmp_path: Path) -> None:
+    """Seit das `StringGrid` zwei eigene Ereignisse hat, waere es sonst
+    mehrdeutig geworden - und ein Doppelklick haette gar nichts mehr
+    angelegt. `standard_ereignis` sagt, welches gemeint ist: die
+    Auswahl, wie `OnSelectCell` in Lazarus."""
+    from pcl import StringGrid
+
+    unit_pfad = _unit_datei_vorbereiten(tmp_path)
+    formular = _Formular()
+    formular.sg_tabelle = StringGrid(formular)
+    canvas = DesignerCanvas(formular, pfm_pfad=tmp_path / "test.pfm")
+
+    ergebnis = canvas.ereignis_handler_erzeugen(formular.sg_tabelle)
+
+    assert ergebnis == "sg_tabelle_select_cell"
+    # Die Methode traegt spalte und zeile, nicht nur sender.
+    assert (
+        "def sg_tabelle_select_cell(self, sender, spalte, zeile):"
+        in unit_pfad.read_text(encoding="utf-8")
+    )

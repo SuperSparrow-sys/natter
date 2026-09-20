@@ -391,9 +391,13 @@ class GroupBox(Control):
     ``self.g_zahlung.enabled = False`` sperrt den ganzen Inhalt auf
     einmal (das erledigt Qt).
 
-    Im Designer geht diese Verschachtelung noch nicht - siehe
-    `docs/komponenten.md`, „Offene Punkte“.
+    Seit September 2026 geht das auch im Designer: eine Komponente, die
+    über der GroupBox abgelegt wird, landet **darin** statt daneben auf
+    dem Formular. Dafür steht `ist_behaelter` - siehe
+    `docs/komponenten.md`, Punkt 1.
     """
+
+    ist_behaelter = True
 
     # Standardgröße als Prop-Standard (wie bei `Chart`): in 75x25 hätte
     # der Rahmen nicht einmal für die eigene Beschriftung Platz.
@@ -449,6 +453,8 @@ class Panel(Control):
 
     Behälter wie `GroupBox` - siehe dort.
     """
+
+    ist_behaelter = True
 
     # Standardgröße als Prop-Standard (wie bei `Chart`).
     width = Prop(int, 185, kategorie="Layout", doc="Breite in Pixeln")
