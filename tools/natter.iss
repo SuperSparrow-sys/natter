@@ -82,6 +82,30 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 ; .natter ebenfalls beansprucht.
 Name: "natterverknuepfung"; Description: "{cm:AssocFileExtension,{#MyAppName},.natter}"
 
+[InstallDelete]
+; Inno Setup überschreibt und ergänzt, löscht aber nichts, was in
+; der neuen Fassung fehlt. Ohne diesen Abschnitt bleiben bei jedem
+; Update die Dateien der vorigen Fassung liegen. Gefunden beim Bau
+; 0.2.0: die Planungsunterlagen in "docs" standen nach dem Update
+; weiter da, obwohl die neue Fassung nur noch zwei Hilfeseiten
+; mitbringt. Bei Python-Paketen wäre das schlimmer als unsauber -
+; ein entferntes Modul bliebe importierbar und könnte das neue
+; verdecken.
+;
+; Gelöscht wird nur, was Natter selbst mitbringt und vollständig
+; ersetzt. "beispielprojekte" gehört dazu, weil die IDE ein
+; Beispiel vor dem Öffnen ins Heimverzeichnis kopiert
+; (ide/shell/startbild.py, beispiel_kopieren) - in der Installation
+; arbeitet niemand darin. Der übrige Inhalt von site-packages
+; (PySide6, numpy, ...) bleibt unangetastet; den verwaltet pip.
+Type: filesandordirs; Name: "{app}\python\Lib\site-packages\ide"
+Type: filesandordirs; Name: "{app}\python\Lib\site-packages\pcl"
+Type: filesandordirs; Name: "{app}\python\Lib\site-packages\docs"
+Type: filesandordirs; Name: "{app}\python\Lib\site-packages\design"
+Type: filesandordirs; Name: "{app}\python\Lib\site-packages\schemas"
+Type: filesandordirs; Name: "{app}\python\Lib\site-packages\templates"
+Type: filesandordirs; Name: "{app}\python\Lib\site-packages\beispielprojekte"
+
 [Files]
 Source: "..\dist\Natter\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
