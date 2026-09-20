@@ -45,6 +45,14 @@ ausgeliefert wird, steht in [`docs/entwicklung.md`](docs/entwicklung.md).
 - Deutsche oder anderssprachige Aliasse für Python-Namen
 - KI-Funktionen in der IDE
 
+## 1a. Für Lehrkräfte
+
+[`docs/fuer_lehrkraefte.md`](docs/fuer_lehrkraefte.md) beschreibt das
+Einrichten auf einem einzelnen Rechner und im Computerraum, die
+Warnung von Windows beim ersten Start, wo Programm und Schülerdaten
+liegen, den Prüfungsmodus und sämtliche Tastenkürzel. Ohne
+Programmierkenntnisse lesbar.
+
 ## 2. Worauf Natter aufbaut
 
 | Bereich | Technik |

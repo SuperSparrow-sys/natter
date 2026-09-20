@@ -95,7 +95,7 @@ class Form1(Form1Design):
 
     def hinweis_zeigen(self) -> None:
         """Warnt, wenn außerhalb des gemessenen Bereichs vorhergesagt
-        wird - genau dort wird eine Regression gern unsinnig."""
+        wird. Dort liefert eine Regression leicht unsinnige Werte."""
         kleinste, groesste = min(self.groessen), max(self.groessen)
         gewaehlt = self.se_groesse.value
 
@@ -103,11 +103,11 @@ class Form1(Form1Design):
             self.l_hinweis.caption = (
                 f"Gemessen wurde zwischen {text(kleinste, 0)} und "
                 f"{text(groesste, 0)} cm - "
-                f"{gewaehlt} cm liegt mittendrin, die Vorhersage steht auf festem Boden."
+                f"{gewaehlt} cm liegt dazwischen."
             )
         else:
             self.l_hinweis.caption = (
                 f"Achtung: gemessen wurde nur zwischen {text(kleinste, 0)} und "
                 f"{text(groesste, 0)} cm. Bei {gewaehlt} cm rechnet die Kurve "
-                f"über die Daten hinaus - das ist geraten, nicht gewusst."
+                f"über die Daten hinaus. Der Wert ist unsicher."
             )
