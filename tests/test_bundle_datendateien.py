@@ -28,6 +28,7 @@ beide getrennt:
 
 from __future__ import annotations
 
+import re
 import tomllib
 from pathlib import Path
 
@@ -100,6 +101,29 @@ def test_die_vorlagen_werden_ueber_daten_ordner_gesucht() -> None:
 
     assert 'daten_ordner("templates")' in quelle
     assert "parent.parent.parent" not in quelle
+
+
+def test_aus_docs_kommen_nur_die_hilfeseiten_mit() -> None:
+    """Der ganze Ordner war es bis September 2026 - damit lagen
+    `PLAN.md`, `entwicklung.md` und fuenfzehn Arbeitspakete auf jedem
+    Schulrechner. Zur Laufzeit liest die IDE davon genau zwei Seiten."""
+    text = _paketierskript()
+
+    assert '_HILFESEITEN = ("erste_schritte.md", "komponenten.md")' in text
+    assert "shutil.copytree(_DOCS_ORDNER" not in text
+    for name in ("erste_schritte.md", "komponenten.md"):
+        assert (WURZEL / "docs" / name).is_file(), name
+
+
+def test_die_ide_oeffnet_keine_andere_hilfeseite() -> None:
+    """Sonst zeigte ein Menueeintrag in der Installation ins Leere."""
+    quelle = (WURZEL / "ide" / "shell" / "hauptfenster.py").read_text(encoding="utf-8")
+    gesucht = set(re.findall(r'_hilfedatei_zeigen\(\s*"([a-z_]+\.md)"', quelle))
+
+    assert gesucht <= {"erste_schritte.md", "komponenten.md"}, (
+        f"Die IDE oeffnet {gesucht - {'erste_schritte.md', 'komponenten.md'}}, "
+        f"aber die Auslieferung nimmt diese Seite nicht mit."
+    )
 
 
 def test_pyinstaller_liegt_der_auslieferung_bei() -> None:

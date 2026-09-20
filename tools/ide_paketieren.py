@@ -60,6 +60,16 @@ _BUILD_ORDNER = _PROJEKT_WURZEL / "_pyinstaller_build_ide"
 _SPEC_ORDNER = _PROJEKT_WURZEL / "_pyinstaller_spec_ide"
 _BEISPIEL_ORDNER = _PROJEKT_WURZEL / "beispielprojekte"
 _DOCS_ORDNER = _PROJEKT_WURZEL / "docs"
+
+#: Aus `docs/` kommen nur die Seiten mit, die die IDE zur Laufzeit
+#: oeffnet: "Hilfe -> Erste Schritte" und die Komponenten-Referenz
+#: (`ide/shell/hauptfenster.py`, `_hilfedatei_zeigen`). Alles
+#: uebrige in `docs/` sind Planungsunterlagen - `PLAN.md`,
+#: `entwicklung.md` und die Arbeitspakete -, die auf einem
+#: Schulrechner nichts verloren haben. Bis September 2026 wurde der
+#: Ordner vollstaendig kopiert, und damit lag die halbe
+#: Projektplanung in jeder Installation.
+_HILFESEITEN = ("erste_schritte.md", "komponenten.md")
 _LIZENZ_VORLAGEN = Path(__file__).resolve().parent / "lizenz_vorlagen"
 _SIGNIER_SKRIPT = Path(__file__).resolve().parent / "signieren" / "datei_signieren.ps1"
 _MANIFEST_SCHLUESSEL = Path(__file__).resolve().parent / "signieren" / "manifest-privat.pem"
@@ -323,13 +333,19 @@ def _datenordner_kopieren(python: Path) -> None:
         _DESIGN_ORDNER,
         _SCHEMAS_ORDNER,
         _TEMPLATES_ORDNER,
-        _DOCS_ORDNER,
         _BEISPIEL_ORDNER,
     ):
         ziel = site_packages / quelle.name
         if ziel.exists():
             shutil.rmtree(ziel)
         shutil.copytree(quelle, ziel)
+
+    docs = site_packages / _DOCS_ORDNER.name
+    if docs.exists():
+        shutil.rmtree(docs)
+    docs.mkdir(parents=True)
+    for name in _HILFESEITEN:
+        shutil.copy(_DOCS_ORDNER / name, docs / name)
 
 
 def _starter_bauen() -> None:
