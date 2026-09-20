@@ -85,3 +85,29 @@ def hintergrund_abwarten():
             QApplication.processEvents()
 
     return warten
+
+
+@pytest.fixture(autouse=True)
+def _heimverzeichnis_isoliert(tmp_path_factory, monkeypatch):
+    """Kein Test schreibt in das echte Heimverzeichnis.
+
+    `beispiel_kopieren` legt die Arbeitskopie eines Beispiels im
+    Ordner "Documents/Natter" des Nutzers an - auf einem Rechner,
+    auf dem das Repository selbst dort liegt, also mitten in den
+    Projektstamm. So standen nach einigen Testlaeufen 27 Ordner
+    (`01_Begruessung`, `… 2`, `… 3` …) im Stamm und liessen
+    `ruff check .` scheitern.
+
+    Der Riegel gilt fuer alle Tests, nicht nur fuer den einen, der es
+    ausgeloest hat: welcher Weg im naechsten Jahr dorthin fuehrt,
+    weiss heute niemand.
+    """
+    from pathlib import Path
+
+    # Ueber `tmp_path_factory` und nicht in `tmp_path`: mehrere Tests
+    # pruefen, dass ihr `tmp_path` leer geblieben ist oder legen ihn
+    # selbst an. Ein Heim-Ordner darin liess sechs davon scheitern -
+    # ein Riegel, der die Tests kaputtmacht, die er schuetzen soll.
+    heim = tmp_path_factory.mktemp("heim")
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: heim))
+    return heim

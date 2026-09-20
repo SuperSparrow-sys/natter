@@ -110,19 +110,19 @@ def _projekt_aus_argv_oeffnen(fenster: HauptFenster, argv: list[str]) -> None:
     fenster.projekt_oeffnen_gemeldet(Path(argv[1]))
 
 
-def main() -> int:
-    # Ganz am Anfang, noch vor jedem Qt-Aufruf: mit `--python` davor ist
-    # dieser Aufruf kein Start der IDE, sondern ein Python-Aufruf. Die
-    # gebaute `Natter.exe` enthält einen vollständigen Python, und nur
-    # so kommt sie an ihn heran - `sys.executable` ist dort die Exe
-    # selbst (M12, siehe `ide/run/interpreter.py`).
-    if len(sys.argv) > 1 and sys.argv[1] == PYTHON_FLAGGE:
-        return als_python_ausfuehren(sys.argv[2:])
+def starten() -> tuple[QApplication, HauptFenster | None]:
+    """Alles bis zum sichtbaren Fenster - ohne die Ereignisschleife.
 
-    # Das Startbild zuerst, noch vor allem Übrigen: von hier an dauert
-    # es etwa eine Sekunde, bis das Hauptfenster steht, und eine
-    # Sekunde ohne jede Rückmeldung führt dazu, dass jemand ein
-    # zweites Mal doppelklickt.
+    Getrennt von `main()`, damit sich der Start prüfen lässt, ohne
+    `app.exec()` aufzurufen. Ein Test, der das tut und sich darauf
+    verlässt, dass eine Attrappe die Ereignisschleife abfängt, hängt
+    für immer, sobald die Attrappe einmal nicht greift - genau das ist
+    im September 2026 passiert, und zwar nur im vollständigen
+    Testlauf, nicht wenn die Datei allein lief.
+
+    Liefert `None` als Fenster, wenn die Prüfung der Installation den
+    Start abgelehnt hat.
+    """
     app = anwendung_erzeugen()
     # Der Ladekreis am Zeiger, solange gebaut wird. Windows zeigt ihn
     # von sich aus nur die ersten Augenblicke nach dem Doppelklick und
@@ -142,7 +142,10 @@ def main() -> int:
     # Test scheitern lassen und kein Fenster öffnen.
     fehlerhaken_einrichten()
     if not integritaet_bestaetigen(fenster):
-        return 1
+        anzeige.finish(fenster)
+        QApplication.restoreOverrideCursor()
+        return app, None
+
     anzeige.melden("Projekt wird geöffnet …")
     _projekt_aus_argv_oeffnen(fenster, sys.argv)
     fenster.show()
@@ -150,6 +153,21 @@ def main() -> int:
     # zu sehen ist - sonst blitzt der Schreibtisch dazwischen auf.
     anzeige.finish(fenster)
     QApplication.restoreOverrideCursor()
+    return app, fenster
+
+
+def main() -> int:
+    # Ganz am Anfang, noch vor jedem Qt-Aufruf: mit `--python` davor ist
+    # dieser Aufruf kein Start der IDE, sondern ein Python-Aufruf. Die
+    # gebaute `Natter.exe` enthält einen vollständigen Python, und nur
+    # so kommt sie an ihn heran - `sys.executable` ist dort die Exe
+    # selbst (M12, siehe `ide/run/interpreter.py`).
+    if len(sys.argv) > 1 and sys.argv[1] == PYTHON_FLAGGE:
+        return als_python_ausfuehren(sys.argv[2:])
+
+    app, fenster = starten()
+    if fenster is None:
+        return 1
     return app.exec()
 
 

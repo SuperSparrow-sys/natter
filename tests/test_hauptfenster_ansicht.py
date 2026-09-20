@@ -19,6 +19,10 @@ def test_ansicht_menue_listet_alle_docks() -> None:
     # (M11) – keines davon ist eine Dock-Umschaltung.
     assert titel == {
         "Formular und Code wechseln",
+        # „Startseite“ führt von einem offenen Projekt zurück zum
+        # Startbild - auch keine Dock-Umschaltung, eigener Test in
+        # test_startseite_wechseln.py.
+        "Startseite",
         "",  # die Trennlinie dahinter
         "Projekt-Explorer",
         "Objektinspektor",

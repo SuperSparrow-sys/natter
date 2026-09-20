@@ -123,10 +123,15 @@ def test_beim_start_traegt_der_zeiger_einen_ladekreis(monkeypatch, qtbot) -> Non
 
     Windows zeigt ihn von sich aus nur die ersten Augenblicke nach dem
     Doppelklick und nimmt ihn dann wieder weg - ausgerechnet in der
-    Zeit, in der noch nichts zu sehen ist. Geprüft wird, dass `main()`
-    ihn setzt und am Ende auch wieder zurücknimmt: ein Zeiger, der
-    dauerhaft als „beschäftigt“ stehen bleibt, wäre schlimmer als
-    keiner.
+    Zeit, in der noch nichts zu sehen ist.
+
+    Geprüft wird `starten()` und nicht `main()`. Die erste Fassung
+    dieses Tests rief `main()` auf und verließ sich darauf, dass eine
+    Attrappe `app.exec()` abfängt. Einmal griff sie nicht - und der
+    ganze Testlauf hing für immer in der Ereignisschleife, ohne eine
+    einzige Fehlermeldung. Aufgefallen ist es erst, weil eine Wache
+    den Stillstand meldete. Ein Test, der eine Ereignisschleife
+    starten kann, ist eine Falle; `starten()` kann es nicht.
     """
     from PySide6.QtCore import Qt
     from PySide6.QtWidgets import QApplication
@@ -144,10 +149,34 @@ def test_beim_start_traegt_der_zeiger_einen_ladekreis(monkeypatch, qtbot) -> Non
     )
     monkeypatch.setattr(hauptmodul, "fehlerhaken_einrichten", lambda: None)
     monkeypatch.setattr(hauptmodul, "integritaet_bestaetigen", lambda _f: True)
-    monkeypatch.setattr(QApplication, "exec", lambda self: 0)
     monkeypatch.setattr(hauptmodul.sys, "argv", ["natter"])
 
-    assert hauptmodul.main() == 0
+    _app, fenster = hauptmodul.starten()
+    qtbot.addWidget(fenster)
 
+    assert fenster is not None
     assert Qt.CursorShape.BusyCursor in gesetzt, "Kein Ladekreis am Zeiger"
     assert zurueckgenommen, "Der Ladekreis bleibt nach dem Start stehen"
+
+
+def test_starten_ruft_keine_ereignisschleife_auf() -> None:
+    """Der Grund, warum es `starten()` überhaupt gibt.
+
+    Geprüft wird der Syntaxbaum und nicht der Text: die erste Fassung
+    suchte nach „exec()“ in der Quelle und fand es im Docstring, der
+    genau dieses Verbot erklärt.
+    """
+    import ast
+    import inspect
+    import textwrap
+
+    import ide.main as hauptmodul
+
+    baum = ast.parse(textwrap.dedent(inspect.getsource(hauptmodul.starten)))
+    aufrufe = [
+        knoten.func.attr
+        for knoten in ast.walk(baum)
+        if isinstance(knoten, ast.Call) and isinstance(knoten.func, ast.Attribute)
+    ]
+
+    assert "exec" not in aufrufe, "`starten()` startet eine Ereignisschleife"
