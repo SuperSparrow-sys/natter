@@ -36,6 +36,20 @@ diesem Ordner ab:
 ## Kompletter Bau (Exe + Installer, signiert)
 
 ```powershell
+uv run python -m tools.auslieferung_bauen --version 0.2.0
+```
+
+Das ist der Normalweg. Ein Skript führt die drei Befehle unten in
+der richtigen Reihenfolge aus, prüft nach jedem Schritt das
+Ergebnis und bricht ab, statt eine kaputte Auslieferung
+fertigzubauen – siehe `tools/auslieferung_bauen.py`. `--version`
+ist weglassbar; dann bleibt die Nummer, wie sie ist (für einen
+Probebau in Ordnung, für ein Update an die Schulen nicht, weil
+Windows eine neue Fassung an `AppVersion` erkennt).
+
+Von Hand, wenn ein einzelner Schritt wiederholt werden soll:
+
+```powershell
 uv run python -m tools.ide_paketieren
 "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" tools\natter.iss
 powershell -ExecutionPolicy Bypass -File tools\signieren\datei_signieren.ps1 -Datei dist\installer\Natter-Setup.exe

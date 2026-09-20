@@ -83,6 +83,31 @@ Ein Arbeitspaket (siehe `docs/arbeitspakete/`) gilt als abgeschlossen, wenn:
 4. keine erzeugten Dateien von Hand geändert wurden,
 5. alle sichtbaren Texte Deutsch sind.
 
+## Auslieferung
+
+Eine neue `Natter-Setup.exe` entsteht in einem Befehl, nicht in fünf:
+
+```powershell
+uv run python -m tools.auslieferung_bauen --version 0.2.0
+```
+
+Das Skript prüft nach jedem der zehn Schritte, ob das Ergebnis stimmt,
+und bricht ab, statt eine kaputte Auslieferung fertigzubauen. Die
+Begründung steht in `docs/arbeitspakete/M13.md`, Abschnitt „Der Bau in
+einem Befehl"; den Ablauf drumherum (wann gebaut werden darf, welche
+Versionsnummer die nächste ist, was hinterher dokumentiert wird)
+beschreibt `.claude/commands/auslieferung.md`.
+
+Zwei Dinge gelten dabei unabhängig vom Werkzeug:
+
+- **Ein grünes Testprotokoll belegt nicht, dass die Auslieferung
+  funktioniert.** Getestet wird der Entwicklungsbaum, ausgeliefert wird
+  `dist\Natter`. Die beiden letzten Auslieferungsfehler sind genau
+  dazwischen entstanden – deshalb die Rauchprobe in Schritt 6.
+- **Die Versionsnummer gehört zum Update dazu.** Sie steht in
+  `pyproject.toml` und in `tools/natter.iss` und muss in beiden gleich
+  sein; Windows erkennt eine neue Fassung an `AppVersion`.
+
 ## Lizenzen von Abhängigkeiten
 
 Nur Abhängigkeiten mit freizügigen Lizenzen oder LGPL, kein PyQt, keine
