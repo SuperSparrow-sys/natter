@@ -41,6 +41,22 @@ Qt-Basis: `QWidget` (`pcl/form.py`)
 | Ereignis | Signatur | Auslöser |
 |---|---|---|
 | on_create | (self, sender) | unmittelbar vor der ersten Anzeige |
+| on_click | (self, sender) | Klick auf die freie Fläche |
+| on_double_click | (self, sender) | Doppelklick auf die freie Fläche |
+| on_mouse_down | (self, sender, x, y) | Maustaste auf der Fläche gedrückt |
+| on_mouse_move | (self, sender, x, y) | Maus über der Fläche bewegt |
+| on_mouse_up | (self, sender, x, y) | Maustaste auf der Fläche losgelassen |
+
+Die Maus-Ereignisse gelten für die freie Fläche: ein Klick auf einen
+Knopf ist kein Klick auf das Formular. `x` und `y` zählen von der
+linken oberen Ecke des Arbeitsbereichs – bei einem Formular mit
+Menüleiste also unterhalb der Leiste, genau wie `left` und `top` einer
+Komponente.
+
+`on_mouse_move` kommt auch ohne gedrückte Taste. Für eine
+Positionsanzeige ist das nötig; wer nur beim Ziehen zeichnen will,
+merkt sich in `on_mouse_down` ein eigenes Kennzeichen und fragt es im
+Handler ab.
 
 Methoden: `show()`, `close()`.
 

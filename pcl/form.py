@@ -12,6 +12,7 @@ from typing import Any
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMenuBar, QWidget
 
+from pcl.control import _MausFilter
 from pcl.properties import Event, Komponente, Prop
 from pcl.theme import qss_erzeugen
 
@@ -38,12 +39,46 @@ class Form(Komponente):
 
     on_create = Event(doc="Wird unmittelbar vor der ersten Anzeige ausgelöst")
 
+    # Die Maus auf der freien Fläche. Ein Formular hatte bis September
+    # 2026 nur `on_create`, und wer ein Zeichenprogramm oder ein
+    # kleines Spiel bauen wollte, musste ein `Panel` über das ganze
+    # Fenster legen und dessen Ereignisse nehmen - ein Umweg, den man
+    # kennen muss und der nirgends steht.
+    #
+    # Die Ereignisse kommen einzeln dazu und nicht über einen Wechsel
+    # der Basisklasse: `Control` bringt `left`, `top` und `parent`
+    # mit, und nichts davon hat für ein Fenster dieselbe Bedeutung.
+    # Der Ereignisfilter aus `pcl/control.py` ist ohnehin allgemein
+    # gehalten - er braucht nur `_maus_melden` und
+    # `_ereignis_ausloesen`.
+    on_click = Event(doc="Klick auf die freie Fläche des Formulars")
+    on_double_click = Event(doc="Doppelklick auf die freie Fläche")
+    on_mouse_down = Event(doc="Maustaste auf der Fläche gedrückt (x, y)")
+    on_mouse_move = Event(doc="Maus über der Fläche bewegt (x, y)")
+    on_mouse_up = Event(doc="Maustaste auf der Fläche losgelassen (x, y)")
+
+    #: Der Ereignisfilter prüft das, um ein `on_click` nicht doppelt
+    #: zu melden. Ein Formular hat kein eigenes Qt-Signal dafür.
+    _klick_kommt_vom_widget = False
+
     def __init__(self) -> None:
         self._qwidget = QWidget()
         self._menueleiste: QMenuBar | None = None
         self._qwidget.setWindowTitle(self.caption)
         self._qwidget.resize(self.width, self.height)
         self._stylesheet_aktualisieren()
+
+        # Der Filter muss am Objekt hängen bleiben: ein QObject ohne
+        # Eltern und ohne Referenz wird eingesammelt, und die
+        # Ereignisse kämen nie an. Dieselbe Begründung wie in
+        # `pcl/control.py`.
+        self._maus_filter = _MausFilter(self)
+        self._qwidget.installEventFilter(self._maus_filter)
+        # Ohne das meldet Qt eine Bewegung nur bei gedrückter Taste.
+        # Eine Positionsanzeige braucht sie aber auch ohne - und wer
+        # nur beim Ziehen zeichnen will, fragt im Handler nach.
+        self._qwidget.setMouseTracking(True)
+
         self.create_components()
         if self.on_create is not None:
             self.on_create(self)
@@ -80,6 +115,24 @@ class Form(Komponente):
         unterste Zeile verschwände.
         """
         self._qwidget.resize(self.width, self.height + self._leistenhoehe())
+
+    def _maus_melden(self, name: str, ereignis: Any) -> None:
+        """Wie in `Komponente`, aber gezählt ab dem Arbeitsbereich.
+
+        Eine Menüleiste liegt im selben Widget und schiebt jede
+        platzierte Komponente um ihre Höhe nach unten - `top = 0` ist
+        in Natter der obere Rand unterhalb der Leiste. Die Maus muss
+        demselben Maß folgen, sonst zeichnet ein Programm um die Höhe
+        der Menüleiste daneben.
+
+        Ein Zeiger über der Menüleiste selbst ergibt ein negatives y.
+        Das ist ehrlicher als eine abgeschnittene Null: dort ist die
+        Fläche nicht, auf die gezeichnet wird.
+        """
+        stelle = ereignis.position()
+        self._ereignis_ausloesen(
+            name, int(stelle.x()), int(stelle.y()) - self._leistenhoehe()
+        )
 
     def _leistenhoehe(self) -> int:
         from pcl.components.menus import MENUELEISTE_HOEHE

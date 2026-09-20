@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ide.pfade import natter_ordner
 from ide.project.neu import VORLAGEN
 
 _VORLAGEN_ANZEIGE = {
@@ -47,6 +48,11 @@ class NeuesProjektDialog(QDialog):
 
         self.ordner_eingabe = QLineEdit()
         self.ordner_eingabe.setPlaceholderText("Übergeordneter Ordner")
+        # Mit Vorgabe statt leer: sonst muss sich jede Schülerin beim
+        # ersten Projekt einen Ordner suchen, und die Projekte einer
+        # Klasse liegen danach an zehn verschiedenen Stellen. Dorthin
+        # legt Natter auch die Arbeitskopien der Beispiele.
+        self.ordner_eingabe.setText(str(natter_ordner()))
         self.ordner_knopf = QPushButton("Durchsuchen …")
         self.ordner_knopf.clicked.connect(self._ordner_waehlen)
         ordner_zeile = QHBoxLayout()
@@ -71,7 +77,9 @@ class NeuesProjektDialog(QDialog):
         layout.addWidget(self.knopfleiste)
 
     def _ordner_waehlen(self) -> None:
-        ordner = QFileDialog.getExistingDirectory(self, "Übergeordneter Ordner")
+        ordner = QFileDialog.getExistingDirectory(
+            self, "Übergeordneter Ordner", self.ordner_eingabe.text()
+        )
         if ordner:
             self.ordner_eingabe.setText(ordner)
 

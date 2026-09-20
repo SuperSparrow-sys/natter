@@ -14,12 +14,29 @@ halbfertigen Zustand zurück.
 
 ---
 
+## Stand am 20. September 2026
+
+Achtzehn der zwanzig Punkte sind abgearbeitet. Offen bleiben zwei,
+und bei beiden liegt es nicht an der Arbeit:
+
+* **Punkt 4** — die Lizenzseite des Installers von Hand durchklicken.
+  Dafür braucht es einen Menschen vor dem Bildschirm; eine stille
+  Installation zeigt keine Seite. Was sich ohne das prüfen ließ,
+  steht jetzt in Tests.
+* **Punkt 6** — die Prozesszeiten. Keine Aufgabe, sondern eine
+  Einschränkung dieses Rechners.
+
+Dazu zurückgestellt: **Punkt 7**, die zweite Hälfte der Startzeit im
+Starter. Der Nutzer hat entschieden, es dabei zu belassen.
+
+---
+
 ## Stufe 1 — Fehler, die heute etwas kaputt machen
 
 Vier kleine Eingriffe mit sichtbarer Wirkung. Sie hängen voneinander
 nicht ab und lassen sich einzeln abschließen.
 
-### 1.1 Punkt 13 — Der Ereignis-Filter rechnet mit der falschen Signatur
+### 1.1 Punkt 13 — Der Ereignis-Filter rechnet mit der falschen Signatur ~~(erledigt)~~
 
 **Änderung.** `ide/inspector/ereignisse_tabelle.py`:
 `passende_methoden()` bekommt das Ereignis übergeben und liest die
@@ -44,7 +61,7 @@ Liste je Zeile eine andere, was richtig ist — eine Methode für
 **Abnahme.** Im Objektinspektor lässt sich eine von Hand geschriebene
 Maus-Methode auswählen. Vorher war das Feld dort immer leer.
 
-### 1.2 Punkt 13 — Der Reiter legt Methoden an
+### 1.2 Punkt 13 — Der Reiter legt Methoden an ~~(erledigt)~~
 
 **Änderung.** Doppelklick auf eine Zeile im Reiter „Ereignisse" legt
 die Methode an, wenn es sie noch nicht gibt, und springt sonst hin.
@@ -70,7 +87,7 @@ Designer benutzt. Der Name folgt derselben Regel:
 **Abnahme.** Ein Schüler kann `on_mouse_down` verknüpfen, ohne eine
 Zeile Code von Hand zu schreiben.
 
-### 1.3 Punkt 12 — Ein langer Text im Label verschwindet
+### 1.3 Punkt 12 — Ein langer Text im Label verschwindet ~~(erledigt)~~
 
 **Änderung.** `pcl/components/standard.py`: `Label` bekommt eine
 Eigenschaft `word_wrap` (Standard `True`) und setzt
@@ -91,7 +108,7 @@ Objektinspektor steht.
 
 **Abnahme.** Der Text im Obst-Sortierer steht vollständig da.
 
-### 1.4 Punkt 1 — Der Farbdialog erbt das Stylesheet des Farbknopfs
+### 1.4 Punkt 1 — Der Farbdialog erbt das Stylesheet des Farbknopfs ~~(erledigt)~~
 
 **Änderung.** `ide/diagramm/eigenschaften.py`: `self.window()` statt
 `self` als Elternteil. Zusätzlich prüfen, ob der Rahmen am Farbknopf
@@ -115,7 +132,7 @@ verschwindet die Ursache und nicht nur die Wirkung.
 
 ## Stufe 2 — Was fehlt
 
-### 2.1 Punkt 14 — Das Formular kennt die Maus
+### 2.1 Punkt 14 — Das Formular kennt die Maus ~~(erledigt)~~
 
 **Änderung.** `pcl/form.py`: `on_click`, `on_double_click`,
 `on_mouse_down`, `on_mouse_move`, `on_mouse_up`. Die Koordinaten zählen
@@ -141,7 +158,7 @@ lässt sich auch einzeln anhängen, und das ist der kleinere Eingriff.
 **Abnahme.** Ein Zeichenprogramm ohne `PaintBox` über der ganzen
 Fläche.
 
-### 2.2 Punkt 8 — Der Prüfungsmodus verbirgt fremden Code
+### 2.2 Punkt 8 — Der Prüfungsmodus verbirgt fremden Code ~~(erledigt)~~
 
 **Änderung.** `ide/shell/startbild.py` lässt den Abschnitt „Zuletzt
 geöffnet" weg, wenn `pruefungsmodus_laeuft()`.
@@ -164,7 +181,7 @@ Liste stehen.
 **Abnahme.** Auf dem Startbild steht in einer Klausur nichts, was zu
 fremdem Code führt.
 
-### 2.3 Punkt 10 — Der erzeugte Quelltext landet im Editor
+### 2.3 Punkt 10 — Der erzeugte Quelltext landet im Editor ~~(erledigt)~~
 
 **Änderung.** `ide/diagramm/codefenster.py`: der Dialog hinter
 „Speichern unter …" beginnt im Projektordner, den
@@ -188,7 +205,7 @@ beim Öffnen des Diagrammfensters und ruft
 **Abnahme.** Wer eine Klasse aus dem Diagramm erzeugt, findet sie
 danach links im Explorer und offen im Editor.
 
-### 2.4 Punkt 16 — Der Quelltext als PDF
+### 2.4 Punkt 16 — Der Quelltext als PDF ~~(erledigt)~~
 
 **Änderung.** Neues Modul `ide/export/quelltext_pdf.py`: baut aus
 `Projekt.units()` ein `QTextDocument` — Überschrift je Datei,
@@ -219,7 +236,7 @@ PDF exportieren …". Der Lauf gehört in den Hintergrund
 
 ## Stufe 3 — Darstellung
 
-### 3.1 Punkt 17 — Hilfeseiten und Markdown
+### 3.1 Punkt 17 — Hilfeseiten und Markdown ~~(erledigt)~~
 
 **Änderung.** `ide/viewers/hilfe_ansicht.py` geht über den
 Zwischenschritt HTML (`QTextDocument.setMarkdown` → `toHtml()` →
@@ -248,7 +265,7 @@ Bildschirm entschieden, nicht hier.
 **Abnahme.** Eine Hilfeseite, die man am Stück liest, ohne die Zeile
 zu verlieren.
 
-### 3.2 Punkt 3 — Die Druckvorschau
+### 3.2 Punkt 3 — Die Druckvorschau ~~(erledigt)~~
 
 **Änderung.** `ide/diagramm/fenster.py`, `_auf_drucker_zeichnen()`:
 das Koordinatensystem vor dem Zeichnen auf 96 dpi bringen
@@ -301,7 +318,7 @@ Diese vier lassen sich nicht in einen Test gießen; sie brauchen einen
 Menschen, der hinsieht. Jeder endet mit einem Eintrag in
 `offene_punkte.md` — gefunden oder nichts gefunden.
 
-### 4.1 Punkt 15 — Die Panels zeigen wirklich etwas
+### 4.1 Punkt 15 — Die Panels zeigen wirklich etwas ~~(erledigt)~~
 
 Ein Programm mit Haltepunkt starten und nachsehen: stehen im Reiter
 „Variablen" die Werte, im „Aufrufstapel" die Kette? Ein GUI-Programm
@@ -317,7 +334,7 @@ Zwei Dinge lassen sich dabei doch prüfen, und die gehören in
 - `test_die_spalte_heisst_variable` — die Überschrift
   „Eigenschaft | Wert" stammt aus dem Objektinspektor.
 
-### 4.2 Punkt 2 — Die acht Dialoge ansehen
+### 4.2 Punkt 2 — Die acht Dialoge ansehen ~~(erledigt)~~
 
 Jeden einmal öffnen und ansehen. Der Fehler aus Punkt 1 ist nur am
 Bild zu erkennen. Was dabei auffällt, wird sofort behoben; die Prüfung
@@ -336,7 +353,7 @@ im Blick zu behalten ist der wichtigste Teil".
 maschinell fassen lässt. Eine Prüfung, die Bilder erkennen soll, wäre
 eine Prüfung, die falsche Treffer meldet.
 
-### 4.4 Punkt 4 — Die Lizenzseite des Installers
+### 4.4 Punkt 4 — Die Lizenzseite des Installers ~~(bleibt offen)~~
 
 Den Installer einmal von Hand durchklicken. Braucht eine angemeldete
 Sitzung und geht deshalb nicht nebenbei.

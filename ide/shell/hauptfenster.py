@@ -148,7 +148,11 @@ _LAUFZEIT_TAKT_MS = 500
 #: benutzt.
 PANEL_HINWEISE = {
     "Meldungen": "Fehler und Hinweise aus der Prüfung vor dem Start",
-    "Ausgabe": "Was das laufende Programm ausgibt (print) und was man ihm eintippt",
+    # „bei einem Programm mit Oberfläche": ein Konsolenprojekt
+    # startet mit einem eigenen Fenster und ohne Rohr, seine
+    # Zeilen stehen dort. Der Hinweis versprach das bis
+    # September 2026 für jedes Programm.
+    "Ausgabe": "Start und Ende - bei einem Programm mit Oberfläche auch, was es ausgibt",
     "Variablen": "Die Werte, während das Programm an einem Haltepunkt steht",
     "Aufrufstapel": "Welche Methode gerade welche aufgerufen hat – von unten nach oben",
     "Tests": "Ergebnisse der Test-Units des Projekts",
@@ -393,7 +397,11 @@ class HauptFenster(QMainWindow):
         self.meldungen_liste.itemClicked.connect(self._bei_meldung_geklickt)
         self.meldungen_liste.itemActivated.connect(self._bei_meldung_geklickt)
         self.variablen_baum = QTreeWidget()
-        self.variablen_baum.setHeaderLabels(["Eigenschaft", "Wert"])
+        # „Variable", nicht „Eigenschaft": hier stehen die Variablen
+        # des angehaltenen Programms, und gefüllt wird die Spalte auch
+        # aus `variable["name"]`. „Eigenschaft" ist die Beschriftung
+        # des Objektinspektors und war von dort übernommen.
+        self.variablen_baum.setHeaderLabels(["Variable", "Wert"])
         # „Als Tabelle anzeigen“ (Abschnitt 11.6): Rechtsklick oder
         # Doppelklick auf eine Variable im Panel „Variablen“.
         self.variablen_baum.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -606,7 +614,17 @@ class HauptFenster(QMainWindow):
         # läuft - eine Meldung, die nach drei Sekunden verschwindet,
         # wäre für einen Zustand falsch, der vier Stunden anhält.
         self.pruefungsanzeige = QLabel()
-        self.pruefungsanzeige.setStyleSheet("padding: 0 8px; font-weight: bold;")
+        # Rot hinterlegt statt nur fett: fett in der Textfarbe der
+        # Statusleiste sah aus wie eine gewöhnliche Meldung, und wer
+        # nicht sieht, dass der Modus an ist, sucht den Fehler bei
+        # sich. Weiße Schrift auf diesem Rot trägt in beiden Themen -
+        # ein Rot, das zum hellen Thema passt, verschwindet im
+        # dunklen. Das Wort „Prüfungsmodus" steht weiter daneben: auf
+        # die Farbe allein ist in einer Klasse kein Verlass.
+        self.pruefungsanzeige.setStyleSheet(
+            "QLabel { background-color: #c42b1c; color: #ffffff;"
+            " padding: 1px 8px; border-radius: 3px; font-weight: bold; }"
+        )
         self.statusBar().addPermanentWidget(self.pruefungsanzeige)
         self._statusleiste_pruefung_aktualisieren()
 
@@ -838,6 +856,14 @@ class HauptFenster(QMainWindow):
         )
         self.aktionen.registrieren(
             Aktion(
+                "projekt.quelltext_als_pdf",
+                "Quelltext als PDF …",
+                menue="Projekt",
+                callback=self._quelltext_als_pdf_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
                 "datei.neue_test_unit",
                 "Neue Test-Unit",
                 menue="Datei",
@@ -978,6 +1004,7 @@ class HauptFenster(QMainWindow):
                 "Stopp",
                 menue="Start",
                 tastenkuerzel="Shift+F5",
+                symbol="stopp",
                 callback=self._debugger_stoppen_aktion,
             )
         )
@@ -1035,6 +1062,18 @@ class HauptFenster(QMainWindow):
             beispiel_menue.setEnabled(False)
         self._beispiel_menue = beispiel_menue
         self._beispielmenue_pruefen()
+
+        # Der Zustand der Start-Einträge hängt am Debugger und ändert
+        # sich damit im Betrieb. Er wird an jeder Stelle nachgeführt,
+        # an der sich etwas ändert, und zusätzlich beim Aufklappen des
+        # Menüs: ein einzelner vergessener Aufruf wäre sonst ein
+        # stiller Rückfall in den Zustand, in dem fünf Einträge
+        # anklickbar waren und nichts taten.
+        self._startaktionen_pruefen()
+        self._menues["Start"].aboutToShow.connect(self._startaktionen_pruefen)
+        self._bearbeitenaktionen_pruefen()
+        self._menues["Bearbeiten"].aboutToShow.connect(self._bearbeitenaktionen_pruefen)
+        self.editor_tabs.currentChanged.connect(self._bearbeitenaktionen_pruefen)
 
         # „Ansicht → Formular und Code wechseln“ (Abschnitt 7.9). Stand
         # seit M2 als Vermerk im Explorer („folgt später“) und ist der
@@ -1269,6 +1308,49 @@ class HauptFenster(QMainWindow):
             return
         self.statusBar().showMessage(f"Testprotokoll gespeichert: {pfad}")
 
+    def _quelltext_als_pdf_aktion(self) -> None:
+        """„Projekt → Quelltext als PDF …": das ganze Projekt zum
+        Abgeben.
+
+        Kein Hintergrundlauf: ein Schülerprojekt hat eine Handvoll
+        Dateien, und das Schreiben dauert keine Sekunde. Im
+        Prüfungsmodus bleibt der Eintrag offen - wer seinen eigenen
+        Code ausgibt, verschafft sich keinen Vorteil.
+        """
+        if self.projekt is None:
+            self.statusBar().showMessage(
+                "Kein Projekt offen. Zuerst über „Projekt → Öffnen …“ eines laden oder ein "
+                "neues anlegen."
+            )
+            return
+        if not self.projekt.units():
+            self.statusBar().showMessage(
+                "Das Projekt hat keine Unit, die sich ausgeben ließe."
+            )
+            return
+
+        vorschlag = self.projekt.ordner / f"{self.projekt.name} Quelltext.pdf"
+        pfad, _ = QFileDialog.getSaveFileName(
+            self, "Quelltext als PDF speichern", str(vorschlag), "PDF-Dateien (*.pdf)"
+        )
+        if not pfad:
+            return
+
+        from ide.export.quelltext_pdf import quelltext_als_pdf
+
+        try:
+            ziel = quelltext_als_pdf(self.projekt, Path(pfad))
+        except OSError as fehler:
+            self.statusBar().showMessage(
+                f"Das PDF ließ sich nicht schreiben: {fehler}. Einen anderen Ordner "
+                f"wählen, in dem Schreibrechte bestehen."
+            )
+            return
+
+        anzahl = len(self.projekt.units())
+        wort = "Datei" if anzahl == 1 else "Dateien"
+        self.statusBar().showMessage(f"{anzahl} {wort} geschrieben nach {ziel}")
+
     def _als_exe_exportieren_aktion(self) -> None:
         """„Projekt → Als Exe exportieren …“ (Abschnitt 16;
         M8 Schritt 4, M14): baut das Projekt mit PyInstaller zu einer
@@ -1336,6 +1418,58 @@ class HauptFenster(QMainWindow):
             if laeuft
             else "Beispielprojekte"
         )
+
+    def _startaktionen_pruefen(self) -> None:
+        """Graut aus, was gerade nicht geht.
+
+        Ohne offenes Projekt und ohne laufendes Programm waren alle
+        acht Einträge unter „Start" anklickbar, und fünf davon taten
+        beim Anklicken nachweislich nichts - kein Hinweis, keine
+        Statuszeile. Der Knopf sah aus, als wäre er kaputt.
+
+        Ausgegraut ist eine Auskunft: „geht jetzt nicht" statt „geht
+        nicht". „Starten" und „Stopp" bleiben anklickbar, weil sie
+        etwas Besseres können, als grau dazustehen - sie sagen, was
+        stattdessen zu tun ist („Kein Projekt offen. Zuerst über
+        „Projekt → Öffnen …" eines laden").
+        """
+        angehalten = (
+            self.debug_sitzung is not None and self._aktueller_thread_id is not None
+        )
+        for kennung in (
+            "start.pause",
+            "start.fortsetzen",
+            "start.einzelschritt",
+            "start.prozedurschritt",
+            "start.ruecksprung",
+        ):
+            self.aktionen[kennung].qaction.setEnabled(angehalten)
+
+    def _bearbeitenaktionen_pruefen(self) -> None:
+        """Graut aus, was ohne offenen Reiter nichts bewirkt.
+
+        Dieselbe Regel wie unter „Start": alle sechs Einträge unter
+        „Bearbeiten" waren anklickbar, auch wenn gar nichts offen
+        war, und alle sechs taten dann nichts. Rückgängig und
+        Wiederholen wirken auch im Designer und hängen deshalb an
+        seiner Zeichenfläche mit; die übrigen vier brauchen einen
+        Texteditor.
+
+        Geprüft wird der offene Reiter und nicht der Tastaturfokus:
+        wer in den Projekt-Explorer klickt, soll seine Änderung
+        trotzdem zurücknehmen können.
+        """
+        editor = self._aktueller_editor() is not None
+        flaeche = self._aktueller_canvas is not None
+        for kennung, moeglich in (
+            ("bearbeiten.rueckgaengig", editor or flaeche),
+            ("bearbeiten.wiederholen", editor or flaeche),
+            ("bearbeiten.ausschneiden", editor),
+            ("bearbeiten.kopieren", editor),
+            ("bearbeiten.einfuegen", editor),
+            ("bearbeiten.alles_auswaehlen", editor),
+        ):
+            self.aktionen[kennung].qaction.setEnabled(moeglich)
 
     # -- Arbeit, die nebenher läuft -----------------------------------
 
@@ -2265,6 +2399,7 @@ class HauptFenster(QMainWindow):
         if self.debug_sitzung is not None:
             self.debug_sitzung.beenden()
             self.debug_sitzung = None
+            self._startaktionen_pruefen()
             beendet += 1
         if self.laufender_prozess is not None and self.laufender_prozess.poll() is None:
             self.laufender_prozess.kill()
@@ -3137,6 +3272,7 @@ class HauptFenster(QMainWindow):
         self._aktueller_thread_id = None
 
         self.debug_sitzung = DebugSitzung(self)
+        self._startaktionen_pruefen()
         self.debug_sitzung.angehalten.connect(self._debugger_angehalten)
         self.debug_sitzung.beendet.connect(self._debugger_beendet)
         self.debug_sitzung.fehler.connect(self._debugger_fehler)
@@ -3154,6 +3290,7 @@ class HauptFenster(QMainWindow):
 
     def _debugger_angehalten(self, ereignis: dict) -> None:
         self._aktueller_thread_id = ereignis.get("threadId")
+        self._startaktionen_pruefen()
         grund = ereignis.get("reason", "?")
         self._letzter_haltegrund = grund
         self.statusBar().showMessage(f"Angehalten: {haltegrund_deutsch(grund)}")
@@ -3233,6 +3370,7 @@ class HauptFenster(QMainWindow):
         )
         self.debug_sitzung = None
         self._aktueller_thread_id = None
+        self._startaktionen_pruefen()
         self._letzter_aufrufstapel = []
         self.variablen_baum.clear()
         self.aufrufstapel_liste.clear()
@@ -3395,6 +3533,7 @@ class HauptFenster(QMainWindow):
             self.debug_sitzung.beenden()
             self.debug_sitzung = None
             self._aktueller_thread_id = None
+            self._startaktionen_pruefen()
             gestoppt.append("Debugger")
         if self.laufender_prozess is not None and self.laufender_prozess.poll() is None:
             self.laufender_prozess.kill()

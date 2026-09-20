@@ -253,18 +253,6 @@ class Control(Komponente):
         elif name == "enabled":
             self._qwidget.setEnabled(wert)
 
-    def _ereignis_ausloesen(self, name: str, *zusatz: Any) -> None:
-        """Ruft den Ereignis-Handler auf, falls einer zugewiesen ist."""
-        handler = getattr(self, name, None)
-        if handler is not None:
-            handler(self, *zusatz)
-
-    def _maus_melden(self, name: str, ereignis: Any) -> None:
-        """Wie `_ereignis_ausloesen`, aber mit den Koordinaten des
-        Zeigers - gezählt von der linken oberen Ecke der Komponente."""
-        stelle = ereignis.position()
-        self._ereignis_ausloesen(name, int(stelle.x()), int(stelle.y()))
-
     def nach_vorne_bringen(self) -> None:
         """Holt die Komponente vor alle überlappenden Geschwister-
         Komponenten (Z-Ebene) - z. B. ein

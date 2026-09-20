@@ -110,4 +110,15 @@ def _heimverzeichnis_isoliert(tmp_path_factory, monkeypatch):
     # ein Riegel, der die Tests kaputtmacht, die er schuetzen soll.
     heim = tmp_path_factory.mktemp("heim")
     monkeypatch.setattr(Path, "home", staticmethod(lambda: heim))
+
+    # `Path.home()` allein genuegt seit September 2026 nicht mehr:
+    # `ide.pfade.dokumente_ordner()` fragt Windows nach dem echten
+    # Dokumente-Ordner (`SHGetKnownFolderPath`), und die API kennt
+    # weder HOME noch USERPROFILE. Ein Testlauf legte dadurch eine
+    # Arbeitskopie in "OneDrive\Dokumente\Natter" an - also genau
+    # dort, wo die Arbeit des Nutzers liegt.
+    import ide.pfade
+
+    dokumente = heim / "Dokumente"
+    monkeypatch.setattr(ide.pfade, "dokumente_ordner", lambda: dokumente)
     return heim

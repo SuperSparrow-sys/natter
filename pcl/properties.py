@@ -341,6 +341,24 @@ class Komponente:
 
     neue_attribute_erlaubt = False
 
+    def _ereignis_ausloesen(self, name: str, *zusatz: Any) -> None:
+        """Ruft den Ereignis-Handler auf, falls einer zugewiesen ist."""
+        handler = getattr(self, name, None)
+        if handler is not None:
+            handler(self, *zusatz)
+
+    def _maus_melden(self, name: str, ereignis: Any) -> None:
+        """Wie `_ereignis_ausloesen`, aber mit den Koordinaten des
+        Zeigers - gezählt von der linken oberen Ecke.
+
+        Beide Methoden standen bis September 2026 in `Control`. Sie
+        gehören hierher, seit auch das Formular Maus-Ereignisse hat:
+        es erbt von `Komponente` und nicht von `Control`, und nichts
+        an den beiden ist einer platzierten Komponente eigen.
+        """
+        stelle = ereignis.position()
+        self._ereignis_ausloesen(name, int(stelle.x()), int(stelle.y()))
+
     def __setattr__(self, name: str, wert: Any) -> None:
         if name.startswith("_") or _ist_deklariert(type(self), name):
             object.__setattr__(self, name, wert)

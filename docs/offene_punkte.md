@@ -11,9 +11,26 @@ Wie die Punkte umgesetzt werden, steht in
 [`umsetzungsplan.md`](umsetzungsplan.md): je Punkt die Änderung, die
 Tests dazu und woran das Erledigtsein erkennbar ist.
 
+## Stand am 20. September 2026
+
+Achtzehn der zwanzig Punkte sind erledigt oder geklärt. Was ein
+gestrichener Eintrag noch enthält, ist die Vorgeschichte: was
+beobachtet wurde, was die Ursache war und woran das Ergebnis hängt.
+Gelöscht wird nichts davon - beim nächsten ähnlichen Fehler ist die
+Spur mehr wert als ein leeres Blatt.
+
+Offen bleiben zwei, und bei beiden liegt es nicht an der Arbeit:
+
+* **Punkt 4** — die Lizenzseite des Installers von Hand durchklicken.
+  Dafür braucht es einen Menschen vor dem Bildschirm.
+* **Punkt 6** — die Prozesszeiten dieses Rechners. Keine Aufgabe,
+  sondern eine Einschränkung der Umgebung.
+
+Zurückgestellt ist **Punkt 7**, die zweite Hälfte der Startzeit.
+
 ---
 
-## 1. Stylesheets kaskadieren auf Kinder — auch auf Dialoge
+## 1. Stylesheets kaskadieren auf Kinder — auch auf Dialoge ~~(erledigt)~~
 
 **Beobachtet:** Im Diagramm-Editor öffnet das Feld „Füllung" den
 Farbauswahl-Dialog. Dort hat jede Beschriftung und jeder Knopf einen
@@ -66,7 +83,7 @@ Dann hängt der Dialog am Fenster und erbt nur dessen Stylesheet.
 
 ---
 
-## 2. Welche Stellen geprüft sind und welche nicht
+## 2. Welche Stellen geprüft sind und welche nicht ~~(erledigt)~~
 
 **Geprüft und in Ordnung** — diese Stylesheets tragen einen Selektor
 und kaskadieren deshalb nicht schädlich:
@@ -100,13 +117,24 @@ ungeprüft:
 | `ide/inspector/eigenschaften_tabelle.py` | 282, 296 | Zeileneditor und Menü-Editor |
 | `ide/diagramm/canvas.py` | 786, 828 | Formeditor und Klassendialog |
 
-**Noch zu prüfen:** jeden dieser Dialoge einmal öffnen und ansehen.
-Der Fehler ist nur am Bild zu erkennen — kein Test schlägt an, und die
-Dialoge funktionieren ja.
+**Geprüft — und die Antwort ist einfacher als erwartet.** Keine
+dieser vier Klassen setzt überhaupt ein Stylesheet: weder
+`ide/database/panel.py` noch `ide/project/neu_dialog.py`,
+`ide/inspector/eigenschaften_tabelle.py` oder
+`ide/diagramm/canvas.py`. Ihre Dialoge erben damit nur das Thema des
+Fensters, also genau das, was sie sollen. Der Fall aus Punkt 1 war
+ein anderer: dort hing der Dialog an einem Knopf, der für sich selbst
+eine Farbe und einen Rahmen gesetzt hatte.
+
+**Gehalten von** vier Tests in `tests/test_stylesheet_kaskade.py`:
+einer je Datei, dass sie sich nicht selbst gestaltet, dazu einer,
+dass die Liste dieser Dateien nicht veraltet ist, und einer, dass in
+ihnen überhaupt noch Dialoge aufgehen - sonst wäre die Prüfung eine
+Sammlung harmloser Dateien.
 
 ---
 
-## 3. Die Druckvorschau zeigt das Diagramm winzig und mit zerlaufener Schrift
+## 3. Die Druckvorschau zeigt das Diagramm winzig und mit zerlaufener Schrift ~~(erledigt)~~
 
 **Beobachtet:** „Datei → Drucken …" im Diagramm-Editor zeigt eine
 Vorschau, in der fast nichts zu sehen ist: eine große graue Fläche, die
@@ -190,7 +218,24 @@ bei den bisherigen Durchgängen nicht zur Verfügung.
 
 **Noch zu prüfen:** Den Installer einmal von Hand durchklicken und
 nachsehen, ob Lizenz- und Hinweisseite vollständig, mit richtigen
-Umlauten und ohne abgeschnittene Zeilen erscheinen.
+Umlauten und ohne abgeschnittene Zeilen erscheinen. **Das bleibt
+offen** - dafür braucht es einen Menschen vor dem Bildschirm, und
+eine stille Installation zeigt keine Seite.
+
+**Was sich ohne das festhalten ließ** (zwei Tests in
+`tests/test_textstil.py`):
+
+- Beide Seiten sind in `tools/natter.iss` überhaupt eingebunden
+  (`LicenseFile`, `InfoBeforeFile`). Eine Seite, die niemand
+  einbindet, kann noch so schön sein.
+- Keine Zeile ist länger als 80 Zeichen. Inno Setup zeigt beide
+  Seiten in einem Feld fester Breite; was länger ist, bricht um und
+  sieht nach einem Fehler aus. Gemessen liegt die längste Zeile bei
+  74 Zeichen.
+
+Umlaute und Byte-Order-Mark prüfen bereits
+`test_der_installer_liest_seine_texte_als_utf8` und die
+Umlaut-Tests.
 
 ---
 
@@ -252,7 +297,7 @@ die Laufzeit-Angaben sonst nur aus Erfahrung stammen.
 
 ---
 
-## 7. Der Starter braucht die Hälfte der Startzeit
+## 7. Der Starter braucht die Hälfte der Startzeit ~~(zurückgestellt)~~
 
 **Beobachtet:** Vom Doppelklick bis zum Fenster vergehen rund 1,65
 Sekunden. Davon entfallen etwa 790 Millisekunden auf `Natter.exe`,
@@ -271,7 +316,7 @@ Ordner neben der Exe) und die Verknüpfung direkt auf `pythonw.exe`
 
 ---
 
-## 8. Der Prüfungsmodus — alle Bedingungen an einer Stelle
+## 8. Der Prüfungsmodus — alle Bedingungen an einer Stelle ~~(erledigt)~~
 
 Der Modus wird über „Werkzeuge → Prüfungsmodus starten …" eingeschaltet
 und läuft vier Stunden. Hier steht, was er leisten muss, was davon
@@ -379,7 +424,7 @@ mehr passt — und die Mindestbreite löst das Beobachtete bereits.
 
 ---
 
-## 10. Der erzeugte Quelltext landet nicht im großen Editor
+## 10. Der erzeugte Quelltext landet nicht im großen Editor ~~(erledigt)~~
 
 **Beobachtet:** „Quelltext erzeugen“ im Diagramm-Editor zeigt das
 Ergebnis in einem eigenen Fenster mit den Knöpfen „Kopieren“,
@@ -523,7 +568,7 @@ Designertaste gegen den Designer.
 
 ---
 
-## 12. Ein langer Text im Label wird abgeschnitten
+## 12. Ein langer Text im Label wird abgeschnitten ~~(erledigt)~~
 
 **Beobachtet:** Im Obst-Sortierer endet die unterste Zeile mitten im
 Satz: „Der Wald antwortet trotzdem, und zwar mit der" — der Rest fehlt
@@ -558,7 +603,7 @@ solange die Beschriftung dort kurz ist.
 
 ---
 
-## 13. Die Maus-Ereignisse lassen sich im Objektinspektor nicht verknüpfen
+## 13. Die Maus-Ereignisse lassen sich im Objektinspektor nicht verknüpfen ~~(erledigt)~~
 
 **Beobachtet:** Im Reiter „Ereignisse" stehen bei einem `Image` fünf
 Zeilen: `on_click`, `on_double_click`, `on_mouse_down`,
@@ -631,7 +676,7 @@ Der Name folgt derselben Regel wie beim Doppelklick:
 
 ---
 
-## 14. Das Formular selbst kennt die Maus nicht
+## 14. Das Formular selbst kennt die Maus nicht ~~(erledigt)~~
 
 **Vorgabe des Nutzers:** Das Formular soll die Position des
 Mauszeigers verfolgen können.
@@ -671,9 +716,36 @@ Maus-Ereignisse benutzen. Das muss man wissen, und es steht nirgends.
   Zeilen müssen im Reiter „Ereignisse" erscheinen, wenn das Formular
   selbst ausgewählt ist.
 
+**Geändert.** `Form` hat jetzt `on_click`, `on_double_click`,
+`on_mouse_down`, `on_mouse_move` und `on_mouse_up`. Die Ereignisse
+kommen einzeln dazu und nicht über einen Wechsel der Basisklasse:
+`Control` bringt `left`, `top` und `parent` mit, und nichts davon
+hat für ein Fenster dieselbe Bedeutung. Der Ereignisfilter aus
+`pcl/control.py` war ohnehin allgemein gehalten - er braucht nur
+`_maus_melden` und `_ereignis_ausloesen`, und die sind dafür von
+`Control` nach `Komponente` gewandert.
+
+Drei Fragen aus der Liste sind damit beantwortet:
+
+- `setMouseTracking(True)`: eine Bewegung wird auch ohne gedrückte
+  Taste gemeldet. Eine Positionsanzeige braucht das; wer nur beim
+  Ziehen zeichnen will, merkt sich in `on_mouse_down` ein eigenes
+  Kennzeichen.
+- Die Koordinaten zählen ab dem Arbeitsbereich. Eine Menüleiste
+  liegt im selben Widget und schiebt jede platzierte Komponente um
+  ihre Höhe nach unten; `Form._maus_melden()` zieht dieselbe Höhe
+  wieder ab, sonst zeichnete ein Programm um die Höhe der Leiste
+  daneben.
+- Der Objektinspektor zeigt alle sechs Ereignisse mit der richtigen
+  Parameterzahl an (nachgesehen, nicht vermutet).
+
+**Gehalten von** `tests/test_form_maus.py`, elf Tests - darunter der
+Fall, dass ein Klick auf einen Knopf nicht als Klick auf das
+Formular durchgeht.
+
 ---
 
-## 15. Nachweisen, dass die Panels wirklich etwas anzeigen
+## 15. Nachweisen, dass die Panels wirklich etwas anzeigen ~~(erledigt)~~
 
 **Vorgabe des Nutzers:** Es soll geprüft werden, ob in den Panels auch
 tatsächlich Werte ankommen — beim Reiter „Variablen" und bei den
@@ -723,13 +795,43 @@ Richtig wäre „Variable | Wert".
 - Ob ein Panel sagen soll, warum es leer ist. „Hier stehen die
   Variablen, sobald das Programm an einem Haltepunkt hält" ist eine
   Auskunft; eine leere Fläche ist keine.
+
+**Nachgewiesen, mit laufenden Programmen statt mit Attrappen.** Der
+Durchgang steht als `tests/test_panels_zeigen_werte.py` und startet
+echtes Python:
+
+- **Variablen:** `zahl` steht mit `7` da, `name` mit `'Anna'`, eine
+  Liste mit ihrem Inhalt. Nicht nur Namen, sondern Werte.
+- **Aufrufstapel:** bei einem Halt in `innen()`, aufgerufen aus
+  `aussen()`, stehen beide in der Kette.
+- **Ausgabe:** `print`-Zeilen eines GUI-Programms kommen an, ebenso
+  was nach `stderr` geht, und eine unbehandelte Ausnahme ist mit
+  ihrem `IndexError` zu lesen.
+
+**Der Nebenbefund, der beinahe für einen Fehler gehalten wurde:** Bei
+einem **Konsolen**projekt bleibt die Ausgabe im eigenen Fenster des
+Programms und steht nicht im Panel. Das ist Absicht - ein
+Konsolenprogramm braucht `input()`, und eine Eingabe nimmt eine Liste
+im Panel nicht entgegen. Der Kurzhinweis am Reiter versprach es
+trotzdem für jedes Programm und sagt jetzt „Start und Ende - bei
+einem Programm mit Oberfläche auch, was es ausgibt".
+
+**Erledigt:** Die Spalte im Variablenbaum heißt „Variable" statt
+„Eigenschaft".
+
+**Nicht gemacht:** Der Hinweistext in einem leeren Panel. Qt hat für
+`QListWidget` und `QTreeWidget` keinen Platzhaltertext, und ein
+eingefügter Eintrag wäre ein Datensatz, der keiner ist - jeder Test,
+der auf `count() == 0` prüft, fiele darauf herein. Ein Label über der
+Liste wäre der Weg; die Kurzhinweise an den Reitern leisten bis
+dahin, was sie können.
 - Ob die Panels beim Beenden des Programms geleert werden oder den
   letzten Stand behalten. Beides ist vertretbar, aber es sollte
   entschieden sein.
 
 ---
 
-## 16. Den Quelltext als PDF herunterladen können
+## 16. Den Quelltext als PDF herunterladen können ~~(erledigt)~~
 
 **Vorgabe des Nutzers:** Es soll die Möglichkeit geben, den Code als
 formatiertes PDF zu speichern.
@@ -786,9 +888,33 @@ Editor sichtbar sein muss.
 - Ob leere Dateien mit in das PDF gehören. Eine Überschrift über
   nichts ist unschön, ihr Fehlen aber auch verwirrend.
 
+**Gebaut** als `ide/export/quelltext_pdf.py`, erreichbar über
+„Projekt → Quelltext als PDF …". Eine Datei je Seite, Zeilennummern
+in Grau, die Hervorhebung aus dem Editor, in der Kopfzeile
+Projektname, Dateiname und Datum.
+
+Zum Drucken eingerichtet: A4, 20 mm Rand ringsum, Consolas in 8
+Punkt. Nachgemessen passen damit 99 Zeichen Code neben die
+Nummernspalte - knapp die Zeilenlänge, auf die `pyproject.toml` den
+Quelltext begrenzt. Bei 9 Punkt wären es 85 gewesen, und der
+Ausdruck stünde voller Fortsetzungszeilen.
+
+Was länger ist, bricht um und verschwindet nicht (Punkt 12). Eine
+hängende Einrückung für den Rest war zuerst drin und ist wieder
+heraus: sie kostete rund fünf Zeichen Breite in jeder Zeile, und
+dann brachen erst recht Zeilen um, die sonst gepasst hätten. Als
+Fortsetzung ist der Rest ohnehin zu erkennen - ihm fehlt die
+Zeilennummer.
+
+**Gehalten von** `tests/test_quelltext_pdf.py`, 22 Tests. Der eine,
+der die Zeilenlänge misst, überspringt sich selbst, wenn in der
+Umgebung keine echte Consolas liegt: unter `offscreen` setzt Qt eine
+Ersatzschrift mit fast doppelt so breiten Zeichen ein, und die
+Messung sagte dann nichts über das Papier.
+
 ---
 
-## 17. Hilfeseiten und Markdown-Ansicht sind ungestaltet
+## 17. Hilfeseiten und Markdown-Ansicht sind ungestaltet ~~(erledigt)~~
 
 **Vorgabe des Nutzers:** Zeilenabstand und Schriftart sollen besser
 werden, die Schrift unter anderem kräftiger.
@@ -882,3 +1008,196 @@ aus, ohne fett zu wirken.
 - Ob `toHtml()` alles überträgt, was `setMarkdown` erzeugt hat:
   Tabellen, Listen, Verweise, Code-Blöcke. Ein Verlust dabei wäre
   schlimmer als das heutige Aussehen.
+
+**Gebaut.** `stilvorlage()` in `ide/viewers/hilfe_ansicht.py`, gesetzt
+über den Umweg HTML. Drin stehen Zeilenabstand 160 %, Abstände über
+Überschriften und zwischen Absätzen, Tabellen mit einem Rahmen und
+Innenabstand, abgesetzte Codeblöcke und die Schriftstärke 500 im
+dunklen Thema gegen 400 im hellen.
+
+Die Textbreite ist auf 720 Punkte begrenzt, der Rest des Fensters
+bleibt Rand. Nicht über `max-width` - Qts Rich-Text kennt die Angabe
+nicht -, sondern über die Ränder des Sichtbereichs. Dabei lauerte
+eine Falle: `setViewportMargins()` löst selbst ein `resizeEvent` aus,
+und die erste Fassung lief sich im Kreis, bis der Stapel überlief.
+Gerechnet wird deshalb mit der Breite des Widgets, die sich dadurch
+nicht ändert.
+
+**Die offenen Fragen, beantwortet:**
+
+- `toHtml()` überträgt alles: Überschriften, Tabellen, Zellen,
+  Listen, Verweise und Codeblöcke sind danach noch da (nachgesehen,
+  nicht vermutet).
+- Farben bleiben draußen, bis auf die Fläche hinter Codeblöcken. Die
+  Schrift- und Hintergrundfarbe kommt weiter vom Thema der IDE.
+- **`_code_schrift_setzen()` fällt nicht weg.** Das war die
+  Erwartung, und sie war falsch. Ohne den Nachbesserer bleiben trotz
+  `code { font-family: … }` in der Vorlage 673 Stellen in
+  `komponenten.md` auf „monospace" stehen, 61 in
+  `fuer_lehrkraefte.md` und 25 in `erste_schritte.md`: Qt schreibt
+  die Familie beim Umwandeln als Inline-Angabe ins Zeichenformat,
+  und die gewinnt gegen die Vorlage.
+
+**Nicht entschieden:** Ob 500 im dunklen Thema die richtige Stärke
+ist. Am Offscreen-Bild sieht sie stimmig aus, aber dort greift eine
+Ersatzschrift - das gehört am echten Bildschirm angesehen.
+
+**Gehalten von** `tests/test_hilfe_gestaltung.py`, 16 Tests. Zwei
+davon messen im fertigen Dokument und nicht in der Vorlage: dass
+eine Zeile im Stylesheet steht, heißt nicht, dass Qt sie annimmt.
+
+---
+
+## 18. Die Kopfzeile bietet an, was gerade nicht geht ~~(erledigt)~~
+
+**Beobachtet:** In der Werkzeugleiste steht ganz rechts ein blauer
+Pfeil nach unten. Er sieht aus wie ein Knopf zum Herunterladen; er
+meint „Einzelschritt".
+
+**Nachgemessen — und der Knopf ist nicht das Hauptproblem.** Ohne
+offenes Projekt und ohne laufendes Programm sind *alle* Aktionen im
+Menü „Start" anklickbar: Starten, Starten ohne Debugger, Pause,
+Fortsetzen, Stopp, Einzelschritt, Prozedurschritt, Ausführen bis
+Rücksprung. Von ihnen tun drei beim Anklicken nachweislich gar
+nichts:
+
+```python
+def _debugger_einzelschritt_aktion(self) -> None:
+    if self.debug_sitzung is not None and self._aktueller_thread_id is not None:
+        self.debug_sitzung.einzelschritt(self._aktueller_thread_id)
+```
+
+Kein `else`, keine Meldung, keine Statuszeile. Wer darauf klickt,
+erfährt nicht, dass er zuerst starten und anhalten muss — der Knopf
+sieht aus, als wäre er kaputt. „Stopp" macht es besser und sagt „Es
+läuft gerade nichts, was sich stoppen ließe."
+
+**Zu tun:**
+
+- Jede Aktion der Kopfzeile einmal auslösen und nachsehen, was
+  geschieht — Menüleiste und Werkzeugleiste, vor allem „Start".
+- Was ohne laufendes Programm nichts tun kann, gehört ausgegraut.
+  Ausgegraut ist eine Auskunft: „geht jetzt nicht", statt „geht
+  nicht".
+- Was auch ausgegraut niemandem nützt, gehört aus der Werkzeugleiste
+  heraus. Einzelschritt ist der erste Kandidat: er ist nur während
+  einer Debug-Sitzung sinnvoll, und dann liegt die Hand auf F11.
+- Das Symbol für den Einzelschritt neu zeichnen, falls er bleibt.
+
+**Geändert.** Fünf Einträge unter „Start" sind jetzt ausgegraut,
+solange das Programm nicht an einem Haltepunkt steht: Pause,
+Fortsetzen, Einzelschritt, Prozedurschritt, Ausführen bis Rücksprung.
+„Starten", „Starten ohne Debugger" und „Stopp" bleiben anklickbar -
+sie sagen, was stattdessen zu tun ist („Kein Projekt offen. Zuerst
+über „Projekt → Öffnen …" eines laden"), und ein Satz hilft weiter
+als ein graues Symbol.
+
+Dieselbe Regel gilt jetzt unter „Bearbeiten": auch dort waren alle
+sechs Einträge anklickbar, ohne dass ein Reiter offen war. Rückgängig
+und Wiederholen hängen an der Zeichenfläche des Designers mit, weil
+sie dort ebenfalls wirken.
+
+In der Werkzeugleiste steht jetzt „Stopp" mit einem eigenen Symbol.
+Der Einzelschritt hat ein neues bekommen: ein Pfeil, der aus der
+Zeile in die nächste abbiegt, statt eines geraden Pfeils auf eine
+Grundlinie - das ist anderswo das Zeichen fürs Herunterladen und
+wurde auch so gelesen.
+
+Die übrigen Menüs wurden mitgeprüft: „Suchen" und „Ansicht" sagen
+bereits sauber, woran es fehlt.
+
+**Gehalten von** `tests/test_kopfzeile_und_fusszeile.py`.
+
+---
+
+## 19. Der Prüfungsmodus ist in der Fußzeile nicht zu erkennen ~~(erledigt)~~
+
+**Vorgabe des Nutzers:** In der Fußzeile soll der Prüfungsmodus rot
+markiert sein.
+
+**Warum das mehr ist als Geschmack:** Der Prüfungsmodus ändert, was
+Natter zulässt — keine fremden Dateien, keine Beispielprojekte, keine
+Lösungshinweise in den Fehlermeldungen. Wer nicht auf den ersten Blick
+sieht, dass er läuft, sucht den Fehler bei sich. Und wer ihn aus
+Versehen anlässt, merkt es erst in der nächsten Stunde.
+
+**Noch zu prüfen:**
+
+- Ob die Anzeige auch im dunklen Thema lesbar bleibt. Rot auf Dunkel
+  braucht einen helleren Ton als Rot auf Hell.
+- Ob die Farbe allein genügt oder ob das Wort daneben stehen muss.
+  Rot-Grün-Sehschwäche ist in einer Klasse die Regel, nicht die
+  Ausnahme.
+- Wie sich die Restzeit einfügt, die dort schon steht.
+
+**Geändert.** Die Anzeige steht rot hinterlegt mit weißer Schrift
+rechts in der Statusleiste. Weiß auf diesem Rot trägt in beiden
+Themen - ein Rot, das zum hellen Thema passt, verschwindet im
+dunklen. Das Wort „Prüfungsmodus" steht weiter daneben, samt
+Restzeit: auf die Farbe allein ist in einer Klasse kein Verlass.
+
+---
+
+## 20. Die Beispielkopien landen im falschen Ordner ~~(erledigt)~~
+
+**Beobachtet:** Beim Öffnen eines Beispiels entstehen Ordner wie
+`04_CookieKlicker`, `05_Bildergalerie` und `07_CsvAuswertung` mitten
+im Entwicklungsverzeichnis von Natter, zwischen `ide`, `pcl`, `docs`
+und `dist`.
+
+**Ursache — nachgewiesen.** `ide/shell/startbild.py`:
+
+```python
+KOPIEN_ORDNER = Path("Documents") / "Natter"
+...
+wurzel = Path(ziel_wurzel) if ziel_wurzel else Path.home() / KOPIEN_ORDNER
+```
+
+Auf diesem Rechner liegt das Entwicklungsverzeichnis unter
+`C:\Users\…\Documents\natter`. Windows unterscheidet bei Dateinamen
+nicht zwischen Groß- und Kleinschreibung, „Natter" und „natter" sind
+also derselbe Ordner — die Arbeitskopien landen im Projektstamm.
+
+**Der schwerere Fehler steckt daneben:** `Path.home() / "Documents"`
+ist geraten, nicht ermittelt. Ist der Dokumente-Ordner umgeleitet —
+auf OneDrive oder auf ein Netzlaufwerk, und beides ist auf
+Schulrechnern die Regel und nicht die Ausnahme —, dann zeigt dieser
+Pfad ins Leere, und Natter legt einen zweiten, leeren
+Dokumente-Ordner an, den im Explorer niemand findet. Den richtigen
+Pfad kennt Windows selbst (`SHGetKnownFolderPath`, `FOLDERID_Documents`).
+
+**Zu tun:**
+
+- Den Dokumente-Ordner bei Windows erfragen statt ihn zu raten, mit
+  Rückfall auf den bisherigen Pfad, falls die Abfrage nichts liefert.
+- Die Kopien in einen eigenen Unterordner legen, damit sie nicht
+  zwischen den eigenen Projekten liegen.
+- Als Alternative vorgeschlagen: „Datei → Original wiederherstellen",
+  das ein verändertes Beispiel auf den Auslieferungsstand zurücksetzt.
+
+**Noch zu prüfen:**
+
+- Ob derselbe geratene Pfad noch an anderen Stellen steht — beim
+  Anlegen neuer Projekte, beim Exportieren, im Installer.
+- Was mit den Kopien geschieht, die bereits am falschen Ort liegen.
+  Sie sind die Arbeit des Nutzers und dürfen nicht verschwinden
+  (siehe Punkt 5).
+
+**Geändert.** `ide/pfade.py` fragt jetzt Windows nach dem
+Dokumente-Ordner (`SHGetKnownFolderPath`, über `ctypes` aus der
+Standardbibliothek) und fällt nur dann auf den alten Pfad zurück,
+wenn die Abfrage nichts liefert oder das Programm nicht unter Windows
+läuft. Auf dem Rechner, auf dem es auffiel, ist der Unterschied
+`C:\Users\…\OneDrive\Dokumente` gegen `C:\Users\…\Documents`.
+
+Im selben Zug schlägt „Neues Projekt …" diesen Ordner jetzt vor,
+statt das Feld leer zu lassen - sonst sucht sich jede Schülerin beim
+ersten Projekt einen eigenen Ort, und die Projekte einer Klasse
+liegen danach an zehn verschiedenen Stellen.
+
+**Nicht gemacht:** Die Kopien, die bereits im alten Ordner liegen,
+bleiben unberührt. Sie sind die Arbeit des Nutzers (Punkt 5); Natter
+verschiebt sie nicht von sich aus.
+
+**Gehalten von** `tests/test_pfade.py`, samt der Gegenprobe, dass der
+Zielordner nicht im Entwicklungsbaum liegt.

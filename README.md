@@ -342,10 +342,20 @@ steckt darin; es gibt keinen Ordner zum Mitschicken und nichts zum
 Entpacken. Während des Baus läuft in der untersten Zeile ein
 Ladebalken mit.
 
-## 17. Prüfungsmodus
+## 17. Quelltext als PDF
+
+„Projekt → Quelltext als PDF …" schreibt den Quelltext des ganzen
+Projekts zum Abgeben: eine Datei je Seite, mit Zeilennummern und
+derselben Einfärbung wie im Editor, auf A4 mit Rand zum Anstreichen.
+In der Kopfzeile stehen Projektname, Dateiname und Datum — bei zwanzig
+eingesammelten Abgaben ist sonst nicht zu erkennen, welche zu wem
+gehört. Ausgegeben wird nur, was jemand selbst geschrieben hat.
+
+## 18. Prüfungsmodus
 
 Vier Stunden ohne Lösungsvorschläge und ohne Quelltexterzeugung aus
 Diagrammen. Übersteht einen Neustart und läuft von selbst wieder aus.
+Solange er läuft, steht das rot in der Fußzeile.
 
 ---
 

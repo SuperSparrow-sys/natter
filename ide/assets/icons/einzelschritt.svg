@@ -1,6 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-  <!-- Einzelschritt: der Pfeil geht in die naechste Zeile hinein. -->
-  <rect x="3.4" y="17.8" width="17.2" height="2.8" rx="1" fill="#90a4ae"/>
-  <rect x="10.4" y="3.4" width="3.2" height="7.6" fill="#0067c0"/>
-  <path d="M12 16.2 6.8 10.4h10.4Z" fill="#0067c0"/>
+  <!-- Einzelschritt: der Pfeil biegt aus der Zeile in die naechste
+       ab. Vorher war es ein gerader Pfeil auf eine Grundlinie - das
+       ist anderswo das Zeichen fuers Herunterladen und wurde auch so
+       gelesen. -->
+  <path d="M4.2 4.6h13" fill="none" stroke="#90a4ae" stroke-width="2" stroke-linecap="round"/>
+  <path d="M4.2 4.6v11.8h9.6" fill="none" stroke="#0067c0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M20 16.4 13 12.6v7.6z" fill="#0067c0"/>
 </svg>

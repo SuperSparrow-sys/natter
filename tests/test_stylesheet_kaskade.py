@@ -81,7 +81,6 @@ def _stylesheet_aufrufe(pfad: Path) -> list[tuple[int, str, bool]]:
 ERLAUBT = {
     ("ide/shell/hauptfenster.py", "self"),  # ganzes Fenster, gewollt
     ("ide/diagramm/fenster.py", "self"),  # dasselbe für das Diagrammfenster
-    ("ide/shell/hauptfenster.py", "self.pruefungsanzeige"),  # ein Label
     ("ide/ladeanzeige.py", "self._stand"),  # ein Label auf dem Startbild
     ("ide/shell/startbild.py", "ueberschrift"),
     ("ide/shell/startbild.py", "knopf"),
@@ -206,3 +205,53 @@ def test_der_farbdialog_haengt_am_fenster() -> None:
 
     assert "QColorDialog.getColor(QColor(self.farbe or \"#ffffff\"), self.window())" in quelle
     assert "getColor(QColor(self.farbe or \"#ffffff\"), self)" not in quelle
+
+
+# ------------------------------- Punkt 2: die acht ungeprüften Dialoge
+#
+# Aufgeschrieben waren acht Stellen, an denen ein Dialog ein Widget als
+# Elternteil bekommt, und die Frage, ob dort dasselbe passiert wie beim
+# Farbdialog. Die Antwort ist nein, und zwar aus einem Grund, der sich
+# festhalten lässt: keine dieser vier Klassen setzt überhaupt ein
+# Stylesheet. Ihre Dialoge erben damit nur das Thema des Fensters -
+# genau das, was sie sollen.
+
+#: Die Dateien aus der Liste in `docs/offene_punkte.md`, Punkt 2.
+DIALOG_ELTERN = (
+    "ide/database/panel.py",
+    "ide/project/neu_dialog.py",
+    "ide/inspector/eigenschaften_tabelle.py",
+    "ide/diagramm/canvas.py",
+)
+
+
+@pytest.mark.parametrize("relativ", DIALOG_ELTERN)
+def test_diese_dialogeltern_setzen_gar_kein_stylesheet(relativ: str) -> None:
+    pfad = WURZEL / relativ
+    aufrufe = _stylesheet_aufrufe(pfad)
+
+    auf_sich_selbst = [
+        f"Zeile {zeile}" for zeile, ziel, _mit in aufrufe if ziel == "self"
+    ]
+    assert not auf_sich_selbst, (
+        f"{relativ} gestaltet sich jetzt selbst: {auf_sich_selbst}. "
+        f"Damit erben seine Dialoge diese Anweisungen - siehe Punkt 1."
+    )
+
+
+def test_die_liste_dieser_dateien_ist_nicht_veraltet() -> None:
+    """Sonst prüfte der Test oben eine Datei, die es nicht mehr gibt."""
+    for relativ in DIALOG_ELTERN:
+        assert (WURZEL / relativ).is_file(), relativ
+
+
+def test_in_jeder_dieser_dateien_geht_wirklich_ein_dialog_auf() -> None:
+    """Sonst wäre die Liste oben eine Sammlung harmloser Dateien und
+    sagte nichts über Dialoge aus."""
+    ohne = [
+        relativ
+        for relativ in DIALOG_ELTERN
+        if not _dialog_eltern(WURZEL / relativ)
+        and "Dialog(" not in (WURZEL / relativ).read_text(encoding="utf-8")
+    ]
+    assert not ohne, f"Keine Dialoge (mehr) in: {ohne}"

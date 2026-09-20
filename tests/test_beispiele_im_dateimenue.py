@@ -54,7 +54,11 @@ def test_ein_eintrag_oeffnet_eine_arbeitskopie(
     soll das Beispiel wieder im Ursprungszustand dastehen."""
     fenster = HauptFenster()
     qtbot.addWidget(fenster)
-    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    # Den Dokumente-Ordner umlenken, nicht das Heimverzeichnis:
+    # `dokumente_ordner()` fragt Windows und kennt HOME nicht.
+    import ide.pfade
+
+    monkeypatch.setattr(ide.pfade, "dokumente_ordner", lambda: tmp_path)
 
     erster = _beispiel_menue(fenster).actions()[0]
     erster.trigger()

@@ -21,7 +21,9 @@ geöffnet: in einer installierten Natter liegen die Beispiele im
 Programmordner, und dort darf eine Schülerin nicht schreiben. Die
 Kopie landet in ihrem eigenen Dokumente-Ordner, wo sie sie behält –
 und wo ein zweiter Anlauf am nächsten Tag das Angefangene wiederfindet
-statt es zu überschreiben.
+statt es zu überschreiben. Wo dieser Ordner liegt, sagt Windows
+selbst; geraten hatte Natter ihn bis September 2026 falsch (siehe
+`ide/pfade.py`).
 """
 
 from __future__ import annotations
@@ -40,7 +42,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ide.pfade import daten_ordner
+from ide.pfade import NATTER_ORDNER, daten_ordner, natter_ordner
 from ide.shell.theme import STARTBILD_EINTRAG
 from pcl.pruefungsmodus import laeuft as pruefungsmodus_laeuft
 
@@ -51,9 +53,10 @@ ZULETZT_MAX = 8
 #: Schlüssel in den Einstellungen.
 ZULETZT_SCHLUESSEL = "projekt/zuletzt"
 
-#: Wohin eine Kopie eines Beispielprojekts gelegt wird, relativ zum
-#: Benutzerordner.
-KOPIEN_ORDNER = Path("Documents") / "Natter"
+#: Wohin eine Arbeitskopie gehört, unterhalb des Dokumente-Ordners.
+#: Der wird bei Windows erfragt und nicht geraten - warum, steht in
+#: `ide/pfade.py`.
+KOPIEN_ORDNER = NATTER_ORDNER
 
 #: Schriftgrößen als Stylesheet, nicht über `setFont()`.
 #:
@@ -157,7 +160,7 @@ def beispiel_kopieren(projektdatei: Path, ziel_wurzel: Path | None = None) -> Pa
     seine Arbeit zurückgesetzt.
     """
     quelle = Path(projektdatei).parent
-    wurzel = Path(ziel_wurzel) if ziel_wurzel else Path.home() / KOPIEN_ORDNER
+    wurzel = Path(ziel_wurzel) if ziel_wurzel else natter_ordner()
     wurzel.mkdir(parents=True, exist_ok=True)
 
     ziel = wurzel / quelle.name

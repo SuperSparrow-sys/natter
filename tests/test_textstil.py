@@ -293,3 +293,41 @@ def test_die_seiten_fuer_lernende_stehen_fuer_sich(pfad: Path) -> None:
     assert not treffer, f"{pfad.name} verweist auf ein fremdes Werkzeug:\n" + "\n".join(
         treffer[:5]
     )
+
+
+# ------------------------- Punkt 4: was sich am Installer prüfen lässt
+#
+# Wie die Lizenz- und die Hinweisseite im Assistenten *aussehen*, zeigt
+# nur ein Durchklicken mit angemeldeter Sitzung. Zwei Dinge lassen sich
+# aber auch ohne das festhalten, und beide waren die Sorge des
+# Eintrags: dass die Seiten überhaupt eingebunden sind und dass ihre
+# Zeilen ins Fenster passen.
+
+#: Inno Setup zeigt beide Seiten in einem Feld fester Breite. Bei
+#: rund 80 Zeichen je Zeile ist Schluss; was länger ist, bricht um und
+#: sieht nach einem Fehler aus.
+INSTALLER_ZEILENBREITE = 80
+
+INSTALLER_TEXTE = (
+    WURZEL / "tools" / "lizenz_vorlagen" / "INSTALLER_LIZENZ.txt",
+    WURZEL / "tools" / "lizenz_vorlagen" / "INSTALLER_HINWEIS.txt",
+)
+
+
+@pytest.mark.parametrize("pfad", INSTALLER_TEXTE, ids=lambda p: p.name)
+def test_die_zeilen_passen_in_das_fenster_des_installers(pfad: Path) -> None:
+    zu_lang = [
+        f"Zeile {nummer}: {len(zeile)} Zeichen"
+        for nummer, zeile in enumerate(_lesen(pfad).splitlines(), 1)
+        if len(zeile) > INSTALLER_ZEILENBREITE
+    ]
+
+    assert not zu_lang, f"{pfad.name}:\n" + "\n".join(zu_lang[:5])
+
+
+def test_beide_seiten_sind_im_installer_eingebunden() -> None:
+    """Eine Seite, die niemand einbindet, kann noch so schön sein."""
+    skript = (WURZEL / "tools" / "natter.iss").read_text(encoding="utf-8-sig")
+
+    assert r"LicenseFile=lizenz_vorlagen\INSTALLER_LIZENZ.txt" in skript
+    assert r"InfoBeforeFile=lizenz_vorlagen\INSTALLER_HINWEIS.txt" in skript
