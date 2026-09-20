@@ -86,7 +86,20 @@ class Label(Control):
 
     Über `color`/`transparent` kann ein Label eine eigene
     Hintergrundfarbe zeigen - nützlich, um es sichtbar über einer
-    `Shape` zu platzieren."""
+    `Shape` zu platzieren.
+
+    `word_wrap` steht auf `True`, und das aus einem handfesten Grund:
+    ein `QLabel` bricht von sich aus nicht um, und was breiter ist als
+    das Label, verschwindet ohne Meldung. Im Beispielprojekt
+    `09_ObstSortierer` endete die Erklärung dadurch mitten im Satz.
+    Betroffen ist jeder, der einen längeren Text in ein Label schreibt
+    - also genau das, was jemand tut, der sein Programm erklären will.
+    Im Designer fällt es nicht auf, solange die Beschriftung dort kurz
+    ist.
+
+    Abschaltbar bleibt es trotzdem: ein Label, das in einer Zeile
+    stehen soll, wächst sonst in die Höhe und verschiebt, was
+    darunter liegt."""
 
     caption = Prop(str, "Label1", kategorie="Darstellung", doc="Anzeigetext")
     color = Prop(
@@ -98,15 +111,25 @@ class Label(Control):
     transparent = Prop(
         bool, True, kategorie="Darstellung", doc="Wenn wahr (Standard), kein eigener Hintergrund"
     )
+    word_wrap = Prop(
+        bool,
+        True,
+        kategorie="Darstellung",
+        doc="Wenn wahr (Standard), bricht zu langer Text um statt abgeschnitten zu werden",
+    )
+
     def _qwidget_erzeugen(self, eltern_widget: QWidget) -> QWidget:
         widget = QLabel(eltern_widget)
         widget.setText(self.caption)
+        widget.setWordWrap(self.word_wrap)
         return widget
 
     def _bei_prop_aenderung(self, name: str, wert: Any) -> None:
         super()._bei_prop_aenderung(name, wert)
         if name == "caption":
             self._qwidget.setText(wert)
+        elif name == "word_wrap":
+            self._qwidget.setWordWrap(wert)
         elif name in ("color", "transparent"):
             self._eigenes_qss_anwenden()
 

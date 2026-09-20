@@ -72,8 +72,16 @@ Qt-Basis: `QLabel` (`pcl/components/standard.py`)
 | caption | str | "Label1" | Darstellung | Anzeigetext |
 | color | str (Hex) | "" | Darstellung | Hintergrundfarbe (nur bei transparent=False) |
 | transparent | bool | True | Darstellung | Wenn wahr (Standard), kein eigener Hintergrund |
+| word_wrap | bool | True | Darstellung | Wenn wahr (Standard), bricht zu langer Text um statt abgeschnitten zu werden |
 
 Keine eigenen Ereignisse.
+
+**`word_wrap` steht auf `True`.** Ein `QLabel` bricht von sich aus
+nicht um: was breiter ist als das Label, verschwindet — ohne Meldung
+und ohne dass es im Designer auffällt, solange die Beschriftung dort
+kurz ist. Wer ein Label in einer Zeile halten will, setzt es auf
+`False`; dann wächst es nicht in die Höhe und verschiebt nichts, was
+darunter liegt.
 
 ## Shape
 

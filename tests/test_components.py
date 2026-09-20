@@ -185,3 +185,69 @@ def test_tippfehler_auf_echten_komponenten_wird_gemeldet() -> None:
     formular = _Formular()
     with pytest.raises(NatterUnbekannteEigenschaftError):
         formular.b_ein.captoin = "x"
+
+
+# ------------------------------------------------ Label: Zeilenumbruch
+#
+# Ein QLabel bricht von sich aus nicht um: was breiter ist als das
+# Label, verschwindet ohne Meldung. Im Obst-Sortierer endete die
+# Erklaerung dadurch mitten im Satz ("... und zwar mit der"). Seit
+# September 2026 bricht ein Label um; abschaltbar bleibt es.
+
+_LANGER_TEXT = (
+    "Gemessen wurde zwischen 158 und 191 cm. Bei 300 cm rechnet die Kurve "
+    "ueber die Daten hinaus. Der Wert ist unsicher, und das gilt fuer jede "
+    "Vorhersage ausserhalb des gemessenen Bereichs."
+)
+
+
+def _label_mit(text: str, breite: int = 300, umbruch: bool | None = None):
+    from pcl import Form, Label
+
+    class _F(Form):
+        def create_components(self) -> None:
+            self.l_text = Label(self)
+
+    formular = _F()
+    if umbruch is not None:
+        formular.l_text.word_wrap = umbruch
+    formular.l_text.width = breite
+    formular.l_text.caption = text
+    return formular.l_text
+
+
+def test_ein_langer_text_wird_umgebrochen() -> None:
+    label = _label_mit(_LANGER_TEXT)
+    widget = label._qwidget
+
+    assert widget.wordWrap() is True
+    # Ohne Umbruch braeuchte der Text ein Vielfaches der Label-Breite.
+    assert widget.fontMetrics().horizontalAdvance(widget.text()) > 3 * widget.width()
+    # Mit Umbruch passt er in die Breite und wird dafuer hoeher.
+    assert widget.heightForWidth(widget.width()) > widget.fontMetrics().height()
+
+
+def test_word_wrap_laesst_sich_abschalten() -> None:
+    """Ein Label, das in einer Zeile stehen soll, waechst sonst in die
+    Hoehe und verschiebt, was darunter liegt."""
+    label = _label_mit(_LANGER_TEXT, umbruch=False)
+
+    assert label._qwidget.wordWrap() is False
+
+
+def test_word_wrap_wirkt_auch_nachtraeglich() -> None:
+    label = _label_mit(_LANGER_TEXT)
+
+    label.word_wrap = False
+    assert label._qwidget.wordWrap() is False
+    label.word_wrap = True
+    assert label._qwidget.wordWrap() is True
+
+
+def test_word_wrap_steht_im_objektinspektor() -> None:
+    from pcl import Label
+    from pcl.properties import eigenschaften
+
+    namen = eigenschaften(Label)
+    assert "word_wrap" in namen
+    assert namen["word_wrap"].kategorie == "Darstellung"
