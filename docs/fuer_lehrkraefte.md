@@ -96,7 +96,11 @@ Sie liegen nicht im Programmordner, sondern unter `Dokumente`.
 |---|---|
 | Natter selbst | `%LOCALAPPDATA%\Programs\Natter` |
 | Arbeitskopien der Beispiele | `Dokumente\Natter` |
-| Eigene Projekte | dort, wo sie beim Anlegen hingelegt werden — vorgeschlagen wird `Dokumente` |
+| Eigene Projekte | dort, wo sie beim Anlegen hingelegt werden — vorgeschlagen wird `Dokumente\Natter` |
+
+Welcher Ordner „Dokumente" ist, erfragt Natter beim System. Ist er
+auf OneDrive oder ein Netzlaufwerk umgeleitet — auf Schulrechnern die
+Regel —, folgt Natter dorthin.
 
 **Programmordner und Schülerdaten sind getrennt.** Ein neu
 aufgesetzter Rechner, ein Update oder eine Deinstallation rühren die
@@ -170,7 +174,24 @@ sich weitergeben, ohne vorher etwas entpacken zu müssen.
 Der Export dauert je nach Projekt eine halbe bis eine Minute. Natter
 bleibt währenddessen bedienbar; unten rechts läuft ein Ladebalken.
 
-### 3.6 Testen
+### 3.6 Eine Abgabe einsammeln
+
+**Projekt → Quelltext als PDF …** schreibt den Quelltext des ganzen
+Projekts in eine PDF-Datei: eine Datei je Seite, mit Zeilennummern
+und derselben Einfärbung wie im Editor, auf A4 mit 20 mm Rand zum
+Anstreichen. In der Kopfzeile jeder Seite stehen Projektname,
+Dateiname und Datum — bei zwanzig eingesammelten Abgaben ist sonst
+nicht zu erkennen, welche zu wem gehört.
+
+Ausgegeben wird nur, was die Schülerin selbst geschrieben hat: die
+`u_*`-Dateien. Die Startdatei und die aus dem Designer erzeugten
+Dateien bleiben draußen.
+
+Das PDF ersetzt den Projektordner nicht — wer das Programm laufen
+lassen will, braucht weiterhin den ganzen Ordner. Zum Anstreichen und
+Benoten ist es gedacht.
+
+### 3.7 Testen
 
 Ein Projekt kann Testdateien enthalten (**Datei → Neue Test-Unit**).
 **Projekt → Alle Tests ausführen** zeigt im Panel **Tests**, was

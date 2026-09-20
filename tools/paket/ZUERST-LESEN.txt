@@ -1,0 +1,111 @@
+Natter 0.3.0 - Installation auf einem Schulrechner
+==================================================
+
+In diesem Paket:
+
+  Natter-Setup.exe        das Installationsprogramm (275 MB)
+  natter-codesign.cer     das Zertifikat, mit dem Natter signiert ist
+  Zertifikat-eintragen.ps1   traegt das Zertifikat ein
+  Handbuch.html           das Handbuch, im Browser zu oeffnen
+  Handbuch.md             dasselbe als Textdatei
+  Lizenzen\               die Lizenzen der mitgelieferten Bibliotheken
+
+
+Warum zwei Schritte noetig sind
+-------------------------------
+
+Natter ist mit einem selbst ausgestellten Zertifikat signiert. Ein von
+Microsoft anerkanntes Zertifikat kostet mehrere hundert Euro im Jahr;
+fuer ein Schulprojekt ist das nicht vorgesehen.
+
+Windows kennt dieses Zertifikat nicht und blockiert den Start deshalb
+auf Rechnern mit "Smart App Control" - nicht nur mit einer Warnung,
+sondern vollstaendig. Damit das nicht passiert, wird das Zertifikat
+einmal pro Rechner als vertrauenswuerdig eingetragen. Danach laeuft
+Natter wie jedes andere signierte Programm.
+
+Die Datei natter-codesign.cer enthaelt nur den oeffentlichen Teil. Sie
+ist nicht geheim und kann per Mail oder USB-Stick weitergegeben
+werden. Mit ihr laesst sich nichts signieren, nur pruefen.
+
+
+Schritt 1: Zertifikat eintragen
+-------------------------------
+
+Auf einem einzelnen Rechner genuegt ein Rechtsklick auf
+Zertifikat-eintragen.ps1 und "Mit PowerShell ausfuehren" - bei der
+Rueckfrage von Windows "Ja" waehlen, weil der Eintrag fuer alle
+Benutzerkonten des Rechners gilt und dafuer Administratorrechte
+gebraucht werden.
+
+Von Hand geht es genauso, in einer PowerShell als Administrator:
+
+  Import-Certificate -FilePath natter-codesign.cer `
+      -CertStoreLocation Cert:\LocalMachine\Root
+  Import-Certificate -FilePath natter-codesign.cer `
+      -CertStoreLocation Cert:\LocalMachine\TrustedPublisher
+
+Beide Speicher werden gebraucht: der erste, damit Windows der
+Signatur glaubt, der zweite, damit Smart App Control den Start
+zulaesst.
+
+Fuer viele Rechner auf einmal ist eine Gruppenrichtlinie der richtige
+Weg:
+
+  Computerkonfiguration -> Richtlinien -> Windows-Einstellungen ->
+  Sicherheitseinstellungen -> Richtlinien fuer oeffentliche Schluessel
+
+Dort einmal unter "Vertrauenswuerdige Stammzertifizierungsstellen"
+und einmal unter "Vertrauenswuerdige Herausgeber" die Datei
+natter-codesign.cer importieren, danach gpupdate.
+
+
+Schritt 2: Natter installieren
+------------------------------
+
+Doppelklick auf Natter-Setup.exe. Die Installation braucht keine
+Administratorrechte und legt Natter unter
+
+  %LOCALAPPDATA%\Programs\Natter
+
+ab, also im Profil des angemeldeten Benutzers. Auf einem Schulrechner
+ist das meist der einzige Weg, der ohne Rueckfrage funktioniert.
+
+Fuer eine unbeaufsichtigte Installation auf vielen Rechnern:
+
+  Natter-Setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+
+
+Was Natter auf dem Rechner ablegt
+---------------------------------
+
+  Das Programm       %LOCALAPPDATA%\Programs\Natter  (rund 1,2 GB)
+  Die Projekte       Dokumente\Natter
+
+Beides ist getrennt: ein Update oder eine Deinstallation ruehrt die
+Projekte der Schuelerinnen und Schueler nicht an. Wo der
+Dokumente-Ordner liegt, erfragt Natter beim System - ist er auf
+OneDrive oder ein Netzlaufwerk umgeleitet, folgt Natter dorthin.
+
+Es wird nichts weiter gebraucht: Python, die Oberflaechenbibliothek
+und die Bibliotheken fuer Tabellen, Diagramme und Datenbanken bringt
+Natter mit. Eine vorhandene Python-Installation bleibt unberuehrt.
+
+
+Pruefen, ob es geklappt hat
+---------------------------
+
+Nach der Installation steht Natter im Startmenue. Beim ersten Start
+erscheint kurz ein Ladebild mit der Versionsnummer 0.3.0.
+
+Bleibt der Start aus, hilft ein Blick in die Ereignisanzeige unter
+
+  Anwendungs- und Dienstprotokolle -> Microsoft -> Windows ->
+  CodeIntegrity -> Operational
+
+Steht dort "did not meet the Enterprise signing level requirements",
+ist Schritt 1 nicht angekommen.
+
+
+Mehr dazu steht im Handbuch: Einrichtung, Pruefungsmodus, Tasten und
+was zu tun ist, wenn etwas nicht stimmt.
