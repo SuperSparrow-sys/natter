@@ -605,3 +605,59 @@ Maus-Ereignisse benutzen. Das muss man wissen, und es steht nirgends.
 - Ob der Objektinspektor das Formular überhaupt anzeigt: die neuen
   Zeilen müssen im Reiter „Ereignisse" erscheinen, wenn das Formular
   selbst ausgewählt ist.
+
+---
+
+## 15. Nachweisen, dass die Panels wirklich etwas anzeigen
+
+**Vorgabe des Nutzers:** Es soll geprüft werden, ob in den Panels auch
+tatsächlich Werte ankommen — beim Reiter „Variablen" und bei den
+übrigen genauso.
+
+**Warum das nicht selbstverständlich ist:** Ein leeres Panel sieht
+genauso aus, ob es nichts zu zeigen gibt oder ob die Verbindung
+dahinter nie angeschlossen wurde. Der Reiter „Ausgabe" trug bis
+September 2026 den Kurzhinweis „Was das laufende Programm ausgibt
+(print)" und zeigte in Wirklichkeit nur Start- und Endzeilen — die
+Ausgabe des Programms lief in ein Konsolenfenster daneben. Aufgefallen
+ist das erst, als die Konsole verschwinden sollte.
+
+**Woran die fünf Panels hängen:**
+
+| Panel | Gefüllt von | In dieser Sitzung gesehen |
+|---|---|---|
+| Meldungen | Prüfung vor dem Start, Design-Prüfer, Importbericht, Exe-Export | ja |
+| Ausgabe | Start- und Endzeilen; seit Neuestem auch `AusgabeLeser` mit dem, was das Programm schreibt | nur die Start- und Endzeilen |
+| Variablen | Debugger, beim Halt an einem Haltepunkt (`hauptfenster.py`, Zeile 3246) | nein |
+| Aufrufstapel | Debugger, derselbe Halt | nein |
+| Tests | Testlauf über „Projekt → Alle Tests ausführen" | ja |
+
+**Was zu tun ist:** Ein Durchgang mit einem echten Programm, bei dem
+jedes Panel einmal etwas zeigen muss:
+
+- ein Haltepunkt setzen, starten, und nachsehen, ob im Reiter
+  „Variablen" die Variablen mit ihren Werten stehen und im
+  „Aufrufstapel" die Aufrufkette,
+- ein GUI-Programm mit `print()` starten und nachsehen, ob die Zeilen
+  im Reiter „Ausgabe" ankommen. Das ist neu und bisher nur in Tests
+  geprüft, nie mit einem laufenden Schülerprogramm,
+- ein Programm mit einem Fehler starten und nachsehen, ob die
+  Fehlermeldung ebenfalls in „Ausgabe" landet — `stderr` läuft seit
+  der Umstellung in dasselbe Rohr,
+- eine Zeile im Panel anklicken und prüfen, ob sie an die richtige
+  Stelle im Quelltext führt.
+
+**Dabei gleich mit zu erledigen:** Der Variablenbaum trägt die
+Spaltenüberschriften **„Eigenschaft | Wert"**. Das ist die Beschriftung
+des Objektinspektors; hier stehen keine Eigenschaften, sondern
+Variablen. Gefüllt wird die erste Spalte auch aus `variable["name"]`.
+Richtig wäre „Variable | Wert".
+
+**Noch zu prüfen:**
+
+- Ob ein Panel sagen soll, warum es leer ist. „Hier stehen die
+  Variablen, sobald das Programm an einem Haltepunkt hält" ist eine
+  Auskunft; eine leere Fläche ist keine.
+- Ob die Panels beim Beenden des Programms geleert werden oder den
+  letzten Stand behalten. Beides ist vertretbar, aber es sollte
+  entschieden sein.
