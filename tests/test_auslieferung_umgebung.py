@@ -135,3 +135,81 @@ def test_natter_selbst_fasst_tkinter_nirgends_an() -> None:
                     treffer.append(f"{datei.name}: {nackt}")
 
     assert not treffer, f"tkinter wird doch benutzt: {treffer}"
+
+
+# Die Auslieferung muss das enthalten, was geprueft wurde. Bis
+# September 2026 rief das Bauskript schlicht `pip install <projekt>`,
+# und pip loeste frisch gegen PyPI auf - in `dist` landete pandas
+# 3.0.6, waehrend alle Tests gegen 3.0.5 gruen waren. Aufgefallen ist
+# es erst, weil Windows Smart App Control die brandneuen, noch ohne
+# Reputation dastehenden `pandas._libs` blockierte.
+
+
+class _Aufruf:
+    """Merkt sich, womit `subprocess.run` gerufen wurde."""
+
+    def __init__(self) -> None:
+        self.befehle: list[list[str]] = []
+
+    def __call__(self, befehl, **kwargs):  # noqa: ANN001, ANN204
+        self.befehle.append([str(teil) for teil in befehl])
+
+        class Ergebnis:
+            returncode = 0
+            stdout = "pandas==3.0.5 --hash=sha256:abc\npyside6==6.9.4\n"
+            stderr = ""
+
+        return Ergebnis()
+
+
+def test_die_versionen_kommen_aus_uv_lock(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from tools import ide_paketieren
+
+    aufruf = _Aufruf()
+    monkeypatch.setattr(ide_paketieren.subprocess, "run", aufruf)
+
+    datei = ide_paketieren._gesperrte_versionen(tmp_path)
+
+    assert datei == tmp_path / "requirements-auslieferung.txt"
+    assert "pandas==3.0.5" in datei.read_text(encoding="utf-8")
+    assert aufruf.befehle == [
+        ["uv", "export", "--format", "requirements-txt", "--no-dev", "--no-emit-project"]
+    ]
+
+
+def test_ohne_uv_bricht_der_bau_nicht_ab(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Auf einem Baurechner ohne `uv` bleibt es beim bisherigen Weg -
+    mit einer Warnung, aber ohne Abbruch."""
+    from tools import ide_paketieren
+
+    class Fehlschlag:
+        returncode = 2
+        stdout = ""
+        stderr = "uv: command not found"
+
+    monkeypatch.setattr(ide_paketieren.subprocess, "run", lambda *a, **k: Fehlschlag())
+
+    assert ide_paketieren._gesperrte_versionen(tmp_path) is None
+    assert not list(tmp_path.iterdir())
+
+
+def test_die_geprueften_versionen_werden_zuerst_installiert(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Die Reihenfolge ist der Kern: steht die Auflösung aus `uv.lock`
+    erst einmal da, hat pip beim Auflösen von Natters eigenen
+    Abhängigkeiten nichts mehr nachzuladen."""
+    from tools import ide_paketieren
+
+    aufruf = _Aufruf()
+    monkeypatch.setattr(ide_paketieren.subprocess, "run", aufruf)
+    (tmp_path / "python").mkdir()
+
+    ide_paketieren._natter_installieren(tmp_path / "python" / "python.exe")
+
+    pip_aufrufe = [b for b in aufruf.befehle if "pip" in b]
+    assert [b[-1] for b in pip_aufrufe][-2:] == [
+        str(ide_paketieren._PROJEKT_WURZEL),
+        "pyinstaller",
+    ]
+    assert pip_aufrufe[0][-2:] == ["-r", str(tmp_path / "python" / "requirements-auslieferung.txt")]

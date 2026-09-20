@@ -213,6 +213,53 @@ def _saubere_umgebung() -> dict[str, str]:
     return umgebung
 
 
+def _gesperrte_versionen(ziel: Path) -> Path | None:
+    """Schreibt die Versionen aus `uv.lock` als `requirements.txt`.
+
+    **Die Auslieferung muss das enthalten, was geprüft wurde.** Bis
+    September 2026 stand hier schlicht `pip install <projekt>`, und pip
+    löste die Abhängigkeiten frisch gegen PyPI auf. Herausgekommen ist
+    eine Auslieferung mit Paketversionen, gegen die nie ein Test lief -
+    real gemessen pandas 3.0.6 in `dist`, während die 3424 Tests gegen
+    3.0.5 grün waren.
+
+    Aufgefallen ist es an einer ganz anderen Stelle: Windows Smart App
+    Control blockierte fünf der vierzehn `pandas._libs`-Bibliotheken
+    („did not meet the Enterprise signing level requirements"). Eine
+    Fassung, die erst seit Stunden auf PyPI liegt, hat bei Microsofts
+    Reputationsdienst noch nichts vorzuweisen - die getestete, seit
+    Wochen verbreitete dagegen schon.
+
+    `uv export` liest `uv.lock`, also genau die Auflösung, gegen die
+    entwickelt und getestet wird. Liefert `None`, wenn `uv` auf dem
+    Baurechner fehlt; dann bleibt es beim bisherigen Weg, mit einer
+    Warnung.
+    """
+    ergebnis = subprocess.run(
+        [
+            "uv",
+            "export",
+            "--format",
+            "requirements-txt",
+            "--no-dev",
+            "--no-emit-project",
+        ],
+        cwd=_PROJEKT_WURZEL,
+        capture_output=True,
+        text=True,
+    )
+    if ergebnis.returncode != 0:
+        meldung = ergebnis.stderr.strip().splitlines()[-1:] or ["uv nicht gefunden"]
+        print(f"Warnung: Versionen nicht aus uv.lock übernommen ({meldung[0]})")
+        return None
+
+    datei = ziel / "requirements-auslieferung.txt"
+    datei.write_text(ergebnis.stdout, encoding="utf-8")
+    anzahl = sum(1 for zeile in ergebnis.stdout.splitlines() if "==" in zeile)
+    print(f"Versionen aus uv.lock übernommen: {anzahl} Pakete")
+    return datei
+
+
 def _natter_installieren(python: Path) -> None:
     """Installiert Natter samt Abhängigkeiten in die mitgelieferte
     Python - ganz gewöhnlich mit `pip install`.
@@ -220,13 +267,27 @@ def _natter_installieren(python: Path) -> None:
     Dadurch liegt dort alles so, wie es auch im Entwicklungsbaum liegt;
     `pip` und PyInstaller finden in der ausgelieferten Fassung eine
     Umgebung vor, mit der sie arbeiten können (M13).
+
+    **Zuerst die gesperrten Versionen** (siehe `_gesperrte_versionen`),
+    danach Natter selbst. Die Reihenfolge ist der Kern: was aus
+    `uv.lock` kommt, steht dann schon da, und pip hat beim Auflösen von
+    Natters eigenen Abhängigkeiten nichts mehr nachzuladen.
     """
-    for schritt, argumente in (
-        ("Natter", [str(_PROJEKT_WURZEL)]),
-        # Für "Projekt -> Als Exe exportieren": PyInstaller gehört in
-        # die ausgelieferte Umgebung, nicht nur in den Entwicklungsbaum.
-        ("PyInstaller", ["pyinstaller"]),
-    ):
+    gesperrt = _gesperrte_versionen(python.parent)
+    schritte: list[tuple[str, list[str]]] = []
+    if gesperrt is not None:
+        # `--require-hashes` greift von selbst, weil `uv export` die
+        # Prüfsummen mitschreibt: ein unterwegs ausgetauschtes Paket
+        # fällt damit beim Bau auf, nicht erst beim Schüler.
+        schritte.append(("geprüfte Paketversionen", ["-r", str(gesperrt)]))
+    schritte.append(("Natter", [str(_PROJEKT_WURZEL)]))
+    # Für "Projekt -> Als Exe exportieren": PyInstaller gehört in die
+    # ausgelieferte Umgebung, nicht nur in den Entwicklungsbaum. Steht
+    # in `uv.lock` und kommt damit schon oben mit; der Schritt bleibt
+    # als Netz für den Fall ohne `uv`.
+    schritte.append(("PyInstaller", ["pyinstaller"]))
+
+    for schritt, argumente in schritte:
         print(f"Installiere {schritt} in die mitgelieferte Python ...", flush=True)
         # Ausgabe bewusst **nicht** eingefangen: ein Bau, der Minuten
         # läuft, soll zeigen, wo er steht - und wenn etwas schiefgeht,
