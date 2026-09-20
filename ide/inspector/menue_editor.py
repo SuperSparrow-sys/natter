@@ -3,18 +3,18 @@
 
 Siehe `docs/arbeitspakete/M15.md`, Schritt 1. Vorbild ist der
 Menü-Editor von Lazarus, der Aufbau der von `ide/diagramm/
-klassendialog.py`: **die Zeichenfläche ordnet an, der Dialog füllt
-aus.** Diese Entscheidung hat der Nutzer im September 2026 für die
+klassendialog.py`: die Zeichenfläche ordnet an, der Dialog füllt
+aus. Diese Entscheidung hat der Nutzer für die
 UML-Klassen getroffen, und ein Menü ist derselbe Fall – ein Eintrag
 hat Bezeichner, Beschriftung, Tastenkürzel und Untereinträge, das
 bearbeitet niemand sinnvoll an Ort und Stelle auf dem Formular.
 
 Links steht der Baum der Einträge, rechts die Felder des ausgewählten
-Eintrags, darüber die Knöpfe. Unten die drei Knöpfe **Schließen**,
-**Anwenden**, **OK** – dieselben wie im Klassendialog, damit sich
+Eintrags, darüber die Knöpfe. Unten die drei Knöpfe Schließen,
+Anwenden, OK – dieselben wie im Klassendialog, damit sich
 beide gleich anfühlen.
 
-Gearbeitet wird auf einer **Kopie**: erst „Anwenden" oder „OK"
+Gearbeitet wird auf einer Kopie: erst „Anwenden" oder „OK"
 überträgt sie. „Schließen" verwirft, was seit dem letzten „Anwenden"
 geändert wurde. Auch das ist aus dem Klassendialog übernommen.
 """
@@ -42,7 +42,7 @@ from PySide6.QtWidgets import (
 
 from pcl.components.menus import EINTRAG_VORGABE, eintrag_vollstaendig
 
-#: Rolle, unter der am Baumeintrag sein **Pfad** hängt: "0" für den
+#: Rolle, unter der am Baumeintrag sein Pfad hängt: "0" für den
 #: ersten Eintrag der obersten Ebene, "0.2" für dessen dritten
 #: Untereintrag.
 #:

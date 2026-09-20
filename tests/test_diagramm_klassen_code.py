@@ -1,7 +1,7 @@
 """Tests für ide/diagramm/klassen_code.py: aus einer UML-Klasse
 Python-Quelltext erzeugen (M9, Schritt 13).
 
-Der wichtigste Test ist der langweiligste: das Ergebnis muss **immer**
+Der wichtigste Test ist der langweiligste: das Ergebnis muss immer
 gültiges Python sein. Alles andere nützt nichts, wenn der erzeugte Code
 sich nicht ausführen lässt.
 """

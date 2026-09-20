@@ -2,26 +2,26 @@
 nachsehen, ob die Änderung ankommt.
 
 Das war die letzte Zeile in `docs/pruefbericht.md` unter „Was diese
-Prüfung **nicht** abdeckt": die Funktionsprüfung aus M11, Abschnitt 3
+Prüfung nicht abdeckt": die Funktionsprüfung aus M11, Abschnitt 3
 löst jeden Menüeintrag, jeden Werkzeugknopf und jeden Kontextmenü-
 Eintrag wirklich aus – am Objektinspektor hörte sie auf. Dabei ist er
 die Stelle, an der im Unterricht am meisten passiert: Beschriftung,
 Position, Farbe, Häkchen.
 
-**Wonach geprüft wird.** Nicht „der neue Wert steht danach in der
+Wonach geprüft wird. Nicht „der neue Wert steht danach in der
 Komponente" – das wäre zu streng. Manche Komponenten *berichtigen*
 einen Wert, statt ihn abzulehnen: `RadioGroup.item_index = 6` ohne
 sechste Option fällt auf -1 zurück, weil eine Auswahl, die niemand
 sieht, schlimmer wäre. Geprüft wird deshalb die Eigenschaft, die in
-beiden Fällen gelten muss: **Zelle und Komponente sind sich danach
-einig.** Zeigte der Inspektor eine 6 an, während die Komponente längst
+beiden Fällen gelten muss: Zelle und Komponente sind sich danach
+einig. Zeigte der Inspektor eine 6 an, während die Komponente längst
 -1 führt, stünde dort etwas, das es nicht gibt.
 
 Die Liste der Komponenten kommt aus der Palette, die der Eigenschaften
 aus der Tabelle selbst – beide werden nicht von Hand gepflegt, sonst
 veraltet der Test bei der nächsten neuen Komponente.
 
-Aufgeteilt wird **je Komponente**, nicht je Eigenschaft: die Fälle
+Aufgeteilt wird je Komponente, nicht je Eigenschaft: die Fälle
 aufzuzählen hieße, Widgets schon beim Einsammeln der Tests anzulegen,
 und zu dem Zeitpunkt gibt es noch keine `QApplication` – Qt beendet den
 Prozess dann ohne Meldung.
@@ -77,7 +77,7 @@ def _zeilen(tabelle: EigenschaftenTabelle) -> list[tuple[str, QTableWidgetItem]]
     erkannt, sondern an denselben zwei Dingen, nach denen sich auch Qt
     beim Zeichnen richtet: ein Textfeld gibt es bei `ItemIsEditable`,
     ein Häkchen nur, wenn wirklich ein `CheckStateRole` gesetzt wurde.
-    `ItemIsUserCheckable` allein reicht dafür **nicht** - das Flag
+    `ItemIsUserCheckable` allein reicht dafür nicht - das Flag
     steht in Qts Voreinstellung für jede Zelle und sagt nichts darüber,
     ob eine zu sehen ist. Eine neue Sammlungseigenschaft fällt damit
     von selbst heraus, ohne dass jemand eine Liste pflegen müsste.

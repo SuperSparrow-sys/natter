@@ -1,5 +1,5 @@
-"""Tests für „Ansicht → Design → Hell/Dunkel/System“ (Nutzer-Feedback,
-September 2026: „Hast du bei Ansicht den Darkmode schon
+"""Tests für „Ansicht → Design → Hell/Dunkel/System“ (Rückmeldung: „Hast du bei
+Ansicht den Darkmode schon
 implementiert?“). Bislang gab es nur ein einziges, fest auf „system“
 gesetztes IDE-Theme ohne jede Umschaltmöglichkeit.
 """

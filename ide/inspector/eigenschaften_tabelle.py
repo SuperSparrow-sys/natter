@@ -76,7 +76,7 @@ class EigenschaftenTabelle(QTableWidget):
         self._aktueller_name: str | None = None
         self._aktualisierung_laeuft = False
         self.itemChanged.connect(self._bei_zellenaenderung)
-        # `itemActivated` meldet Doppelklick **und** Eingabetaste -
+        # `itemActivated` meldet Doppelklick und Eingabetaste -
         # der Zeileneditor für `items`/`lines` war sonst nur mit der
         # Maus erreichbar (M11, Abschnitt 4).
         self.itemActivated.connect(self._bei_doppelklick)
@@ -90,22 +90,22 @@ class EigenschaftenTabelle(QTableWidget):
         bei_aenderung: Callable[[Any, str, Any, Any], None] | None = None,
     ) -> None:
         """Füllt die Tabelle mit allen `Prop`-Eigenschaften von
-        `komponente`, alphabetisch (Abschnitt 7.6: „alphabetisch oder
-        nach Kategorie gruppiert“ – Kategorie folgt später), plus allen
-        aufklappbaren Untereigenschaften, die diese Komponente besitzt
-        (z. B. `Shape.brush.color`, Nutzer-Feedback September 2026: „alle
-        Eigenschaften inklusive Farbe usw. sollen im Objektinspektor
-        angezeigt werden“ – `brush.color` fehlte bisher komplett, weil es
-        kein echter `Prop` ist, sondern eine Untereigenschaft).
+ `komponente`, alphabetisch (Abschnitt 7.6: „alphabetisch oder
+ nach Kategorie gruppiert“ – Kategorie folgt später), plus allen
+ aufklappbaren Untereigenschaften, die diese Komponente besitzt
+ (z. B. `Shape.brush.color`, Gewünscht: „alle
+ Eigenschaften inklusive Farbe usw. sollen im Objektinspektor
+ angezeigt werden“ – `brush.color` fehlte bisher komplett, weil es
+ kein echter `Prop` ist, sondern eine Untereigenschaft).
 
-        `name`/`name_setzen` zeigen zusätzlich ganz oben die Zeile „name“
-        (der Bezeichner im generierten Code, z. B. `b_anmelden`) –
-        getrennt von `caption`/`text` (dem Anzeigetext), wie in Lazarus
-        (Nutzer-Feedback September 2026: „caption und name sind
-        unterschiedlich und der Name muss vom Nutzer frei veränderbar
-        sein“). Ohne beide Argumente (z. B. außerhalb eines offenen
-        Designers) bleibt die Zeile weg, weil es dann nichts umzubenennen
-        gibt."""
+ `name`/`name_setzen` zeigen zusätzlich ganz oben die Zeile „name“
+ (der Bezeichner im generierten Code, z. B. `b_anmelden`) –
+ getrennt von `caption`/`text` (dem Anzeigetext), wie in Lazarus
+ (Gewünscht: „caption und name sind
+ unterschiedlich und der Name muss vom Nutzer frei veränderbar
+ sein“). Ohne beide Argumente (z. B. außerhalb eines offenen
+ Designers) bleibt die Zeile weg, weil es dann nichts umzubenennen
+ gibt."""
         self._aktualisierung_laeuft = True
         self._komponente = komponente
         self._bei_aenderung = bei_aenderung
@@ -303,10 +303,10 @@ class EigenschaftenTabelle(QTableWidget):
         self.fehlertext = ""
 
     def _name_zeile_bearbeiten(self, element: QTableWidgetItem) -> None:
-        """Zeile „name“ (Bezeichner im Code, Nutzer-Feedback September
-        2026): Umbenennen läuft über `DesignerCanvas.komponente_umbenennen`
-        (Undo, `.pfm`/Code-Aktualisierung), nicht über `setattr` – deshalb
-        der eigene `name_setzen`-Rückruf statt `_wert_setzen`."""
+        """Zeile „name“ (Bezeichner im Code, Rückmeldung September
+ 2026): Umbenennen läuft über `DesignerCanvas.komponente_umbenennen`
+ (Undo, `.pfm`/Code-Aktualisierung), nicht über `setattr` – deshalb
+ der eigene `name_setzen`-Rückruf statt `_wert_setzen`."""
         neuer_name = element.text()
         try:
             self._name_setzen(neuer_name)

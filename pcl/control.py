@@ -4,7 +4,7 @@ Siehe README.md, Abschnitt 5. Verbindet den Prop-Zugriff aus
 `pcl.properties` mit einem echten QWidget: eine Zuweisung wie
 ``self.b_ok.caption = "OK"`` ändert sofort die Anzeige (live).
 
-**Die Maus gehört jeder sichtbaren Komponente** (Abschnitt 5.4). Bis M15
+Die Maus gehört jeder sichtbaren Komponente (Abschnitt 5.4). Bis M15
 war `on_click` nur am `Button` verdrahtet, weil nur er ein eigenes
 Qt-Klicksignal hat; `Label` und `Image` hatten dafür je eine eigene
 QLabel-Unterklasse, die `mousePressEvent` abfing. Drei Nachbauten
@@ -35,7 +35,7 @@ __all__ = ["Control", "EREIGNIS_PARAMETER", "MAUS_EREIGNISSE"]
 #: Was eine Ereignis-Methode über `sender` hinaus bekommt.
 #:
 #: `on_click` und `on_double_click` bleiben bei `(self, sender)` - wie
-#: `OnClick(Sender)` in Lazarus. Wer weiß, **wo** geklickt wurde, nimmt
+#: `OnClick(Sender)` in Lazarus. Wer weiß, wo geklickt wurde, nimmt
 #: `on_mouse_down`; dort stehen die Koordinaten dabei, gezählt von der
 #: linken oberen Ecke der Komponente. Der Ereignis-Generator
 #: (`ide/codegen/ereignis.py`) legt die Methode danach mit der richtigen
@@ -111,7 +111,7 @@ class Control(Komponente):
 
     #: Welches Ereignis ein Doppelklick im Designer anlegt.
     #:
-    #: Nur nötig, wenn eine Komponente **mehrere** eigene Ereignisse
+    #: Nur nötig, wenn eine Komponente mehrere eigene Ereignisse
     #: hat und trotzdem eines davon das kennzeichnende ist - beim
     #: `StringGrid` die Auswahl einer Zelle, nicht deren Änderung. Bei
     #: einer Komponente mit genau einem Ereignis findet der Designer es
@@ -123,7 +123,7 @@ class Control(Komponente):
     #:
     #: Im Code ging das immer schon - `RadioButton(self.g_zahlung)`
     #: hängt den Knopf an die `GroupBox`, das erledigt `__init__` von
-    #: selbst. Der **Designer** legte bis September 2026 trotzdem jede
+    #: selbst. Der Designer legte bis dahin trotzdem jede
     #: abgelegte Komponente ans Formular; ein Panel war dort eine
     #: Fläche, auf der nichts liegen konnte. Diese Angabe sagt ihm,
     #: wohin er eine Ablage geben darf.
@@ -163,7 +163,7 @@ class Control(Komponente):
         # Die Komponente merkt sich, woran sie hängt. Qt weiß es zwar
         # auch (`_qwidget.parentWidget()`), aber nicht als `pcl`-Objekt
         # - und der Designer, der Komponentenbaum und das Speichern in
-        # die `.pfm` brauchen genau das: zu welcher **Komponente** ein
+        # die `.pfm` brauchen genau das: zu welcher Komponente ein
         # Kind gehört, nicht zu welchem Widget.
         self._eltern = parent
         self._font = Font(self)

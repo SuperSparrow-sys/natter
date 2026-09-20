@@ -1,38 +1,38 @@
-"""Baut ein Natter-Projekt mit PyInstaller zu **einer einzigen** Exe
+"""Baut ein Natter-Projekt mit PyInstaller zu einer einzigen Exe
 (README.md, Abschnitt 16 „Export"; M8 Schritt 4, M14).
 
-Nutzt dieselbe Python-Umgebung wie die IDE selbst (`python_befehl()`,
+Nutzt dieselbe Python-Umgebung wie die IDE selbst (`python_befehl`,
 siehe `ide/run/interpreter.py`) - PyInstaller liegt der Auslieferung bei
 (siehe `tools/ide_paketieren.py`), es ist kein Extra-Download auf dem
 Schüler-Rechner nötig.
 
-**Eine Datei, kein Ordner** (Nutzer-Vorgabe September 2026: „es darf
+Eine Datei, kein Ordner (Vorgabe: „es darf
 keinen extra Ordner geben, das ganze Programm soll in der exe sein").
 Bis dahin baute Natter die Ordner-Variante und packte sie in ein ZIP.
 Das ist technisch der robustere Weg, aber für den Zweck der falsche: wer
 sein Spiel einem Freund schickt, schickt eine Datei und keine
 Anleitung zum Entpacken. Alles, was das Projekt braucht - auch die
-Unterordner `daten/`, `bilder/`, `assets/` -, wandert dafür **in** die
+Unterordner `daten/`, `bilder/`, `assets/` -, wandert dafür in die
 Exe; zur Laufzeit packt PyInstaller sie neben das Skript aus, sodass
 `Path(__file__).parent / "bilder"` weiter stimmt.
 
 Der Preis ist ein spürbar langsamerer Start (die Exe entpackt sich bei
 jedem Lauf) und eine größere Datei. Beides ist hier das kleinere Übel.
 
-**Mitgenommen wird nur, was das Projekt wirklich braucht** (September
-2026, Nutzer-Auftrag: „Schaue wie ich den Export eines Programms als exe
+Mitgenommen wird nur, was das Projekt wirklich braucht (September
+2026, Auftrag: „Schaue wie ich den Export eines Programms als exe
 schneller hinbekommen aber trotzdem als Stand alone Datei"). Vorher bekam
 jedes Projekt dasselbe Paket: ein Taschenrechner mit vier Knöpfen wog
-genauso viel wie das Machine-Learning-Beispiel, nämlich **120,2 MB, und
-der Bau dauerte 110 Sekunden**. Der Grund ist PyInstaller selbst - es
+genauso viel wie das Machine-Learning-Beispiel, nämlich 120,2 MB, und
+der Bau dauerte 110 Sekunden. Der Grund ist PyInstaller selbst - es
 folgt auch Importen, die tief in einer Funktion stehen, und `pcl` führt
 für `Chart` und `regression` numpy, matplotlib und pandas mit. Wer kein
 Diagramm zeichnet, schleppt sie trotzdem mit.
 
-`_ueberfluessige_pakete()` sieht deshalb in den Quelltexten des Projekts
+`_ueberfluessige_pakete` sieht deshalb in den Quelltexten des Projekts
 nach, welche dieser Pakete überhaupt vorkommen, und schließt die
 übrigen mit `--exclude-module` aus. Für den Taschenrechner sind das
-**51 Sekunden und 44,9 MB** - weniger als die Hälfte der Zeit und gut
+51 Sekunden und 44,9 MB - weniger als die Hälfte der Zeit und gut
 ein Drittel der Größe, bei unverändert einer einzigen Datei. Wer ein
 Diagramm oder scikit-learn benutzt, bekommt alles Nötige nach wie vor.
 
@@ -115,7 +115,7 @@ _NICHT_MITNEHMEN = {
 #: Zahlen sind an echten Läufen abgeschätzt: das Einsammeln der
 #: Abhängigkeiten dauert am längsten, das Schreiben der Exe geht schnell.
 #:
-#: „Looking for …" steht bewusst **nicht** in der Liste, obwohl es
+#: „Looking for …" steht bewusst nicht in der Liste, obwohl es
 #: auffällig oft vorkommt: PyInstaller sucht schon in der ersten Sekunde
 #: nach der Python-Bibliothek. Als Marke genommen sprang der Balken
 #: sofort auf über die Hälfte und stand dann lange still (an einem
@@ -206,6 +206,34 @@ def _ueberfluessige_pakete(projekt: Projekt) -> list[str]:
     ]
 
 
+def _laeuft_noch(exe_pfad: Path) -> str | None:
+    """Prüft, ob die Ziel-Exe gerade läuft. Liefert eine deutsche
+    Meldung, wenn ja, sonst `None`.
+
+    Der häufigste Fall überhaupt: exportieren, ausprobieren, etwas
+    ändern, wieder exportieren - und das Programm von vorhin steht
+    noch offen. Windows sperrt die Datei dann, PyInstaller scheitert
+    mit einer englischen Meldung irgendwo im Protokoll, und Natter flog
+    beim Aufräumen mit einem `PermissionError` heraus. Im Durchgang
+    durch den Schuelerweg genau so passiert.
+
+    Geprüft wird durch Öffnen zum Schreiben - der einzige Weg, der
+    ohne zusätzliche Windows-Bibliothek auskommt und nichts kaputt
+    macht.
+    """
+    if not exe_pfad.is_file():
+        return None
+    try:
+        with exe_pfad.open("ab"):
+            return None
+    except OSError:
+        return (
+            f"„{exe_pfad.name}“ läuft gerade noch und lässt sich deshalb nicht "
+            f"überschreiben.\n\nBitte das Programm schließen und den Export "
+            f"noch einmal starten."
+        )
+
+
 def exe_exportieren(
     projekt: Projekt,
     ziel_ordner: Path | None = None,
@@ -228,6 +256,10 @@ def exe_exportieren(
     dist_pfad = ziel_ordner if ziel_ordner is not None else projekt.ordner / "dist"
     arbeits_pfad = projekt.ordner / "_pyinstaller_build"
     spec_pfad = projekt.ordner / "_pyinstaller_spec"
+
+    gesperrt = _laeuft_noch(dist_pfad / f"{projekt.name}.exe")
+    if gesperrt is not None:
+        return ExportErgebnis(False, None, gesperrt)
 
     befehl = [
         *python_befehl(),
@@ -290,7 +322,14 @@ def exe_exportieren(
     exe_pfad = dist_pfad / f"{projekt.name}.exe"
 
     if rueckgabe != 0:
-        exe_pfad.unlink(missing_ok=True)
+        try:
+            exe_pfad.unlink(missing_ok=True)
+        except OSError as fehler:
+            # Aufräumen ist eine Höflichkeit, kein Selbstzweck. Ist die
+            # Datei gesperrt, weil das Programm noch läuft, flog hier
+            # ein `PermissionError` bis nach oben durch - der Export
+            # stürzte ab, statt seinen Fehlschlag zu melden.
+            protokoll += f"\nDie alte Exe ließ sich nicht entfernen: {fehler}"
         return ExportErgebnis(False, None, protokoll)
 
     if not exe_pfad.is_file():

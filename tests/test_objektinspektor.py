@@ -114,12 +114,12 @@ def test_ohne_designer_canvas_fehlt_die_name_zeile() -> None:
 
 
 def test_name_zeile_zeigt_den_bezeichner_und_erlaubt_umbenennen(tmp_path: Path) -> None:
-    """Nutzer-Feedback (September 2026): „caption und name sind
-    unterschiedlich und der name also b_anmelden muss auch vom Nutzer
-    frei veränderbar sein." Umbenennen läuft über
-    `DesignerCanvas.komponente_umbenennen` (Undo, `.pfm`-Aktualisierung),
-    genau wie ein Umbenennen über die Tastatur/ein Kommando im Designer
-    selbst."""
+    """Gemeldet: „caption und name sind
+ unterschiedlich und der name also b_anmelden muss auch vom Nutzer
+ frei veränderbar sein." Umbenennen läuft über
+ `DesignerCanvas.komponente_umbenennen` (Undo, `.pfm`-Aktualisierung),
+ genau wie ein Umbenennen über die Tastatur/ein Kommando im Designer
+ selbst."""
     pfm_pfad = tmp_path / "u_main.pfm"
     pfm_pfad.write_text(json.dumps(_PFM_MIT_BUTTON), encoding="utf-8")
     formular = formular_fuer_designer_laden(pfm_pfad)

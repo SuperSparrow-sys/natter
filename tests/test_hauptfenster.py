@@ -37,7 +37,7 @@ def test_start_aktion_ist_durch_eine_trennlinie_von_den_dateiaktionen_abgesetzt(
 
 
 def test_werkzeugleiste_hat_eine_sichtbare_symbolgroesse() -> None:
-    # 18px seit dem kompakteren Chrome (Nutzer-Feedback September 2026:
+    # 18px seit dem kompakteren Chrome (Gewünscht: 
     # „die obere Leiste kann kleiner sein“) - immer noch deutlich über
     # der Grenze, ab der Symbole unkenntlich würden.
     fenster = HauptFenster()
@@ -115,13 +115,13 @@ def test_objektinspektor_haengt_im_dock() -> None:
 def test_editor_behaelt_seine_monospace_schrift_unter_dem_ide_weiten_stylesheet(
     tmp_path,
 ) -> None:
-    """Real gefunden (Nutzer-Feedback September 2026): ein bloßes
-    `QuelltextEditor()` ohne Eltern-Stylesheet zeigte die richtige
-    Schrift, aber sobald der Editor als Tab in der echten `HauptFenster`
-    hängt, gewann die allgemeine `QWidget { font-family: ... }`-Regel
-    aus dem IDE-weiten Stylesheet gegen `setFont()` - nicht nur optisch,
-    `editor.font().family()`/`.pointSize()` waren selbst falsch
-    (Segoe UI Variable, 10pt statt Consolas, 11pt)."""
+    """Real gefunden (gemeldet): ein bloßes
+ `QuelltextEditor` ohne Eltern-Stylesheet zeigte die richtige
+ Schrift, aber sobald der Editor als Tab in der echten `HauptFenster`
+ hängt, gewann die allgemeine `QWidget { font-family:... }`-Regel
+ aus dem IDE-weiten Stylesheet gegen `setFont` - nicht nur optisch,
+ `editor.font.family`/`.pointSize` waren selbst falsch
+ (Segoe UI Variable, 10pt statt Consolas, 11pt)."""
     fenster = HauptFenster()
     pfad = tmp_path / "u_main.py"
     pfad.write_text("x = 1\n", encoding="utf-8")

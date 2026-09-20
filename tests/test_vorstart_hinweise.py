@@ -1,6 +1,6 @@
 """Ein ungenutzter Import verhindert den Start nicht mehr (M12).
 
-Bis hierher verhinderte **jeder** Fund der Vorstart-Prüfung den Start.
+Bis hierher verhinderte jeder Fund der Vorstart-Prüfung den Start.
 Wer `import random` schreibt, bevor er `random` benutzt – also so, wie
 man es lernt –, bekam sein Programm nicht gestartet, obwohl es
 einwandfrei gelaufen wäre. Dasselbe beim Auskommentieren einer Zeile

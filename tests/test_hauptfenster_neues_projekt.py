@@ -1,7 +1,7 @@
 """Tests für „Projekt → Neues Projekt …“ (Abschnitt 7.2).
 
-Nutzer-Feedback (September 2026, beim Blick auf das Projekt-Menü: „ist
-da alles?“): `projekt_erzeugen()` existierte bereits (seit M2), war aber
+Rückmeldung (beim Blick auf das Projekt-Menü: „ist
+da alles?“): `projekt_erzeugen` existierte bereits (seit M2), war aber
 aus der laufenden IDE heraus nirgends erreichbar – kein Menüeintrag, kein
 Dialog. `NeuesProjektDialog` selbst wird hier über eine einfache
 Attrappe ersetzt statt echter Modal-Interaktion, wie an anderer Stelle in

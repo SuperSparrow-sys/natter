@@ -4,7 +4,7 @@ nachgetragen wurden. Headless.
 
 Die Formkennung (`shape["kind"]`) ist zugleich der halbe Dateiname des
 Symbols (`form_<kind>.svg`). Das ist Absicht: eine neue Form braucht
-dadurch **eine** Datei und keinen zweiten Namen, den man an anderer
+dadurch eine Datei und keinen zweiten Namen, den man an anderer
 Stelle nachtragen müsste – und der erste Test hier merkt sofort, wenn
 sie fehlt.
 """

@@ -1,9 +1,9 @@
 """„Neues Projekt …“-Dialog (Abschnitt 7.2, 7.5): Vorlage, Name und
-Zielordner abfragen, dann `ide.project.neu.projekt_erzeugen()` aufrufen.
+Zielordner abfragen, dann `ide.project.neu.projekt_erzeugen` aufrufen.
 
-Bisher gab es zwar die reine Logik (`projekt_erzeugen()`, seit M2), aber
+Bisher gab es zwar die reine Logik (`projekt_erzeugen`, seit M2), aber
 keine Möglichkeit, ein neues Projekt tatsächlich aus der laufenden IDE
-heraus anzulegen (Nutzer-Feedback, September 2026: „ist da alles?“ beim
+heraus anzulegen (Gewünscht: „ist da alles?“ beim
 Blick auf das Projekt-Menü) – dieser Dialog schließt die Lücke.
 """
 

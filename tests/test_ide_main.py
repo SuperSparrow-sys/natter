@@ -48,9 +48,9 @@ def test_fenster_kann_angezeigt_werden() -> None:
 
 
 def test_natter_datei_als_kommandozeilenargument_wird_geoeffnet() -> None:
-    """Nutzer-Feedback (September 2026): „man installiert die Exe und
-    kann dann auch eine .natter-Datei einfach öffnen" - die Windows-
-    Dateizuordnung (`tools/natter.iss`) ruft `Natter.exe "%1"` auf."""
+    """Gemeldet: „man installiert die Exe und
+ kann dann auch eine.natter-Datei einfach öffnen" - die Windows-
+ Dateizuordnung (`tools/natter.iss`) ruft `Natter.exe "%1"` auf."""
     _, fenster = erstellen()
 
     _projekt_aus_argv_oeffnen(fenster, ["Natter.exe", str(_AMPEL_NATTER)])

@@ -2,8 +2,8 @@
 (M11, Abschnitt 4).
 
 Die Kürzel gab es alle schon – sie standen nur nirgends zusammen. Zwei
-Dinge werden hier am genauesten geprüft: dass die Übersicht **aus dem
-Register erzeugt** wird (eine von Hand gepflegte Liste ist nach der
+Dinge werden hier am genauesten geprüft: dass die Übersicht aus dem
+Register erzeugt wird (eine von Hand gepflegte Liste ist nach der
 dritten neuen Aktion falsch) und dass die aufgeschriebenen Editortasten
 im Editor wirklich etwas tun – eine Übersicht, die etwas Falsches
 verspricht, schickt jemanden auf die Suche nach einem Fehler, den es

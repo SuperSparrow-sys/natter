@@ -1,7 +1,7 @@
 """Natter benutzt seine eigene Python - und nur die (M13).
 
 Auf einem Rechner, auf dem schon mit Python gearbeitet wurde, stehen
-Umgebungsvariablen herum, die auf eine **andere** Installation zeigen.
+Umgebungsvariablen herum, die auf eine andere Installation zeigen.
 Die unauffälligste davon ist `PYTHONUSERBASE`: aus ihr rechnet *jede*
 Python 3.13 ihr Benutzer-Paketverzeichnis aus, auch eine frisch
 ausgepackte. Die sieht dann die Pakete des fremden Rechners als ihre
@@ -18,7 +18,7 @@ Gemerkt hat es niemand, bis die Pakete in `dist` nachgezählt wurden.
 Dieselbe Falle steht auf dem Schulrechner: findet die ausgelieferte
 Python dort eine fremde PySide6-Fassung, geht Natter auf einem Rechner
 kaputt, an dem nie jemand etwas geändert hat. Deshalb prüft dieser Test
-**beide** Seiten - den Bau und den Starter.
+beide Seiten - den Bau und den Starter.
 """
 
 from __future__ import annotations
@@ -70,7 +70,7 @@ def test_der_rest_der_umgebung_bleibt(seite: str, verseuchte_umgebung: None) -> 
     assert UMGEBUNGEN[seite]()["PATH"] == r"C:\Windows\system32"
 
 
-# -- Tcl/Tk fliegt aus der Auslieferung (September 2026) ----------------
+# -- Tcl/Tk fliegt aus der Auslieferung ----------------
 #
 # "Tk Inter kann komplett raus aus der Installation." Tcl/Tk ist Pythons
 # zweite Fenstertechnik - Natter baut jede Oberflaeche mit Qt, und `pcl`
@@ -138,7 +138,7 @@ def test_natter_selbst_fasst_tkinter_nirgends_an() -> None:
 
 
 # Die Auslieferung muss das enthalten, was geprueft wurde. Bis
-# September 2026 rief das Bauskript schlicht `pip install <projekt>`,
+# rief das Bauskript schlicht `pip install <projekt>`,
 # und pip loeste frisch gegen PyPI auf - in `dist` landete pandas
 # 3.0.6, waehrend alle Tests gegen 3.0.5 gruen waren. Aufgefallen ist
 # es erst, weil Windows Smart App Control die brandneuen, noch ohne

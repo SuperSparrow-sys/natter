@@ -6,7 +6,7 @@ weder Qt noch ein geöffnetes Fenster – sie sind dadurch einzeln
 testbar. Die Zeichenfläche verpackt sie in Kommandos, damit sie
 rückgängig machbar sind.
 
-Eine **Einfügestelle** beschreibt genau eine Lücke im Baum: die Liste,
+Eine Einfügestelle beschreibt genau eine Lücke im Baum: die Liste,
 in die eingefügt wird, und der Index darin. Weil jede Liste im Baum zu
 genau einem Block gehört (`children`, `then`, `else`, `catch`,
 `finally`, die `children` eines Falls oder ein Strang eines
@@ -39,7 +39,7 @@ STANDARDTEXTE = {
 
 #: Schlüssel, unter denen ein Block eine einfache Kinderliste führt.
 #: `cases` (Mehrfachauswahl) und `branches` (Parallelabschnitt) fehlen
-#: hier bewusst: dort steckt je eine Liste **von** Listen.
+#: hier bewusst: dort steckt je eine Liste von Listen.
 KINDERSCHLUESSEL: tuple[str, ...] = ("children", "then", "else", "catch", "finally")
 
 #: Blocktypen, in die sich weitere Blöcke einfügen lassen, mit den
@@ -71,7 +71,7 @@ class Einfuegestelle:
         """Die Kinderliste, in die eingefügt wird.
 
         Ein Schlüssel, den der Blocktyp gar nicht kennt, ist ein Fehler
-        und **kein** Grund, stillschweigend eine neue Liste anzulegen:
+        und kein Grund, stillschweigend eine neue Liste anzulegen:
         vorher legte ein Tippfehler wie `"otherwise"` statt `"else"` ein
         Feld an, das keine Darstellung kennt. Der eingefügte Block war
         danach unsichtbar, stand aber in der Datei – und die
@@ -185,7 +185,7 @@ def einfuegen(stelle: Einfuegestelle, block: dict[str, Any]) -> None:
 
 
 def stelle_von(daten: dict[str, Any], block: dict[str, Any]) -> Einfuegestelle | None:
-    """Wo `block` gerade steht – **ohne** ihn anzufassen.
+    """Wo `block` gerade steht – ohne ihn anzufassen.
 
     Getrennt von `entfernen()`, weil das Verschieben mit der Maus die
     alte Stelle schon kennen muss, solange der Block noch an Ort und

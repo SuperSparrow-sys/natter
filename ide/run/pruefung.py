@@ -26,7 +26,7 @@ from pcl.pruefungsmodus import laeuft as pruefungsmodus_laeuft
 _AUSGEWAEHLTE_REGELN = "E9,F821,F401,F841"
 
 #: Regeln, die als Hinweis im Panel „Meldungen“ stehen, den Start aber
-#: **nicht** verhindern: ein ungenutzter Import und eine ungenutzte
+#: nicht verhindern: ein ungenutzter Import und eine ungenutzte
 #: Variable sind Unordnung, kein Fehler – das Programm läuft damit
 #: einwandfrei.
 #:
@@ -97,7 +97,7 @@ class RuffFund:
     def blockiert(self) -> bool:
         """Ob dieser Fund den Start verhindert.
 
-        Die Unterscheidung fehlte bis M12: **jeder** Fund verhinderte
+        Die Unterscheidung fehlte bis M12: jeder Fund verhinderte
         ihn. Wer `import random` schreibt, bevor er `random` benutzt –
         also so, wie man es lernt –, bekam sein Programm nicht gestartet,
         obwohl es einwandfrei gelaufen wäre. Dasselbe beim Auskommentieren

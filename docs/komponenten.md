@@ -442,7 +442,7 @@ Im Designer liegt sie als kleine Uhr auf dem Formular — anklickbar,
 verschiebbar, im Objektinspektor einstellbar —, im fertigen Programm
 ist sie unsichtbar. Genau so hält Lazarus es mit `TTimer`.
 
-Du ziehst den Zeitgeber also wie jede andere Komponente aus der Palette
+Der Zeitgeber wird also wie jede andere Komponente aus der Palette
 „Zusätzlich" auf das Formular und stellst `interval` und `enabled` im
 Objektinspektor ein. Ein Doppelklick auf die Uhr legt die Methode für
 `on_timer` an.
@@ -488,7 +488,7 @@ Designer auch keine weg.
 Die Leiste sitzt **über** dem Inhalt: das Fenster wächst um ihre Höhe,
 die Komponenten behalten ihre Koordinaten. Genau so verhält sich
 Lazarus auch – dort ist `Top = 0` der obere Rand des Arbeitsbereichs,
-nicht des Fensters. Ein Knopf, den du ganz nach oben setzt, steht im
+nicht des Fensters. Ein Knopf ganz oben steht auch im
 laufenden Programm auch ganz oben und nicht hinter dem Menü.
 
 ### Die Einträge
@@ -509,8 +509,8 @@ Ein Eintrag ist kein Text, sondern ein Datensatz mit diesen Feldern:
 Ausgefüllt wird das im **Menü-Editor**: Doppelklick auf das Symbol,
 F2, oder die Zeile `entries` im Objektinspektor. Links steht der Baum
 der Einträge, rechts die Felder des ausgewählten. Ein Durchgang durch
-den Dialog ist ein Schritt für „Rückgängig", egal wie viel du darin
-geändert hast.
+den Dialog ist ein Schritt für „Rückgängig", gleichgültig wie viel
+darin geändert wurde.
 
 Menüs gehen bis zur **zweiten Ebene** („Datei → Zuletzt geöffnet"),
 tiefer nicht – dort findet sich niemand mehr zurecht.
@@ -527,8 +527,8 @@ self.mm_haupt.entries = [
 ]
 ```
 
-Einen einzelnen Eintrag findest du über seinen Bezeichner und änderst
-ihn zur Laufzeit; danach `aktualisieren()` aufrufen:
+Ein einzelner Eintrag lässt sich über seinen Bezeichner finden und zur
+Laufzeit ändern; danach `aktualisieren()` aufrufen:
 
 ```python
 self.mm_haupt.eintrag("mi_speichern")["enabled"] = False

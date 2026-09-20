@@ -217,7 +217,7 @@ def test_hohe_aufloesung_zeigt_dasselbe_bild_nur_feiner(
     daten: dict, tmp_path: Path
 ) -> None:
     """Der Fehler, der beim Sichtvergleich auffiel: `setDotsPerMeter`
-    **vor** dem Malen ändert, wie `QPainter` Schriftgrößen von Punkt in
+    vor dem Malen ändert, wie `QPainter` Schriftgrößen von Punkt in
     Pixel umrechnet. Die Schrift kam dadurch sechzehnfach statt
     vierfach heraus und die Textzeilen lagen übereinander.
 
@@ -339,7 +339,7 @@ def test_drucken_zeichnet_auf_den_uebergebenen_drucker(
 
 @pytest.mark.drucker
 def test_drucker_wird_nur_einmal_gesucht(fenster: DiagrammFenster) -> None:
-    """Real gemessen: der **erste** `QPrinter` eines Prozesses lässt
+    """Real gemessen: der erste `QPrinter` eines Prozesses lässt
     Windows alle Drucker durchsuchen und brauchte dafür fast eine
     Minute, in der die Oberfläche stand. Der fertige Drucker wird
     deshalb gemerkt – ein zweiter Aufruf darf keinen neuen anlegen."""
@@ -381,7 +381,7 @@ def test_export_nimmt_die_stilvorlage_des_diagramms_nicht_das_ide_theme(
 def test_die_kopfzeile_eines_struktogramms_kommt_mit_aufs_bild() -> None:
     """Sie stand real ausserhalb des Exportbereichs: `struktogramm_layout`
     liefert den Wurzelblock, und der beginnt bei einem benannten
-    Struktogramm erst **unterhalb** des Namens. Im exportierten PNG war
+    Struktogramm erst unterhalb des Namens. Im exportierten PNG war
     von "kasse_buchen" nur die untere Haelfte der Buchstaben zu sehen -
     im Durchgang durch den Schuelerweg am Bild aufgefallen."""
     from ide.diagramm.struktogramm import KOPFHOEHE, struktogramm_layout

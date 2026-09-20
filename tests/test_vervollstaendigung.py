@@ -2,8 +2,8 @@
 Headless, gegen echtes jedi.
 
 Zwei Dinge sind hier das Eigentliche und werden deshalb am genauesten
-geprüft: die **Reihenfolge** (die eigenen Komponenten des Formulars
-ganz oben) und die **deutsche Erklärung** zu jedem Eintrag. jedi allein
+geprüft: die Reihenfolge (die eigenen Komponenten des Formulars
+ganz oben) und die deutsche Erklärung zu jedem Eintrag. jedi allein
 liefert eine alphabetische Liste nackter Namen – damit ist jemandem,
 der gerade anfängt, nicht geholfen.
 """
@@ -125,7 +125,7 @@ def test_was_sonst_in_der_datei_steht_kommt_zuletzt() -> None:
 
 
 def test_jede_pcl_eigenschaft_bringt_ihren_deutschen_hilfetext() -> None:
-    """jedi findet dazu **nichts**: die `pcl`-Eigenschaften sind
+    """jedi findet dazu nichts: die `pcl`-Eigenschaften sind
     Deskriptoren, ihr `doc=` steht nicht im Docstring."""
     quelle = FORMULAR.replace("        self.b_start\n", "        self.b_start.\n")
 

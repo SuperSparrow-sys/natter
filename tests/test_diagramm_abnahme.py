@@ -9,7 +9,7 @@ Lehrgang steht, gehören sie zur Kontoverwaltung - dort ist die eigene
 Klasse das Thema der Stufe, und ein Klassendiagramm gehört genau
 dorthin.
 
-Die Dateien werden hier nur **gelesen**; exportiert wird nach
+Die Dateien werden hier nur gelesen; exportiert wird nach
 `tmp_path`, damit im Beispielprojekt nichts verändert wird (AGENTS.md).
 """
 

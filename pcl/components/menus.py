@@ -4,14 +4,14 @@ Siehe README.md, Abschnitt 5.2 (Palette „Standard") und
 `docs/arbeitspakete/M15.md`, Schritt 1. Vorbild sind `TMainMenu` und
 `TPopupMenu` aus Lazarus.
 
-Bis M15 war ein Schülerprogramm mit Menüleiste in Natter **nicht
-baubar** – die Lücke stand im Kopf von `pcl/components/standard.py`
+Bis M15 war ein Schülerprogramm mit Menüleiste in Natter nicht
+baubar – die Lücke stand im Kopf von `pcl/components/standard.py`
 seit M1 als bekannt vermerkt. Menüs brauchen zweierlei, was es bis
 dahin nicht gab: eine Komponente, die auf dem Formular liegt, ohne
 dort etwas anzuzeigen (das kam mit `Control.nur_im_designer` und dem
 Zeitgeber in M14), und einen Editor für ihren Inhalt.
 
-**Die Einträge sind strukturierte Datensätze, keine Textzeilen.** Das
+Die Einträge sind strukturierte Datensätze, keine Textzeilen. Das
 ist dieselbe Entscheidung wie beim UML-Eigenschaften-Dialog im
 Diagramm-Editor: ein Menüeintrag hat einen Bezeichner, eine
 Beschriftung, ein Tastenkürzel und Untereinträge. Als freier Text
@@ -33,7 +33,7 @@ ein `dict` mit diesen Schlüsseln:
 ``separator``
     Eine Trennlinie. Sie hat keine Beschriftung und kein Ereignis.
 ``on_click``
-    **Name** der Methode auf dem Formular, nicht die Funktion selbst –
+    Name der Methode auf dem Formular, nicht die Funktion selbst –
     die `.pfm` und der erzeugte Quelltext können nur Namen tragen.
     Aufgelöst wird er erst beim Aufbau des Menüs.
 ``children``
@@ -299,7 +299,7 @@ class _Menue(Control):
     """Gemeinsamer Kern von `MainMenu` und `PopupMenu`.
 
     Beide halten denselben Baum aus Einträgen und bauen daraus zur
-    Laufzeit Qt-Menüs; sie unterscheiden sich nur darin, **wo** das
+    Laufzeit Qt-Menüs; sie unterscheiden sich nur darin, wo das
     Menü erscheint.
     """
 
@@ -329,7 +329,7 @@ class _Menue(Control):
     def entries(self) -> list[dict[str, Any]]:
         """Die Einträge des Menüs als Liste strukturierter Datensätze.
 
-        Gelesen wird eine **Kopie**: wer ``menue.entries[0]["caption"]``
+        Gelesen wird eine Kopie: wer ``menue.entries[0]["caption"]``
         ändert, soll nicht aus Versehen am Original schrauben, ohne
         dass das Menü davon erfährt. Zum Ändern gibt es die Zuweisung
         und `eintrag()`.
@@ -343,7 +343,7 @@ class _Menue(Control):
         self._menue_erneuern()
 
     def eintrag(self, name: str) -> dict[str, Any] | None:
-        """Der Eintrag mit diesem Bezeichner – zum Lesen **und**
+        """Der Eintrag mit diesem Bezeichner – zum Lesen und
         Ändern, denn hier kommt das Original zurück. Nach einer
         Änderung ``menue.aktualisieren()`` aufrufen."""
         return eintrag_suchen(self._eintraege, name)
@@ -415,7 +415,7 @@ class MainMenu(_Menue):
     beim Zeitgeber: was im fertigen Programm keine Fläche einnimmt,
     nimmt im Designer auch keine weg.
 
-    Die Leiste sitzt **über** dem Inhalt des Formulars: das Fenster
+    Die Leiste sitzt über dem Inhalt des Formulars: das Fenster
     wächst um ihre Höhe, die Komponenten behalten ihre Koordinaten.
     Genau so verhält sich Lazarus auch – dort ist ``Top = 0`` der
     obere Rand des Arbeitsbereichs, nicht des Fensters.

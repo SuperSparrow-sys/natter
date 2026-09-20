@@ -57,12 +57,13 @@ _schriftart_geladen = False
 
 def _cascadia_code_bereitstellen() -> None:
     """Lädt Cascadia Code aus der mitgelieferten Schriftdatei in die
-    Qt-Anwendungsschrift-Datenbank (Nutzer-Feedback September 2026:
-    „wenn Schriftart nicht installiert, soll diese installiert
-    werden“) - ganz ohne Windows-Systeminstallation, passend zur
-    portablen, installationsfreien Natter-Philosophie (Abschnitt 17).
-    Einmal pro Prozess, danach findet `QFont(["Cascadia Code", ...])`
-    sie zuverlässig, unabhängig davon, ob sie auf dem Rechner selbst
+    Anwendungsschrift-Datenbank von Qt. Gewünscht war: „wenn Schriftart
+    nicht installiert, soll diese installiert werden“ - ohne
+    Systeminstallation, passend dazu, dass Natter portabel bleibt
+    (Abschnitt 17).
+
+    Einmal pro Prozess; danach findet `QFont(["Cascadia Code", ...])`
+    sie zuverlässig, gleichgültig ob sie auf dem Rechner selbst
     installiert ist."""
     global _schriftart_geladen
     if _schriftart_geladen:
@@ -107,7 +108,7 @@ _FALT_SPALTE_BREITE = 14
 _KOPF_MUSTER = re.compile(r"^[ \t]*(class|async def|def)\b")
 
 # Rand-/Zeilenhervorhebungsfarben je Thema (Abschnitt 6, „Ansicht →
-# Design“, Nutzer-Feedback September 2026: Dark-Mode-Farben sollen zum
+# Design“, Gewünscht: Dark-Mode-Farben sollen zum
 # VS-Code-Standardschema passen). Dark+-Zeilennummernfarbe `#858585` und
 # Hervorhebung `#2a2d2e` sind VS Codes echte Standardwerte; Hell bleibt
 # beim bisherigen, etwas kräftigeren Grauton (kein VS-Code-Feedback dazu).
@@ -121,11 +122,11 @@ _RAND_FARBEN = {
 # übertönen. Dieselben Werte benutzt VS Code für `editorIndentGuide`.
 _EINZUGSLINIEN_FARBEN = {"light": "#e4e4e4", "dark": "#404040"}
 
-# Nutzer-Feedback (September 2026): Cascadia Code wirkte auf dem
+# Gemeldet: Cascadia Code wirkte auf dem
 # echten Rechner trotz mitgelieferter Schriftdatei weiterhin wie die
 # Standardschrift - Consolas (ein garantierter Windows-Systemfont,
 # kein Bundling nötig) steht deshalb an erster Stelle. Zusätzlich
-# als Auswahl im Menü „Ansicht → Schriftart“ angeboten (Nutzer-Feedback:
+# als Auswahl im Menü „Ansicht → Schriftart“ angeboten (Gemeldet: 
 # „soll bei Ansicht eine Auswahl der Schriftarten zum Auswählen“).
 SCHRIFTART_OPTIONEN = ("Consolas", "Cascadia Code", "Courier New")
 _CODE_SCHRIFTGROESSE = 11
@@ -199,7 +200,7 @@ class QuelltextEditor(QPlainTextEdit):
         #: Vervollständigung (M11, 2.2)
         self.vervollstaendigung_an = True
         self._vorschlaege: list[Vorschlag] = []
-        # Kind des **Viewports**, kein eigenes Fenster. Mit
+        # Kind des Viewports, kein eigenes Fenster. Mit
         # `Qt.WindowType.ToolTip` wäre die Liste ein Fenster für sich -
         # und `setGeometry` rechnete dann in Bildschirmkoordinaten. Beim
         # Bildschirmfoto fiel es auf: die Liste tauchte im Bild des
@@ -264,16 +265,16 @@ class QuelltextEditor(QPlainTextEdit):
             self._breite_aktualisieren()
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
-        """Automatischer Einzug (Nutzer-Feedback September 2026: „was
-        passiert wenn ich in einer Funktion Enter drücke“ – bisher
-        nichts, jede Zeile begann bei Spalte 0). Kein echtes
-        Grammatik-Wissen wie bei einer vollständigen Monaco-Integration
-        (`prototypes/s2`, noch offen) – nur zwei einfache, zuverlässige
-        Regeln wie in den meisten schlanken Editoren: Einzug der
-        Vorzeile übernehmen, nach einem ":" am Zeilenende eine Ebene
-        mehr einrücken. Tab fügt vier Leerzeichen statt eines
-        Tabulatorzeichens ein - sonst mischen sich in Python schnell
-        Tabs und Leerzeichen (`TabError`)."""
+        """Automatischer Einzug (Gewünscht: „was
+ passiert wenn ich in einer Funktion Enter drücke“ – bisher
+ nichts, jede Zeile begann bei Spalte 0). Kein echtes
+ Grammatik-Wissen wie bei einer vollständigen Monaco-Integration
+ (`prototypes/s2`, noch offen) – nur zwei einfache, zuverlässige
+ Regeln wie in den meisten schlanken Editoren: Einzug der
+ Vorzeile übernehmen, nach einem ":" am Zeilenende eine Ebene
+ mehr einrücken. Tab fügt vier Leerzeichen statt eines
+ Tabulatorzeichens ein - sonst mischen sich in Python schnell
+ Tabs und Leerzeichen (`TabError`)."""
         # Solange die Vorschlagsliste offen ist, gehören ihr die
         # Pfeiltasten, Eingabe und Escape. Sonst würde Eingabe eine neue
         # Zeile einfügen, statt den markierten Vorschlag zu übernehmen -
@@ -345,7 +346,7 @@ class QuelltextEditor(QPlainTextEdit):
             self.vorschlagsliste_schliessen()
 
     def _einzugsebene_loeschen(self) -> bool:
-        """Rücktaste im Einzug löscht eine **ganze** Ebene.
+        """Rücktaste im Einzug löscht eine ganze Ebene.
 
         Mit vier Leerzeichen je Ebene bräuchte es sonst vier Anschläge,
         um eine Zeile auszurücken – und wer dabei einmal zu oft oder zu
@@ -434,7 +435,7 @@ class QuelltextEditor(QPlainTextEdit):
     def einzugstiefe(self, blocknummer: int) -> int:
         """Wie viele Ebenen tief diese Zeile eingerückt ist.
 
-        Eine **leere** Zeile hat für sich genommen keine Einrückung; sie
+        Eine leere Zeile hat für sich genommen keine Einrückung; sie
         übernimmt deshalb die der nächsten Zeile mit Inhalt. Sonst
         rissen die Linien mitten in einem Block ab, gerade dort, wo eine
         Leerzeile zwei Absätze einer Funktion trennt – und genau dann
@@ -454,7 +455,7 @@ class QuelltextEditor(QPlainTextEdit):
     def _einzugslinien_zeichnen(self, event: QPaintEvent) -> None:
         """Eine senkrechte Linie je Einrückungsebene.
 
-        Bei Python **ist** die Einrückung die Syntax – wer sie nicht
+        Bei Python ist die Einrückung die Syntax – wer sie nicht
         sieht, sucht seinen Fehler an der falschen Stelle. Gezeichnet
         wird hinter den Text, damit sie ihn nie verdeckt.
         """
@@ -614,7 +615,7 @@ class QuelltextEditor(QPlainTextEdit):
         """Unterringelt die genannten Zeilen (ab 1) und legt die
         deutsche Meldung als Tooltip darunter.
 
-        Bis jetzt stand ein Fund **nur** in der Meldungsliste unter dem
+        Bis jetzt stand ein Fund nur in der Meldungsliste unter dem
         Editor. Wer ihn dort nicht anklickt, sieht nichts – und gerade
         wer gerade erst anfängt, schaut nicht nach unten, sondern auf
         die Zeile, die er eben getippt hat.
@@ -691,11 +692,11 @@ class QuelltextEditor(QPlainTextEdit):
         Zwei Regeln, die sich im Unterricht bewähren und nicht im Weg
         stehen:
 
-        * Ist gerade Text markiert, wird er **umschlossen** statt
+        * Ist gerade Text markiert, wird er umschlossen statt
           ersetzt – wer `name` markiert und `"` tippt, will
           `"name"`, nicht den Text weg
         * Ein schließendes Zeichen, das ohnehin schon dasteht, wird
-          **übersprungen** statt verdoppelt. Sonst entstünde bei jedem
+          übersprungen statt verdoppelt. Sonst entstünde bei jedem
           getippten `)` ein `))`, und das ist der Fehler, den man am
           Bildschirm am schlechtesten sieht
         """
@@ -814,7 +815,7 @@ class QuelltextEditor(QPlainTextEdit):
         Einrückung seiner alten Umgebung mit. Eingefügt in eine
         Methode, stand er dann auf der falschen Ebene – und in Python
         ist das kein Schönheitsfehler, sondern ein `IndentationError`.
-        Die **relative** Einrückung innerhalb des eingefügten Stücks
+        Die relative Einrückung innerhalb des eingefügten Stücks
         bleibt erhalten; verschoben wird der Block als Ganzes.
 
         Angefasst wird nur mehrzeiliger Text. Ein einzelnes Wort oder
@@ -1076,7 +1077,7 @@ class QuelltextEditor(QPlainTextEdit):
                 return
 
     def _aktuelle_zeile_hervorheben(self) -> None:
-        """Qt führt Zeilenhervorhebung und Wellenlinien über **eine**
+        """Qt führt Zeilenhervorhebung und Wellenlinien über eine
         Liste. Sie getrennt zu setzen löschte jeweils die andere: die
         Unterringelungen verschwanden beim ersten Cursorwechsel wieder.
         Beide gehen deshalb über `_markierungen_setzen`."""

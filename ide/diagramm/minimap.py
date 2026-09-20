@@ -5,14 +5,14 @@ Ein verkleinertes Abbild des ganzen Diagramms unten rechts, mit einem
 Rahmen um den Ausschnitt, den man gerade sieht. Ein Klick springt
 dorthin.
 
-**Das Abbild entsteht aus der Zeichenfläche selbst** (`render`), nicht
+Das Abbild entsteht aus der Zeichenfläche selbst (`render`), nicht
 aus einer zweiten Zeichenroutine. Jede Form, jede Verbindung, jeder
 Block sieht in der Minimap deshalb automatisch so aus wie im Diagramm -
 und bleibt es auch, wenn später ein Diagrammtyp dazukommt. Eine eigene
 Miniaturdarstellung wäre eine zweite Wahrheit, die irgendwann von der
 ersten abweicht.
 
-Gerendert wird **nicht** bei jedem Neuzeichnen: das Abbild einer großen
+Gerendert wird nicht bei jedem Neuzeichnen: das Abbild einer großen
 Fläche kostet spürbar Zeit, und die Minimap ändert sich seltener als
 die Ansicht. Es entsteht neu, wenn sich das Diagramm ändert, und wird
 dazwischen wiederverwendet.
@@ -37,7 +37,7 @@ class Minimap(QWidget):
     """Das verkleinerte Gesamtbild mit dem Ausschnittsrahmen.
 
     `sprung_gewuenscht` meldet die Stelle, auf die geklickt wurde - in
-    **Diagrammkoordinaten**, damit der Aufrufer nur noch dorthin rollen
+    Diagrammkoordinaten, damit der Aufrufer nur noch dorthin rollen
     muss.
     """
 

@@ -4,7 +4,7 @@ Bewusst klein: keine Modellauswahl, kein Hyperparameter-Tuning, keine
 Kreuzvalidierung. Vier Arten, eine Funktion, ein Ergebnisobjekt mit
 deutschen Namen.
 
-**Gerechnet wird mit `numpy.polyfit`, nicht mit scikit-learn** (M10,
+Gerechnet wird mit `numpy.polyfit`, nicht mit scikit-learn (M10,
 Abschnitt 7: „numpy rechnet, scikit-learn liegt bei“). `numpy.polyfit`
 deckt linear und polynomial direkt ab; exponentiell und logarithmisch
 entstehen über die im Unterricht übliche Linearisierung:
@@ -12,7 +12,7 @@ entstehen über die im Unterricht übliche Linearisierung:
 * exponentiell ``y = a·e^(b·x)``  →  ``ln(y) = ln(a) + b·x``
 * logarithmisch ``y = a·ln(x) + b``  →  Gerade über ``ln(x)``
 
-Das Bestimmtheitsmaß wird in **beiden** Fällen auf der ursprünglichen
+Das Bestimmtheitsmaß wird in beiden Fällen auf der ursprünglichen
 Skala gerechnet (gemessenes y gegen vorhergesagtes y), nicht auf der
 linearisierten – sonst stünde dort ein Wert, der zu einer anderen Kurve
 gehört als der angezeigten. Eine Reihe, die exakt auf der Kurve liegt,

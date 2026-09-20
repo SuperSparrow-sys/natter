@@ -62,7 +62,7 @@ def qss_erzeugen(theme: str, tokens: dict[str, Any] | None = None) -> str:
     radius = daten["radius"]
     schrift = daten["font"]
 
-    # Nutzer-Feedback (September 2026): 12pt (sizes_pt[1]) wirkte zu groß
+    # Gemeldet: 12pt (sizes_pt[1]) wirkte zu groß
     # - dieselbe Korrektur wie zuvor für die IDE-Hülle
     # (ide/shell/theme.py). Real gefunden: bei 12pt passte "Button1"
     # nicht mehr in einen 52px breiten Button (Lazarus-Referenzgröße),
@@ -235,7 +235,7 @@ QGroupBox:disabled {{
     border-color: {farben["text_muted"]};
 }}
 
-/* TrackBar: **nur** der Griff wird umgefärbt, Rille und Teilstriche
+/* TrackBar: nur der Griff wird umgefärbt, Rille und Teilstriche
    bleiben dem Stil des Systems überlassen. Im Bildvergleich nachgemessen
    (September 2026): sobald auch `QSlider::groove` eine Regel bekommt,
    zeichnet Qt den Schieber vollständig aus dem Stylesheet - und QSS

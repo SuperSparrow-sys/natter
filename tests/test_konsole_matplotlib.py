@@ -8,7 +8,7 @@ es nie. Genau solche Sätze fallen irgendwann um: es genügt, dass jemand
 mitgeliefert wird, und ein Konsolenprogramm mit `plt.show()` stürzt beim
 Schüler ab, ohne dass ein Test etwas gemerkt hätte.
 
-Gestartet wird ein **echter Unterprozess** mit demselben Python, das
+Gestartet wird ein echter Unterprozess mit demselben Python, das
 auch ein Schülerprogramm startet - die Frage ist ja gerade, ob die
 ausgelieferte Umgebung das hergibt. `matplotlib` bekommt dafür das
 Agg-Backend: ein Fenster ginge im Testlauf nicht auf und bliebe

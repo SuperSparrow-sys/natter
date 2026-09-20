@@ -1,6 +1,6 @@
 """Eine Unit löschen heißt: auch das Hintergründige verschwindet.
 
-Grundsatz des Nutzers (September 2026): „alles was zum Projekt gehört
+Grundsatz des Nutzers : „alles was zum Projekt gehört
 muss als Schüler in den Dateien hinzufügbar sein und der Rest muss
 automatisch hinzugefügt und gelöscht werden in den anderen Dateien im
 Hintergrund".
@@ -8,9 +8,9 @@ Hintergrund".
 Eine Unit mit Formular besteht aus drei Dateien, von denen der
 Projekt-Explorer nur zwei zeigt:
 
-    u_ampel.py          der Code, den die Schülerin schreibt
-    u_ampel.pfm         das Formular
-    u_ampel_design.py   erzeugt, deshalb ausgeblendet
+ u_ampel.py der Code, den die Schülerin schreibt
+ u_ampel.pfm das Formular
+ u_ampel_design.py erzeugt, deshalb ausgeblendet
 
 Gelöscht wurde bisher nur die angeklickte Datei. Zurück blieb erzeugter
 Code zu einem Formular, das es nicht mehr gibt - im Explorer unsichtbar

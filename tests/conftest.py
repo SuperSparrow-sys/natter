@@ -10,7 +10,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 # zufällig verfügbare Ersatzschrift aus - Tests, die Schriftmetriken
 # prüfen (z. B. "passt diese Beschriftung in den Button?"), maßen dann
 # gegen eine andere Schrift als die echte App auf dem Bildschirm nutzt
-# (real gefunden: Nutzer-Feedback zur Editor-Schriftart, September
+# (real gefunden: Rückmeldung zur Editor-Schriftart, September
 # 2026 - `QFontInfo` löste ohne dies fälschlich auf die mitgelieferte
 # Cascadia-Code-Datei statt auf das eigentlich angeforderte Consolas
 # auf, weil Consolas selbst gar nicht auffindbar war).

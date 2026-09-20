@@ -1,7 +1,7 @@
 """Tests für die sichtbare Einrückung im Quelltexteditor
 (M11, Abschnitt 2.1). Headless.
 
-Bei Python **ist** die Einrückung die Syntax – wer sie nicht sieht,
+Bei Python ist die Einrückung die Syntax – wer sie nicht sieht,
 sucht seinen Fehler an der falschen Stelle. Geprüft wird deshalb beides:
 die Rechnung (wie tief ist diese Zeile?) und das gemalte Bild.
 """

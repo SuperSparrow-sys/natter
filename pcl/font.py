@@ -7,7 +7,7 @@ Attributnamen (`font`); in der `.pfm` und im Objektinspektor erscheint
 sie flach als `font_name`/`font_size`/`font_bold`/`font_italic`
 (`pcl.properties.VERSCHACHTELTE_EIGENSCHAFTEN`).
 
-**Warum QSS statt `QWidget.setFont()`:** das Theme aus `pcl.theme` setzt
+Warum QSS statt `QWidget.setFont()`: das Theme aus `pcl.theme` setzt
 `font-family`/`font-size` über eine `QWidget`-QSS-Regel auf dem Formular.
 In Qt schlägt ein Stylesheet immer `setFont()` – ein `setFont()` auf der
 Komponente bliebe deshalb wirkungslos. Genau dieser Fehler ist in der IDE

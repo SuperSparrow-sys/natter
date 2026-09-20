@@ -3,7 +3,7 @@ Tabellen-/Spaltenbaum anzeigen, SQL-Abfragen ausführen und das Ergebnis
 als Tabelle anzeigen; dazu „CSV in Datenbank importieren“ sowie Export
 einer Tabelle als CSV oder SQL-Dump.
 
-Seit September 2026 gibt es hier keine Treiberauswahl und keine
+Seit gibt es hier keine Treiberauswahl und keine
 Zugangsdaten mehr: Natter kennt nur noch SQLite (siehe den Modulkopf von
 `pcl/components/data_access.py`). Eine Datenbankdatei braucht weder
 Server noch Benutzer noch Passwort – und ein Passwortfeld, dessen Inhalt

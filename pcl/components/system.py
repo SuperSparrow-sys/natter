@@ -9,13 +9,13 @@ Natter es auch: `Timer` ist eine gewöhnliche `Control` mit
 `nur_im_designer = True`.
 
 Dass er damit im Designer liegt, ist kein Beiwerk (Nutzer-Hinweis
-September 2026: „der Timer muss als Komponente auch mit rein, der ist
+: „der Timer muss als Komponente auch mit rein, der ist
 wichtig"). Vorher musste er im Quelltext erzeugt werden - eine
 Sonderregel, die man erst kennen muss:
 
-    self.t_ampel = Timer(self)      # geht weiterhin
-    self.t_ampel.interval = 2000
-    self.t_ampel.on_timer = self.t_ampel_timer
+ self.t_ampel = Timer(self) # geht weiterhin
+ self.t_ampel.interval = 2000
+ self.t_ampel.on_timer = self.t_ampel_timer
 
 Vorbild ist `TTimer` aus Lazarus (`t_hunger: TTimer` mit
 `OnTimer = t_hungerTimer`, im Quelltext über `t_hunger.enabled := true`

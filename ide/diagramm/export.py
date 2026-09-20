@@ -4,7 +4,7 @@ PNG, SVG, PDF, Zwischenablage und Drucken – alles mit Bordmitteln von
 PySide6 (`QSvgGenerator`, `QPdfWriter`, `QPrinter`), also ohne neue
 Abhängigkeit.
 
-Gezeichnet wird mit **demselben** Code wie auf dem Bildschirm
+Gezeichnet wird mit demselben Code wie auf dem Bildschirm
 (`ide/diagramm/zeichnen.py`), damit der Export nie eine zweite,
 abweichende Darstellung erzeugt. Weggelassen wird nur, was zur
 Bedienung gehört und nicht zum Diagramm: Raster, Auswahlrahmen,
@@ -60,9 +60,9 @@ def inhaltsbereich(daten: dict[str, Any]) -> QRectF:
     Klassen soll kein Bild mit 80 % weißer Fläche ergeben."""
     if daten.get("type") == "struktogramm":
         rechteck = QRectF(struktogramm_layout(daten).rechteck)
-        # **Die Kopfzeile gehört dazu.** `struktogramm_layout` liefert
+        # Die Kopfzeile gehört dazu. `struktogramm_layout` liefert
         # den Wurzelblock, und der beginnt bei einem benannten
-        # Struktogramm erst **unterhalb** des Namens - der Name stand
+        # Struktogramm erst unterhalb des Namens - der Name stand
         # damit außerhalb des Bereichs und wurde im PNG oben
         # abgeschnitten (im Durchgang durch den Schuelerweg am
         # exportierten Bild gesehen: von „kasse_buchen" war nur die
@@ -131,12 +131,12 @@ def _aufloesung_eintragen(bild: QImage, skalierung: float) -> None:
     """Trägt die echte Auflösung ins Bild ein.
 
     Ohne diese Angabe nimmt Word ein Bild als 96 dpi an und fügt eine
-    vierfach gerechnete Zeichnung entsprechend **vierfach zu groß** ein –
+    vierfach gerechnete Zeichnung entsprechend vierfach zu groß ein –
     wer sie dann von Hand kleinzieht, hätte zwar die Schärfe, aber
     niemand macht das. Mit der Angabe landet sie in der richtigen Größe
     und mit der vollen Detailschärfe auf dem Blatt.
 
-    **Erst nach dem Malen aufrufen.** `QPainter` rechnet Schriftgrößen
+    Erst nach dem Malen aufrufen. `QPainter` rechnet Schriftgrößen
     von Punkt in Pixel über die Auflösung des Zielbildes um. Steht sie
     schon vorher auf 384 dpi, wird die Schrift zusätzlich zur Skalierung
     des Malers noch einmal vervierfacht – im Sichtvergleich fielen dann
@@ -209,13 +209,13 @@ def als_bild(daten: dict[str, Any], skalierung: float = 1.0) -> QImage:
 def in_zwischenablage(daten: dict[str, Any]) -> QImage:
     """Diagramm in die Zwischenablage legen (Abschnitt 13.2).
 
-    Kopiert wird mit **vierfacher** Auflösung (384 dpi) statt wie früher
+    Kopiert wird mit vierfacher Auflösung (384 dpi) statt wie früher
     mit einfacher – vom Nutzer gemeldet: eingefügt war das Bild sichtbar
     unscharf. Entscheidend ist dabei nicht nur die Pixelzahl, sondern
     die eingetragene Auflösung: nur damit fügt Word die Zeichnung in der
     richtigen *Größe* ein und nicht viermal zu groß.
 
-    Bewusst **kein** `QMimeData` mit zusätzlichem SVG, so verlockend das
+    Bewusst kein `QMimeData` mit zusätzlichem SVG, so verlockend das
     wäre: `QClipboard.setMimeData()` lässt PySide6 beim Beenden des
     Programms mit einem Speicherzugriffsfehler abstürzen (hier
     reproduziert, auch wenn man das Paket am Leben hält). Wer Vektoren

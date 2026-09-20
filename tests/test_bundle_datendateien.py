@@ -2,10 +2,10 @@
 (M12, auf die Bauweise von M13 umgestellt).
 
 Der Fehler, gegen den dieser Test steht, ist derselbe geblieben: eine
-Datei wird über einen **Pfad** gelesen statt importiert, und niemand
+Datei wird über einen Pfad gelesen statt importiert, und niemand
 trägt sie in `tools/ide_paketieren.py` ein. Im Entwicklungsbaum liegt
 sie ja da - auffallen kann es erst in der installierten Fassung. In der
-gebauten Exe nachgemessen fehlten so **drei** Pfade, und jeder kostete
+gebauten Exe nachgemessen fehlten so drei Pfade, und jeder kostete
 eine ganze Funktion:
 
 * `templates/` - „Neues Projekt ..." endete in einem `FileNotFoundError`.
@@ -19,10 +19,10 @@ eine ganze Funktion:
 Seit M13 gibt es zwei Wege in die Auslieferung, und der Test prüft
 beide getrennt:
 
-* Liegt die Datei **innerhalb** von `ide/` oder `pcl/`, nimmt `pip`
+* Liegt die Datei innerhalb von `ide/` oder `pcl/`, nimmt `pip`
   sie von selbst mit - vorausgesetzt, sie liegt wirklich dort und nicht
   daneben (`[tool.hatch.build.targets.wheel] packages`).
-* Liegt sie als eigener Ordner **neben** den Paketen (`templates/`,
+* Liegt sie als eigener Ordner neben den Paketen (`templates/`,
   `docs/`, ...), muss `_datenordner_kopieren()` sie kopieren.
 """
 
@@ -81,7 +81,7 @@ def test_der_datenordner_wird_mitkopiert(name: str) -> None:
 
 @pytest.mark.parametrize("pfad", PAKET_DATEIEN)
 def test_die_laufzeitdatei_liegt_in_einem_ausgelieferten_paket(pfad: str) -> None:
-    """Sie muss existieren **und** innerhalb von `ide/` bzw. `pcl/`
+    """Sie muss existieren und innerhalb von `ide/` bzw. `pcl/`
     liegen - nur was dort liegt, packt `pip install` mit ein."""
     assert (WURZEL / pfad).exists(), f"{pfad} wird zur Laufzeit gelesen, gibt es aber nicht."
 
@@ -110,7 +110,7 @@ def test_pyinstaller_liegt_der_auslieferung_bei() -> None:
 
 
 def test_ruff_ist_eine_laufzeitabhaengigkeit() -> None:
-    """Natter prüft **vor jedem Start** mit ruff - das ist keine
+    """Natter prüft vor jedem Start mit ruff - das ist keine
     Entwicklerspielerei, sondern gehört zum Programm. Stünde ruff nur
     in der dev-Gruppe, käme es nicht in die Auslieferung und die
     Prüfung vor dem Start fiele dort aus (M13)."""

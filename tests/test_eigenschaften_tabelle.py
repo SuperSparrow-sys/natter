@@ -88,11 +88,11 @@ def test_bool_eigenschaft_als_kontrollkaestchen() -> None:
 
 
 def test_verschachtelte_untereigenschaft_wird_angezeigt() -> None:
-    """Nutzer-Feedback (September 2026): „alle Eigenschaften inklusive
-    Farbe usw. sollen im Objektinspektor angezeigt werden“ -
-    `Shape.brush.color` war bisher komplett unsichtbar, weil es kein
-    echter `Prop` ist, sondern eine aufklappbare Untereigenschaft
-    (`pcl.properties.VERSCHACHTELTE_EIGENSCHAFTEN`)."""
+    """Gemeldet: „alle Eigenschaften inklusive
+ Farbe usw. sollen im Objektinspektor angezeigt werden“ -
+ `Shape.brush.color` war bisher komplett unsichtbar, weil es kein
+ echter `Prop` ist, sondern eine aufklappbare Untereigenschaft
+ (`pcl.properties.VERSCHACHTELTE_EIGENSCHAFTEN`)."""
     formular = _Formular()
     tabelle = EigenschaftenTabelle()
 

@@ -161,7 +161,7 @@ def _schriftkontrast(formular: Form, beschriftung: Label) -> int:
     """Wie weit sich der auffälligste Punkt der Beschriftung in der
     Helligkeit vom Hintergrund des Formulars absetzt.
 
-    Gemessen wird im Bild des **ganzen Formulars**, nicht in einem
+    Gemessen wird im Bild des ganzen Formulars, nicht in einem
     eigenen `grab()` des Labels: ein für sich gegriffenes Label bringt
     seinen eigenen Hintergrund mit, und der unterscheidet sich im
     gesperrten Zustand ebenfalls - der Test wäre dann grün, ohne etwas

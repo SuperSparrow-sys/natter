@@ -82,7 +82,7 @@ MeinProjekt/
   MeinProjekt.natter     Projektdatei (Name, Art, Startdatei)
   main.py                Startdatei — erzeugt und ausgeblendet
   u_main.pfm             das Formular, im Designer bearbeitet
-  u_main.py              dein Code
+  u_main.py              der eigene Code
   u_main_design.py       aus dem Formular erzeugt und ausgeblendet
 ```
 
@@ -107,7 +107,7 @@ bei einem GUI-Projekt, nur ohne Formular:
 MeinProjekt/
   MeinProjekt.natter
   main.py                startet das Programm — erzeugt und ausgeblendet
-  u_main.py              dein Code
+  u_main.py              der eigene Code
 ```
 
 **Auch hier gilt: `main.py` startet nur.** Alles, was programmiert

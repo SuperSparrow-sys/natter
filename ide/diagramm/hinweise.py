@@ -2,7 +2,7 @@
 Abschnitt 14).
 
 Dasselbe Versprechen wie beim Design-Prüfer der Formulare
-(`ide/lint/regeln.py`): **Hinweise, keine Fehler** – nichts wird
+(`ide/lint/regeln.py`): Hinweise, keine Fehler – nichts wird
 blockiert, nichts automatisch geändert, und die Prüfung lässt sich
 abschalten. Geprüft wird ausschließlich die *Darstellung*, nie der
 Inhalt: ob eine Klasse `TAmpel` heißen sollte oder ob eine Vererbung
@@ -34,7 +34,7 @@ class Hinweis:
     meldung: str
     #: `id`s aller betroffenen Formen bzw. Verbindungen, für das
     #: Hervorheben auf der Zeichenfläche. Eine Überlappung betrifft
-    #: immer **beide** Formen – würde nur die erste markiert, wäre nicht
+    #: immer beide Formen – würde nur die erste markiert, wäre nicht
     #: zu sehen, womit sie sich überlappt (im Screenshot aufgefallen).
     elemente: tuple[str, ...] = ()
     #: Was man tun kann. Jeder Hinweis hat einen solchen Teil (M11,
@@ -59,7 +59,7 @@ def _rechteck(shape: dict[str, Any]) -> tuple[float, float, float, float]:
 def _beschriftung(shape: dict[str, Any]) -> str:
     """Wie die Form in einer Meldung heißt.
 
-    Nur die **erste** Zeile: der Name eines Zustands trägt darunter noch
+    Nur die erste Zeile: der Name eines Zustands trägt darunter noch
     seine Aktionen, und eine dreizeilige Meldung in der Liste war
     unlesbar (in der Sichtprüfung aufgefallen).
     """
@@ -67,7 +67,7 @@ def _beschriftung(shape: dict[str, Any]) -> str:
     return (name[0].strip() if name else "") or str(shape.get("kind", "Form"))
 
 
-#: Formen, die andere Formen **umschließen sollen**. Eine Systemgrenze
+#: Formen, die andere Formen umschließen sollen. Eine Systemgrenze
 #: voller Anwendungsfälle ist kein Layout-Fehler, sondern genau ihr
 #: Zweck; ein Paket kann ebenso Klassen enthalten.
 BEHAELTERFORMEN = (
@@ -95,7 +95,7 @@ def _ueberschneidung(a: dict[str, Any], b: dict[str, Any]) -> float:
     Systemgrenze voller Anwendungsfälle wurde sonst als Überlappung
     gemeldet, und ein Use-Case-Diagramm hatte von Anfang an so viele
     Warnungen wie Fälle (in der Sichtprüfung aufgefallen). Ein Behälter,
-    der eine Form nur **anschneidet**, wird weiterhin gemeldet – das ist
+    der eine Form nur anschneidet, wird weiterhin gemeldet – das ist
     dann wirklich ein Versehen.
     """
     if a.get("kind") in BEHAELTERFORMEN and _umschliesst(a, b):

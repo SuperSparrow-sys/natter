@@ -73,7 +73,7 @@ def test_klick_in_den_rand_schaltet_den_breakpoint_der_richtigen_zeile_um() -> N
     assert editor.breakpoints == {3}
 
 
-# -- Dunkles Design (Nutzer-Feedback September 2026) -----------------------
+# -- Dunkles Design (gemeldet) -----------------------
 
 
 def test_editor_kann_direkt_im_dunklen_thema_erzeugt_werden() -> None:
@@ -91,7 +91,7 @@ def test_thema_setzen_wechselt_rand_und_hervorhebung() -> None:
     assert editor._hervorhebung._thema == "dark"  # noqa: SLF001
 
 
-# -- Automatischer Einzug (Nutzer-Feedback September 2026) -----------------
+# -- Automatischer Einzug (gemeldet) -----------------
 
 
 def test_enter_uebernimmt_den_einzug_der_vorzeile() -> None:
@@ -152,9 +152,9 @@ def test_tab_fuegt_leerzeichen_statt_eines_tabulatorzeichens_ein() -> None:
 
 
 def test_editor_verwendet_consolas() -> None:
-    """Nutzer-Feedback (September 2026): Cascadia Code wirkte auf dem
-    echten Rechner weiterhin wie die Standardschrift - Consolas (ein
-    garantierter Windows-Systemfont) steht deshalb an erster Stelle."""
+    """Gemeldet: Cascadia Code wirkte auf dem
+ echten Rechner weiterhin wie die Standardschrift - Consolas (ein
+ garantierter Windows-Systemfont) steht deshalb an erster Stelle."""
     editor = QuelltextEditor()
     aufgeloest = QFontInfo(editor.font()).family()
     assert aufgeloest == "Consolas"

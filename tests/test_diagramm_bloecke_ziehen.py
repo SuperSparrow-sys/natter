@@ -95,7 +95,7 @@ def test_ein_klick_ohne_bewegung_verschiebt_nichts(
 
 
 def test_verschieben_ist_ein_undo_schritt(flaeche: StruktogrammCanvas, drei: list[dict]) -> None:
-    """Herausnehmen und Einsetzen sind für die Bedienerin **eine**
+    """Herausnehmen und Einsetzen sind für die Bedienerin eine
     Handlung."""
     ziel = Einfuegestelle(flaeche.wurzel, "children", 0)
 

@@ -116,7 +116,7 @@ def test_neuer_knick_landet_im_angeklickten_linienstueck(
     einer schon geknickten Linie ein Sprung quer durchs Diagramm."""
     verbindung["waypoints"] = [[500, 500]]
     quelle = flaeche.form_mit_id(verbindung["from"])
-    # Ein Punkt nahe dem **ersten** Stück (Quelle → Knick)
+    # Ein Punkt nahe dem ersten Stück (Quelle → Knick)
     nah_am_anfang = QPointF(quelle["x"] + quelle["w"] + 20, quelle["y"] + 60)
 
     assert (

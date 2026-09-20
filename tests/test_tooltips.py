@@ -7,7 +7,7 @@ erklärten sich gar nicht, obwohl jede Eigenschaft seit jeher einen
 deutschen Hilfetext trägt (`Prop(doc=...)`). Er wurde nur nirgends
 angezeigt.
 
-Die Texte werden überall **aus der vorhandenen Quelle geholt** statt
+Die Texte werden überall aus der vorhandenen Quelle geholt statt
 zweitgeschrieben: die Palette nimmt den ersten Satz aus dem Docstring
 der Komponente, der Objektinspektor den `doc` der Eigenschaft, die
 Werkzeugleiste Name und Tastenkürzel aus dem Aktionsregister. Eine

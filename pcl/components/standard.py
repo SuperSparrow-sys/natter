@@ -84,9 +84,9 @@ class Button(Control):
 class Label(Control):
     """Textanzeige, per `on_click` auch anklickbar. Qt-Basis: `QLabel`.
 
-    `color`/`transparent` wie Lazarus' `TLabel` (Nutzer-Feedback
-    September 2026): ein Label kann eine eigene Hintergrundfarbe zeigen
-    - nützlich, um es sichtbar über einer `Shape` zu platzieren."""
+    `color`/`transparent` wie bei Lazarus' `TLabel`: ein Label kann eine
+    eigene Hintergrundfarbe zeigen - nützlich, um es sichtbar über einer
+    `Shape` zu platzieren."""
 
     caption = Prop(str, "Label1", kategorie="Darstellung", doc="Anzeigetext")
     color = Prop(
@@ -294,11 +294,11 @@ class ComboBox(Control):
 
     def _bei_index_wechsel(self, index: int) -> None:
         self.item_index = index
-        # **`text` vor `on_change` nachziehen.** Qt meldet einen Wechsel
+        # `text` vor `on_change` nachziehen. Qt meldet einen Wechsel
         # in zwei Schritten: erst `currentIndexChanged`, dann
         # `currentTextChanged`. Wurde `on_change` schon im ersten
         # ausgelöst, las jede Ereignis-Methode, die `self.cb_x.text`
-        # abfragt, noch den **vorherigen** Text - die Anzeige hinkte der
+        # abfragt, noch den vorherigen Text - die Anzeige hinkte der
         # Auswahl dauerhaft einen Schritt hinterher. Gefunden im
         # Beispielprojekt `08_Regression`: ein Klick auf „polynomial"
         # zeigte die lineare Formel, ein Klick auf „exponentiell" die
@@ -382,20 +382,20 @@ class ScrollBar(Control):
 
 class GroupBox(Control):
     """Beschrifteter Rahmen, der andere Komponenten zusammenfasst.
-    Qt-Basis: `QGroupBox`. Entspricht `TGroupBox` in Lazarus.
+ Qt-Basis: `QGroupBox`. Entspricht `TGroupBox` in Lazarus.
 
-    Als Behälter braucht sie keinen eigenen Code: `Control.__init__`
-    hängt jede Komponente an das `_qwidget` ihres `parent`, also genügt
-    ``RadioButton(self.g_zahlung)``. `left`/`top` der Kind-Komponente
-    zählen dann ab der linken oberen Ecke der GroupBox, und
-    ``self.g_zahlung.enabled = False`` sperrt den ganzen Inhalt auf
-    einmal (das erledigt Qt).
+ Als Behälter braucht sie keinen eigenen Code: `Control.__init__`
+ hängt jede Komponente an das `_qwidget` ihres `parent`, also genügt
+ ``RadioButton(self.g_zahlung)``. `left`/`top` der Kind-Komponente
+ zählen dann ab der linken oberen Ecke der GroupBox, und
+ ``self.g_zahlung.enabled = False`` sperrt den ganzen Inhalt auf
+ einmal (das erledigt Qt).
 
-    Seit September 2026 geht das auch im Designer: eine Komponente, die
-    über der GroupBox abgelegt wird, landet **darin** statt daneben auf
-    dem Formular. Dafür steht `ist_behaelter` - siehe
-    `docs/komponenten.md`, Punkt 1.
-    """
+ Seit geht das auch im Designer: eine Komponente, die
+ über der GroupBox abgelegt wird, landet darin statt daneben auf
+ dem Formular. Dafür steht `ist_behaelter` - siehe
+ `docs/komponenten.md`, Punkt 1.
+ """
 
     ist_behaelter = True
 
@@ -492,7 +492,7 @@ class RadioGroup(Control):
     gewählt ist. Qt-Basis: `QGroupBox` mit je einem `QRadioButton` pro
     Eintrag. Entspricht `TRadioGroup` in Lazarus.
 
-    Anders als `GroupBox`/`Panel` ist dies **kein** offener Behälter: die
+    Anders als `GroupBox`/`Panel` ist dies kein offener Behälter: die
     Optionsfelder entstehen aus `items`, genau wie `TRadioGroup.Items` in
     Lazarus. Deshalb ist die Komponente auch im Designer vollständig
     benutzbar, ohne dass er Verschachtelung beherrschen müsste.

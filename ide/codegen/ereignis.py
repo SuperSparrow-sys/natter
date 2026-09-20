@@ -82,6 +82,51 @@ class _MethodeAnhaengen(cst.CSTTransformer):
         return updated_node.with_changes(body=updated_node.body.with_changes(body=neuer_body))
 
 
+class _MethodeUmbenennen(cst.CSTTransformer):
+    """Benennt `alt` in `neu` um - die Methode selbst und jede Stelle,
+    an der ihr Name vorkommt."""
+
+    def __init__(self, alt: str, neu: str) -> None:
+        self.alt = alt
+        self.neu = neu
+        self.gefunden = False
+
+    def leave_FunctionDef(
+        self, original_node: cst.FunctionDef, updated_node: cst.FunctionDef
+    ) -> cst.FunctionDef:
+        if original_node.name.value != self.alt:
+            return updated_node
+        self.gefunden = True
+        return updated_node.with_changes(name=cst.Name(self.neu))
+
+    def leave_Attribute(
+        self, original_node: cst.Attribute, updated_node: cst.Attribute
+    ) -> cst.Attribute:
+        # `self.cb_ausgabe_change` als Wert, etwa bei einer eigenen
+        # Zuweisung im Schuelercode.
+        if original_node.attr.value != self.alt:
+            return updated_node
+        return updated_node.with_changes(attr=cst.Name(self.neu))
+
+
+def handler_methode_umbenennen(quelltext: str, alt: str, neu: str) -> tuple[str, bool]:
+    """Benennt die Ereignismethode `alt` in `neu` um.
+
+    Gebraucht beim Umbenennen einer Komponente im Designer: Lazarus
+    zieht die Ereignismethoden dort mit, und wer `cb_ausgabe` in
+    `cb_minus` umbenennt, will nicht `cb_minus.on_change =
+    self.cb_ausgabe_change` zurueckbehalten.
+
+    Liefert `(quelltext, ob etwas umbenannt wurde)`. Der Aufrufer
+    entscheidet, ob umbenannt werden darf - hier wird nur
+    gearbeitet.
+    """
+    modul = cst.parse_module(quelltext)
+    umbenenner = _MethodeUmbenennen(alt, neu)
+    geaendert = modul.visit(umbenenner)
+    return geaendert.code, umbenenner.gefunden
+
+
 def handler_methode_einfuegen(
     quelltext: str,
     klassenname: str,

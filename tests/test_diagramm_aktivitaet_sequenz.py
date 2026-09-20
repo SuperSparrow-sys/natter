@@ -3,7 +3,7 @@
 Das Aktivitätsdiagramm teilt sich Start, Ende und Entscheidung mit dem
 Zustandsdiagramm; das Sequenzdiagramm ist der einzige Typ mit einer
 eigenen Linienführung: seine Nachrichten laufen waagerecht auf einer
-festen Höhe, und diese Höhe **ist** die Reihenfolge.
+festen Höhe, und diese Höhe ist die Reihenfolge.
 """
 
 from __future__ import annotations

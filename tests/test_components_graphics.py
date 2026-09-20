@@ -1,7 +1,7 @@
 """Tests für `PaintBox` und `Canvas` (M15, Abschnitt 2). Headless.
 
 Geprüft wird nicht, ob eine Methode ohne Ausnahme durchläuft, sondern ob
-an der erwarteten Stelle die erwartete **Farbe** steht: eine
+an der erwarteten Stelle die erwartete Farbe steht: eine
 Zeichenoperation, die nichts zeichnet, sähe sonst wie ein bestandener
 Test aus.
 
@@ -24,7 +24,7 @@ BLAU = "#0067c0"
 
 
 def _flaeche(breite: int = 120, hoehe: int = 90) -> tuple[Form, PaintBox]:
-    """Formular **und** PaintBox zurückgeben: ohne die Referenz aufs
+    """Formular und PaintBox zurückgeben: ohne die Referenz aufs
     Formular räumt Python dessen Qt-Widget zwischen zwei Zeilen weg."""
     formular = Form()
     box = PaintBox(formular)
@@ -150,7 +150,7 @@ def test_text_out_hinterlaesst_pixel_in_der_stiftfarbe() -> None:
 
 
 def test_text_out_zeichnet_unterhalb_der_angegebenen_stelle() -> None:
-    """In Lazarus ist (x, y) die linke **obere** Ecke des Textes, in Qt
+    """In Lazarus ist (x, y) die linke obere Ecke des Textes, in Qt
     von sich aus die Schriftlinie. Ohne die Umrechnung stünde der Text
     über dem Rand und wäre halb abgeschnitten."""
     _formular, box = _flaeche()

@@ -192,7 +192,7 @@ def test_grid_wirkt_sofort_und_sichtbar(diagramm: Chart) -> None:
     assert diagramm._achse.xaxis.get_gridlines()[0].get_visible()
     # Deutlich mehr Linienpixel als ohne Gitter - die Schranke liegt
     # bei 1,5 und nicht bei 2, weil das Gitter seit der Korrektur
-    # **hinter** den Balken liegt und dort verdeckt wird.
+    # hinter den Balken liegt und dort verdeckt wird.
     assert _pixel_in(diagramm, _RAHMENFARBE) > ohne * 1.5
 
 
@@ -201,7 +201,7 @@ def test_das_gitter_liegt_hinter_den_balken(diagramm: Chart) -> None:
     matplotlib das Gitternetz über die Daten – durch jeden Balken lief
     eine helle senkrechte Linie, als wäre er zerschnitten.
 
-    Geprüft wird das an der **Serienfarbe**: liegt das Gitter davor,
+    Geprüft wird das an der Serienfarbe: liegt das Gitter davor,
     frisst es Balkenpixel weg."""
     voll = _pixel_in(diagramm, _SERIENFARBE)
 

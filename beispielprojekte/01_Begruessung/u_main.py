@@ -1,8 +1,8 @@
-# Stufe 1 von 9 - dein allererstes Programm.
+# Stufe 1 von 9 - das allererste Programm.
 #
-# Ein Konsolenprogramm redet über das schwarze Fenster mit dir:
+# Ein Konsolenprogramm verständigt sich über das schwarze Fenster:
 #   print(...)  schreibt eine Zeile hinein
-#   input(...)  wartet, bis du etwas tippst und Enter drückst
+#   input(...)  wartet auf eine Eingabe und die Eingabetaste
 #
 # Drücke F9, um das Programm zu starten.
 

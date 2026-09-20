@@ -1,7 +1,7 @@
 """Aus einer modellierten UML-Klasse Python-Quelltext erzeugen
 (M9 Schritt 13).
 
-Nutzer-Wunsch September 2026. Erst weil Attribute und Operationen seit
+gewünscht. Erst weil Attribute und Operationen seit
 Schritt 12 strukturiert vorliegen, lässt sich daraus überhaupt
 sinnvoller Code erzeugen – aus freiem Text ginge es nicht.
 
@@ -137,7 +137,7 @@ def _klassenattribute(shape: dict[str, Any]) -> list[str]:
 def _zuweisungen_fuer_init(
     operation: dict[str, Any], shape: dict[str, Any]
 ) -> list[str]:
-    """Die Rumpfzeilen eines **selbst modellierten** `__init__`.
+    """Die Rumpfzeilen eines selbst modellierten `__init__`.
 
     Ist der Konstruktor im Diagramm eingetragen, erzeugt
     `_init_zeilen` keinen zweiten - so weit richtig. Bis September

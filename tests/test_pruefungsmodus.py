@@ -1,13 +1,13 @@
 """Tests für den Prüfungsmodus (M11, Abschnitt 6). Headless.
 
-Vom Nutzer gefordert: Natter wird im Unterricht auch in
+Gefordert: Natter wird im Unterricht auch in
 Leistungssituationen benutzt, und dann darf das Programm nicht die
 halbe Aufgabe lösen.
 
 Zwei Eigenschaften sind entscheidend und werden deshalb am genauesten
-geprüft: er muss einen **Neustart überstehen** – sonst wäre er mit
-einem Schließen und Öffnen ausgehebelt – und er muss **von selbst
-auslaufen**, damit kein vergessener Modus einen Schulrechner sperrt.
+geprüft: er muss einen Neustart überstehen – sonst wäre er mit
+einem Schließen und Öffnen ausgehebelt – und er muss von selbst
+auslaufen, damit kein vergessener Modus einen Schulrechner sperrt.
 """
 
 from __future__ import annotations

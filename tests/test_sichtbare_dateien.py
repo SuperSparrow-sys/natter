@@ -1,6 +1,6 @@
 """Schüler sehen nur die Dateien, an denen sie arbeiten (M12).
 
-Nutzer-Hinweis September 2026: „`main.py` wird automatisch erzeugt und
+Nutzer-Hinweis : „`main.py` wird automatisch erzeugt und
 soll von den Schülern ja auch nicht bearbeitet werden. Muss man es da
 überhaupt sehen als Schüler?“ – Nein. In Lazarus steht die Projektdatei
 `.lpr` aus demselben Grund nicht im Projektinspektor, sondern nur hinter
@@ -107,7 +107,7 @@ def test_ohne_projekt_sagt_der_eintrag_was_fehlt(
 def test_ein_neuer_unitname_kollidiert_nicht_mit_der_startdatei(
     einstellungen: QSettings, qtbot, tmp_path: Path
 ) -> None:
-    """Die Namensprüfung muss gegen **alle** Dateien laufen. Liefe sie
+    """Die Namensprüfung muss gegen alle Dateien laufen. Liefe sie
     nur gegen die sichtbaren, ließe sich eine Unit „main“ anlegen und
     die Startdatei damit überschreiben."""
     ordner = tmp_path / "p"
@@ -141,7 +141,7 @@ def test_ein_neuer_unitname_kollidiert_nicht_mit_der_startdatei(
 # ist als Startdatei ausgeblendet - die ersten beiden Lehrgangsstufen
 # oeffneten sich deshalb mit einem voellig leeren Projekt-Explorer. Die
 # Antwort darauf war nicht, die Startdatei zu zeigen, sondern der
-# Grundsatz des Nutzers (September 2026): "Jedes Projekt braucht eine
+# Grundsatz des Nutzers : "Jedes Projekt braucht eine
 # Main um zu starten und eine u_main wo der Schueler Code drin steht."
 
 

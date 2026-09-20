@@ -184,7 +184,7 @@ def test_der_stereotyp_steht_wirklich_auf_der_linie(flaeche: DiagrammCanvas, kin
 
     # Gegenprobe mit einer gewöhnlichen Abhängigkeit: die sieht genauso
     # aus, nur ohne den Stereotyp. Gezählt werden Pixel in der
-    # **genauen** Textfarbe; durch die Kantenglättung sind das nur
+    # genauen Textfarbe; durch die Kantenglättung sind das nur
     # wenige, aber bei der Abhängigkeit muss es exakt null sein.
     ohne = dict(verbindung)
     ohne["kind"] = "dependency"

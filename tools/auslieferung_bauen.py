@@ -1,43 +1,43 @@
 """Baut aus dem Entwicklungsbaum eine fertige, signierte
 `Natter-Setup.exe` - in einem Durchgang, mit allen Prüfungen dazwischen.
 
-Bis September 2026 war das eine Handvoll Befehle aus
+Früher war das eine Handvoll Befehle aus
 `tools/signieren/README.md`, die jemand in der richtigen Reihenfolge
 abtippen musste. Das ging zweimal schief, und beide Male nicht an einem
-Befehl, sondern **zwischen** ihnen:
+Befehl, sondern zwischen ihnen:
 
 - Der Installer wurde aus einem `dist\\Natter` gebaut, das noch vom
-  vorigen Stand stammte. Niemand sieht einer `Natter-Setup.exe` an, aus
-  welchem Quelltext sie gebaut wurde.
+ vorigen Stand stammte. Niemand sieht einer `Natter-Setup.exe` an, aus
+ welchem Quelltext sie gebaut wurde.
 - Die Auslieferung enthielt Paketversionen, gegen die nie ein Test
-  gelaufen war (pandas 3.0.6 in `dist`, 3.0.5 in den Tests) - siehe
-  `docs/arbeitspakete/M13.md`. Dass Windows Smart App Control daran
-  Anstoß nahm, war Zufall; aufgefallen wäre es sonst erst beim Schüler.
+ gelaufen war (pandas 3.0.6 in `dist`, 3.0.5 in den Tests) - siehe
+ `docs/arbeitspakete/M13.md`. Dass Windows Smart App Control daran
+ Anstoß nahm, war Zufall; aufgefallen wäre es sonst erst beim Schüler.
 
 Deshalb führt dieses Skript die Schritte nicht nur aus, sondern prüft
 nach jedem, ob das Ergebnis stimmt - und bricht ab, statt eine kaputte
 Auslieferung fertigzubauen:
 
-1.  Arbeitsbaum ansehen (nicht eingecheckte Änderungen melden)
-2.  Versionsnummern abgleichen (`pyproject.toml` / `tools/natter.iss`)
-3.  `ruff check`
-4.  `pytest`
-5.  `dist\\Natter` bauen (`tools.ide_paketieren`)
-6.  Rauchprobe **in der gebauten Python**, nicht im Entwicklungsbaum
-7.  Prüfsummen-Manifest gegenprüfen
-8.  Installer kompilieren (Inno Setup)
-9.  Installer signieren
+1. Arbeitsbaum ansehen (nicht eingecheckte Änderungen melden)
+2. Versionsnummern abgleichen (`pyproject.toml` / `tools/natter.iss`)
+3. `ruff check`
+4. `pytest`
+5. `dist\\Natter` bauen (`tools.ide_paketieren`)
+6. Rauchprobe in der gebauten Python, nicht im Entwicklungsbaum
+7. Prüfsummen-Manifest gegenprüfen
+8. Installer kompilieren (Inno Setup)
+9. Installer signieren
 10. Beide Signaturen prüfen
 
 Beispiel:
 
-    uv run python -m tools.auslieferung_bauen
-    uv run python -m tools.auslieferung_bauen --version 0.2.0
+ uv run python -m tools.auslieferung_bauen
+ uv run python -m tools.auslieferung_bauen --version 0.2.0
 
 Die Versionsnummer gehört zu einem Update dazu: Windows erkennt eine
 neue Fassung über `AppVersion`, und bleibt die gleich, zeigt „Apps &
 Features" nach dem Update weiter die alte Nummer an. `--version` setzt
-sie in `pyproject.toml` **und** `tools/natter.iss`; ohne die Angabe
+sie in `pyproject.toml` und `tools/natter.iss`; ohne die Angabe
 prüft Schritt 2 nur, dass beide übereinstimmen.
 
 Reines Entwicklungswerkzeug für den Maintainer - kein Teil des
@@ -72,7 +72,7 @@ _ISCC_ORTE = (
     Path(r"C:\Program Files\Inno Setup 6\ISCC.exe"),
 )
 
-#: Die Rauchprobe läuft in der **gebauten** Python, nicht in der des
+#: Die Rauchprobe läuft in der gebauten Python, nicht in der des
 #: Entwicklungsbaums. Genau dort hat sich der pandas-Fehler versteckt:
 #: im Entwicklungsbaum lief alles, in `dist` nicht. Geprüft wird, was
 #: der Schüler am ersten Tag anfasst, plus die drei Stellen, die schon
@@ -166,7 +166,7 @@ def _laufen_lassen(befehl: list[str], *, was: str, cwd: Path | None = None) -> s
 
 
 def _arbeitsbaum_ansehen() -> None:
-    """Meldet nicht eingecheckte Änderungen - **ohne** Abbruch.
+    """Meldet nicht eingecheckte Änderungen - ohne Abbruch.
 
     Ein Bau aus einem unsauberen Baum ist beim Ausprobieren der
     Normalfall. Für eine Auslieferung, die aus dem Haus geht, ist er
@@ -367,7 +367,7 @@ def _installer_bauen() -> Path:
 
 
 def _installer_signieren(datei: Path) -> None:
-    """Inno Setup erzeugt den Installer erst **nach**
+    """Inno Setup erzeugt den Installer erst nach
     `ide_paketieren.py`; deshalb wird er hier separat signiert und
     nicht dort mit."""
     ergebnis = subprocess.run(

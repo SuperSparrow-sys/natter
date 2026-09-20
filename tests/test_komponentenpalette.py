@@ -54,7 +54,7 @@ def test_die_reiter_stehen_in_der_reihenfolge_von_REITER() -> None:
 def test_standard_reiter_enthaelt_button() -> None:
     # Wie in Lazarus zeigen die Kacheln nur ein Symbol, der Name steht im
     # Kurzhinweis statt als sichtbarer Text (siehe ide/palette/palette.py).
-    # Seit M11, Abschnitt 4 steht dort Name **und** Erklaerung.
+    # Seit M11, Abschnitt 4 steht dort Name und Erklaerung.
     palette = Komponentenpalette()
     namen = [
         palette.standard_liste.item(i).toolTip() for i in range(palette.standard_liste.count())

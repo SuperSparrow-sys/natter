@@ -1,6 +1,6 @@
 """Tests für ide/shell/theme.py: QSS-Generator für das IDE-Hauptfenster
 selbst (getrennt von pcl.theme, das nur Schülerprogramme einfärbt).
-Nutzer-Feedback (September 2026): die IDE wirkte insgesamt farblos/grau,
+Gemeldet: die IDE wirkte insgesamt farblos/grau,
 weil dafür bisher gar kein eigenes Stylesheet existierte.
 """
 
@@ -41,12 +41,12 @@ def test_qss_verwendet_die_akzentfarbe_fuer_ausgewaehlte_elemente() -> None:
 
 def test_im_dunklen_thema_steht_keine_weisse_schrift_fest() -> None:
     """Weiß auf der Akzentfarbe ist die Voreinstellung für einen Knopf
-    mit Akzent-Hintergrund - im hellen Thema stimmt das, weil `bg`
-    ohnehin weiß ist. Im dunklen Thema ist der Akzent ein helles Blau
-    (#4cc2ff), und weiße Schrift darauf ist kaum zu lesen.
+ mit Akzent-Hintergrund - im hellen Thema stimmt das, weil `bg`
+ ohnehin weiß ist. Im dunklen Thema ist der Akzent ein helles Blau
+ (#4cc2ff), und weiße Schrift darauf ist kaum zu lesen.
 
-    `pcl/theme` nimmt an denselben Stellen seit jeher `bg` statt einer
-    festen Farbe; das IDE-Stylesheet zieht nach (Nutzer-Feedback
-    September 2026 zum Hover: „die schrift darf nicht weis werden").
-    """
+ `pcl/theme` nimmt an denselben Stellen seit jeher `bg` statt einer
+ festen Farbe; das IDE-Stylesheet zieht nach (Rückmeldung
+ zum Hover: „die schrift darf nicht weis werden").
+ """
     assert "#ffffff" not in ide_qss_erzeugen("dark").lower()

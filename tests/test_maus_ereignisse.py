@@ -1,4 +1,4 @@
-"""Maus-Ereignisse an **jeder** sichtbaren Komponente (M15, Abschnitt 4).
+"""Maus-Ereignisse an jeder sichtbaren Komponente (M15, Abschnitt 4).
 
 Bis dahin war `on_click` nur am `Button` verdrahtet, weil nur er ein
 eigenes Qt-Klicksignal hat. `Label` und `Image` hatten je eine eigene
@@ -251,7 +251,7 @@ def test_die_maus_ereignisse_bringen_x_und_y_mit() -> None:
 
 
 def test_on_click_bleibt_bei_sender_allein() -> None:
-    """Wie `OnClick(Sender)` in Lazarus - wer wissen will, **wo**
+    """Wie `OnClick(Sender)` in Lazarus - wer wissen will, wo
     geklickt wurde, nimmt `on_mouse_down`."""
     assert "on_click" not in EREIGNIS_PARAMETER
     assert "on_double_click" not in EREIGNIS_PARAMETER

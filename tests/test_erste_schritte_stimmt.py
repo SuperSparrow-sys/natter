@@ -3,11 +3,11 @@
 Die Seite ist für viele das Erste, was sie von Natter lesen. Stimmt
 darin eine Taste nicht, drückt jemand sie, es passiert nichts, und er
 sucht den Fehler bei sich – eine falsche Anleitung ist schlimmer als
-keine. Genau das war der Fall: die Seite nannte **F7/F8** für
-Einzelschritt und Prozedurschritt, registriert sind aber **F11/F10**.
+keine. Genau das war der Fall: die Seite nannte F7/F8 für
+Einzelschritt und Prozedurschritt, registriert sind aber F11/F10.
 
 Für die Tastenkürzel-Übersicht unter „Hilfe“ war dieser Grundsatz schon
-gezogen worden – sie wird aus dem Aktionsregister **erzeugt**. Diese
+gezogen worden – sie wird aus dem Aktionsregister erzeugt. Diese
 Seite ist Fließtext und lässt sich nicht erzeugen; also wird sie
 geprüft.
 """
@@ -123,7 +123,7 @@ def test_der_beschriebene_weg_zur_ereignismethode_gibt_es_auch(
 ) -> None:
     """Die Seite beschrieb einmal, man trage bei `on_click` einen Namen
     ein – der Reiter „Ereignisse“ ist aber eine Auswahlliste
-    **vorhandener** Methoden. Der Weg über den Doppelklick ist der
+    vorhandener Methoden. Der Weg über den Doppelklick ist der
     richtige, und den muss es geben."""
     from ide.designer.canvas import DesignerCanvas
     from pcl import Button, Form

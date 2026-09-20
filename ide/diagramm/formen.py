@@ -38,7 +38,7 @@ class FormArt:
 MINDESTGROESSE = (72, 40)
 
 #: Formen und Verbindungen, die in mehreren Diagrammarten vorkommen –
-#: **ein** Objekt, nicht zwei gleich aussehende: `form_art()` sucht über
+#: ein Objekt, nicht zwei gleich aussehende: `form_art()` sucht über
 #: `kind`, und zwei Einträge mit derselben Kennung würden sich sonst
 #: gegenseitig überschreiben, ohne dass es auffällt.
 NOTIZ = FormArt(
@@ -104,10 +104,10 @@ class VerbindungsArt:
     #: «include»/«extend» gehört er zur Notation und nicht zur
     #: Beschriftung, die die Bedienerin selbst setzt.
     stereotyp: str = ""
-    #: Die Linie läuft **waagerecht** auf einer festen Höhe, statt von
+    #: Die Linie läuft waagerecht auf einer festen Höhe, statt von
     #: Mitte zu Mitte zu zeigen. So funktionieren die Nachrichten im
     #: Sequenzdiagramm: sie gehen von Lebenslinie zu Lebenslinie, und
-    #: **wann** sie geschickt werden, sagt allein ihre Höhe.
+    #: wann sie geschickt werden, sagt allein ihre Höhe.
     waagerecht: bool = False
 
 
@@ -215,7 +215,7 @@ USE_CASE_VERBINDUNGEN: tuple[VerbindungsArt, ...] = (
 
 #: Start, Ende und Entscheidung sehen im Zustands- und im
 #: Aktivitätsdiagramm gleich aus und heißen in UML auch gleich - deshalb
-#: **ein** Objekt für beide Paletten (siehe `NOTIZ`).
+#: ein Objekt für beide Paletten (siehe `NOTIZ`).
 STARTKNOTEN = FormArt(
     kind="initial_state",
     beschriftung="Startknoten",
@@ -287,7 +287,7 @@ AKTIVITAETSDIAGRAMM_FORMEN: tuple[FormArt, ...] = (
     ),
     ENTSCHEIDUNG,
     FormArt(
-        # Gabelung und Vereinigung sind in UML **dasselbe** Zeichen; ob
+        # Gabelung und Vereinigung sind in UML dasselbe Zeichen; ob
         # es teilt oder zusammenführt, sagen erst die Pfeile daran. Zwei
         # Paletteneinträge für einen Balken wären eine Unterscheidung,
         # die es beim Zeichnen gar nicht gibt.
@@ -449,13 +449,13 @@ VERBINDUNGEN_JE_TYP: dict[str, tuple[VerbindungsArt, ...]] = {
 
 def _nach_kind(je_typ: dict[str, tuple[Any, ...]], was: str) -> dict[str, Any]:
     """Nachschlagetabelle über alle Diagrammtypen – und ein Wächter
-    dagegen, dass zwei **verschiedene** Einträge dieselbe Kennung
+    dagegen, dass zwei verschiedene Einträge dieselbe Kennung
     tragen.
 
     Das ist real passiert: der Akteur des Sequenzdiagramms (80×400, mit
     Lebenslinie) überschrieb stillschweigend den des Use-Case-Diagramms
     (80×104), und dort stand plötzlich ein 400 Pixel hoher Akteur. Eine
-    gemeinsame Form ist erlaubt – dann aber **dasselbe** Objekt, wie bei
+    gemeinsame Form ist erlaubt – dann aber dasselbe Objekt, wie bei
     `NOTIZ` und `ASSOZIATION`.
     """
     tabelle: dict[str, Any] = {}

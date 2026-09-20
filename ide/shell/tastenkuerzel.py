@@ -5,7 +5,7 @@ sie nicht in den Menüs entdeckt, benutzt sie nie, und gerade die Kürzel
 im Editor (Zeile verschieben, Zeile duplizieren, Vervollständigung
 erzwingen) stehen in gar keinem Menü.
 
-Die Liste wird **aus dem Aktionsregister erzeugt**, nicht von Hand
+Die Liste wird aus dem Aktionsregister erzeugt, nicht von Hand
 gepflegt. Eine von Hand gepflegte Liste ist nach der dritten neuen
 Aktion falsch, und eine falsche Übersicht ist schlimmer als keine.
 

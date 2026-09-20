@@ -166,7 +166,7 @@ def test_ein_oberzustand_voller_zustaende_ist_kein_layout_fehler(
 
 
 def test_die_mindestbreite_misst_die_zeilen_einzeln(flaeche: DiagrammCanvas) -> None:
-    """Fund aus der Sichtprüfung: alle Zeilen als **eine** gemessen
+    """Fund aus der Sichtprüfung: alle Zeilen als eine gemessen
     ergaben 627 px Mindestbreite für einen Kasten, in den jede Zeile
     einzeln bequem passte."""
     form = flaeche.form_platzieren("state", 200, 150)

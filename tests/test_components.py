@@ -57,7 +57,7 @@ def test_label_standardwert_und_aenderung() -> None:
 def _maus_senden(widget, art: QEvent.Type) -> None:
     """Ein Mausereignis so zustellen, wie Qt es tut.
 
-    **Nicht `widget.mousePressEvent(...)` direkt aufrufen**: seit M15
+    Nicht `widget.mousePressEvent(...)` direkt aufrufen: seit M15
     hängt die Klickbehandlung an einem Ereignisfilter in `Control`, und
     einen Filter sieht nur, was durch `QApplication.sendEvent` läuft.
     Der direkte Methodenaufruf ging am Filter vorbei und meldete
@@ -129,7 +129,7 @@ def test_shape_rounded_rectangle_ist_eine_gueltige_form() -> None:
     assert formular.s_rot.shape == "rounded_rectangle"
 
 
-# -- Rand/Füllung/Z-Ebene (Nutzer-Feedback September 2026, wie Lazarus) ----
+# -- Rand/Füllung/Z-Ebene (gemeldet, wie Lazarus) ----
 
 
 def test_shape_pen_color_ist_unabhaengig_von_brush_color() -> None:

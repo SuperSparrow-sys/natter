@@ -1,8 +1,8 @@
-# Startet das Programm. Hier musst du nichts ändern - dein Code
+# Startet das Programm. Hier ist nichts zu ändern - der eigene Code
 # gehört nach u_main.py.
 #
-# Der Import führt u_main.py aus; `del` hält danach nur noch sauber
-# auf, damit keine Prüfung den Namen für überflüssig hält.
+# Der Import führt u_main.py aus; `del` räumt danach nur noch auf,
+# damit keine Prüfung den Namen für überflüssig hält.
 
 import u_main
 

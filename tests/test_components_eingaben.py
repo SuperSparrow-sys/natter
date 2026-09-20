@@ -1,6 +1,6 @@
 """`MaskEdit`, `DateEdit`, `TimeEdit`, `Calendar` (M15, Abschnitt 4).
 
-Der Kern dieser vier ist nicht das Widget, sondern der **Typ**: seit M15
+Der Kern dieser vier ist nicht das Widget, sondern der Typ: seit M15
 kennt `Prop` auch `datetime.date` und `datetime.time`. Damit ist
 ``self.de_termin.date`` ein echtes Datum, mit dem sich rechnen lässt -
 und nicht eine Zeichenkette, die erst jemand zerlegen müsste.

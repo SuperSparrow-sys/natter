@@ -1,5 +1,5 @@
 """Tests für „⋮ → Umbenennen …“/„Löschen …“ auf Units im Projekt-
-Explorer (Nutzer-Feedback, September 2026): die Units-Seite hatte
+Explorer: die Units-Seite hatte
 bislang keine Möglichkeit, Dateien umzubenennen oder zu löschen außer
 über den Windows-Explorer nebenbei.
 """

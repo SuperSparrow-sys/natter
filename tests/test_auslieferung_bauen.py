@@ -2,8 +2,8 @@
 
 Geprüft wird hier nicht der Bau selbst - der dauert eine halbe Stunde
 und braucht Inno Setup, ein Zertifikat und 21 MB Download. Geprüft wird
-das, was **zwischen** den Schritten passiert, denn genau dort sind im
-September 2026 die beiden Fehler entstanden, die es überhaupt zu diesem
+das, was zwischen den Schritten passiert, denn genau dort sind im
+ die beiden Fehler entstanden, die es überhaupt zu diesem
 Skript kommen ließen: ein Installer aus einem veralteten `dist\\Natter`
 und eine Auslieferung mit Paketversionen, gegen die nie ein Test lief
 (siehe `docs/arbeitspakete/M13.md`).
@@ -151,9 +151,9 @@ def test_die_rauchprobe_prueft_die_gebaute_python(
 
 
 def test_die_rauchprobe_sieht_jede_pandas_bibliothek_an() -> None:
-    """Blockiert wurden im September 2026 fuenf von vierzehn - eine
-    Probe, die nur `import pandas` macht, haette drei davon nicht
-    bemerkt, weil pandas sie erst spaeter nachlaedt."""
+    """Blockiert wurden fuenf von vierzehn - eine
+ Probe, die nur `import pandas` macht, haette drei davon nicht
+ bemerkt, weil pandas sie erst spaeter nachlaedt."""
     for teil in ("algos", "byteswap", "groupby", "join", "parsers"):
         assert f'"{teil}"' in bau._RAUCHPROBE
 

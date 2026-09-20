@@ -180,7 +180,7 @@ class EigenschaftenPanel(QWidget):
         """Überschrift über den Feldern.
 
         Bei Mehrfachauswahl steht die Anzahl dabei: die Felder zeigen
-        immer nur die **führende** Form, und eine Eingabe wirkt auch nur
+        immer nur die führende Form, und eine Eingabe wirkt auch nur
         auf sie. Ohne diesen Zusatz sähe es so aus, als gälte „Breite"
         für alle drei ausgewählten Klassen (in der Sichtprüfung zu
         Teilschritt 3b aufgefallen).

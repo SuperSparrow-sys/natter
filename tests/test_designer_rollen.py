@@ -52,7 +52,7 @@ def test_designer_tab_steckt_in_einem_rollbereich(tmp_path: Path) -> None:
 def test_formular_behaelt_seine_eingestellte_groesse(tmp_path: Path) -> None:
     """Die Größe eines Formulars ist eine Eigenschaft, die der Nutzer
     gesetzt hat – sie darf sich nicht danach richten, wie groß das
-    IDE-Fenster gerade ist. Deshalb **kein** `widgetResizable`."""
+    IDE-Fenster gerade ist. Deshalb kein `widgetResizable`."""
     fenster = HauptFenster()
     formular = fenster.designer_oeffnen(_pfm_schreiben(tmp_path, 1400, 1000))
     fenster.resize(700, 500)

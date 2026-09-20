@@ -36,7 +36,7 @@ def test_projekt_oeffnen_fuellt_den_explorer() -> None:
     # erzeugt und nicht bearbeitet, wie die `.lpr` in Lazarus. Erreichbar
     # bleibt sie über „Projekt → Startdatei anzeigen“.
     #
-    # `u_main.py` steht seit September 2026 dabei: unter „Formulare"
+    # `u_main.py` steht seither dabei: unter „Formulare"
     # liegt die Oberfläche, hier der Code - und genau der ist die Datei,
     # in die der Schüler schreibt.
     assert set(units) == {"u_main.py", "u_konto.py"}

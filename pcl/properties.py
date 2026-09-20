@@ -29,13 +29,13 @@ def typ_beschreibung(typ: type) -> str:
     return f"{artikel} {name} ({typ.__name__})"
 
 
-#: Wie Datum und Uhrzeit **in der Oberfläche** stehen: deutsch.
+#: Wie Datum und Uhrzeit in der Oberfläche stehen: deutsch.
 #: `DateEdit`, `Calendar` und der Objektinspektor zeigen sie so an, und
 #: so tippt man sie auch ein (M15, Abschnitt 4).
 DATUM_FORMAT = "%d.%m.%Y"
 ZEIT_FORMAT = "%H:%M"
 
-#: Wie sie **in der `.pfm`** stehen: ISO, also `2026-09-20` und `14:30`.
+#: Wie sie in der `.pfm` stehen: ISO, also `2026-09-20` und `14:30`.
 #: Eine Datei, die Maschinen lesen, sortiert sich damit richtig und ist
 #: unabhängig davon, in welchem Land sie geöffnet wird. Die deutsche
 #: Schreibweise gehört auf den Bildschirm, nicht in die Datei.
@@ -250,7 +250,7 @@ SAMMLUNGS_DOKU: dict[str, str] = {
 # `Strings`-Sammlung überträgt.
 SAMMLUNGS_EIGENSCHAFTEN: tuple[str, ...] = ("items", "lines")
 
-# Eigenschaften, deren Wert ein **Baum strukturierter Datensätze** ist
+# Eigenschaften, deren Wert ein Baum strukturierter Datensätze ist
 # statt eines Einzelwerts oder einer Liste von Zeilen: die Einträge
 # eines Menüs (`MainMenu.entries`, `PopupMenu.entries`).
 #
@@ -312,8 +312,8 @@ def ereignisse(cls: type) -> dict[str, Event]:
     """Alle `Event`-Ereignisse einer Klasse inkl. Basisklassen, für den
     Objektinspektor.
 
-    **Ohne die Maus-Ereignisse, wenn die Komponente im laufenden
-    Programm gar nicht da ist** (`nur_im_designer`: Zeitgeber,
+    Ohne die Maus-Ereignisse, wenn die Komponente im laufenden
+    Programm gar nicht da ist (`nur_im_designer`: Zeitgeber,
     Hauptmenü, Klappmenü). Sie erben sie von `Control` wie jede andere,
     aber eine Maus kann sie nie treffen - im Objektinspektor stünden
     fünf Zeilen, von denen keine je auslöst.

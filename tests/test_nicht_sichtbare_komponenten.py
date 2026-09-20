@@ -5,15 +5,15 @@ im Designer anfassen können, sonst lässt sich sein Intervall nirgends
 einstellen. Lazarus löst das seit jeher mit einem kleinen Symbol auf dem
 Formular, das im fertigen Programm verschwindet.
 
-Vorher war der `Timer` in Natter deshalb bewusst **keine** `Control`:
+Vorher war der `Timer` in Natter deshalb bewusst keine `Control`:
 keine Kachel in der Palette, kein Eintrag in der `.pfm`, er musste im
-Quelltext erzeugt werden. Der Nutzer hat das im September 2026 umgekehrt
+Quelltext erzeugt werden. Der Nutzer hat das umgekehrt
 - „der Timer muss als Komponente auch mit rein, der ist wichtig".
 
 Die Lösung ist `Control.nur_im_designer`. Weil solche Komponenten damit
 gewöhnliche `Control`s sind, brauchen Komponentenbaum,
-Objektinspektor, `.pfm`-Schreiber und Codeerzeugung **keinen einzigen
-Sonderfall** - genau das prüfen die Tests hier.
+Objektinspektor, `.pfm`-Schreiber und Codeerzeugung keinen einzigen
+Sonderfall - genau das prüfen die Tests hier.
 """
 
 from __future__ import annotations

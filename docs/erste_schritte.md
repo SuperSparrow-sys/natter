@@ -1,25 +1,26 @@
 # Erste Schritte mit Natter
 
 Diese Seite führt in zehn Minuten vom leeren Bildschirm zum laufenden
-Programm. Wenn du Lazarus kennst, wird dir fast alles bekannt vorkommen –
-nur die Sprache ist Python statt Pascal.
+Programm. Wer Lazarus kennt, findet fast alles wieder – nur die Sprache
+ist Python statt Pascal.
 
 ## 1. Ein Projekt anlegen
 
 **Projekt → Neues Projekt …**, oder auf dem Startbild „Neues Projekt …".
 
-Im Projekt-Explorer links siehst du genau zwei Dinge:
+Im Projekt-Explorer links stehen genau zwei Dinge:
 
 | Eintrag | Wofür |
 |---|---|
 | **Formulare › u_main** | das **Formular**. Doppelklick öffnet den Designer |
-| **Units › u_main.py** | **dein** Code: was passieren soll, wenn jemand klickt |
+| **Units › u_main.py** | der **eigene** Code: was passieren soll, wenn jemand klickt |
 
 Im Ordner liegen noch zwei weitere Dateien, die Natter selbst schreibt
-und die du nicht bearbeitest – deshalb stehen sie auch nicht im Baum:
-`u_main_design.py` (aus dem Formular erzeugt) und `main.py` (startet das
-Programm). Genau so hält es Lazarus mit der Projektdatei `.lpr`. Wenn du
-trotzdem hineinsehen willst: **Projekt → Startdatei anzeigen**.
+und die niemand von Hand bearbeitet – deshalb stehen sie auch nicht im
+Baum: `u_main_design.py` (aus dem Formular erzeugt) und `main.py`
+(startet das Programm). Genau so hält es Lazarus mit der Projektdatei
+`.lpr`. Wer trotzdem hineinsehen will: **Projekt → Startdatei
+anzeigen**.
 
 Die Trennung von `u_main.pfm` und `u_main.py` ist derselbe Gedanke wie
 `.lfm` und `.pas` in Lazarus.
@@ -28,36 +29,40 @@ Die Trennung von `u_main.pfm` und `u_main.py` ist derselbe Gedanke wie
 
 Doppelklick auf **u_main** unter „Formulare" öffnet den Designer.
 
-Links oben steht die **Komponentenpalette**. Klick eine Kachel an und
-dann in das Formular – dort entsteht die Komponente. (Ein Doppelklick
-auf die Kachel legt sie in die Mitte.)
+Links oben steht die **Komponentenpalette**. Eine Kachel anklicken und
+dann ins Formular klicken – dort entsteht die Komponente. (Ein
+Doppelklick auf die Kachel legt sie in die Mitte.)
 
-Rechts steht der **Objektinspektor**. Dort änderst du, was die
+Rechts steht der **Objektinspektor**. Dort wird eingestellt, was die
 Komponente können soll:
 
 * `caption` – die Beschriftung
 * `left`, `top`, `width`, `height` – Lage und Größe
 * Reiter **Ereignisse** – was bei einem Klick passieren soll
 
-**Doppelklick auf den Knopf** im Formular – Natter legt dir die
-Methode dafür in `u_main.py` an und verknüpft sie. (Dasselbe über die
-rechte Maustaste: „Methode für „click“ anlegen“.) Der Reiter
-**Ereignisse** im Objektinspektor zeigt danach, welche Methode an
-welchem Ereignis hängt; dort lässt sich auch eine **schon vorhandene**
-Methode auswählen.
+**Doppelklick auf den Knopf** im Formular: Natter legt die Methode
+dafür in `u_main.py` an und verknüpft sie. (Dasselbe über die rechte
+Maustaste: „Methode für „click“ anlegen“.) Der Reiter **Ereignisse**
+im Objektinspektor zeigt danach, welche Methode an welchem Ereignis
+hängt; dort lässt sich auch eine **schon vorhandene** Methode
+auswählen.
+
+Das Formular selbst lässt sich an den drei Anfassern rechts, unten und
+in der Ecke größer ziehen. Der Punkteraster darauf zeigt, in welchen
+Schritten eine Komponente einrastet.
 
 ## 3. Code schreiben
 
-Wechsle zu **u_main.py**. Dort steht jetzt deine leere Methode – trag
-hinein, was passieren soll:
+Weiter zu **u_main.py**. Dort steht jetzt die leere Methode; hinein
+kommt, was passieren soll:
 
 ```python
 def b_start_click(self, sender):
     self.l_ausgabe.caption = "Hallo!"
 ```
 
-Jede Komponente erreichst du über `self.` und ihren Namen – genauso wie
-in Lazarus. Der Name steht im Objektinspektor in der ersten Zeile
+Jede Komponente ist über `self.` und ihren Namen erreichbar – genauso
+wie in Lazarus. Der Name steht im Objektinspektor in der ersten Zeile
 (`name`), und die Eigenschaften heißen dort genauso wie hier:
 
 ```python
@@ -68,28 +73,27 @@ self.b_ok.enabled = False
 
 ### „Wo steht eigentlich das `on_click`?“
 
-In `u_main.py` findest du nur die **Methoden** – keine Zeile, die sie
-mit dem Knopf verbindet. Das ist Absicht. Die Verbindung
+In `u_main.py` stehen nur die **Methoden** – keine Zeile, die sie mit
+dem Knopf verbindet. Das ist Absicht. Die Verbindung
 
 ```python
 self.b_ok.on_click = self.b_ok_click
 ```
 
 schreibt Natter beim Speichern des Formulars nach `u_main_design.py`,
-zusammen mit allem anderen, was du im Designer eingestellt hast. Diese
-Datei wird erzeugt und nie von Hand geändert – deshalb siehst du sie
-auch nicht im Projekt-Explorer. Genau so macht es Lazarus mit der
-`.lfm`.
+zusammen mit allem anderen aus dem Designer. Diese Datei wird erzeugt
+und nie von Hand geändert – deshalb taucht sie im Projekt-Explorer
+nicht auf. Genau so macht es Lazarus mit der `.lfm`.
 
-Du kannst `on_click` trotzdem selbst setzen, wenn du willst: im Code
-ist es eine Eigenschaft wie jede andere. Im Unterricht braucht man das
-nur selten – etwa wenn zwei Knöpfe dieselbe Methode benutzen sollen.
-Dafür gibt es aber auch den Reiter **Ereignisse** im Objektinspektor,
-und der schreibt es ordentlich in die `.pfm` zurück.
+`on_click` lässt sich trotzdem selbst setzen: im Code ist es eine
+Eigenschaft wie jede andere. Im Unterricht braucht man das selten –
+etwa, wenn zwei Knöpfe dieselbe Methode benutzen sollen. Dafür gibt es
+aber auch den Reiter **Ereignisse** im Objektinspektor, und der
+schreibt es ordentlich in die `.pfm` zurück.
 
-`sender` ist übrigens die Komponente, die das Ereignis ausgelöst hat.
-Wenn mehrere Knöpfe an derselben Methode hängen, erkennst du daran,
-welcher gedrückt wurde.
+`sender` ist die Komponente, die das Ereignis ausgelöst hat. Hängen
+mehrere Knöpfe an derselben Methode, lässt sich daran erkennen, welcher
+gedrückt wurde.
 
 ### Zwischen Formular und Code wechseln
 
@@ -97,7 +101,7 @@ welcher gedrückt wurde.
 und wieder zurück – wie F12 in Lazarus. (F12 selbst ist in Natter
 „Zur Definition springen“, wie in VS Code.)
 
-Zwei Hilfen im Editor: die **senkrechten Linien** zeigen dir die
+Zwei Hilfen im Editor: die **senkrechten Linien** zeigen die
 Einrückungsebenen (bei Python ist die Einrückung die Syntax!), und die
 **Rücktaste** löscht eine ganze Ebene auf einmal.
 
@@ -105,8 +109,8 @@ Einrückungsebenen (bei Python ist die Einrückung die Syntax!), und die
 
 **F5** startet mit Debugger, **Strg+F5** ohne.
 
-Vor dem Start prüft Natter deinen Code. Findet es etwas, steht es unten
-unter **Meldungen** – ein Doppelklick bringt dich an die Stelle.
+Vor dem Start prüft Natter den Quelltext. Findet sie etwas, steht es
+unten unter **Meldungen** – ein Doppelklick führt an die Stelle.
 
 ## 5. Wenn etwas schiefgeht
 
@@ -117,23 +121,24 @@ Teilen:
 * **Was** – was passiert ist
 * **Prüfe** – woran es liegen könnte
 
-Der letzte Teil ist Absicht: Natter sagt dir nicht die Lösung, sondern
-wo du suchen sollst. Das Finden ist die eigentliche Aufgabe.
+Der letzte Teil ist Absicht: Natter nennt nicht die Lösung, sondern die
+Stelle, an der sie zu suchen ist. Das Finden ist die eigentliche
+Aufgabe.
 
-Zum Suchen setzt du einen **Haltepunkt**: Klick links neben die
-Zeilennummer. Mit F5 hält das Programm dort an, und unter **Variablen**
-siehst du, was gerade in deinen Variablen steht. Rechtsklick auf eine
-Liste oder Tabelle: **Als Tabelle anzeigen**.
+Zum Suchen dient ein **Haltepunkt**: links neben die Zeilennummer
+klicken. Mit F5 hält das Programm dort an, und unter **Variablen**
+steht, was gerade in den Variablen liegt. Rechtsklick auf eine Liste
+oder Tabelle: **Als Tabelle anzeigen**.
 
 ## 6. Diagramme
 
-**Datei → Neues Diagramm …** gibt dir sieben Arten: Klassendiagramm,
+**Datei → Neues Diagramm …** bietet sieben Arten an: Klassendiagramm,
 Struktogramm, Entscheidungstabelle, Use-Case-, Aktivitäts-, Zustands-
 und Sequenzdiagramm.
 
-Aus einem Klassendiagramm und aus einem Struktogramm kann Natter
-**Python-Quelltext erzeugen** (Menü „Quelltext"). Das ist eine Vorlage
-zum Abschreiben, kein fertiges Programm.
+Aus einem Klassendiagramm und aus einem Struktogramm erzeugt Natter
+**Python-Quelltext** (Menü „Quelltext"). Das ist eine Vorlage zum
+Weiterschreiben, kein fertiges Programm.
 
 ## Die wichtigsten Tasten
 
@@ -150,9 +155,9 @@ zum Abschreiben, kein fertiges Programm.
 | Strg+Umschalt+E | Quelltext aus dem Diagramm erzeugen |
 | Umschalt+F12 | Zwischen Formular und Code wechseln |
 
-## Und wenn ich nicht weiterkomme?
+## Und wenn es nicht weitergeht?
 
-Probier die **Beispielprojekte** vom Startbild. Sie sind keine
+Dann helfen die **Beispielprojekte** vom Startbild. Sie sind keine
 Sammlung, sondern ein Weg von vorn nach hinten — jede Stufe bringt
 genau eine neue Idee dazu, und oben in der Datei steht, welche:
 
@@ -168,7 +173,7 @@ genau eine neue Idee dazu, und oben in der Datei steht, welche:
 | 08 | Regression | aus Daten eine Regel ableiten |
 | 09 | Obst-Sortierer | der Rechner lernt selbst eine Regel |
 
-Wenn du bei 03 hängst, hilft 02 weiter — nicht 09.
+Wer bei 03 hängt, kommt über 02 weiter — nicht über 09.
 
-Beim Öffnen legt Natter eine **Kopie** in deinem Dokumente-Ordner an.
-Du kannst darin also alles ausprobieren, ohne etwas kaputtzumachen.
+Beim Öffnen legt Natter eine **Kopie** im eigenen Dokumente-Ordner an.
+Darin lässt sich alles ausprobieren, ohne etwas kaputtzumachen.

@@ -1,7 +1,7 @@
 """Eine im Objektinspektor gewählte Ereignis-Verknüpfung muss ankommen.
 
 Gefunden bei der Durchsicht „Was sieht eine Lernende?“ (M12): Der Reiter
-„Ereignisse“ setzte den Handler **nur am Live-Objekt**. Der Designer
+„Ereignisse“ setzte den Handler nur am Live-Objekt. Der Designer
 zeigte die Verknüpfung an, die `.pfm` und `u_*_design.py` erfuhren nichts
 davon – und im gestarteten Programm tat der Knopf nichts.
 
@@ -12,7 +12,7 @@ geht mein Knopf, mal nicht“ ist für jemanden, der programmieren lernt,
 der denkbar schlechteste Fehler: er lehrt, dem eigenen Programm nicht zu
 trauen.
 
-Derselbe Fehler war bei den **Eigenschaften** schon einmal gefunden und
+Derselbe Fehler war bei den Eigenschaften schon einmal gefunden und
 behoben worden (siehe `DesignerCanvas.eigenschaft_uebernehmen`); der
 Reiter daneben blieb dabei übersehen.
 """

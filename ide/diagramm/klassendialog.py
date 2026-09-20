@@ -1,17 +1,17 @@
 """Eigenschaften-Dialog für UML-Klassen (Abschnitt 13.4,
 M9 Schritt 12).
 
-Nutzer-Entscheidung September 2026, mit Bildschirmfotos des
+entschieden, mit Bildschirmfotos des
 Dia-Dialogs „Eigenschaften: UML – Class“ belegt: die Inhalte einer
-Klasse werden **nicht** direkt auf der Zeichenfläche bearbeitet,
+Klasse werden nicht direkt auf der Zeichenfläche bearbeitet,
 sondern hier. Die Zeichenfläche bleibt für das Anordnen zuständig
 (platzieren, verschieben, Größe, verbinden), der Dialog für den Inhalt.
 
-Notiz und Paket bekommen **keinen** Dialog – sie haben nur ein
+Notiz und Paket bekommen keinen Dialog – sie haben nur ein
 Textfeld und werden weiterhin direkt beschriftet. Struktogramm und
 Entscheidungstabelle ebenso.
 
-Der Dialog arbeitet auf einer **Kopie** der Form. Erst „Anwenden“ bzw.
+Der Dialog arbeitet auf einer Kopie der Form. Erst „Anwenden“ bzw.
 „OK“ überträgt sie; „Schließen“ verwirft alles seit dem letzten
 Anwenden. Dadurch ist ein Dialogdurchgang genau ein Undo-Schritt, egal
 wie viele Felder geändert wurden.
@@ -749,7 +749,7 @@ class KlassenDialog(QDialog):
     # -- Übernehmen -------------------------------------------------------
 
     def ergebnis(self) -> dict[str, Any]:
-        """Die geänderten Werte – genau das, was als **ein**
+        """Die geänderten Werte – genau das, was als ein
         Undo-Kommando auf die Form angewandt wird."""
         e = dict(self.entwurf)
         e.update(self._kopfwerte())

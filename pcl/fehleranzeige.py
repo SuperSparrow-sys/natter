@@ -2,13 +2,13 @@
 
 Der Fehlerkatalog (`pcl/fehlerkatalog.py`) ist das didaktische Kernstück
 von Natter: statt eines englischen Tracebacks eine Meldung in drei
-Teilen – **Wo**, **Was**, **Prüfe**. Benutzt wurde er bis M12 aber nur
-vom Debugger. Wer sein Programm mit **Strg+F5** startete – also so, wie
+Teilen – Wo, Was, Prüfe. Benutzt wurde er bis M12 aber nur
+vom Debugger. Wer sein Programm mit Strg+F5 startete – also so, wie
 man ein fertiges Programm startet –, bekam:
 
 * im Konsolenprogramm den rohen englischen Traceback, in dem vor der
   einen wichtigen Zeile ein Dutzend Zeilen aus `pcl` und Qt stehen,
-* im **GUI-Programm gar nichts**: es läuft ohne Konsolenfenster
+* im GUI-Programm gar nichts: es läuft ohne Konsolenfenster
   (Abschnitt 7.8), das Fenster verschwand einfach.
 
 Hier hängt sich das Schülerprogramm selbst in `sys.excepthook` ein und

@@ -13,7 +13,7 @@ Verbindungsarten, Enden folgen beim Verschieben automatisch, weil sie
 beim Zeichnen aus den Formen berechnet werden) und beschriften
 (Doppelklick, Eingabefelder direkt in der Form) – alles über den Kommando-Stapel,
 also unbegrenzt rückgängig machbar (Abschnitt 13.3). Beim Ziehen wird
-am Raster **und** an Kanten/Mitten anderer Formen eingerastet, mit
+am Raster und an Kanten/Mitten anderer Formen eingerastet, mit
 Hilfslinien als Rückmeldung.
 """
 
@@ -112,7 +112,7 @@ class DiagrammCanvas(ZoomMischung, QWidget):
         super().__init__()
         self.diagramm = diagramm
         self.kommandos = Kommandostapel()
-        #: Die Auswahl ist eine **Liste** (Teilschritt 3b). Die letzte
+        #: Die Auswahl ist eine Liste (Teilschritt 3b). Die letzte
         #: Form darin ist die führende: an ihr richtet sich „Ausrichten“
         #: aus, und nur sie bekommt Anfasser. `ausgewaehlte_form` liefert
         #: genau diese - so bleibt aller Code gültig, der nur eine Form
@@ -382,7 +382,7 @@ class DiagrammCanvas(ZoomMischung, QWidget):
         (Abschnitt 13.6). Verkleinert nie – eine von Hand größer
         gezogene Form soll groß bleiben.
 
-        **Nur die Höhe, mit Absicht.** Eine Mindestbreite gibt es
+        Nur die Höhe, mit Absicht. Eine Mindestbreite gibt es
         (`zeichnen.mindestbreite`), sie wird aber nicht erzwungen: sonst
         zöge jede Eingabe eines langen Methodennamens die Form ruckartig
         breiter. Zu schmale Formen meldet stattdessen der
@@ -397,7 +397,7 @@ class DiagrammCanvas(ZoomMischung, QWidget):
     # -- Bearbeiten -----------------------------------------------------
 
     def verschieben(self, dx: int, dy: int, form: dict[str, Any] | None = None) -> None:
-        """Verschiebt die angegebene Form oder die **ganze** Auswahl –
+        """Verschiebt die angegebene Form oder die ganze Auswahl –
         letzteres als ein einziger Undo-Schritt."""
         ziele = [form] if form is not None else list(self._auswahl)
         if not ziele:
@@ -428,7 +428,7 @@ class DiagrammCanvas(ZoomMischung, QWidget):
 
     def loeschen(self, form: dict[str, Any] | None = None) -> None:
         """Löscht die angegebene bzw. ausgewählte Form – zusammen mit
-        allen Verbindungen, die an ihr hängen, als **ein** Undo-Schritt.
+        allen Verbindungen, die an ihr hängen, als ein Undo-Schritt.
         Ohne ausgewählte Form wird eine ausgewählte Verbindung
         gelöscht."""
         ziele = [form] if form is not None else list(self._auswahl)
@@ -519,7 +519,7 @@ class DiagrammCanvas(ZoomMischung, QWidget):
 
     @property
     def ausgewaehlte_form(self) -> dict[str, Any] | None:
-        """Die **führende** Form der Auswahl – bei Mehrfachauswahl die
+        """Die führende Form der Auswahl – bei Mehrfachauswahl die
         zuletzt angeklickte."""
         return self._auswahl[-1] if self._auswahl else None
 
@@ -558,7 +558,7 @@ class DiagrammCanvas(ZoomMischung, QWidget):
 
     def auswahl_umschalten(self, form: dict[str, Any]) -> None:
         """Strg+Klick: nimmt die Form dazu oder wieder heraus. Eine
-        bereits ausgewählte Form wandert dabei **nicht** ans Ende – wer
+        bereits ausgewählte Form wandert dabei nicht ans Ende – wer
         eine falsch getroffene Form wieder abwählt, will die Führung
         nicht verschieben."""
         neu = [vorhanden for vorhanden in self._auswahl if vorhanden is not form]
@@ -713,7 +713,7 @@ class DiagrammCanvas(ZoomMischung, QWidget):
         self._ziehen_beginnen(punkt)
 
     def _ziehen_beginnen(self, punkt: QPoint) -> None:
-        """Merkt sich die Startwerte **aller** ausgewählten Formen – ein
+        """Merkt sich die Startwerte aller ausgewählten Formen – ein
         Ziehen bewegt die ganze Auswahl und bleibt trotzdem ein einziger
         Undo-Schritt."""
         self._zieh_formen = list(self._auswahl)
@@ -819,7 +819,7 @@ class DiagrammCanvas(ZoomMischung, QWidget):
 
     def eigenschaften_dialog(self, form: dict[str, Any] | None = None):
         """Baut den Eigenschaften-Dialog und hängt ihn an den
-        Kommando-Stapel – **ohne** ihn anzuzeigen. Getrennt vom Anzeigen,
+        Kommando-Stapel – ohne ihn anzuzeigen. Getrennt vom Anzeigen,
         weil `exec()` blockiert und Tests sonst hängen blieben."""
         ziel = form or self.ausgewaehlte_form
         if ziel is None or not ist_klasse(ziel):
@@ -831,7 +831,7 @@ class DiagrammCanvas(ZoomMischung, QWidget):
 
     def eigenschaften_bearbeiten(self, form: dict[str, Any] | None = None):
         """Öffnet den Eigenschaften-Dialog für eine UML-Klasse. Jeder
-        Druck auf „Anwenden“ ist **ein** Undo-Schritt, egal wie viele
+        Druck auf „Anwenden“ ist ein Undo-Schritt, egal wie viele
         Felder im Dialog geändert wurden."""
         dialog = self.eigenschaften_dialog(form)
         if dialog is not None:
@@ -1014,7 +1014,7 @@ class DiagrammCanvas(ZoomMischung, QWidget):
         """Eine waagerechte Nachricht lässt sich mit der Maus nach oben
         und unten schieben.
 
-        Im Sequenzdiagramm sagt allein die **Höhe**, wann eine Nachricht
+        Im Sequenzdiagramm sagt allein die Höhe, wann eine Nachricht
         geschickt wird – die Reihenfolge ist der eigentliche Inhalt des
         Diagramms. Sie über ein Zahlenfeld einzustellen wäre mühsam;
         also zieht man sie wie alles andere auch.
@@ -1032,7 +1032,7 @@ class DiagrammCanvas(ZoomMischung, QWidget):
         )
 
     def _rahmen_beenden(self) -> None:
-        """Wählt alles aus, was **vollständig** im aufgezogenen Rahmen
+        """Wählt alles aus, was vollständig im aufgezogenen Rahmen
         liegt. Nur Berühren würde beim Aufziehen über ein dicht
         gestelltes Diagramm ständig Nachbarn mitnehmen, die man gar
         nicht meint."""
@@ -1196,7 +1196,7 @@ class DiagrammCanvas(ZoomMischung, QWidget):
 
     # -- Anordnen (Teilschritt 3b) --------------------------------------
 
-    #: Ausgerichtet wird immer an der **führenden** Form, also der
+    #: Ausgerichtet wird immer an der führenden Form, also der
     #: zuletzt angeklickten - dasselbe Verhalten wie in Lazarus und in
     #: Dia. Sonst müsste man raten, welche Form stehen bleibt.
     AUSRICHTUNGEN = (
@@ -1235,7 +1235,7 @@ class DiagrammCanvas(ZoomMischung, QWidget):
         return self._sammeln(kommandos)
 
     def verteilen(self, richtung: str) -> bool:
-        """Verteilt die ausgewählten Formen mit **gleichen Abständen**
+        """Verteilt die ausgewählten Formen mit gleichen Abständen
         zwischen der ersten und der letzten.
 
         Gleiche Abstände statt gleicher Mittenabstände: bei
@@ -1342,7 +1342,7 @@ class DiagrammCanvas(ZoomMischung, QWidget):
         return nummer
 
     def _sammeln(self, kommandos: list[Any]) -> bool:
-        """Führt mehrere Änderungen als **einen** Undo-Schritt aus.
+        """Führt mehrere Änderungen als einen Undo-Schritt aus.
         Ausrichten ist für die Bedienerin eine Handlung, also soll auch
         ein einziges Strg+Z sie zurücknehmen."""
         if not kommandos:
@@ -1372,7 +1372,7 @@ class DiagrammCanvas(ZoomMischung, QWidget):
             "natter_diagramm": 1,
             "typ": self.diagramm.typ,
             "shapes": copy.deepcopy(list(self._auswahl)),
-            # Verbindungen kommen mit, wenn **beide** Enden mitkopiert
+            # Verbindungen kommen mit, wenn beide Enden mitkopiert
             # werden - eine Verbindung ins Nichts wäre beim Einfügen
             # wertlos.
             "connections": copy.deepcopy(

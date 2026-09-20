@@ -38,10 +38,10 @@ def test_installierte_pakete_parst_echte_pip_list_json_ausgabe(
 def test_installierte_pakete_bei_pip_fehler_loest_paketfehler_statt_abzustuerzen(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Echter Absturz (Nutzer-Feedback): `check=True` ließ eine
-    unbehandelte `subprocess.CalledProcessError` bis zur IDE
-    durchschlagen, wenn `pip list` fehlschlug - jetzt wie
-    `paket_installieren` ein sauberer `PaketFehler`."""
+    """Echter Absturz: `check=True` ließ eine
+ unbehandelte `subprocess.CalledProcessError` bis zur IDE
+ durchschlagen, wenn `pip list` fehlschlug - jetzt wie
+ `paket_installieren` ein sauberer `PaketFehler`."""
     monkeypatch.setattr(
         "ide.env.pakete.subprocess.run",
         lambda *a, **k: _ergebnis(returncode=1, stderr="ERROR: pip ist kaputt"),

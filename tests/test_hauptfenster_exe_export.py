@@ -72,12 +72,12 @@ def test_fehlgeschlagener_export_zeigt_protokoll_in_meldungen(
 def test_ein_ladebalken_laeuft_in_der_untersten_zeile_mit(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Nutzer-Vorgabe September 2026: „wenn ich ein Programm als Exe
-    exportiere soll unten ein Ladebalken sein in der untersten Zeile".
+    """Vorgabe: „wenn ich ein Programm als Exe
+ exportiere soll unten ein Ladebalken sein in der untersten Zeile".
 
-    Ein Export dauert eine halbe bis eine Minute, und die Oberfläche
-    steht dabei still - ohne Balken sieht das nach einem Absturz aus.
-    """
+ Ein Export dauert eine halbe bis eine Minute, und die Oberfläche
+ steht dabei still - ohne Balken sieht das nach einem Absturz aus.
+ """
     fenster = HauptFenster()
     fenster.projekt_oeffnen(_projekt_kopie(tmp_path) / "04_CookieKlicker.natter")
     ausgabe = tmp_path / "dist" / "04_CookieKlicker.exe"

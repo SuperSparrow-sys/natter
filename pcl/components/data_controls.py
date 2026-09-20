@@ -3,21 +3,21 @@ Anzeige-/Bedienkomponenten – `DBGrid`, `DBEdit`, `DBText`,
 `DBNavigator`, `DBComboBox`.
 
 Jede Komponente registriert sich bei ihrer `DataSource` (siehe
-`DataSource.aktualisieren()` in `pcl/components/data_access.py`) und
+`DataSource.aktualisieren` in `pcl/components/data_access.py`) und
 zeichnet sich neu, sobald diese benachrichtigt wird – nach Navigation
 über `DBNavigator` geschieht das automatisch, nach einem eigenen
-``query.open()``/``query.set_field()`` im Code ruft man
-``data_source.aktualisieren()`` selbst auf.
+``query.open``/``query.set_field`` im Code ruft man
+``data_source.aktualisieren`` selbst auf.
 
-**Die `DataSource` ist überall freiwillig.** Bis September 2026 verlangte
+Die `DataSource` ist überall freiwillig. Bis verlangte
 jede dieser Komponenten sie im Konstruktor – `DBGrid(parent, quelle)`.
 Der Designer erzeugt Komponenten aber mit ``typ(formular)`` allein, und
 damit ließ sich keine einzige davon auf ein Formular legen oder vom
 Eigenschaften-Rundlauf prüfen (der offene Punkt aus M11). Ohne Quelle
 zeigen sie jetzt eine leere Anzeige, statt beim Anlegen zu scheitern.
 
-Für den kurzen Weg – `SQLite3Connection.query()` liefert eine Liste von
-`dict`s – hat `DBGrid` zusätzlich `show_rows()`: eine Zeile statt
+Für den kurzen Weg – `SQLite3Connection.query` liefert eine Liste von
+`dict`s – hat `DBGrid` zusätzlich `show_rows`: eine Zeile statt
 Abfrage, Datenquelle und Benachrichtigung.
 """
 
@@ -48,7 +48,7 @@ class _DatenControl(Control):
     Datenquelle oder `None` – ohne diese eine Stelle stünde in jeder
     Anzeige-Methode zweimal derselbe `is not None`-Test.
 
-    Und `data_source` ist eine **echte Eigenschaft**, kein einfaches
+    Und `data_source` ist eine echte Eigenschaft, kein einfaches
     Attribut. Das ist nötig, seit die Datenquelle freiwillig ist: wer
     sie nachträglich zuweist (``self.g_konten.data_source = quelle``),
     bekäme sonst eine Komponente, die sich nie meldet. Die Anmeldung bei
@@ -268,7 +268,7 @@ class DBNavigator(_DatenControl):
     Zurück/Vor/Letzter/Einfügen/Löschen/Speichern/Abbrechen). Qt-Basis:
     Leiste aus `QPushButton`.
 
-    **Vereinfachung, bewusst dokumentiert:** Erster/Zurück/Vor/Letzter
+    Vereinfachung, bewusst dokumentiert: Erster/Zurück/Vor/Letzter
     bewegen direkt den Datensatzzeiger von ``data_source.dataset`` und
     benachrichtigen die `DataSource` automatisch. Einfügen/Löschen/
     Speichern/Abbrechen lösen dagegen nur die Ereignisse

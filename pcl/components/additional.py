@@ -95,10 +95,10 @@ class _ShapeQWidget(QWidget):
 
 class Shape(Control):
     """Einfache geometrische Form zum Zeichnen. Qt-Basis: eigenes Painting
-    (`QPainter` auf einem `QWidget`). Wie in Lazarus sind Füllung
-    (`brush.color`) und Rand (`pen_color`) unabhängig voneinander -
-    Nutzer-Feedback September 2026: „Rahmen, Rahmenfarbe“ fehlte bisher,
-    Rand und Füllung nutzten dieselbe Farbe."""
+ (`QPainter` auf einem `QWidget`). Wie in Lazarus sind Füllung
+ (`brush.color`) und Rand (`pen_color`) unabhängig voneinander -
+ Gewünscht: „Rahmen, Rahmenfarbe“ fehlte bisher,
+ Rand und Füllung nutzten dieselbe Farbe."""
 
     shape = Prop(
         str,
@@ -190,7 +190,7 @@ class StringGrid(Control):
         self._cells = Cells(self)
         # Solange das Programm selbst schreibt (`cells[...] = ...`,
         # `load_dataframe`), darf `on_edit_cell` nicht feuern: gemeint
-        # ist die Änderung **durch den Benutzer**, sonst löste schon das
+        # ist die Änderung durch den Benutzer, sonst löste schon das
         # Füllen der Tabelle hundert Ereignisse aus.
         self._schreibt_selbst = False
         super().__init__(parent)
@@ -289,8 +289,8 @@ class Image(Control):
     gelegt werden - ein Kniff, den kein Lehrbuch erklärt.
 
     Die drei Eigenschaften `stretch`, `proportional` und `center`
-    heißen und wirken wie in Lazarus; **nur der Standardwert von
-    `stretch` ist ein anderer.** In Lazarus steht er auf `False`, und
+    heißen und wirken wie in Lazarus; nur der Standardwert von
+    `stretch` ist ein anderer. In Lazarus steht er auf `False`, und
     ein zu großes Bild wird oben links abgeschnitten. Natter zeigt es
     stattdessen von Anfang an passend: die Kekse in
     `04_CookieKlicker` sind 512×512 Punkte groß und liegen in einem
@@ -339,7 +339,7 @@ class Image(Control):
         verlangen.
 
         `setScaledContents` allein reicht nur für den einfachsten Fall.
-        Es zieht das Bild **ohne** Rücksicht auf das Seitenverhältnis
+        Es zieht das Bild ohne Rücksicht auf das Seitenverhältnis
         auf die volle Fläche; für `proportional` muss deshalb von Hand
         skaliert werden. Und weil `setScaledContents(True)` jede
         Ausrichtung überfährt, darf es gleichzeitig mit `center` gar
@@ -572,7 +572,7 @@ class ProgressBar(Control):
         """Setzt Bereich und Füllstand gemeinsam - und kappt den
         Füllstand selbst.
 
-        `QProgressBar.setValue()` **ignoriert** einen Wert außerhalb des
+        `QProgressBar.setValue()` ignoriert einen Wert außerhalb des
         Bereichs stillschweigend, statt ihn wie `QSpinBox`/`QSlider` auf
         die Grenze zu kappen: `position = 300` bei `maximum = 100` ließ
         den Balken kommentarlos auf 0 stehen. Für jemanden, der gerade

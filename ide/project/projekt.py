@@ -76,27 +76,25 @@ class Projekt:
     def units(self) -> list[Path]:
         """Die Units, an denen gearbeitet wird.
 
-        Ohne die automatisch erzeugten `*_design.py` (Abschnitt 4.1:
-        nicht bearbeiten) und ohne die Startdatei (`main`): die schreibt
-        Natter beim Anlegen, danach ändert sie niemand mehr. In Lazarus
-        steht die entsprechende Projektdatei (`.lpr`) aus demselben
-        Grund nicht im Projektinspektor, sondern nur hinter einem
-        eigenen Menüweg (M12).
+ Ohne die automatisch erzeugten `*_design.py` (Abschnitt 4.1:
+ nicht bearbeiten) und ohne die Startdatei (`main`): die schreibt
+ Natter beim Anlegen, danach ändert sie niemand mehr. In Lazarus
+ steht die entsprechende Projektdatei (`.lpr`) aus demselben
+ Grund nicht im Projektinspektor, sondern nur hinter einem
+ eigenen Menüweg (M12).
 
-        **Das gilt für jeden Projekttyp**, auch für Konsolenprojekte.
-        Dort stand der ganze Schülercode früher in `main.py` selbst -
-        die Startdatei war damit zugleich ausgeblendet und der einzige
-        Quelltext, und die ersten beiden Lehrgangsstufen öffneten sich
-        mit einem völlig leeren Projekt-Explorer. Die Antwort darauf ist
-        nicht, die Startdatei zu zeigen, sondern dass auch ein
-        Konsolenprojekt eine `u_main.py` hat (Nutzer, September 2026:
-        „Jedes Projekt braucht eine Main um zu starten und eine u_main wo
-        der Schüler Code drin steht"). `main.py` ist überall nur der
-        Starter.
+ Das gilt für jeden Projekttyp, auch für Konsolenprojekte. Dort stand der
+ ganze Schülercode früher in `main.py` selbst - die Startdatei war damit
+ zugleich ausgeblendet und der einzige Quelltext, und die ersten beiden
+ Lehrgangsstufen öffneten sich mit einem völlig leeren Projekt-Explorer.
+ Die Antwort darauf ist nicht, die Startdatei zu zeigen, sondern dass
+ auch ein Konsolenprojekt eine `u_main.py` hat (Gewünscht: „Jedes Projekt
+ braucht eine Main um zu starten und eine u_main wo der Schüler Code drin
+ steht"). `main.py` ist überall nur der Starter.
 
-        Für Namenskollisionen ist `alle_python_dateien()` gemeint, nicht
-        diese Liste - sonst ließe sich eine Unit auf den Namen der
-        Startdatei umbenennen und diese damit überschreiben."""
+ Für Namenskollisionen ist `alle_python_dateien` gemeint, nicht
+ diese Liste - sonst ließe sich eine Unit auf den Namen der
+ Startdatei umbenennen und diese damit überschreiben."""
         versteckt = {self.haupt_datei.name}
         return sorted(
             p
@@ -115,20 +113,20 @@ class Projekt:
 
     def zusammengehoerige_dateien(self, pfad: Path) -> list[Path]:
         """Alle Dateien, die zu `pfad` gehören - die sichtbare und die
-        im Hintergrund erzeugten.
+ im Hintergrund erzeugten.
 
-        Eine Unit mit Formular besteht aus drei Dateien, von denen eine
-        Schülerin nur zwei zu sehen bekommt: `u_ampel.py` (ihr Code),
-        `u_ampel.pfm` (das Formular) und `u_ampel_design.py` (erzeugt,
-        deshalb im Explorer ausgeblendet). Wer die Unit löscht, meint
-        alle drei - bliebe die erzeugte Datei liegen, stünde im
-        Projektordner Code zu einem Formular, das es nicht mehr gibt.
+ Eine Unit mit Formular besteht aus drei Dateien, von denen eine
+ Schülerin nur zwei zu sehen bekommt: `u_ampel.py` (ihr Code),
+ `u_ampel.pfm` (das Formular) und `u_ampel_design.py` (erzeugt,
+ deshalb im Explorer ausgeblendet). Wer die Unit löscht, meint
+ alle drei - bliebe die erzeugte Datei liegen, stünde im
+ Projektordner Code zu einem Formular, das es nicht mehr gibt.
 
-        Grundsatz des Nutzers (September 2026): hinzugefügt wird in den
-        Dateien, die man sieht; alles Übrige führt Natter im
-        Hintergrund nach - „und der Rest muss automatisch hinzugefügt
-        und gelöscht werden in den anderen Dateien im Hintergrund".
-        """
+ Grundsatz des Nutzers : hinzugefügt wird in den
+ Dateien, die man sieht; alles Übrige führt Natter im
+ Hintergrund nach - „und der Rest muss automatisch hinzugefügt
+ und gelöscht werden in den anderen Dateien im Hintergrund".
+ """
         pfad = Path(pfad)
         stamm = pfad.stem
         if pfad.suffix == ".py" and stamm.endswith("_design"):

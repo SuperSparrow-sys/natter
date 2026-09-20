@@ -134,7 +134,7 @@ def test_echter_kommentar_nach_einer_zeichenkette_bleibt_ein_kommentar() -> None
     assert formatierung.kursiv is True
 
 
-# -- Dunkles Design (VS Code "Dark+", Nutzer-Feedback September 2026) -----
+# -- Dunkles Design (VS Code "Dark+", gemeldet) -----
 
 
 def test_dark_control_schluesselwort_ist_rosa() -> None:

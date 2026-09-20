@@ -1,15 +1,15 @@
 """Eine `.md`-Datei wird gesetzt angezeigt, nicht als Rohtext
 (Abschnitt 11.6).
 
-Bis September 2026 landete jede `.md` im Quelltexteditor. Wer die
+Bis landete jede `.md` im Quelltexteditor. Wer die
 `README.md` eines Beispielprojekts anklickte, bekam `## Überschrift`,
-`**fett**` und Tabellen aus Strichen zu sehen - in einem Fenster mit
+`fett` und Tabellen aus Strichen zu sehen - in einem Fenster mit
 Zeilennummern und Syntaxhervorhebung. Für die vier eingebauten
 Hilfeseiten war das seit M11 gelöst, für eine selbst geöffnete Datei
 nicht.
 
 Geprüft wird deshalb nicht, dass ein Widget entsteht, sondern dass die
-Auszeichnung wirklich **verschwunden** ist: keine Rauten, keine
+Auszeichnung wirklich verschwunden ist: keine Rauten, keine
 Sternchen, keine Striche mehr im angezeigten Text.
 """
 

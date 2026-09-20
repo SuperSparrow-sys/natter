@@ -13,7 +13,7 @@ schlimmer als einer. Beide gehen jetzt durch `HauptFenster.oeffnen()`.
 Dazu das, was beim Durchgehen derselben Frage noch auffiel: ein Projekt,
 dessen `.natter`-Datei fehlt oder beschädigt ist, flog als
 `FileNotFoundError` bzw. `JSONDecodeError` aus einem Qt-Signal heraus –
-und ein gescheitertes **Speichern** ebenso. Das ist der schlimmste Fall
+und ein gescheitertes Speichern ebenso. Das ist der schlimmste Fall
 von allen: der Text steht noch im Fenster, die Datei auf der Platte ist
 die alte, und in der gebauten Exe ohne Konsole sah man gar nichts.
 """

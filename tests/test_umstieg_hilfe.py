@@ -152,7 +152,7 @@ def _familien(ansicht) -> set[str]:
 def test_code_stellen_bekommen_eine_schrift_die_es_gibt(qtbot) -> None:
     """Qt setzt Code-Stellen beim Umwandeln von Markdown auf die
     Gattungsfamilie „monospace“ - die es unter Windows nicht gibt. Aus
-    `u_main_design.py` wurde dadurch unleserliches Zeug, auf **jeder**
+    `u_main_design.py` wurde dadurch unleserliches Zeug, auf jeder
     Hilfeseite (M12, am Bildschirmfoto gefunden)."""
     from PySide6.QtGui import QFontDatabase
 

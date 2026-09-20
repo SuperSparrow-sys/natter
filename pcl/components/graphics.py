@@ -13,7 +13,7 @@ mit Koordinaten zu zeichnen. Genau das kommt im Unterricht vor.
         stift.ellipse(30, 30, 90, 90)
         stift.text_out(10, 110, "Hallo")
 
-**Gezeichnet wird in ein `QPixmap`, nicht im `paintEvent`.** Das ist der
+Gezeichnet wird in ein `QPixmap`, nicht im `paintEvent`. Das ist der
 ganze Trick und der Grund, warum diese Klasse überhaupt eigenen Zustand
 hält: Qt fordert ein Widget zum Neuzeichnen auf, sobald es verdeckt war,
 in der Größe geändert oder gescrollt wurde. Wer dabei nur im
@@ -22,12 +22,12 @@ darüberfährt – ein Fehler, der Lernende ratlos macht, weil ihr Code
 richtig aussieht und trotzdem nichts stehen bleibt. Hier liegt das Bild
 im Pixmap, und das `paintEvent` legt es nur noch hin.
 
-**Ohne Kantenglättung.** Eine gezeichnete Linie hat exakt die Farbe,
+Ohne Kantenglättung. Eine gezeichnete Linie hat exakt die Farbe,
 die im Stift steht – sonst lieferte `canvas.pixels[x, y]` an jeder Kante
 eine Mischfarbe, und „ist dieser Punkt rot?" wäre nicht zu beantworten.
 Lazarus' `TCanvas` glättet ebenfalls nicht.
 
-**Eigene `Pen`- und `Brush`-Klassen**, obwohl `Shape` in
+Eigene `Pen`- und `Brush`-Klassen, obwohl `Shape` in
 `additional.py` schon einen `Brush` hat. Der Plan in
 `docs/arbeitspakete/M15.md` sah vor, ihn wiederzuverwenden. Beim Bauen
 sprach mehr dagegen als dafür: `Shape.brush` kennt nur `color`, eine
@@ -257,7 +257,7 @@ class Canvas:
 
     def text_out(self, x: int, y: int, text: str) -> None:
         """Schreibt `text` an die Stelle ``(x, y)``. ``(x, y)`` ist die
-        linke **obere** Ecke des Textes – in Lazarus ebenso, während Qt
+        linke obere Ecke des Textes – in Lazarus ebenso, während Qt
         von sich aus die Schriftlinie meint."""
         if not isinstance(text, str):
             raise NatterPropertyError(
@@ -289,7 +289,7 @@ class Canvas:
     # -- Innenleben ----------------------------------------------------
 
     def _maler(self) -> QPainter:
-        # **Ohne Kantenglättung, mit Absicht.** Qt glättet von sich aus
+        # Ohne Kantenglättung, mit Absicht. Qt glättet von sich aus
         # nicht, Lazarus' `TCanvas` auch nicht - und hier hängt mehr
         # daran als das Aussehen: mit Glättung liegt an der Kante einer
         # roten Linie nicht Rot, sondern eine Mischfarbe. `pixels[x, y]`
@@ -330,7 +330,7 @@ class Canvas:
         self._besitzer._qwidget.update()
 
     def _groesse_anpassen(self, breite: int, hoehe: int) -> None:
-        """Vergrößert/verkleinert die Fläche und **behält den Inhalt**.
+        """Vergrößert/verkleinert die Fläche und behält den Inhalt.
 
         Ohne das Übertragen wäre nach jeder Größenänderung alles weg –
         auch beim Ziehen am Rand im Designer."""

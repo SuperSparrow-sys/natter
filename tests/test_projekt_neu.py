@@ -64,7 +64,7 @@ def test_console_projekt_erzeugt_main_und_natter_datei(tmp_path: Path) -> None:
     assert projekt.typ == "console"
     assert (ziel / "KonsolenTest.natter").exists()
     # Der Begruessungstext steht in `u_main.py`, nicht in `main.py`:
-    # dort steht der Code der Schuelerin (Nutzer, September 2026,
+    # dort steht der Code der Schuelerin (Nutzer,
     # "Jedes Projekt braucht eine Main um zu starten und eine u_main wo
     # der Schueler Code drin steht"). Bis dahin trug ein
     # Konsolenprojekt seinen ganzen Inhalt in der Startdatei.

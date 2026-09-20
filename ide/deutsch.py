@@ -1,6 +1,6 @@
 """Qts eigene Oberflächentexte auf Deutsch (M11, Abschnitt 4).
 
-Natter ist durchgehend deutsch – bis auf das, was **Qt** selbst
+Natter ist durchgehend deutsch – bis auf das, was Qt selbst
 beisteuert, und das ist mehr, als es zunächst aussieht:
 
 * die Tastenkürzel in jedem Menü: „Ctrl+S“ statt „Strg+S“, „Del“ statt
@@ -14,7 +14,7 @@ beisteuert, und das ist mehr, als es zunächst aussieht:
 Qt bringt die deutsche Übersetzung mit (`qtbase_de.qm`), lädt sie aber
 nicht von selbst. Dieses Modul tut es, einmal beim Start.
 
-**Die Übersetzung muss am Leben bleiben.** Ein `QTranslator`, der nur
+Die Übersetzung muss am Leben bleiben. Ein `QTranslator`, der nur
 in einer lokalen Variablen steht, wird nach `installTranslator` wieder
 eingesammelt – die Oberfläche fällt dann ohne Fehlermeldung ins
 Englische zurück. Die geladenen Übersetzer stehen deshalb in

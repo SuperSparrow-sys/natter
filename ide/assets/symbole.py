@@ -9,38 +9,38 @@ Symbolraster (M11, Abschnitt 1 – verbindlich für jedes neue Symbol)
 
 Vorgabe des Nutzers: *filigraner als bisher, näher an Lazarus, etwas
 bunter*. Die Zielgruppe kennt Lazarus aus dem Unterricht; ein Symbol
-soll deshalb ein kleines **Bild** der Sache sein (gefüllte Fläche mit
+soll deshalb ein kleines Bild der Sache sein (gefüllte Fläche mit
 Kontur), keine reine Strichzeichnung.
 
-**Fläche und Innenabstand**
+Fläche und Innenabstand
 
 * `viewBox="0 0 24 24"`, keine `width`/`height` am `<svg>` – die Größe
   bestimmt immer der Aufrufer (Werkzeugleiste 18 px, Palette 22 px).
 * Alles Sichtbare liegt zwischen 2 und 22, also in einer Zeichenfläche
-  von 20 × 20 – **einschließlich** der halben Strichbreite. Der Rand von
+  von 20 × 20 – einschließlich der halben Strichbreite. Der Rand von
   2 px verhindert, dass Qt beim Skalieren Kanten abschneidet.
 * Ausgenommen sind die drei `tab_schliessen*.svg` (`tab_schliessen`,
   `tab_schliessen_hell`, `tab_schliessen_dunkel`): 16 × 16 statt
   24 × 24, siehe unten. Der Satz nannte lange nur die erste davon –
   inzwischen sind es drei.
 
-**Strichstärken** (vier, mehr nicht – `tests/test_assets_symbole.py`
+Strichstärken (vier, mehr nicht – `tests/test_assets_symbole.py`
 lässt keine andere durch)
 
-* `1,0` **Binnenlinie** – Textzeilen, Gitternetz, Details *innerhalb*
+* `1,0` Binnenlinie – Textzeilen, Gitternetz, Details *innerhalb*
   einer gefüllten Fläche.
-* `1,2` **Kontur** – umschließt eine gefüllte Fläche. Die Fläche trägt
+* `1,2` Kontur – umschließt eine gefüllte Fläche. Die Fläche trägt
   das Bild, die Kontur muss es nicht auch noch tun; deshalb dünner als
   die früheren durchgehenden 1,6.
-* `1,5` **Strich** – freistehende Linien und Bögen. Sie haben keine
+* `1,5` Strich – freistehende Linien und Bögen. Sie haben keine
   Füllung hinter sich und würden bei 16 px sonst verschwinden.
-* `2,0` **Marke** – eine Linie, die für sich allein die Bedeutung trägt
+* `2,0` Marke – eine Linie, die für sich allein die Bedeutung trägt
   (das Häkchen der CheckBox). In der Sichtprüfung blieb davon bei 1,5
   nur ein blasser Schatten übrig: eine schräge Linie verliert beim
   Herunterrechnen die halbe Deckung, weil sie sich über zwei Pixelreihen
   verteilt.
 
-Für **Pfeilspitzen und Dreiecke gilt keine Strichstärke**: sie werden
+Für Pfeilspitzen und Dreiecke gilt keine Strichstärke: sie werden
 als Fläche gezeichnet, nie als Winkelstrich. Bei 16 px wurde aus dem
 Winkelstrich sonst ein Fleck – gemessen am Aufklapppfeil der ComboBox
 und an der Spitze von „Rückgängig“, die dadurch von „Wiederholen“ nicht
@@ -49,30 +49,30 @@ mehr zu unterscheiden war.
 `stroke-linecap="round"` und `stroke-linejoin="round"` an allen freien
 Strichen; das hält die Enden bei 16 px rund statt ausgefranst.
 
-**Eckenradius**
+Eckenradius
 
 * `2` an großen Flächen (Fenster, Knopf, Kasten),
 * `1` bis `1,5` an kleinen Flächen (Rollbalkengriff, Zellen),
 * `0` an bewusst eckigen Formen (Balken eines Diagramms, Etikett).
 
-**Gefüllt oder gestrichen**
+Gefüllt oder gestrichen
 
-* Jedes Symbol hat **einen** tragenden Körper, gefüllt und in seiner
+* Jedes Symbol hat einen tragenden Körper, gefüllt und in seiner
   Bedeutungsfarbe. Nur Zeiger/Pfeile/Schrift stehen ohne Füllung.
 * Flächen ab etwa 6 px Kantenlänge bekommen eine Kontur: `tinte` bei
   hellen Flächen (`papier`, `grau`), sonst die zugehörige
   `*_tief`-Schattierung.
-* Kleine Marken (Punkte, Balken, Häkchen) stehen **ohne** Kontur – bei
+* Kleine Marken (Punkte, Balken, Häkchen) stehen ohne Kontur – bei
   16 px würde sie die Marke zulaufen lassen.
 * Keine Verläufe, keine Schatten, kein `opacity`. Beides überlebt das
   Herunterrechnen auf 16 px nicht und macht das Umfärben unmöglich.
 
-**Farben**
+Farben
 
 Nur die Werte aus `FARBEN` (siehe unten) dürfen in einer `.svg` stehen –
 `tests/test_assets_symbole.py` prüft das. Jede Farbe hat einen Wert für
 das helle und einen für das dunkle Theme; die Datei selbst enthält immer
-den **hellen** Wert, damit sie in jedem Betrachter richtig aussieht, und
+den hellen Wert, damit sie in jedem Betrachter richtig aussieht, und
 `symbol()` tauscht ihn im dunklen Theme aus (siehe unten).
 
 =====================================================================
@@ -80,7 +80,7 @@ Warum nicht `currentColor`
 =====================================================================
 
 M11 schlug `currentColor` statt der fest eingetragenen Farbe vor. Das
-funktioniert in Qt **nicht** – gemessen mit Qt 6.11.2, offscreen:
+funktioniert in Qt nicht – gemessen mit Qt 6.11.2, offscreen:
 
 ===========================================================  ===========
 `fill="currentColor"`, geladen über `QIcon(pfad)`             schwarz
@@ -90,7 +90,7 @@ dito, gerendert mit rot vorbelegtem `QPainter`                schwarz
 Hex-Wert im Quelltext ersetzt, dann gerendert                 rot
 ===========================================================  ===========
 
-`currentColor` löst Qt also nur gegen ein `color`-Attribut **innerhalb**
+`currentColor` löst Qt also nur gegen ein `color`-Attribut innerhalb
 derselben Datei auf, nie gegen Palette oder Painter. Die Farbe bliebe
 damit genauso einbetoniert wie vorher, nur unter anderem Namen – und
 mehrfarbige Symbole gingen gar nicht.
@@ -120,7 +120,7 @@ _ICON_ORDNER = Path(__file__).resolve().parent / "icons"
 
 #: Die Farbpalette der Symbole: Name -> (heller Wert, dunkler Wert).
 #:
-#: In der `.svg`-Datei steht immer der **helle** Wert. `symbol()` ersetzt
+#: In der `.svg`-Datei steht immer der helle Wert. `symbol()` ersetzt
 #: ihn im dunklen Theme durch den dunklen. Die Akzentfarben stammen aus
 #: `design/tokens.json` (`accent`, `success`, `danger`, `chart`), damit
 #: Symbole und Oberfläche dieselbe Handschrift haben.
@@ -178,8 +178,8 @@ _FARBEN_NACH_HELL: dict[str, tuple[str, str]] = {
 def theme_ermitteln(theme: str = "system") -> str:
     """Löst `theme` auf `light` oder `dark` auf.
 
-    `light`/`dark` werden durchgereicht. Bei `system` entscheidet **die
-    Wahl des Nutzers unter „Ansicht → Design“**, die das Hauptfenster in
+    `light`/`dark` werden durchgereicht. Bei `system` entscheidet die
+    Wahl des Nutzers unter „Ansicht → Design“, die das Hauptfenster in
     `QSettings("Natter", "Natter-IDE")` unter `design/thema` ablegt; erst
     wenn dort ebenfalls `system` steht, zählt das Farbschema des
     Betriebssystems (`pcl.theme.theme_aufloesen`).
@@ -224,7 +224,7 @@ class _SvgSymbolEngine(QIconEngine):
     """Rendert ein bereits umgefärbtes SVG bei jeder angefragten Größe
     frisch aus dem Vektor.
 
-    Qt bietet keinen Weg, einem `QIcon` ein SVG **aus dem Speicher**
+    Qt bietet keinen Weg, einem `QIcon` ein SVG aus dem Speicher
     mitzugeben – `QIcon(pfad)` will eine Datei. Eine Leiter fertiger
     `QPixmap` wäre die Alternative, sähe aber oberhalb der größten
     vorgehaltenen Stufe weich aus (nachgemessen: `QIcon` skaliert dann
@@ -276,20 +276,20 @@ def _symbol_fuer_theme(name: str, theme: str) -> QIcon:
 
 def symbol(name: str, theme: str = "system") -> QIcon:
     """Liefert das Symbol `name` (Dateiname ohne Endung) – zuerst als
-    `.svg`, dann als `.ico` (mehrere von Hand für kleine Größen
-    nachgeschärfte Stufen, z. B. `app.ico` - eine einzelne PNG-Quelle
-    roh herunterskaliert verwäscht bei 16-32px die dünne schwarze
-    Kontur zu einem Farbklumpen, Nutzer-Feedback September 2026 anhand
-    eines Zoom-Screenshots), zuletzt als `.png` gesucht. Unbekannter
-    Name liefert ein leeres `QIcon` statt eines Fehlers – Aufrufer
-    müssen kein Symbol angeben (`Aktion.symbol` ist standardmäßig
-    leer).
+ `.svg`, dann als `.ico` (mehrere von Hand für kleine Größen
+ nachgeschärfte Stufen, z. B. `app.ico` - eine einzelne PNG-Quelle
+ roh herunterskaliert verwäscht bei 16-32px die dünne schwarze
+ Kontur zu einem Farbklumpen, gemeldet anhand
+ eines Zoom-Screenshots), zuletzt als `.png` gesucht. Unbekannter
+ Name liefert ein leeres `QIcon` statt eines Fehlers – Aufrufer
+ müssen kein Symbol angeben (`Aktion.symbol` ist standardmäßig
+ leer).
 
-    `.svg`-Symbole werden dabei nach `FARBEN` umgefärbt: `theme` ist
-    `light`, `dark` oder `system` (Voreinstellung – dann entscheidet die
-    Design-Wahl des Nutzers, siehe `theme_ermitteln`). `.ico`/`.png` sind
-    Rasterbilder und bleiben wie sie sind.
-    """
+ `.svg`-Symbole werden dabei nach `FARBEN` umgefärbt: `theme` ist
+ `light`, `dark` oder `system` (Voreinstellung – dann entscheidet die
+ Design-Wahl des Nutzers, siehe `theme_ermitteln`). `.ico`/`.png` sind
+ Rasterbilder und bleiben wie sie sind.
+ """
     if not name:
         return QIcon()
     return _symbol_fuer_theme(name, theme_ermitteln(theme))

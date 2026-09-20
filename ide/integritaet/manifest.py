@@ -59,7 +59,7 @@ NATTER_EIGEN = ("ide", "pcl", "design", "schemas", "templates")
 #: (`unins000.exe`, `unins000.dat`, bei mehrfacher Installation auch
 #: `unins001.…`).
 #:
-#: Er entsteht **während** der Installation und kann deshalb gar nicht
+#: Er entsteht während der Installation und kann deshalb gar nicht
 #: im Manifest stehen, das beim Bau geschrieben wird. Ohne diese
 #: Ausnahme begrüßte jede frisch installierte Natter den Schüler mit
 #: „Natter wurde nach der Erstellung verändert" und der Aufforderung,
@@ -143,7 +143,7 @@ def ist_kerndatei(relativer_pfad: str) -> bool:
 def _kandidaten(programmordner: Path, *, nur_kern: bool) -> Iterator[Path]:
     """Die Dateien, die überhaupt angesehen werden.
 
-    Für die schnelle Prüfung wird hier schon **eingeschränkt gesucht**,
+    Für die schnelle Prüfung wird hier schon eingeschränkt gesucht,
     nicht erst hinterher gefiltert. Die mitgelieferte Python bringt gut
     dreißigtausend Dateien mit; allein durch die hindurchzulaufen kostet
     Sekunden, und die schnelle Prüfung läuft bei jedem Start (M13).

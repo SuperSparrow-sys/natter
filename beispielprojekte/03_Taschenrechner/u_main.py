@@ -5,7 +5,7 @@
 #   dem Formular. Statt von oben nach unten durchzulaufen, wartet das
 #   Programm auf ein Ereignis - hier auf einen Klick.
 #
-# Wie du eine neue Schaltfläche anlegst:
+# So entsteht eine neue Schaltfläche:
 #   1. Doppelklick auf u_main.pfm öffnet den Designer.
 #   2. Button aus der Palette aufs Formular ziehen.
 #   3. Doppelklick auf den Button - Natter legt die Methode hier an.

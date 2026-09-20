@@ -155,7 +155,7 @@ def _kinder_mit_eltern(
     """Alle Komponenten der `.pfm` in Reihenfolge, jede mit dem Python-
     Ausdruck ihrer Eltern (`"self"` oder `"self.p_feld"`).
 
-    Ein Behälter muss **vor** seinen Kindern stehen: `Button(self.p_feld)`
+    Ein Behälter muss vor seinen Kindern stehen: `Button(self.p_feld)`
     setzt voraus, dass `self.p_feld` schon existiert. Die Reihenfolge
     ergibt sich hier von selbst, weil jeder Eintrag vor seinen eigenen
     `children` eingesammelt wird.

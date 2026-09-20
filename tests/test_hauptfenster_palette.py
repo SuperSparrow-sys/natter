@@ -71,11 +71,11 @@ def test_doppelklick_platziert_komponente_mittig_im_aktiven_formular(
 def test_einfacher_klick_macht_die_komponente_scharf_fuer_platzierung(
     ampel_pfm_kopie: Path,
 ) -> None:
-    """Nutzer-Feedback (September 2026): „ich möchte per Klick neue
-    Objekte auf der GUI hinzufügen. diese sollen automatisch in den
-    code übernommen werden." Einfacher Klick auf ein Palettensymbol
-    macht den Typ im aktiven Designer „scharf" (Fadenkreuz-Cursor, wie
-    in Lazarus) statt sofort mittig zu platzieren."""
+    """Gemeldet: „ich möchte per Klick neue
+ Objekte auf der GUI hinzufügen. diese sollen automatisch in den
+ code übernommen werden." Einfacher Klick auf ein Palettensymbol
+ macht den Typ im aktiven Designer „scharf" (Fadenkreuz-Cursor, wie
+ in Lazarus) statt sofort mittig zu platzieren."""
     fenster = HauptFenster()
     fenster.designer_oeffnen(ampel_pfm_kopie)
     fenster.palette.standard_liste.setCurrentRow(0)  # Button steht zuerst

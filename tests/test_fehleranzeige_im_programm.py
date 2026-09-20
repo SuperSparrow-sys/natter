@@ -2,10 +2,10 @@
 
 Der Fehlerkatalog ist das didaktische Kernstück von Natter: statt eines
 englischen Tracebacks eine Meldung in drei Teilen – Wo, Was, Prüfe.
-Benutzt wurde er bis M12 aber **nur vom Debugger**. Wer sein Programm
+Benutzt wurde er bis M12 aber nur vom Debugger. Wer sein Programm
 mit Strg+F5 startete – also so, wie man ein fertiges Programm startet –,
 bekam im Konsolenprogramm den rohen englischen Traceback und im
-GUI-Programm **gar nichts**: es läuft ohne Konsolenfenster, das Fenster
+GUI-Programm gar nichts: es läuft ohne Konsolenfenster, das Fenster
 verschwand einfach.
 
 Nachgemessen war das so: ein `ZeroDivisionError` in `create_components`
@@ -72,7 +72,7 @@ def test_ein_unbekannter_fehler_bekommt_wenigstens_eine_erklaerung() -> None:
 def test_im_pruefungsmodus_faellt_der_pruefe_teil_weg(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Der Prüfungsmodus muss auch im **laufenden Programm** greifen –
+    """Der Prüfungsmodus muss auch im laufenden Programm greifen –
     sonst wäre er über den Umweg „Programm starten“ auszuhebeln."""
     import pcl.pruefungsmodus as modul
 

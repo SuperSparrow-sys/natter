@@ -1,61 +1,73 @@
-Natter - Lizenzbedingungen
+﻿Natter – Lizenzbedingungen
 ==========================
 
-Bitte lesen Sie die folgenden Bedingungen, bevor Sie fortfahren.
+Die folgenden Bedingungen gelten für die Nutzung von Natter.
 
 
 1. Natter selbst
 ----------------
 
-Natter ist eine Entwicklungsumgebung fuer den Informatikunterricht. Die
-Software wird unentgeltlich und ohne Gewaehrleistung ueberlassen. Es
-wird keine Haftung fuer Schaeden uebernommen, die aus der Benutzung
-entstehen, soweit dies gesetzlich zulaessig ist.
+Natter ist eine Entwicklungsumgebung für den Informatikunterricht. Die
+Software wird unentgeltlich und ohne Gewährleistung überlassen. Eine
+Haftung für Schäden aus der Benutzung ist ausgeschlossen, soweit das
+Gesetz es zulässt.
 
-Die vollstaendige Lizenz von Natter finden Sie nach der Installation in
-der Datei LICENSE im Installationsordner.
+Die vollständige Lizenz steht nach der Installation in der Datei
+LICENSE im Installationsordner.
 
 
 2. Mitgelieferte Bibliotheken
 -----------------------------
 
-Natter bringt eine vollstaendige Python-Installation und eine Reihe
-freier Bibliotheken mit, damit auf dem Rechner nichts weiter
-eingerichtet werden muss. Diese stehen unter ihren eigenen Lizenzen:
+Damit auf dem Rechner nichts weiter eingerichtet werden muss, bringt
+Natter eine eigene Python-Installation und eine Reihe freier
+Bibliotheken mit. Sie behalten ihre eigenen Lizenzen:
 
-  * Qt fuer Python (PySide6)  -  LGPL-3.0
-  * Python selbst            -  Python Software Foundation License
-  * NumPy, pandas, matplotlib, SciPy, scikit-learn, joblib,
-    threadpoolctl            -  BSD-3-Clause
-  * SQLAlchemy, PyMySQL, jsonschema, libcst, debugpy, openpyxl,
-    jedi, ruff, PyInstaller  -  MIT bzw. Apache-2.0 und vergleichbare
-                                freizuegige Lizenzen
+  * Qt für Python (PySide6, Shiboken6)  –  LGPL-3.0
+  * Python selbst                       –  Python Software Foundation
+                                           License
+  * NumPy, pandas, SciPy, scikit-learn,
+    joblib, threadpoolctl, contourpy,
+    cycler, kiwisolver                  –  BSD-3-Clause
+  * matplotlib                          –  Python Software Foundation
+                                           License
+  * SQLAlchemy, jsonschema, libcst,
+    debugpy, openpyxl, jedi, ruff,
+    Pillow, fontTools und weitere       –  MIT und vergleichbare
+                                           freizügige Lizenzen
+  * cryptography                        –  Apache-2.0 oder BSD-3-Clause
+  * PyInstaller                         –  GPL-2.0 mit der Ausnahme für
+                                           erzeugte Programme
 
-Die vollstaendigen Lizenztexte aller mitgelieferten Bibliotheken liegen
-nach der Installation im Ordner "Lizenzen" im Installationsordner.
+Die vollständigen Lizenztexte aller mitgelieferten Bibliotheken liegen
+nach der Installation im Ordner „Lizenzen".
 
-Hinweis zur LGPL-3.0 (PySide6/Qt): Sie duerfen die mitgelieferte
-Qt-Bibliothek durch eine eigene Fassung ersetzen. Die dafuer noetigen
-Dateien liegen im Ordner python\Lib\site-packages\PySide6.
+Zur LGPL-3.0 (PySide6/Qt): Die mitgelieferte Qt-Bibliothek darf durch
+eine eigene Fassung ersetzt werden. Die dafür nötigen Dateien liegen
+unter python\Lib\site-packages\PySide6.
+
+Zu PyInstaller: Es dient dem Menüpunkt „Projekt → Als Exe
+exportieren". Seine Lizenzausnahme erlaubt ausdrücklich, damit
+erzeugte Programme frei weiterzugeben – ein Schülerprojekt, das als
+Exe exportiert wurde, unterliegt also nicht der GPL.
 
 
 3. Was installiert wird
 -----------------------
 
-Der Installer legt im gewaehlten Ordner ab:
+Im gewählten Ordner entstehen:
 
-  * Natter.exe            - das Programm
-  * python\               - eine eigene Python-Installation, die nur zu
-                            Natter gehoert. Eine bereits vorhandene
-                            Python-Installation auf diesem Rechner wird
-                            nicht veraendert.
-  * Lizenzen\             - die Lizenztexte aus Abschnitt 2
-  * Beispielprojekte und Hilfeseiten
+  * Natter.exe   –  das Programm
+  * python\      –  eine eigene Python-Installation, die nur zu Natter
+                    gehört. Eine bereits vorhandene Python-Installation
+                    auf dem Rechner bleibt unverändert.
+  * Lizenzen\    –  die Lizenztexte aus Abschnitt 2
+  * dazu die Beispielprojekte und die Hilfeseiten
 
-Es werden keine Daten an Dritte uebermittelt. Natter benoetigt keine
-Internetverbindung, ausser wenn Sie ueber das Menue "Pakete" selbst
-zusaetzliche Python-Pakete nachinstallieren.
+Es werden keine Daten an Dritte übermittelt. Natter braucht keine
+Internetverbindung – außer beim Nachinstallieren zusätzlicher
+Python-Pakete über das Menü „Pakete".
 
 
-Mit "Ich akzeptiere die Vereinbarung" erklaeren Sie sich mit diesen
-Bedingungen einverstanden.
+Mit „Ich akzeptiere die Vereinbarung" gelten diese Bedingungen als
+angenommen.

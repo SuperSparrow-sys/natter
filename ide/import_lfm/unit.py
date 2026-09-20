@@ -4,7 +4,7 @@ Lazarus-Formular (Abschnitt 15, docs/arbeitspakete/M8.md, Schritt 3).
 Die `.lfm` nennt nur die Namen der Ereignis-Handler; der Pascal-Code
 steht in der gleichnamigen `.pas`. Diese Unit legt für jeden Handler
 eine leere Python-Methode an und schreibt den zugehörigen Pascal-Rumpf
-als Kommentar darüber – bewusst **keine** automatische Übersetzung nach
+als Kommentar darüber – bewusst keine automatische Übersetzung nach
 Python (Abschnitt 15: der Import ist Umstiegshilfe, das Übersetzen ist
 die eigentliche Unterrichtsaufgabe).
 

@@ -8,7 +8,7 @@ Widget weiter, und das Signal des Widgets schreibt den Wert zurück in den
 `Prop`. Dadurch wirken Code und Bedienung in beide Richtungen, ohne dass
 es eine zweite Quelle für den Wert gäbe.
 
-**Datum und Uhrzeit sind echte Python-Typen.** `self.de_termin.date` ist
+Datum und Uhrzeit sind echte Python-Typen. `self.de_termin.date` ist
 ein `datetime.date`, keine Zeichenkette - damit lässt sich rechnen, und
 der Code, den eine Schülerin schreibt, bleibt gewöhnliches Python. In
 der Oberfläche steht das Datum deutsch (`20.09.2026`), in der `.pfm` als
@@ -72,7 +72,7 @@ class MaskEdit(Control):
     (Pflicht), `9` eine Ziffer (freiwillig), `A` ein Buchstabe
     (Pflicht), `N` Buchstabe oder Ziffer. Alles andere steht fest da.
 
-    Was **nicht** hineinpasst, nimmt das Feld gar nicht erst an: wer
+    Was nicht hineinpasst, nimmt das Feld gar nicht erst an: wer
     bei der Maske `00000` Buchstaben tippt, sieht nichts erscheinen.
     Ob schon genug drinsteht, sagt die Länge::
 
@@ -110,7 +110,7 @@ class MaskEdit(Control):
     def _bei_prop_aenderung(self, name: str, wert: Any) -> None:
         super()._bei_prop_aenderung(name, wert)
         if name == "mask":
-            # Die Maske **vor** dem Text: `setInputMask` leert das Feld,
+            # Die Maske vor dem Text: `setInputMask` leert das Feld,
             # ein vorher gesetzter Text wäre sonst weg.
             self._qwidget.setInputMask(wert)
             self._qwidget.setText(self.text)

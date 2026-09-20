@@ -3,8 +3,8 @@
 Namen und Bedeutung entsprechen docs/fehlerkatalog.yaml (Einträge
 `pcl_property_error`, `attribute_error`, `natter_datenbank_error`).
 
-**Der Text jeder dieser Ausnahmen erscheint unverändert im „Was“ der
-Fehlermeldung** (`ide/debugger/fehlerkatalog.py`). Er ist deutsch und
+Der Text jeder dieser Ausnahmen erscheint unverändert im „Was“ der
+Fehlermeldung (`ide/debugger/fehlerkatalog.py`). Er ist deutsch und
 soll es bleiben: der Katalog übersetzt nur die englischen
 Standardmeldungen von Python und erkennt eine `pcl`-Meldung an ihrer
 Herkunft. Die Leitfrage („Prüfe“) kommt dagegen aus dem Katalog – hier

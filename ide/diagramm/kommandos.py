@@ -93,7 +93,7 @@ class SammelKommando:
 class ReihenfolgeKommando:
     """Ändert die Zeichenreihenfolge (Vordergrund/Hintergrund).
 
-    Merkt sich die **ganze** alte Liste statt einzelner Stellen: wer
+    Merkt sich die ganze alte Liste statt einzelner Stellen: wer
     drei Formen auf einmal nach vorn holt, verschiebt damit auch alle
     dazwischenliegenden, und die müssten sonst einzeln nachgehalten
     werden.

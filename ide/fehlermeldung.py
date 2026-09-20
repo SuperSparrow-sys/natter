@@ -10,7 +10,7 @@ heraus startet, sieht stattdessen einen englischen Traceback, mit dem
 eine Schülerin nichts anfangen kann.
 
 Nicht zu verwechseln mit `ide/debugger/fehlerkatalog.py`: der erklärt
-Fehler im **Schülerprogramm**. Hier geht es um Fehler in Natter selbst.
+Fehler im Schülerprogramm. Hier geht es um Fehler in Natter selbst.
 """
 
 from __future__ import annotations
@@ -29,11 +29,11 @@ from PySide6.QtWidgets import QMessageBox
 UEBERSCHRIFT = "In Natter ist etwas schiefgegangen"
 
 WAS_ZU_TUN_IST = (
-    "Das ist ein Fehler in Natter selbst, nicht in deinem Programm.\n\n"
-    "Was du tun kannst:\n"
-    "• Speichere deine Arbeit (Strg+S) und probiere es noch einmal.\n"
-    "• Hilft das nicht, starte Natter neu.\n"
-    "• Sag deiner Lehrkraft Bescheid."
+    "Das ist ein Fehler in Natter selbst, nicht im eigenen Programm.\n\n"
+    "Was jetzt hilft:\n"
+    "• Die Arbeit speichern (Strg+S) und es noch einmal versuchen.\n"
+    "• Hilft das nicht: Natter neu starten.\n"
+    "• Der Lehrkraft Bescheid sagen."
 )
 
 #: Wird angehängt, sobald der Fehler auch mitgeschrieben werden konnte.

@@ -1,16 +1,16 @@
 """Strukturierte Attribute und Operationen einer UML-Klasse
 (Abschnitt 13.4, M9 Schritt 12).
 
-Bis Schritt 11 waren Attribute und Operationen **freier Text**: eine
+Bis Schritt 11 waren Attribute und Operationen freier Text: eine
 Liste von Zeichenketten wie `+setzen(farbe: str)`, die zufällig wie UML
-aussahen. Seit der Nutzer-Entscheidung im September 2026 werden sie
+aussahen. Seit der Nutzer-Entscheidung werden sie
 über einen Eigenschaften-Dialog bearbeitet (Vorbild: Dia), und dafür
 braucht jedes Attribut und jede Operation eigene Felder – Name, Typ,
 Sichtbarkeit, bei Operationen zusätzlich eine Parameterliste.
 
 Diese Datei kennt nur die Daten: sie liest sie aus dem `.pdiag`-`dict`,
 setzt daraus die anzuzeigende UML-Zeile zusammen und rechnet alte
-Dateien in die neue Form um. Sie braucht **kein Qt** und ist deshalb
+Dateien in die neue Form um. Sie braucht kein Qt und ist deshalb
 einzeln testbar.
 """
 

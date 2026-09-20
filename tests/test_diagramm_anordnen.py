@@ -114,8 +114,8 @@ def test_rahmen_nimmt_nur_was_ganz_drin_liegt(flaeche: DiagrammCanvas, drei: lis
     """Nur Berühren würde beim Aufziehen über ein dicht gestelltes
     Diagramm ständig Nachbarn mitnehmen, die man nicht meint.
 
-    Der Rahmen deckt die erste Form ganz ab und **schneidet die zweite
-    an** – genau daran entscheidet sich die Frage.
+    Der Rahmen deckt die erste Form ganz ab und schneidet die zweite
+    an – genau daran entscheidet sich die Frage.
     """
     assert drei[0]["x"] + drei[0]["w"] < 300 < drei[1]["x"] + drei[1]["w"]
 
@@ -220,7 +220,7 @@ def test_ausrichten_an_der_fuehrenden_form(
 
 def test_rechtsbuendig_rechnet_die_breite_mit(flaeche: DiagrammCanvas, drei: list[dict]) -> None:
     """Der Knackpunkt: unterschiedlich breite Formen müssen an ihrer
-    **rechten** Kante bündig stehen, nicht an ihrer linken."""
+    rechten Kante bündig stehen, nicht an ihrer linken."""
     flaeche.alles_auswaehlen()
     bezug = flaeche.ausgewaehlte_form
 
@@ -265,7 +265,7 @@ def test_unbekannte_ausrichtung_tut_nichts(flaeche: DiagrammCanvas, drei: list[d
 
 
 def test_verteilen_ergibt_gleiche_abstaende(flaeche: DiagrammCanvas, drei: list[dict]) -> None:
-    """Gleiche **Lücken**, nicht gleiche Mittenabstände – bei
+    """Gleiche Lücken, nicht gleiche Mittenabstände – bei
     unterschiedlich breiten Klassen sieht nur das gleichmäßig aus."""
     flaeche.alles_auswaehlen()
 
@@ -652,7 +652,7 @@ def test_eigenschaften_nennen_die_mitausgewaehlten(tmp_path: Path) -> None:
 def test_kein_tastenkuerzel_ist_doppelt_vergeben(tmp_path: Path) -> None:
     """Zwei aktive Aktionen auf derselben Taste lösen in Qt gar nichts
     mehr aus („Ambiguous shortcut overload"). Real passiert: Strg+G war
-    kurzzeitig für „Gruppieren" **und** „Quelltext erzeugen" vergeben."""
+    kurzzeitig für „Gruppieren" und „Quelltext erzeugen" vergeben."""
     for typ in ("class", "struktogramm", "entscheidungstabelle"):
         fenster = DiagrammFenster(diagramm_erzeugen(typ, tmp_path / f"{typ}.pdiag", "x"))
         vergeben: dict[str, str] = {}

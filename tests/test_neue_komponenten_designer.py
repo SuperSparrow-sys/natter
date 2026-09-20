@@ -113,7 +113,7 @@ def test_eigenschaften_ueberstehen_die_rundreise(tmp_path: Path) -> None:
 
 def test_radiogroup_items_ueberstehen_die_rundreise(tmp_path: Path) -> None:
     """`items` ist eine Sammlung (`SAMMLUNGS_EIGENSCHAFTEN`) und wird im
-    erzeugten Code **vor** `item_index` zugewiesen - sonst setzte das
+    erzeugten Code vor `item_index` zugewiesen - sonst setzte das
     Füllen der Gruppe die Vorauswahl wieder zurück."""
     formular = _LeeresFormular()
     canvas = DesignerCanvas(formular)

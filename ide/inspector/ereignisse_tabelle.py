@@ -64,7 +64,7 @@ class EreignisseTabelle(QTableWidget):
         kommt.
 
         Ohne diese Meldung landete eine im Reiter „Ereignisse“ gesetzte
-        Verknüpfung **nur am Live-Objekt**: der Designer zeigte sie an,
+        Verknüpfung nur am Live-Objekt: der Designer zeigte sie an,
         die `.pfm` und `u_*_design.py` erfuhren nichts davon, und im
         gestarteten Programm tat der Knopf nichts. Manchmal kam sie doch
         an – nämlich dann, wenn die Schülerin danach zufällig noch eine

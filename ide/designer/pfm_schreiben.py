@@ -90,7 +90,7 @@ def _kind_zu_dict(name: str, komponente: Any) -> dict[str, Any]:
         eintrag["events"] = ereignis_werte
 
     # Ein Behälter trägt seine Kinder in sich - das `children`-Feld gibt
-    # es im Schema seit jeher, gefüllt wurde es bis September 2026
+    # es im Schema seit jeher, gefüllt wurde es bis dahin
     # nicht, weil der Designer gar keine Verschachtelung erzeugen
     # konnte.
     kinder = [_kind_zu_dict(kind_name, kind) for kind_name, kind in kind_komponenten(komponente)]

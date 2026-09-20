@@ -4,7 +4,7 @@ Siehe README.md, Abschnitt 7.4: „Gruppen Formulare, Units, Assets“.
 `Assets` folgt, sobald Bild-/Sound-Komponenten Dateien in `assets/`
 erwarten (siehe `pcl.Image`).
 
-Dort stand bis September 2026 auch „Formular-Units als ein Eintrag“.
+Dort stand bis dahin auch „Formular-Units als ein Eintrag“.
 Das ist zurückgenommen: ein Formular und seine Unit sind nicht
 dasselbe - das eine ist die Oberfläche, das andere der Code, und der
 Code ist die Datei, in die der Schüler schreibt. Zusammengefasst nahm
@@ -27,7 +27,7 @@ PFAD_ROLLE = Qt.ItemDataRole.UserRole
 #: weil es meist nur zwei Ebenen gibt und die Docks auf einem
 #: 1366×768-Schulrechner schmal bleiben.
 #:
-#: **Hier und nur hier**, seit M15: der Komponentenbaum im
+#: Hier und nur hier, seit M15: der Komponentenbaum im
 #: Objektinspektor stand auf Qts 20 px, der Projekt-Explorer auf 14.
 #: Zwei Bäume, gleichzeitig sichtbar, mit verschieden tiefer
 #: Einrückung - beim Durchsehen der Abstände als Erstes aufgefallen.
@@ -38,7 +38,7 @@ _EINRUECKUNG = EINRUECKUNG
 
 
 class ProjektExplorer(QTreeWidget):
-    #: Nutzer-Feedback (September 2026): Units umbenennen/löschen über
+    #: Gemeldet: Units umbenennen/löschen über
     #: einen „⋮“-Knopf statt nur über den Windows-Explorer nebenbei.
     umbenennen_angefordert = Signal(Path)
     loeschen_angefordert = Signal(Path)
@@ -101,14 +101,14 @@ class ProjektExplorer(QTreeWidget):
             self._eintrag_hinzufuegen(self.formulare_gruppe, pfad.stem, pfad)
 
         for pfad in projekt.units():
-            # **Auch die Unit zu einem Formular.** Sie stand hier bis
-            # September 2026 nicht, weil das Formular schon eine Zeile
+            # Auch die Unit zu einem Formular. Sie stand hier bis
+            # nicht, weil das Formular schon eine Zeile
             # darüber hat - aber die beiden sind nicht dasselbe: unter
             # „Formulare“ liegt die Oberfläche, hier der Code, und
             # genau der ist die Datei, in die der Schüler schreibt. Wer
             # ein neues Projekt anlegte, sah deshalb nur den Designer
             # und fand nirgends, wo sein Programm hingehört
-            # (Nutzer-Meldung: „wenn ich ein neues Projekt erstelle muss
+            # (Gemeldet: „wenn ich ein neues Projekt erstelle muss
             # auch die u_main.py für den code angezeigt werden nicht nur
             # der designer“).
             #
@@ -137,7 +137,7 @@ class ProjektExplorer(QTreeWidget):
             self._eintrag_hinzufuegen(self.diagramme_gruppe, pfad.stem, pfad)
 
         # Eine leere Gruppe wird ausgeblendet. Der Explorer zeigt, was
-        # das Projekt **hat**; eine fette Überschrift ohne einen einzigen
+        # das Projekt hat; eine fette Überschrift ohne einen einzigen
         # Eintrag darunter sieht aus, als wäre etwas kaputtgegangen. Ein
         # Konsolenprojekt kann überhaupt keine Formulare haben, und acht
         # der neun Beispielprojekte haben keine Diagramme - in allen
@@ -185,7 +185,7 @@ class ProjektExplorer(QTreeWidget):
         return knopf
 
     def dateimenue(self, pfad: Path, eltern=None) -> QMenu:
-        """Das Menü zu einer Datei – hinter dem „⋮“-Knopf **und** hinter
+        """Das Menü zu einer Datei – hinter dem „⋮“-Knopf und hinter
         der rechten Maustaste. Eine Fassung, damit beide Wege nie
         auseinanderlaufen."""
         menue = QMenu(eltern or self)

@@ -1,9 +1,9 @@
 """Markdown-Ansicht (Abschnitt 11.6): zeigt eine `.md`-Datei gesetzt
 an statt als Rohtext.
 
-Bis September 2026 landete jede `.md`-Datei im **Quelltexteditor**.
+Bis landete jede `.md`-Datei im Quelltexteditor.
 Wer die `README.md` eines Beispielprojekts anklickte, bekam
-`## Überschrift`, `**fett**` und Tabellen aus Strichen und
+`## Überschrift`, `fett` und Tabellen aus Strichen und
 Senkrechtstrichen zu sehen - in einem Fenster mit Zeilennummern und
 Syntaxhervorhebung, das nach Programmieren aussieht. Genau dieselbe
 Beobachtung hatte in M11 schon zur `HilfeAnsicht` geführt; die galt
@@ -12,7 +12,7 @@ die jemand selbst öffnet.
 
 Der Unterschied zur `HilfeAnsicht`: eine Hilfeseite ist fertig und
 gehört Natter, eine `.md`-Datei im Projekt gehört dem Schüler. Deshalb
-steht hier ein Knopf **„Quelltext bearbeiten"** daneben, und die
+steht hier ein Knopf „Quelltext bearbeiten" daneben, und die
 Ansicht lädt sich neu, sobald die Datei sich ändert - wer im Editor
 schreibt und zurückwechselt, sieht das Ergebnis.
 
@@ -88,7 +88,7 @@ class MarkdownAnsicht(QWidget):
         self._bearbeiten_knopf = QPushButton("Quelltext bearbeiten")
         self._bearbeiten_knopf.setToolTip(
             "Öffnet die Datei zusätzlich im Editor. Diese Ansicht "
-            "aktualisiert sich, sobald du dort speicherst."
+            "aktualisiert sich beim Speichern von selbst."
         )
         self._bearbeiten_knopf.clicked.connect(
             lambda: self.bearbeiten_angefordert.emit(self._pfad)
@@ -124,7 +124,7 @@ class MarkdownAnsicht(QWidget):
     def _neu_laden(self) -> None:
         """Liest die Datei neu ein.
 
-        Der Suchpfad muss **vor** dem Setzen stehen: `![Bild](bild.png)`
+        Der Suchpfad muss vor dem Setzen stehen: `![Bild](bild.png)`
         ist relativ zur `.md`-Datei, nicht zum Arbeitsverzeichnis von
         Natter. Ohne ihn blieb an der Stelle ein leerer Kasten.
         """

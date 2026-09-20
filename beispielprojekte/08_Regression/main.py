@@ -1,4 +1,4 @@
-# Startet das Programm. Hier musst du nichts ändern - dein Code
+# Startet das Programm. Hier ist nichts zu ändern - der eigene Code
 # gehört nach u_main.py.
 
 from pcl import Application

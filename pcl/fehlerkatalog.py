@@ -58,7 +58,7 @@ class Fehlermeldung:
     def als_text(self) -> str:
         """Die Meldung in drei Teilen: Wo, Was, Prüfe.
 
-        Im **Prüfungsmodus** (M11, Abschnitt 6) entfällt der Teil
+        Im Prüfungsmodus (M11, Abschnitt 6) entfällt der Teil
         „Prüfe“. Er ist genau der, der weiterhilft – und genau deshalb
         gehört er in einer Leistungssituation nicht dazu. „Wo“ und
         „Was“ bleiben: eine Schülerin soll sehen, dass und wo etwas
@@ -974,7 +974,7 @@ _KATALOG: dict[type[BaseException], Callable[[BaseException], tuple[str, str, st
     NameError: _name_error,
     AttributeError: _attribute_error,
     TypeError: _type_error,
-    # **Vor** `ValueError`, von dem `NatterDatenError` erbt: die
+    # Vor `ValueError`, von dem `NatterDatenError` erbt: die
     # MRO-Suche nimmt den ersten Treffer, und das soll hier der
     # genauere Eintrag sein.
     NatterDatenError: _natter_daten_error,

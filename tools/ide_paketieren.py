@@ -1,9 +1,8 @@
 """Baut die auslieferbare Natter-Installation - Vorstufe für den
-Installer aus `tools/natter.iss` (Nutzer-Feedback September 2026:
-„Natter als Exe nur zum Download auf z. B. einer Website, man
-installiert die Exe").
+Installer aus `tools/natter.iss` (Gewünscht: „Natter als Exe nur zum
+Download auf z. B. einer Website, man installiert die Exe").
 
-Seit M13 ist das **kein** eingefrorenes PyInstaller-Bundle mehr, sondern
+Seit M13 ist das kein eingefrorenes PyInstaller-Bundle mehr, sondern
 eine gewöhnliche, verschiebbare Python-Installation, in die Natter mit
 `pip install` hineingelegt wird. Nur so können die Paketverwaltung und
 „Als Exe exportieren" in der ausgelieferten Fassung überhaupt arbeiten:
@@ -24,7 +23,7 @@ Nutzeranfrage: PySide6/Qt steht unter LGPL-3.0, das verlangt u. a.
 den Lizenztext beizulegen - siehe `tools/lizenz_vorlagen/`).
 
 Signiert `Natter.exe` anschließend mit dem selbst erstellten Code-
-Signing-Zertifikat (Nutzer-Feedback: „Weg A" gegen Windows Smart App
+Signing-Zertifikat (Gemeldet: „Weg A" gegen Windows Smart App
 Control, siehe `tools/signieren/`) - ohne vorher per
 `zertifikat_einrichten.ps1` erzeugtes Zertifikat wird das Signieren
 übersprungen (Warnung statt Abbruch), damit ein Bau auch auf einem
@@ -33,7 +32,7 @@ Rechner ohne dieses Zertifikat funktioniert. Der Installer
 `tools/signieren/README.md`.
 
 Beispiel:
-    uv run python -m tools.ide_paketieren
+ uv run python -m tools.ide_paketieren
 """
 
 from __future__ import annotations
@@ -96,16 +95,16 @@ _LAUFZEIT_PAKETE = (
 
 
 #: Was aus der mitgelieferten Python fliegt, weil Natter es nie
-#: anfasst (Nutzer, September 2026: „Tk Inter kann komplett raus aus der
+#: anfasst (Gewünscht: „Tk Inter kann komplett raus aus der
 #: Installation").
 #:
-#: Tcl/Tk ist Pythons **zweite** Fenstertechnik - Natter baut jede
+#: Tcl/Tk ist Pythons zweite Fenstertechnik - Natter baut jede
 #: Oberfläche mit Qt, und `pcl` importiert `tkinter` nirgends. Mitgehen
 #: würde es trotzdem, weil es zur Standardbibliothek gehört: rund 13 MB
 #: im Installationsordner, davon 9 MB Tcl-Skripte und zwei DLLs von
 #: zusammen 3,3 MB.
 #:
-#: **Was damit auch geht: `turtle`.** Die Schildkrötengrafik steckt auf
+#: Was damit auch geht: `turtle`. Die Schildkrötengrafik steckt auf
 #: `tkinter` auf. Für Natter ist das folgerichtig - Zeichnen läuft über
 #: `PaintBox` und `Canvas` (M15), und das Konzept sieht Ein- und Ausgabe
 #: ausschließlich über `pcl`-Komponenten vor. Wer `import turtle`
@@ -180,7 +179,7 @@ def _python_bereitstellen() -> Path:
 #: Der teuerste Eintrag ist `PYTHONUSERBASE`. Die gesetzt zu finden ist
 #: auf einem Entwicklerrechner normal (hier von der Windows-Store-
 #: Python), und sie wirkt an einer Stelle, an der man sie nicht sucht:
-#: **jede** Python 3.13 rechnet ihr Benutzer-Paketverzeichnis daraus
+#: jede Python 3.13 rechnet ihr Benutzer-Paketverzeichnis daraus
 #: aus, also auch die frisch ausgepackte in `dist`. Die sah dadurch die
 #: Pakete des Baurechners als ihre eigenen; pip meldete Zeile für Zeile
 #: „Requirement already satisfied“, installierte nur Natter selbst und
@@ -216,25 +215,25 @@ def _saubere_umgebung() -> dict[str, str]:
 def _gesperrte_versionen(ziel: Path) -> Path | None:
     """Schreibt die Versionen aus `uv.lock` als `requirements.txt`.
 
-    **Die Auslieferung muss das enthalten, was geprüft wurde.** Bis
-    September 2026 stand hier schlicht `pip install <projekt>`, und pip
-    löste die Abhängigkeiten frisch gegen PyPI auf. Herausgekommen ist
-    eine Auslieferung mit Paketversionen, gegen die nie ein Test lief -
-    real gemessen pandas 3.0.6 in `dist`, während die 3424 Tests gegen
-    3.0.5 grün waren.
+ Die Auslieferung muss das enthalten, was geprüft wurde. Bis
+ stand hier schlicht `pip install <projekt>`, und pip
+ löste die Abhängigkeiten frisch gegen PyPI auf. Herausgekommen ist
+ eine Auslieferung mit Paketversionen, gegen die nie ein Test lief -
+ real gemessen pandas 3.0.6 in `dist`, während die 3424 Tests gegen
+ 3.0.5 grün waren.
 
-    Aufgefallen ist es an einer ganz anderen Stelle: Windows Smart App
-    Control blockierte fünf der vierzehn `pandas._libs`-Bibliotheken
-    („did not meet the Enterprise signing level requirements"). Eine
-    Fassung, die erst seit Stunden auf PyPI liegt, hat bei Microsofts
-    Reputationsdienst noch nichts vorzuweisen - die getestete, seit
-    Wochen verbreitete dagegen schon.
+ Aufgefallen ist es an einer ganz anderen Stelle: Windows Smart App
+ Control blockierte fünf der vierzehn `pandas._libs`-Bibliotheken
+ („did not meet the Enterprise signing level requirements"). Eine
+ Fassung, die erst seit Stunden auf PyPI liegt, hat bei Microsofts
+ Reputationsdienst noch nichts vorzuweisen - die getestete, seit
+ Wochen verbreitete dagegen schon.
 
-    `uv export` liest `uv.lock`, also genau die Auflösung, gegen die
-    entwickelt und getestet wird. Liefert `None`, wenn `uv` auf dem
-    Baurechner fehlt; dann bleibt es beim bisherigen Weg, mit einer
-    Warnung.
-    """
+ `uv export` liest `uv.lock`, also genau die Auflösung, gegen die
+ entwickelt und getestet wird. Liefert `None`, wenn `uv` auf dem
+ Baurechner fehlt; dann bleibt es beim bisherigen Weg, mit einer
+ Warnung.
+ """
     ergebnis = subprocess.run(
         [
             "uv",
@@ -268,7 +267,7 @@ def _natter_installieren(python: Path) -> None:
     `pip` und PyInstaller finden in der ausgelieferten Fassung eine
     Umgebung vor, mit der sie arbeiten können (M13).
 
-    **Zuerst die gesperrten Versionen** (siehe `_gesperrte_versionen`),
+    Zuerst die gesperrten Versionen (siehe `_gesperrte_versionen`),
     danach Natter selbst. Die Reihenfolge ist der Kern: was aus
     `uv.lock` kommt, steht dann schon da, und pip hat beim Auflösen von
     Natters eigenen Abhängigkeiten nichts mehr nachzuladen.
@@ -289,7 +288,7 @@ def _natter_installieren(python: Path) -> None:
 
     for schritt, argumente in schritte:
         print(f"Installiere {schritt} in die mitgelieferte Python ...", flush=True)
-        # Ausgabe bewusst **nicht** eingefangen: ein Bau, der Minuten
+        # Ausgabe bewusst nicht eingefangen: ein Bau, der Minuten
         # läuft, soll zeigen, wo er steht - und wenn etwas schiefgeht,
         # will man pips eigene Zeilen sehen.
         ergebnis = subprocess.run(

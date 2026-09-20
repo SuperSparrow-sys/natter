@@ -4,7 +4,7 @@ Zwei Komponenten, die nichts miteinander zu tun haben außer dem
 Umstand, dass beide etwas abspielen statt etwas zu rechnen: die eine
 zeigt eine Seite, die andere gibt einen Ton.
 
-**`HtmlViewer` auf `QTextBrowser`, nicht auf `QWebEngineView`.** Die
+`HtmlViewer` auf `QTextBrowser`, nicht auf `QWebEngineView`. Die
 Entscheidung steht in `docs/arbeitspakete/M15.md` und hat einen
 handfesten Grund: `QWebEngineView` kann echtes Web samt JavaScript,
 wiegt in der gebauten Exe aber über 100 MB - mehr als das ganze übrige
@@ -82,7 +82,7 @@ class Sound(Komponente):
     """Spielt einen Klang ab (entspricht ``TSoundPlayer``/`PlaySound`).
     Qt-Basis: `QSoundEffect` für `.wav`.
 
-    `Sound` ist **keine** `Control`: sie liegt nicht auf dem Formular,
+    `Sound` ist keine `Control`: sie liegt nicht auf dem Formular,
     sondern wird im Code erzeugt - wie eine Datenbankverbindung. Ein
     Symbol im Designer brächte nichts ein, was eine Zeile Code nicht
     auch tut::

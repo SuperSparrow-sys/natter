@@ -39,7 +39,7 @@ class Strings:
         (``self.lb.items = ["a", "b"]``) als auch der Objektinspektor die
         Sammlung in einem Schritt setzen können.
 
-        Eine **Zeichenkette** wird an den Zeilenumbrüchen getrennt, so
+        Eine Zeichenkette wird an den Zeilenumbrüchen getrennt, so
         wie `Items.Text` in Lazarus. Ohne diese Regel zerfiele
         ``self.rg.items = "rot
 gelb"`` in acht einzelne Einträge – einen

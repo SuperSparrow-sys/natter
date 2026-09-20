@@ -4,7 +4,7 @@ Wandelt das Ergebnis von `ide.import_lfm.parser.parse_lfm()` in ein
 `.pfm`-kompatibles `dict` um (validierbar gegen
 `schemas/pfm.schema.json`).
 
-**Umfang, bewusst eingeschränkt** (siehe docs/arbeitspakete/M8.md,
+Umfang, bewusst eingeschränkt (siehe docs/arbeitspakete/M8.md,
 Schritt 2): nicht unterstützte Komponenten/Eigenschaften werden nur im
 Importbericht vermerkt, nicht als Platzhalter angelegt (es gibt noch
 keine generische Platzhalter-Komponente in `pcl`). Container-Komponenten

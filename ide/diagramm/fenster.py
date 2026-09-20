@@ -1,11 +1,11 @@
 """DiagrammFenster: eigenes Fenster für den Diagramm-Editor
 (Abschnitt 13.1, 13.2).
 
-Bewusst ein eigenständiges `QMainWindow` **ohne** Elternfenster, damit
+Bewusst ein eigenständiges `QMainWindow` ohne Elternfenster, damit
 Windows einen eigenen Taskleisten-Eintrag vergibt und das Fenster
 unabhängig vom Hauptfenster verschoben werden kann (z. B. auf einen
 zweiten Bildschirm) – kein Dock und kein Tab in der IDE
-(Nutzer-Entscheidung September 2026, siehe docs/arbeitspakete/M9.md).
+(entschieden, siehe docs/arbeitspakete/M9.md).
 
 Stand M9, Schritt 6: Formen- und Verbindungs-Palette links,
 Zeichenfläche in der Mitte, Eigenschaften-Bereich rechts. Die
@@ -149,7 +149,7 @@ _UNTERMENUES: dict[str, tuple[tuple[str, str], ...]] = {
 
 #: Werkzeugleiste des Diagramm-Editors (M11, Abschnitt 1): die Befehle,
 #: die man beim Zeichnen dauernd braucht. Jeder Eintrag ist der Pfad
-#: einer Aktion, die es **schon im Menü gibt** – die Leiste hängt
+#: einer Aktion, die es schon im Menü gibt – die Leiste hängt
 #: dieselbe `QAction` noch einmal auf, statt den Befehl ein zweites Mal
 #: zu verdrahten (Abschnitt 7.3: „eine Aktion = Menüeintrag +
 #: Werkzeugleisten-Button … nur einmal implementiert“). `None` ist eine
@@ -284,7 +284,7 @@ class DiagrammFenster(QMainWindow):
         """Ecke, oberes Lineal, linkes Lineal und Rollbereich in einem
         Raster (M15, Abschnitt 5).
 
-        Die Lineale liegen **neben** der Fläche, nicht darauf: in den
+        Die Lineale liegen neben der Fläche, nicht darauf: in den
         `paintEvent` gemalt hätten sie die obersten und linkesten
         Zentimeter des Blatts unter sich begraben.
         """
@@ -305,7 +305,7 @@ class DiagrammFenster(QMainWindow):
         self.minimap = Minimap(self.rollbereich)
         self.minimap.sprung_gewuenscht.connect(self._zur_stelle_springen)
         self.minimap.hide()
-        #: Ob die Minimap eingeschaltet ist. **Nicht** `isVisible()`
+        #: Ob die Minimap eingeschaltet ist. Nicht `isVisible()`
         #: fragen: solange das Fenster selbst noch nicht gezeigt wurde,
         #: meldet Qt dort `False`, auch wenn `setVisible(True)` längst
         #: gelaufen ist - das Abbild wäre dann nie entstanden, und die
@@ -546,7 +546,7 @@ class DiagrammFenster(QMainWindow):
 
         Bewusst dieselbe Machart wie die Leiste der Haupt-IDE
         (`ide/shell/hauptfenster.py`): 18 px Symbole, nicht verschiebbar,
-        und jeder Knopf ist **dieselbe** `QAction` wie der Menüeintrag.
+        und jeder Knopf ist dieselbe `QAction` wie der Menüeintrag.
         Dadurch erbt er Tastenkürzel, Ein/Aus-Zustand und – beim Raster –
         auch das Häkchen, ohne dass irgendetwas zweimal dasteht. Was der
         Diagrammtyp nicht kann, ist im Menü ausgegraut und damit auch
@@ -776,19 +776,19 @@ class DiagrammFenster(QMainWindow):
     def _vorschlag_fuer_unit(self) -> Path:
         """Wohin „Quelltext → Erzeugen …" vorschlägt zu schreiben.
 
-        **In den Projektordner**, denn dort liegen die Units eines
-        Natter-Projekts - `Projekt.units()` liest `ordner.glob("*.py")`.
-        Vorgeschlagen wurde bis September 2026 ein Unterordner `units/`;
-        die Datei landete damit an einer Stelle, die das Projekt nie
-        ansieht. Sie tauchte weder im Projekt-Explorer auf noch ließ sie
-        sich importieren - der Schüler hatte seine Klasse erzeugt und
-        fand sie nirgends wieder. Im Durchgang durch den ganzen
-        Schuelerweg aufgefallen.
+ In den Projektordner, denn dort liegen die Units eines
+ Natter-Projekts - `Projekt.units` liest `ordner.glob("*.py")`.
+ Vorgeschlagen wurde bis dahin ein Unterordner `units/`;
+ die Datei landete damit an einer Stelle, die das Projekt nie
+ ansieht. Sie tauchte weder im Projekt-Explorer auf noch ließ sie
+ sich importieren - der Schüler hatte seine Klasse erzeugt und
+ fand sie nirgends wieder. Im Durchgang durch den ganzen
+ Schuelerweg aufgefallen.
 
-        Ein Diagramm liegt in `<projekt>/diagramme/`; eine Ebene
-        darüber ist der Projektordner. Liegt es woanders - jemand hat
-        eine `.pdiag` einzeln geöffnet -, kommt die Datei daneben.
-        """
+ Ein Diagramm liegt in `<projekt>/diagramme/`; eine Ebene
+ darüber ist der Projektordner. Liegt es woanders - jemand hat
+ eine `.pdiag` einzeln geöffnet -, kommt die Datei daneben.
+ """
         ordner = self.diagramm.pfad.parent
         if ordner.name == "diagramme":
             ordner = ordner.parent
@@ -796,8 +796,8 @@ class DiagrammFenster(QMainWindow):
 
     def _stilvorlagen_menue_aufbauen(self) -> None:
         """„Format → Stilvorlage“ als Untermenü mit den drei Vorlagen aus
-        Abschnitt 13.6. Bewusst pro Diagramm und **unabhängig vom
-        IDE-Theme**: ein im dunklen Theme gezeichnetes Diagramm soll
+        Abschnitt 13.6. Bewusst pro Diagramm und unabhängig vom
+        IDE-Theme: ein im dunklen Theme gezeichnetes Diagramm soll
         trotzdem als Schwarz-Weiß-Abgabe gedruckt werden können."""
         eintrag = self.aktionen["Format/Stilvorlage …"]
         untermenue = QMenu("Stilvorlage", self)
@@ -1043,7 +1043,7 @@ class DiagrammFenster(QMainWindow):
         self._auf_drucker_zeichnen(drucker)
 
     def _drucker_vorbereiten(self) -> QPrinter:
-        """Der **erste** `QPrinter` eines Prozesses lässt Windows alle
+        """Der erste `QPrinter` eines Prozesses lässt Windows alle
         Drucker samt Treibern durchsuchen; mit einem nicht erreichbaren
         Netzwerkdrucker dauert das real gemessen fast eine Minute, in
         der die Oberfläche steht. Deshalb: Sanduhr und eine Meldung,

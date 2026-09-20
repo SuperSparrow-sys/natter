@@ -11,7 +11,7 @@ Optik wie in Lazarus: ein einzeiliger, horizontal scrollbarer Streifen
 aus reinen Symbol-Kacheln je Reiter (kein Fließtext unter dem Symbol),
 der Komponentenname erscheint als Tooltip beim Überfahren mit der Maus.
 
-**Die Reiter stehen in `REITER`, und zwar nur dort** (M15). Vorher
+Die Reiter stehen in `REITER`, und zwar nur dort (M15). Vorher
 standen sie an drei Stellen: hier als zwei Konstanten, im
 `__init__` als zwei Zuweisungen, und im Hauptfenster als vier
 `connect`-Aufrufe auf genau diese beiden Listen. Ein dritter Reiter
@@ -61,7 +61,7 @@ from pcl.components.standard import (
 from pcl.components.system import Timer
 
 TYP_ROLLE = Qt.ItemDataRole.UserRole
-# Nutzer-Feedback (September 2026): insgesamt kompakter, näher an
+# Gemeldet: insgesamt kompakter, näher an
 # Lazarus' eigener, schmaler Symbolleiste (~24px Symbole).
 _SYMBOL_GROESSE = QSize(22, 22)
 _KACHEL_GROESSE = QSize(32, 32)
@@ -124,7 +124,7 @@ ZUSAETZLICH_KOMPONENTEN = (
     ProgressBar,
     # Ein Zeitgeber ist die einzige Komponente hier, die nichts
     # anzeigt - auf dem Formular steht nur sein Symbol, das im
-    # laufenden Programm verschwindet (Nutzer-Hinweis September 2026:
+    # laufenden Programm verschwindet (Nutzer-Hinweis :
     # „der Timer muss als Komponente auch mit rein, der ist wichtig").
     # In Lazarus hat er einen eigenen Reiter „System"; hier steht er
     # bei den übrigen, solange er dort allein stünde.
@@ -157,7 +157,7 @@ def kurzbeschreibung(typ: type) -> str:
     unterscheiden kann, war damit keinen Schritt weiter (M11,
     Abschnitt 4).
 
-    Der Satz wird aus dem Docstring **geholt** statt hier noch einmal
+    Der Satz wird aus dem Docstring geholt statt hier noch einmal
     aufgeschrieben – eine zweite Beschreibung wäre nach der ersten
     Änderung an der Komponente falsch. Der Hinweis auf das zugrunde
     liegende Qt-Widget fällt weg: beim Bauen eines Formulars hilft er

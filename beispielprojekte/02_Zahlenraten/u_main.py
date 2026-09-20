@@ -7,7 +7,7 @@
 #   +=             zählt eine Variable hoch
 #
 # Das ist schon ein richtiges Spiel: Natter denkt sich eine Zahl aus,
-# du rätst, und es sagt dir "zu klein" oder "zu groß".
+# geraten wird, und antwortet "zu klein" oder "zu groß".
 
 import random
 

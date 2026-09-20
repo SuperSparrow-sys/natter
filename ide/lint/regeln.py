@@ -4,10 +4,10 @@ lokal und ohne KI. Arbeitet auf dem geparsten `.pfm`-Inhalt (demselben
 gerenderten Formular – Prüfungen laufen dadurch ohne Qt und ohne echtes
 Rendern.
 
-Befunde sind **Hinweise und Warnungen, keine Fehler** (Abschnitt 14):
+Befunde sind Hinweise und Warnungen, keine Fehler (Abschnitt 14):
 sie blockieren nichts, weder Start noch Export.
 
-**Umfang, bewusst eingeschränkt** (siehe docs/arbeitspakete/M7.md,
+Umfang, bewusst eingeschränkt (siehe docs/arbeitspakete/M7.md,
 Schritt 1): Größenänderung/Skalierung fehlen (brauchen ein Anker-System
 bzw. eine DPI-Simulation, die `pcl.Control` noch nicht hat);
 Lesbarkeit ist auf die Kontrastprüfung der `color`-Prop beschränkt

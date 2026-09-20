@@ -4,7 +4,7 @@ gegen `:memory:`.
 
 Zwei Teile, entsprechend den zwei Wegen in
 `pcl/components/data_access.py`: zuerst der kurze Weg
-(`query`/`query_one`/`execute`), der seit September 2026 der Normalweg
+(`query`/`query_one`/`execute`), der seither der Normalweg
 ist, danach `SQLQuery` mit Datensatzzeiger als Unterbau der Data
 Controls.
 """
@@ -86,9 +86,9 @@ def test_verbindung_zu_ungueltigem_pfad_loest_natter_fehler_aus(tmp_path) -> Non
 
 
 def test_es_gibt_keine_mysql_verbindung_mehr() -> None:
-    """September 2026: MySQL/MariaDB ist ersatzlos entfallen, damit es
-    in Natter überhaupt kein Datenbank-Passwort mehr gibt (siehe
-    Modulkopf von `pcl/components/data_access.py`)."""
+    """: MySQL/MariaDB ist ersatzlos entfallen, damit es
+ in Natter überhaupt kein Datenbank-Passwort mehr gibt (siehe
+ Modulkopf von `pcl/components/data_access.py`)."""
     import pcl
 
     assert not hasattr(pcl, "MySQLConnection")

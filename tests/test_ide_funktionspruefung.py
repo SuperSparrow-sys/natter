@@ -1,4 +1,4 @@
-"""Funktionsprüfung der Haupt-IDE (M11, Abschnitt 3): **jede**
+"""Funktionsprüfung der Haupt-IDE (M11, Abschnitt 3): jede
 bedienbare Stelle wirklich auslösen, nicht den Code lesen.
 
 Der Grund steht in `docs/arbeitspakete/M11.md`: In M9 haben
@@ -13,7 +13,7 @@ immer ein `checked`-Flag mit, das in einem optionalen ersten Parameter
 landet. Ein Test, der die Methode direkt aufruft, geht nie durch die
 Signalverbindung und sieht davon nichts.
 
-Die Liste der Stellen wird **nicht** von Hand gepflegt, sondern aus dem
+Die Liste der Stellen wird nicht von Hand gepflegt, sondern aus dem
 Aktionsregister, der Menüleiste, der Werkzeugleiste und der
 Komponentenpalette gelesen – sonst veraltet sie beim ersten neuen
 Menüeintrag.
@@ -97,7 +97,7 @@ def fenster(qtbot, tmp_path: Path) -> HauptFenster:
     import shutil
 
     # Bewusst die Kontoverwaltung: sie hat mit `u_konto.py` eine
-    # Unit **ohne** Formular. Nur zu solchen Einträgen zeigt der
+    # Unit ohne Formular. Nur zu solchen Einträgen zeigt der
     # Explorer ein Kontextmenü, und ohne eines stünde der halbe
     # Rundlauf hier leer.
     quelle = Path(__file__).resolve().parent.parent / "beispielprojekte" / "06_Kontoverwaltung"
@@ -115,7 +115,7 @@ def fenster(qtbot, tmp_path: Path) -> HauptFenster:
 def _alle_aktionen(fenster: HauptFenster) -> list[tuple[str, object]]:
     """Jede bedienbare Aktion mit einem sprechenden Pfad.
 
-    Gelesen aus der **Menüleiste**, nicht aus dem Aktionsregister
+    Gelesen aus der Menüleiste, nicht aus dem Aktionsregister
     allein: Dock-Umschalter, Design, Schriftart und die
     Einrückungslinien hängen dort direkt und stehen in keinem Register.
     """
@@ -228,7 +228,7 @@ def _alle_kontextmenues(fenster: HauptFenster) -> list[tuple[str, object]]:
 
     Bis M11 standen sie ausserhalb des Rundlaufs – dabei probieren die
     meisten dort zuerst. Jedes Menü wird von einer Methode gebaut, die
-    es **zurückgibt** statt es zu öffnen; ein `QMenu.exec()` wartet auf
+    es zurückgibt statt es zu öffnen; ein `QMenu.exec()` wartet auf
     einen Klick und bliebe im Test stehen.
     """
     gefunden: list[tuple[str, object]] = []
@@ -303,8 +303,8 @@ def test_jeder_kontextmenue_eintrag_laesst_sich_ausloesen(
 def test_jedes_dock_laesst_sich_schliessen_und_wieder_oeffnen(
     fenster: HauptFenster,
 ) -> None:
-    """Nutzer-Feedback aus M7: ein geschlossenes Dock ließ sich nicht
-    mehr zurückholen."""
+    """Rückmeldung aus M7: ein geschlossenes Dock ließ sich nicht
+ mehr zurückholen."""
     fenster.show()
     for dock in (
         fenster.explorer_dock,
@@ -384,7 +384,7 @@ def test_die_startbefehle_loesen_wirklich_den_starter_aus(
     aber über denselben Weg, den ein Klick nimmt.
 
     Stillgelegt wird die Modulfunktion, nicht die Methode: die
-    Rückrufe hängen seit dem Anlegen der Aktion als **gebundene**
+    Rückrufe hängen seit dem Anlegen der Aktion als gebundene
     Methode am Signal, ein späteres Ersetzen am Objekt erreicht sie
     nicht mehr.
     """

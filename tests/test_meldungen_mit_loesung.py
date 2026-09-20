@@ -7,14 +7,14 @@ hält drei Regeln fest, die beim Durchsehen des Bestands als die
 lohnenden übriggeblieben sind. Jede hat einen Fund im Bestand, den sie
 festnagelt:
 
-1. **Jede Fehlermeldung kommt auf Deutsch an.** Gefunden: 22 von 27
+1. Jede Fehlermeldung kommt auf Deutsch an. Gefunden: 22 von 27
    geprüften Schülerfehlern zeigten im Feld „Was“ den englischen
    Originaltext von Python („list index out of range“). Prüfbar ist das
    ohne Wörterbuch, weil `ide/debugger/fehlerkatalog.py` eine
    unübersetzte Meldung immer mit `ORIGINALMELDUNG_PRAEFIX`
    kennzeichnet: steht das Präfix nicht in der Meldung, ist sie
    übersetzt.
-2. **Jeder Befund und jeder Hinweis trägt seinen Lösungsteil.** Weil
+2. Jeder Befund und jeder Hinweis trägt seinen Lösungsteil. Weil
    ein einzelner Testfall nur die Regeln abdeckt, die er zufällig
    auslöst, prüft der Test stattdessen die Bauweise: in
    `ide/lint/regeln.py` und `ide/diagramm/hinweise.py` darf kein
@@ -22,7 +22,7 @@ festnagelt:
    die Hilfsfunktion, die den Lösungsteil erzwingt. Eine neue Regel
    ohne Lösung fällt damit auf, auch wenn niemand einen Testfall dafür
    schreibt.
-3. **Keine Klammerform.** Gefunden: „3 Fund(e) vor dem Start“, „2
+3. Keine Klammerform. Gefunden: „3 Fund(e) vor dem Start“, „2
    Test(s), 1 nicht bestanden“, „5 Hinweis(e) im Importbericht“. Die
    Zielgruppe liest ganze Sätze leichter als Formulare;
    `ide/viewers/tabellen_ansicht.py` hat das für sich schon

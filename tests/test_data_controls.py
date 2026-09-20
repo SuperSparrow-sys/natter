@@ -138,7 +138,7 @@ def test_dbgrid_ohne_offene_abfrage_bleibt_leer() -> None:
     assert grid._qwidget.columnCount() == 0
 
 
-# -- Ohne DataSource (September 2026) -----------------------------------
+# -- Ohne DataSource -----------------------------------
 #
 # Bis dahin verlangte jede dieser Komponenten eine `DataSource` im
 # Konstruktor. Der Designer erzeugt Komponenten aber mit `typ(formular)`

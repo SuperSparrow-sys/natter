@@ -49,12 +49,12 @@ def _unit_datei_vorbereiten(tmp_path: Path) -> Path:
 def _platzieren(canvas: DesignerCanvas, typ, x: int, y: int):
     """Ablegen und danach auf den Pixel genau setzen.
 
-    Das Ablegen rastet seit September 2026 am 8px-Raster ein (wie
-    „Snap to grid" in Lazarus). Der Taschenrechner ist von Hand
-    gesetzt und steht an mehreren Stellen dazwischen; nachgebaut wird
-    er deshalb so, wie ein Schüler es auch täte - ablegen, dann im
-    Objektinspektor genau einstellen.
-    """
+ Das Ablegen rastet seither am 8px-Raster ein (wie
+ „Snap to grid" in Lazarus). Der Taschenrechner ist von Hand
+ gesetzt und steht an mehreren Stellen dazwischen; nachgebaut wird
+ er deshalb so, wie ein Schüler es auch täte - ablegen, dann im
+ Objektinspektor genau einstellen.
+ """
     komponente = canvas.komponente_platzieren(typ, x, y)
     komponente.left, komponente.top = x, y
     return komponente

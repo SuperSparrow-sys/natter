@@ -4,14 +4,14 @@ Erzeugt ein neues, leeres Projekt aus einer Vorlage in `templates/`.
 `gui_db` (GUI-Anwendung mit Datenbank) folgt später zusammen mit den
 SQLdb-Komponenten (M5).
 
-**Jedes Projekt bekommt beides: `main.py` und `u_main.py`** – auch ein
+Jedes Projekt bekommt beides: `main.py` und `u_main.py` – auch ein
 Konsolenprojekt. `main.py` startet nur, `u_main.py` trägt den Code der
-Schülerin. Der Grundsatz stammt vom Nutzer (September 2026): „Main.py
+Schülerin. Der Grundsatz stammt vom Nutzer : „Main.py
 ist nur dafür da um das Script zu starten. Alles was programmiert
 werden muss passiert in u_main.py … denn Schüler sollen nicht in die
 Main py schauen aber ja trotzdem Code schreiben."
 
-Bis dahin hatte ein Konsolenprojekt **nur** `main.py`, und der ganze
+Bis dahin hatte ein Konsolenprojekt nur `main.py`, und der ganze
 Schülercode stand darin. Damit stand die Startdatei zugleich auf der
 Liste der ausgeblendeten Dateien und auf der des Quelltexts – ein
 Widerspruch, der die ersten beiden Lehrgangsstufen mit einem leeren

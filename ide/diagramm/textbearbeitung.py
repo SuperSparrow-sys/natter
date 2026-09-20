@@ -5,15 +5,15 @@ Ein Doppelklick legt ein Eingabefeld genau über die Form. Escape bricht
 ab, Eingabe bzw. Strg+Eingabe übernimmt, der Verlust des Fokus
 ebenfalls.
 
-**Nur für Notiz und Paket.** Klassen, abstrakte Klassen und Interfaces
+Nur für Notiz und Paket. Klassen, abstrakte Klassen und Interfaces
 werden seit M9 Schritt 12 über den Eigenschaften-Dialog bearbeitet
 (`ide/diagramm/klassendialog.py`): ihre Attribute und Operationen sind
 strukturierte Datensätze mit Name, Typ, Sichtbarkeit und Parametern und
 kein freier Text mehr. Notiz und Paket haben dagegen nur ein einziges
 Textfeld – dafür wäre ein Dialog mit fünf Reitern überzogen
-(Nutzer-Entscheidung September 2026).
+(entschieden).
 
-Der Text wird bewusst **nicht** auf Richtigkeit geprüft
+Der Text wird bewusst nicht auf Richtigkeit geprüft
 (Abschnitt 13.4).
 """
 

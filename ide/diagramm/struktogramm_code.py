@@ -5,13 +5,13 @@ Diagrammfenster, hier steht nur die Übersetzung Blockbaum → Python.
 Dadurch ist sie einzeln testbar, und eine zweite Zielsprache wäre
 später ein zweites Modul daneben statt ein Umbau (Abschnitt 14.4).
 
-**Der Blocktext wird nicht übersetzt.** Struktogramme werden im
+Der Blocktext wird nicht übersetzt. Struktogramme werden im
 Unterricht in Pseudocode beschriftet; ein halbautomatischer Übersetzer
 würde mehr Verwirrung stiften, als er hilft. Stattdessen entscheidet
 `ast.parse`, ob eine Beschriftung schon Python ist: wenn ja, wandert
 sie unverändert in den Quelltext, wenn nein, wird sie zum Kommentar und
 in `Ergebnis.nicht_uebernommen` mitgezählt. Der erzeugte Code ist
-dadurch **immer** gültiges Python, und es ist sofort zu sehen, was von
+dadurch immer gültiges Python, und es ist sofort zu sehen, was von
 Hand nachzuziehen ist.
 """
 
@@ -131,7 +131,7 @@ class _Schreiber:
         #: aus dem Aussprung ein `return`.
         self.in_schleife = in_schleife
         self.nicht_uebernommen: list[str] = []
-        #: Zahl der erzeugten **Anweisungen** – Kommentare zählen nicht
+        #: Zahl der erzeugten Anweisungen – Kommentare zählen nicht
         #: mit, denn ein Zweig aus lauter Kommentaren braucht trotzdem
         #: ein `pass`.
         self.anweisungen = 0

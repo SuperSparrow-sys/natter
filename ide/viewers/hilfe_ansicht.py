@@ -4,10 +4,10 @@ Die Hilfetexte von Natter liegen als Markdown in `docs/`. Bis jetzt
 wurden sie auf zwei Wegen gezeigt, und beide waren für die Zielgruppe
 unbrauchbar:
 
-* „Erste Schritte“ öffnete die `.md`-Datei im **Quelltexteditor** –
+* „Erste Schritte“ öffnete die `.md`-Datei im Quelltexteditor –
   eine Anleitung mit `##` und `*` davor, in einem Fenster, das nach
   Programmieren aussieht und in dem man sie versehentlich ändern kann
-* die Komponenten-Referenz gab die Datei an **Windows** weiter. Dort
+* die Komponenten-Referenz gab die Datei an Windows weiter. Dort
   ist für `.md` meist gar nichts eingetragen; im besten Fall öffnete
   sich der Editor, im Normalfall passierte nichts
 
@@ -24,7 +24,7 @@ from PySide6.QtWidgets import QTextBrowser, QWidget
 #: erste, die es auf dem Rechner gibt, wird genommen.
 #:
 #: Qt setzt beim Umwandeln von Markdown alles in `…` und jeden
-#: Code-Block auf die Familie **„monospace“** - einen Gattungsnamen, den
+#: Code-Block auf die Familie „monospace“ - einen Gattungsnamen, den
 #: es unter Windows nicht als Schriftart gibt (`QFontDatabase.families()`
 #: kennt ihn selbst dann nicht, wenn alle 255 Windows-Schriften geladen
 #: sind). Qt muss dann irgendetwas einsetzen, und heraus kam
@@ -63,7 +63,7 @@ class HilfeAnsicht(QTextBrowser):
         """Ersetzt die Gattungsfamilie „monospace“ durch eine, die es
         wirklich gibt.
 
-        Bewusst **nach** `setMarkdown` und nicht über
+        Bewusst nach `setMarkdown` und nicht über
         `document().setDefaultStyleSheet()`: die Vorlage greift nur beim
         Einlesen von HTML, `setMarkdown` geht daran vorbei (nachgemessen,
         die Familie blieb „monospace“).

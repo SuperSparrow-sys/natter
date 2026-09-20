@@ -8,7 +8,7 @@ Pfeiltasten durchging, kam also nicht weiter – die Datei ging nicht auf.
 Dasselbe galt für die Komponentenpalette, den Testbaum, das Panel
 „Variablen“ und den Zeileneditor für `items`/`lines` im Objektinspektor.
 
-`itemActivated` meldet **beides**, Doppelklick und Eingabetaste. Die
+`itemActivated` meldet beides, Doppelklick und Eingabetaste. Die
 Tests hier lösen deshalb genau dieses Signal aus – und zwar über eine
 echte Tastenbetätigung, nicht über `emit()`, sonst prüften sie nur sich
 selbst.

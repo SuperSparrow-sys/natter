@@ -1,7 +1,7 @@
 """Vorschläge für die Quelltext-Vervollständigung (M11, Abschnitt 2.2).
 
-Gerechnet wird mit **jedi** – es versteht Python wirklich, also auch
-Typen und Importe. Der Nutzer hat das im September 2026 unter einer
+Gerechnet wird mit jedi – es versteht Python wirklich, also auch
+Typen und Importe. Der Nutzer hat das unter einer
 Bedingung entschieden: keine Lizenz, die zu kaufen ist, und keine
 sichtbare Veränderung der Oberfläche. Beides geprüft (jedi 0.20.0 und
 parso 0.8.7 stehen unter MIT, 13,9 MB, kein Namenszug, keine
@@ -10,14 +10,14 @@ Netzverbindung).
 Zwei Dinge macht dieses Modul zusätzlich, und das sind die, auf die es
 im Unterricht ankommt:
 
-**Die Reihenfolge.** jedi liefert alles alphabetisch. Für jemanden, der
+Die Reihenfolge. jedi liefert alles alphabetisch. Für jemanden, der
 gerade anfängt, ist aber nicht alles gleich wichtig. Ganz oben stehen
-deshalb die **eigenen Komponenten des Formulars** (`self.b_start`) –
+deshalb die eigenen Komponenten des Formulars (`self.b_start`) –
 der häufigste Fall überhaupt –, dann die Eigenschaften und Ereignisse
 der `pcl`-Komponenten, dann was sonst in der Datei steht, und zuletzt
 Schlüsselwörter und eingebaute Funktionen.
 
-**Die Erklärung.** jedi findet zu `caption` **keinen** Hilfetext: die
+Die Erklärung. jedi findet zu `caption` keinen Hilfetext: die
 `pcl`-Eigenschaften sind Deskriptoren, ihr `doc=` steht nicht im
 Docstring. Genau dort liegt aber der deutsche Text, den eine Schülerin
 braucht. Dieses Modul holt ihn direkt aus `pcl.properties`.
@@ -74,7 +74,7 @@ SCHLUESSELWORT_HILFE: dict[str, str] = {
     "if": "führt etwas nur unter einer Bedingung aus",
     "import": "bindet ein Modul ein",
     "in": "prüft, ob etwas enthalten ist – oder gehört zu „for“",
-    "is": "prüft, ob es **dasselbe** Objekt ist (nicht: der gleiche Wert)",
+    "is": "prüft, ob es dasselbe Objekt ist - nicht, ob der Wert gleich ist",
     "lambda": "kurze Funktion ohne Namen",
     "None": "„nichts“ – der leere Wert",
     "not": "kehrt eine Bedingung um",
@@ -82,7 +82,7 @@ SCHLUESSELWORT_HILFE: dict[str, str] = {
     "pass": "tut nichts – Platzhalter, wo Python etwas erwartet",
     "raise": "löst selbst einen Fehler aus",
     "return": "gibt einen Wert zurück und verlässt die Funktion",
-    "self": "das eigene Objekt – darüber erreichst du deine Komponenten",
+    "self": "das eigene Objekt – darüber sind die Komponenten erreichbar",
     "True": "der Wahrheitswert „wahr“",
     "try": "versucht etwas, das schiefgehen kann",
     "while": "Schleife, solange die Bedingung zutrifft",
@@ -167,7 +167,7 @@ def eigene_komponenten(quelltext: str) -> dict[str, str]:
 def _erklaerung(
     name: str, art: str, docstring: str, komponenten: dict[str, str]
 ) -> str:
-    """Eine **kurze deutsche** Erklärung. Eine Liste aus nackten Namen
+    """Eine kurze deutsche Erklärung. Eine Liste aus nackten Namen
     hilft niemandem, der gerade erst anfängt."""
     if name in komponenten:
         return f"{komponenten[name]} auf diesem Formular"
@@ -296,7 +296,7 @@ def definition(
     Eine Fundstelle in derselben Datei trägt `pfad=None`: der Editor
     braucht dann nur zu springen, nicht zu öffnen.
 
-    **Kein Sprung in Pythons Standardbibliothek.** Wer auf `print`
+    Kein Sprung in Pythons Standardbibliothek. Wer auf `print`
     steht und F12 drückt, landete sonst in `builtins.pyi` – Quelltext
     in einer Sprache, die im Unterricht nie vorkommt, in einem Ordner,
     den niemand wiederfindet. Liegt die Definition ausserhalb von

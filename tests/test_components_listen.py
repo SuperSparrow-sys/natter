@@ -83,7 +83,7 @@ def test_combobox_auswahl_ueber_qwidget_aktualisiert_props() -> None:
 
 # -- on_change sieht den neuen Text, nicht den alten --------------------
 #
-# Gefunden im Beispielprojekt `08_Regression` (September 2026): ein Klick
+# Gefunden im Beispielprojekt `08_Regression` : ein Klick
 # auf "polynomial" zeigte die *lineare* Formel, ein Klick auf
 # "exponentiell" die polynomiale - die Anzeige hinkte der Auswahl
 # dauerhaft einen Schritt hinterher. Qt meldet einen Wechsel in zwei

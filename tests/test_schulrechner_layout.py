@@ -2,7 +2,7 @@
 
 Darauf war nie geprüft worden – entwickelt wurde auf einem großen
 Bildschirm, auf dem alles Platz hat. Gemessen an einem Bildschirmfoto
-blieben von den rund 728 nutzbaren Pixeln Höhe ganze **251** für den
+blieben von den rund 728 nutzbaren Pixeln Höhe ganze 251 für den
 Designer übrig: das Dock „Datenbank“ nahm allein 300, weil sein Inhalt
 (SQL-Eingabe, Ergebnistabelle, drei breite Knöpfe) keine kleinere
 Mindestgröße zuließ. Das Formular war nach dem ersten Drittel

@@ -1,7 +1,7 @@
 # Umstieg Pascal → Python
 
-Du kannst schon programmieren. Was sich ändert, ist die Schreibweise –
-und an ein paar Stellen die Denkweise. Diese Seite stellt beides
+Programmieren ist schon bekannt. Was sich ändert, ist die Schreibweise
+– und an ein paar Stellen die Denkweise. Diese Seite stellt beides
 nebeneinander.
 
 ## Das Wichtigste zuerst
@@ -17,8 +17,8 @@ nebeneinander.
 | `<>` | `!=` |
 
 Die Einrückung ist keine Formsache, sondern die Syntax. Im Editor
-zeigen dir die senkrechten Linien die Ebenen; unter **Ansicht →
-Leerzeichen anzeigen** siehst du jedes einzelne Zeichen.
+zeigen die senkrechten Linien die Ebenen; unter **Ansicht →
+Leerzeichen anzeigen** wird jedes einzelne Zeichen sichtbar.
 
 ## Datentypen
 

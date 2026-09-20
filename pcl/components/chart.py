@@ -23,7 +23,7 @@ hilft.
 
 `load_csv`, `load_query` und `load_grid` (M10, Punkt 3) enden alle in
 demselben `pandas.DataFrame` unter `dataframe`. Intern gibt es damit nur
-**einen** Datenweg: `_daten_zeichnen()` und `add_regression()` müssen
+einen Datenweg: `_daten_zeichnen()` und `add_regression()` müssen
 nichts darüber wissen, ob die Zahlen aus einer Datei, aus der Datenbank
 oder aus einer Tabelle auf dem Formular kommen. Fehlerfälle (fehlende
 Datei, unbekannte Spalte, Spalte ohne Zahlen) ergeben eine deutsche
@@ -197,7 +197,7 @@ class Chart(Control):
 
         self._theme = theme
         # `layout="constrained"` statt `tight_layout()`: die Ränder
-        # werden bei **jedem** Zeichnen neu berechnet. `tight_layout()`
+        # werden bei jedem Zeichnen neu berechnet. `tight_layout()`
         # rechnet einmalig und hinterlässt feste Bruchteile - schrumpft
         # das Widget danach auf die 320x240 der Komponente, brauchen die
         # gleich großen Beschriftungen einen größeren Anteil und laufen
@@ -632,7 +632,7 @@ class Chart(Control):
 
     def _farben_anwenden(self) -> None:
         farben = _theme_farben(self._theme)
-        # Gitternetz **hinter** die Daten. In der Sichtprüfung gefunden:
+        # Gitternetz hinter die Daten. In der Sichtprüfung gefunden:
         # matplotlib zeichnet es ohne diese Zeile darüber, und bei
         # `grid = True` läuft dann durch jeden Balken eine helle
         # senkrechte Linie, als wäre er zerschnitten.
@@ -682,7 +682,7 @@ class Chart(Control):
     def _umgebrochener_titel(self, text: str) -> str:
         """Bricht einen zu langen Titel auf mehrere Zeilen um.
 
-        In der Sichtprüfung **abgeschnitten**: aus „Schuhgröße nach
+        In der Sichtprüfung abgeschnitten: aus „Schuhgröße nach
         Körpergröße" wurde in einem 320 Pixel breiten Diagramm
         „Schuhgröße nach Körpergroes". matplotlib kürzt einen Titel
         nicht und macht auch keinen Platz dafür – es malt ihn einfach
@@ -711,7 +711,7 @@ class Chart(Control):
     def _ist_kreisdiagramm(self) -> bool:
         """Ob gerade Kreisstücke gezeichnet sind.
 
-        Ein Kreisdiagramm bekommt **keine** Legende, auch wenn `legend`
+        Ein Kreisdiagramm bekommt keine Legende, auch wenn `legend`
         gesetzt ist: seine Stücke tragen ihre Beschriftung schon selbst.
         In der Sichtprüfung standen die Kategorien dadurch doppelt da,
         und der Legendenkasten deckte ein Stück samt Beschriftung zu.

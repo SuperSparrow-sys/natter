@@ -6,7 +6,7 @@ ihren Wert weiter (`J → N → * → leer` im Bedingungsteil, `X → leer` im
 Aktionsteil), ein Doppelklick auf die Textspalte beschriftet die Zeile.
 Regel-Spalten und Zeilen kommen über das Menü dazu.
 
-Bewusst **ohne** automatische Zusammenfassung oder
+Bewusst ohne automatische Zusammenfassung oder
 Vollständigkeitsprüfung von Regeln – im Konzept so festgehalten.
 """
 
@@ -101,7 +101,7 @@ class _ZeilenKommando:
 
 
 class _SpaltenKommando:
-    """Eine Regel-Spalte betrifft **alle** Zeilen beider Teile – sonst
+    """Eine Regel-Spalte betrifft alle Zeilen beider Teile – sonst
     liefe die Tabelle auseinander."""
 
     def __init__(
@@ -201,7 +201,7 @@ class TabellenCanvas(ZoomMischung, QWidget):
         self.update()
 
     def _inhalt_in_diagrammkoordinaten(self) -> tuple[float, float]:
-        """Größe der Tabelle **ohne** Zoom. `inhaltsgroesse()` und
+        """Größe der Tabelle ohne Zoom. `inhaltsgroesse()` und
         `inhaltsgroesse_anpassen()` kommen aus `ZoomMischung` und
         multiplizieren das mit der Zoomstufe."""
         breite, hoehe = tabellengroesse(self.diagramm.daten)

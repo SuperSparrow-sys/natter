@@ -2,7 +2,7 @@
 was man darüber ablegt.
 
 Das stand seit M1 als Punkt 1 unter „Offene Punkte" in
-`docs/komponenten.md`. **Im Code ging es immer schon** –
+`docs/komponenten.md`. Im Code ging es immer schon –
 `RadioButton(self.g_zahlung)` hängt den Knopf an die GroupBox, das
 erledigt `Control.__init__` von selbst. Der Designer legte trotzdem
 jede abgelegte Komponente ans Formular; ein Panel war dort eine
@@ -12,7 +12,7 @@ Vier Stellen mussten dafür zusammenspielen, und alle vier werden hier
 geprüft: das Ablegen (Eltern und Koordinaten), der Komponentenbaum,
 das Zurückschreiben in die `.pfm` und der erzeugte Quelltext.
 
-**Die Namen bleiben flach.** Ein Knopf im Panel heißt weiter
+Die Namen bleiben flach. Ein Knopf im Panel heißt weiter
 `self.b_ok`, wie in Lazarus; verschachtelt ist nur, woran er hängt.
 """
 
@@ -182,7 +182,7 @@ def test_der_erzeugte_code_haengt_das_kind_an_den_behaelter() -> None:
 
     assert "self.p_feld = Panel(self)" in code
     assert "self.b_ok = Button(self.p_feld)" in code
-    # Der Behälter muss **vor** seinem Kind stehen: `Button(self.p_feld)`
+    # Der Behälter muss vor seinem Kind stehen: `Button(self.p_feld)`
     # setzt voraus, dass `self.p_feld` schon existiert.
     assert code.index("self.p_feld = Panel") < code.index("self.b_ok = Button")
     # Und beide brauchen ihre Typannotation und ihren Import.

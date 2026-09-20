@@ -73,7 +73,7 @@ class Form(Komponente):
     def _groesse_anwenden(self) -> None:
         """Setzt die Fenstergröße aus `width`/`height`.
 
-        `height` ist die Höhe des **Arbeitsbereichs**, wie `top` bei
+        `height` ist die Höhe des Arbeitsbereichs, wie `top` bei
         einer Komponente. Liegt ein Menü auf dem Formular, kommt seine
         Leiste obendrauf – sonst schrumpfte das Fenster bei einem
         `self.height = 400` zur Laufzeit um die Leistenhöhe, und die
@@ -103,7 +103,7 @@ class Form(Komponente):
         unten.
 
         Warum erst hier und nicht, sobald das Menü erzeugt wird: zu
-        diesem Zeitpunkt stehen **alle** Komponenten fest. Würde die
+        diesem Zeitpunkt stehen alle Komponenten fest. Würde die
         Leiste schon beim Erzeugen des Menüs Platz schaffen, käme es
         darauf an, ob das Menü vor oder nach den Knöpfen angelegt
         wurde – und `create_components()` legt sie in der Reihenfolge

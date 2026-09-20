@@ -3,13 +3,13 @@
 Bis M12 wurde Natter mit PyInstaller zu einem Bundle eingefroren. Ein
 eingefrorener Python lässt sich nicht mehr auseinandernehmen – deshalb
 konnten `pip` und „Als Exe exportieren“ dort grundsätzlich nicht
-arbeiten. Seit M13 liegt stattdessen eine **gewöhnliche, verschiebbare**
+arbeiten. Seit M13 liegt stattdessen eine gewöhnliche, verschiebbare
 CPython bei, auf der Natter läuft; damit geht beides wieder.
 
-Die Installation stammt von **python-build-standalone** – derselben
+Die Installation stammt von python-build-standalone – derselben
 Quelle, aus der auch `uv python install` bedient wird. `uv` liegt im
 Entwicklungsbaum ohnehin vor und kümmert sich um Herunterladen und
-Prüfsumme; dieses Modul legt nur fest, **welche** Fassung es sein soll,
+Prüfsumme; dieses Modul legt nur fest, welche Fassung es sein soll,
 und räumt das Ergebnis an einen vorhersagbaren Platz.
 """
 

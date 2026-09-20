@@ -6,7 +6,7 @@ Zwei Funde beim Aufräumen:
   nie gefüllt. Das Schülerprogramm läuft als eigener Prozess in einem
   eigenen Fenster (README.md, Abschnitt 7.8), seine
   `print`-Zeilen stehen also dort. Laut demselben Abschnitt gehören
-  aber **Exitcode und Laufzeit** in dieses Panel, und die standen
+  aber Exitcode und Laufzeit in dieses Panel, und die standen
   nirgends.
 * „Start → Stopp“ hing allein am Debugger. Wer sein Programm mit
   Strg+F5 gestartet hatte, bekam von Natter sogar den Rat, es „über

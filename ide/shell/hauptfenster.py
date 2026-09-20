@@ -229,14 +229,14 @@ def _kommentar_umschalten_zeilen(zeilen: list[str]) -> list[str]:
 def neue_unit_vorlage(name: str) -> str:
     """Das Gerüst, mit dem eine neue Unit entsteht.
 
-    Bis M12 legte „Neue Unit“ eine **völlig leere Datei** an. In Lazarus
-    bekommt man dagegen `unit …; interface; uses …; implementation;
-    end.` und weiß auf einen Blick, wohin was gehört (Nutzer-Feedback:
-    „wenn es muss wie bei Lazarus eine konkrete Abfolge geben und eine
-    Struktur“). Dieselben drei Dinge stehen hier: wofür die Unit da ist,
-    wo die Importe hingehören und wie andere Units an ihren Inhalt
-    kommen – das Gegenstück zu Lazarus' `uses`.
-    """
+ Bis M12 legte „Neue Unit“ eine völlig leere Datei an. In Lazarus bekommt
+ man dagegen `unit …; interface; uses …; implementation; end.` und weiß
+ auf einen Blick, wohin was gehört (Gemeldet: „wenn es muss wie bei
+ Lazarus eine konkrete Abfolge geben und eine Struktur“). Dieselben drei
+ Dinge stehen hier: wofür die Unit da ist, wo die Importe hingehören und
+ wie andere Units an ihren Inhalt kommen – das Gegenstück zu Lazarus'
+ `uses`.
+ """
     return f'''\
 """{name} – wofür ist diese Unit da?
 
@@ -248,7 +248,7 @@ Andere Units holen sich, was hier steht, mit:
 # from u_ampel import Ampel
 
 
-# Ab hier dein Code: eine Klasse oder ein paar Funktionen.
+# Ab hier der eigene Code: eine Klasse oder ein paar Funktionen.
 '''
 
 
@@ -298,7 +298,7 @@ class HauptFenster(QMainWindow):
         self.werkzeugleiste = self.addToolBar("Haupt-Werkzeugleiste")
         self.werkzeugleiste.setObjectName("Haupt-Werkzeugleiste")
         self.werkzeugleiste.setMovable(False)
-        # Nutzer-Feedback (September 2026): die obere Leiste sollte
+        # Gemeldet: die obere Leiste sollte
         # insgesamt kompakter sein, wie in Lazarus/VS Code.
         self.werkzeugleiste.setIconSize(QSize(18, 18))
 
@@ -325,7 +325,7 @@ class HauptFenster(QMainWindow):
 
         self.explorer = ProjektExplorer()
         # `itemActivated` statt `itemDoubleClicked`: Qt meldet damit den
-        # Doppelklick **und** die Eingabetaste. Mit der Maus allein zu
+        # Doppelklick und die Eingabetaste. Mit der Maus allein zu
         # arbeiten ist eine Annahme, keine Selbstverständlichkeit - und
         # wer den Explorer mit Tab erreicht und mit den Pfeiltasten
         # durchgeht, kam bis dahin nicht weiter (M11, Abschnitt 4).
@@ -437,7 +437,7 @@ class HauptFenster(QMainWindow):
             self._menues["Ansicht"].addAction(dock.toggleViewAction())
 
         # „Ansicht → Einrückungslinien“ (M11, Abschnitt 2.1). Bei Python
-        # **ist** die Einrückung die Syntax; wer sie nicht sieht, sucht
+        # ist die Einrückung die Syntax; wer sie nicht sieht, sucht
         # seinen Fehler an der falschen Stelle. Abschaltbar bleibt sie
         # trotzdem, wie jede Anzeigehilfe in Natter.
         self.einzugslinien_aktion = self._menues["Ansicht"].addAction(
@@ -494,7 +494,7 @@ class HauptFenster(QMainWindow):
         )
         self.leerzeichen_aktion.toggled.connect(self._leerzeichen_umschalten)
 
-        # „Ansicht → Design“ (Nutzer-Feedback, September 2026: „Hast du
+        # „Ansicht → Design“ (Gewünscht: „Hast du
         # den Darkmode schon implementiert?“) – Hell/Dunkel/System,
         # gemerkt über QSettings. Bewusst keine eigene `Aktion`-Hülle
         # (wie bei den Dock-Umschaltern oben): eine sich gegenseitig
@@ -514,7 +514,7 @@ class HauptFenster(QMainWindow):
             aktion.triggered.connect(lambda checked, wert=wert: self._design_wechseln(wert))
             design_gruppe.addAction(aktion)
 
-        # „Ansicht → Schriftart“ (Nutzer-Feedback September 2026: „soll
+        # „Ansicht → Schriftart“ (Gewünscht: „soll
         # bei Ansicht eine Auswahl der Schriftarten zum Auswählen“).
         # Gleiches Muster wie „Design“ direkt darüber.
         schriftart_menue = self._menues["Ansicht"].addMenu("Schriftart")
@@ -529,7 +529,7 @@ class HauptFenster(QMainWindow):
             )
             schriftart_gruppe.addAction(aktion)
 
-        # Nutzer-Feedback (September 2026): der Quelltexteditor wirkte zu
+        # Gemeldet: der Quelltexteditor wirkte zu
         # klein, weil Palette/Datenbank/Panels standardmäßig zu viel
         # Höhe beanspruchten. Qt verteilt neue Docks sonst ungefähr
         # gleichmäßig - hier bewusst zugunsten des Editors (Zentral-
@@ -568,7 +568,7 @@ class HauptFenster(QMainWindow):
         # gespeicherten.
         self._urspruengliches_layout = self.saveState()
 
-        # Nutzer-Feedback (September 2026): ein geschlossenes Dock (z. B.
+        # Gemeldet: ein geschlossenes Dock (z. B.
         # „Datenbank“) soll beim nächsten Start auch geschlossen bleiben
         # - Größe/Sichtbarkeit aller Docks wird deshalb gemerkt.
         gespeichertes_layout = self._design_einstellungen.value("fenster/layout")
@@ -631,7 +631,7 @@ class HauptFenster(QMainWindow):
         )
         # Rückgängig/Wiederholen tragen als einzige Bearbeiten-Aktionen ein
         # Symbol und erscheinen damit auch in der Werkzeugleiste (Abschnitt
-        # 7.3, Nutzer-Feedback September 2026: „Ich sehe die Buttons nicht
+        # 7.3, Gewünscht: „Ich sehe die Buttons nicht
         # zum rückgängig machen“ - sie gab es bis dahin nur im Menü).
         for aktion_id, name, tastenkuerzel, symbol_name, callback in (
             (
@@ -1004,7 +1004,7 @@ class HauptFenster(QMainWindow):
         # eine Handgriff, den jemand aus Lazarus als Erstes vermisst:
         # dort liegt er auf F12.
         #
-        # **Hier auf Umschalt+F12**, nicht auf F12. Das gehört im Editor
+        # Hier auf Umschalt+F12, nicht auf F12. Das gehört im Editor
         # seit M11 zu „Zur Definition springen“, wie in VS Code - und
         # ein Tastenkürzel, das je nach Reiter etwas anderes tut, ist
         # schlimmer als eins, das man einmal neu lernt. Umschalt+F12
@@ -1014,7 +1014,7 @@ class HauptFenster(QMainWindow):
         # gehängt: nur als Aktion steht sie in der
         # Tastenkürzel-Übersicht und in der Befehlspalette - ein
         # Kürzel, das nirgends nachzuschlagen ist, findet niemand. Und
-        # nur von Hand steht sie **oben** im Ansicht-Menü statt hinter
+        # nur von Hand steht sie oben im Ansicht-Menü statt hinter
         # den Untermenüs „Design“ und „Schriftart“.
         self.aktionen.registrieren(
             Aktion(
@@ -1070,21 +1070,21 @@ class HauptFenster(QMainWindow):
 
     def _projekt_startdateien_oeffnen(self, projekt: Projekt) -> None:
         """Öffnet nach dem Anlegen, womit man anfängt: das Formular
-        **und** die Unit dazu.
+ und die Unit dazu.
 
-        Ein frisch angelegtes GUI-Projekt zeigte bis September 2026 gar
-        nichts an - man landete in einem leeren Fenster und musste im
-        Explorer erst suchen, wo das Programm hingehört. Danach ging
-        über einen Doppelklick nur der Designer auf; die Datei, in die
-        der Code kommt, blieb unsichtbar (Nutzer-Meldung: „wenn ich ein
-        neues Projekt erstelle muss auch die u_main.py für den code
-        angezeigt werden nicht nur der designer“).
+ Ein frisch angelegtes GUI-Projekt zeigte bis dahin gar
+ nichts an - man landete in einem leeren Fenster und musste im
+ Explorer erst suchen, wo das Programm hingehört. Danach ging
+ über einen Doppelklick nur der Designer auf; die Datei, in die
+ der Code kommt, blieb unsichtbar (Gemeldet: „wenn ich ein
+ neues Projekt erstelle muss auch die u_main.py für den code
+ angezeigt werden nicht nur der designer“).
 
-        Vorn liegt am Ende der **Designer**: bei einem GUI-Projekt legt
-        man zuerst die Oberfläche an, und die Unit steht als zweiter
-        Reiter daneben. Ein Konsolenprojekt hat kein Formular - dort
-        bleibt es bei der einen Datei.
-        """
+ Vorn liegt am Ende der Designer: bei einem GUI-Projekt legt
+ man zuerst die Oberfläche an, und die Unit steht als zweiter
+ Reiter daneben. Ein Konsolenprojekt hat kein Formular - dort
+ bleibt es bei der einen Datei.
+ """
         unit = next(
             (pfad for pfad in projekt.units() if pfad.stem == projekt.haupt_unit), None
         )
@@ -1153,8 +1153,8 @@ class HauptFenster(QMainWindow):
             return
         self.oeffnen(self.projekt.haupt_datei)
         self.statusBar().showMessage(
-            f"{self.projekt.haupt_datei.name} startet das Programm. Dein Code gehört in die "
-            f"Units daneben – hier ist nichts zu ändern."
+            f"{self.projekt.haupt_datei.name} startet das Programm. Der eigene Code "
+            f"gehört in die Units daneben – hier ist nichts zu ändern."
         )
 
     def _naechster_unit_name(self) -> str:
@@ -1229,10 +1229,10 @@ class HauptFenster(QMainWindow):
         einzigen Exe.
 
         Läuft blockierend, wie „Alle Tests ausführen“ – dafür mit
-        Ladebalken in der untersten Zeile (Nutzer-Vorgabe September
-        2026). Ein Export dauert für ein Schulprojekt typischerweise
-        eine halbe bis eine Minute; ohne sichtbaren Fortschritt sieht
-        das nach einem Absturz aus.
+        Ladebalken in der untersten Zeile, so vorgegeben. Ein Export
+        dauert für ein Schulprojekt typischerweise eine halbe bis eine
+        Minute; ohne sichtbaren Fortschritt sieht das nach einem
+        Absturz aus.
         """
         if self.projekt is None:
             self.statusBar().showMessage(
@@ -1352,7 +1352,7 @@ class HauptFenster(QMainWindow):
         eintrag.setText(1, ergebnis.status)
         # Deutsch auch in einer Zahlenspalte: eine Sekundenangabe mit
         # Punkt sticht in einer sonst durchgehend deutschen Oberflaeche
-        # hervor (Nutzer, September 2026: „Alles in Deutschem Format“).
+        # hervor (Gewünscht: „Alles in Deutschem Format“).
         eintrag.setText(2, f"{ergebnis.dauer:.3f}".replace(".", ","))
         farbe = QColor(_STATUS_FARBE.get(ergebnis.status, "#000000"))
         for spalte in range(3):
@@ -1374,9 +1374,9 @@ class HauptFenster(QMainWindow):
         self.unit_erzeugen()
 
     def _unit_umbenennen(self, pfad: Path) -> None:
-        """„⋮ → Umbenennen …“ im Projekt-Explorer (Nutzer-Feedback,
-        September 2026): benennt die Datei auf der Platte um und hält
-        einen ggf. offenen Editor-Tab dabei synchron."""
+        """„⋮ → Umbenennen …“ im Projekt-Explorer: benennt die
+        Datei auf der Platte um und hält
+ einen ggf. offenen Editor-Tab dabei synchron."""
         neuer_name, ok = QInputDialog.getText(
             self, "Unit umbenennen", "Neuer Dateiname:", text=pfad.name
         )
@@ -1418,7 +1418,7 @@ class HauptFenster(QMainWindow):
         # Zu einer Unit mit Formular gehören drei Dateien, von denen
         # der Explorer nur zwei zeigt. Sie müssen zusammen gehen, sonst
         # bleibt erzeugter Code zu einem Formular liegen, das es nicht
-        # mehr gibt (Nutzer-Grundsatz September 2026: der Rest wird im
+        # mehr gibt (Grundsatz: der Rest wird im
         # Hintergrund nachgeführt, auch beim Löschen).
         betroffen = (
             self.projekt.zusammengehoerige_dateien(pfad) if self.projekt is not None else [pfad]
@@ -1553,7 +1553,7 @@ class HauptFenster(QMainWindow):
         """„Erste Schritte“ – vom Startbild und aus dem Menü „Hilfe“.
 
         Bis M11 öffnete der Eintrag die `.md`-Datei im
-        **Quelltexteditor**: eine Anleitung mit `##` und `*` davor, in
+        Quelltexteditor: eine Anleitung mit `##` und `*` davor, in
         einem Fenster, das nach Programmieren aussieht und in dem man
         sie versehentlich ändern kann.
         """
@@ -1572,7 +1572,7 @@ class HauptFenster(QMainWindow):
         )
 
     def beispiel_oeffnen(self, projektdatei: Path) -> Projekt:
-        """Öffnet ein mitgeliefertes Beispielprojekt – als **Kopie** im
+        """Öffnet ein mitgeliefertes Beispielprojekt – als Kopie im
         Dokumente-Ordner.
 
         An Ort und Stelle zu öffnen ginge in einer installierten Natter
@@ -1644,7 +1644,7 @@ class HauptFenster(QMainWindow):
         einer alten, nicht in UTF-8 gespeicherten Pascal-Datei war
         Natter einfach weg (M11, Abschnitt 5).
 
-        „Bereits offen“ heißt: in **einem Editor** offen. Ein Betrachter
+        „Bereits offen“ heißt: in einem Editor offen. Ein Betrachter
         auf dieselbe Datei zählt nicht, sonst täte „Quelltext
         bearbeiten“ in der Markdown-Ansicht nichts – der Pfad stimmte,
         und der vorhandene Reiter käme nur wieder nach vorn."""
@@ -1760,7 +1760,7 @@ class HauptFenster(QMainWindow):
         return widget if isinstance(widget, QPlainTextEdit) else None
 
     def _bearbeiten_rueckgaengig(self) -> None:
-        """„Bearbeiten → Rückgängig“ (Strg+Z) – im Editor **und** im
+        """„Bearbeiten → Rückgängig“ (Strg+Z) – im Editor und im
         Formular-Designer.
 
         Der Designer hat seinen eigenen Kommandostapel und hörte auf
@@ -1976,8 +1976,8 @@ class HauptFenster(QMainWindow):
         return meldung
 
     def _funde_in_editoren_zeigen(self, funde: list[RuffFund]) -> None:
-        """Unterringelt die Funde der Vorstart-Prüfung **dort, wo sie
-        stehen** – im Quelltext, mit der Meldung im Tooltip.
+        """Unterringelt die Funde der Vorstart-Prüfung dort, wo sie
+        stehen – im Quelltext, mit der Meldung im Tooltip.
 
         Bis jetzt stand ein Fund nur in der Liste unter dem Editor. Wer
         gerade erst anfängt, schaut aber nicht nach unten, sondern auf
@@ -2080,9 +2080,9 @@ class HauptFenster(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Merkt sich Größe/Sichtbarkeit aller Docks für den nächsten
-        Start (Nutzer-Feedback September 2026: ein geschlossenes Dock
-        wie „Datenbank“ soll auch beim nächsten Mal zu bleiben) – und
-        beendet ein noch laufendes Schülerprogramm."""
+ Start (Gewünscht: ein geschlossenes Dock
+ wie „Datenbank“ soll auch beim nächsten Mal zu bleiben) – und
+ beendet ein noch laufendes Schülerprogramm."""
         self._design_einstellungen.setValue("fenster/layout", self.saveState())
         self.kindprozesse_beenden()
         super().closeEvent(event)
@@ -2092,7 +2092,7 @@ class HauptFenster(QMainWindow):
         Debugger-Sitzung. Liefert, wie viele beendet wurden.
 
         Gefunden beim Aufräumen nach der Funktionsprüfung: auf diesem
-        Rechner warteten **neunundvierzig** `debugpy`-Prozesse aus
+        Rechner warteten neunundvierzig `debugpy`-Prozesse aus
         früheren Sitzungen darauf, dass sich ein Debugger verbindet, der
         nie kommen würde. Schließt jemand Natter, während sein Programm
         läuft, bleibt es als Waise zurück – und der „Stopp“-Knopf, mit
@@ -2240,12 +2240,12 @@ class HauptFenster(QMainWindow):
 
     def _designer_rollbereich(self, formular_widget: QWidget) -> QScrollArea:
         """Ein Designer-Tab steckt in einem Rollbereich, damit sich auch
-        ein Formular bedienen lässt, das größer ist als das Fenster
-        (vom Nutzer gemeldet: „scrollen … funktioniert nicht“).
+ ein Formular bedienen lässt, das größer ist als das Fenster
+ (gemeldet: „scrollen … funktioniert nicht“).
 
-        Bewusst **ohne** `setWidgetResizable`: die Größe eines Formulars
-        ist eine Eigenschaft, die der Nutzer gesetzt hat – sie darf sich
-        nicht danach richten, wie groß das IDE-Fenster gerade ist."""
+ Bewusst ohne `setWidgetResizable`: die Größe eines Formulars
+ ist eine Eigenschaft, die der Nutzer gesetzt hat – sie darf sich
+ nicht danach richten, wie groß das IDE-Fenster gerade ist."""
         rollbereich = QScrollArea()
         rollbereich.setWidget(formular_widget)
         rollbereich.setAlignment(
@@ -2371,12 +2371,12 @@ class HauptFenster(QMainWindow):
         )
 
     def _bei_palette_klick(self, eintrag) -> None:
-        """Einfacher Klick in der Palette (Nutzer-Feedback September
-        2026: „ich möchte per Klick neue Objekte auf der GUI
-        hinzufügen"): macht die Komponente „scharf" (Fadenkreuz-Cursor
-        im Designer, wie in Lazarus) - der nächste Klick auf das
-        Formular platziert sie genau dort, automatisch in `.pfm` und den
-        generierten Code übernommen (`_nach_aenderung`)."""
+        """Einfacher Klick in der Palette (Rückmeldung September
+ 2026: „ich möchte per Klick neue Objekte auf der GUI
+ hinzufügen"): macht die Komponente „scharf" (Fadenkreuz-Cursor
+ im Designer, wie in Lazarus) - der nächste Klick auf das
+ Formular platziert sie genau dort, automatisch in `.pfm` und den
+ generierten Code übernommen (`_nach_aenderung`)."""
         if self._aktueller_canvas is None:
             return
         typ = eintrag.data(TYP_ROLLE)
@@ -2676,7 +2676,7 @@ class HauptFenster(QMainWindow):
         """Öffnet `pfad` in der Ansicht, die dazu passt – Designer,
         Diagramm-Editor, Betrachter oder Quelltexteditor.
 
-        Der **eine** Weg dorthin, für den Projekt-Explorer wie für
+        Der eine Weg dorthin, für den Projekt-Explorer wie für
         „Datei → Öffnen …“. Vorher hatte nur der Explorer diese
         Unterscheidung: über „Öffnen …“ landete eine `.pfm` als roher
         JSON-Text im Editor, ein Diagramm ebenso, und ein PNG brachte
@@ -2714,7 +2714,7 @@ class HauptFenster(QMainWindow):
         elif endung in _HTML_ENDUNGEN:
             self.datei_ansicht_oeffnen(pfad, lambda: HtmlVorschau(pfad))
         elif endung in MARKDOWN_ENDUNGEN:
-            # Bis September 2026 landete jede `.md` im Quelltexteditor:
+            # Bis landete jede `.md` im Quelltexteditor:
             # `## Überschrift` und Tabellen aus Strichen, in einem
             # Fenster mit Zeilennummern und Syntaxhervorhebung. Für die
             # vier eingebauten Hilfeseiten war das seit M11 gelöst, für
@@ -2755,7 +2755,7 @@ class HauptFenster(QMainWindow):
         Quelltexteditor. Bereits offene Betrachter werden nur aktiviert
         statt erneut geöffnet, wie bei `datei_oeffnen()`.
 
-        Ein **Editor** auf dieselbe Datei zählt dabei nicht: wer eine
+        Ein Editor auf dieselbe Datei zählt dabei nicht: wer eine
         `.md` im Editor offen hat und sie aus dem Explorer anklickt,
         will sie gesetzt sehen. Beide Reiter nebeneinander sind hier
         gewollt – die Ansicht lädt sich neu, sobald im Editor
@@ -2807,7 +2807,7 @@ class HauptFenster(QMainWindow):
         """Die Prüfung vor dem Start (Abschnitt 8.2). Liefert, ob der
         Start deshalb unterbleibt.
 
-        Bis M12 verhinderte **jeder** Fund den Start. Wer `import random`
+        Bis M12 verhinderte jeder Fund den Start. Wer `import random`
         schreibt, bevor er `random` benutzt – also so, wie man es lernt –,
         bekam sein Programm nicht gestartet, obwohl es einwandfrei
         gelaufen wäre. Ungenutzter Import und ungenutzte Variable sind
@@ -3170,7 +3170,7 @@ class HauptFenster(QMainWindow):
     def _debugger_stoppen_aktion(self) -> None:
         """„Start → Stopp“ (Umschalt+F5).
 
-        Beendet **beides**: eine Debugger-Sitzung und ein mit Strg+F5
+        Beendet beides: eine Debugger-Sitzung und ein mit Strg+F5
         gestartetes Programm. Vorher hing der Eintrag allein am
         Debugger – wer sein Programm mit Strg+F5 gestartet hatte, bekam
         von Natter sogar den Rat, es „über Start → Stopp“ zu beenden,

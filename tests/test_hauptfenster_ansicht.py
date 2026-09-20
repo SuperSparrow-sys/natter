@@ -1,6 +1,6 @@
 """Tests für das Menü „Ansicht“ (Abschnitt 7.2): jedes Dock lässt sich
-darüber wieder einblenden, nachdem es geschlossen wurde. Nutzer-Feedback
-(September 2026): das Menü war komplett leer, ein geschlossenes Dock
+darüber wieder einblenden, nachdem es geschlossen wurde. Rückmeldung
+: das Menü war komplett leer, ein geschlossenes Dock
 (z. B. „Datenbank“) ließ sich nicht mehr zurückholen.
 """
 
@@ -65,9 +65,9 @@ def test_ansicht_eintrag_ist_angekreuzt_wenn_das_dock_sichtbar_ist() -> None:
 
 
 def test_geschlossenes_dock_bleibt_nach_einem_neustart_der_ide_zu() -> None:
-    """Nutzer-Feedback (September 2026): „Datenbank soll, wenn es zu
-    gemacht wurde, beim nächsten Mal auch zu bleiben. Das Ganze auch bei
-    den anderen Feldern.“"""
+    """Gemeldet: „Datenbank soll, wenn es zu
+ gemacht wurde, beim nächsten Mal auch zu bleiben. Das Ganze auch bei
+ den anderen Feldern.“"""
     fenster = HauptFenster()
     fenster.show()
     fenster.datenbank_dock.close()

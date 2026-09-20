@@ -25,7 +25,7 @@ from PySide6.QtGui import QColor, QPainter, QPixmap
 from PySide6.QtWidgets import QDialog, QMenu, QWidget
 
 from ide.codegen.design import design_datei_erzeugen
-from ide.codegen.ereignis import handler_methode_einfuegen
+from ide.codegen.ereignis import handler_methode_einfuegen, handler_methode_umbenennen
 from ide.designer.bilder import bild_in_assets_uebernehmen, ist_bilddatei
 from ide.designer.kommando import EigenschaftKommando, Kommandostapel
 from ide.designer.laden import platzhalter_erzeugen
@@ -63,21 +63,21 @@ _ANFASSER_VERHALTEN: dict[str, tuple[int, int, int, int]] = {
     "w": (1, -1, 0, 0),
 }
 
-#: Die Anfasser, die das **Formular** bekommt.
+#: Die Anfasser, die das Formular bekommt.
 #:
 #: Nur rechts, unten und in der rechten unteren Ecke: im Designer sitzt
 #: das Formular fest in der linken oberen Ecke seines Rollbereichs, und
 #: `left`/`top` gibt es an einem Formular gar nicht - ein Zug an „nw"
 #: müsste es also verschieben, und verschieben lässt es sich nicht.
 #:
-#: Vorher hatte es **gar keine**: `_anfasser_aktualisieren` blendete
+#: Vorher hatte es gar keine: `_anfasser_aktualisieren` blendete
 #: alle aus, sobald das Formular ausgewählt war. Die Fenstergröße ließ
 #: sich damit nur über `width`/`height` im Objektinspektor ändern -
 #: vom Nutzer gemeldet („der designer hat eine zu kleine fläche, diese
-#: soll anpassbar sein über die ecken zum ziehen", September 2026).
+#: soll anpassbar sein über die ecken zum ziehen").
 _ANFASSER_FUER_FORMULAR = ("e", "s", "se")
 
-#: Kleiner darf ein **Formular** beim Ziehen nicht werden. Bei einem
+#: Kleiner darf ein Formular beim Ziehen nicht werden. Bei einem
 #: Pixel lägen seine drei Anfasser übereinander in einem Punkt, und ein
 #: versehentlich zusammengezogenes Formular wäre nicht mehr
 #: aufzuziehen. Eine gewöhnliche Komponente darf weiter bis auf einen
@@ -169,7 +169,7 @@ def _ereignis_kurzname(ereignis_name: str) -> str:
 def _standard_ereignis(typ: type) -> str | None:
     """Das Ereignis, das ein Doppelklick verknüpft (Abschnitt 4.4).
 
-    Gemeint ist das **kennzeichnende** Ereignis der Komponente: bei
+    Gemeint ist das kennzeichnende Ereignis der Komponente: bei
     einem `Edit` die Änderung, bei einem `Zeitgeber` der Takt, bei einem
     `Button` der Klick. Die Maus-Ereignisse aus `Control` zählen dafür
     nicht mit - sie hat seit M15 jede sichtbare Komponente, und mit
@@ -178,7 +178,7 @@ def _standard_ereignis(typ: type) -> str | None:
     Vorher stand hier schlicht „genau ein Ereignis". Das war dieselbe
     Absicht mit einem Maßstab, der nur so lange trug, wie die meisten
     Komponenten ein einziges Ereignis hatten - mit den Maus-Ereignissen
-    lieferte er für **jede** Komponente `None`, und der Doppelklick im
+    lieferte er für jede Komponente `None`, und der Doppelklick im
     Designer legte gar keine Methode mehr an.
 
     Hat eine Komponente mehrere eigene Ereignisse, muss sie selbst
@@ -278,21 +278,67 @@ class _DuplizierenKommando:
 class _UmbenennenKommando:
     """Benennt das Form-Attribut einer Komponente um (Abschnitt 7.6: die
     Eigenschaft „Name“ ist kein `Prop` der Komponente, sondern der
-    Attributname im Formular selbst)."""
+    Attributname im Formular selbst).
+
+    Die selbst erzeugten Ereignismethoden gehen mit. Wer
+    `cb_ausgabe` in `cb_minus` umbenennt, will nicht
+    `cb_minus.on_change = self.cb_ausgabe_change` zurückbehalten -
+    Lazarus zieht die Handler dort ebenfalls mit. Umbenannt wird nur,
+    was Natter selbst angelegt hat, erkennbar am Namen
+    `<komponente>_<ereignis>`; einen Namen, den der Schüler selbst
+    vergeben hat, fasst niemand an.
+    """
 
     def __init__(self, canvas: DesignerCanvas, komponente: Any, neuer_name: str) -> None:
         self.canvas = canvas
         self.komponente = komponente
         self.neuer_name = neuer_name
         self.alter_name = canvas._attributname(komponente)
+        self.umbenannte_methoden = self._selbst_erzeugte_methoden()
+
+    def _selbst_erzeugte_methoden(self) -> list[tuple[str, str, str]]:
+        """(Ereignis, alter Methodenname, neuer Methodenname) für jede
+        Methode, die Natter selbst angelegt hat."""
+        gefunden = []
+        for ereignis_name in ereignisse(type(self.komponente)):
+            handler = getattr(self.komponente, ereignis_name, None)
+            if handler is None:
+                continue
+            kurz = _ereignis_kurzname(ereignis_name)
+            erwartet = f"{self.alter_name}_{kurz}"
+            if handler.__name__ == erwartet:
+                gefunden.append((ereignis_name, erwartet, f"{self.neuer_name}_{kurz}"))
+        return gefunden
+
+    def _methoden_umbenennen(self, rueckwaerts: bool = False) -> None:
+        if not self.umbenannte_methoden or self.canvas.unit_pfad is None:
+            return
+        if not self.canvas.unit_pfad.exists():
+            return
+        quelltext = self.canvas.unit_pfad.read_text(encoding="utf-8")
+        for ereignis_name, alt_name, neu_name in self.umbenannte_methoden:
+            von, nach = (neu_name, alt_name) if rueckwaerts else (alt_name, neu_name)
+            quelltext, gefunden = handler_methode_umbenennen(quelltext, von, nach)
+            if not gefunden:
+                continue
+            # Der Handler am Objekt zeigt auf die Methode des Formulars;
+            # nach dem Umbenennen muss er auf den neuen Namen zeigen,
+            # sonst schriebe `pfm_schreiben` den alten in die `.pfm`.
+            platzhalter = platzhalter_erzeugen(nach)
+            setattr(self.komponente, ereignis_name, types.MethodType(
+                platzhalter, self.canvas.formular
+            ))
+        self.canvas.unit_pfad.write_text(quelltext, encoding="utf-8")
 
     def tun(self) -> None:
         delattr(self.canvas.formular, self.alter_name)
         setattr(self.canvas.formular, self.neuer_name, self.komponente)
+        self._methoden_umbenennen()
 
     def rueckgaengig(self) -> None:
         delattr(self.canvas.formular, self.neuer_name)
         setattr(self.canvas.formular, self.alter_name, self.komponente)
+        self._methoden_umbenennen(rueckwaerts=True)
 
 
 # Sinnvolle Startgrößen je Komponententyp beim Ablegen aus der Palette
@@ -362,7 +408,7 @@ class _PlatzierenKommando:
         # des Behälters, nicht ab der des Formulars.
         eltern, ex, ey = canvas._behaelter_bei(x, y)
         self.neue_komponente = typ(eltern)
-        # **Am Raster einrasten**, wie in Lazarus bei „Snap to grid".
+        # Am Raster einrasten, wie in Lazarus bei „Snap to grid".
         # Ohne das legte der Designer Komponenten auf krumme
         # Koordinaten, und der Design-Prüfer meldete anschließend
         # „steht nicht am 8px-Raster" - für etwas, das der Schüler gar
@@ -436,8 +482,8 @@ class DesignerCanvas(QObject):
     def _raster_erzeugen(self) -> None:
         """Der Punkteraster auf dem Formular - wie in Lazarus.
 
-        Ein frisch angelegtes Formular war im Designer **gar nicht zu
-        sehen**: es ist weiß, die Arbeitsfläche darum war es auch, und
+        Ein frisch angelegtes Formular war im Designer gar nicht zu
+        sehen: es ist weiß, die Arbeitsfläche darum war es auch, und
         ohne eine einzige Komponente gab es nichts, woran sich die Kante
         erkennen ließ. Wer ein neues Projekt anlegte, sah eine leere
         weiße Seite und wusste nicht, wohin er etwas ziehen soll.
@@ -446,7 +492,7 @@ class DesignerCanvas(QObject):
         in welchen Schritten eine Komponente einrastet (`RASTER`).
 
         Ein eigenes Kind-Widget statt eines Übermalens: es liegt
-        **unter** allen Komponenten (`lower()`), nimmt keine
+        unter allen Komponenten (`lower()`), nimmt keine
         Mausereignisse an - sonst gäbe `childAt` es statt des Formulars
         zurück, und der Klick auf den Hintergrund wählte nichts mehr aus
         - und geht bei jeder Größenänderung einfach mit.
@@ -556,7 +602,7 @@ class DesignerCanvas(QObject):
                 anfasser.hide()
                 continue
             x, y = positionen[name]
-            # Am Formular liegen die drei Anfasser **innen** an der
+            # Am Formular liegen die drei Anfasser innen an der
             # Kante: ein Anfasser, der halb über den Rand hinausragt,
             # wäre außerhalb des Formular-Widgets und damit unsichtbar.
             if ist_formular:
@@ -871,7 +917,7 @@ class DesignerCanvas(QObject):
         Komponente gehört: `(Eltern, x, y)`, die Koordinaten umgerechnet
         auf die Eltern.
 
-        Gesucht wird der **innerste** Behälter an dieser Stelle – ein
+        Gesucht wird der innerste Behälter an dieser Stelle – ein
         Panel in einer GroupBox nimmt die Komponente auf, nicht die
         GroupBox darum. Liegt dort keiner, bleibt es beim Formular.
 
@@ -977,7 +1023,7 @@ class DesignerCanvas(QObject):
         `_BILD_MAXKANTE` begrenzt). `immer_neu=True` erzwingt eine neue
         Komponente, auch wenn dort schon ein Bild liegt.
 
-        **Bewusst dokumentiert:** die `.pfm` kennt die Eigenschaft
+        Bewusst dokumentiert: die `.pfm` kennt die Eigenschaft
         `picture` noch nicht – sie ist kein `Prop`, sondern eine
         aufklappbare Untereigenschaft mit eigener Lademethode, und ein
         neuer `.pfm`-Eigenschaftsname wäre eine Formatänderung samt
@@ -1100,7 +1146,7 @@ class DesignerCanvas(QObject):
         Fall aus M11, wo zwei Wege zu derselben Funktion sich
         unterschiedlich verhielten.
 
-        Ein Dialogdurchgang ist **ein** Undo-Schritt: das ganze
+        Ein Dialogdurchgang ist ein Undo-Schritt: das ganze
         Ergebnis geht als ein `EigenschaftKommando` auf den Stapel,
         egal wie viele Einträge darin geändert wurden.
         """
@@ -1178,7 +1224,7 @@ class DesignerCanvas(QObject):
             self._auswaehlen(self.formular)
 
     def _komponente_wiederherstellen(self, name: str, komponente: Any) -> None:
-        # Zurück an die **eigenen** Eltern, nicht pauschal ans Formular:
+        # Zurück an die eigenen Eltern, nicht pauschal ans Formular:
         # sonst sprang eine rückgängig gemachte Löschung aus ihrem Panel
         # heraus und lag danach auf dem Formular, an einer Stelle, die
         # sich aus Panel-Koordinaten ergab.

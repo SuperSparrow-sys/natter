@@ -2,7 +2,7 @@
 anzeigen, ein Paket installieren, die Paketliste als `requirements.txt`
 exportieren – über `pip` als Subprozess.
 
-**Vereinfachung, bewusst dokumentiert** (siehe docs/arbeitspakete/M7.md,
+Vereinfachung, bewusst dokumentiert (siehe docs/arbeitspakete/M7.md,
 Schritt 3): arbeitet auf dem aktuell aktiven Python-Interpreter
 (`sys.executable`), nicht auf den getrennten Paketordnern
 `pakete-ide`/`pakete-projekt`/`pakete-zusatz` aus Abschnitt 17.6 – die
@@ -48,11 +48,11 @@ class PaketFehler(RuntimeError):
 
 def installierte_pakete() -> list[Paket]:
     """Liste aller installierten Pakete (`pip list --format=json`).
-    Löst `PaketFehler` aus, wenn `pip` fehlschlägt (Nutzer-Feedback,
-    echter Absturz: `check=True` ließ eine unbehandelte
-    `CalledProcessError` bis zur IDE durchschlagen, statt wie
-    `paket_installieren()` einen sauberen Fehler mit `pip`s eigener
-    Meldung zu liefern)."""
+ Löst `PaketFehler` aus, wenn `pip` fehlschlägt (Rückmeldung,
+ echter Absturz: `check=True` ließ eine unbehandelte
+ `CalledProcessError` bis zur IDE durchschlagen, statt wie
+ `paket_installieren` einen sauberen Fehler mit `pip`s eigener
+ Meldung zu liefern)."""
     ergebnis = subprocess.run(
         [sys.executable, "-m", "pip", "list", "--format=json"],
         capture_output=True,

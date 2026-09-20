@@ -2,7 +2,7 @@
 M9 Schritt 10).
 
 Eine Entscheidungstabelle besteht aus einem Bedingungsteil und einem
-Aktionsteil; jede Regel ist eine **Spalte**, die durch beide Teile
+Aktionsteil; jede Regel ist eine Spalte, die durch beide Teile
 läuft (siehe `schemas/pdiag.schema.json`, `conditions`/`actions`).
 
 Gemalt wird mit `QPainter` und nicht mit einem `QTableWidget` – aus
@@ -10,7 +10,7 @@ demselben Grund wie beim Struktogramm: Bildschirm, PNG-, SVG- und
 PDF-Export sollen denselben Code benutzen, damit die Abgabe genau so
 aussieht wie das, was auf dem Bildschirm stand.
 
-Bewusst **ohne** automatische Zusammenfassung oder
+Bewusst ohne automatische Zusammenfassung oder
 Vollständigkeitsprüfung von Regeln (im Konzept so festgehalten): der
 Editor zeichnet, er denkt nicht mit.
 """

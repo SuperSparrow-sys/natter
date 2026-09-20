@@ -1,7 +1,7 @@
 """Zeichnen der Diagrammformen (Abschnitt 13.6).
 
 Getrennt von `canvas.py` (Bedienung) und `formen.py` (Katalog), damit
-derselbe Code die Zeichenfläche **und** den späteren Export
+derselbe Code die Zeichenfläche und den späteren Export
 (PNG/SVG/PDF, Schritt 8) malt – der Export darf keine zweite,
 abweichende Darstellung erzeugen.
 
@@ -87,7 +87,7 @@ def mindesthoehe(shape: dict[str, Any]) -> float:
     „automatische Mindestgröße, damit Text nie abgeschnitten wird“).
     Wird beim Platzieren und beim Ändern des Textes angewandt.
 
-    Attribut- und Methodenbereich zählen **getrennt**: beide werden
+    Attribut- und Methodenbereich zählen getrennt: beide werden
     immer mindestens eine Zeile hoch gezeichnet, damit leere Bereiche
     nicht zu Strichen zusammenfallen. Eine gemeinsame Summe hatte real
     dazu geführt, dass bei einem Interface mit zwei Methoden und ohne
@@ -157,7 +157,7 @@ def _umbruchhoehe(shape: dict[str, Any]) -> float:
 
 def mindestbreite(shape: dict[str, Any]) -> float:
     """Breite, ab der keine Textzeile seitlich abgeschnitten wird.
-    Anders als `mindesthoehe` wird sie **nicht** automatisch erzwungen –
+    Anders als `mindesthoehe` wird sie nicht automatisch erzwungen –
     eine zu schmale Form ist erlaubt und wird nur als Layout-Hinweis
     gemeldet (Schritt 7), weil sonst jede Eingabe eines langen
     Methodennamens die Form ruckartig breiter zöge.
@@ -197,7 +197,7 @@ def mindestbreite(shape: dict[str, Any]) -> float:
 
     if shape.get("kind") == "state":
         # Der Name eines Zustands trägt in der ersten Zeile den Namen
-        # und darunter die Aktionen. Sie alle als **eine** Zeile zu
+        # und darunter die Aktionen. Sie alle als eine Zeile zu
         # messen ergab eine Mindestbreite von 627 px für einen Kasten,
         # in den jede Zeile einzeln bequem passte (in der Sichtprüfung
         # aufgefallen).
@@ -556,7 +556,7 @@ def zustandszeilen(shape: dict[str, Any]) -> tuple[str, list[str]]:
 
     Ein Zustand hat in UML einen Namen und darunter optionale Zeilen wie
     ``entry / Motor an``. Statt dafür ein eigenes Eingabefeld zu bauen,
-    trägt der Name alles: die **erste** Zeile ist der Name, jede weitere
+    trägt der Name alles: die erste Zeile ist der Name, jede weitere
     eine Aktion. So bleibt die Bedienung dieselbe wie bei einer Notiz –
     Doppelklick, tippen, fertig – und die Datei bleibt lesbar.
     """
@@ -712,7 +712,7 @@ def _gabelung_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
 
 
 def _objektknoten_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
-    """Schlichtes Rechteck – anders als die Aktion **nicht** abgerundet.
+    """Schlichtes Rechteck – anders als die Aktion nicht abgerundet.
     Genau daran unterscheidet man im Aktivitätsdiagramm ein Objekt von
     einer Aktion."""
     rechteck = form_rechteck(shape)
@@ -753,7 +753,7 @@ def _verantwortungsbereich_zeichnen(maler: QPainter, shape: dict, stil: Stil) ->
 
 
 def _ablaufende_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
-    """Kreis mit Kreuz: **dieser** Zweig endet, die übrige Aktivität
+    """Kreis mit Kreuz: dieser Zweig endet, die übrige Aktivität
     läuft weiter. Nicht zu verwechseln mit dem Endknoten, der alles
     beendet."""
     rechteck = form_rechteck(shape)
@@ -775,7 +775,7 @@ def _ablaufende_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
 def _lebenslinie_zeichnen(maler: QPainter, shape: dict, stil: Stil) -> None:
     """Kopf mit dem Namen, darunter die gestrichelte Linie.
 
-    Die **ganze** Höhe der Form ist die Lebenslinie, nicht nur der Kopf:
+    Die ganze Höhe der Form ist die Lebenslinie, nicht nur der Kopf:
     so lang, wie die Form ist, lebt das Objekt. Der Name wird
     unterstrichen – das ist in UML das Zeichen dafür, dass es sich um
     ein konkretes Objekt handelt und nicht um eine Klasse.
@@ -952,7 +952,7 @@ def verbindungs_punkte(
     """Alle Stützpunkte der Linie: Rand der Quelle, gesetzte
     Knickpunkte, Rand des Ziels.
 
-    Eine **waagerechte** Verbindung (die Nachrichten des
+    Eine waagerechte Verbindung (die Nachrichten des
     Sequenzdiagramms) ist der Sonderfall: sie läuft auf einer festen
     Höhe von Lebenslinie zu Lebenslinie. Von Mitte zu Mitte zu zeigen
     wäre dort sinnlos – bei nebeneinanderstehenden Lebenslinien lägen
@@ -1026,7 +1026,7 @@ def _mit_hinterlegung_zeichnen(
 
     Hinterlegt in der Hintergrundfarbe, damit die Linie nicht durch die
     Buchstaben läuft. Gemalt wird er zusammen mit den Beschriftungen,
-    also **nach** den Formen: bei einer «extend»-Beziehung, deren Linie
+    also nach den Formen: bei einer «extend»-Beziehung, deren Linie
     hinter einem anderen Anwendungsfall vorbeiläuft, lag die Mitte genau
     in dessen Ellipse, und der Stereotyp verschwand darunter (in der
     Sichtprüfung aufgefallen – derselbe Fehler wie seinerzeit bei den
@@ -1158,7 +1158,7 @@ def beschriftungs_rechtecke(
 def _mittiges_rechteck(
     punkte: list[QPointF], text: str, eigener_versatz, metrik: QFontMetricsF
 ) -> QRectF:
-    """Wo eine Beschriftung in der **Mitte** der Linie steht: um eine
+    """Wo eine Beschriftung in der Mitte der Linie steht: um eine
     Zeilenhöhe neben sie gerückt.
 
     Zwei Dinge landen hier: der feste Stereotyp «include»/«extend» und
@@ -1198,7 +1198,7 @@ def verbindungsbeschriftungen_zeichnen(
 ) -> None:
     """Multiplizitäten/Rollen an den Enden (Abschnitt 13.3).
 
-    Wird **nach** den Formen gezeichnet: vorher lag die Beschriftung
+    Wird nach den Formen gezeichnet: vorher lag die Beschriftung
     halb in der Zielform und wurde von ihr überdeckt („0..*“ erschien
     als „0..“), und an Aggregation/Komposition saß sie unter der Raute
     (beides im Screenshot aufgefallen). Jetzt steht sie entlang der

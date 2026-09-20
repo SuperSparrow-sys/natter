@@ -6,7 +6,7 @@ Variablen und Aufrufstapel.
 Nachrichtenrahmen: `Content-Length: N\\r\\n\\r\\n` + N Bytes JSON (DAP-
 Standard), siehe `_naechste_nachricht`.
 
-**Aufgeschobene Antwort auf „attach“:** `debugpy` beantwortet den
+Aufgeschobene Antwort auf „attach“: `debugpy` beantwortet den
 `attach`-Request nicht sofort, sondern erst nachdem der Client
 anschließend `configurationDone` gesendet hat (siehe
 `debugpy/adapter/clients.py`, `_start_message_handler`:
@@ -14,7 +14,7 @@ anschließend `configurationDone` gesendet hat (siehe
 Der korrekte Ablauf ist deshalb: `initialize` (mit Antwort) → `attach`
 senden (Antwort kommt später) → auf das Event `initialized` warten →
 `configurationDone` senden → jetzt treffen die Antworten auf
-`configurationDone` **und** die aufgeschobene `attach`-Antwort ein, in
+`configurationDone` und die aufgeschobene `attach`-Antwort ein, in
 beliebiger Reihenfolge. `_antwort_abwarten` sammelt deshalb jede Antwort,
 die nicht zur gerade erwarteten `seq` passt, statt sie zu verwerfen.
 """

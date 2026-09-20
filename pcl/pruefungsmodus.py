@@ -1,32 +1,32 @@
 """Prüfungsmodus (M11, Abschnitt 6).
 
-Vom Nutzer im September 2026 gefordert: Natter wird im Unterricht auch
+Vom Nutzer gefordert: Natter wird im Unterricht auch
 in Leistungssituationen benutzt, und dann darf das Programm nicht die
 halbe Aufgabe lösen.
 
-**Was er tut.** Für vier Stunden ab dem Einschalten
+Was er tut. Für vier Stunden ab dem Einschalten
 
-* werden **keine Lösungsvorschläge** angezeigt. Die Fehlermeldung sagt
-  weiterhin, *was* falsch ist – nur nicht mehr, woran es liegen könnte
-* ist die **Quelltexterzeugung aus dem Klassendiagramm und aus dem
-  Struktogramm** nicht möglich
+* werden keine Lösungsvorschläge angezeigt. Die Fehlermeldung sagt
+ weiterhin, *was* falsch ist – nur nicht mehr, woran es liegen könnte
+* ist die Quelltexterzeugung aus dem Klassendiagramm und aus dem
+ Struktogramm nicht möglich
 
-**Was er nicht tut.** Alles andere bleibt. Die Diagramme lassen sich
+Was er nicht tut. Alles andere bleibt. Die Diagramme lassen sich
 weiter zeichnen, das Programm weiter starten und schrittweise
 ausführen, die Meldungen bleiben deutsch und verständlich. Der Modus
 nimmt Werkzeug weg, keine Bedienbarkeit.
 
-**Warum ein Endzeitpunkt und kein Schalter.** Zwei Dinge sind
+Warum ein Endzeitpunkt und kein Schalter. Zwei Dinge sind
 entscheidend, und beide folgen daraus:
 
-1. Er muss einen **Neustart von Natter überstehen**. Ein Schalter im
-   Speicher wäre mit einem Schließen und Öffnen ausgehebelt, und der
-   Modus damit wertlos.
-2. Er muss **von selbst auslaufen**. Niemand soll daran denken müssen,
-   ihn wieder abzuschalten, und ein vergessener Modus darf keinen
-   Schulrechner auf Dauer sperren.
+1. Er muss einen Neustart von Natter überstehen. Ein Schalter im
+ Speicher wäre mit einem Schließen und Öffnen ausgehebelt, und der
+ Modus damit wertlos.
+2. Er muss von selbst auslaufen. Niemand soll daran denken müssen,
+ ihn wieder abzuschalten, und ein vergessener Modus darf keinen
+ Schulrechner auf Dauer sperren.
 
-Gespeichert wird deshalb, **wann er vorbei ist** – nicht, dass er an
+Gespeichert wird deshalb, wann er vorbei ist – nicht, dass er an
 ist.
 """
 

@@ -6,17 +6,17 @@ Die Variablenansicht zeigt bisher nur den `repr` einer Variablen. Für
 von `debugpy` gekürzt, keine Spaltenstruktur. Dieses Modul wandelt einen
 solchen Wert in eine Tabelle (Spaltennamen + Zeilen) um.
 
-**Wie der Wert aus dem angehaltenen Programm kommt:** nicht über
+Wie der Wert aus dem angehaltenen Programm kommt: nicht über
 `repr`-Text und auch nicht über einen zweiten `variables`-Aufruf pro
 Zelle (das wären bei 200 Zeilen hunderte DAP-Anfragen), sondern über
 einen einzigen `evaluate`-Aufruf. Dessen Ausdruck trägt die
 Umwandlungsfunktion als Quelltext mit und liefert das Ergebnis als JSON
-zurück. Damit gibt es genau **eine** Fassung der Umwandlungsregeln:
+zurück. Damit gibt es genau eine Fassung der Umwandlungsregeln:
 `_KONVERTER_QUELLTEXT`. Sie läuft in der IDE (`tabelle_aus_wert`, direkt
 testbar) und im Schülerprozess (über `tabellen_ausdruck`) Zeile für
 Zeile gleich.
 
-Die Funktion im Quelltext darf deshalb **nichts** importieren, was ein
+Die Funktion im Quelltext darf deshalb nichts importieren, was ein
 Schülerprogramm nicht ohnehin hat – sie erkennt `pandas`-Objekte an
 ihren Attributen (`columns`/`itertuples`) statt `pandas` zu importieren.
 """
@@ -195,7 +195,7 @@ def tabellen_ausdruck(
 def tabelle_aus_antwort(antwort: str) -> Tabelle:
     """Wertet die Antwort von DAP `evaluate` auf `tabellen_ausdruck()`
     aus. `debugpy` liefert den `repr` des Rückgabewerts, also einen
-    Python-String **in** Anführungszeichen – die werden hier entfernt,
+    Python-String in Anführungszeichen – die werden hier entfernt,
     bevor der JSON-Text gelesen wird."""
     text = antwort.strip()
     if len(text) >= 2 and text[0] in "'\"" and text[-1] == text[0]:

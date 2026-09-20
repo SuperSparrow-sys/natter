@@ -1,5 +1,5 @@
 """Tests für die Menüs „Suchen“, „Quelltext“, „Fenster“ und „Hilfe“
-(Abschnitt 7.2). Nutzer-Feedback (September 2026): diese Menüs
+(Abschnitt 7.2). Gemeldet: diese Menüs
 existierten, waren aber leer/wirkungslos.
 """
 

@@ -1,6 +1,6 @@
 """Tests für die Funde direkt im Quelltext (M11, Abschnitt 2.3).
 
-Bis jetzt stand ein Fund der Vorstart-Prüfung **nur** in der Liste unter
+Bis jetzt stand ein Fund der Vorstart-Prüfung nur in der Liste unter
 dem Editor. Wer gerade erst anfängt, schaut aber nicht nach unten,
 sondern auf die Zeile, die er eben getippt hat. Seit M11 wird die Zeile
 unterringelt und die deutsche Meldung steht im Tooltip.
@@ -120,7 +120,7 @@ def test_funde_loeschen_raeumt_auf(editor: QuelltextEditor) -> None:
 def test_die_wellenlinien_ueberleben_einen_cursorwechsel(
     editor: QuelltextEditor,
 ) -> None:
-    """Qt führt Zeilenhervorhebung und Wellenlinien über **eine** Liste.
+    """Qt führt Zeilenhervorhebung und Wellenlinien über eine Liste.
     Sie getrennt zu setzen löschte jeweils die andere: die
     Unterringelungen verschwanden beim ersten Tastendruck wieder.
 
@@ -342,7 +342,7 @@ def test_die_funde_stehen_auf_deutsch_da(
 
 
 def test_zu_jedem_fund_steht_da_was_man_tun_kann(einstellungen: QSettings) -> None:
-    """Vom Nutzer gefordert: „Jede Meldung mit Lösungen.“"""
+    """Gefordert: „Jede Meldung mit Lösungen.“"""
     fund = RuffFund(Path("main.py"), 3, 1, "F401", "`os` imported but unused")
 
     assert "import-Zeile löschen" in fund.pruefe

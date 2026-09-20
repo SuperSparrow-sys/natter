@@ -8,12 +8,12 @@ muss.
 
 Das Startbild füllt genau diese Lücke. Es zeigt drei Dinge:
 
-* **Zuletzt geöffnete Projekte** – der häufigste Fall in der zweiten
+* Zuletzt geöffnete Projekte – der häufigste Fall in der zweiten
   Unterrichtsstunde
-* **Neues Projekt** und **Projekt öffnen**
-* **Die Beispielprojekte**, nach denen sonst niemand sucht
+* Neues Projekt und Projekt öffnen
+* Die Beispielprojekte, nach denen sonst niemand sucht
 
-Ein Beispiel wird beim Öffnen **kopiert**, nicht an Ort und Stelle
+Ein Beispiel wird beim Öffnen kopiert, nicht an Ort und Stelle
 geöffnet: in einer installierten Natter liegen die Beispiele im
 Programmordner, und dort darf eine Schülerin nicht schreiben. Die
 Kopie landet in ihrem eigenen Dokumente-Ordner, wo sie sie behält –
@@ -51,7 +51,7 @@ ZULETZT_SCHLUESSEL = "projekt/zuletzt"
 #: Benutzerordner.
 KOPIEN_ORDNER = Path("Documents") / "Natter"
 
-#: Schriftgrößen als **Stylesheet**, nicht über `setFont()`.
+#: Schriftgrößen als Stylesheet, nicht über `setFont()`.
 #:
 #: In der Sichtprüfung stand die Begrüßung genauso groß da wie der
 #: Fließtext darunter, obwohl `setPointSize(+8)` gesetzt war: das
@@ -75,10 +75,10 @@ _UEBERSCHRIFT_STIL = "font-size: 11pt; font-weight: bold; padding-top: 6px;"
 #: dort die Farben des gerade eingestellten Themas bekannt sind.
 #:
 #: Ein reiner Zusatz von `text-decoration` genügte hier ausdrücklich
-#: **nicht**: `background: transparent` von hier gewann gegen den
+#: nicht: `background: transparent` von hier gewann gegen den
 #: Akzent-Hintergrund der allgemeinen Hover-Regel, deren weiße Schrift
 #: mangels eigener Farbe hier aber durchkam - übrig blieb weiße Schrift
-#: auf weißem Grund (Nutzer-Feedback September 2026).
+#: auf weißem Grund (gemeldet).
 _EINTRAG_STIL = """
 QPushButton {
     text-align: left;
@@ -148,7 +148,7 @@ def beispiel_kopieren(projektdatei: Path, ziel_wurzel: Path | None = None) -> Pa
     """Legt eine Arbeitskopie des Beispiels an und gibt dessen
     `.natter`-Datei zurück.
 
-    Ein vorhandener Ordner wird **nicht** überschrieben – wer gestern
+    Ein vorhandener Ordner wird nicht überschrieben – wer gestern
     am Beispiel „Ampel" gearbeitet hat, bekommt heute „Ampel 2" statt
     seine Arbeit zurückgesetzt.
     """
@@ -233,8 +233,7 @@ class Startbild(QScrollArea):
         layout.addWidget(gruss)
 
         untertitel = QLabel(
-            "Programmieren in Python – mit der Oberfläche, die du aus "
-            "Lazarus kennst."
+            "Programmieren in Python – mit der Oberfläche aus Lazarus."
         )
         untertitel.setStyleSheet(_UNTERTITEL_STIL)
         layout.addWidget(untertitel)
@@ -293,7 +292,7 @@ class Startbild(QScrollArea):
         for pfad in beispiele:
             self.knoepfe[f"beispiel:{pfad.parent.name}"] = abschnitt.knopf_hinzufuegen(
                 pfad.parent.name,
-                "Wird in deinen Dokumente-Ordner kopiert und dort geöffnet",
+                "Wird in den eigenen Dokumente-Ordner kopiert und dort geöffnet",
                 lambda p=pfad: self.beispiel_gewaehlt.emit(p),
             )
         return abschnitt

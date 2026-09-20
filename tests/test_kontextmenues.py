@@ -6,7 +6,7 @@ nicht. Genau dort probieren es aber die meisten zuerst: in Lazarus
 liegt zu jeder Datei und zu jeder Komponente ein Menü darunter.
 
 Alle drei Menüs werden von einer Methode gebaut, die das Menü
-**zurückgibt** statt es zu öffnen (`kontextmenue_fuer`). Ein geöffnetes
+zurückgibt statt es zu öffnen (`kontextmenue_fuer`). Ein geöffnetes
 `QMenu.exec()` wartet auf einen Klick und bleibt im Test stehen.
 """
 
@@ -79,10 +79,10 @@ ERSTE_UNIT = "u_hilfe.py"
 def _punkt_der_unit(baum: ProjektExplorer) -> QPoint:
     """Die Mitte der `u_hilfe.py`-Zeile.
 
-    **Ueber den Namen gesucht, nicht ueber den Index.** Neben
+    Ueber den Namen gesucht, nicht ueber den Index. Neben
     `u_hilfe.py` steht `u_main.py` im Baum, und die traegt das Programm:
     sie hat bewusst kein Kontextmenue, weil `main.py` genau diesen Namen
-    importiert. Sie steht alphabetisch **nach** `u_hilfe.py`, aber auf
+    importiert. Sie steht alphabetisch nach `u_hilfe.py`, aber auf
     die Reihenfolge soll sich hier nichts verlassen - `child(0)` war
     schon einmal die falsche Zeile."""
     eintrag = next(

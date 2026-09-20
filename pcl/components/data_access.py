@@ -1,19 +1,19 @@
 """Datenbank-Komponenten (Abschnitt 10.1): Verbindung, Abfrage,
 Datenquelle – ausschließlich SQLite.
 
-**Der kurze Weg ist der Normalweg.** Eine Abfrage ist eine Zeile:
+Der kurze Weg ist der Normalweg. Eine Abfrage ist eine Zeile:
 
-    self.db = SQLite3Connection("konten.sqlite")
-    for zeile in self.db.query("SELECT inhaber, stand FROM konto"):
-        print(zeile["inhaber"], zeile["stand"])
+ self.db = SQLite3Connection("konten.sqlite")
+ for zeile in self.db.query("SELECT inhaber, stand FROM konto"):
+ print(zeile["inhaber"], zeile["stand"])
 
 Schreibende Anweisungen genauso, mit ``:name``-Platzhaltern als
 Schlüsselwortargumente – der Schutz vor SQL-Injection, den der Lehrgang
 eigens erklärt, bleibt damit derselbe:
 
-    self.db.execute("INSERT INTO konto (inhaber) VALUES (:wer)", wer=name)
+ self.db.execute("INSERT INTO konto (inhaber) VALUES (wer)", wer=name)
 
-**Warum nur SQLite.** Bis September 2026 gab es hier zusätzlich
+Warum nur SQLite. Früher gab es hier zusätzlich
 `MySQLConnection` über PyMySQL, mit `host_name`, `port`, `user_name` und
 `password`. Das Passwort war ein `Prop` und wäre damit im Klartext in
 der `.pfm` gelandet, sobald eine Verbindung als Symbol auf dem Formular
@@ -25,11 +25,11 @@ Datenbankdatei neben dem Programm läuft ohne Server, ohne Netz und ohne
 Zugangsdaten auf jedem Schulrechner; mehr braucht der Unterricht nicht.
 Seither kennt Natter überhaupt kein Datenbank-Passwort mehr.
 
-**Warum keine `SQLTransaction` mehr.** `query()`/`execute()` schreiben
+Warum keine `SQLTransaction` mehr. `query`/`execute` schreiben
 sofort fest (Auto-Commit). Eine eigene Komponente, die man nur anlegt,
-um `commit()` darauf zu rufen, erklärt sich nicht von selbst – wer
-mehrere Anweisungen zusammenfassen will, findet `commit()` und
-`rollback()` an der Verbindung.
+um `commit` darauf zu rufen, erklärt sich nicht von selbst – wer
+mehrere Anweisungen zusammenfassen will, findet `commit` und
+`rollback` an der Verbindung.
 
 `SQLQuery` und `DataSource` bleiben als Unterbau der Data Controls
 (`DBGrid` und Geschwister in `data_controls.py`): die brauchen einen
@@ -227,7 +227,7 @@ class _Feld:
 
 
 class SQLQuery(Komponente):
-    """Eine Abfrage mit **Datensatzzeiger** – der Unterbau der Data
+    """Eine Abfrage mit Datensatzzeiger – der Unterbau der Data
     Controls (`DBGrid`, `DBEdit`, `DBNavigator`).
 
     Für gewöhnlichen Schülercode ist das nicht der Weg: dafür gibt es
@@ -366,7 +366,7 @@ class DataSource(Komponente):
     """Bindeglied zwischen einer `SQLQuery` und den Data Controls:
     ``dataset`` verweist auf die anzuzeigende Abfrage.
 
-    **Vereinfachung, bewusst dokumentiert:** anders als `TDataSet` in
+    Vereinfachung, bewusst dokumentiert: anders als `TDataSet` in
     Lazarus, das gebundene Controls automatisch benachrichtigt, ruft hier
     `aktualisieren()` die Benachrichtigung bewusst explizit aus – von
     `DBNavigator` intern nach jeder Navigation, sonst nach eigenem

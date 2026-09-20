@@ -1,5 +1,5 @@
-"""Tests für das Menü „Bearbeiten“ (Abschnitt 7.2). Nutzer-Feedback
-(September 2026): das Menü existierte, aber jeder Eintrag war wirkungslos.
+"""Tests für das Menü „Bearbeiten“ (Abschnitt 7.2). Rückmeldung
+: das Menü existierte, aber jeder Eintrag war wirkungslos.
 Rückgängig/Wiederholen/Ausschneiden/Kopieren/Einfügen/Alles auswählen
 wirken auf den aktiven Editor-Tab, über die eingebauten
 `QPlainTextEdit`-Operationen.

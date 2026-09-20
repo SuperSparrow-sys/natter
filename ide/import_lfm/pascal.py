@@ -9,7 +9,7 @@ angelegte Python-Methode übernehmen kann – der Kurs übersetzt den Code
 anschließend von Hand, das ist ausdrücklich Teil der Umstiegsaufgabe
 (Abschnitt 15: „Hilfe beim Umstieg, keine automatische Übersetzung“).
 
-**Umfang, bewusst eingeschränkt:** Pascal wird nicht wirklich geparst,
+Umfang, bewusst eingeschränkt: Pascal wird nicht wirklich geparst,
 sondern nur die `begin`/`end`-Verschachtelung gezählt, nachdem
 Zeichenketten und Kommentare entfernt wurden. Das deckt den
 Unterrichtscode in `tests/daten/lazarus/` vollständig ab. Nicht unterstützt

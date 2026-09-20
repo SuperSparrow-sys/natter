@@ -1,5 +1,5 @@
-"""Tests für „Ansicht → Schriftart“ (Nutzer-Feedback, September 2026:
-„soll bei Ansicht eine Auswahl der Schriftarten zum Auswählen“).
+"""Tests für „Ansicht → Schriftart“ (Gewünscht: „soll bei Ansicht eine Auswahl
+der Schriftarten zum Auswählen“).
 Gleiches Muster wie tests/test_hauptfenster_design_wechsel.py.
 """
 

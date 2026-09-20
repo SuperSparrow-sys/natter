@@ -32,7 +32,7 @@ from ide.run.interpreter import python_befehl
 #: schreiben; das gehört aber in den Starter und nicht in jedes
 #: Programm. Lazarus und Delphi machen es genauso.
 #:
-#: Die Pause kommt **auch nach einem Absturz** – gerade dann will man
+#: Die Pause kommt auch nach einem Absturz – gerade dann will man
 #: den Fehler lesen können. Deshalb `finally` und nicht nur der
 #: Erfolgsfall.
 #:

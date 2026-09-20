@@ -285,7 +285,7 @@ def test_ein_einzelner_name_bleibt_kurz(tmp_path: Path) -> None:
 
 # -- Aussehen beim Darüberfahren -------------------------------------------
 #
-# Nutzer-Feedback September 2026: „schaue nochmal aufs hover, die schrift
+# Gewünscht: „schaue nochmal aufs hover, die schrift
 # darf nicht weis werden". Die Einträge des Startbilds verschwanden beim
 # Darüberfahren: die allgemeine Regel `QPushButton:hover` setzt weiße
 # Schrift, weil dort ein Akzent-Hintergrund dahinterliegt - der kam hier

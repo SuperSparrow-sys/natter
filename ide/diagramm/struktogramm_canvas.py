@@ -1,6 +1,6 @@
 """Zeichenfläche für Struktogramme (Abschnitt 13.5, M9 Schritt 9).
 
-Bedient wird nicht über Koordinaten, sondern über **Einfügestellen**:
+Bedient wird nicht über Koordinaten, sondern über Einfügestellen:
 Wer einen Block aus der Palette gewählt hat, sieht beim Bewegen der
 Maus die Lücke hervorgehoben, in die der Block käme – zwischen zwei
 Blöcken, in einen leeren Zweig oder in einen Schleifenkörper. Ein Klick
@@ -148,7 +148,7 @@ class StruktogrammCanvas(ZoomMischung, QWidget):
     # -- Größe der Fläche -----------------------------------------------
 
     def _inhalt_in_diagrammkoordinaten(self) -> tuple[float, float]:
-        """Größe des Struktogramms **ohne** Zoom. `inhaltsgroesse()` und
+        """Größe des Struktogramms ohne Zoom. `inhaltsgroesse()` und
         `inhaltsgroesse_anpassen()` kommen aus `ZoomMischung` und
         multiplizieren das mit der Zoomstufe."""
         rechteck = (self._layout or self._layout_erneuern()).rechteck
@@ -182,7 +182,7 @@ class StruktogrammCanvas(ZoomMischung, QWidget):
         self.update()
 
     def block_bei(self, x: float, y: float) -> dict[str, Any] | None:
-        """Der **innerste** Block unter dem Punkt – sonst träfe man
+        """Der innerste Block unter dem Punkt – sonst träfe man
         immer nur den äußeren Behälter."""
         treffer = None
         for kasten in (self._layout or self._layout_erneuern()).alle():
@@ -412,7 +412,7 @@ class StruktogrammCanvas(ZoomMischung, QWidget):
         Blöcken – beim Einfügen aus der Palette zielt man genau dorthin.
         Beim Ziehen ist das zu wenig: man lässt den Block über einem
         anderen los, nicht in der Fuge. Deshalb hier zusätzlich: liegt
-        der Zeiger in der **oberen** Hälfte eines Blocks, kommt der
+        der Zeiger in der oberen Hälfte eines Blocks, kommt der
         gezogene davor, sonst dahinter.
         """
         genau = self.stelle_bei(x, y)
@@ -439,7 +439,7 @@ class StruktogrammCanvas(ZoomMischung, QWidget):
     def verschieben_moeglich(
         self, block: dict[str, Any], ziel: Einfuegestelle | None
     ) -> Einfuegestelle | None:
-        """Prüft ein Ziel und rechnet es auf den Stand **nach** dem
+        """Prüft ein Ziel und rechnet es auf den Stand nach dem
         Herausnehmen um. Liefert `None`, wenn dort nichts abzulegen ist.
 
         Drei Fälle sind abzulehnen:
@@ -478,7 +478,7 @@ class StruktogrammCanvas(ZoomMischung, QWidget):
         self, block: dict[str, Any], ziel: Einfuegestelle | None
     ) -> bool:
         """Verschiebt `block` an die Einfügestelle `ziel` – Herausnehmen
-        und Einsetzen zusammen als **ein** Undo-Schritt."""
+        und Einsetzen zusammen als ein Undo-Schritt."""
         stelle = self.verschieben_moeglich(block, ziel)
         if stelle is None:
             return False

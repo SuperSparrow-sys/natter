@@ -94,15 +94,15 @@ def test_timer_auf_einem_formular(qtbot) -> None:
 
 
 def test_timer_liegt_im_designer_auf_dem_formular() -> None:
-    """Nutzer-Hinweis September 2026: „der Timer muss als Komponente
-    auch mit rein, der ist wichtig".
+    """Nutzer-Hinweis : „der Timer muss als Komponente
+ auch mit rein, der ist wichtig".
 
-    Vorher war er bewusst keine `Control` und musste im Quelltext
-    erzeugt werden. Damit er sich ziehen, anklicken und im
-    Objektinspektor einstellen lässt, ist er jetzt eine gewöhnliche
-    `Control` - und bekommt dadurch von selbst Lage, Größe, einen
-    Eintrag im Komponentenbaum und einen in der `.pfm`.
-    """
+ Vorher war er bewusst keine `Control` und musste im Quelltext
+ erzeugt werden. Damit er sich ziehen, anklicken und im
+ Objektinspektor einstellen lässt, ist er jetzt eine gewöhnliche
+ `Control` - und bekommt dadurch von selbst Lage, Größe, einen
+ Eintrag im Komponentenbaum und einen in der `.pfm`.
+ """
     zeitgeber = Timer()
 
     assert isinstance(zeitgeber, Control)

@@ -1,10 +1,10 @@
-"""Die Beispielprojekte werden **bedient**, nicht nur geladen.
+"""Die Beispielprojekte werden bedient, nicht nur geladen.
 
-Anlass (September 2026): der Nutzer bat darum, „die ganzen
+Anlass : der Nutzer bat darum, „die ganzen
 Programmierfehler" in den Beispielen zu beheben, „wie in der Auswahl von
 dem regressions Formel". Dieser eine Fehler war nach zwei Minuten
 Durchspielen sichtbar und hätte von keinem der vorhandenen Tests
-gefunden werden können: sie prüften, dass jedes Projekt **startet** und
+gefunden werden können: sie prüften, dass jedes Projekt startet und
 dass die erzeugten Dateien zum Formular passen - nicht, ob beim Klicken
 das Richtige herauskommt.
 
@@ -32,7 +32,7 @@ import pytest
 BEISPIELE = Path(__file__).resolve().parent.parent / "beispielprojekte"
 
 #: Jedes hier gebaute Formular bleibt bis zum Ende des Testlaufs am
-#: Leben. **Das ist Absicht und war teuer gelernt:** mit
+#: Leben. Das ist Absicht und war teuer gelernt: mit
 #: `qtbot.addWidget(...)` löscht Qt das C++-Widget am Testende, während
 #: die Python-Objekte der Komponenten noch stehen. Der Müllsammler räumt
 #: sie irgendwann später weg - mitten in einem ganz anderen Test -, und
@@ -103,10 +103,10 @@ def test_der_rechner_rechnet_richtig(rechner, a, b, knopf, erwartet) -> None:
 
 
 def test_der_rechner_nimmt_das_deutsche_dezimalkomma(rechner) -> None:
-    """„2,5" ist das, was eine Schülerin tippt. Bis September 2026 kam
-    darauf „Bitte in beide Felder eine Zahl schreiben." - obwohl genau
-    das getan worden war. Alle späteren Stufen nahmen das Komma
-    längst an."""
+    """„2,5" ist das, was eine Schülerin tippt. Früher kam
+ darauf „Bitte in beide Felder eine Zahl schreiben." - obwohl genau
+ das getan worden war. Alle späteren Stufen nahmen das Komma
+ längst an."""
     rechner.e_zahl1.text = "2,5"
     rechner.e_zahl2.text = "0,5"
 
@@ -149,7 +149,7 @@ def test_was_keine_zahl_ist_wird_freundlich_abgelehnt(rechner, a, b) -> None:
 
 
 def test_die_regression_zeigt_zu_jeder_art_ihre_eigene_formel(beispiel) -> None:
-    """**Der Fehler, nach dem der Nutzer gefragt hat.** Ein Klick auf
+    """Der Fehler, nach dem der Nutzer gefragt hat. Ein Klick auf
     „polynomial" zeigte die lineare Formel, „exponentiell" die
     polynomiale - die Anzeige hinkte der Auswahl einen Schritt
     hinterher. Die Ursache lag in `pcl.ComboBox` (siehe

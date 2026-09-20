@@ -5,19 +5,19 @@ Die drei letzten ausgegrauten Einträge im Menü „Ansicht" waren
 „Lineale", „Hilfslinien" und „Minimap". Zoom, Raster, Seitenränder und
 Layout-Hinweise waren längst aktiv.
 
-**Die Lineale liegen neben der Zeichenfläche, nicht darauf.** Sie in den
+Die Lineale liegen neben der Zeichenfläche, nicht darauf. Sie in den
 `paintEvent` der Fläche zu malen wäre weniger Arbeit gewesen, hätte aber
 das Diagramm unter sich begraben: die obersten und linkesten Zentimeter
 des Blatts lägen dann hinter dem Lineal. Deshalb steckt die Fläche jetzt
 in einem Raster aus Ecke, oberem Lineal, linkem Lineal und Rollbereich -
 so, wie es jedes Zeichenprogramm macht.
 
-**Gezählt wird in Millimetern**, passend zum Seitenformat: ein
+Gezählt wird in Millimetern, passend zum Seitenformat: ein
 Diagramm-Editor, der in Pixeln misst, hilft beim Drucken nicht weiter.
 Die Umrechnung kommt aus `seite.py` (96 dpi), damit Lineal, Seitenrand
 und Druck dieselbe Vorstellung von einem Zentimeter haben.
 
-**Eine Hilfslinie zieht man aus dem Lineal heraus** und legt sie ab, wo
+Eine Hilfslinie zieht man aus dem Lineal heraus und legt sie ab, wo
 sie stehen soll. Sie wird mit der `.pdiag` gespeichert (Feld `guides`)
 und rastet beim Verschieben von Formen ein - sonst wäre sie nur eine
 Linie zum Ansehen.
@@ -60,7 +60,7 @@ class Lineal(QWidget):
 
     `hilfslinie_gezogen` meldet eine neue Hilfslinie, sobald jemand aus
     dem Lineal heraus auf die Fläche zieht und loslässt - mit der
-    Position in **Diagrammkoordinaten**, nicht in Bildschirmpixeln.
+    Position in Diagrammkoordinaten, nicht in Bildschirmpixeln.
     """
 
     hilfslinie_gezogen = Signal(float)

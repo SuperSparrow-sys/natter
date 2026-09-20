@@ -5,7 +5,7 @@ ablegen, seinen Code schreiben, wieder aufs Formular schauen. In Natter
 stand er seit M2 als Vermerk im Explorer – „folgt später“ – und fehlte
 damit genau der Gruppe, für die Natter gebaut ist.
 
-**Nicht auf F12.** Das gehört im Editor seit M11 zu „Zur Definition
+Nicht auf F12. Das gehört im Editor seit M11 zu „Zur Definition
 springen“, wie in VS Code; ein Tastenkürzel, das je nach Reiter etwas
 anderes tut, ist schlimmer als eins, das man einmal neu lernt.
 """
@@ -153,7 +153,7 @@ def test_der_eintrag_steht_im_ansicht_menue(qtbot) -> None:
 
 # ------------------------------------------- Ein frisch angelegtes Projekt
 #
-# Nutzer-Meldung September 2026: "wenn ich ein neues Projekt erstelle
+# Nutzer-Meldung : "wenn ich ein neues Projekt erstelle
 # muss auch die u_main.py fuer den code angezeigt werden nicht nur der
 # designer". Vorher ging nach dem Anlegen gar kein Reiter auf - man
 # landete in einem leeren Fenster.

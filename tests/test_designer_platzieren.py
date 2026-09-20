@@ -112,11 +112,11 @@ def test_scrollbar_bekommt_beim_platzieren_eine_breite_flache_startgroesse() -> 
 
 
 def test_platzierungsmodus_platziert_beim_naechsten_klick_auf_das_formular() -> None:
-    """Nutzer-Feedback (September 2026): „ich möchte per Klick neue
-    Objekte auf der GUI hinzufügen" - Klick auf ein Palettensymbol
-    (`platzierungsmodus_setzen`), dann Klick auf das Formular platziert
-    dort, wie in Lazarus. Ergänzung zum bisherigen Doppelklick (immer
-    mittig)."""
+    """Gemeldet: „ich möchte per Klick neue
+ Objekte auf der GUI hinzufügen" - Klick auf ein Palettensymbol
+ (`platzierungsmodus_setzen`), dann Klick auf das Formular platziert
+ dort, wie in Lazarus. Ergänzung zum bisherigen Doppelklick (immer
+ mittig)."""
     formular = _LeeresFormular()
     canvas = DesignerCanvas(formular)
 

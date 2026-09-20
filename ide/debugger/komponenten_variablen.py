@@ -7,7 +7,7 @@ Der DAP-Client läuft im IDE-Prozess, das untersuchte Objekt aber im
 Schülerprogramm-Prozess – nur der Typname (ein String wie `"Form1"` oder
 `"MeinFormular"`) kommt über DAP herüber, nicht die tatsächliche Klasse.
 Eine 1:1-Zuordnung zur genauen Unterklasse ist deshalb nicht möglich.
-Stattdessen wird eine Positivliste aus allen `Prop`-/`Event`-Namen **aller**
+Stattdessen wird eine Positivliste aus allen `Prop`-/`Event`-Namen aller
 bekannten `pcl`-Komponententypen gebildet: Attribute mit einem dieser
 Namen werden angezeigt, alles andere (private Attribute, Qt-Interna,
 pydevds „special variables“/„class variables“-Pseudogruppen) wird

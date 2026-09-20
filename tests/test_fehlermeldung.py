@@ -68,7 +68,7 @@ def test_die_meldung_sagt_was_zu_tun_ist(protokoll: Path, qtbot, monkeypatch) ->
     assert "Natter" in kasten.text()
     assert "ValueError" in kasten.text()
     hinweis = kasten.informativeText()
-    assert "nicht in deinem Programm" in hinweis
+    assert "nicht im eigenen Programm" in hinweis
     assert "Strg+S" in hinweis
     assert str(protokoll) in hinweis
     # Der Traceback bleibt eingeklappt: er hilft der Lehrkraft, nicht
@@ -119,3 +119,19 @@ def test_der_haken_haengt_sich_ein(monkeypatch: pytest.MonkeyPatch) -> None:
     fehlermeldung.fehlerhaken_einrichten()
 
     assert sys.excepthook is fehlermeldung.fehler_melden
+
+
+def test_die_meldung_spricht_niemanden_direkt_an(
+    protokoll: Path, qtbot, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Weder „du" noch „Sie" - so wie alle Texte in Natter."""
+    kaesten: list[object] = []
+    monkeypatch.setattr(
+        fehlermeldung.QMessageBox, "exec", lambda selbst: kaesten.append(selbst)
+    )
+
+    fehlermeldung.fehler_melden(*_fehler())
+
+    text = kaesten[0].text() + kaesten[0].informativeText()
+    for anrede in (" du ", " dir ", " dein", " Sie ", " Ihre", " Ihr "):
+        assert anrede not in f" {text} ", f"{anrede!r} steht in der Meldung"

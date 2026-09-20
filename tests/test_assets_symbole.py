@@ -28,9 +28,9 @@ def test_bekannte_symbole_laden_ein_gueltiges_icon() -> None:
 
 
 def test_app_symbol_ist_das_png_maskottchen_nicht_leer() -> None:
-    """Nutzer-Feedback (September 2026): eigenes Schlangen-Bild statt
-    des bisherigen Vektor-Symbols als Fenster-/Taskleisten-Icon - `.png`
-    statt `.svg`, `symbol()` muss deshalb auch `.png` finden."""
+    """Gemeldet: eigenes Schlangen-Bild statt
+ des bisherigen Vektor-Symbols als Fenster-/Taskleisten-Icon - `.png`
+ statt `.svg`, `symbol` muss deshalb auch `.png` finden."""
     icon = symbol("app")
     assert not icon.isNull()
     assert icon.availableSizes()  # tatsächlich Bilddaten geladen, kein Platzhalter
@@ -45,10 +45,10 @@ def test_leerer_name_liefert_ein_leeres_icon() -> None:
 
 
 def test_rueckgaengig_und_wiederholen_haben_ein_symbol_in_der_werkzeugleiste() -> None:
-    """Nutzer-Feedback September 2026: „Ich sehe die Buttons nicht zum
-    rückgängig machen“ - beide Aktionen gab es nur im Menü „Bearbeiten“,
-    weil ihnen ein `symbol` fehlte (nur Aktionen mit Symbol landen in der
-    Werkzeugleiste, siehe `Aktionsregister.an_hauptfenster_anhaengen`)."""
+    """Gewünscht: „Ich sehe die Buttons nicht zum
+ rückgängig machen“ - beide Aktionen gab es nur im Menü „Bearbeiten“,
+ weil ihnen ein `symbol` fehlte (nur Aktionen mit Symbol landen in der
+ Werkzeugleiste, siehe `Aktionsregister.an_hauptfenster_anhaengen`)."""
     from ide.shell.hauptfenster import HauptFenster
 
     fenster = HauptFenster()
@@ -148,10 +148,10 @@ def test_jede_symboldatei_haelt_sich_ans_raster() -> None:
 def test_jedes_symbol_haelt_den_innenabstand_ein() -> None:
     """2 von 24 Einheiten Rand ringsum, halbe Strichbreite eingerechnet.
 
-    Real gefunden (Sichtprüfung September 2026): `neu`, `start_debug` und
-    `komponente_shape` ragten um bis zu 0,4 Einheiten darüber hinaus -
-    die Marke unten rechts stieß an den Bildrand.
-    """
+ Real gefunden (Sichtprüfung): `neu`, `start_debug` und
+ `komponente_shape` ragten um bis zu 0,4 Einheiten darüber hinaus -
+ die Marke unten rechts stieß an den Bildrand.
+ """
     kante = 192
     rand = kante * 2 // 24
     for datei in _svg_dateien():
@@ -203,13 +203,13 @@ def test_farbkarte_ist_im_hellen_theme_die_identitaet() -> None:
 
 
 def test_symbole_folgen_der_design_wahl_des_nutzers() -> None:
-    """Real gefunden (Bildschirmfoto des Hauptfensters, September 2026):
-    das Fenster stand über „Ansicht → Design → Dunkel“ auf Dunkel, die
-    Symbole aber blieben hell - `symbol()` fragte nur das Farbschema des
-    Betriebssystems ab, nicht die Wahl des Nutzers. Auf einem hell
-    eingestellten Schulrechner ergab das dunkle Umrisse auf dunklem
-    Grund.
-    """
+    """Real gefunden (Bildschirmfoto des Hauptfensters):
+ das Fenster stand über „Ansicht → Design → Dunkel“ auf Dunkel, die
+ Symbole aber blieben hell - `symbol` fragte nur das Farbschema des
+ Betriebssystems ab, nicht die Wahl des Nutzers. Auf einem hell
+ eingestellten Schulrechner ergab das dunkle Umrisse auf dunklem
+ Grund.
+ """
     from PySide6.QtCore import QSettings
 
     einstellungen = QSettings(
@@ -277,17 +277,17 @@ def test_jedes_symbol_ist_bei_16_px_noch_erkennbar() -> None:
 
 
 def test_rueckgaengig_und_wiederholen_sind_bei_16_px_unterscheidbar() -> None:
-    """Die Pfeilspitze muss bei 16 px als **Fläche** auf ihrer Seite
-    stehen - daran allein unterscheiden sich die beiden Knöpfe der
-    Werkzeugleiste.
+    """Die Pfeilspitze muss bei 16 px als Fläche auf ihrer Seite
+ stehen - daran allein unterscheiden sich die beiden Knöpfe der
+ Werkzeugleiste.
 
-    Real gefunden (Sichtprüfung September 2026): als Bogen im Strich mit
-    kleiner Spitze blieben auf der Spitzenseite nur zehn deckende Pixel
-    gegenüber sieben auf der Gegenseite - beide Symbole sahen bei 16 px
-    wie derselbe blasse Ring aus. (Ein bloßer Pixelvergleich der beiden
-    Bilder taugt hier nicht: auch die falsche Fassung unterschied sich
-    rechnerisch, nur eben nicht sichtbar.)
-    """
+ Real gefunden (Sichtprüfung): als Bogen im Strich mit
+ kleiner Spitze blieben auf der Spitzenseite nur zehn deckende Pixel
+ gegenüber sieben auf der Gegenseite - beide Symbole sahen bei 16 px
+ wie derselbe blasse Ring aus. (Ein bloßer Pixelvergleich der beiden
+ Bilder taugt hier nicht: auch die falsche Fassung unterschied sich
+ rechnerisch, nur eben nicht sichtbar.)
+ """
 
     def masse(name: str, von: int, bis: int) -> int:
         bild = _gerendert(name, 16)
@@ -448,7 +448,7 @@ def test_ersetzen_zeigt_bei_16_px_zwei_durchgehende_wortbalken() -> None:
     Pfeilen im Kreis. Bei 16 px war das ein Knäuel: der grüne Balken (das
     neue Wort) begann erst bei Pixel 6 statt am linken Rand, und die
     breiteste Zeile der beiden Pfeile war vier Pixel breit. Jetzt: zwei
-    volle Balken übereinander und **ein** breiter Pfeil dazwischen.
+    volle Balken übereinander und ein breiter Pfeil dazwischen.
     """
     bild = _gerendert("ersetzen", 16)
 

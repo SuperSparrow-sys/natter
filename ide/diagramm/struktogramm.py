@@ -1,7 +1,7 @@
 """Layout und Zeichnen von Struktogrammen nach Nassi-Shneiderman
 (Abschnitt 13.5, M9 Schritt 9).
 
-Ein Struktogramm hat **keine** frei platzierten Formen mit Koordinaten,
+Ein Struktogramm hat keine frei platzierten Formen mit Koordinaten,
 sondern einen Blockbaum (`root` in der `.pdiag`, siehe
 `schemas/pdiag.schema.json`). Die Geometrie wird deshalb bei jedem
 Zeichnen aus dem Baum gerechnet, statt gespeichert zu werden – dadurch
@@ -403,7 +403,7 @@ def struktogramm_layout(daten: dict[str, Any], breite: float = STANDARDBREITE) -
     """Layout des ganzen Struktogramms aus einer `.pdiag`.
 
     Hat das Diagramm einen Namen, beginnt der Block erst unterhalb der
-    Kopfzeile. Das Layout **kennt** den Versatz also schon – dadurch
+    Kopfzeile. Das Layout kennt den Versatz also schon – dadurch
     stimmen Zeichnen und Trefferprüfung von allein überein, statt den
     Versatz an zwei Stellen einzurechnen.
     """

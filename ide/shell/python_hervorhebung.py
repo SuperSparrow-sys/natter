@@ -5,8 +5,8 @@ Schulunterricht; eine echte Spracherkennung über Monaco/Jedi ist ein
 eigener, späterer Schritt (siehe `prototypes/s2`, `docs/PLAN.md`).
 Farben angelehnt an VS Codes Standard-Themes „Light+“/„Dark+“, damit
 Schüler, die VS Code aus dem Unterricht kennen, dieselbe Farbsprache
-wiedererkennen (Nutzer-Feedback September 2026: Farben sollen exakt zum
-VS-Code-Standardschema passen, in Hell **und** Dunkel). Schlüsselwörter
+wiedererkennen (Gewünscht: Farben sollen exakt zum
+VS-Code-Standardschema passen, in Hell und Dunkel). Schlüsselwörter
 sind dafür in zwei Gruppen aufgeteilt, weil Dark+ sie unterschiedlich
 einfärbt (`import`/`from`/... rosa, `def`/`class` blau) - in Light+
 haben beide Gruppen zufällig dieselbe Farbe, daher dort kein

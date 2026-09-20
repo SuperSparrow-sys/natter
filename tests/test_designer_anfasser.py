@@ -74,15 +74,15 @@ def test_ausgewaehlte_komponente_zeigt_acht_anfasser_an_den_richtigen_stellen() 
 
 
 def test_das_formular_bekommt_drei_anfasser() -> None:
-    """Bis September 2026 waren es **null**: wer das Formular anklickte,
-    sah gar keine, und die Fenstergroesse liess sich nur ueber
-    `width`/`height` im Objektinspektor aendern (Nutzer-Meldung: „der
-    designer hat eine zu kleine flaeche, diese soll anpassbar sein ueber
-    die ecken zum ziehen").
+    """Bis waren es null: wer das Formular anklickte,
+ sah gar keine, und die Fenstergroesse liess sich nur ueber
+ `width`/`height` im Objektinspektor aendern (Gemeldet: „der
+ designer hat eine zu kleine flaeche, diese soll anpassbar sein ueber
+ die ecken zum ziehen").
 
-    Drei, nicht acht: im Designer sitzt das Formular fest in der linken
-    oberen Ecke, und `left`/`top` gibt es an einem Formular gar nicht -
-    ein Zug an „nw" muesste es verschieben."""
+ Drei, nicht acht: im Designer sitzt das Formular fest in der linken
+ oberen Ecke, und `left`/`top` gibt es an einem Formular gar nicht -
+ ein Zug an „nw" muesste es verschieben."""
     formular = _Formular()
     canvas = DesignerCanvas(formular)
     canvas.klick_bei(105, 105)

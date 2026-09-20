@@ -7,7 +7,7 @@ PyInstaller-Baus (dauert real eine halbe bis eine Minute, siehe
 Abnahme). Geprüft werden die Kommandozusammenstellung, der Ladebalken
 und das aus Sicht des Aufrufers sichtbare Ergebnis.
 
-Seit M14 kommt **eine einzige Exe** heraus (Nutzer-Vorgabe September
+Seit M14 kommt eine einzige Exe heraus (Nutzer-Vorgabe September
 2026: „es darf keinen extra Ordner geben, das ganze Programm soll in
 der exe sein"). Vorher baute Natter einen Ordner und packte ihn in ein
 ZIP.
@@ -25,7 +25,7 @@ from ide.project import Projekt
 #: Was PyInstaller ausgibt - gekürzt auf die Zeilen, an denen der
 #: Ladebalken sich orientiert.
 #:
-#: Die Reihenfolge ist **absichtlich durcheinander**: genau so kommt es
+#: Die Reihenfolge ist absichtlich durcheinander: genau so kommt es
 #: aus einem echten Lauf. PyInstaller arbeitet seine Phasen nicht sauber
 #: nacheinander ab, sondern kehrt nach „Looking for" noch mehrfach zu
 #: „Analyzing" zurück. Mit einer sauber sortierten Attrappe wäre der
@@ -205,8 +205,7 @@ def test_icon_wird_als_pyinstaller_option_uebergeben(tmp_path: Path, pyinstaller
 
 def test_der_fortschritt_wird_waehrend_des_baus_gemeldet(tmp_path: Path, pyinstaller) -> None:
     """Ein Export dauert eine halbe bis eine Minute. Ohne Rückmeldung
-    sieht das nach einem Absturz aus (Nutzer-Vorgabe September 2026:
-    Ladebalken in der untersten Zeile)."""
+ sieht das nach einem Absturz aus (Vorgabe: Ladebalken in der untersten Zeile)."""
     projekt = _projekt(tmp_path)
     gemeldet: list[tuple[int, str]] = []
 
@@ -266,7 +265,7 @@ def test_zwischenstaende_bleiben_nicht_im_projekt_liegen(tmp_path: Path, pyinsta
     assert not (projekt.ordner / "_pyinstaller_spec").exists()
 
 
-# -- Nur mitnehmen, was das Projekt braucht (September 2026) -------------
+# -- Nur mitnehmen, was das Projekt braucht -------------
 #
 # Anlass: "Schaue wie ich den Export eines Programms als exe schneller
 # hinbekommen aber trotzdem als Stand alone Datei." Real gemessen bekam
@@ -362,3 +361,58 @@ def test_es_bleibt_bei_einer_einzigen_datei(tmp_path: Path, pyinstaller) -> None
     exe_exportieren(projekt)
 
     assert "--onefile" in pyinstaller[0]
+
+
+# Der haeufigste Fall im Unterricht: exportieren, ausprobieren, etwas
+# aendern, wieder exportieren - und das Programm von vorhin steht noch
+# offen. Windows sperrt die Datei dann. Bis flog Natter
+# dabei mit einem PermissionError heraus, statt es zu sagen.
+
+
+def test_eine_laufende_exe_wird_gemeldet_statt_abzustuerzen(tmp_path) -> None:
+    from ide.export.exporter import _laeuft_noch
+
+    exe = tmp_path / "Kassenbuch.exe"
+    exe.write_bytes(b"MZ")
+
+    # Offen zum Schreiben = gesperrt, wie ein laufendes Programm.
+    with exe.open("rb"):
+        pass  # Lesen sperrt nicht - das muss durchgehen
+    assert _laeuft_noch(exe) is None
+
+    assert _laeuft_noch(tmp_path / "gibtsnicht.exe") is None
+
+
+def test_die_meldung_ist_deutsch_und_sagt_was_zu_tun_ist(tmp_path, monkeypatch) -> None:
+    from ide.export import exporter
+
+    exe = tmp_path / "Kassenbuch.exe"
+    exe.write_bytes(b"MZ")
+
+    def gesperrt(self, *args, **kwargs):
+        raise PermissionError(5, "Zugriff verweigert")
+
+    monkeypatch.setattr("pathlib.Path.open", gesperrt)
+
+    meldung = exporter._laeuft_noch(exe)
+
+    assert meldung is not None
+    assert "Kassenbuch.exe" in meldung
+    assert "läuft gerade noch" in meldung
+    assert "schließen" in meldung
+
+
+def test_der_export_bricht_dann_sauber_ab(tmp_path, monkeypatch) -> None:
+    """Kein Traceback, sondern ein ExportErgebnis mit der Meldung -
+    das Hauptfenster zeigt sie genauso an wie jeden anderen
+    Fehlschlag."""
+    from ide.export import exporter
+
+    monkeypatch.setattr(exporter, "_laeuft_noch", lambda pfad: "läuft noch")
+    projekt = _projekt(tmp_path)
+
+    ergebnis = exporter.exe_exportieren(projekt, tmp_path / "dist")
+
+    assert ergebnis.erfolgreich is False
+    assert ergebnis.ausgabe_pfad is None
+    assert ergebnis.protokoll == "läuft noch"

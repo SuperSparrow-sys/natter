@@ -71,7 +71,7 @@ def test_status_und_dauer_werden_pro_test_angezeigt(tmp_path: Path) -> None:
     assert eintraege["test_fehlschlagend"].text(1) == "fehlgeschlagen"
 
     # Die Dauer steht deutsch da - „0,003" und nicht „0.003" (Nutzer,
-    # September 2026: „Alles in Deutschem Format"). Deshalb erst das
+    # : „Alles in Deutschem Format"). Deshalb erst das
     # Komma zurücktauschen, bevor hier gerechnet wird.
     dauer = eintraege["test_bestehend"].text(2)
     assert "." not in dauer

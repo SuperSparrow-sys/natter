@@ -32,13 +32,13 @@ def test_doppelklick_loest_kein_natives_qt_umbenennen_aus() -> None:
 
 
 def test_die_unit_zum_formular_steht_auch_bei_den_units() -> None:
-    """Bis September 2026 stand sie **nicht** dort - das Formular habe
-    sie ja schon. Die beiden sind aber nicht dasselbe: unter
-    „Formulare" liegt die Oberfläche, unter „Units" der Code, und
-    genau der ist die Datei, in die der Schüler schreibt. Wer ein neues
-    Projekt anlegte, sah deshalb nur den Designer (Nutzer-Meldung:
-    „wenn ich ein neues Projekt erstelle muss auch die u_main.py für
-    den code angezeigt werden nicht nur der designer")."""
+    """Früher stand sie nicht dort - das Formular habe
+ sie ja schon. Die beiden sind aber nicht dasselbe: unter „Formulare"
+ liegt die Oberfläche, unter „Units" der Code, und genau der ist die
+ Datei, in die der Schüler schreibt. Wer ein neues Projekt anlegte, sah
+ deshalb nur den Designer (Gemeldet: „wenn ich ein neues Projekt erstelle
+ muss auch die u_main.py für
+ den code angezeigt werden nicht nur der designer")."""
     projekt = Projekt.laden(_AMPEL_ORDNER)
     explorer = ProjektExplorer()
 

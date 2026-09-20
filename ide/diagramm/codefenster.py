@@ -2,9 +2,9 @@
 
 Zwei Dinge in einer Datei, weil sie zusammengehören: die Rückfrage
 nach Ziel und Umfang, und das Fenster, das den erzeugten Code zeigt.
-Beide werden von der Klassen- **und** der Struktogramm-Ausgabe benutzt.
+Beide werden von der Klassen- und der Struktogramm-Ausgabe benutzt.
 
-Das Fenster ist bewusst **nur lesbar**: es ist eine Vorlage zum
+Das Fenster ist bewusst nur lesbar: es ist eine Vorlage zum
 Übernehmen, kein zweiter Editor. Wer daran weiterarbeiten will, kopiert
 den Text oder speichert ihn und öffnet ihn im richtigen Editor – sonst
 entstünde eine zweite Stelle, an der Quelltext lebt.
@@ -140,8 +140,8 @@ class CodeFenster(QDialog):
 def in_datei_schreiben(
     quelltext: str, pfad: Path, eltern: QWidget | None = None, fragen: bool = True
 ) -> Path | None:
-    """Schreibt den Quelltext – und **überschreibt niemals
-    stillschweigend**.
+    """Schreibt den Quelltext – und überschreibt niemals
+    stillschweigend.
 
     Wer eine Klasse zweimal erzeugt, soll nicht seine inzwischen
     ausformulierten Methodenrümpfe verlieren. Deshalb die Rückfrage mit

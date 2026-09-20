@@ -17,9 +17,9 @@ gemerkt hätte.
 
 Zwei Dinge werden geprüft:
 
-* **kommt der Wert im Programm an** – die erzeugte Design-Datei wird
+* kommt der Wert im Programm an – die erzeugte Design-Datei wird
   ausgeführt und die entstandene Komponente befragt,
-* **sieht der Designer aus wie das Programm** – das Qt-Widget der
+* sieht der Designer aus wie das Programm – das Qt-Widget der
   geänderten Komponente muss Pixel für Pixel dem Widget entsprechen,
   das das Programm baut. Die beiden entstehen auf verschiedenen Wegen
   (`_bei_prop_aenderung` gegen `_qwidget_erzeugen`); fehlt die
@@ -63,8 +63,8 @@ from pcl.properties import (
 #: still durchzurutschen.
 #:
 #: Die `DB*`-Komponenten stehen in keinem Palettenreiter – sie werden im
-#: Code erzeugt –, laufen hier aber seit September 2026 mit. Vorher
-#: **konnten** sie es nicht: ihr Konstruktor verlangte eine `DataSource`
+#: Code erzeugt –, laufen hier aber seither mit. Vorher
+#: konnten sie es nicht: ihr Konstruktor verlangte eine `DataSource`
 #: (`DBGrid(parent, data_source)`), der Designer erzeugt Komponenten
 #: aber mit `typ(formular)` allein. Genau das war der offene Punkt aus
 #: M11; seit die Datenquelle freiwillig ist, fällt er weg.

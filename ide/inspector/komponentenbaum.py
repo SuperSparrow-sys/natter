@@ -8,7 +8,7 @@ keine Container-Komponente mit eigenen Kindern, der Baum ist aktuell
 also immer flach, die Rekursion ist aber bereits allgemein für künftige
 Container (`GroupBox`, `Panel`, Abschnitt 5.2) vorbereitet.
 
-**Jede Zeile trägt das Symbol ihrer Komponente** – dasselbe wie in der
+Jede Zeile trägt das Symbol ihrer Komponente – dasselbe wie in der
 Palette. Es stand seit M15, Abschnitt 6 als offener Rest da: die Palette
 bekam damals ihre Symbole, der Baum daneben blieb eine Textliste. Auf
 einem Formular mit fünfzehn Kindern ist „`b_ok: Button`“ in einer Spalte
@@ -54,12 +54,12 @@ def formular_von(objekt: Any) -> Any:
 def kind_komponenten(objekt: Any) -> list[tuple[str, Control]]:
     """Die Komponenten, die unmittelbar in `objekt` liegen.
 
-    **Gesucht wird in den Attributen des Formulars, gefiltert nach der
-    Elternbeziehung.** Beides zusammen, weil in Natter zweierlei
+    Gesucht wird in den Attributen des Formulars, gefiltert nach der
+    Elternbeziehung. Beides zusammen, weil in Natter zweierlei
     gleichzeitig gilt: die Namen bleiben flach (`self.b_ok`, auch wenn
     der Knopf in einem Panel liegt – wie in Lazarus), die Zugehörigkeit
     ist aber verschachtelt. Wer nur `vars(objekt)` liest, findet an
-    einem Panel nichts, weil das Kind als Attribut des **Formulars**
+    einem Panel nichts, weil das Kind als Attribut des Formulars
     dasteht; wer nur `vars(formular)` liest, hängt es ans Formular,
     obwohl es im Panel liegt.
     """

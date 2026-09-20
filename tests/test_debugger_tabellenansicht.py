@@ -128,7 +128,7 @@ def test_leere_liste_ergibt_eine_leere_tabelle() -> None:
 
 def test_antwort_in_anfuehrungszeichen_wird_ausgepackt() -> None:
     """`debugpy` liefert den `repr` des Rückgabewerts, also den
-    JSON-Text **in** Hochkommata."""
+    JSON-Text in Hochkommata."""
     roh = '\'{"spalten": ["a"], "zeilen": [["1"]], "gesamt": 1, "art": "Liste"}\''
 
     tabelle = tabelle_aus_antwort(roh)

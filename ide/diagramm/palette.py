@@ -11,7 +11,7 @@ Jeder Eintrag trägt links neben der Beschriftung ein Symbol: ein
 kleines Bild genau der Form, die entsteht (M11, Abschnitt 1). Die
 Dateien heißen `form_<kind>.svg` bzw. `verbindung_<kind>.svg` – die
 Kennung ist dieselbe wie in `ide/diagramm/formen.py` und in der
-`.pdiag`, damit eine neue Form nur **eine** Datei braucht und keinen
+`.pdiag`, damit eine neue Form nur eine Datei braucht und keinen
 zweiten Namen.
 """
 

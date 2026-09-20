@@ -11,7 +11,7 @@ die zusätzlichen Qt-Widget-Typen, die im IDE-Rahmen selbst vorkommen
 
 Bisher stand die IDE selbst komplett ohne eigenes Stylesheet da (nur der
 Designer-Auswahlrahmen war gestylt) – deshalb wirkte sie farblos/grau
-(Nutzer-Feedback, September 2026, siehe docs/PLAN.md, „Visueller
+(Rückmeldung, siehe docs/PLAN.md, „Visueller
 Feinschliff“).
 """
 
@@ -63,7 +63,7 @@ def _ueber_grund(farbe_hex: str, alpha: float, grund_hex: str) -> str:
     Akzentfarbe wie bei Menüs/Tabs. Früher stand hier ein einfaches
     `rgba(...)` mit derselben Deckkraft; das ging in Baumansichten
     schief, denn Qt malt die Hover-/Auswahlfläche einer Baumzeile
-    **zweimal** – einmal für den Eintrag (`::item`) und einmal für den Einrückungsbereich
+    zweimal – einmal für den Eintrag (`::item`) und einmal für den Einrückungsbereich
     davor (`::branch`). Zwei halbdurchsichtige Schichten übereinander
     ergeben links ein dunkleres Kästchen, das wie ein blauer Rand
     aussieht (Nutzer-Hinweis, M11). Mit einer deckenden Farbe ist es
@@ -81,15 +81,15 @@ def ide_qss_erzeugen(
     code_schriftart: str = "Consolas",
 ) -> str:
     """Erzeugt das QSS-Stylesheet für das IDE-Hauptfenster (`system`/
-    `light`/`dark`, wie `pcl.theme.qss_erzeugen`). `code_schriftart` ist
-    die im Menü „Ansicht → Schriftart“ gewählte Editor-Schrift
-    (Nutzer-Feedback September 2026)."""
+ `light`/`dark`, wie `pcl.theme.qss_erzeugen`). `code_schriftart` ist
+ die im Menü „Ansicht → Schriftart“ gewählte Editor-Schrift
+ (gemeldet)."""
     aufgeloest = theme_aufloesen(theme)
     daten = tokens if tokens is not None else _tokens_laden()
     farben = daten["color"][aufgeloest]
     radius = daten["radius"]
     schrift = daten["font"]
-    # Nutzer-Feedback (September 2026): 12pt (sizes_pt[1]) wirkte über die
+    # Gemeldet: 12pt (sizes_pt[1]) wirkte über die
     # ganze IDE hinweg zu groß/klobig für ein dichtes, professionelles
     # Werkzeug wie Lazarus/VS Code - 10pt (sizes_pt[0]) ist die
     # eigentliche Fließtextgröße aus den Design-Tokens.

@@ -56,6 +56,22 @@ bei der Entwicklung von Natter eingesetzt, nicht in der fertigen IDE selbst
   Ersatzschrift mit fehlerhaften Glyphen für einzelne Buchstaben. Siehe
   `tools/screenshot.py`.
 
+## Sichtbare Texte und Kommentare
+
+- Texte sprechen niemanden direkt an - weder mit „du" noch mit „Sie".
+  Das gilt für Meldungen und Dialoge, für die Hilfeseiten, für die
+  Projektvorlagen und für die Textseiten des Installers. Formuliert
+  wird unpersönlich, wie in deutscher Software üblich: „Die Datei lässt
+  sich nicht öffnen", „Zum Fortfahren die Bedingungen annehmen".
+  Ausgenommen sind die Ausgaben der Beispielprogramme selbst: dort
+  spricht das Programm einer Schülerin mit seinem Benutzer, und ein
+  Begrüßungsprogramm darf „Wie heißt du?" fragen.
+- Kommentare und Docstrings tragen keine Markdown-Hervorhebung
+  (`**so**`) und keine Zuschreibungs-Etiketten der Form
+  „Nutzer-Feedback September 2026:". Die Begründung selbst ist wertvoll
+  und gehört in den Kommentar; das Etikett davor nicht.
+- Geprüft wird beides in `tests/test_textstil.py`.
+
 ## Generierte Dateien
 
 - Dateien, die als automatisch erzeugt gekennzeichnet sind (z. B.

@@ -1,6 +1,6 @@
 """Die neun Beispielprojekte als Lehrgang (M14).
 
-Auftrag des Nutzers (September 2026): „schreibe nun für das Projekt die
+Auftrag des Nutzers : „schreibe nun für das Projekt die
 Beispiele, indem du von vorne nach hinten immer kompliziertere Dinge
 machst, als eine Art Einführung in die Programmierung. Am Schluss dann
 Regression und davor CSV, davor GUI und am Anfang nur Konsole."
@@ -121,7 +121,7 @@ def test_das_formular_laesst_sich_wirklich_oeffnen(name: str, qtbot, monkeypatch
     nur ohne Fenster. Ein Beispiel, das beim Öffnen abstürzt, fällt hier
     auf und nicht erst im Unterricht.
 
-    Gearbeitet wird auf einer **Kopie** (AGENTS.md: eingecheckte
+    Gearbeitet wird auf einer Kopie (AGENTS.md: eingecheckte
     Beispiele nie im Test verändern). Das ist hier nicht nur Form:
     `06_Kontoverwaltung` legt beim Öffnen seine `konten.sqlite` an, und
     die hätte sonst im Repository gelegen.
@@ -159,13 +159,13 @@ def test_jedes_projekt_erklaert_seine_stufe(name: str) -> None:
 
 # -- Was der Projekt-Explorer bei jedem Beispiel zeigt -------------------
 #
-# Anlass (September 2026, Nutzer-Auftrag): "Pruefe ob bei allen
+# Anlass (Nutzer-Auftrag): "Pruefe ob bei allen
 # Beispielprogrammen die Units alle korrekt gezeigt werden und ob auch
 # die Diagramme und Struktogramme richtig gezeigt werden. Das soll bei
 # allen der Fall sein."
 #
 # Dabei kam heraus: die beiden Konsolenstufen oeffneten sich mit einem
-# **voellig leeren** Explorer. Ihre einzige Datei war `main.py`, und die
+# voellig leeren Explorer. Ihre einzige Datei war `main.py`, und die
 # ist als Startdatei ausgeblendet - dort stand aber der ganze
 # Schuelercode. Die Antwort darauf war nicht, die Startdatei zu zeigen,
 # sondern der Grundsatz des Nutzers: "Jedes Projekt braucht eine Main um
@@ -209,7 +209,7 @@ def test_jede_sichtbare_gruppe_hat_auch_eintraege(name: str, qtbot) -> None:
 def test_jede_eigene_python_datei_steht_im_explorer(name: str, qtbot) -> None:
     """Jede Datei, an der gearbeitet wird, muss erreichbar sein - als
     Unit-Eintrag oder als Formular-Eintrag (eine Formular-Unit steht
-    bewusst als **ein** Eintrag da, wie im Projektinspektor von
+    bewusst als ein Eintrag da, wie im Projektinspektor von
     Lazarus)."""
     from ide.shell.explorer import ProjektExplorer
 

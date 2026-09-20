@@ -1,8 +1,8 @@
-# Hier steht dein Code.
+# Hier steht der eigene Code.
 #
-# Ein Konsolenprogramm läuft von oben nach unten und redet über das
-# schwarze Fenster mit dir:
+# Ein Konsolenprogramm läuft von oben nach unten und verständigt
+# sich über das schwarze Fenster:
 #   print(...)  schreibt eine Zeile hinein
-#   input(...)  wartet, bis du etwas tippst und Enter drückst
+#   input(...)  wartet auf eine Eingabe und die Eingabetaste
 
 print("Hallo, {{name}}!")

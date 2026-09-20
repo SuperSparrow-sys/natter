@@ -4,7 +4,7 @@ Vom Nutzer im installierten Programm gemeldet: „die Konsole und die GUI
 sind beim Start nicht aufgegangen, sondern nur ein weiteres Fenster von
 Natter.“
 
-Die Ursache trifft **fünf** Stellen, nicht nur die auffälligste: das
+Die Ursache trifft fünf Stellen, nicht nur die auffälligste: das
 Schülerprogramm, den Debugger, die Prüfung vor dem Start, die
 Paketverwaltung und den Exe-Export. Alle schrieben `sys.executable` –
 im Entwicklungsbaum der Python aus `.venv`, in der gebauten
@@ -12,7 +12,7 @@ im Entwicklungsbaum der Python aus `.venv`, in der gebauten
 deshalb ein zweites Natter-Fenster.
 
 Eine eigene Python-Installation daneben zu verlangen wäre für einen
-Schulrechner der falsche Weg. Die Exe **enthält** einen vollständigen
+Schulrechner der falsche Weg. Die Exe enthält einen vollständigen
 Python; mit `--python` davor reicht sie ihn heraus.
 """
 
@@ -160,7 +160,7 @@ def test_die_pruefung_ruft_ruff_ohne_umweg_ueber_python() -> None:
 def test_ein_absturz_fliegt_nicht_durch(
     tmp_path: Path, capsys, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """In der gebauten Exe darf ein Fehler **niemals** bis nach oben
+    """In der gebauten Exe darf ein Fehler niemals bis nach oben
     durchfliegen: PyInstallers Bootloader fängt ihn dort selbst ab und
     wartet auf einen Klick in ein Fenster, das hinter dem Programm liegt
     - das sah wie ein Hänger aus (in der gebauten Exe nachgemessen)."""

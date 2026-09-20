@@ -2,16 +2,16 @@
 
 Ausführen mit:
 
-    uv run python -m ide
-    uv run python -m ide "pfad/zu/projekt.natter"
+ uv run python -m ide
+ uv run python -m ide "pfad/zu/projekt.natter"
 
-`erstellen()` baut Anwendung und Hauptfenster auf (testbar, ohne die
-blockierende Ereignisschleife zu starten); `main()` zeigt das Fenster und
+`erstellen` baut Anwendung und Hauptfenster auf (testbar, ohne die
+blockierende Ereignisschleife zu starten); `main` zeigt das Fenster und
 startet sie. Ein `.natter`-Pfad als erstes Kommandozeilenargument wird
-direkt geöffnet (Nutzer-Feedback September 2026: „man installiert die
-Exe und kann dann auch eine .natter-Datei einfach öffnen" – die
+direkt geöffnet (Gewünscht: „man installiert die
+Exe und kann dann auch eine.natter-Datei einfach öffnen" – die
 Windows-Dateizuordnung aus `tools/natter.iss` reicht den Pfad genauso
-weiter, `_projekt_aus_argv_oeffnen()` ist dafür separat testbar).
+weiter, `_projekt_aus_argv_oeffnen` ist dafür separat testbar).
 """
 
 from __future__ import annotations

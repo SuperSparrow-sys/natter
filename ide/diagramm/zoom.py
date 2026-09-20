@@ -9,7 +9,7 @@ länger als das Fenster, und eine Entscheidungstabelle breiter.
 Statt die Rechnung dreimal zu schreiben, steckt sie hier in einer
 Mischklasse. Jede Fläche muss dafür nur zwei Dinge mitbringen:
 
-* `_inhalt_in_diagrammkoordinaten()` – wie groß der Inhalt **ohne**
+* `_inhalt_in_diagrammkoordinaten()` – wie groß der Inhalt ohne
   Zoom ist, in Diagrammkoordinaten
 * ein eigenes Signal `zoom_geaendert = Signal(float)`
 
@@ -17,8 +17,8 @@ Das Signal bleibt bewusst in der jeweiligen Klasse: PySide6 meldet ein
 `Signal` nur an, wenn es in einer Klasse steht, die am Ende wirklich
 von `QObject` erbt – in einer reinen Mischklasse ginge es verloren.
 
-Der Grundsatz dahinter ist derselbe wie im Klassendiagramm: **alles
-rechnet in Diagrammkoordinaten, nur das Zeichnen skaliert.** Sonst
+Der Grundsatz dahinter ist derselbe wie im Klassendiagramm: alles
+rechnet in Diagrammkoordinaten, nur das Zeichnen skaliert. Sonst
 müsste jede einzelne Trefferprüfung den Zoom kennen, und genau dort
 schleichen sich die Fehler ein.
 """

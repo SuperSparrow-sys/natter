@@ -6,8 +6,8 @@ Prüfung vor dem Start (`ruff`), die Paketverwaltung (`pip`) und den
 Exe-Export (PyInstaller). Alle fünf schrieben dafür `sys.executable`.
 
 Im Entwicklungsbaum ist das der Python aus `.venv` und damit richtig.
-**In der mit PyInstaller gebauten `Natter.exe` ist `sys.executable` die
-Exe selbst** – aus `Natter.exe main.py` wurde dort also nicht das
+In der mit PyInstaller gebauten `Natter.exe` ist `sys.executable` die
+Exe selbst – aus `Natter.exe main.py` wurde dort also nicht das
 Schülerprogramm, sondern ein zweites Natter-Fenster. Vom Nutzer im
 installierten Programm gemeldet: „die Konsole und die GUI sind beim
 Start nicht aufgegangen, sondern nur ein weiteres Fenster von Natter.“
@@ -15,7 +15,7 @@ Betroffen waren alle fünf Stellen, nicht nur die auffälligste.
 
 Eine eigene Python-Installation daneben zu verlangen, wäre für einen
 Schulrechner der falsche Weg – der ganze Sinn der Exe ist, dass nichts
-weiter installiert werden muss. Die gebaute Exe **enthält** aber einen
+weiter installiert werden muss. Die gebaute Exe enthält aber einen
 vollständigen Python. Sie muss ihn nur herausreichen: mit der Flagge
 `--python` davor verhält sich `Natter.exe` wie ein Python-Aufruf und
 führt aus, was dahinter steht, statt die IDE zu öffnen.
@@ -42,10 +42,10 @@ def ist_gebaut() -> bool:
 
 
 def konsolen_python() -> Path:
-    """Der Interpreter **mit** Konsole.
+    """Der Interpreter mit Konsole.
 
     Die IDE selbst läuft unter `pythonw.exe` – ohne Konsolenfenster, so
-    soll ein Fensterprogramm starten. Ein **Konsolen**programm braucht
+    soll ein Fensterprogramm starten. Ein Konsolenprogramm braucht
     dagegen `python.exe`: unter `pythonw` hätte es keine Konsole, in die
     es schreiben könnte, und `print()` liefe ins Leere (M13).
     """
@@ -74,7 +74,7 @@ def ruff_befehl() -> list[str]:
     """Der Aufruf für `ruff` – die Prüfung vor dem Start.
 
     Bewusst die Binärdatei selbst und nicht `python -m ruff`: das
-    Python-Paket `ruff` ist nur ein **Finder**, der `ruff.exe` in den
+    Python-Paket `ruff` ist nur ein Finder, der `ruff.exe` in den
     `Scripts`-Ordnern der Python-Installation sucht und startet. In der
     gebauten Exe gibt es diese Ordner nicht; `--collect-all ruff`
     brachte nur den Finder mit, nicht die Binärdatei, und die Prüfung
@@ -109,7 +109,7 @@ def als_python_ausfuehren(argumente: list[str]) -> int:
     # Die Fehleranzeige gleich hier: ein Schülerprogramm, das nicht
     # über `Application.run()` läuft (jedes Konsolenprogramm), hätte
     # sonst keine. In der gebauten Exe kommt dazu, dass ein Fehler
-    # **niemals** bis nach oben durchfliegen darf: PyInstallers
+    # niemals bis nach oben durchfliegen darf: PyInstallers
     # Bootloader fängt ihn dort selbst ab und wartet auf einen Klick in
     # ein Fenster, das hinter dem Programm liegt - das sah wie ein
     # Hänger aus (in der gebauten Exe nachgemessen, M12).
