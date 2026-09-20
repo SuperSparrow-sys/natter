@@ -2,21 +2,22 @@
 
 Geprüft wird hier nicht der Bau selbst - der dauert eine halbe Stunde
 und braucht Inno Setup, ein Zertifikat und 21 MB Download. Geprüft wird
-das, was zwischen den Schritten passiert, denn genau dort sind im
- die beiden Fehler entstanden, die es überhaupt zu diesem
-Skript kommen ließen: ein Installer aus einem veralteten `dist\\Natter`
-und eine Auslieferung mit Paketversionen, gegen die nie ein Test lief
-(siehe `docs/arbeitspakete/M13.md`).
+das, was zwischen den Schritten passiert, denn genau dort sind die
+beiden Fehler entstanden, die es überhaupt zu diesem Skript kommen
+ließen: ein Installer aus einem veralteten `dist\\Natter` und eine
+Auslieferung mit Paketversionen, gegen die nie ein Test lief (siehe
+`docs/arbeitspakete/M13.md`).
 
-Die Versionsnummer steht an zwei Stellen - `pyproject.toml` bestimmt,
-was `pip` in die Auslieferung legt, `tools/natter.iss` das, was Windows
-in „Apps & Features" anzeigt. Laufen sie auseinander, trägt das Update
-eine Nummer, die es so nie gegeben hat; deshalb steht der Abgleich
-hier.
+Die Versionsnummer steht an drei Stellen: `pyproject.toml` bestimmt,
+was `pip` in die Auslieferung legt, `tools/natter.iss` das, was
+Windows in „Apps & Features" anzeigt, und `ide/main.py` das, was beim
+Start auf dem Ladebild steht. Laufen sie auseinander, trägt das
+Update eine Nummer, die es so nie gegeben hat; bei 0.3.0 war es genau
+so, und aufgefallen ist es erst in der fertigen Installation.
 
-Alle Tests arbeiten auf Kopien in `tmp_path`: `_version_setzen`
-schreibt wirklich in die Dateien, und ein Testlauf darf die
-eingecheckte `pyproject.toml` nicht anfassen.
+Alle Tests arbeiten auf Kopien: `_version_setzen` schreibt wirklich in
+die Dateien, und ein Testlauf darf die eingecheckten nicht anfassen.
+Dafür sorgt der Riegel `_echte_dateien_geschuetzt` von sich aus.
 """
 
 from __future__ import annotations
@@ -29,35 +30,86 @@ from tools import auslieferung_bauen as bau
 
 PYPROJECT = '[project]\nname = "natter"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n'
 ISS = '#define MyAppName "Natter"\n#define MyAppVersion "0.1.0"\n[Setup]\n'
+MAIN = 'VERSION = "0.1.0"\n\n\ndef main() -> int:\n    return 0\n'
+
+#: Die eingecheckten Pfade, festgehalten bevor der Riegel unten sie
+#: auf einen Wegwerf-Ordner umlenkt.
+_ECHT_PYPROJECT = bau._PYPROJECT
+_ECHT_ISS = bau._ISS
+_ECHT_MAIN = bau._MAIN
+
+
+@pytest.fixture(autouse=True)
+def _echte_dateien_geschuetzt(tmp_path_factory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Kein Test schreibt in die eingecheckten Dateien.
+
+    `_version_setzen()` schreibt wirklich, und die Tests dazu arbeiten
+    auf Kopien - solange sie die `dateien`-Fixture benutzen. Beim
+    Erweitern um `ide/main.py` lief einmal ein Testlauf dazwischen,
+    bei dem das Skript die dritte Datei schon kannte und die Fixture
+    noch nicht: er setzte die eingecheckte `ide/main.py` auf 1.0.0.
+
+    Dieser Riegel lenkt alle drei Pfade von vornherein auf einen
+    Wegwerf-Ordner um. Wer Kopien mit Inhalt braucht, nimmt weiter
+    `dateien` - die überschreibt die Pfade dann mit ihren eigenen.
+    """
+    ordner = tmp_path_factory.mktemp("versionen")
+    for name, dateiname, inhalt in (
+        ("_PYPROJECT", "pyproject.toml", PYPROJECT),
+        ("_ISS", "natter.iss", ISS),
+        ("_MAIN", "main.py", MAIN),
+    ):
+        # Mit Inhalt und nicht nur als Pfad: ein Test, der den ganzen
+        # Lauf antreibt, kommt sonst schon an Schritt 2 nicht vorbei
+        # und scheitert an etwas anderem als an seiner eigenen Frage.
+        pfad = ordner / dateiname
+        pfad.write_text(inhalt, encoding="utf-8")
+        monkeypatch.setattr(bau, name, pfad)
 
 
 @pytest.fixture
-def dateien(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]:
-    """`pyproject.toml` und `natter.iss` als Wegwerf-Kopien."""
+def echte_pfade(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Hebt den Riegel für die Tests auf, die ausdrücklich den
+    eingecheckten Stand lesen - sie schreiben nicht."""
+    monkeypatch.setattr(bau, "_PYPROJECT", _ECHT_PYPROJECT)
+    monkeypatch.setattr(bau, "_ISS", _ECHT_ISS)
+    monkeypatch.setattr(bau, "_MAIN", _ECHT_MAIN)
+
+
+@pytest.fixture
+def dateien(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path, Path]:
+    """Die drei Dateien mit einer Versionsnummer, als Wegwerf-Kopien."""
     pyproject = tmp_path / "pyproject.toml"
     iss = tmp_path / "natter.iss"
+    main = tmp_path / "main.py"
     pyproject.write_text(PYPROJECT, encoding="utf-8")
     iss.write_text(ISS, encoding="utf-8")
+    main.write_text(MAIN, encoding="utf-8")
     monkeypatch.setattr(bau, "_PYPROJECT", pyproject)
     monkeypatch.setattr(bau, "_ISS", iss)
-    return pyproject, iss
+    monkeypatch.setattr(bau, "_MAIN", main)
+    return pyproject, iss, main
 
 
-def test_die_version_wird_an_beiden_stellen_gesetzt(dateien: tuple[Path, Path]) -> None:
-    pyproject, iss = dateien
+def test_die_version_wird_an_allen_drei_stellen_gesetzt(
+    dateien: tuple[Path, Path, Path],
+) -> None:
+    pyproject, iss, main = dateien
 
     bau._version_setzen("0.2.0")
 
     assert 'version = "0.2.0"' in pyproject.read_text(encoding="utf-8")
     assert '#define MyAppVersion "0.2.0"' in iss.read_text(encoding="utf-8")
+    assert 'VERSION = "0.2.0"' in main.read_text(encoding="utf-8")
     # Der Rest der Dateien bleibt unangetastet.
     assert 'name = "natter"' in pyproject.read_text(encoding="utf-8")
     assert "[Setup]" in iss.read_text(encoding="utf-8")
+    assert "def main() -> int:" in main.read_text(encoding="utf-8")
 
 
 @pytest.mark.parametrize("unsinn", ["0.2", "v0.2.0", "0.2.0-beta", "zwei"])
 def test_eine_unbrauchbare_versionsnummer_wird_abgelehnt(
-    unsinn: str, dateien: tuple[Path, Path]
+    unsinn: str, dateien: tuple[Path, Path, Path]
 ) -> None:
     """Inno Setup nimmt fast alles als `AppVersion` an und vergleicht es
     dann als Zeichenkette. Was nicht `1.2.3` ist, faellt hier auf."""
@@ -67,10 +119,11 @@ def test_eine_unbrauchbare_versionsnummer_wird_abgelehnt(
     # Nichts halb geschrieben.
     assert dateien[0].read_text(encoding="utf-8") == PYPROJECT
     assert dateien[1].read_text(encoding="utf-8") == ISS
+    assert dateien[2].read_text(encoding="utf-8") == MAIN
 
 
 def test_auseinanderlaufende_versionen_brechen_den_bau_ab(
-    dateien: tuple[Path, Path],
+    dateien: tuple[Path, Path, Path],
 ) -> None:
     """Der Fall, den es zu verhindern gilt: `pip` legt 0.2.0 in die
     Auslieferung, Windows zeigt 0.1.0 an."""
@@ -80,20 +133,43 @@ def test_auseinanderlaufende_versionen_brechen_den_bau_ab(
         bau._versionen_abgleichen(None)
 
 
-def test_gleiche_versionen_gehen_durch(dateien: tuple[Path, Path]) -> None:
+def test_gleiche_versionen_gehen_durch(dateien: tuple[Path, Path, Path]) -> None:
     assert bau._versionen_abgleichen(None) == "0.1.0"
 
 
-def test_mit_angabe_werden_beide_dateien_nachgezogen(dateien: tuple[Path, Path]) -> None:
+def test_eine_vergessene_stelle_bricht_den_bau_ab(
+    dateien: tuple[Path, Path, Path],
+) -> None:
+    """Der Fall, der beim Bau von 0.3.0 durchgerutscht ist: die
+    Auslieferung war als 0.3.0 registriert und begrüßte den Benutzer
+    mit 0.2.1, weil `ide/main.py` nicht mitgezogen und auch nicht
+    abgeglichen wurde."""
+    dateien[2].write_text(MAIN.replace("0.1.0", "0.2.1"), encoding="utf-8")
+
+    with pytest.raises(bau.BauFehler, match="auseinander"):
+        bau._versionen_abgleichen(None)
+
+
+def test_mit_angabe_werden_alle_dateien_nachgezogen(
+    dateien: tuple[Path, Path, Path],
+) -> None:
     assert bau._versionen_abgleichen("1.0.0") == "1.0.0"
     assert bau._version_aus_pyproject() == "1.0.0"
     assert bau._version_aus_iss() == "1.0.0"
+    assert bau._version_aus_main() == "1.0.0"
 
 
-def test_die_echten_dateien_sind_einig() -> None:
-    """Ohne Kopie, gegen den eingecheckten Stand: beide Versionsnummern
-    müssen jetzt schon übereinstimmen, nicht erst beim nächsten Bau."""
+def test_die_echten_dateien_sind_einig(echte_pfade: None) -> None:
+    """Ohne Kopie, gegen den eingecheckten Stand: alle drei
+    Versionsnummern müssen jetzt schon übereinstimmen, nicht erst beim
+    nächsten Bau.
+
+    Die dritte Stelle kam nach dem Bau von 0.3.0 dazu. Bis dahin
+    verglich der Test nur `pyproject.toml` und `natter.iss`, und die
+    Nummer, die beim Start auf dem Ladebild steht, blieb auf 0.2.1.
+    """
     assert bau._version_aus_pyproject() == bau._version_aus_iss()
+    assert bau._version_aus_pyproject() == bau._version_aus_main()
 
 
 def test_ohne_inno_setup_kommt_eine_brauchbare_meldung(

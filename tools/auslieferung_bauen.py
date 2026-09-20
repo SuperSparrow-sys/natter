@@ -19,7 +19,8 @@ nach jedem, ob das Ergebnis stimmt - und bricht ab, statt eine kaputte
 Auslieferung fertigzubauen:
 
 1. Arbeitsbaum ansehen (nicht eingecheckte Änderungen melden)
-2. Versionsnummern abgleichen (`pyproject.toml` / `tools/natter.iss`)
+2. Versionsnummern abgleichen (`pyproject.toml`, `tools/natter.iss`,
+   `ide/main.py`)
 3. `ruff check`
 4. `pytest`
 5. `dist\\Natter` bauen (`tools.ide_paketieren`)
@@ -37,8 +38,8 @@ Beispiel:
 Die Versionsnummer gehört zu einem Update dazu: Windows erkennt eine
 neue Fassung über `AppVersion`, und bleibt die gleich, zeigt „Apps &
 Features" nach dem Update weiter die alte Nummer an. `--version` setzt
-sie in `pyproject.toml` und `tools/natter.iss`; ohne die Angabe
-prüft Schritt 2 nur, dass beide übereinstimmen.
+sie in `pyproject.toml`, `tools/natter.iss` und `ide/main.py`; ohne
+die Angabe prüft Schritt 2 nur, dass alle drei übereinstimmen.
 
 Reines Entwicklungswerkzeug für den Maintainer - kein Teil des
 gebauten `pcl`/`ide`-Pakets, läuft nie aus der laufenden IDE heraus.
@@ -60,6 +61,7 @@ from tools.ide_paketieren import paketieren
 _PROJEKT_WURZEL = Path(__file__).resolve().parent.parent
 _PYPROJECT = _PROJEKT_WURZEL / "pyproject.toml"
 _ISS = _PROJEKT_WURZEL / "tools" / "natter.iss"
+_MAIN = _PROJEKT_WURZEL / "ide" / "main.py"
 _AUSGABE = _PROJEKT_WURZEL / "dist" / "Natter"
 _INSTALLER = _PROJEKT_WURZEL / "dist" / "installer" / "Natter-Setup.exe"
 _SIGNIER_SKRIPT = _PROJEKT_WURZEL / "tools" / "signieren" / "datei_signieren.ps1"
@@ -212,14 +214,27 @@ def _version_aus_iss() -> str:
     return treffer.group(1)
 
 
-def _version_setzen(neu: str) -> None:
-    """Schreibt `neu` an beide Stellen.
+def _version_aus_main() -> str:
+    text = _MAIN.read_text(encoding="utf-8")
+    treffer = re.search(r'^VERSION\s*=\s*"([^"]+)"', text, re.MULTILINE)
+    if treffer is None:
+        raise BauFehler("In ide/main.py steht keine VERSION.")
+    return treffer.group(1)
 
-    Beide, weil sie unterschiedliche Aufgaben haben und trotzdem
+
+def _version_setzen(neu: str) -> None:
+    """Schreibt `neu` an alle drei Stellen.
+
+    Alle drei, weil sie unterschiedliche Aufgaben haben und trotzdem
     zusammengehören: `pyproject.toml` bestimmt, was `pip` in die
     Auslieferung legt, `natter.iss` das, was Windows in „Apps &
-    Features" anzeigt. Laufen sie auseinander, meldet der nächste Bau
-    eine Version, die es so nie gegeben hat.
+    Features" anzeigt, und `ide/main.py` das, was beim Start auf dem
+    Ladebild steht.
+
+    Die dritte Stelle fehlte bis zum Bau von 0.3.0. Die Auslieferung
+    war als 0.3.0 registriert und begrüßte den Benutzer mit 0.2.1 -
+    aufgefallen erst beim Durchgehen der installierten Fassung, weil
+    hier nur die ersten beiden abgeglichen wurden.
     """
     if not re.fullmatch(r"\d+\.\d+\.\d+", neu):
         raise BauFehler(f"Versionsnummer {neu!r} ist nicht im Format 1.2.3.")
@@ -244,24 +259,39 @@ def _version_setzen(neu: str) -> None:
         raise BauFehler("MyAppVersion in tools/natter.iss nicht gefunden.")
     _ISS.write_text(text, encoding="utf-8")
 
+    text = _MAIN.read_text(encoding="utf-8")
+    text, anzahl = re.subn(
+        r'^VERSION\s*=\s*"[^"]+"', f'VERSION = "{neu}"', text, count=1, flags=re.MULTILINE
+    )
+    if anzahl != 1:
+        raise BauFehler("VERSION in ide/main.py nicht gefunden.")
+    _MAIN.write_text(text, encoding="utf-8")
+
 
 def _versionen_abgleichen(gewuenscht: str | None) -> str:
     if gewuenscht is not None:
         vorher = _version_aus_pyproject()
         _version_setzen(gewuenscht)
-        print(f"  Version {vorher} → {gewuenscht} (pyproject.toml und natter.iss)")
+        print(
+            f"  Version {vorher} → {gewuenscht} "
+            f"(pyproject.toml, natter.iss und ide/main.py)"
+        )
         return gewuenscht
 
-    aus_pyproject = _version_aus_pyproject()
-    aus_iss = _version_aus_iss()
-    if aus_pyproject != aus_iss:
+    gefunden = {
+        "pyproject.toml": _version_aus_pyproject(),
+        "tools/natter.iss": _version_aus_iss(),
+        "ide/main.py": _version_aus_main(),
+    }
+    if len(set(gefunden.values())) != 1:
+        aufzaehlung = ", ".join(f"{datei} sagt {nummer}" for datei, nummer in gefunden.items())
         raise BauFehler(
-            f"Versionsnummern laufen auseinander: pyproject.toml sagt "
-            f"{aus_pyproject}, tools/natter.iss sagt {aus_iss}. Mit "
-            f"--version beide auf denselben Stand bringen."
+            f"Versionsnummern laufen auseinander: {aufzaehlung}. Mit "
+            f"--version alle auf denselben Stand bringen."
         )
-    print(f"  Version {aus_pyproject}, in beiden Dateien gleich.")
-    return aus_pyproject
+    nummer = next(iter(gefunden.values()))
+    print(f"  Version {nummer}, in allen drei Dateien gleich.")
+    return nummer
 
 
 # --------------------------------------------------------------- 3/4
