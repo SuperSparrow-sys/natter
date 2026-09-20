@@ -490,3 +490,55 @@ solange die Beschriftung dort kurz ist.
   sein Label, ist maschinell erkennbar — `QFontMetrics` liefert die
   Breite. Das wäre eine Regel, die den Fehler findet, bevor jemand
   das Programm startet.
+
+---
+
+## 13. Die Maus-Ereignisse lassen sich im Objektinspektor nicht verknüpfen
+
+**Beobachtet:** Im Reiter „Ereignisse" stehen bei einem `Image` fünf
+Zeilen: `on_click`, `on_double_click`, `on_mouse_down`,
+`on_mouse_move`, `on_mouse_up`. Für die drei Maus-Ereignisse bleibt
+das Auswahlfeld immer auf „(kein)" — auch dann, wenn die passende
+Methode längst geschrieben ist.
+
+**Ursache — nachgewiesen.** `passende_methoden()` in
+`ide/inspector/ereignisse_tabelle.py` lässt nur Methoden durch, die
+**genau einen** Parameter neben `self` haben:
+
+    parameter = [p for p in signatur.parameters if p != "self"]
+    if len(parameter) == 1:
+        namen.append(name)
+
+Die Maus-Ereignisse übergeben aber `x` und `y`
+(`EREIGNIS_PARAMETER` in `pcl/control.py`), die Methode heißt also
+`(self, sender, x, y)` und hat zwei. Dasselbe trifft `on_select_cell`
+(`spalte`, `zeile`) und `on_edit_cell` (`spalte`, `zeile`, `text`) beim
+`StringGrid`.
+
+Gegengeprüft mit vier geschriebenen Methoden: angeboten werden zwei.
+
+Der Filter stammt aus der Zeit, als alle Ereignisse `(self, sender)`
+hießen — der Modulkopf sagt das auch so. Mit den Maus-Ereignissen aus
+M15 und den Zellen-Ereignissen des `StringGrid` stimmt er nicht mehr.
+
+**Behebung:** Der Filter muss die erwartete Parameterzahl vom Ereignis
+ablesen statt sie zu raten. `EREIGNIS_PARAMETER` weiß sie:
+`1 + len(EREIGNIS_PARAMETER.get(ereignis_name, ()))`. Damit ist die
+Liste je Zeile eine andere — was richtig ist, denn eine Methode für
+`on_click` passt nicht auf `on_mouse_down`.
+
+**Noch zu prüfen:**
+
+- Ob der Reiter „Ereignisse" eine Methode auch **anlegen** können soll.
+  Heute kann er das nicht; der Modulkopf sagt, das sei für einen
+  späteren Schritt vorgesehen. Das Werkzeug dafür gibt es längst:
+  `handler_methode_einfuegen()` in `ide/codegen/ereignis.py`, das der
+  Doppelklick im Designer benutzt. Ohne das bleibt für alles außer dem
+  einen Standardereignis nur der Weg über die Tastatur.
+- Ob im Auswahlfeld sichtbar werden soll, welche Signatur erwartet
+  wird. Wer nicht weiß, dass `on_mouse_down` zwei Zahlen mitbringt,
+  schreibt die Methode falsch und findet sie dann nicht in der Liste —
+  ohne jede Meldung, woran es liegt.
+- Ob der `DBNavigator` betroffen ist: er hat mehrere Ereignisse und
+  kein Standardereignis, für ihn legt der Doppelklick also gar nichts
+  an.
