@@ -689,28 +689,78 @@ Ein `QTextDocument` trägt seine Formatierung mit und kann über
 lässt sich auf ein solches Dokument anwenden, ohne dass dafür ein
 Editor sichtbar sein muss.
 
-**Noch zu prüfen und zu entscheiden:**
+**Entschieden (vom Nutzer):**
 
-- **Umfang:** nur die offene Datei, oder das ganze Projekt in ein PDF?
-  Für eine Abgabe ist das ganze Projekt das Nützlichere — mit einer
-  Überschrift je Datei und einem Seitenumbruch dazwischen. Die
-  erzeugten Dateien (`u_*_design.py`, `main.py`) gehören vermutlich
-  nicht hinein; `Projekt.units` weiß bereits, was der Schüler
-  bearbeitet, und lässt genau diese weg.
-- **Zeilennummern:** im Ausdruck gehören sie dazu, sonst lässt sich in
-  der Besprechung nicht auf eine Stelle zeigen.
+- **Das ganze Projekt**, nicht nur die offene Datei — mit einer
+  Überschrift je Datei und einem Seitenumbruch dazwischen.
+- **Nur die `u_*`-Dateien.** `main.py` bleibt draußen: sie ist der
+  Starter, den Natter schreibt, und enthält keinen Schülercode. Die
+  erzeugten `u_*_design.py` bleiben ebenfalls draußen. `Projekt.units`
+  liefert genau diese Auswahl schon heute.
+- **Immer das helle Thema**, unabhängig davon, was in der IDE
+  eingestellt ist. Das gilt für jeden Export: die Hervorhebung des
+  dunklen Themas ist auf weißem Papier unlesbar.
+- **Mit Zeilennummern.** Ohne sie lässt sich in der Besprechung nicht
+  auf eine Stelle zeigen.
+
+**Noch zu prüfen:**
+
 - **Umbruch langer Zeilen:** ein Blatt ist schmaler als ein Bildschirm.
   Abschneiden ist keine Möglichkeit — siehe Punkt 12. Entweder
-  umbrechen mit einer Kennzeichnung, oder die Schrift so wählen, dass
-  die übliche Zeilenlänge passt.
-- **Farbe oder Schwarzweiß:** die Hervorhebung des dunklen Themas auf
-  weißem Papier ist unlesbar. Das PDF braucht die Farben des hellen
-  Themas, unabhängig davon, was gerade eingestellt ist.
+  umbrechen mit einer Kennzeichnung am Zeilenanfang, oder die Schrift
+  so wählen, dass die übliche Zeilenlänge passt. Die Prüfung vor dem
+  Start kennt eine Höchstlänge; daran ließe sich die Schriftgröße
+  ausrichten.
 - **Kopfzeile:** Projektname, Dateiname und Datum. Bei einer
   eingesammelten Abgabe ist sonst nicht erkennbar, wessen Datei das
   ist.
-- **Wo der Eintrag hingehört:** „Datei → Als PDF exportieren …" für
-  die offene Datei, „Projekt → Quelltext als PDF exportieren …" für
-  das ganze Projekt. Beides zusammen wäre ein Dialog zu viel.
+- **Wo der Eintrag hingehört:** „Projekt → Quelltext als PDF
+  exportieren …", weil es das ganze Projekt betrifft.
 - Ob der Prüfungsmodus etwas daran ändert. Vermutlich nicht — der
   Schüler exportiert seinen eigenen Code.
+- Ob leere Dateien mit in das PDF gehören. Eine Überschrift über
+  nichts ist unschön, ihr Fehlen aber auch verwirrend.
+
+---
+
+## 17. Die Markdown-Ansicht ist zu eng gesetzt
+
+**Vorgabe des Nutzers:** Zeilenabstand und Schriftart sollen besser
+werden.
+
+**Beobachtet:** Ein längeres Dokument im Reiter läuft über die ganze
+Fensterbreite, die Zeilen stehen dicht übereinander, und der Text ist
+dadurch mühsam zu lesen — besonders bei einem breiten Fenster, wo eine
+Zeile 150 Zeichen und mehr erreicht.
+
+**Stand heute:** `HilfeAnsicht` in `ide/viewers/hilfe_ansicht.py` ist
+ein `QTextBrowser` mit `setMarkdown()`. Eingestellt wird daran genau
+eines: für Code-Stellen wird die Gattungsfamilie „monospace" durch
+eine ersetzt, die es unter Windows wirklich gibt. Zeilenabstand,
+Fließtextschrift, Ränder und Zeilenbreite sind Qts Vorgaben, also gar
+nicht eingestellt.
+
+**Was zu ändern ist:**
+
+- **Zeilenabstand** auf etwa das Anderthalbfache der Schrifthöhe. Über
+  `QTextBlockFormat.setLineHeight()` für jeden Absatz, oder über eine
+  Vorlage.
+- **Höchstbreite des Textes.** Lesbar sind rund 70 bis 90 Zeichen je
+  Zeile; darüber verliert das Auge beim Zeilenwechsel den Anschluss.
+  Der Rest des Fensters bleibt Rand.
+- **Abstand zwischen Absätzen** und über Überschriften, damit die
+  Gliederung ohne Linien erkennbar ist.
+- **Die Fließtextschrift.** Heute ist es, was Qt gerade nimmt. Dieselbe
+  Schrift wie in der übrigen Oberfläche wäre das Naheliegende.
+
+**Noch zu prüfen:**
+
+- Ob `document().setDefaultStyleSheet()` hier greift. Im selben Modul
+  steht der Hinweis, dass es beim Einlesen von HTML wirkt, `setMarkdown`
+  aber daran vorbeigeht — nachgemessen, die Schriftfamilie blieb
+  „monospace". Dann bleibt nur der Weg über die Textblöcke, wie ihn
+  `_code_schrift_setzen()` schon geht.
+- Ob dieselbe Einstellung für die Hilfeseiten gilt. Sie benutzen
+  dieselbe Klasse, und was dort lesbarer wird, ist es hier auch.
+- Ob die Breite mitwandern soll, wenn jemand die Schrift über
+  `Strg+Mausrad` vergrößert.
