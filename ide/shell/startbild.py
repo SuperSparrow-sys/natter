@@ -203,17 +203,21 @@ class Startbild(QScrollArea):
 
     #: Ein zuletzt geöffnetes Projekt bzw. ein per „Öffnen" gewähltes
     projekt_gewaehlt = Signal(Path)
-    #: Ein Beispielprojekt (die `.natter` im mitgelieferten Ordner)
-    beispiel_gewaehlt = Signal(Path)
     neues_projekt_gewuenscht = Signal()
     projekt_oeffnen_gewuenscht = Signal()
     erste_schritte_gewuenscht = Signal()
+    #: „Zurück zum Projekt“ - erscheint nur, wenn es eines gibt,
+    #: zu dem sich zurückkehren lässt.
+    zurueck_gewuenscht = Signal()
 
     def __init__(
         self, einstellungen: QSettings, eltern: QWidget | None = None
     ) -> None:
         super().__init__(eltern)
         self._einstellungen = einstellungen
+        #: Name des offenen Projekts, oder `None`. Steht auf dem Knopf,
+        #: mit dem es zurück in die Arbeit geht.
+        self.offenes_projekt: str | None = None
         self.setWidgetResizable(True)
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.knoepfe: dict[str, QPushButton] = {}
@@ -243,15 +247,21 @@ class Startbild(QScrollArea):
         zuletzt = self._abschnitt_zuletzt()
         if zuletzt is not None:
             layout.addWidget(zuletzt)
-        beispiele = self._abschnitt_beispiele()
-        if beispiele is not None:
-            layout.addWidget(beispiele)
-
         layout.addStretch(1)
         self.setWidget(inhalt)
 
     def _abschnitt_anfangen(self) -> _Abschnitt:
         abschnitt = _Abschnitt("Anfangen")
+        if self.offenes_projekt:
+            # Ganz oben und als Erstes: wer über „Ansicht → Startseite“
+            # hierher gekommen ist, will meistens gleich wieder zurück.
+            # Ohne diesen Knopf gäbe es dafür keinen sichtbaren Weg -
+            # das Startbild verdeckt die Reiter, solange es steht.
+            self.knoepfe["zurueck"] = abschnitt.knopf_hinzufuegen(
+                f"Zurück zu „{self.offenes_projekt}“",
+                "Zeigt wieder die geöffneten Dateien",
+                self.zurueck_gewuenscht.emit,
+            )
         self.knoepfe["neues_projekt"] = abschnitt.knopf_hinzufuegen(
             "Neues Projekt …",
             "Legt einen Ordner mit Formular, Unit und Startdatei an",
@@ -281,18 +291,5 @@ class Startbild(QScrollArea):
                 beschriftung,
                 str(pfad),
                 lambda p=pfad: self.projekt_gewaehlt.emit(p),
-            )
-        return abschnitt
-
-    def _abschnitt_beispiele(self) -> _Abschnitt | None:
-        beispiele = beispielprojekte()
-        if not beispiele:
-            return None
-        abschnitt = _Abschnitt("Beispiele zum Ausprobieren")
-        for pfad in beispiele:
-            self.knoepfe[f"beispiel:{pfad.parent.name}"] = abschnitt.knopf_hinzufuegen(
-                pfad.parent.name,
-                "Wird in den eigenen Dokumente-Ordner kopiert und dort geöffnet",
-                lambda p=pfad: self.beispiel_gewaehlt.emit(p),
             )
         return abschnitt

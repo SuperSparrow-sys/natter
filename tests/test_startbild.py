@@ -160,13 +160,19 @@ def test_das_startbild_bietet_die_drei_wege(einstellungen: QSettings) -> None:
         assert erwartet in bild.knoepfe
 
 
-def test_das_startbild_zeigt_die_beispiele(einstellungen: QSettings) -> None:
-    """Die zehn Beispielprojekte sind da, aber bis jetzt fand sie
-    niemand."""
+def test_die_beispiele_stehen_nicht_mehr_auf_dem_startbild(
+    einstellungen: QSettings,
+) -> None:
+    """Sie sind seit September 2026 ein Untermenü unter „Datei“.
+
+    Auf dem Startbild nahmen die neun Einträge den meisten Platz ein -
+    und waren nach dem ersten geöffneten Projekt nicht mehr
+    erreichbar, weil das Startbild dann verschwand. Geprüft wird das
+    Menü in `tests/test_beispiele_im_dateimenue.py`.
+    """
     bild = Startbild(einstellungen)
 
-    beispiele = [name for name in bild.knoepfe if name.startswith("beispiel:")]
-    assert len(beispiele) == 9  # der Lehrgang, siehe test_beispiellehrgang.py
+    assert not [name for name in bild.knoepfe if name.startswith("beispiel:")]
 
 
 def test_ohne_zuletzt_geoeffnete_fehlt_der_abschnitt(

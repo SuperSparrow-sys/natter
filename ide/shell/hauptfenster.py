@@ -92,7 +92,12 @@ from ide.shell.explorer import PFAD_ROLLE, ProjektExplorer
 from ide.shell.hintergrund import AusgabeLeser, Hintergrundarbeit
 from ide.shell.quelltexteditor import SCHRIFTART_OPTIONEN, QuelltextEditor
 from ide.shell.schnellauswahl import SchnellAuswahl
-from ide.shell.startbild import Startbild, beispiel_kopieren, zuletzt_merken
+from ide.shell.startbild import (
+    Startbild,
+    beispiel_kopieren,
+    beispielprojekte,
+    zuletzt_merken,
+)
 from ide.shell.suchen_dialog import SuchenErsetzenDialog
 from ide.shell.tastenkuerzel import als_markdown as tastenkuerzel_als_markdown
 from ide.shell.theme import ide_qss_erzeugen
@@ -315,7 +320,7 @@ class HauptFenster(QMainWindow):
         self.startbild.projekt_oeffnen_gewuenscht.connect(self._projekt_oeffnen_dialog)
         self.startbild.erste_schritte_gewuenscht.connect(self._erste_schritte_aktion)
         self.startbild.projekt_gewaehlt.connect(self.projekt_oeffnen_gemeldet)
-        self.startbild.beispiel_gewaehlt.connect(self.beispiel_oeffnen)
+        self.startbild.zurueck_gewuenscht.connect(self._zurueck_zur_arbeit)
 
         self.mitte = QStackedWidget()
         self.mitte.addWidget(self.startbild)
@@ -740,6 +745,14 @@ class HauptFenster(QMainWindow):
         )
         self.aktionen.registrieren(
             Aktion(
+                "ansicht.startseite",
+                "Startseite",
+                menue="Ansicht",
+                callback=self._startseite_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
                 "hilfe.komponenten_referenz",
                 "Komponenten-Referenz",
                 menue="Hilfe",
@@ -997,6 +1010,29 @@ class HauptFenster(QMainWindow):
             )
         )
         self.aktionen.an_hauptfenster_anhaengen(self)
+
+        # „Datei → Beispielprojekte“ (Vorgabe: die Seite für die
+        # Beispielprojekte gehört „unter Datei oben in der Kopfzeile
+        # mit allen aufgelisteten Projekten. nicht in der normalen
+        # Oberfläche“). Vorher standen sie als Abschnitt auf dem
+        # Startbild - dort nahmen sie den meisten Platz ein und waren
+        # nach dem ersten Projekt nicht mehr erreichbar, weil das
+        # Startbild verschwand.
+        #
+        # Bewusst keine eigene `Aktion`-Hülle: die Einträge stehen
+        # nicht fest, sondern kommen aus dem mitgelieferten Ordner.
+        # Und bewusst erst hier, nach `an_hauptfenster_anhaengen`:
+        # davor stünde das Untermenü über „Neue Unit“ und
+        # „Öffnen …“, also vor den Dingen, die man täglich braucht.
+        beispiel_menue = self._menues["Datei"].addMenu("Beispielprojekte")
+        for pfad in beispielprojekte():
+            eintrag = beispiel_menue.addAction(pfad.parent.name)
+            eintrag.setStatusTip(
+                "Wird in den eigenen Dokumente-Ordner kopiert und dort geöffnet"
+            )
+            eintrag.triggered.connect(lambda _geklickt=False, p=pfad: self.beispiel_oeffnen(p))
+        if beispiel_menue.isEmpty():
+            beispiel_menue.setEnabled(False)
 
         # „Ansicht → Formular und Code wechseln“ (Abschnitt 7.9). Stand
         # seit M2 als Vermerk im Explorer („folgt später“) und ist der
@@ -1572,6 +1608,41 @@ class HauptFenster(QMainWindow):
         """Zeigt das Startbild, solange kein Tab offen ist."""
         leer = self.editor_tabs.count() == 0
         self.mitte.setCurrentWidget(self.startbild if leer else self.editor_tabs)
+
+    def _startseite_aktion(self) -> None:
+        """„Ansicht → Startseite“.
+
+        Bis dahin gab es keinen Weg dorthin zurück: das Startbild
+        erschien nur, solange kein einziger Reiter offen war. Wer ein
+        anderes Projekt öffnen wollte, musste erst jede Datei
+        schließen - oder den Weg über „Projekt → Öffnen …“ kennen und
+        auf die Liste der zuletzt geöffneten verzichten.
+
+        Die Reiter bleiben dabei offen; das Startbild legt sich nur
+        davor. Zurück geht es über den ersten Knopf dort oder über
+        denselben Menüeintrag.
+        """
+        if self.mitte.currentWidget() is self.startbild and self.editor_tabs.count():
+            self._zurueck_zur_arbeit()
+            return
+        self.startbild.offenes_projekt = self.projekt.name if self.projekt else None
+        # Neu aufbauen, damit „Zuletzt geöffnet“ den heutigen Stand
+        # zeigt und der Rückkehr-Knopf den richtigen Namen trägt.
+        self.startbild.aufbauen()
+        self.mitte.setCurrentWidget(self.startbild)
+        self.statusBar().showMessage(
+            "Startseite. Über „Ansicht → Startseite“ geht es zurück zur Arbeit."
+        )
+
+    def _zurueck_zur_arbeit(self) -> None:
+        """Zurück zu den geöffneten Dateien, ohne etwas zu schließen."""
+        if self.editor_tabs.count() == 0:
+            self.statusBar().showMessage(
+                "Es ist keine Datei offen - im Projekt-Explorer links eine auswählen."
+            )
+            return
+        self.mitte.setCurrentWidget(self.editor_tabs)
+        self.statusBar().showMessage("")
 
     def hilfe_zeigen(self, titel: str, markdown: str) -> HilfeAnsicht:
         """Öffnet eine Hilfeseite als eigenen Reiter – lesbar gesetzt,

@@ -20,6 +20,8 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QCursor
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from ide.deutsch import deutsch_einschalten
@@ -122,6 +124,12 @@ def main() -> int:
     # Sekunde ohne jede Rückmeldung führt dazu, dass jemand ein
     # zweites Mal doppelklickt.
     app = anwendung_erzeugen()
+    # Der Ladekreis am Zeiger, solange gebaut wird. Windows zeigt ihn
+    # von sich aus nur die ersten Augenblicke nach dem Doppelklick und
+    # nimmt ihn dann wieder weg - ausgerechnet in der Zeit, in der
+    # noch nichts zu sehen ist.
+    QApplication.setOverrideCursor(QCursor(Qt.CursorShape.BusyCursor))
+
     anzeige = Ladeanzeige(VERSION)
     anzeige.show()
     anzeige.melden("Natter wird gestartet …")
@@ -141,6 +149,7 @@ def main() -> int:
     # `finish` blendet das Bild genau dann aus, wenn das Hauptfenster
     # zu sehen ist - sonst blitzt der Schreibtisch dazwischen auf.
     anzeige.finish(fenster)
+    QApplication.restoreOverrideCursor()
     return app.exec()
 
 
