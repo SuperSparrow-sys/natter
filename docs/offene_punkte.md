@@ -7,6 +7,10 @@ und was noch zu prüfen bleibt.
 Erledigte Punkte werden hier gestrichen, nicht abgehakt — was drinsteht,
 ist offen.
 
+Wie die Punkte umgesetzt werden, steht in
+[`umsetzungsplan.md`](umsetzungsplan.md): je Punkt die Änderung, die
+Tests dazu und woran das Erledigtsein erkennbar ist.
+
 ---
 
 ## 1. Stylesheets kaskadieren auf Kinder — auch auf Dialoge

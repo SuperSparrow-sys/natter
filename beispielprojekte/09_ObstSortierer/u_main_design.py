@@ -41,6 +41,7 @@ class Form1Design(Form):
         self.ch_streuung.y_label = "Breite in mm"
         self.ch_streuung.legend = True
         self.ch_streuung.grid = True
+        self.ch_streuung.on_click = self.ch_streuung_click
 
         self.l_training = Label(self)
         self.l_training.left = 588

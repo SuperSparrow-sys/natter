@@ -36,6 +36,9 @@
         "y_label": "Breite in mm",
         "legend": true,
         "grid": true
+      },
+      "events": {
+        "on_click": "ch_streuung_click"
       }
     },
     {

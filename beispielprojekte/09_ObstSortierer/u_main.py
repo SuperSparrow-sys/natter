@@ -135,3 +135,7 @@ class Form1(Form1Design):
             "der ähnlichsten Sorte: ein Modell sagt nie „kenne ich nicht“, es sagt "
             "immer etwas. Das im Blick zu behalten ist der wichtigste Teil."
         )
+    
+    def ch_streuung_click(self, sender):
+        # Hier steht, was passieren soll.
+        pass
