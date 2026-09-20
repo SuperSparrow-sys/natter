@@ -349,6 +349,51 @@ im Projekt-Explorer suchen.
 geschriebene Datei muss **immer** anschließend im großen Editor
 erscheinen.
 
+**Wie es gelöst werden soll.** Drei Teile, und der erste ist schon da.
+
+**1. Der Ort.** `_vorschlag_fuer_unit()` in `ide/diagramm/fenster.py`
+rechnet den richtigen Ordner bereits aus: eine Ebene über
+`diagramme/`, also der Projektordner. Dort sucht `Projekt.units` mit
+`ordner.glob("*.py")` — eine Datei, die dort liegt, ist damit
+automatisch eine Unit. Im Kommentar steht sogar, warum: ein früherer
+Vorschlag `units/` landete an einer Stelle, die das Projekt nie
+ansieht, und die Klasse war nirgends wiederzufinden.
+
+Nur der Dialog hinter „Speichern unter …" benutzt das nicht. Er
+beginnt in gar keinem Ordner — und genau so ist die erzeugte Klasse am
+20. September in einem eigenen, sonst leeren Ordner gelandet. Er muss
+in diesem Ordner beginnen.
+
+**2. Die Nachricht ans Hauptfenster.** Der Diagramm-Editor ist ein
+eigenes Fenster und kennt das Hauptfenster nicht. Er soll es auch
+nicht kennen müssen — stattdessen ein Signal:
+
+    datei_geschrieben = Signal(Path)
+
+`hauptfenster.diagramm_oeffnen()` hält beim Öffnen ohnehin schon eine
+Verbindung zum Fenster (`_offene_diagramme`) und kann es dort
+anschließen. Das ist das Muster, das im Projekt überall gilt: der
+Projekt-Explorer meldet `umbenennen_angefordert` und
+`loeschen_angefordert` genauso, statt selbst zu handeln.
+
+**3. Was das Hauptfenster dann tut.** Zwei Aufrufe, beide gibt es
+schon:
+
+    self.explorer.projekt_anzeigen(self.projekt)   # Liste neu aufbauen
+    self.datei_oeffnen(pfad)                       # Reiter im Editor
+
+`projekt_anzeigen` wird an sechs anderen Stellen genauso gerufen, etwa
+nach „Neues Diagramm". Der Explorer liest seine Liste bei jedem Aufruf
+frisch von der Platte; es braucht dafür nichts Neues.
+
+**Warum kein `QFileSystemWatcher` auf den Projektordner.** Das wäre
+die allgemeinere Lösung und fänge auch Dateien ab, die von außen
+dazukommen. Es wäre aber auch die aufwendigere: ein Beobachter, der
+bei jedem Speichern anschlägt, während der Editor selbst schreibt, und
+eine Liste, die sich unter der Hand neu aufbaut. Das Signal löst das
+vorliegende Problem vollständig und lässt sich prüfen. Ein Beobachter
+kann später dazukommen, wenn er gebraucht wird.
+
 **Noch zu prüfen:**
 
 - Ob der Weg über `in_datei_schreiben()` gehen soll, das es im selben
