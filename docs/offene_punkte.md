@@ -267,40 +267,63 @@ Ordner neben der Exe) und die Verknüpfung direkt auf `pythonw.exe`
 
 ---
 
-## 8. Der Prüfungsmodus zeigt weiterhin fremde Projekte
+## 8. Der Prüfungsmodus — alle Bedingungen an einer Stelle
 
-**Vorgabe des Nutzers:** Im Prüfungsmodus sollen auf dem Startbild
-**keine zuletzt geöffneten Dateien** und **keine Beispielprojekte**
-erscheinen.
+Der Modus wird über „Werkzeuge → Prüfungsmodus starten …" eingeschaltet
+und läuft vier Stunden. Hier steht, was er leisten muss, was davon
+nachgewiesen ist und was noch fehlt.
 
-**Warum das zählt:** Beides ist ein Weg an fremden Code. Die Liste
-„Zuletzt geöffnet“ führt zu dem, was in der Stunde davor bearbeitet
-wurde — in einer Klausur möglicherweise zur Lösung einer Aufgabe, die
-gerade gestellt ist. Die Beispielprojekte enthalten ausformulierte
-Lösungen zu genau den Themen, die geprüft werden.
+### Gilt bereits, nachgemessen
 
-**Betroffen sind zwei Stellen:**
+- **Er übersteht das Schließen von Natter.** Vom Nutzer ausdrücklich
+  verlangt. Geprüft mit zwei getrennten Prozessen, so wie Schließen und
+  Wiederöffnen: der zweite meldet `läuft: True` und eine Restzeit von
+  3:59:58. Gespeichert wird nicht, *dass* der Modus an ist, sondern
+  *wann er vorbei ist* — ein Schalter im Speicher wäre mit einem
+  Neustart ausgehebelt.
+- **Er lässt sich in der Oberfläche nicht abschalten.** `beenden()` in
+  `pcl/pruefungsmodus.py` wird von der IDE nirgends aufgerufen; nur
+  `starten`, `laeuft` und `restzeit_text` sind angeschlossen. Die
+  Zusage im Dialog stimmt also.
+- **Er läuft von selbst aus.** Niemand muss daran denken, ihn wieder
+  abzuschalten, und kein Rechner bleibt über den Schultag hinaus
+  eingeschränkt.
+- **Keine Lösungsvorschläge.** Die Fehlermeldung sagt weiterhin, *was*
+  falsch ist, aber nicht mehr, woran es liegen könnte.
+- **Kein Quelltext aus Klassendiagramm und Struktogramm.**
+- **Vervollständigung ohne die deutschen Erklärungen.** Die Liste
+  bleibt — sie ist Schreibhilfe; „Wird beim Klicken ausgelöst" neben
+  `on_click` wäre dagegen nah an der Antwort.
 
-- `ide/shell/startbild.py`, Abschnitt „Zuletzt geöffnet“
-- `ide/shell/hauptfenster.py`, das Untermenü „Datei →
-  Beispielprojekte“
+### Fehlt noch
 
-Der Modus selbst liegt in `pcl/pruefungsmodus.py` und lässt sich
-über `pruefungsmodus_laeuft()` abfragen — so machen es die
-Fehlermeldungen und die Vervollständigung schon.
+- **Keine zuletzt geöffneten Dateien** auf dem Startbild
+  (`ide/shell/startbild.py`).
+- **Keine Beispielprojekte** im Untermenü „Datei →
+  Beispielprojekte" (`ide/shell/hauptfenster.py`).
 
-**Noch zu prüfen:**
+Beides ist ein Weg an fremden Code. Die Liste „Zuletzt geöffnet" führt
+zu dem, was in der Stunde davor bearbeitet wurde — in einer Klausur
+möglicherweise zur Lösung der Aufgabe, die gerade gestellt ist. Die
+Beispielprojekte enthalten ausformulierte Lösungen zu genau den
+Themen, die geprüft werden.
+
+### Noch zu prüfen
 
 - Was geschehen soll, wenn der Modus **während** einer laufenden
   Sitzung startet: das Startbild müsste sich dann neu aufbauen, sonst
   bleibt die Liste stehen, bis jemand das Fenster wechselt.
-- Ob der Menüeintrag ganz verschwinden oder nur abgeschaltet sein
-  soll. Abgeschaltet erklärt sich besser — wer ihn sucht, sieht, dass
-  es ihn gibt und dass er gerade gesperrt ist.
+- Ob der Menüeintrag ganz verschwinden oder nur gesperrt sein soll.
+  Gesperrt erklärt sich besser — wer ihn sucht, sieht, dass es ihn
+  gibt und dass er gerade nicht geht.
 - Ob auch der Projekt-Explorer betroffen ist, wenn ein fremdes Projekt
   noch offen war, als der Modus begann.
-
----
+- **Wie weit der Schutz reicht, und das ehrlich benannt.** Der
+  Zeitpunkt steht in einer gewöhnlichen Ini-Datei im Benutzerprofil.
+  Wer sie bearbeiten kann, kann den Modus beenden. Für den
+  Unterrichtsgebrauch genügt das; eine Prüfungsumgebung im Sinne einer
+  gesicherten Abnahme ist es nicht, und das sollte irgendwo stehen,
+  damit niemand sich darauf verlässt.
 
 ## 9. Im Diagramm-Editor überdecken sich die Bereiche
 
