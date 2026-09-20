@@ -190,46 +190,41 @@ Umlauten und ohne abgeschnittene Zeilen erscheinen.
 
 ---
 
-## 5. Welcher Test in den Dokumente-Ordner schreibt, ist unbekannt
+## 5. Die Ordner im Projektstamm sind die Arbeit des Nutzers ~~(geklärt)~~
 
-**Beobachtet:** Nach einigen Testläufen standen 27 Ordner im
-Projektstamm — `01_Begruessung`, `01_Begruessung 2`, `… 3` für alle
-neun Beispiele. Sie entstehen, weil `beispiel_kopieren` seine
-Arbeitskopie unter `Dokumente\Natter` ablegt und das Repository auf
-diesem Rechner genau dort liegt. `ruff check .` scheiterte daran.
+**Geklärt am 20. September, 17:38.** Es war nie ein Test und nie ein
+Fehler im Programm.
 
-**Was getan wurde:** Eine Fixture in `tests/conftest.py` leitet
-`Path.home()` für jeden Test in ein temporäres Verzeichnis um. Seither
-tritt es nicht mehr auf.
+`beispiel_kopieren` legt die Arbeitskopie eines Beispiels im Ordner
+„Dokumente/Natter“ an. Auf **diesem** Rechner liegt das Repository
+selbst genau dort, und Windows unterscheidet keine Groß- und
+Kleinschreibung. Jede Arbeitskopie landet damit im Projektstamm.
 
-**Was offen ist:** Welcher Test es ausgelöst hat, wurde nie gefunden.
-Die naheliegenden Kandidaten prüfen alle ordentlich mit `tmp_path`.
-Die Fixture behandelt die Wirkung, nicht die Ursache.
+Der Nachweis: um 17:38 lief Natter, und es entstanden
+`06_Kontoverwaltung` (eine frische Arbeitskopie) und
+`06_Kontoverwaltung 2` mit `u_konto_klassen.py` darin — der Datei,
+die der Nutzer im selben Augenblick aus dem Klassendiagramm erzeugt
+hat.
 
-**Es passiert weiterhin.** Am 20. September entstanden zwei weitere
-Kopien (`06_Kontoverwaltung` um 17:18, `06_Kontoverwaltung 2` um
-17:33), obwohl die Fixture längst wirkte. Es ist also **kein Test**,
-sondern etwas außerhalb des Testlaufs. Ausgeschlossen sind inzwischen:
+**Was daraus folgt:**
 
-- die Testläufe selbst, denn dort greift die Fixture,
-- das Laden eines Diagramms: `Diagramm.laden` kopiert nichts. Dieselbe
-  Probe zweimal laufen lassen - beim zweiten Mal entstand keine
-  weitere Kopie,
-- die naheliegenden Tests, die alle ordentlich mit `tmp_path` arbeiten.
+- Die Fixture in `tests/conftest.py` bleibt trotzdem richtig: kein
+  Test hat im echten Heimverzeichnis etwas zu suchen.
+- `.gitignore` deckt jetzt auch die durchnummerierten Kopien ab
+  (`... 2`, `... 3`). Sie sind echte Arbeit und dürfen weder
+  eingecheckt noch weggeräumt werden. Beinahe wäre genau das
+  passiert.
+- **Für die Entwicklung heißt das:** auf diesem Rechner nie
+  `git add -A` blind ausführen und nie Ordner im Stamm löschen, die
+  nach einem Beispiel aussehen — es kann die laufende Arbeit sein.
 
-**Noch zu prüfen:** Ob es die installierte `Natter.exe` ist, die
-während der Abnahme 60 Sekunden lief - der Zeitpunkt 17:18 liegt nahe
-an einem solchen Lauf. Falls ja, legt Natter beim Start unter
-Umständen eine Beispielkopie an, ohne dass jemand darauf geklickt hat.
-Das wäre kein Schönheitsfehler mehr, sondern ein Fehler im Programm:
-auf einem Schulrechner entstünde bei jedem Start ein weiterer Ordner
-im Dokumente-Ordner.
-
-Der Weg dorthin: die installierte Natter starten, nichts anklicken,
-und nachsehen, ob im Ordner „Dokumente/Natter“ etwas Neues steht.
+**Offen bleibt eine Kleinigkeit:** `06_Kontoverwaltung 2` enthält nur
+`u_konto_klassen.py` und sonst nichts. Die erzeugte Klassendatei ist
+also nicht in das offene Projekt gewandert, sondern in einen eigenen,
+sonst leeren Ordner. Das gehört zu Punkt 10 und ist dort noch zu
+prüfen.
 
 ---
-
 ## 6. Prozesszeiten sind auf diesem Rechner nicht messbar
 
 **Beobachtet:** Weder `Get-Process | Select CPU` noch die
@@ -269,3 +264,107 @@ einmal von vorn aufgemacht wird. Gemessene Alternativen waren:
 `--onedir` statt `--onefile` (spart 200 ms, kostet 15,8 MB und einen
 Ordner neben der Exe) und die Verknüpfung direkt auf `pythonw.exe`
 (spart 790 ms, kostet das eigene signierte `Natter.exe`).
+
+---
+
+## 8. Der Prüfungsmodus zeigt weiterhin fremde Projekte
+
+**Vorgabe des Nutzers:** Im Prüfungsmodus sollen auf dem Startbild
+**keine zuletzt geöffneten Dateien** und **keine Beispielprojekte**
+erscheinen.
+
+**Warum das zählt:** Beides ist ein Weg an fremden Code. Die Liste
+„Zuletzt geöffnet“ führt zu dem, was in der Stunde davor bearbeitet
+wurde — in einer Klausur möglicherweise zur Lösung einer Aufgabe, die
+gerade gestellt ist. Die Beispielprojekte enthalten ausformulierte
+Lösungen zu genau den Themen, die geprüft werden.
+
+**Betroffen sind zwei Stellen:**
+
+- `ide/shell/startbild.py`, Abschnitt „Zuletzt geöffnet“
+- `ide/shell/hauptfenster.py`, das Untermenü „Datei →
+  Beispielprojekte“
+
+Der Modus selbst liegt in `pcl/pruefungsmodus.py` und lässt sich
+über `pruefungsmodus_laeuft()` abfragen — so machen es die
+Fehlermeldungen und die Vervollständigung schon.
+
+**Noch zu prüfen:**
+
+- Was geschehen soll, wenn der Modus **während** einer laufenden
+  Sitzung startet: das Startbild müsste sich dann neu aufbauen, sonst
+  bleibt die Liste stehen, bis jemand das Fenster wechselt.
+- Ob der Menüeintrag ganz verschwinden oder nur abgeschaltet sein
+  soll. Abgeschaltet erklärt sich besser — wer ihn sucht, sieht, dass
+  es ihn gibt und dass er gerade gesperrt ist.
+- Ob auch der Projekt-Explorer betroffen ist, wenn ein fremdes Projekt
+  noch offen war, als der Modus begann.
+
+---
+
+## 9. Im Diagramm-Editor überdecken sich die Bereiche
+
+**Beobachtet:** Nach einem Neustart steht die Übersichtskarte
+(`ide/diagramm/minimap.py`) an der falschen Stelle. Auf dem
+Bildschirmfoto schiebt sich der Palettenbereich über die
+Zeichenfläche, ein leeres weißes Feld liegt über dem Lineal, und von
+den Einträgen links ist nur die halbe Beschriftung zu sehen
+(„…endiagramm“, „…rbeiten“, „…ndungen“).
+
+**Was dazu bekannt ist:** Das Hauptfenster merkt sich sein Layout über
+`saveState()`/`restoreState()` unter dem Schlüssel `fenster/layout`.
+Für das Diagrammfenster ist nichts dergleichen zu finden — es baut
+seine Bereiche bei jedem Öffnen neu auf. Die Vermutung liegt nahe,
+dass die Größen dabei nicht zur Fenstergröße passen; nachgemessen
+ist das aber nicht.
+
+**Noch zu prüfen:**
+
+- Ob die Übersichtskarte ein eigener Bereich ist oder auf der
+  Zeichenfläche liegt, und woran ihre Stelle hängt.
+- Ob das Diagrammfenster sein Layout merken soll wie das Hauptfenster.
+  Falls ja, brauchen seine Bereiche einen `objectName`, sonst
+  speichert Qt nichts.
+- **Dass alles lesbar ist**: keine abgeschnittenen Beschriftungen,
+  keine Bereiche, die sich überdecken, und das bei kleiner
+  Fenstergröße genauso wie bei großer.
+- Ob es auch auftritt, wenn das Fenster zum ersten Mal überhaupt
+  geöffnet wird — also ohne gespeicherten Zustand.
+
+---
+
+## 10. Der erzeugte Quelltext landet nicht im großen Editor
+
+**Beobachtet:** „Quelltext erzeugen“ im Diagramm-Editor zeigt das
+Ergebnis in einem eigenen Fenster mit den Knöpfen „Kopieren“,
+„Speichern unter …“ und „Schließen“.
+
+**Was fehlt:** Wer „Speichern unter …“ wählt, schreibt die Datei —
+und danach passiert nichts. `speichern_unter()` in
+`ide/diagramm/codefenster.py` gibt den Pfad zurück, aber niemand
+öffnet ihn. Die Schülerin muss die eben geschriebene Datei von Hand
+im Projekt-Explorer suchen.
+
+**Gewünscht:** Das Schreiben muss **immer** funktionieren, und die
+geschriebene Datei muss **immer** anschließend im großen Editor
+erscheinen.
+
+**Noch zu prüfen:**
+
+- Ob der Weg über `in_datei_schreiben()` gehen soll, das es im selben
+  Modul schon gibt: es fragt nach, statt eine vorhandene Datei
+  stillschweigend zu überschreiben — wer eine Klasse zweimal erzeugt,
+  soll seine ausformulierten Methodenrümpfe nicht verlieren.
+- Wohin die Datei standardmäßig gehört. Der Dialog beginnt heute in
+  keinem bestimmten Ordner; der Projektordner wäre die naheliegende
+  Vorgabe.
+- Wie das Diagrammfenster an das Hauptfenster meldet, dass es eine
+  Datei gibt. Es ist ein eigenes Fenster und kennt das Hauptfenster
+  nicht — ein Signal wäre der Weg, wie es der Projekt-Explorer schon
+  macht.
+- Was geschehen soll, wenn die Datei außerhalb des offenen Projekts
+  liegt: dann gehört sie in einen Reiter, aber nicht in den
+  Projekt-Explorer.
+- Ob das Schreiben auch dann funktioniert, wenn der Ordner
+  schreibgeschützt ist — auf einem Schulrechner keine Seltenheit. Die
+  Meldung muss dann sagen, was los ist.

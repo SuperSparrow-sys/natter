@@ -74,6 +74,10 @@ tools/signieren/manifest-privat.pem
 # liegt, ist das derselbe Ordner: die Kopie landet dann mitten im
 # Projektstamm. Windows unterscheidet keine Gross- und
 # Kleinschreibung, also faellt es nicht einmal auf.
+# Auch die durchnummerierten: wer ein Beispiel zweimal oeffnet,
+# bekommt "... 2", "... 3". Die sind echte Arbeit des Nutzers und
+# duerfen weder eingecheckt noch aufgeraeumt werden.
+/[0-9][0-9]_*/
 /01_Begruessung/
 /02_Zahlenraten/
 /03_Taschenrechner/
