@@ -92,7 +92,7 @@ def test_mit_angabe_werden_beide_dateien_nachgezogen(dateien: tuple[Path, Path])
 
 def test_die_echten_dateien_sind_einig() -> None:
     """Ohne Kopie, gegen den eingecheckten Stand: beide Versionsnummern
-    muessen jetzt schon uebereinstimmen, nicht erst beim naechsten Bau."""
+    müssen jetzt schon übereinstimmen, nicht erst beim nächsten Bau."""
     assert bau._version_aus_pyproject() == bau._version_aus_iss()
 
 
@@ -152,8 +152,8 @@ def test_die_rauchprobe_prueft_die_gebaute_python(
 
 def test_die_rauchprobe_sieht_jede_pandas_bibliothek_an() -> None:
     """Blockiert wurden fuenf von vierzehn - eine
- Probe, die nur `import pandas` macht, haette drei davon nicht
- bemerkt, weil pandas sie erst spaeter nachlaedt."""
+ Probe, die nur `import pandas` macht, hätte drei davon nicht
+ bemerkt, weil pandas sie erst später nachlaedt."""
     for teil in ("algos", "byteswap", "groupby", "join", "parsers"):
         assert f'"{teil}"' in bau._RAUCHPROBE
 
@@ -161,7 +161,7 @@ def test_die_rauchprobe_sieht_jede_pandas_bibliothek_an() -> None:
 def test_ein_kaputtes_manifest_bricht_den_bau_ab(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Eine Abweichung hier hiesse beim Schueler: Manipulationswarnung
+    """Eine Abweichung hier hiesse beim Schüler: Manipulationswarnung
     beim ersten Start."""
     from ide.integritaet import PruefErgebnis
 
@@ -178,7 +178,7 @@ def test_ein_kaputtes_manifest_bricht_den_bau_ab(
 def test_ein_fehlendes_manifest_ist_nur_eine_warnung(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Ohne privaten Schluessel schreibt `ide_paketieren` gar kein
+    """Ohne privaten Schlüssel schreibt `ide_paketieren` gar kein
     Manifest - ein Bau auf einem fremden Rechner soll daran nicht
     scheitern."""
     from ide.integritaet import ManifestFehler

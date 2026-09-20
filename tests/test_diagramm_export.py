@@ -383,7 +383,7 @@ def test_die_kopfzeile_eines_struktogramms_kommt_mit_aufs_bild() -> None:
     liefert den Wurzelblock, und der beginnt bei einem benannten
     Struktogramm erst unterhalb des Namens. Im exportierten PNG war
     von "kasse_buchen" nur die untere Haelfte der Buchstaben zu sehen -
-    im Durchgang durch den Schuelerweg am Bild aufgefallen."""
+    im Durchgang durch den Schülerweg am Bild aufgefallen."""
     from ide.diagramm.struktogramm import KOPFHOEHE, struktogramm_layout
 
     daten = {
@@ -410,8 +410,8 @@ def test_die_kopfzeile_eines_struktogramms_kommt_mit_aufs_bild() -> None:
 
 
 def test_ohne_namen_bleibt_der_bereich_knapp() -> None:
-    """Kein Name, keine Kopfzeile - dann waere zusaetzlicher Rand oben
-    nur weisse Flaeche."""
+    """Kein Name, keine Kopfzeile - dann wäre zusaetzlicher Rand oben
+    nur weisse Fläche."""
     ohne = {
         "format": "pdiag/1",
         "type": "struktogramm",

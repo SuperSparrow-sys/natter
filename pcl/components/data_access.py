@@ -142,7 +142,7 @@ class SQLite3Connection(Komponente):
         der betroffenen Zeilen::
 
             db.execute("INSERT INTO konto (inhaber) VALUES (:wer)", wer=name)
-            geloescht = db.execute("DELETE FROM konto WHERE stand = 0")
+            gelöscht = db.execute("DELETE FROM konto WHERE stand = 0")
         """
         cursor = self._ausfuehren(sql, parameter)
         anzahl = cursor.rowcount

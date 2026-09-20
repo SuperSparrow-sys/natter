@@ -151,7 +151,7 @@ def test_rueckgaengig_holt_auch_den_methodennamen_zurueck(tmp_path: Path) -> Non
 
 def test_eine_selbst_benannte_methode_bleibt_unangetastet(tmp_path: Path) -> None:
     """Nur was Natter angelegt hat, wird mit umbenannt - erkennbar am
-    Namen `<komponente>_<ereignis>`. Einen Namen, den der Schueler
+    Namen `<komponente>_<ereignis>`. Einen Namen, den der Schüler
     selbst vergeben hat, fasst niemand an."""
     canvas, haken = _formular_mit_ereignis(tmp_path)
     quelltext = (tmp_path / "u_main.py").read_text(encoding="utf-8")

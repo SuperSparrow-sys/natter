@@ -1070,7 +1070,7 @@ def _spitze_zeichnen(
     pfad.lineTo(links)
     pfad.lineTo(rechts)
     pfad.closeSubpath()
-    # „dreieck“ = leer (Vererbung), „gefuellt“ = ausgefüllt (synchrone
+    # „dreieck“ = leer (Vererbung), „gefüllt“ = ausgefüllt (synchrone
     # Nachricht im Sequenzdiagramm). Beide sind dasselbe Dreieck, nur
     # anders gefüllt.
     maler.setBrush(

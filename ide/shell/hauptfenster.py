@@ -182,10 +182,10 @@ def _aufzaehlung(namen: list[str]) -> str:
         return zitiert[0]
     return ", ".join(zitiert[:-1]) + f" und {zitiert[-1]}"
 
-#: Zeilenumbruch fuer mehrzeilige Tooltips.
+#: Zeilenumbruch für mehrzeilige Tooltips.
 _UMBRUCH = chr(10)
 
-#: Was am Panel „Meldungen“ ausser den Textzeilen Hoehe braucht:
+#: Was am Panel „Meldungen“ ausser den Textzeilen Höhe braucht:
 #: Docktitel, Reiterleiste, Rahmen.
 _PANEL_RAHMEN = 90
 
@@ -590,9 +590,9 @@ class HauptFenster(QMainWindow):
         self.letzte_tabellen_ansicht: TabellenAnsicht | None = None
 
         self.statusBar().showMessage("bereit")
-        # Dauerhaft rechts in der Statusleiste, solange eine Pruefung
-        # laeuft - eine Meldung, die nach drei Sekunden verschwindet,
-        # waere fuer einen Zustand falsch, der vier Stunden anhaelt.
+        # Dauerhaft rechts in der Statusleiste, solange eine Prüfung
+        # läuft - eine Meldung, die nach drei Sekunden verschwindet,
+        # wäre für einen Zustand falsch, der vier Stunden anhält.
         self.pruefungsanzeige = QLabel()
         self.pruefungsanzeige.setStyleSheet("padding: 0 8px; font-weight: bold;")
         self.statusBar().addPermanentWidget(self.pruefungsanzeige)
@@ -1351,7 +1351,7 @@ class HauptFenster(QMainWindow):
     def _test_eintrag_aktualisieren(self, eintrag: QTreeWidgetItem, ergebnis: Testergebnis) -> None:
         eintrag.setText(1, ergebnis.status)
         # Deutsch auch in einer Zahlenspalte: eine Sekundenangabe mit
-        # Punkt sticht in einer sonst durchgehend deutschen Oberflaeche
+        # Punkt sticht in einer sonst durchgehend deutschen Oberfläche
         # hervor (Gewünscht: „Alles in Deutschem Format“).
         eintrag.setText(2, f"{ergebnis.dauer:.3f}".replace(".", ","))
         farbe = QColor(_STATUS_FARBE.get(ergebnis.status, "#000000"))

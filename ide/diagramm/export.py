@@ -64,7 +64,7 @@ def inhaltsbereich(daten: dict[str, Any]) -> QRectF:
         # den Wurzelblock, und der beginnt bei einem benannten
         # Struktogramm erst unterhalb des Namens - der Name stand
         # damit außerhalb des Bereichs und wurde im PNG oben
-        # abgeschnitten (im Durchgang durch den Schuelerweg am
+        # abgeschnitten (im Durchgang durch den Schülerweg am
         # exportierten Bild gesehen: von „kasse_buchen" war nur die
         # untere Hälfte der Buchstaben da).
         if kopfzeile(daten):

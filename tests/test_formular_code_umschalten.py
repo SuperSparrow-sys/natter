@@ -154,7 +154,7 @@ def test_der_eintrag_steht_im_ansicht_menue(qtbot) -> None:
 # ------------------------------------------- Ein frisch angelegtes Projekt
 #
 # Nutzer-Meldung : "wenn ich ein neues Projekt erstelle
-# muss auch die u_main.py fuer den code angezeigt werden nicht nur der
+# muss auch die u_main.py für den code angezeigt werden nicht nur der
 # designer". Vorher ging nach dem Anlegen gar kein Reiter auf - man
 # landete in einem leeren Fenster.
 
@@ -180,7 +180,7 @@ def test_ein_neues_projekt_oeffnet_formular_und_unit(tmp_path: Path, qtbot) -> N
 
 
 def test_vorn_liegt_der_designer(tmp_path: Path, qtbot) -> None:
-    """Bei einem GUI-Projekt legt man zuerst die Oberflaeche an; die
+    """Bei einem GUI-Projekt legt man zuerst die Oberfläche an; die
     Unit steht als zweiter Reiter daneben."""
     fenster = HauptFenster()
     qtbot.addWidget(fenster)
@@ -192,7 +192,7 @@ def test_vorn_liegt_der_designer(tmp_path: Path, qtbot) -> None:
 
 
 def test_ein_konsolenprojekt_oeffnet_nur_seine_unit(tmp_path: Path, qtbot) -> None:
-    """Es hat kein Formular - und `main.py` bekommt der Schueler nicht
+    """Es hat kein Formular - und `main.py` bekommt der Schüler nicht
     zu sehen, die traegt nur den Start."""
     from ide.project.neu import projekt_erzeugen
 

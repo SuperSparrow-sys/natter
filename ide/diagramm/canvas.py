@@ -442,8 +442,8 @@ class DiagrammCanvas(ZoomMischung, QWidget):
             return
 
         # Erst alle Verbindungen, dann alle Formen - und jede Verbindung
-        # nur einmal, sonst stolpert das Rueckgaengig ueber sich selbst,
-        # wenn beide Enden mitgeloescht werden.
+        # nur einmal, sonst stolpert das Rückgängig über sich selbst,
+        # wenn beide Enden mitgelöscht werden.
         kommandos = []
         gesehen: list[dict[str, Any]] = []
         for ziel in ziele:

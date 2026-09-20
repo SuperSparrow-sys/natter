@@ -90,7 +90,7 @@ def test_die_symbolnamen_sind_dieselben_wie_in_der_palette() -> None:
 
 def test_nach_einem_themewechsel_steht_der_baum_noch() -> None:
     """Ein `QIcon` merkt sich seine Farben - deshalb wird der Baum neu
-    aufgebaut. Dabei darf er nicht leer zurueckbleiben."""
+    aufgebaut. Dabei darf er nicht leer zurückbleiben."""
     baum = Komponentenbaum()
     baum.formular_anzeigen(_Formular())
 

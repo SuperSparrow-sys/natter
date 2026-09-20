@@ -167,8 +167,8 @@ def test_doppelklick_auf_das_formular_erzeugt_form_create(tmp_path: Path) -> Non
 
 
 def test_stringgrid_nennt_sein_kennzeichnendes_ereignis(tmp_path: Path) -> None:
-    """Seit das `StringGrid` zwei eigene Ereignisse hat, waere es sonst
-    mehrdeutig geworden - und ein Doppelklick haette gar nichts mehr
+    """Seit das `StringGrid` zwei eigene Ereignisse hat, wäre es sonst
+    mehrdeutig geworden - und ein Doppelklick hätte gar nichts mehr
     angelegt. `standard_ereignis` sagt, welches gemeint ist: die
     Auswahl, wie `OnSelectCell` in Lazarus."""
     from pcl import StringGrid

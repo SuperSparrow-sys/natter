@@ -264,7 +264,7 @@ def regression(x: Any, y: Any, art: str = "linear", *, grad: int = 2) -> Regress
 
     Beispiel::
 
-        ergebnis = regression(groesse, schuhgroesse)
+        ergebnis = regression(Größe, schuhgroesse)
         print(ergebnis.formel)              # y = 0,25·x - 5,00
         print(ergebnis.bestimmtheitsmass)   # 0.97
         print(ergebnis.vorhersage(180))     # 40.0

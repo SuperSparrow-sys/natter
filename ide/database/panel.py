@@ -3,7 +3,7 @@ Tabellen-/Spaltenbaum anzeigen, SQL-Abfragen ausführen und das Ergebnis
 als Tabelle anzeigen; dazu „CSV in Datenbank importieren“ sowie Export
 einer Tabelle als CSV oder SQL-Dump.
 
-Seit gibt es hier keine Treiberauswahl und keine
+Seitdem gibt es hier keine Treiberauswahl und keine
 Zugangsdaten mehr: Natter kennt nur noch SQLite (siehe den Modulkopf von
 `pcl/components/data_access.py`). Eine Datenbankdatei braucht weder
 Server noch Benutzer noch Passwort – und ein Passwortfeld, dessen Inhalt
@@ -175,7 +175,7 @@ class DatenbankPanel(QWidget):
         return [str(zeile["name"]) for zeile in zeilen]
 
     def _spaltennamen(self, tabelle: str) -> list[str]:
-        # PRAGMA kennt keine Platzhalter fuer den Tabellennamen; der Name
+        # PRAGMA kennt keine Platzhalter für den Tabellennamen; der Name
         # kommt aus sqlite_master, nicht aus einer Eingabe.
         zeilen = self._verbindung.query(f'PRAGMA table_info("{tabelle}")')
         return [str(zeile["name"]) for zeile in zeilen]

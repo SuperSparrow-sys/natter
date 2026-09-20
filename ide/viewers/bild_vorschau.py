@@ -35,7 +35,7 @@ class BildVorschau(QWidget):
         )
 
         groesse_kb = self._pfad.stat().st_size / 1024
-        # Dezimalkomma wie ueberall in der Oberflaeche.
+        # Dezimalkomma wie überall in der Oberfläche.
         groesse_text = f"{groesse_kb:.1f}".replace(".", ",")
         self._info_label = QLabel(
             f"{self._pixmap.width()} × {self._pixmap.height()} Pixel, {groesse_text} KB"

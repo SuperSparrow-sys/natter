@@ -307,7 +307,7 @@ def test_die_anzeige_bleibt_leer_ohne_pruefung(echte_einstellungen: QSettings, q
 #
 # Die letzte offene Frage aus M11, Abschnitt 6, jetzt entschieden: die
 # Liste bleibt an - sie ist Schreibhilfe, und Lazarus hat sie im
-# Unterricht auch. Die deutschen Erklaerungen daneben fallen weg;
+# Unterricht auch. Die deutschen Erklärungen daneben fallen weg;
 # "Wird beim Klicken ausgeloest" neben `on_click` ist nah an der
 # Antwort auf genau die Frage, die in der Klausur steht.
 
@@ -336,7 +336,7 @@ def test_die_liste_selbst_bleibt_an(
     echte_einstellungen: QSettings, tmp_path: Path
 ) -> None:
     """Geprueft wird am Editor, nicht an der Datenklasse: die Liste muss
-    Eintraege zeigen, und zwar ohne Erklaerung."""
+    Einträge zeigen, und zwar ohne Erklärung."""
     from ide.shell.quelltexteditor import QuelltextEditor
 
     quelltext = """from pcl import Form, Button

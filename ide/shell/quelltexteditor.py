@@ -99,7 +99,7 @@ _EINZUG_MUSTER = re.compile(r"[ \t]*")
 _BREAKPOINT_DURCHMESSER = 10
 _BREAKPOINT_SPALTE_BREITE = _BREAKPOINT_DURCHMESSER + 6
 
-#: Streifen rechts im Rand fuer die Faltzeichen (M11, 2.3).
+#: Streifen rechts im Rand für die Faltzeichen (M11, 2.3).
 _FALT_SPALTE_BREITE = 14
 
 #: Zeilen, die eine Klasse oder Funktion eröffnen. Nur diese lassen

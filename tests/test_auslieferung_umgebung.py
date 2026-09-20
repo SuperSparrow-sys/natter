@@ -73,9 +73,9 @@ def test_der_rest_der_umgebung_bleibt(seite: str, verseuchte_umgebung: None) -> 
 # -- Tcl/Tk fliegt aus der Auslieferung ----------------
 #
 # "Tk Inter kann komplett raus aus der Installation." Tcl/Tk ist Pythons
-# zweite Fenstertechnik - Natter baut jede Oberflaeche mit Qt, und `pcl`
+# zweite Fenstertechnik - Natter baut jede Oberfläche mit Qt, und `pcl`
 # importiert `tkinter` nirgends. Mitgehen wuerde es trotzdem, weil es zur
-# Standardbibliothek gehoert: rund 13 MB, davon 9 MB Tcl-Skripte.
+# Standardbibliothek gehört: rund 13 MB, davon 9 MB Tcl-Skripte.
 
 
 def test_tcl_tk_wird_aus_der_mitgelieferten_python_entfernt(tmp_path) -> None:
@@ -120,8 +120,8 @@ def test_eine_fehlende_datei_laesst_den_bau_nicht_scheitern(tmp_path) -> None:
 
 
 def test_natter_selbst_fasst_tkinter_nirgends_an() -> None:
-    """Der Grund, warum es weg darf. Faellt jemand spaeter darauf
-    zurueck, bricht die Auslieferung - deshalb steht es hier."""
+    """Der Grund, warum es weg darf. Faellt jemand später darauf
+    zurück, bricht die Auslieferung - deshalb steht es hier."""
     from pathlib import Path
 
     wurzel = Path(__file__).resolve().parent.parent

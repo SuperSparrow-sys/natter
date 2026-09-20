@@ -358,7 +358,7 @@ _STANDARDGROESSEN: dict[str, tuple[int, int]] = {
     "ScrollBar": (150, 17),
     "StringGrid": (220, 150),
     "Image": (100, 100),
-    # Eine Zeichenflaeche im Querformat, gross genug zum Zeichnen.
+    # Eine Zeichenfläche im Querformat, gross genug zum Zeichnen.
     "PaintBox": (200, 150),
     # Ein Zeitgeber zeigt nur sein Symbol - quadratisch und klein, wie
     # das Entwurfszeit-Symbol einer nicht sichtbaren Komponente in
@@ -413,7 +413,7 @@ class _PlatzierenKommando:
         # Koordinaten, und der Design-Prüfer meldete anschließend
         # „steht nicht am 8px-Raster" - für etwas, das der Schüler gar
         # nicht verursacht hat, sondern das Werkzeug selbst (im
-        # Durchgang durch den Schuelerweg aufgefallen). Die Pfeiltasten
+        # Durchgang durch den Schülerweg aufgefallen). Die Pfeiltasten
         # verschieben seit jeher in Rasterschritten; das Ablegen zieht
         # damit nach.
         self.neue_komponente.left = _am_raster(ex)

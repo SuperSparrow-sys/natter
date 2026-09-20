@@ -64,9 +64,9 @@ def test_console_projekt_erzeugt_main_und_natter_datei(tmp_path: Path) -> None:
     assert projekt.typ == "console"
     assert (ziel / "KonsolenTest.natter").exists()
     # Der Begruessungstext steht in `u_main.py`, nicht in `main.py`:
-    # dort steht der Code der Schuelerin (Nutzer,
+    # dort steht der Code der Schülerin (Nutzer,
     # "Jedes Projekt braucht eine Main um zu starten und eine u_main wo
-    # der Schueler Code drin steht"). Bis dahin trug ein
+    # der Schüler Code drin steht"). Bis dahin trug ein
     # Konsolenprojekt seinen ganzen Inhalt in der Startdatei.
     assert "KonsolenTest" in (ziel / "u_main.py").read_text(encoding="utf-8")
     assert "KonsolenTest" not in (ziel / "main.py").read_text(encoding="utf-8")
@@ -75,8 +75,8 @@ def test_console_projekt_erzeugt_main_und_natter_datei(tmp_path: Path) -> None:
 
 
 def test_console_projekt_startet_wirklich(tmp_path: Path) -> None:
-    """Der Import in `main.py` muss `u_main.py` auch tatsaechlich
-    ausfuehren - sonst startet ein frisches Konsolenprojekt stumm."""
+    """Der Import in `main.py` muss `u_main.py` auch tatsächlich
+    ausführen - sonst startet ein frisches Konsolenprojekt stumm."""
     import subprocess
     import sys
 

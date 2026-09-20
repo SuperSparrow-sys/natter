@@ -159,19 +159,19 @@ def test_jedes_projekt_erklaert_seine_stufe(name: str) -> None:
 
 # -- Was der Projekt-Explorer bei jedem Beispiel zeigt -------------------
 #
-# Anlass (Nutzer-Auftrag): "Pruefe ob bei allen
+# Anlass (Nutzer-Auftrag): "Prüfe ob bei allen
 # Beispielprogrammen die Units alle korrekt gezeigt werden und ob auch
 # die Diagramme und Struktogramme richtig gezeigt werden. Das soll bei
 # allen der Fall sein."
 #
-# Dabei kam heraus: die beiden Konsolenstufen oeffneten sich mit einem
+# Dabei kam heraus: die beiden Konsolenstufen öffneten sich mit einem
 # voellig leeren Explorer. Ihre einzige Datei war `main.py`, und die
 # ist als Startdatei ausgeblendet - dort stand aber der ganze
-# Schuelercode. Die Antwort darauf war nicht, die Startdatei zu zeigen,
+# Schülercode. Die Antwort darauf war nicht, die Startdatei zu zeigen,
 # sondern der Grundsatz des Nutzers: "Jedes Projekt braucht eine Main um
-# zu starten und eine u_main wo der Schueler Code drin steht." Seither
+# zu starten und eine u_main wo der Schüler Code drin steht." Seither
 # haben auch Konsolenprojekte eine `u_main.py`, und `main.py` ist
-# ueberall nur noch der Starter.
+# überall nur noch der Starter.
 
 
 @pytest.mark.parametrize("name", NAMEN)
@@ -192,8 +192,8 @@ def test_der_explorer_zeigt_bei_jedem_beispiel_etwas(name: str, qtbot) -> None:
 
 @pytest.mark.parametrize("name", NAMEN)
 def test_jede_sichtbare_gruppe_hat_auch_eintraege(name: str, qtbot) -> None:
-    """Keine fette Ueberschrift ohne einen einzigen Eintrag darunter -
-    das sieht aus, als waere etwas kaputtgegangen."""
+    """Keine fette Überschrift ohne einen einzigen Eintrag darunter -
+    das sieht aus, als wäre etwas kaputtgegangen."""
     from ide.shell.explorer import ProjektExplorer
 
     baum = ProjektExplorer()
@@ -253,7 +253,7 @@ def test_die_diagramme_der_kontoverwaltung_stehen_im_explorer(qtbot) -> None:
 )
 def test_jedes_diagramm_laesst_sich_wirklich_oeffnen(datei: str, typ: str, qtbot) -> None:
     """Nicht nur laden: das Fenster aufbauen und nachsehen, dass auf der
-    Zeichenflaeche wirklich etwas steht."""
+    Zeichenfläche wirklich etwas steht."""
     from ide.diagramm.datei import Diagramm
     from ide.diagramm.fenster import DiagrammFenster
 
@@ -287,7 +287,7 @@ def test_jedes_projekt_hat_eine_main_und_eine_u_main(name: str) -> None:
 
 @pytest.mark.parametrize("name", NAMEN)
 def test_die_main_startet_nur_und_enthaelt_keinen_unterricht(name: str) -> None:
-    """"Main.py ist nur dafuer da um das Script zu starten. Alles was
+    """"Main.py ist nur dafür da um das Script zu starten. Alles was
     programmiert werden muss passiert in u_main.py" - Nutzer, September
     2026. Gemessen an Zeilen, die wirklich etwas tun."""
     zeilen = [
@@ -300,7 +300,7 @@ def test_die_main_startet_nur_und_enthaelt_keinen_unterricht(name: str) -> None:
 
 @pytest.mark.parametrize("name", NAMEN)
 def test_die_main_steht_in_keinem_explorer(name: str, qtbot) -> None:
-    """Schueler sollen nicht in die main.py schauen muessen - also darf
+    """Schüler sollen nicht in die main.py schauen müssen - also darf
     sie auch nirgends im Baum auftauchen."""
     from ide.shell.explorer import ProjektExplorer
 
@@ -318,13 +318,13 @@ def test_die_main_steht_in_keinem_explorer(name: str, qtbot) -> None:
 
 @pytest.mark.parametrize("name", NAMEN)
 def test_der_schuelercode_kommt_ohne_qt_aus(name: str) -> None:
-    """Befuellt wird ueber die Komponenten selbst - `self.l_x.caption =
-    "..."` - und nie ueber Qt. Eigenschaft im Objektinspektor und
+    """Befuellt wird über die Komponenten selbst - `self.l_x.caption =
+    "..."` - und nie über Qt. Eigenschaft im Objektinspektor und
     Attribut im Code sind dasselbe; das ist der Kern des Konzepts."""
     verboten = ("PySide6", "QtWidgets", "_qwidget", ".setText(", ".setValue(")
     for datei in sorted((BEISPIELE / name).glob("u_*.py")):
         if datei.name.endswith("_design.py"):
-            continue  # erzeugt, nicht vom Schueler
+            continue  # erzeugt, nicht vom Schüler
         text = datei.read_text(encoding="utf-8")
         for wort in verboten:
             assert wort not in text, f"{name}/{datei.name}: {wort} gehoert nicht in Schuelercode"

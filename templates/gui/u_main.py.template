@@ -12,8 +12,8 @@
 #     self.e_name.text = ""
 #     self.b_ok.enabled = False
 #
-# Die Eigenschaften heissen genauso wie im Objektinspektor. Was sich
-# dort einstellen laesst, laesst sich auch hier setzen - und umgekehrt.
+# Die Eigenschaften heißen genauso wie im Objektinspektor. Was sich
+# dort einstellen lässt, lässt sich auch hier setzen - und umgekehrt.
 #
 #
 # AUF EINEN KLICK REAGIEREN
@@ -29,15 +29,15 @@
 # Designer geschrieben. Deshalb stehen hier nur die Methoden - das
 # Verbinden ist schon erledigt.
 #
-# sender ist die Komponente, die das Ereignis ausgeloest hat. Haengen
-# mehrere Knoepfe an derselben Methode, laesst sich daran erkennen,
-# welcher gedrueckt wurde.
+# sender ist die Komponente, die das Ereignis ausgelöst hat. Hängen
+# mehrere Knöpfe an derselben Methode, lässt sich daran erkennen,
+# welcher gedrückt wurde.
 #
 #
 # ETWAS BEIM START TUN
 #
-# Ein Doppelklick auf die freie Flaeche des Formulars legt form_create
-# an - das laeuft einmal, bevor das Fenster erscheint.
+# Ein Doppelklick auf die freie Fläche des Formulars legt form_create
+# an - das läuft einmal, bevor das Fenster erscheint.
 
 from u_main_design import Form1Design
 

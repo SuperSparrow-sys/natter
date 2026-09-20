@@ -267,7 +267,7 @@ def _lesbarkeit_pruefen(pfm: dict[str, Any]) -> list[Befund]:
             verhaeltnis = _kontrastverhaeltnis(farbe, _THEME_TEXTFARBEN[theme])
             if verhaeltnis < _KONTRAST_MINDESTVERHAELTNIS:
                 ziel = name or "Das Formular"
-                # Dezimalkomma wie ueberall in der Oberflaeche - der
+                # Dezimalkomma wie überall in der Oberfläche - der
                 # Befund landet im Panel „Meldungen“ und wird gelesen.
                 gemessen = f"{verhaeltnis:.1f}".replace(".", ",")
                 befunde.append(

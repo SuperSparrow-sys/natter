@@ -337,7 +337,7 @@ def test_der_hinweis_nennt_die_haeufigen_gruende(
     assert "schreibgeschützt" in gezeigt[0]
 
 
-# -- Rueckgaengig ---------------------------------------------------------
+# -- Rückgängig ---------------------------------------------------------
 
 
 def test_das_menue_macht_auch_im_designer_rueckgaengig(

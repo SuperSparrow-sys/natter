@@ -112,7 +112,7 @@ def test_stringgrid_meldet_die_ausgewaehlte_zelle() -> None:
 
 def test_stringgrid_meldet_keine_auswahl_wenn_gar_keine_zelle_mehr_da_ist() -> None:
     """Qt zeigt mit -1 an, dass nichts ausgewaehlt ist - etwa nachdem
-    die letzte Zeile geloescht wurde. Das ist keine Auswahl."""
+    die letzte Zeile gelöscht wurde. Das ist keine Auswahl."""
     formular = _Formular()
     gemeldet: list[tuple[int, int]] = []
     formular.sg_tabelle.on_select_cell = lambda sender, spalte, zeile: gemeldet.append(
@@ -132,8 +132,8 @@ def test_stringgrid_meldet_eine_aenderung_durch_den_benutzer() -> None:
     )
     formular.sg_tabelle.cells[1, 2] = "vorher"
 
-    # So kommt eine Aenderung an, die der Benutzer im Widget vorgenommen
-    # hat: ueber den Eintrag selbst, nicht ueber `cells`.
+    # So kommt eine Änderung an, die der Benutzer im Widget vorgenommen
+    # hat: über den Eintrag selbst, nicht über `cells`.
     formular.sg_tabelle._qwidget.item(2, 1).setText("nachher")
 
     assert gemeldet == [(1, 2, "nachher")]
@@ -141,7 +141,7 @@ def test_stringgrid_meldet_eine_aenderung_durch_den_benutzer() -> None:
 
 def test_was_das_programm_selbst_schreibt_ist_keine_aenderung() -> None:
     """Sonst loeste schon das Fuellen der Tabelle hundert Ereignisse
-    aus - `load_dataframe` schreibt Zelle fuer Zelle."""
+    aus - `load_dataframe` schreibt Zelle für Zelle."""
     formular = _Formular()
     gemeldet: list[object] = []
     formular.sg_tabelle.on_edit_cell = lambda *args: gemeldet.append(args)

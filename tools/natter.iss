@@ -1,4 +1,4 @@
-; Installer für Natter selbst (nicht ein Schülerprojekt) - Nutzer-
+﻿; Installer für Natter selbst (nicht ein Schülerprojekt) - Nutzer-
 ; Feedback September 2026: "Programm als exe nur zum Download auf z. B.
 ; einer Website, man installiert die exe und kann dann auch eine
 ; .natter-Datei einfach öffnen". Baut auf dem Ordner auf, den
@@ -34,11 +34,11 @@ AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 ; Die klassischen Schritte einer Windows-Installation (M13):
-; Willkommen, Lizenz, Zielordner, Startmenue-Ordner, Zusatzaufgaben,
+; Willkommen, Lizenz, Zielordner, Startmenü-Ordner, Zusatzaufgaben,
 ; Zusammenfassung, Fortschritt, Fertigstellen.
 ;
 ; Inno Setup 6 blendet die Willkommensseite in der modernen Darstellung
-; standardmaessig aus - hier ausdruecklich wieder eingeschaltet.
+; standardmäßig aus - hier ausdrücklich wieder eingeschaltet.
 DisableWelcomePage=no
 DisableProgramGroupPage=no
 DisableDirPage=no
@@ -63,7 +63,7 @@ AppSupportURL=https://github.com/SuperSparrow-sys/natter
 AppUpdatesURL=https://github.com/SuperSparrow-sys/natter
 ; Windows 10 oder neuer - PySide6 setzt das ohnehin voraus.
 MinVersion=10.0
-; Damit der Explorer die neue .natter-Verknuepfung sofort uebernimmt.
+; Damit der Explorer die neue .natter-Verknüpfung sofort übernimmt.
 ChangesAssociations=yes
 ; HKA statt HKLM/HKCU: installiert je nach Adminrechten passend
 ; systemweit oder nur für den aktuellen Nutzer - praktisch für
@@ -77,7 +77,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
-; Die Dateiverknuepfung als Zusatzaufgabe statt stillschweigend: auf
+; Die Dateiverknüpfung als Zusatzaufgabe statt stillschweigend: auf
 ; einem Schulrechner kann daneben eine andere Umgebung liegen, die
 ; .natter ebenfalls beansprucht.
 Name: "natterverknuepfung"; Description: "{cm:AssocFileExtension,{#MyAppName},.natter}"
@@ -92,14 +92,14 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Registry]
 ; .natter-Dateiendung mit Natter verknüpfen - Doppelklick im Explorer
-; öffnet das Projekt direkt (Nutzer-Feedback: "kann dann auch eine
+; öffnet das Projekt direkt (gemeldet: "kann dann auch eine
 ; .natter Datei auch einfach öffnen"). ide/main.py liest den Pfad aus
 ; sys.argv[1] (siehe _projekt_aus_argv_oeffnen).
 ; uninsdeletevalue *und* uninsdeletekeyifempty: der Wert allein darf
-; nicht stehenbleiben (eine andere Anwendung koennte .natter inzwischen
-; fuer sich beansprucht haben), der leere Schluessel aber auch nicht -
+; nicht stehenbleiben (eine andere Anwendung könnte .natter inzwischen
+; für sich beansprucht haben), der leere Schlüssel aber auch nicht -
 ; nach dem Deinstallieren blieb sonst ein verwaister
-; HKCU\Software\Classes\.natter zurueck (M13, nachgesehen).
+; HKCU\Software\Classes\.natter zurück (M13, nachgesehen).
 Root: HKA; Subkey: "Software\Classes\.natter"; ValueType: string; ValueName: ""; ValueData: "NatterProjekt"; Flags: uninsdeletevalue uninsdeletekeyifempty; Tasks: natterverknuepfung
 Root: HKA; Subkey: "Software\Classes\NatterProjekt"; ValueType: string; ValueName: ""; ValueData: "Natter-Projekt"; Flags: uninsdeletekey; Tasks: natterverknuepfung
 Root: HKA; Subkey: "Software\Classes\NatterProjekt\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#MyAppExeName},0"; Tasks: natterverknuepfung
@@ -108,7 +108,7 @@ Root: HKA; Subkey: "Software\Classes\NatterProjekt\shell\open\command"; ValueTyp
 [UninstallDelete]
 ; Der Uninstaller entfernt von sich aus nur, was der Installer gelegt
 ; hat. In python\ entsteht danach aber noch einiges: __pycache__ zu
-; jedem Modul und alles, was ueber das Menue "Pakete" nachinstalliert
+; jedem Modul und alles, was über das Menü "Pakete" nachinstalliert
 ; wird. Ohne diese Zeile bliebe nach dem Deinstallieren ein Ordner mit
 ; hunderten Megabyte stehen (M13).
 Type: filesandordirs; Name: "{app}\python"

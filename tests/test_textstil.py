@@ -156,3 +156,85 @@ def test_die_meldungen_der_ide_sprechen_niemanden_an() -> None:
             if DU_FORMEN.search(inhalt):
                 treffer.append(f"{pfad.relative_to(WURZEL)}:{marke.start[0]}: {inhalt[:70]}")
     assert not treffer, "Direkte Anrede in einem Text:\n" + "\n".join(treffer[:10])
+
+
+# --------------------------------------------------------- Umlaute
+#
+# In allem, was jemand liest, stehen echte Umlaute - kein „fuer",
+# „ueber", „heisst". Bezeichner bleiben davon unberuehrt: `loeschen`
+# als Methodenname ist richtig so, `wird geloescht` in einem Satz
+# nicht.
+
+#: Woerter, in denen ae/oe/ue/ss fast immer eine Umschreibung ist.
+UMSCHRIEBEN = re.compile(
+    r"\b([Ff]uer|[Uu]eber\w*|[Kk]oenn\w*|[Mm]uess\w*|[Ww]aer\w*|[Zz]urueck\w*|"
+    r"[Nn]aechst\w*|[Gg]roess\w*|[Ss]chliess\w*|[Hh]eiss\w*|[Ll]oesch\w*|"
+    r"[Ll]oesung\w*|[Oo]effn\w*|[Ss]chueler\w*|[Aa]ender\w*|[Aa]usfuehr\w*|"
+    r"[Ee]infueg\w*|[Pp]ruef\w*|[Ee]rklaer\w*|[Ww]aehl\w*|[Mm]oegl\w*|"
+    r"[Hh]oehe|[Bb]loecke|[Kk]noepfe|[Mm]enue\w*|[Ff]laeche\w*|[Hh]aeng\w*|"
+    r"[Gg]ehoer\w*|[Aa]nhaelt|[Ll]aeuft|[Ll]aesst|[Ss]paeter|[Hh]aett\w*)\b"
+)
+
+#: Was kein Fliesstext ist: Backticks, Bezeichner, Pfade, Aufrufe und
+#: Zeichenketten in Anfuehrungszeichen.
+NICHT_PROSA = re.compile(
+    r"`[^`\n]*`|\b\w*_\w+\b|\b\w+\.\w+\b|\b\w+\(|\"[^\"\n]*\"|'[^'\n]*'"
+)
+
+
+def _prosa(text: str) -> str:
+    return NICHT_PROSA.sub(" ", text)
+
+
+def _ohne_codebloecke(text: str) -> list[tuple[int, str]]:
+    """Die Zeilen eines Textes ohne die Codebeispiele.
+
+    In einem Beispiel wie `class Schueler:` oder
+    `regression(groessen, schuhgroessen)` ist der ASCII-Bezeichner
+    richtig - ein Umlaut hätte dort nichts zu suchen. Gemeint ist die
+    Prosa darum herum.
+    """
+    zeilen = []
+    im_block = False
+    for nummer, zeile in enumerate(text.splitlines(), 1):
+        if zeile.lstrip().startswith("```"):
+            im_block = not im_block
+            continue
+        if not im_block:
+            zeilen.append((nummer, zeile))
+    return zeilen
+
+
+@pytest.mark.parametrize("pfad", TEXTDATEIEN, ids=lambda p: p.name)
+def test_die_texte_benutzen_echte_umlaute(pfad: Path) -> None:
+    treffer = [
+        f"Zeile {nummer}: {wort}"
+        for nummer, zeile in _ohne_codebloecke(_lesen(pfad))
+        for wort in UMSCHRIEBEN.findall(_prosa(zeile))
+    ]
+    assert not treffer, f"{pfad.name} schreibt Umlaute um:\n" + "\n".join(treffer[:8])
+
+
+def test_kommentare_und_docstrings_benutzen_echte_umlaute() -> None:
+    treffer = []
+    for pfad in ALLE_PYTHON:
+        for nummer, text in _kommentare_und_docstrings(pfad):
+            for wort in UMSCHRIEBEN.findall(_prosa(text)):
+                treffer.append(f"{pfad.relative_to(WURZEL)}:{nummer}  {wort}")
+    assert not treffer, "Umschriebene Umlaute im Quelltext:\n" + "\n".join(treffer[:10])
+
+
+def test_der_installer_liest_seine_texte_als_utf8() -> None:
+    """Inno Setup 6 erkennt eine Textdatei nur an der Byte-Order-Mark
+    als Unicode. Ohne sie liest es in der ANSI-Codepage des Rechners,
+    und aus „für" wird Zeichensalat - genau deshalb standen dort frueher
+    „ue"-Umschreibungen."""
+    for name in ("INSTALLER_LIZENZ.txt", "INSTALLER_HINWEIS.txt"):
+        pfad = WURZEL / "tools" / "lizenz_vorlagen" / name
+        roh = pfad.read_bytes()
+        assert roh.startswith(b"\xef\xbb\xbf"), f"{name} hat keine BOM"
+        text = roh.decode("utf-8-sig")
+        assert any(zeichen in text for zeichen in "äöüÄÖÜß"), f"{name} ohne Umlaute"
+
+    iss = (WURZEL / "tools" / "natter.iss").read_bytes()
+    assert iss.startswith(b"\xef\xbb\xbf"), "natter.iss hat keine BOM"

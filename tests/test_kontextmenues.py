@@ -72,14 +72,14 @@ def explorer(qtbot, tmp_path: Path) -> ProjektExplorer:
 
 
 #: Die Unit, um die es hier geht - eine gewoehnliche, die sich
-#: umbenennen und loeschen laesst.
+#: umbenennen und löschen lässt.
 ERSTE_UNIT = "u_hilfe.py"
 
 
 def _punkt_der_unit(baum: ProjektExplorer) -> QPoint:
     """Die Mitte der `u_hilfe.py`-Zeile.
 
-    Ueber den Namen gesucht, nicht ueber den Index. Neben
+    Über den Namen gesucht, nicht über den Index. Neben
     `u_hilfe.py` steht `u_main.py` im Baum, und die traegt das Programm:
     sie hat bewusst kein Kontextmenue, weil `main.py` genau diesen Namen
     importiert. Sie steht alphabetisch nach `u_hilfe.py`, aber auf
@@ -97,9 +97,9 @@ def _punkt_der_unit(baum: ProjektExplorer) -> QPoint:
 def test_die_unit_die_das_programm_traegt_bietet_kein_menue(
     explorer: ProjektExplorer,
 ) -> None:
-    """`u_main.py` steht im Baum, weil der Schuelercode darin steht -
-    aber „Umbenennen …"/„Loeschen …" waeren dort beide ein Projekt, das
-    sich nicht mehr starten laesst: `main.py` importiert diesen Namen."""
+    """`u_main.py` steht im Baum, weil der Schülercode darin steht -
+    aber „Umbenennen …"/„Loeschen …" wären dort beide ein Projekt, das
+    sich nicht mehr starten lässt: `main.py` importiert diesen Namen."""
     eintrag = next(
         explorer.units_gruppe.child(i)
         for i in range(explorer.units_gruppe.childCount())

@@ -35,9 +35,9 @@ def test_explorer_zeigt_einen_knopf_fuer_jede_unit(tmp_path: Path) -> None:
 
     assert projekt.units()  # sanity: es gibt überhaupt Units
     assert mit_knopf == {"u_konto.py"}
-    # `u_main.py` heisst wie `u_main.pfm`, und das ist keine
+    # `u_main.py` heißt wie `u_main.pfm`, und das ist keine
     # Schreibweise, sondern die Verbindung zwischen beiden. Eine davon
-    # allein umzubenennen zerrisse das Paar - deshalb kein Menue.
+    # allein umzubenennen zerrisse das Paar - deshalb kein Menü.
     assert ohne_knopf == {"u_main.py"}
 
 

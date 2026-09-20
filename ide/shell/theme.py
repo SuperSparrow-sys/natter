@@ -26,12 +26,12 @@ from pcl.theme import _tokens_laden, theme_aufloesen
 _ICON_ORDNER = Path(__file__).resolve().parent.parent / "assets" / "icons"
 
 
-#: Objektname der Eintraege auf dem Startbild.
+#: Objektname der Einträge auf dem Startbild.
 #:
-#: Ueber den Namen greift die Regel weiter unten genau diese Knoepfe
-#: heraus - eine ID-Regel gewinnt in Qt gegen die allgemeine Regel fuer
+#: Über den Namen greift die Regel weiter unten genau diese Knöpfe
+#: heraus - eine ID-Regel gewinnt in Qt gegen die allgemeine Regel für
 #: `QPushButton`, ohne dass das Startbild die Farben des Themas kennen
-#: muesste. `ide/shell/startbild.py` setzt ihn.
+#: müsste. `ide/shell/startbild.py` setzt ihn.
 STARTBILD_EINTRAG = "startbildEintrag"
 
 

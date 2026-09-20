@@ -143,7 +143,7 @@ def test_dbgrid_ohne_offene_abfrage_bleibt_leer() -> None:
 # Bis dahin verlangte jede dieser Komponenten eine `DataSource` im
 # Konstruktor. Der Designer erzeugt Komponenten aber mit `typ(formular)`
 # allein - keine davon liess sich also auf ein Formular legen oder vom
-# Eigenschaften-Rundlauf pruefen (der offene Punkt aus M11).
+# Eigenschaften-Rundlauf prüfen (der offene Punkt aus M11).
 
 
 def test_alle_data_controls_lassen_sich_ohne_datenquelle_anlegen() -> None:

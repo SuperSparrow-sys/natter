@@ -169,7 +169,7 @@ def test_code_stellen_bekommen_eine_schrift_die_es_gibt(qtbot) -> None:
     familien = _familien(ansicht)
     assert "monospace" not in familien
     vorhanden = set(QFontDatabase.families())
-    if vorhanden:  # ohne geladene Schriften ist nichts zu pruefen
+    if vorhanden:  # ohne geladene Schriften ist nichts zu prüfen
         assert familien & vorhanden, f"Keine der Familien {familien} gibt es wirklich"
 
 

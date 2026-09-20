@@ -135,14 +135,14 @@ def test_ein_neuer_unitname_kollidiert_nicht_mit_der_startdatei(
     assert (ordner / "main.py").read_text(encoding="utf-8") == "print('start')" + chr(10)
 
 
-# -- Konsolenprojekte: auch dort schreibt die Schuelerin in u_main.py --
+# -- Konsolenprojekte: auch dort schreibt die Schülerin in u_main.py --
 #
 # Erst stand der ganze Code eines Konsolenprojekts in `main.py`, und die
 # ist als Startdatei ausgeblendet - die ersten beiden Lehrgangsstufen
-# oeffneten sich deshalb mit einem voellig leeren Projekt-Explorer. Die
+# öffneten sich deshalb mit einem voellig leeren Projekt-Explorer. Die
 # Antwort darauf war nicht, die Startdatei zu zeigen, sondern der
 # Grundsatz des Nutzers : "Jedes Projekt braucht eine
-# Main um zu starten und eine u_main wo der Schueler Code drin steht."
+# Main um zu starten und eine u_main wo der Schüler Code drin steht."
 
 
 @pytest.fixture
@@ -221,13 +221,13 @@ def test_eine_gewoehnliche_unit_behaelt_ihr_kontextmenue(
     assert baum.itemWidget(eintrag, 1) is not None
 
 
-# -- Leere Gruppen stehen nicht als leere Ueberschrift da ----------------
+# -- Leere Gruppen stehen nicht als leere Überschrift da ----------------
 
 
 def test_ein_konsolenprojekt_zeigt_keine_gruppe_formulare(
     konsolenprojekt: Projekt, qtbot
 ) -> None:
-    """Ein Konsolenprojekt kann ueberhaupt keine Formulare haben."""
+    """Ein Konsolenprojekt kann überhaupt keine Formulare haben."""
     baum = ProjektExplorer()
     qtbot.addWidget(baum)
 

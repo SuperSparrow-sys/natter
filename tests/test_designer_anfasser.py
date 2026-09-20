@@ -74,10 +74,10 @@ def test_ausgewaehlte_komponente_zeigt_acht_anfasser_an_den_richtigen_stellen() 
 
 
 def test_das_formular_bekommt_drei_anfasser() -> None:
-    """Bis waren es null: wer das Formular anklickte,
- sah gar keine, und die Fenstergroesse liess sich nur ueber
- `width`/`height` im Objektinspektor aendern (Gemeldet: „der
- designer hat eine zu kleine flaeche, diese soll anpassbar sein ueber
+    """Früher waren es null: wer das Formular anklickte, sah gar
+    keine, und die Fenstergröße ließ sich nur über `width`/`height`
+    im Objektinspektor ändern (Gemeldet: „der
+ designer hat eine zu kleine Fläche, diese soll anpassbar sein über
  die ecken zum ziehen").
 
  Drei, nicht acht: im Designer sitzt das Formular fest in der linken
@@ -98,8 +98,8 @@ def test_das_formular_bekommt_drei_anfasser() -> None:
 
 
 def test_die_anfasser_des_formulars_liegen_innen() -> None:
-    """Ein Anfasser, der halb ueber den Rand hinausragt, laege
-    ausserhalb des Formular-Widgets und waere unsichtbar."""
+    """Ein Anfasser, der halb über den Rand hinausragt, laege
+    ausserhalb des Formular-Widgets und wäre unsichtbar."""
     formular = _Formular()
     canvas = DesignerCanvas(formular)
 
@@ -123,8 +123,8 @@ def test_das_formular_laesst_sich_groesser_ziehen() -> None:
 
 
 def test_ein_zusammengezogenes_formular_bleibt_anfassbar() -> None:
-    """Bei einem Pixel laegen die drei Anfasser uebereinander in einem
-    Punkt - das Formular waere nicht mehr aufzuziehen."""
+    """Bei einem Pixel lägen die drei Anfasser übereinander in einem
+    Punkt - das Formular wäre nicht mehr aufzuziehen."""
     formular = _Formular()
     canvas = DesignerCanvas(formular)
     canvas.klick_bei(5, 5)

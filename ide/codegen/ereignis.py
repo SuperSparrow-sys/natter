@@ -103,7 +103,7 @@ class _MethodeUmbenennen(cst.CSTTransformer):
         self, original_node: cst.Attribute, updated_node: cst.Attribute
     ) -> cst.Attribute:
         # `self.cb_ausgabe_change` als Wert, etwa bei einer eigenen
-        # Zuweisung im Schuelercode.
+        # Zuweisung im Schülercode.
         if original_node.attr.value != self.alt:
             return updated_node
         return updated_node.with_changes(attr=cst.Name(self.neu))
@@ -115,7 +115,7 @@ def handler_methode_umbenennen(quelltext: str, alt: str, neu: str) -> tuple[str,
     Gebraucht beim Umbenennen einer Komponente im Designer: Lazarus
     zieht die Ereignismethoden dort mit, und wer `cb_ausgabe` in
     `cb_minus` umbenennt, will nicht `cb_minus.on_change =
-    self.cb_ausgabe_change` zurueckbehalten.
+    self.cb_ausgabe_change` zurückbehalten.
 
     Liefert `(quelltext, ob etwas umbenannt wurde)`. Der Aufrufer
     entscheidet, ob umbenannt werden darf - hier wird nur

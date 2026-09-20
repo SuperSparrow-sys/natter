@@ -225,7 +225,7 @@ class DiagrammFenster(QMainWindow):
             self.eigenschaften = None
         elif self.diagramm.typ == "entscheidungstabelle":
             # Eine Tabelle wird direkt in sich bearbeitet - eine Palette
-            # gaebe es nichts hineinzuziehen (Abschnitt 13.5).
+            # gäbe es nichts hineinzuziehen (Abschnitt 13.5).
             self.zeichenflaeche = TabellenCanvas(self.diagramm)
             self.palette = None
             self.eigenschaften = None
@@ -263,7 +263,7 @@ class DiagrammFenster(QMainWindow):
         self.rollbereich.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.setCentralWidget(self._mitte_mit_linealen())
 
-        # Ein Struktogramm hat keine "Formen", sondern Bloecke - der
+        # Ein Struktogramm hat keine "Formen", sondern Blöcke - der
         # Titel des Docks soll das auch sagen.
         palettentitel = "Blöcke" if self.diagramm.typ == "struktogramm" else "Formen"
 
@@ -634,10 +634,10 @@ class DiagrammFenster(QMainWindow):
                 )
 
     def _menue_an_typ_anpassen(self) -> None:
-        """Was die Zeichenflaeche dieses Diagrammtyps nicht kann, wird
+        """Was die Zeichenfläche dieses Diagrammtyps nicht kann, wird
         ausgegraut statt vorgetaeuscht – ein Struktogramm kennt keine
         Formen, also auch kein Duplizieren, keine Hilfslinien und kein
-        Uebertragen von Fuellfarben (Abschnitt 13.5)."""
+        Übertragen von Fuellfarben (Abschnitt 13.5)."""
         for pfad, faehigkeit in (
             ("Ansicht/Zoom vergrößern", "zoom_setzen"),
             ("Ansicht/Zoom verkleinern", "zoom_setzen"),
@@ -658,8 +658,8 @@ class DiagrammFenster(QMainWindow):
     def _tabellenmenue_aufbauen(self) -> None:
         """Eigenes Menü „Tabelle“ – eine Entscheidungstabelle wird nicht
         über eine Palette gefüllt, sondern über Zeilen und Spalten."""
-        # Vor "Hilfe" einhaengen - "Hilfe" gehoert ans Ende der
-        # Menueleiste, nicht mittendrin (im Screenshot aufgefallen).
+        # Vor "Hilfe" einhängen - "Hilfe" gehört ans Ende der
+        # Menüleiste, nicht mittendrin (im Screenshot aufgefallen).
         menue = QMenu("Tabelle", self)
         self.menuBar().insertMenu(self._menues["Hilfe"].menuAction(), menue)
         self._menues["Tabelle"] = menue
@@ -710,12 +710,12 @@ class DiagrammFenster(QMainWindow):
         self.menuBar().insertMenu(self._menues["Hilfe"].menuAction(), menue)
         self._menues["Quelltext"] = menue
         aktion = menue.addAction("Erzeugen …")
-        # Im Pruefungsmodus gesperrt (M11, Abschnitt 6): aus einem
+        # Im Prüfungsmodus gesperrt (M11, Abschnitt 6): aus einem
         # Klassendiagramm oder einem Struktogramm Python erzeugen zu
-        # lassen waere in einer Leistungssituation die halbe Aufgabe.
+        # lassen wäre in einer Leistungssituation die halbe Aufgabe.
         # Sichtbar bleibt der Eintrag trotzdem - ein spurlos
-        # verschwundener Menueeintrag waere verwirrender als ein
-        # erklaerter.
+        # verschwundener Menüeintrag wäre verwirrender als ein
+        # erklärter.
         if pruefungsmodus_laeuft():
             aktion.setEnabled(False)
             aktion.setToolTip(GESPERRT_HINWEIS)
@@ -783,7 +783,7 @@ class DiagrammFenster(QMainWindow):
  ansieht. Sie tauchte weder im Projekt-Explorer auf noch ließ sie
  sich importieren - der Schüler hatte seine Klasse erzeugt und
  fand sie nirgends wieder. Im Durchgang durch den ganzen
- Schuelerweg aufgefallen.
+ Schülerweg aufgefallen.
 
  Ein Diagramm liegt in `<projekt>/diagramme/`; eine Ebene
  darüber ist der Projektordner. Liegt es woanders - jemand hat

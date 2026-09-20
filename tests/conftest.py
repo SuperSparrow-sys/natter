@@ -40,7 +40,7 @@ def _qt_anwendung():
     QApplication existiert, bevor irgendein Test ein Widget erzeugt."""
     anwendung = QApplication.instance() or QApplication([])
     # Wie im echten Start (`ide/main.py`): Qts eigene Texte auf Deutsch.
-    # Sonst prueften die Tests eine englische Oberflaeche - genau das,
+    # Sonst prüften die Tests eine englische Oberfläche - genau das,
     # was M11 Abschnitt 4 abstellen sollte.
     from ide.deutsch import deutsch_einschalten
 

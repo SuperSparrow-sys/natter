@@ -272,9 +272,9 @@ def test_zwischenstaende_bleiben_nicht_im_projekt_liegen(tmp_path: Path, pyinsta
 # jedes Projekt dasselbe Paket - ein Taschenrechner mit vier Knoepfen wog
 # 120,2 MB und brauchte 110 s, genau wie das scikit-learn-Beispiel.
 # PyInstaller folgt auch Importen tief in einer Funktion, und `pcl`
-# fuehrt fuer `Chart` und `regression` numpy, matplotlib und pandas mit.
+# fuehrt für `Chart` und `regression` numpy, matplotlib und pandas mit.
 #
-# Danach: 44,9 MB in 53 s fuer den Taschenrechner, waehrend
+# Danach: 44,9 MB in 53 s für den Taschenrechner, waehrend
 # 09_ObstSortierer mit 111,9 MB alles Noetige behaelt.
 
 
@@ -363,8 +363,8 @@ def test_es_bleibt_bei_einer_einzigen_datei(tmp_path: Path, pyinstaller) -> None
     assert "--onefile" in pyinstaller[0]
 
 
-# Der haeufigste Fall im Unterricht: exportieren, ausprobieren, etwas
-# aendern, wieder exportieren - und das Programm von vorhin steht noch
+# Der häufigste Fall im Unterricht: exportieren, ausprobieren, etwas
+# ändern, wieder exportieren - und das Programm von vorhin steht noch
 # offen. Windows sperrt die Datei dann. Bis flog Natter
 # dabei mit einem PermissionError heraus, statt es zu sagen.
 

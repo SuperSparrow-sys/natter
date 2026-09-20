@@ -215,7 +215,7 @@ def _laeuft_noch(exe_pfad: Path) -> str | None:
     noch offen. Windows sperrt die Datei dann, PyInstaller scheitert
     mit einer englischen Meldung irgendwo im Protokoll, und Natter flog
     beim Aufräumen mit einem `PermissionError` heraus. Im Durchgang
-    durch den Schuelerweg genau so passiert.
+    durch den Schülerweg genau so passiert.
 
     Geprüft wird durch Öffnen zum Schreiben - der einzige Weg, der
     ohne zusätzliche Windows-Bibliothek auskommt und nichts kaputt

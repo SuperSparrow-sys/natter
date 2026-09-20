@@ -92,9 +92,9 @@ zahlen[0] := 7;
 zahlen = [0, 0, 0]
 zahlen[0] = 7
 
-zahlen.append(9)     # waechst von selbst, kein SetLength
-len(zahlen)          # Laenge
-for z in zahlen:     # direkt ueber die Werte, ohne Index
+zahlen.append(9)     # wächst von selbst, kein SetLength
+len(zahlen)          # Länge
+for z in zahlen:     # direkt über die Werte, ohne Index
     print(z)
 ```
 

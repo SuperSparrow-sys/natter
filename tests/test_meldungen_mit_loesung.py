@@ -67,7 +67,7 @@ def _ausloesen(f):
 # -- 1. Jede Fehlermeldung kommt auf Deutsch an ----------------------------
 
 #: Absichtlich falsch benutzt: als Funktion aufgerufen, obwohl es eine
-#: Zahl ist. Als Literal `(5)()` wuerde Python schon beim Uebersetzen
+#: Zahl ist. Als Literal `(5)()` wuerde Python schon beim Übersetzen
 #: des Tests warnen.
 _EINE_ZAHL = 5
 

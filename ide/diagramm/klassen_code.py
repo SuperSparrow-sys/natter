@@ -145,13 +145,13 @@ def _zuweisungen_fuer_init(
     Attribute standen nirgends: aus einer Klasse `Buchung` mit
     `+datum`, `+zweck`, `+betrag` und `+__init__(datum, zweck,
     betrag)` wurde ein Konstruktor, der nichts tut, und drei
-    Attribute, die es nie gibt. Im Durchgang durch den Schuelerweg
+    Attribute, die es nie gibt. Im Durchgang durch den Schülerweg
     aufgefallen.
 
-    Zugewiesen wird nur, was sich eindeutig zuordnen laesst: ein
+    Zugewiesen wird nur, was sich eindeutig zuordnen lässt: ein
     Parameter, dessen Name zu einem Attribut passt. Alles andere
-    bleibt dem Schueler - hier soll keine Logik entstehen, nur das,
-    was er ohnehin abschreiben muesste.
+    bleibt dem Schüler - hier soll keine Logik entstehen, nur das,
+    was er ohnehin abschreiben müsste.
     """
     felder = {
         str(a.get("name", "")).lstrip("_"): _bezeichner(
