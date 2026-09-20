@@ -413,3 +413,80 @@ kann später dazukommen, wenn er gebraucht wird.
 - Ob das Schreiben auch dann funktioniert, wenn der Ordner
   schreibgeschützt ist — auf einem Schulrechner keine Seltenheit. Die
   Meldung muss dann sagen, was los ist.
+
+---
+
+## 11. Alle sichtbaren Texte durchgehen
+
+**Vorgabe des Nutzers:** Die Texte sollen überall überprüft werden —
+nicht nur dort, wo gerade etwas auffiel.
+
+**Der Anlass:** Im Obst-Sortierer (Stufe 9) steht
+
+> Die 100 Bäume haben abgestimmt: Apfel 59%, Banane 0%, Orange 41%.
+> […] Der Wald antwortet trotzdem, und zwar mit der ähnlichsten Sorte.
+
+und daneben „Worauf der Wald achtet:". Der Einwand des Nutzers: mit
+„Wald" ist nichts anzufangen, und abstimmen kann er auch nicht. Das
+Bild erklärt nichts — es setzt voraus, dass man schon weiß, was ein
+Random Forest ist, und behauptet nebenbei, ein Programm habe eine
+Meinung.
+
+Was stattdessen dasteht, muss die Sache benennen: wie viele der
+Einzelentscheidungen auf welche Sorte fielen, und dass das Verfahren
+immer eine Antwort liefert, auch für eine Frucht, die es nicht gibt.
+
+**Im selben Absatz steht noch eine Floskel:** „Das im Blick zu behalten
+ist der wichtigste Teil." Dieselbe Sorte wie „die Vorhersage steht auf
+festem Boden", die schon aus Stufe 8 entfernt wurde.
+
+**Umfang der Aufgabe:** Jeder Text, den jemand liest — die sichtbaren
+Texte aller neun Beispielprojekte, die Meldungen der IDE, die
+Hilfeseiten, die Projektvorlagen und die Texte des Installers.
+
+**Noch zu prüfen:**
+
+- Ob sich Bilder und Vergleiche finden lassen, die dasselbe Problem
+  haben: etwas wird anschaulich gemacht, das dadurch nicht klarer
+  wird, oder ein Programm bekommt Absichten angedichtet.
+- Ob die Fachbegriffe stehenbleiben sollen, wo sie richtig sind.
+  „Random Forest" ist der Name des Verfahrens und gehört in den Text;
+  „der Wald antwortet" ist es nicht.
+- `tests/test_textstil.py` prüft bisher direkte Anrede, Umlaute und
+  Markdown-Reste. Ob sich diese Sorte überhaupt maschinell fassen
+  lässt, ist offen — vermutlich hilft nur, alles einmal zu lesen.
+
+---
+
+## 12. Ein langer Text im Label wird abgeschnitten
+
+**Beobachtet:** Im Obst-Sortierer endet die unterste Zeile mitten im
+Satz: „Der Wald antwortet trotzdem, und zwar mit der" — der Rest fehlt
+spurlos.
+
+**Ursache — nachgewiesen.** `Label` in `pcl/components/standard.py`
+ruft nirgends `setWordWrap(True)`; im ganzen `pcl` kommt der Aufruf
+nicht vor. Ein `QLabel` bricht ohne ihn nicht um: was breiter ist als
+das Label, wird abgeschnitten. Das betroffene Label ist 864 Punkte
+breit, der Text hat rund 370 Zeichen.
+
+**Warum das mehr ist als ein Schönheitsfehler:** Es trifft jeden, der
+einen längeren Text in ein Label schreibt — also genau das, was eine
+Schülerin tut, wenn sie ihr Programm erklären will. Der Text
+verschwindet ohne Meldung, und im Designer sieht alles richtig aus,
+solange die Beschriftung dort kurz ist.
+
+**Noch zu prüfen:**
+
+- Ob `setWordWrap(True)` der richtige Standard ist. Dafür spricht, dass
+  ein abgeschnittener Text immer falsch ist. Dagegen, dass ein Label
+  dann seine Höhe sprengt statt seine Breite — auch das fällt auf, ist
+  aber sichtbar statt unsichtbar.
+- Ob es eine eigene Eigenschaft `word_wrap` geben soll, wie sie andere
+  Umgebungen kennen. Dann bliebe die Entscheidung bei der Schülerin,
+  und der Objektinspektor zeigt sie an.
+- Ob `Memo` und `StringGrid` dasselbe Problem haben.
+- Ob der Design-Prüfer das melden kann: ein Text, der breiter ist als
+  sein Label, ist maschinell erkennbar — `QFontMetrics` liefert die
+  Breite. Das wäre eine Regel, die den Fehler findet, bevor jemand
+  das Programm startet.
