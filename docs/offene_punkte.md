@@ -661,3 +661,56 @@ Richtig wäre „Variable | Wert".
 - Ob die Panels beim Beenden des Programms geleert werden oder den
   letzten Stand behalten. Beides ist vertretbar, aber es sollte
   entschieden sein.
+
+---
+
+## 16. Den Quelltext als PDF herunterladen können
+
+**Vorgabe des Nutzers:** Es soll die Möglichkeit geben, den Code als
+formatiertes PDF zu speichern.
+
+**Wofür das gebraucht wird:** Eine Abgabe. Wer sein Programm abgibt,
+gibt heute entweder den ganzen Ordner ab oder druckt aus dem Editor —
+und ein `.py` im Anhang lässt sich weder anstreichen noch mit einer
+Note versehen. Ein PDF ist das Format, das eine Lehrkraft erwartet,
+und es zeigt den Code so, wie der Schüler ihn vor sich hatte.
+
+**Was dafür schon da ist — beide Hälften:**
+
+- Die Hervorhebung: `PythonHervorhebung` in
+  `ide/shell/python_hervorhebung.py`, ein `QSyntaxHighlighter`, der im
+  Editor ohnehin läuft.
+- Die PDF-Ausgabe: `QPdfWriter`, benutzt in `ide/diagramm/export.py`
+  für Diagramme. Dort steht auch der Kniff mit den 96 dpi, damit eine
+  PDF-Einheit einem Bildschirmpunkt entspricht.
+
+Ein `QTextDocument` trägt seine Formatierung mit und kann über
+`print_()` direkt in einen `QPdfWriter` schreiben. Die Hervorhebung
+lässt sich auf ein solches Dokument anwenden, ohne dass dafür ein
+Editor sichtbar sein muss.
+
+**Noch zu prüfen und zu entscheiden:**
+
+- **Umfang:** nur die offene Datei, oder das ganze Projekt in ein PDF?
+  Für eine Abgabe ist das ganze Projekt das Nützlichere — mit einer
+  Überschrift je Datei und einem Seitenumbruch dazwischen. Die
+  erzeugten Dateien (`u_*_design.py`, `main.py`) gehören vermutlich
+  nicht hinein; `Projekt.units` weiß bereits, was der Schüler
+  bearbeitet, und lässt genau diese weg.
+- **Zeilennummern:** im Ausdruck gehören sie dazu, sonst lässt sich in
+  der Besprechung nicht auf eine Stelle zeigen.
+- **Umbruch langer Zeilen:** ein Blatt ist schmaler als ein Bildschirm.
+  Abschneiden ist keine Möglichkeit — siehe Punkt 12. Entweder
+  umbrechen mit einer Kennzeichnung, oder die Schrift so wählen, dass
+  die übliche Zeilenlänge passt.
+- **Farbe oder Schwarzweiß:** die Hervorhebung des dunklen Themas auf
+  weißem Papier ist unlesbar. Das PDF braucht die Farben des hellen
+  Themas, unabhängig davon, was gerade eingestellt ist.
+- **Kopfzeile:** Projektname, Dateiname und Datum. Bei einer
+  eingesammelten Abgabe ist sonst nicht erkennbar, wessen Datei das
+  ist.
+- **Wo der Eintrag hingehört:** „Datei → Als PDF exportieren …" für
+  die offene Datei, „Projekt → Quelltext als PDF exportieren …" für
+  das ganze Projekt. Beides zusammen wäre ein Dialog zu viel.
+- Ob der Prüfungsmodus etwas daran ändert. Vermutlich nicht — der
+  Schüler exportiert seinen eigenen Code.
