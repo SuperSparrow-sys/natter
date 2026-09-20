@@ -28,7 +28,9 @@ Zahlen zur Einordnung: rund 32 800 Zeilen Python in `ide/` und `pcl/`
 ein Lehrgang aus neun aufeinander aufbauenden Beispielprojekten, die
 alle wirklich starten, und eine gebaute, signierte `Natter.exe` mit
 Installer, mitgelieferter Python-Installation und
-`.natter`-Dateiverknüpfung.
+`.natter`-Dateiverknüpfung. Ohne Tcl/Tk: Natter baut jede Oberfläche
+mit Qt, und die zweite Fenstertechnik der Standardbibliothek wiegt
+10,5 MB, die niemand anfasst (Nutzer, September 2026).
 
 Was M15 gebracht hat, in einem Satz je Block: Schülerprogramme haben
 **Menüs**; `PaintBox` und `Canvas` können **zeichnen**, mit der Maus;

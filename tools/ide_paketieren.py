@@ -95,6 +95,58 @@ _LAUFZEIT_PAKETE = (
 )
 
 
+#: Was aus der mitgelieferten Python fliegt, weil Natter es nie
+#: anfasst (Nutzer, September 2026: „Tk Inter kann komplett raus aus der
+#: Installation").
+#:
+#: Tcl/Tk ist Pythons **zweite** Fenstertechnik - Natter baut jede
+#: Oberfläche mit Qt, und `pcl` importiert `tkinter` nirgends. Mitgehen
+#: würde es trotzdem, weil es zur Standardbibliothek gehört: rund 13 MB
+#: im Installationsordner, davon 9 MB Tcl-Skripte und zwei DLLs von
+#: zusammen 3,3 MB.
+#:
+#: **Was damit auch geht: `turtle`.** Die Schildkrötengrafik steckt auf
+#: `tkinter` auf. Für Natter ist das folgerichtig - Zeichnen läuft über
+#: `PaintBox` und `Canvas` (M15), und das Konzept sieht Ein- und Ausgabe
+#: ausschließlich über `pcl`-Komponenten vor. Wer `import turtle`
+#: schreibt, bekommt seit diesem Schritt einen ImportError statt eines
+#: Fensters.
+OHNE_TCL_TK = (
+    "tcl",  # Ordner mit den Tcl/Tk-Skripten
+    "Lib/tkinter",
+    "Lib/turtledemo",
+    "Lib/turtle.py",
+    "DLLs/_tkinter.pyd",
+    "DLLs/tcl86t.dll",
+    "DLLs/tk86t.dll",
+    "DLLs/tclive86t.dll",
+    "DLLs/tkview86t.dll",
+)
+
+
+def _tcl_tk_entfernen(ziel: Path) -> int:
+    """Räumt Tcl/Tk aus der Kopie. Liefert die eingesparten Bytes.
+
+    Was es nicht gibt, wird übergangen: die Standalone-Python liefert je
+    nach Fassung nicht immer dieselben Hilfs-DLLs mit, und ein Bau soll
+    daran nicht scheitern.
+    """
+    gespart = 0
+    for eintrag in OHNE_TCL_TK:
+        pfad = ziel / Path(eintrag)
+        if not pfad.exists():
+            continue
+        if pfad.is_dir():
+            gespart += sum(
+                datei.stat().st_size for datei in pfad.rglob("*") if datei.is_file()
+            )
+            shutil.rmtree(pfad)
+        else:
+            gespart += pfad.stat().st_size
+            pfad.unlink()
+    return gespart
+
+
 def _python_bereitstellen() -> Path:
     """Kopiert die Standalone-CPython in den Ausgabeordner und liefert
     den Pfad zu ihrer `python.exe`."""
@@ -103,6 +155,10 @@ def _python_bereitstellen() -> Path:
         shutil.rmtree(ziel)
     ziel.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(python_beschaffen(), ziel)
+
+    gespart = _tcl_tk_entfernen(ziel)
+    if gespart:
+        print(f"Tcl/Tk entfernt: {gespart / 1024 / 1024:.1f} MB gespart")
 
     # `uv` legt in seine Python-Installationen einen PEP-668-Vermerk
     # („extern verwaltet“), der jedes `pip install` ablehnt - richtig,
