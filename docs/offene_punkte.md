@@ -206,10 +206,27 @@ tritt es nicht mehr auf.
 Die naheliegenden Kandidaten prüfen alle ordentlich mit `tmp_path`.
 Die Fixture behandelt die Wirkung, nicht die Ursache.
 
-**Noch zu prüfen:** Einmal mit abgeschalteter Fixture laufen lassen und
-mitschreiben, wer `beispiel_kopieren` ohne Zielordner aufruft. Solange
-das unklar ist, kann derselbe Aufruf an anderer Stelle auch im
-laufenden Programm an einer unerwarteten Stelle landen.
+**Es passiert weiterhin.** Am 20. September entstanden zwei weitere
+Kopien (`06_Kontoverwaltung` um 17:18, `06_Kontoverwaltung 2` um
+17:33), obwohl die Fixture längst wirkte. Es ist also **kein Test**,
+sondern etwas außerhalb des Testlaufs. Ausgeschlossen sind inzwischen:
+
+- die Testläufe selbst, denn dort greift die Fixture,
+- das Laden eines Diagramms: `Diagramm.laden` kopiert nichts. Dieselbe
+  Probe zweimal laufen lassen - beim zweiten Mal entstand keine
+  weitere Kopie,
+- die naheliegenden Tests, die alle ordentlich mit `tmp_path` arbeiten.
+
+**Noch zu prüfen:** Ob es die installierte `Natter.exe` ist, die
+während der Abnahme 60 Sekunden lief - der Zeitpunkt 17:18 liegt nahe
+an einem solchen Lauf. Falls ja, legt Natter beim Start unter
+Umständen eine Beispielkopie an, ohne dass jemand darauf geklickt hat.
+Das wäre kein Schönheitsfehler mehr, sondern ein Fehler im Programm:
+auf einem Schulrechner entstünde bei jedem Start ein weiterer Ordner
+im Dokumente-Ordner.
+
+Der Weg dorthin: die installierte Natter starten, nichts anklicken,
+und nachsehen, ob im Ordner „Dokumente/Natter“ etwas Neues steht.
 
 ---
 
