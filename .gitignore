@@ -64,3 +64,22 @@ referenz/**/*.lps
 # Privater Ed25519-Schlüssel des Prüfsummen-Manifests (Abschnitt 17.8:
 # „privater Schlüssel … niemals im Repository“)
 tools/signieren/manifest-privat.pem
+
+# Arbeitskopien der Beispiele.
+#
+# Wer im Startbild ein Beispiel anklickt, bekommt eine Kopie davon in
+# "Documents\Natter" (ide/shell/startbild.py, beispiel_kopieren) - das
+# Original soll beim naechsten Mal unveraendert dastehen. Auf einem
+# Rechner, auf dem das Repository selbst unter "Documents\natter"
+# liegt, ist das derselbe Ordner: die Kopie landet dann mitten im
+# Projektstamm. Windows unterscheidet keine Gross- und
+# Kleinschreibung, also faellt es nicht einmal auf.
+/01_Begruessung/
+/02_Zahlenraten/
+/03_Taschenrechner/
+/04_CookieKlicker/
+/05_Bildergalerie/
+/06_Kontoverwaltung/
+/07_CsvAuswertung/
+/08_Regression/
+/09_ObstSortierer/
