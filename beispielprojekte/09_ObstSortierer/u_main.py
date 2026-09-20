@@ -15,10 +15,11 @@
 #                  sich seine Regeln aus den Beispielen selbst.
 #
 # Ein Entscheidungsbaum stellt Ja/Nein-Fragen: "Länge über 120 mm?"
-# Ein Wald besteht aus vielen solchen Bäumen, die jeweils nur einen
-# Teil der Daten gesehen haben. Am Ende stimmen sie ab. Das ist
-# zuverlässiger als ein einzelner Baum, der sich gern an Zufälligkeiten
-# in den Lerndaten festbeißt.
+# Ein Random Forest besteht aus vielen solchen Bäumen, die jeweils
+# nur einen Teil der Daten gesehen haben. Die Sorte, für die sich die
+# meisten entscheiden, ist die Antwort. Das ist zuverlässiger als ein
+# einzelner Baum, der sich an Zufälligkeiten in den Lerndaten
+# festhält.
 
 import csv
 from pathlib import Path
@@ -74,7 +75,7 @@ class Form1(Form1Design):
             self.X, self.y, test_size=0.25, random_state=42, stratify=self.y
         )
 
-        # n_estimators = Anzahl der Bäume im Wald.
+        # n_estimators = Anzahl der Entscheidungsbäume.
         # random_state sorgt dafür, dass bei jedem Start dasselbe
         # herauskommt - sonst wäre der Unterricht schwer zu besprechen.
         self.wald = RandomForestClassifier(n_estimators=100, random_state=42)
@@ -101,7 +102,7 @@ class Form1(Form1Design):
             reverse=True,
         )
         zeilen = [f"{BESCHRIFTUNG[name]}: {anteil:.0%}" for name, anteil in anteile]
-        self.l_wichtigkeit.caption = "Worauf der Wald achtet:\n" + "\n".join(zeilen)
+        self.l_wichtigkeit.caption = "Worauf das Modell achtet:\n" + "\n".join(zeilen)
 
     # -- Vorhersagen -----------------------------------------------
 
@@ -124,16 +125,20 @@ class Form1(Form1Design):
 
         self.l_antwort.caption = f"Das ist:  {antwort}\nSicherheit: {sicherheit:.0%}"
 
-        verteilung = ", ".join(
-            f"{sorte} {anteil:.0%}"
+        # Aus den Anteilen wird wieder die Anzahl der Bäume: "59 von
+        # 100" sagt mehr darüber, wie die Antwort zustande kommt, als
+        # "59 %".
+        stimmen = ", ".join(
+            f"{sorte} {round(anteil * self.wald.n_estimators)}"
             for sorte, anteil in zip(self.wald.classes_, anteile, strict=True)
         )
         self.l_erklaerung.caption = (
-            f"Die {self.wald.n_estimators} Bäume haben abgestimmt: {verteilung}.\n"
+            f"So haben die {self.wald.n_estimators} Entscheidungsbäume "
+            f"entschieden: {stimmen}.\n"
             "Probiere eine Frucht aus, die es so nicht gibt - etwa 300 g schwer, "
-            "250 mm lang und 30 mm breit. Der Wald antwortet trotzdem, und zwar mit "
-            "der ähnlichsten Sorte: ein Modell sagt nie „kenne ich nicht“, es sagt "
-            "immer etwas. Das im Blick zu behalten ist der wichtigste Teil."
+            "250 mm lang und 30 mm breit. Auch dann kommt eine Antwort heraus, "
+            "und zwar die ähnlichste Sorte: ein Modell sagt nie „kenne ich "
+            "nicht“, es sagt immer etwas."
         )
     
     def ch_streuung_click(self, sender):

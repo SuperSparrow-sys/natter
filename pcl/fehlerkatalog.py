@@ -851,8 +851,8 @@ def _syntax_error(exc: SyntaxError) -> tuple[str, str, str]:
     was, pruefe = _was_und_pruefe(
         _NurMeldung(exc.msg or str(exc), _quellklasse(exc)),
         "Der Quelltext an der markierten Stelle ist kein gültiges Python.",
-        "Fehlt ein Doppelpunkt am Blockanfang? Stimmt die Einrückung? Python nutzt "
-        "Einrückung statt begin…end.",
+        "Fehlt ein Doppelpunkt am Blockanfang? Stimmt die Einrückung? In Python "
+        "bestimmt die Einrückung, was zu einem Block gehört.",
     )
     return ("Ungültige Quelltextstruktur", was, pruefe)
 

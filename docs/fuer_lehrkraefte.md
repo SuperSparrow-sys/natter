@@ -273,6 +273,7 @@ Programm erzeugt und ist damit immer aktuell.
 | `Umschalt+Pfeil` | Größe ändern |
 | `Entf` | Komponente löschen |
 | `Strg+D` | Komponente verdoppeln |
+| `F2` | Menü-Editor öffnen, bei einem MainMenu oder PopupMenu |
 | Doppelklick | Ereignis-Methode anlegen und hinspringen |
 
 ---

@@ -30,7 +30,7 @@ entries:
   - id: syntax_error
     exception: [SyntaxError, IndentationError]
     was: "Der Quelltext an der markierten Stelle ist kein gültiges Python."
-    pruefe: "Fehlt ein Doppelpunkt am Blockanfang? Stimmt die Einrückung? Python nutzt Einrückung statt begin…end."
+    pruefe: "Fehlt ein Doppelpunkt am Blockanfang? Stimmt die Einrückung? In Python bestimmt die Einrückung, was zu einem Block gehört."
 
   - id: name_error
     exception: NameError

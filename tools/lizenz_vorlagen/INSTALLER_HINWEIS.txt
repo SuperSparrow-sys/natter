@@ -31,4 +31,5 @@ Nach der Installation
 ---------------------
 
 Ein Doppelklick auf eine .natter-Datei öffnet das Projekt direkt in
-Natter, solange die entsprechende Zusatzaufgabe ausgewählt bleibt.
+Natter, sofern die Verknüpfung bei den zusätzlichen Aufgaben
+ausgewählt bleibt.

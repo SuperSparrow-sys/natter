@@ -462,45 +462,64 @@ kann später dazukommen, wenn er gebraucht wird.
 
 ---
 
-## 11. Alle sichtbaren Texte durchgehen
+## 11. Alle sichtbaren Texte durchgehen ~~(erledigt)~~
 
 **Vorgabe des Nutzers:** Die Texte sollen überall überprüft werden —
 nicht nur dort, wo gerade etwas auffiel.
 
-**Der Anlass:** Im Obst-Sortierer (Stufe 9) steht
+**Der Anlass** war der Obst-Sortierer: „Die 100 Bäume haben
+abgestimmt", „Der Wald antwortet trotzdem", „Worauf der Wald achtet"
+und „Das im Blick zu behalten ist der wichtigste Teil". Mit „Wald"
+ist nichts anzufangen, und abstimmen kann er auch nicht.
 
-> Die 100 Bäume haben abgestimmt: Apfel 59%, Banane 0%, Orange 41%.
-> […] Der Wald antwortet trotzdem, und zwar mit der ähnlichsten Sorte.
+**Durchgegangen wurden** die sichtbaren Texte aller neun
+Beispielprojekte samt ihrer Kopfkommentare, die statischen
+Beschriftungen aus den `.pfm`-Dateien, die Projektvorlagen, die
+Hilfeseiten, der Fehlerkatalog und die Texte des Installers.
 
-und daneben „Worauf der Wald achtet:". Der Einwand des Nutzers: mit
-„Wald" ist nichts anzufangen, und abstimmen kann er auch nicht. Das
-Bild erklärt nichts — es setzt voraus, dass man schon weiß, was ein
-Random Forest ist, und behauptet nebenbei, ein Programm habe eine
-Meinung.
+**Gefunden und geändert:**
 
-Was stattdessen dasteht, muss die Sache benennen: wie viele der
-Einzelentscheidungen auf welche Sorte fielen, und dass das Verfahren
-immer eine Antwort liefert, auch für eine Frucht, die es nicht gibt.
+- Der Obst-Sortierer nennt jetzt die Sache: „So haben die 100
+  Entscheidungsbäume entschieden: Apfel 59, Banane 0, Orange 41."
+  Die Anzahl statt des Prozentsatzes, weil sie sagt, wie die Antwort
+  zustande kommt. Der Wald ist überall weg, „Random Forest" als Name
+  des Verfahrens geblieben.
+- Im Zahlenraten stand ein Satz, der beim Entfernen der Anrede
+  zerbrochen war: „Natter denkt sich eine Zahl aus, geraten wird, und
+  antwortet …". Er war weder richtig noch verständlich, und ein
+  Programm denkt sich auch nichts aus.
+- **Im allerersten Beispielprogramm stand die falsche Taste.**
+  „Drücke F9, um das Programm zu starten" — gestartet wird mit F5, F9
+  ist in Natter nicht belegt. Das trifft die Schülerin in der ersten
+  Minute der ersten Stunde.
+- `erste_schritte.md` schickte zu den Beispielprojekten „vom
+  Startbild". Die stehen seit dem Umbau unter „Datei →
+  Beispielprojekte"; der Modulkommentar von `startbild.py` versprach
+  sie ebenfalls noch und sprach von zehn statt neun.
+- Der Fehlerkatalog erklärte Einrückung mit „Python nutzt Einrückung
+  statt begin…end". Wer Pascal nicht kennt, lernt daraus nichts.
+- Ein Kommentar im Menü-Editor schrieb dem Editor einen Willen zu
+  („der Editor will jedes Feld vorfinden").
+- Der Installer sprach von einer „Zusatzaufgabe", wo die zusätzlichen
+  Aufgaben des Setups gemeint sind.
 
-**Im selben Absatz steht noch eine Floskel:** „Das im Blick zu behalten
-ist der wichtigste Teil." Dieselbe Sorte wie „die Vorhersage steht auf
-festem Boden", die schon aus Stufe 8 entfernt wurde.
+**Dabei aufgefallen, über die Textprüfung hinaus:** Die
+Tastenübersicht unter „Hilfe" kannte die Tasten des Designers nicht —
+weder die Pfeiltasten noch `Strg+D`, `Entf` oder `F2`. Sie stehen
+weder in einem Menü noch in der Liste der Editortasten, und
+`docs/fuer_lehrkraefte.md` beschrieb sie, während die Übersicht
+daneben schwieg. Sie sind jetzt als `DESIGNERTASTEN` aufgeschrieben
+und stehen in der Übersicht.
 
-**Umfang der Aufgabe:** Jeder Text, den jemand liest — die sichtbaren
-Texte aller neun Beispielprojekte, die Meldungen der IDE, die
-Hilfeseiten, die Projektvorlagen und die Texte des Installers.
-
-**Noch zu prüfen:**
-
-- Ob sich Bilder und Vergleiche finden lassen, die dasselbe Problem
-  haben: etwas wird anschaulich gemacht, das dadurch nicht klarer
-  wird, oder ein Programm bekommt Absichten angedichtet.
-- Ob die Fachbegriffe stehenbleiben sollen, wo sie richtig sind.
-  „Random Forest" ist der Name des Verfahrens und gehört in den Text;
-  „der Wald antwortet" ist es nicht.
-- `tests/test_textstil.py` prüft bisher direkte Anrede, Umlaute und
-  Markdown-Reste. Ob sich diese Sorte überhaupt maschinell fassen
-  lässt, ist offen — vermutlich hilft nur, alles einmal zu lesen.
+**Gehalten von** `tests/test_tastenkuerzel_in_texten.py`: jedes
+Kürzel, das in einem gelesenen Text steht, muss es im
+Aktionsregister, im Diagramm-Editor oder in den Editor- und
+Designertasten wirklich geben. Der Rest der Textprüfung lässt sich
+nicht in einen Test gießen — eine Prüfung, die Bilder erkennen soll,
+meldet falsche Treffer. Dafür halten `tests/test_textstil.py` die
+Anrede, die Umlaute und die Markdown-Reste fest, und
+`tests/test_designertasten.py` hält jede aufgeschriebene
+Designertaste gegen den Designer.
 
 ---
 

@@ -1,17 +1,20 @@
 """Startbild der IDE (M11, Abschnitt 4).
 
 Was sieht jemand beim allerersten Start? Bisher: ein leeres graues
-Feld. Wer Natter zum ersten Mal öffnet, findet weder die zehn
-mitgelieferten Beispielprojekte noch einen Weg, selbst eines
-anzulegen – beides steckt in Menüs, in die man erst hineinschauen
-muss.
+Feld. Wer Natter zum ersten Mal öffnet, findet keinen Weg, ein
+Projekt anzulegen – das steckt in einem Menü, in das man erst
+hineinschauen muss.
 
-Das Startbild füllt genau diese Lücke. Es zeigt drei Dinge:
+Das Startbild füllt diese Lücke. Es zeigt zwei Dinge:
 
+* Neues Projekt und Projekt öffnen
 * Zuletzt geöffnete Projekte – der häufigste Fall in der zweiten
   Unterrichtsstunde
-* Neues Projekt und Projekt öffnen
-* Die Beispielprojekte, nach denen sonst niemand sucht
+
+Die neun Beispielprojekte standen zunächst als dritter Abschnitt hier
+und stehen seit September 2026 unter „Datei → Beispielprojekte“: auf
+der Arbeitsfläche waren sie im Weg, im Menü stehen sie dort, wo auch
+sonst gesucht wird.
 
 Ein Beispiel wird beim Öffnen kopiert, nicht an Ort und Stelle
 geöffnet: in einer installierten Natter liegen die Beispiele im

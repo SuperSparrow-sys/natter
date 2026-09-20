@@ -4,7 +4,7 @@
 #   print(...)  schreibt eine Zeile hinein
 #   input(...)  wartet auf eine Eingabe und die Eingabetaste
 #
-# Drücke F9, um das Programm zu starten.
+# Drücke F5, um das Programm zu starten.
 
 print("Hallo! Ich bin Natter.")
 print()

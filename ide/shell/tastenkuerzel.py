@@ -10,9 +10,9 @@ gepflegt. Eine von Hand gepflegte Liste ist nach der dritten neuen
 Aktion falsch, und eine falsche Übersicht ist schlimmer als keine.
 
 Dazu kommen die Tasten, die kein Menüeintrag sind und deshalb auch in
-keinem Register stehen: sie sind hier als `EDITORTASTEN` aufgeschrieben
-und werden von einem Test gegen den Editor gehalten, damit sie nicht
-still veralten.
+keinem Register stehen: sie sind hier als `EDITORTASTEN` und
+`DESIGNERTASTEN` aufgeschrieben und werden von Tests gegen den Editor
+und den Designer gehalten, damit sie nicht still veralten.
 """
 
 from __future__ import annotations
@@ -52,6 +52,24 @@ EDITORTASTEN = (
     ("Rücktaste im Einzug", "Eine ganze Einrückungsebene zurück"),
     ("Klick rechts im Zeilenrand", "Klasse oder Funktion zuklappen"),
     ("Klick links im Zeilenrand", "Haltepunkt setzen oder entfernen"),
+)
+
+#: Was nur im Designer gilt. Bis September 2026 stand keine dieser
+#: Tasten in der Übersicht: sie sind weder ein Menüeintrag noch eine
+#: Editortaste, und wer sie nicht zufällig ausprobiert, schiebt jede
+#: Komponente mit der Maus. Aufgefallen ist die Lücke beim Durchgehen
+#: der Texte - `docs/fuer_lehrkraefte.md` beschreibt sie, und die
+#: Übersicht daneben schwieg.
+#:
+#: Geschrieben wie in `docs/fuer_lehrkraefte.md` - zwei Schreibweisen
+#: für dieselbe Taste wären zwei Tasten.
+DESIGNERTASTEN = (
+    ("Pfeiltasten", "Ausgewählte Komponente um einen Rasterschritt verschieben"),
+    ("Alt+Pfeil", "Um genau einen Bildpunkt verschieben, am Raster vorbei"),
+    ("Umschalt+Pfeil", "Größe ändern statt verschieben"),
+    ("Strg+D", "Komponente verdoppeln"),
+    ("Entf", "Komponente löschen"),
+    ("F2", "Menü-Editor öffnen, bei einem MainMenu oder PopupMenu"),
 )
 
 
@@ -121,5 +139,16 @@ def als_markdown(aktionen: Iterable) -> str:
         "| --- | --- |",
     ]
     zeilen += [f"| `{taste}` | {was} |" for taste, was in EDITORTASTEN]
+    zeilen.append("")
+
+    zeilen += [
+        "## Nur im Formular-Designer",
+        "",
+        "Diese Tasten wirken auf die ausgewählte Komponente.",
+        "",
+        "| Taste | Was passiert |",
+        "| --- | --- |",
+    ]
+    zeilen += [f"| `{taste}` | {was} |" for taste, was in DESIGNERTASTEN]
     zeilen.append("")
     return "\n".join(zeilen)

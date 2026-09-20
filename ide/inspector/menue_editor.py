@@ -77,7 +77,7 @@ class MenueEditor(QDialog):
         self.setWindowTitle("Menü bearbeiten")
         #: Alles läuft auf der Kopie; erst „Anwenden“ überträgt sie.
         #: Vollständig aufgefüllt, weil die `.pfm` nur trägt, was vom
-        #: Standard abweicht - der Editor will jedes Feld vorfinden.
+        #: Standard abweicht - der Editor setzt jedes Feld voraus.
         self.entwurf: list[dict[str, Any]] = [eintrag_vollstaendig(e) for e in eintraege]
         self.uebernommen = False
         self.ergebnis: list[dict[str, Any]] = copy.deepcopy(self.entwurf)

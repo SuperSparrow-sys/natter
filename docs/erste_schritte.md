@@ -107,7 +107,7 @@ Einrückungsebenen (bei Python ist die Einrückung die Syntax!), und die
 
 **F5** startet mit Debugger, **Strg+F5** ohne.
 
-Vor dem Start prüft Natter den Quelltext. Findet sie etwas, steht es
+Vor dem Start prüft Natter den Quelltext. Findet es etwas, steht das
 unten unter **Meldungen** – ein Doppelklick führt an die Stelle.
 
 ## 5. Wenn etwas schiefgeht
@@ -155,7 +155,7 @@ Weiterschreiben, kein fertiges Programm.
 
 ## Und wenn es nicht weitergeht?
 
-Dann helfen die **Beispielprojekte** vom Startbild. Sie sind keine
+Dann helfen die **Beispielprojekte** unter **Datei → Beispielprojekte**. Sie sind keine
 Sammlung, sondern ein Weg von vorn nach hinten — jede Stufe bringt
 genau eine neue Idee dazu, und oben in der Datei steht, welche:
 

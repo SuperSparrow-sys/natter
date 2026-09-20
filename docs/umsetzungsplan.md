@@ -323,7 +323,7 @@ Jeden einmal öffnen und ansehen. Der Fehler aus Punkt 1 ist nur am
 Bild zu erkennen. Was dabei auffällt, wird sofort behoben; die Prüfung
 aus 1.4 fängt künftige Wiederholungen ab.
 
-### 4.3 Punkt 11 — Alle sichtbaren Texte lesen
+### 4.3 Punkt 11 — Alle sichtbaren Texte lesen ~~(erledigt)~~
 
 Die neun Beispielprojekte, die Meldungen der IDE, die Hilfeseiten, die
 Vorlagen und die Texte des Installers. Gesucht wird, was schon zweimal

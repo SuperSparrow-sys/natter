@@ -6,8 +6,9 @@
 #   if / elif / else   entscheidet zwischen mehreren Fällen
 #   +=             zählt eine Variable hoch
 #
-# Das ist schon ein richtiges Spiel: Natter denkt sich eine Zahl aus,
-# geraten wird, und antwortet "zu klein" oder "zu groß".
+# Das ist schon ein richtiges Spiel: Das Programm zieht eine
+# Zufallszahl, nimmt Rateversuche entgegen und antwortet darauf
+# "zu klein" oder "zu groß".
 
 import random
 
