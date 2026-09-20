@@ -329,34 +329,53 @@ Themen, die geprüft werden.
   gesicherten Abnahme ist es nicht, und das sollte irgendwo stehen,
   damit niemand sich darauf verlässt.
 
-## 9. Im Diagramm-Editor überdecken sich die Bereiche
+## 9. Im Diagramm-Editor überdecken sich die Bereiche ~~(erledigt)~~
 
 **Beobachtet:** Nach einem Neustart steht die Übersichtskarte
-(`ide/diagramm/minimap.py`) an der falschen Stelle. Auf dem
-Bildschirmfoto schiebt sich der Palettenbereich über die
-Zeichenfläche, ein leeres weißes Feld liegt über dem Lineal, und von
-den Einträgen links ist nur die halbe Beschriftung zu sehen
-(„…endiagramm“, „…rbeiten“, „…ndungen“).
+(`ide/diagramm/minimap.py`) an der falschen Stelle. Ein leeres weißes
+Feld liegt über dem Lineal, und von den Einträgen links ist nur die
+halbe Beschriftung zu sehen („…endiagramm“, „…rbeiten“,
+„…ndungen“).
 
-**Was dazu bekannt ist:** Das Hauptfenster merkt sich sein Layout über
-`saveState()`/`restoreState()` unter dem Schlüssel `fenster/layout`.
-Für das Diagrammfenster ist nichts dergleichen zu finden — es baut
-seine Bereiche bei jedem Öffnen neu auf. Die Vermutung liegt nahe,
-dass die Größen dabei nicht zur Fenstergröße passen; nachgemessen
-ist das aber nicht.
+**Ursache — nachgewiesen. Es waren drei, nicht eine.**
 
-**Noch zu prüfen:**
+1. Die Minimap hing am `QScrollArea`, wurde aber nach den Maßen
+   seines Viewports verschoben. Ein `move()` gilt im
+   Koordinatensystem des Elternteils, und die beiden unterscheiden
+   sich um die Rahmenbreite.
+2. `_minimap_einpassen()` lief nur beim Rollen und beim Zoomen, nicht
+   beim Ändern der Fenstergröße. Nach einem Neustart mit anderer
+   Größe saß die Karte dort, wo sie beim letzten Mal gerechnet worden
+   war.
+3. Bei einem schmalen Fenster wurde die berechnete Ecke negativ
+   (`Breite − 160 − 12`), und die Karte ragte links über den Rand
+   hinaus — genau der weiße Kasten über dem Lineal.
 
-- Ob die Übersichtskarte ein eigener Bereich ist oder auf der
-  Zeichenfläche liegt, und woran ihre Stelle hängt.
-- Ob das Diagrammfenster sein Layout merken soll wie das Hauptfenster.
-  Falls ja, brauchen seine Bereiche einen `objectName`, sonst
-  speichert Qt nichts.
-- **Dass alles lesbar ist**: keine abgeschnittenen Beschriftungen,
-  keine Bereiche, die sich überdecken, und das bei kleiner
-  Fenstergröße genauso wie bei großer.
-- Ob es auch auftritt, wenn das Fenster zum ersten Mal überhaupt
-  geöffnet wird — also ohne gespeicherten Zustand.
+Die abgeschnittenen Beschriftungen haben eine eigene Ursache: Qt
+verteilt die Breite der Seitenbereiche nach dem Platzbedarf ihres
+Inhalts, und keiner der beiden hatte eine Untergrenze. Gemessen war
+der Eigenschaften-Bereich 106 Pixel breit, während sein Titel 86
+Pixel braucht — nach Abzug der Knöpfe blieben 63 Pixel Textfeld, und
+aus „Eigenschaften“ wurde „Eigen…“. Wird der Trenner nach außen
+gezogen, trifft es umgekehrt die Palette.
+
+**Geändert.** Die Minimap hängt jetzt am Viewport, ein Ereignisfilter
+führt sie bei jeder Größenänderung nach, und passt sie nicht mehr
+hin, verschwindet sie, statt herauszuragen. Jeder Seitenbereich hat
+eine Mindestbreite, die mit der Systemschrift mitwächst
+(`DOCK_MINDESTBREITE`).
+
+**Gehalten von** `tests/test_diagramm_minimap_lage.py` (sechs Tests)
+und vier weiteren in `tests/test_diagramm_fenster.py`. Der Platz für
+den Titeltext wird dort nicht geschätzt, sondern beim Stil erfragt
+(`SE_DockWidgetTitleBarText`); `minimumSizeHint()` taugt dafür nicht,
+weil der das Kürzen bereits einplant.
+
+**Nicht gemacht:** Das Diagrammfenster merkt sich sein Layout weiter
+nicht (kein `saveState()`). Die Bereiche haben zwar einen
+`objectName`, aber ein gespeicherter Zustand würde eine einmal
+verschobene Aufteilung auch dann wiederherstellen, wenn sie nicht
+mehr passt — und die Mindestbreite löst das Beobachtete bereits.
 
 ---
 

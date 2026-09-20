@@ -665,3 +665,27 @@ def test_kein_tastenkuerzel_ist_doppelt_vergeben(tmp_path: Path) -> None:
                     f"{typ}: „{text}“ ist an „{pfad}“ und an „{vergeben[text]}“ vergeben"
                 )
                 vergeben[text] = pfad
+
+
+def test_bei_schmalem_fenster_bleibt_der_anfang_sichtbar(tmp_path: Path) -> None:
+    """Passt die Auswahl nicht in den Ausschnitt, rollte die Ansicht
+    bis an ihr rechtes Ende - der Anfang lag dann links daneben.
+    Aufgefallen ist es, als die Seitenbereiche eine Mindestbreite
+    bekamen und vom Ausschnitt weniger übrig blieb."""
+    fenster = DiagrammFenster(diagramm_erzeugen("class", tmp_path / "s.pdiag", "s"))
+    fenster.resize(640, 480)
+    fenster.show()
+    flaeche = fenster.zeichenflaeche
+    links = flaeche.form_platzieren("class", 150, 150)
+    rechts = flaeche.form_platzieren("class", 1400, 200)
+    flaeche._auswaehlen(links)
+    flaeche.auswahl_umschalten(rechts)
+    fenster.rollbereich.horizontalScrollBar().setValue(0)
+
+    flaeche.ausrichten("links")
+
+    balken = fenster.rollbereich.horizontalScrollBar()
+    assert balken.value() <= links["x"], (
+        f"Rollbalken bei {balken.value()}, die Form beginnt aber schon "
+        f"bei {links['x']} - sie liegt links daneben."
+    )

@@ -203,7 +203,11 @@ class DiagrammCanvas(ZoomMischung, QWidget):
         if von - rand < balken.value():
             balken.setValue(int(von - rand))
         elif bis + rand > balken.value() + breite:
-            balken.setValue(int(bis + rand - breite))
+            # Ist die Auswahl breiter als der Ausschnitt, hat ihr
+            # Anfang Vorrang. Sonst rollt die Ansicht über ihn hinweg,
+            # und zu sehen ist nur das rechte Ende - bei einem
+            # schmalen Fenster passiert genau das.
+            balken.setValue(int(min(bis + rand - breite, von - rand)))
 
     def _greifen_beginnen(self, punkt: QPoint) -> None:
         self._greif_start = punkt

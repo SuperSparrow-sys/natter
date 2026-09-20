@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QPoint, QRect, QSettings, QSize, Qt, Signal
+from PySide6.QtCore import QEvent, QPoint, QRect, QSettings, QSize, Qt, Signal
 from PySide6.QtGui import QActionGroup, QPageLayout, QPainter
 from PySide6.QtPrintSupport import QPrinter, QPrintPreviewDialog
 from PySide6.QtWidgets import (
@@ -65,6 +65,11 @@ from ide.diagramm.uml_modell import formname
 from ide.shell.theme import ide_qss_erzeugen
 from pcl.pruefungsmodus import GESPERRT_HINWEIS, restzeit_text
 from pcl.pruefungsmodus import laeuft as pruefungsmodus_laeuft
+
+#: Schmaler als das wird kein Seitenbereich. Gemessen am längsten
+#: Paletteneintrag („Gerichtete Assoziation“ samt Symbol); darunter
+#: kürzt Qt die Beschriftungen mit drei Punkten.
+DOCK_MINDESTBREITE = 200
 
 #: Menüaufbau aus Abschnitt 13.2. `True` = in diesem Schritt bereits
 #: umgesetzt und aktiv, `False` = angelegt, aber ausgegraut.
@@ -312,9 +317,19 @@ class DiagrammFenster(QMainWindow):
         raster.addWidget(self.lineal_links, 1, 0)
         raster.addWidget(self.rollbereich, 1, 1)
 
-        self.minimap = Minimap(self.rollbereich)
+        # Eltern ist der Viewport und nicht der Rollbereich selbst:
+        # `_minimap_einpassen()` rechnet mit dessen Maßen, und ein
+        # `move()` gilt immer im Koordinatensystem des Elternteils.
+        # Beides auseinanderzuhalten hieß, die Minimap um die
+        # Rahmenbreite daneben zu setzen.
+        self.minimap = Minimap(self.rollbereich.viewport())
         self.minimap.sprung_gewuenscht.connect(self._zur_stelle_springen)
         self.minimap.hide()
+        # Der Viewport meldet seine neue Größe; ohne das bliebe die
+        # Minimap dort stehen, wo sie beim letzten Rollen berechnet
+        # wurde - nach einem Neustart mit anderer Fenstergröße also
+        # mitten auf der Zeichenfläche.
+        self.rollbereich.viewport().installEventFilter(self)
         #: Ob die Minimap eingeschaltet ist. Nicht `isVisible()`
         #: fragen: solange das Fenster selbst noch nicht gezeigt wurde,
         #: meldet Qt dort `False`, auch wenn `setVisible(True)` längst
@@ -360,9 +375,32 @@ class DiagrammFenster(QMainWindow):
             )
             self._minimap_einpassen()
 
+    def eventFilter(self, gegenstand: object, ereignis: QEvent) -> bool:
+        """Hält die Minimap in der Ecke, wenn sich der Viewport ändert."""
+        if (
+            ereignis.type() == QEvent.Type.Resize
+            and gegenstand is self.rollbereich.viewport()
+        ):
+            self._minimap_einpassen()
+        return super().eventFilter(gegenstand, ereignis)
+
     def _minimap_einpassen(self) -> None:
-        """Unten rechts im Rollbereich, mit Abstand zum Rand."""
+        """Unten rechts im Rollbereich, mit Abstand zum Rand.
+
+        Passt sie nicht mehr hin, verschwindet sie. Bei einem schmalen
+        Fenster wurde die Ecke sonst negativ, und die Minimap ragte
+        links über den Rand hinaus - ein weißer Kasten quer über dem
+        Lineal. Und eine Übersichtskarte, die den halben Ausschnitt
+        verdeckt, hilft ohnehin niemandem.
+        """
         sicht = self.rollbereich.viewport()
+        passt = (
+            sicht.width() >= self.minimap.width() + 2 * MINIMAP_RAND
+            and sicht.height() >= self.minimap.height() + 2 * MINIMAP_RAND
+        )
+        self.minimap.setVisible(self._minimap_an and passt)
+        if not passt:
+            return
         self.minimap.move(
             sicht.width() - self.minimap.width() - MINIMAP_RAND,
             sicht.height() - self.minimap.height() - MINIMAP_RAND,
@@ -403,9 +441,21 @@ class DiagrammFenster(QMainWindow):
         self._bei_aenderung()
 
     def _dock(self, titel: str, inhalt: QWidget, bereich: Qt.DockWidgetArea) -> QDockWidget:
+        """Ein Seitenbereich mit einer Mindestbreite.
+
+        Ohne die verteilt Qt die Breite allein nach dem Platzbedarf
+        des Inhalts, und ein Bereich mit wenig darin schrumpft, bis
+        von seinem Titel nur noch „Eigen…" übrig ist. In der Palette
+        traf es die Überschriften: aus „Klassendiagramm" wurde
+        „…endiagramm". Die Breite wächst mit der Systemschrift mit,
+        damit sie auch bei vergrößerter Darstellung reicht.
+        """
         dock = QDockWidget(titel, self)
         dock.setObjectName(titel)
         dock.setWidget(inhalt)
+        inhalt.setMinimumWidth(
+            max(DOCK_MINDESTBREITE, dock.fontMetrics().horizontalAdvance(titel) + 64)
+        )
         self.addDockWidget(bereich, dock)
         return dock
 

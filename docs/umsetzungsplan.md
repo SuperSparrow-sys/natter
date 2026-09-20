@@ -273,7 +273,7 @@ jeher.
 **Abnahme.** Ein gedrucktes Klassendiagramm füllt das Blatt und ist
 lesbar.
 
-### 3.3 Punkt 9 — Die Bereiche im Diagramm-Editor
+### 3.3 Punkt 9 — Die Bereiche im Diagramm-Editor ~~(erledigt)~~
 
 **Änderung.** Zuerst messen, dann ändern: welche Bereiche es gibt, ob
 die Übersichtskarte ein eigener Dock ist, und ob das Fenster sein
