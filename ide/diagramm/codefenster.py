@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QSettings
+from PySide6.QtCore import QSettings, Signal
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -91,10 +91,25 @@ class CodeOptionenDialog(QDialog):
 class CodeFenster(QDialog):
     """Zeigt den erzeugten Quelltext, nur lesbar."""
 
-    def __init__(self, quelltext: str, titel: str, eltern: QWidget | None = None) -> None:
+    #: Der Pfad der eben geschriebenen Datei. Das Hauptfenster hängt
+    #: sich daran, frischt den Projekt-Explorer auf und öffnet sie als
+    #: Reiter - vorher war die Datei geschrieben und danach passierte
+    #: nichts, die Schülerin musste sie von Hand suchen.
+    datei_geschrieben = Signal(Path)
+
+    def __init__(
+        self,
+        quelltext: str,
+        titel: str,
+        eltern: QWidget | None = None,
+        vorschlag: Path | None = None,
+    ) -> None:
         super().__init__(eltern)
         self.setWindowTitle(titel)
         self.quelltext = quelltext
+        #: Wo der Dialog beginnt. Ohne Angabe der Heimatordner - das
+        #: ist der Fall, wenn das Fenster ohne Projekt geöffnet wird.
+        self.vorschlag = Path(vorschlag) if vorschlag is not None else Path.home()
 
         gemerkt = _einstellungen()
         self.ansicht = QuelltextEditor(
@@ -125,16 +140,30 @@ class CodeFenster(QDialog):
         QApplication.clipboard().setText(self.quelltext)
 
     def speichern_unter(self, pfad: Path | None = None) -> Path | None:
+        """Schreibt den Quelltext und meldet, wohin.
+
+        Der Dialog beginnt im Projektordner. Vorher begann er in gar
+        keinem, und die erzeugte Klasse landete dann irgendwo - im
+        September 2026 in einem eigens angelegten, sonst leeren
+        Ordner. Dort sieht das Projekt sie nie: `Projekt.units` liest
+        `ordner.glob("*.py")` im Projektordner.
+
+        Geschrieben wird über `in_datei_schreiben()`, das nachfragt
+        statt eine vorhandene Datei stillschweigend zu überschreiben -
+        wer eine Klasse zweimal erzeugt, soll seine inzwischen
+        ausformulierten Methodenrümpfe nicht verlieren.
+        """
         if pfad is None:
             gewaehlt, _ = QFileDialog.getSaveFileName(
-                self, "Quelltext speichern", "", "Python (*.py)"
+                self, "Quelltext speichern", str(self.vorschlag), "Python (*.py)"
             )
             if not gewaehlt:
                 return None
             pfad = Path(gewaehlt)
-        pfad = Path(pfad)
-        pfad.write_text(self.quelltext, encoding="utf-8")
-        return pfad
+        geschrieben = in_datei_schreiben(self.quelltext, Path(pfad), self)
+        if geschrieben is not None:
+            self.datei_geschrieben.emit(geschrieben)
+        return geschrieben
 
 
 def in_datei_schreiben(

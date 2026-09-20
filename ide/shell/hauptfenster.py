@@ -2341,10 +2341,29 @@ class HauptFenster(QMainWindow):
             return vorhanden
 
         fenster = DiagrammFenster(Diagramm.laden(pfad))
+        # Eine aus dem Diagramm erzeugte Klasse soll dort auftauchen,
+        # wo der Schüler sie sucht: links im Explorer und offen im
+        # Editor. Der Diagramm-Editor kennt das Hauptfenster nicht, er
+        # meldet nur, was er geschrieben hat.
+        fenster.datei_geschrieben.connect(self._erzeugte_datei_uebernehmen)
         fenster.destroyed.connect(lambda *_: self._offene_diagramme.pop(schluessel, None))
         self._offene_diagramme[schluessel] = fenster
         fenster.show()
         return fenster
+
+    def _erzeugte_datei_uebernehmen(self, pfad: Path) -> None:
+        """Holt eine vom Diagramm-Editor geschriebene Datei herein.
+
+        Liegt sie im offenen Projekt, gehört sie in den Explorer - er
+        liest seine Liste bei jedem Aufruf frisch von der Platte.
+        Liegt sie woanders, bekommt sie nur einen Reiter: der Explorer
+        zeigt das Projekt und nicht irgendeinen Ordner.
+        """
+        pfad = Path(pfad)
+        if self.projekt is not None and pfad.parent == self.projekt.ordner:
+            self.explorer.projekt_anzeigen(self.projekt)
+        self.datei_oeffnen(pfad)
+        self.statusBar().showMessage(f"{pfad.name} erzeugt und geöffnet.")
 
     def _neues_diagramm_aktion(self) -> None:
         """„Datei → Neues Diagramm …“ (Abschnitt 13.1): legt eine

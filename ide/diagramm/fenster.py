@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QPoint, QRect, QSettings, QSize, Qt
+from PySide6.QtCore import QPoint, QRect, QSettings, QSize, Qt, Signal
 from PySide6.QtGui import QActionGroup, QPageLayout, QPainter
 from PySide6.QtPrintSupport import QPrinter, QPrintPreviewDialog
 from PySide6.QtWidgets import (
@@ -181,6 +181,16 @@ _TABELLENMENUE = (
 
 
 class DiagrammFenster(QMainWindow):
+    #: Eine Datei, die der Diagramm-Editor geschrieben hat.
+    #:
+    #: Der Editor ist ein eigenes Fenster und kennt das Hauptfenster
+    #: nicht - er soll es auch nicht kennen müssen. Es hängt sich an
+    #: dieses Signal, frischt den Projekt-Explorer auf und öffnet die
+    #: Datei als Reiter. Vorher war die Datei geschrieben, und danach
+    #: passierte nichts: die Schülerin musste ihre eben erzeugte
+    #: Klasse selbst suchen.
+    datei_geschrieben = Signal(Path)
+
     def __init__(self, diagramm: Diagramm) -> None:
         super().__init__()
         self.diagramm = diagramm
@@ -766,9 +776,18 @@ class DiagrammFenster(QMainWindow):
             )
             if geschrieben is not None:
                 self.statusBar().showMessage(f"Geschrieben: {geschrieben.name}", 4000)
+                self.datei_geschrieben.emit(geschrieben)
             return geschrieben
 
-        fenster = CodeFenster(quelltext, f"Quelltext – {self.diagramm.pfad.stem}", self)
+        fenster = CodeFenster(
+            quelltext,
+            f"Quelltext – {self.diagramm.pfad.stem}",
+            self,
+            vorschlag=self._vorschlag_fuer_unit(),
+        )
+        # „Speichern unter …" im Fenster geht denselben Weg wie
+        # „Quelltext → Erzeugen … → in Datei".
+        fenster.datei_geschrieben.connect(self.datei_geschrieben.emit)
         if pfad is None:
             fenster.exec()
         return fenster
