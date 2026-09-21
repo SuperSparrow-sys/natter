@@ -38,9 +38,24 @@ $identitaet = [Security.Principal.WindowsIdentity]::GetCurrent()
 $rolle = New-Object Security.Principal.WindowsPrincipal($identitaet)
 if (-not $rolle.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Host "Administratorrechte werden gebraucht - Windows fragt gleich nach."
-    Start-Process powershell.exe -Verb RunAs -ArgumentList @(
-        "-ExecutionPolicy", "Bypass", "-File", "`"$PSCommandPath`""
-    )
+    # Wird die Rueckfrage abgelehnt oder fehlen die Rechte ganz, wirft
+    # Start-Process. Ohne dieses try/catch schliesst sich das Fenster
+    # dann wortlos, und es sieht aus, als sei alles in Ordnung
+    # gewesen - dabei ist nichts eingetragen worden.
+    try {
+        Start-Process powershell.exe -Verb RunAs -ArgumentList @(
+            "-ExecutionPolicy", "Bypass", "-File", "`"$PSCommandPath`""
+        )
+    } catch {
+        Write-Host ""
+        Write-Host "Nichts eingetragen." -ForegroundColor Red
+        Write-Host "Die Rueckfrage nach Administratorrechten wurde abgelehnt,"
+        Write-Host "oder dieses Konto hat keine. Ohne sie laesst sich das"
+        Write-Host "Zertifikat nicht fuer den Rechner eintragen - dann ist die"
+        Write-Host "Systembetreuung der richtige Weg."
+        Write-Host ""
+        Read-Host "Mit der Eingabetaste schliessen"
+    }
     exit
 }
 
@@ -54,13 +69,36 @@ Write-Host ""
 # Zwei Speicher, zwei Aufgaben: "Root" laesst Windows der Signatur
 # glauben, "TrustedPublisher" laesst sie beim Ausfuehren durchgehen,
 # ohne nachzufragen. Einer allein genuegt nicht.
+# Nachsehen statt melden: Import-Certificate gibt keinen Fehler,
+# wenn eine Gruppenrichtlinie den Speicher festhaelt. Gemeldet wurde
+# dann "eingetragen", und im Speicher stand nichts.
+$fehlt = @()
 foreach ($speicher in "Root", "TrustedPublisher") {
-    Import-Certificate -FilePath $zertifikat `
-        -CertStoreLocation "Cert:\LocalMachine\$speicher" | Out-Null
-    Write-Host "  eingetragen in $speicher" -ForegroundColor Green
+    try {
+        Import-Certificate -FilePath $zertifikat `
+            -CertStoreLocation "Cert:\LocalMachine\$speicher" -ErrorAction Stop | Out-Null
+    } catch {
+        Write-Host "  $speicher : $($_.Exception.Message)" -ForegroundColor Red
+    }
+
+    $drin = Get-ChildItem "Cert:\LocalMachine\$speicher" -ErrorAction SilentlyContinue |
+        Where-Object { $_.Thumbprint -eq $daten.Thumbprint }
+    if ($drin) {
+        Write-Host "  eingetragen in $speicher" -ForegroundColor Green
+    } else {
+        Write-Host "  NICHT eingetragen in $speicher" -ForegroundColor Red
+        $fehlt += $speicher
+    }
 }
 
 Write-Host ""
-Write-Host "Fertig. Natter-Setup.exe laesst sich jetzt installieren." -ForegroundColor Green
+if ($fehlt.Count -gt 0) {
+    Write-Host "Der Eintrag ist unvollstaendig." -ForegroundColor Red
+    Write-Host "Windows meldet beim Installieren weiterhin einen unbekannten"
+    Write-Host "Herausgeber. Haelt eine Gruppenrichtlinie die Speicher fest,"
+    Write-Host "fuehrt nur der Weg ueber die Systembetreuung weiter."
+} else {
+    Write-Host "Fertig. Natter-Setup.exe laesst sich jetzt installieren." -ForegroundColor Green
+}
 Write-Host ""
 Read-Host "Mit der Eingabetaste schliessen"
