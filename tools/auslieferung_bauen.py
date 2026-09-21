@@ -142,6 +142,12 @@ print("Rauchprobe bestanden")
 #: Schritt ausgibt - wer zusieht, will wissen, wie weit es noch ist.
 _SCHRITTE = 11
 
+#: Was Windows lädt und deshalb signiert sein muss. Dieselbe Liste
+#: steht in `tools/signieren/alles_signieren.ps1`; liefen die beiden
+#: auseinander, prüfte Schritt 10 etwas anderes, als der Bau signiert
+#: hat. `tests/test_auslieferung_bauen.py` hält sie zusammen.
+_SIGNIERTE_ENDUNGEN = (".exe", ".dll", ".pyd", ".sys", ".cat", ".ocx")
+
 
 class BauFehler(RuntimeError):
     """Ein Schritt ist fehlgeschlagen; der Bau wird abgebrochen."""
@@ -454,9 +460,16 @@ def _luecken_in_den_signaturen(ordner: Path) -> list[str]:
     hätte das nicht verhindert - beim nächsten Release wäre wieder
     eine Datei durchgerutscht.
     """
+    # Gefiltert wird über `Where-Object` und nicht über `-Include`:
+    # zusammen mit `-LiteralPath` lässt PowerShell `-Include` ohne ein
+    # Wort fallen und liefert jede Datei. Der erste Lauf dieses Gates
+    # meldete deshalb 29341 Lücken, angeführt von `manifest.json` und
+    # den Lizenztexten.
+    endungen = ", ".join(f"'{e}'" for e in _SIGNIERTE_ENDUNGEN)
     befehl = (
         f"Get-ChildItem -LiteralPath '{ordner}' -Recurse -File "
-        "-Include *.exe,*.dll,*.pyd,*.sys,*.cat,*.ocx -ErrorAction SilentlyContinue | "
+        "-ErrorAction SilentlyContinue | "
+        f"Where-Object {{ $_.Extension -in {endungen} }} | "
         "ForEach-Object { $s = Get-AuthenticodeSignature $_.FullName; "
         "if ($s.Status -ne 'Valid') { Write-Output $_.FullName } }"
     )

@@ -302,3 +302,35 @@ def test_version_und_nur_installer_schliessen_einander_aus(
     0.2.0 an, `pip list` in der Installation weiterhin 0.1.0."""
     assert bau.main(["--version", "0.2.0", "--nur-installer"]) == 1
     assert "schließen einander aus" in capsys.readouterr().err
+
+
+def test_das_gate_prueft_dieselben_endungen_wie_das_signierskript() -> None:
+    """Liefen die beiden auseinander, pruefte Schritt 10 etwas
+    anderes, als der Bau signiert hat - und genau dazwischen sind die
+    beiden letzten Auslieferungsfehler entstanden."""
+    wurzel = Path(__file__).resolve().parent.parent
+    skript = (wurzel / "tools" / "signieren" / "alles_signieren.ps1").read_text(
+        encoding="utf-8"
+    )
+    zeile = next(z for z in skript.splitlines() if z.startswith("$ENDUNGEN"))
+    im_skript = {
+        teil.strip().strip('"').lstrip("*")
+        for teil in zeile.split("@(")[1].rstrip(")").split(",")
+    }
+
+    assert im_skript == set(bau._SIGNIERTE_ENDUNGEN)
+
+
+def test_das_gate_filtert_nicht_ueber_include() -> None:
+    """`-Include` wird zusammen mit `-LiteralPath` von PowerShell ohne
+    Meldung fallengelassen. Der erste Lauf dieses Gates meldete
+    deshalb 29341 Luecken, angefuehrt von manifest.json und den
+    Lizenztexten."""
+    import inspect
+
+    quelle = inspect.getsource(bau._luecken_in_den_signaturen)
+    code = [z for z in quelle.splitlines() if not z.lstrip().startswith("#")]
+
+    assert any("-LiteralPath" in z for z in code)
+    assert any("Where-Object" in z for z in code)
+    assert not any("-Include" in z for z in code)
