@@ -53,6 +53,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pcl
+from ide.export.signatur import signieren_wenn_moeglich
 from ide.project import Projekt
 from ide.prozess import ohne_konsole
 from ide.run.interpreter import python_befehl
@@ -340,6 +341,26 @@ def exe_exportieren(
         ohne_endung = dist_pfad / projekt.name
         if ohne_endung.is_file():
             exe_pfad = ohne_endung
+
+    # Signieren, sofern auf diesem Rechner ein Zertifikat liegt. Ohne
+    # Signatur schießt Smart App Control das Programm beim Start ab,
+    # bevor es sein Fenster zeigt - dasselbe ist Natter selbst
+    # passiert, bevor die Auslieferung durchsigniert wurde. Natters
+    # eigener Schlüssel liegt ausdrücklich nicht in der Auslieferung;
+    # warum, steht in `ide/export/signatur.py`.
+    melder(98, "Signieren …")
+    # `anlegen=True`: findet sich auf dem Rechner kein Zertifikat,
+    # legt Natter eines an. Ohne Signatur startet das fertige Programm
+    # auf einem Rechner mit Smart App Control nicht, und ein Export,
+    # dessen Ergebnis sich nicht öffnen lässt, ist keiner.
+    #
+    # Der Eingriff bleibt so klein wie möglich: das Zertifikat gilt
+    # für das angemeldete Konto, sein Schlüssel ist nicht
+    # exportierbar, und es beglaubigt nur, was auf diesem Rechner
+    # gebaut wurde. Zurücknehmen lässt es sich in der
+    # Zertifikatsverwaltung unter „Natter Programme dieses Rechners".
+    signatur = signieren_wenn_moeglich(exe_pfad, anlegen=True)
+    protokoll += f"\n{signatur.grund}"
 
     melder(100, "Fertig.")
 

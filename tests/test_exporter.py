@@ -72,6 +72,24 @@ class _LaufAttrappe:
         return self._rueckgabe
 
 
+@pytest.fixture(autouse=True)
+def _nicht_wirklich_signieren(monkeypatch: pytest.MonkeyPatch):
+    """Das Signieren der fertigen Exe wird hier nicht mitgeprüft.
+
+    Es ruft PowerShell, und die `pyinstaller`-Attrappe unten fängt
+    jeden Prozessaufruf ab - sie suchte in einem Signierbefehl nach
+    `--distpath` und scheiterte daran. Wichtiger als die Mechanik ist
+    aber: ein Testlauf soll keine echten Dateien signieren. Was das
+    Signieren selbst tut, steht in `tests/test_export_signatur.py`.
+    """
+    from ide.export.signatur import SignaturErgebnis
+
+    monkeypatch.setattr(
+        "ide.export.exporter.signieren_wenn_moeglich",
+        lambda exe, **_: SignaturErgebnis(False, "Im Test nicht signiert."),
+    )
+
+
 @pytest.fixture
 def pyinstaller(monkeypatch: pytest.MonkeyPatch):
     """Fängt den PyInstaller-Aufruf ab und legt die Exe an, die er

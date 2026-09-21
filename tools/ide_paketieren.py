@@ -72,6 +72,7 @@ _DOCS_ORDNER = _PROJEKT_WURZEL / "docs"
 _HILFESEITEN = ("erste_schritte.md", "komponenten.md")
 _LIZENZ_VORLAGEN = Path(__file__).resolve().parent / "lizenz_vorlagen"
 _SIGNIER_SKRIPT = Path(__file__).resolve().parent / "signieren" / "datei_signieren.ps1"
+_ALLES_SIGNIEREN = Path(__file__).resolve().parent / "signieren" / "alles_signieren.ps1"
 _MANIFEST_SCHLUESSEL = Path(__file__).resolve().parent / "signieren" / "manifest-privat.pem"
 
 # Nur diese Laufzeit-Abhängigkeiten interessieren (nicht pytest oder
@@ -461,6 +462,44 @@ def _exe_signieren(datei: Path) -> None:
     print(ergebnis.stdout.strip())
 
 
+def _alles_signieren(ordner: Path) -> None:
+    """Signiert jede Binärdatei im Ordner, die noch keine gültige
+    Signatur trägt.
+
+    Smart App Control prüft nicht die Exe, sondern jede Datei, die
+    geladen wird. Bis September 2026 signierte der Bau nur
+    `Natter.exe`; von 820 Binärdateien blieben 377 ohne Signatur,
+    darunter die gesamte mitgelieferte Python samt numpy, scipy,
+    pandas und sklearn. Auf einem Rechner mit eingeschaltetem Smart
+    App Control starb Natter deshalb beim Start, sobald die erste
+    unsignierte Datei geladen wurde - auch mit ordnungsgemäß
+    eingetragenem Zertifikat. Auf einem Testrechner nachgewiesen:
+    eine einzige signierte Datei reichte, damit Natter startete.
+
+    Läuft vor `_manifest_schreiben()`: jede Signatur ändert die Bytes
+    der Datei, und ein Manifest, das davor entsteht, meldet beim
+    ersten Start 377 veränderte Dateien.
+    """
+    ergebnis = subprocess.run(
+        [
+            "powershell",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(_ALLES_SIGNIEREN),
+            "-Ordner",
+            str(ordner),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    print(ergebnis.stdout.strip())
+    if ergebnis.returncode != 0:
+        meldung = ergebnis.stderr.strip() or ergebnis.stdout.strip()
+        print(f"Warnung: Massensignierung übersprungen ({meldung})")
+
+
 def _manifest_schreiben(ordner: Path) -> None:
     """Signiertes Prüfsummen-Manifest über den fertigen Programmordner
     (Abschnitt 17.8). Muss nach dem Signieren laufen, weil die
@@ -487,6 +526,7 @@ def paketieren(*, signieren: bool = True) -> Path:
     _lizenzen_sammeln(_AUSGABE / "Lizenzen")
     if signieren:
         _exe_signieren(_AUSGABE / "Natter.exe")
+        _alles_signieren(_AUSGABE)
     _manifest_schreiben(_AUSGABE)
     return _AUSGABE
 

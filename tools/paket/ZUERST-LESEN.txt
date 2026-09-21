@@ -6,6 +6,8 @@ In diesem Paket:
   Natter-Setup.exe        das Installationsprogramm (275 MB)
   natter-codesign.cer     das Zertifikat, mit dem Natter signiert ist
   Zertifikat-eintragen.ps1   traegt das Zertifikat ein
+  Zertifikat-entfernen.ps1   nimmt es wieder zurueck
+  Natter-pruefen.ps1      sieht nach, warum Natter nicht startet
   Handbuch.html           das Handbuch, im Browser zu oeffnen
   Handbuch.md             dasselbe als Textdatei
   Lizenzen\               die Lizenzen der mitgelieferten Bibliotheken
@@ -18,15 +20,31 @@ Natter ist mit einem selbst ausgestellten Zertifikat signiert. Ein von
 Microsoft anerkanntes Zertifikat kostet mehrere hundert Euro im Jahr;
 fuer ein Schulprojekt ist das nicht vorgesehen.
 
-Windows kennt dieses Zertifikat nicht und blockiert den Start deshalb
-auf Rechnern mit "Smart App Control" - nicht nur mit einer Warnung,
-sondern vollstaendig. Damit das nicht passiert, wird das Zertifikat
-einmal pro Rechner als vertrauenswuerdig eingetragen. Danach laeuft
-Natter wie jedes andere signierte Programm.
+Windows kennt dieses Zertifikat nicht. Auf einem Rechner mit "Smart
+App Control" fuehrt das nicht zu einer Warnung, sondern zum Abbruch:
+das Programm wird beim Start abgeschossen, noch bevor ein Fenster
+erscheint. Deshalb wird das Zertifikat einmal pro Rechner als
+vertrauenswuerdig eingetragen.
 
-Die Datei natter-codesign.cer enthaelt nur den oeffentlichen Teil. Sie
-ist nicht geheim und kann per Mail oder USB-Stick weitergegeben
-werden. Mit ihr laesst sich nichts signieren, nur pruefen.
+Betroffen sind vor allem frisch aufgesetzte Einzelgeraete -
+Lehrerlaptops, Privatrechner. Auf zentral verwalteten Schulrechnern
+(Intune, Domaene) ist Smart App Control von Haus aus abgeschaltet;
+dort laeuft Natter auch ohne diesen Schritt, und das Zertifikat
+erspart nur die SmartScreen-Warnung beim Installieren.
+
+Die Datei natter-codesign.cer enthaelt nur den oeffentlichen Teil.
+Mit ihr laesst sich nichts signieren, nur pruefen - der private
+Schluessel liegt beim Entwickler und wird nicht weitergegeben.
+
+Weil mit dem Eintrag Vertrauen vergeben wird, zaehlt nicht die
+Geheimhaltung, sondern die Unverfaelschtheit: wer unterwegs eine
+andere .cer unterschiebt, bekommt seinen eigenen Vertrauensanker auf
+den Rechner. Vor dem Eintragen deshalb den Fingerabdruck vergleichen,
+den das Skript anzeigt:
+
+  DFE4686F B0E8442F D5CAC3C8 A76D58A8 EB27A8E8
+
+Stimmt er nicht ueberein, nicht eintragen und nachfragen.
 
 
 Schritt 1: Zertifikat eintragen
@@ -105,6 +123,45 @@ Bleibt der Start aus, hilft ein Blick in die Ereignisanzeige unter
 
 Steht dort "did not meet the Enterprise signing level requirements",
 ist Schritt 1 nicht angekommen.
+
+
+Wenn Natter nicht startet
+-------------------------
+
+Natter-pruefen.ps1 startet die installierte Fassung ueber ihre eigene
+Python, faengt ab, woran sie scheitert, und legt einen Bericht auf den
+Schreibtisch.
+
+
+Vertrauen wieder zuruecknehmen
+------------------------------
+
+Zertifikat-entfernen.ps1 nimmt den Eintrag aus beiden Speichern
+wieder heraus - nach dem Schuljahr, beim Ausmustern eines Geraets
+oder wenn der Verdacht besteht, dass der Schluessel des Entwicklers
+abhandengekommen ist. Natter startet danach auf einem Rechner mit
+Smart App Control nicht mehr.
+
+
+Eigene Programme aus Natter
+---------------------------
+
+"Projekt -> Als Exe exportieren" baut aus einem Schuelerprojekt eine
+einzelne Exe. Auch die ist ein unsigniertes Programm, und auch sie
+blockiert Smart App Control.
+
+Natter signiert sie deshalb mit einem Zertifikat, das auf dem Rechner
+liegt - entweder mit einem, das dort schon eingerichtet ist, oder mit
+einem, das Natter auf Nachfrage anlegt und das den Rechner nie
+verlaesst. Damit laeuft das Programm auf dem Rechner, auf dem es
+gebaut wurde. Auf einem fremden Rechner mit Smart App Control laeuft
+es nicht; dafuer braeuchte es ein Zertifikat einer oeffentlichen
+Zertifizierungsstelle.
+
+Natters eigener Schluessel liegt ausdruecklich nicht in der
+Installation. Laege er dort, koennte jeder mit einer Natter-Kopie
+beliebige Programme signieren, denen alle Rechner mit eingetragenem
+Zertifikat dann vertrauen wuerden.
 
 
 Mehr dazu steht im Handbuch: Einrichtung, Pruefungsmodus, Tasten und

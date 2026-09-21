@@ -18,7 +18,7 @@
 ; "Kompletter Bau".)
 
 #define MyAppName "Natter"
-#define MyAppVersion "0.3.0"
+#define MyAppVersion "0.3.1"
 #define MyAppPublisher "Natter-Projekt"
 #define MyAppExeName "Natter.exe"
 #define MyAppIcon "..\ide\assets\icons\app.ico"
@@ -47,6 +47,14 @@ DisableReadyPage=no
 LicenseFile=lizenz_vorlagen\INSTALLER_LIZENZ.txt
 ; Kurzer Hinweis vor der Installation, wie viel Platz gebraucht wird.
 InfoBeforeFile=lizenz_vorlagen\INSTALLER_HINWEIS.txt
+; Der Uninstaller entsteht erst beim Installieren, also lange nach
+; dem Bau - ohne diese beiden Zeilen bliebe er als einzige unsignierte
+; Datei auf dem Rechner zurueck, und Smart App Control liesse sich
+; Natter dann nicht mehr deinstallieren. "natter" ist der Name, den
+; der Compiler-Aufruf mit /Snatter=... belegt (siehe
+; tools/auslieferung_bauen.py).
+SignTool=natter
+SignedUninstaller=yes
 OutputDir=..\dist\installer
 OutputBaseFilename=Natter-Setup
 SetupIconFile={#MyAppIcon}

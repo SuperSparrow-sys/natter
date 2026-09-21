@@ -1395,7 +1395,22 @@ class HauptFenster(QMainWindow):
             )
             return
 
-        self.statusBar().showMessage(f"Exe erstellt: {ergebnis.ausgabe_pfad}")
+        # Die letzte Zeile des Protokolls sagt, ob signiert wurde. Ohne
+        # Signatur lässt Windows das Programm auf einem Rechner mit
+        # Smart App Control nicht starten, und das soll dastehen,
+        # bevor jemand es weitergibt und sich beim Freund wundert.
+        letzte = ergebnis.protokoll.strip().splitlines()
+        signaturzeile = letzte[-1] if letzte else ""
+        if "Signiert" in signaturzeile:
+            hinweis = ""
+        else:
+            hinweis = f" - {signaturzeile}" if signaturzeile else ""
+            self.meldungen_liste.clear()
+            self.meldungen_liste.addItems(["[Exe-Export]", *letzte[-10:]])
+
+        self.statusBar().showMessage(
+            f"Exe erstellt: {ergebnis.ausgabe_pfad}{hinweis}"
+        )
         if sys.platform == "win32":
             os.startfile(ergebnis.ausgabe_pfad.parent)
 

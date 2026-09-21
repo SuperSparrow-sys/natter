@@ -386,7 +386,22 @@ def _installer_bauen() -> Path:
         # sieht aus wie das Ergebnis dieses Baus.
         _INSTALLER.unlink()
     print("  Inno Setup packt und komprimiert - das dauert einige Minuten.", flush=True)
-    _laufen_lassen([str(iscc), str(_ISS)], was="Inno Setup")
+    # `/Snatter=…` belegt den Signierbefehl, auf den sich `SignTool=natter`
+    # in der `.iss` bezieht. Inno ruft ihn für den Uninstaller auf, den es
+    # erst beim Installieren erzeugt - ohne das bliebe er als einzige
+    # unsignierte Datei auf dem Rechner des Schülers zurück. `$f` ersetzt
+    # Inno durch den Dateinamen.
+    # `$q` ist in einem Inno-Signierbefehl das Anführungszeichen, `$f`
+    # der Dateiname. Ein echtes `"` schreibt Inno wörtlich durch, und
+    # PowerShell bekam daraus einen Pfad mit Backslashes davor und
+    # dahinter („Das angegebene Pfadformat wird nicht unterstützt").
+    signierbefehl = (
+        "powershell.exe -NoProfile -ExecutionPolicy Bypass "
+        f"-File $q{_SIGNIER_SKRIPT}$q -Datei $f"
+    )
+    _laufen_lassen(
+        [str(iscc), f"/Snatter={signierbefehl}", str(_ISS)], was="Inno Setup"
+    )
     if not _INSTALLER.exists():
         raise BauFehler(f"Inno Setup meldete Erfolg, aber {_INSTALLER.name} fehlt.")
     # Die Größe steht erst im Schlussbericht: das Signieren im nächsten
@@ -421,6 +436,52 @@ def _installer_signieren(datei: Path) -> None:
         print(f"  Warnung: Signieren übersprungen ({meldung})")
         return
     print(f"  {(ergebnis.stdout or '').strip()}")
+
+
+def _luecken_in_den_signaturen(ordner: Path) -> list[str]:
+    """Jede Binärdatei im Ordner, die keine gültige Signatur trägt.
+
+    Das Gate gegen den Fehler, der im September 2026 durchgerutscht
+    ist: der Bau signierte nur `Natter.exe`, und die übrigen 377
+    unsignierten Dateien fielen erst auf, als Smart App Control auf
+    einem fremden Rechner den Start abschoss. Eine Empfehlung im Text
+    hätte das nicht verhindert - beim nächsten Release wäre wieder
+    eine Datei durchgerutscht.
+    """
+    befehl = (
+        f"Get-ChildItem -LiteralPath '{ordner}' -Recurse -File "
+        "-Include *.exe,*.dll,*.pyd,*.sys,*.cat,*.ocx -ErrorAction SilentlyContinue | "
+        "ForEach-Object { $s = Get-AuthenticodeSignature $_.FullName; "
+        "if ($s.Status -ne 'Valid') { Write-Output $_.FullName } }"
+    )
+    ergebnis = subprocess.run(
+        ["powershell", "-NoProfile", "-Command", befehl],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    return [z.strip() for z in (ergebnis.stdout or "").splitlines() if z.strip()]
+
+
+def _alle_signaturen_pruefen(ordner: Path) -> None:
+    """Bricht ab, wenn im Ordner etwas ohne gültige Signatur liegt."""
+    luecken = _luecken_in_den_signaturen(ordner)
+    if not luecken:
+        print("  Jede Binärdatei trägt eine gültige Signatur.")
+        return
+
+    beispiele = "\n".join(f"    {pfad}" for pfad in luecken[:10])
+    weitere = (
+        f"\n    … und {len(luecken) - 10} weitere" if len(luecken) > 10 else ""
+    )
+    raise BauFehler(
+        f"{len(luecken)} Datei(en) ohne gültige Signatur:\n"
+        f"{beispiele}{weitere}\n\n"
+        "Smart App Control blockiert den Start, sobald eine davon geladen "
+        "wird - auch mit eingetragenem Zertifikat. Erst "
+        "tools/signieren/alles_signieren.ps1 laufen lassen."
+    )
 
 
 def _signaturen_pruefen(dateien: list[Path]) -> None:
@@ -512,6 +573,9 @@ def auslieferung_bauen(
 
     _schritt(10, "Signaturen prüfen")
     _signaturen_pruefen([_AUSGABE / "Natter.exe", installer])
+    # Nicht nur die beiden, die der Bau selbst angefasst hat: Smart App
+    # Control prüft jede Datei, die geladen wird.
+    _alle_signaturen_pruefen(_AUSGABE)
 
     dauer = time.monotonic() - beginn
     print(
