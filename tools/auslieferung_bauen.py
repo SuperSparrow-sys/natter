@@ -538,7 +538,7 @@ def _paket_packen(version: str) -> None:
     from tools.paket_bauen import PaketFehler, paket_bauen, zip_bauen
 
     try:
-        ordner = paket_bauen()
+        ordner = paket_bauen(version=version)
     except PaketFehler as fehler:
         raise BauFehler(str(fehler)) from fehler
 

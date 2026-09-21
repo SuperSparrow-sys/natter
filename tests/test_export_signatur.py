@@ -77,7 +77,7 @@ def test_ohne_zertifikat_wird_nicht_signiert(monkeypatch: pytest.MonkeyPatch) ->
     ergebnis = signatur.signieren_wenn_moeglich(Path("egal.exe"))
 
     assert ergebnis.signiert is False
-    assert "Smart App Control" in ergebnis.grund
+    assert "Unbekannter Herausgeber" in ergebnis.grund
 
 
 def test_ohne_zertifikat_wird_von_sich_aus_keines_angelegt(
@@ -171,103 +171,26 @@ def test_ein_angelegtes_zertifikat_ist_nicht_exportierbar() -> None:
     assert "-KeyExportPolicy NonExportable" in quelle
 
 
-def test_ohne_smart_app_control_bleibt_es_beim_eigenen_konto(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Der Eintrag für alle Konten braucht Administratorrechte. Wo er
-    nichts bringt, wird er auch nicht verlangt - auf einem verwalteten
-    Schulrechner soll beim Exportieren keine Rückfrage aufgehen."""
-    fuer_alle: list[str] = []
+def test_es_wird_nur_fuer_das_eigene_konto_eingetragen() -> None:
+    """Der Eintrag fuer alle Konten braucht Administratorrechte, und er
+    bringt nichts: Smart App Control erkennt ein selbst ausgestelltes
+    Zertifikat auch dann nicht an. Beim Ausprobieren stand die
+    signierte Datei im Ereignisprotokoll als
+    `ValidatedSigningLevel=1`, also als unsigniert. Wer dafuer nach
+    Administratorrechten fragt, verlangt etwas fuer nichts.
 
-    monkeypatch.setattr(signatur, "_powershell", lambda *a, **k: _Antwort("ABC123\n"))
-    monkeypatch.setattr(signatur, "vertrauenswuerdige_fingerabdruecke", lambda: {"ABC123"})
-    monkeypatch.setattr(signatur, "smart_app_control_an", lambda: False)
-    monkeypatch.setattr(
-        signatur,
-        "_in_den_rechnerspeicher",
-        lambda fp: (fuer_alle.append(fp), "")[1],
-    )
+    Geprueft wird der Anlege-Befehl und nicht die ganze Datei:
+    `vertrauenswuerdige_fingerabdruecke()` liest auch den Speicher des
+    Rechners, und das muss es auch - ein dort eingetragenes Zertifikat
+    gilt ja.
+    """
+    import inspect
 
-    fingerabdruck, grund = signatur.zertifikat_anlegen()
+    quelle = inspect.getsource(signatur.zertifikat_anlegen)
 
-    assert fingerabdruck == "ABC123"
-    assert not fuer_alle, "Natter hat ungefragt Administratorrechte verlangt."
-    assert "Benutzerkonto" in grund
-
-
-def test_mit_smart_app_control_wird_fuer_den_rechner_eingetragen(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Smart App Control prüft auf Systemebene: ein Zertifikat, dem
-    nur das Konto vertraut, zählt dort nicht. Die Exe wäre signiert und
-    liefe trotzdem nicht - beim Bau der Auslieferung genau so
-    aufgetreten."""
-    fuer_alle: list[str] = []
-
-    monkeypatch.setattr(signatur, "_powershell", lambda *a, **k: _Antwort("ABC123\n"))
-    monkeypatch.setattr(signatur, "vertrauenswuerdige_fingerabdruecke", lambda: {"ABC123"})
-    monkeypatch.setattr(signatur, "smart_app_control_an", lambda: True)
-    monkeypatch.setattr(
-        signatur,
-        "_in_den_rechnerspeicher",
-        lambda fp: (fuer_alle.append(fp), "")[1],
-    )
-
-    fingerabdruck, grund = signatur.zertifikat_anlegen()
-
-    assert fuer_alle == ["ABC123"]
-    assert fingerabdruck == "ABC123"
-    assert "Rechner" in grund
-
-
-def test_ein_abgelehnter_eintrag_wird_nicht_beschoenigt(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Wer die Rückfrage nach Administratorrechten ablehnt, hat eine
-    signierte Exe, die nicht startet. Das muss dastehen, sonst sucht
-    jemand den Fehler im eigenen Programm."""
-    monkeypatch.setattr(signatur, "_powershell", lambda *a, **k: _Antwort("ABC123\n"))
-    monkeypatch.setattr(signatur, "vertrauenswuerdige_fingerabdruecke", lambda: {"ABC123"})
-    monkeypatch.setattr(signatur, "smart_app_control_an", lambda: True)
-    monkeypatch.setattr(
-        signatur, "_in_den_rechnerspeicher", lambda fp: "startet deshalb nicht"
-    )
-
-    _fingerabdruck, grund = signatur.zertifikat_anlegen()
-
-    assert "startet deshalb nicht" in grund
-
-
-def test_der_eintrag_fuer_den_rechner_wird_nachgeprueft(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Über die Grenze der Rechteerhöhung hinweg lässt sich nicht
-    ablesen, ob der Vorgang etwas getan hat. Also nachsehen."""
-    monkeypatch.setattr(signatur, "_eintrag_erhoeht_ausfuehren", lambda fp: None)
-    monkeypatch.setattr(
-        signatur,
-        "_fingerabdruecke_im_rechnerspeicher",
-        lambda: {"Root": set(), "TrustedPublisher": set()},
-    )
-
-    fehlt = signatur._in_den_rechnerspeicher("ABC123")
-
-    assert "Administratorrechte" in fehlt
-
-
-def test_ein_eintrag_in_nur_einem_speicher_genuegt_nicht(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Root lässt Windows der Signatur glauben, TrustedPublisher lässt
-    Smart App Control den Start zu. Einer allein reicht nicht."""
-    monkeypatch.setattr(signatur, "_eintrag_erhoeht_ausfuehren", lambda fp: None)
-    monkeypatch.setattr(
-        signatur,
-        "_fingerabdruecke_im_rechnerspeicher",
-        lambda: {"Root": {"ABC123"}, "TrustedPublisher": set()},
-    )
-
-    assert signatur._in_den_rechnerspeicher("ABC123") != ""
+    assert "'CurrentUser'" in quelle
+    assert "LocalMachine" not in quelle
+    assert "RunAs" not in quelle
 
 
 def test_smart_app_control_wird_aus_der_registrierung_gelesen(
@@ -279,24 +202,28 @@ def test_smart_app_control_wird_aus_der_registrierung_gelesen(
     monkeypatch.setattr(signatur, "_powershell", lambda *a, **k: _Antwort("0\n"))
     assert signatur.smart_app_control_an() is False
 
-    # Prüfmodus meldet 2 und blockiert nichts.
+    # Pruefmodus meldet 2 und blockiert nichts.
     monkeypatch.setattr(signatur, "_powershell", lambda *a, **k: _Antwort("2\n"))
     assert signatur.smart_app_control_an() is False
 
-    # Ältere Windows-Fassungen kennen den Wert gar nicht.
+    # Aeltere Windows-Fassungen kennen den Wert gar nicht.
     monkeypatch.setattr(signatur, "_powershell", lambda *a, **k: _Antwort(""))
     assert signatur.smart_app_control_an() is False
 
 
-def test_nur_der_oeffentliche_teil_verlaesst_den_kontospeicher() -> None:
-    """Der private Schlüssel bleibt, wo er angelegt wurde. In den
-    Speicher des Rechners wandert die `.cer`, nicht der Schlüssel."""
-    import inspect
+def test_bei_eingeschaltetem_schutz_wird_nichts_versprochen(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Eine Signatur laesst eine selbst gebaute Exe unter Smart App
+    Control nicht starten. Wer das Gegenteil liest, sucht den Fehler
+    danach im eigenen Programm."""
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: _Antwort(stdout="Valid\n"))
+    monkeypatch.setattr(signatur, "smart_app_control_an", lambda: True)
 
-    quelle = inspect.getsource(signatur._eintrag_erhoeht_ausfuehren)
+    ergebnis = signatur.exe_signieren(Path("C:/tmp/Spiel.exe"), "ABC123")
 
-    assert "RawData" in quelle
-    assert "Export" not in quelle
+    assert ergebnis.signiert is True
+    assert "nicht zuverlässig" in ergebnis.grund
 
 
 # --------------------------------------- Der Weg durch den Export

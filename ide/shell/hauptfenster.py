@@ -1395,10 +1395,10 @@ class HauptFenster(QMainWindow):
             )
             return
 
-        # Die letzte Zeile des Protokolls sagt, ob signiert wurde. Ohne
-        # Signatur lässt Windows das Programm auf einem Rechner mit
-        # Smart App Control nicht starten, und das soll dastehen,
-        # bevor jemand es weitergibt und sich beim Freund wundert.
+        # Die letzte Zeile des Protokolls sagt, ob signiert wurde.
+        # Ohne Signatur gilt das Programm Windows als von einem
+        # unbekannten Herausgeber, und das soll dastehen, bevor
+        # jemand es weitergibt.
         letzte = ergebnis.protokoll.strip().splitlines()
         signaturzeile = letzte[-1] if letzte else ""
         if "Signiert" in signaturzeile:

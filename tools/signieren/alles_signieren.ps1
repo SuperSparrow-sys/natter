@@ -1,18 +1,17 @@
 # Signiert jede Binaerdatei im fertigen Programmordner, die noch keine
 # gueltige Signatur hat.
 #
-# Warum das noetig ist: Smart App Control prueft nicht die Exe, sondern
-# jede Datei, die geladen wird. Bis September 2026 signierte der Bau
-# nur Natter.exe - von 820 Binaerdateien blieben 377 ohne Signatur,
+# Warum das noetig ist: bis September 2026 signierte der Bau nur
+# Natter.exe - von 820 Binaerdateien blieben 377 ohne Signatur,
 # darunter die gesamte mitgelieferte Python samt numpy, scipy, pandas
-# und sklearn. Auf einem Rechner mit eingeschaltetem Smart App Control
-# wurde Natter deshalb beim Start abgeschossen, sobald die erste
-# unsignierte Datei geladen wurde (python\DLLs\_socket.pyd), und zwar
-# auch dann, wenn das Zertifikat ordnungsgemaess eingetragen war.
+# und sklearn. Eine Auslieferung, bei der neun von zehn Dateien keine
+# Herkunft nennen, ist keine signierte Auslieferung.
 #
-# Nachgewiesen auf einem Testrechner: eine einzige signierte Datei
-# reichte, damit Natter startete. Das Zertifikat kann nur beglaubigen,
-# was auch signiert ist.
+# Was das nicht leistet: gegen eine eingeschaltete intelligente
+# App-Steuerung hilft es nicht. Die entscheidet nach dem Ruf des
+# einzelnen Dateihashs bei Microsoft und fuehrt eine mit einem selbst
+# ausgestellten Zertifikat signierte Datei als unsigniert. Die
+# Messung dazu steht in tools/signieren/README.md.
 #
 # Verwendung:
 #   .\alles_signieren.ps1 -Ordner ..\..\dist\Natter

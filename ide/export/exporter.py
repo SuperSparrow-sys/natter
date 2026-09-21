@@ -342,17 +342,17 @@ def exe_exportieren(
         if ohne_endung.is_file():
             exe_pfad = ohne_endung
 
-    # Signieren, sofern auf diesem Rechner ein Zertifikat liegt. Ohne
-    # Signatur schießt Smart App Control das Programm beim Start ab,
-    # bevor es sein Fenster zeigt - dasselbe ist Natter selbst
-    # passiert, bevor die Auslieferung durchsigniert wurde. Natters
-    # eigener Schlüssel liegt ausdrücklich nicht in der Auslieferung;
-    # warum, steht in `ide/export/signatur.py`.
+    # Signieren, sofern auf diesem Rechner ein Zertifikat liegt.
+    # Ohne Signatur nennt Windows die Exe in jedem Dialog
+    # „Unbekannter Herausgeber", und eine nachträgliche Veränderung
+    # fiele niemandem auf. Gegen eine eingeschaltete intelligente
+    # App-Steuerung hilft die Signatur nicht; warum nicht, steht in
+    # `ide/export/signatur.py`. Natters eigener Schlüssel liegt
+    # ausdrücklich nicht in der Auslieferung.
     melder(98, "Signieren …")
     # `anlegen=True`: findet sich auf dem Rechner kein Zertifikat,
-    # legt Natter eines an. Ohne Signatur startet das fertige Programm
-    # auf einem Rechner mit Smart App Control nicht, und ein Export,
-    # dessen Ergebnis sich nicht öffnen lässt, ist keiner.
+    # legt Natter eines an. Sonst käme aus jedem Export ein Programm
+    # ohne erkennbare Herkunft heraus.
     #
     # Der Eingriff bleibt so klein wie möglich: das Zertifikat gilt
     # für das angemeldete Konto, sein Schlüssel ist nicht

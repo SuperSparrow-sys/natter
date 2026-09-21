@@ -1,16 +1,22 @@
 # Natter signieren ("Weg A": kostenloses, selbst erstelltes Zertifikat)
 
-Nutzer-Feedback (September 2026): Windows Smart App Control blockierte
-den Start der unsignierten `Natter.exe` komplett (nicht nur eine
-Warnung) - bestätigt über das Ereignisprotokoll
-(`Microsoft-Windows-CodeIntegrity/Operational`, "did not meet the
-Enterprise signing level requirements"). Ein gekauftes Authenticode-
-Zertifikat (ca. 100-400 $/Jahr) löst das für **jeden** Rechner sofort,
-kostet aber Geld. Die hier eingerichtete, kostenlose Alternative
-funktioniert genauso gut, aber nur auf Rechnern, auf denen das
-Zertifikat vorher als vertrauenswürdig eingetragen wurde (z. B. per
-Gruppenrichtlinie auf allen Schulrechnern) - siehe Abschnitt
-"Verteilung auf weitere Rechner" unten.
+Wozu das selbst erstellte Zertifikat taugt und wozu nicht: es gibt
+jeder ausgelieferten Datei einen Herausgeber, es erspart die
+SmartScreen-Warnung auf Rechnern, die es eingetragen haben, und eine
+nachträgliche Veränderung fällt damit auf.
+
+Gegen eine eingeschaltete intelligente App-Steuerung hilft es nicht.
+Das wurde zunächst anders eingeschätzt. Gemessen wurde: mit dem
+Zertifikat in `LocalMachine\Root` und `LocalMachine\TrustedPublisher`
+wies Windows frisch signierte Bibliotheken beim Laden ab und führte
+sie im Ereignisprotokoll als `ValidatedSigningLevel=1`, also als
+unsigniert, während `Get-AuthenticodeSignature` sie als `Valid`
+meldete. Dieselbe Datei lief vor dem Nachsignieren und war danach
+gesperrt. Entschieden wird nach dem Ruf des einzelnen Dateihashs bei
+Microsoft.
+
+Ein gekauftes Authenticode-Zertifikat (etwa 100-400 $ im Jahr) wäre
+der einzige Weg, der auch dort trägt.
 
 ## Einmalige Einrichtung (pro Rechner, der signierte Builds erzeugt)
 

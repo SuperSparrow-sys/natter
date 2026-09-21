@@ -33,7 +33,28 @@ Während der Installation sind zwei Angaben zu machen:
 | Desktop-Symbol anlegen | nach Geschmack |
 | `.natter`-Dateien mit Natter verknüpfen | **ankreuzen**, dann öffnet ein Doppelklick auf eine Projektdatei das Projekt |
 
-### 1.2 Die Warnung von Windows beim ersten Start
+### 1.2 Eine Voraussetzung, die vorher zu prüfen ist
+
+Auf einem Rechner mit eingeschalteter **intelligenter App-Steuerung**
+(Smart App Control) startet Natter nicht. Nachzusehen ist das unter
+Einstellungen → Datenschutz und Sicherheit → Windows-Sicherheit →
+App- und Browsersteuerung.
+
+Diese Prüfung fragt für jede einzelne Datei bei Microsoft nach, ob sie
+dort bekannt ist. Ein selbst ausgestelltes Zertifikat zählt dabei
+nicht mit — Windows führt eine so signierte Datei im Protokoll als
+unsigniert, auch wenn sie ordnungsgemäß signiert und das Zertifikat
+eingetragen ist. Ein Programm wie Natter besteht aus über achthundert
+solcher Dateien, und es genügt, dass eine davon abgewiesen wird.
+
+Der Normalfall auf zentral verwalteten Schulrechnern (Intune, Domäne)
+ist, dass die App-Steuerung aus ist; dasselbe gilt für alles, was von
+Windows 10 heraufgestuft wurde. Betroffen sind vor allem frisch
+aufgesetzte Einzelgeräte. Dort bleibt nur, die App-Steuerung
+auszuschalten — was Microsoft nur in eine Richtung zulässt: einmal
+aus, bleibt sie aus, bis Windows neu aufgesetzt wird.
+
+### 1.3 Die Warnung von Windows beim ersten Start
 
 Beim Doppelklick auf die Setup-Datei meldet sich Windows unter
 Umständen mit **„Der Computer wurde durch Windows geschützt"**
@@ -59,7 +80,7 @@ Get-AuthenticodeSignature "C:\Pfad\zu\Natter-Setup.exe" | Format-List Status, Si
 `Status : Valid` bedeutet: die Datei ist unverändert. Als Aussteller
 muss `CN=Natter Codesignatur` erscheinen.
 
-### 1.3 Auf vielen Rechnern gleichzeitig
+### 1.4 Auf vielen Rechnern gleichzeitig
 
 Für einen Computerraum lässt sich der Installer ohne jede Rückfrage
 ausführen:
@@ -76,7 +97,7 @@ Ein Update wird genauso eingespielt: die neue Setup-Datei über die
 alte Installation laufen lassen. Dateien einer früheren Fassung, die
 es nicht mehr gibt, werden dabei entfernt.
 
-### 1.4 Entfernen
+### 1.5 Entfernen
 
 Über **Einstellungen → Apps → Installierte Apps → Natter → Deinstallieren**,
 oder still:

@@ -1,6 +1,6 @@
 # Traegt das Natter-Zertifikat auf diesem Rechner als
-# vertrauenswuerdig ein. Danach startet die signierte Natter.exe,
-# ohne dass Smart App Control sie blockiert.
+# vertrauenswuerdig ein. Danach nennt Windows beim Installieren
+# keinen unbekannten Herausgeber mehr.
 #
 # Rechtsklick auf diese Datei -> "Mit PowerShell ausfuehren".
 # Die Rueckfrage von Windows mit "Ja" beantworten: der Eintrag gilt
@@ -52,8 +52,8 @@ Write-Host "Fingerabdruck: $($daten.Thumbprint)"
 Write-Host ""
 
 # Zwei Speicher, zwei Aufgaben: "Root" laesst Windows der Signatur
-# glauben, "TrustedPublisher" laesst Smart App Control den Start zu.
-# Einer allein genuegt nicht.
+# glauben, "TrustedPublisher" laesst sie beim Ausfuehren durchgehen,
+# ohne nachzufragen. Einer allein genuegt nicht.
 foreach ($speicher in "Root", "TrustedPublisher") {
     Import-Certificate -FilePath $zertifikat `
         -CertStoreLocation "Cert:\LocalMachine\$speicher" | Out-Null

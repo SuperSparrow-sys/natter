@@ -169,6 +169,36 @@ def test_fehlende_dateien_brechen_den_bau_ab(
     )
 
     with pytest.raises(paket_bauen.PaketFehler) as fehler:
-        paket_bauen.paket_bauen(ziel=tmp_path / "raus")
+        paket_bauen.paket_bauen(version="0.3.1", ziel=tmp_path / "raus")
 
     assert "gibtsnicht.txt" in str(fehler.value)
+
+
+def test_die_versionsnummer_wird_eingesetzt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """In ZUERST-LESEN.txt stand die Nummer von Hand. Zuletzt hiess es
+    dort 0.3.0, waehrend das Ladebild beim Start 0.3.1 zeigte - wer das
+    liest, glaubt an die falsche Fassung."""
+    quelle = tmp_path / "ZUERST-LESEN.txt"
+    quelle.write_text("Natter {VERSION} - Installation", encoding="utf-8")
+    monkeypatch.setattr(paket_bauen, "_INHALT", (("ZUERST-LESEN.txt", quelle),))
+    monkeypatch.setattr(paket_bauen, "_HANDBUCH", tmp_path / "hand.md")
+    (tmp_path / "hand.md").write_text("# Titel", encoding="utf-8")
+    monkeypatch.setattr(paket_bauen, "_GEBAUT", tmp_path / "gebaut")
+    (tmp_path / "gebaut" / "Lizenzen").mkdir(parents=True)
+
+    ordner = paket_bauen.paket_bauen(version="0.3.1", ziel=tmp_path / "raus")
+
+    gelesen = (ordner / "ZUERST-LESEN.txt").read_text(encoding="utf-8")
+    assert gelesen == "Natter 0.3.1 - Installation"
+
+
+def test_in_der_vorlage_steht_keine_feste_nummer() -> None:
+    """Sonst laeuft sie wieder auseinander."""
+    text = (WURZEL / "tools" / "paket" / "ZUERST-LESEN.txt").read_text(
+        encoding="utf-8"
+    )
+
+    assert "{VERSION}" in text
+    assert "0.3.0" not in text

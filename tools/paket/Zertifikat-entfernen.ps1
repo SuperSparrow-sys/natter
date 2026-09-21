@@ -10,9 +10,9 @@
 #
 # Rechtsklick auf diese Datei -> "Mit PowerShell ausfuehren".
 #
-# Danach startet Natter auf einem Rechner mit Smart App Control nicht
-# mehr. Die Installation selbst bleibt unberuehrt; sie laesst sich
-# ueber "Apps & Features" entfernen.
+# Danach meldet Windows beim Installieren wieder einen unbekannten
+# Herausgeber. Die Installation selbst bleibt unberuehrt; sie laesst
+# sich ueber "Apps & Features" entfernen.
 
 param([switch]$Still)
 
@@ -63,8 +63,8 @@ if ($gefunden -eq 0) {
     Write-Host "Nichts gefunden - das Zertifikat war nicht eingetragen."
 } else {
     Write-Host "$gefunden Eintrag/Eintraege entfernt." -ForegroundColor Green
-    Write-Host "Natter startet auf diesem Rechner nur noch, wenn Smart App"
-    Write-Host "Control ausgeschaltet ist."
+    Write-Host "Windows meldet beim Installieren wieder einen unbekannten"
+    Write-Host "Herausgeber. Die Installation selbst bleibt unberuehrt."
 }
 Write-Host ""
 

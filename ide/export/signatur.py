@@ -1,11 +1,23 @@
-"""Eine exportierte Exe signieren, damit Windows sie starten lässt.
+"""Eine exportierte Exe signieren, damit sie einen Herausgeber trägt.
 
-Smart App Control prüft jede Datei, die geladen wird, und lässt nur
-durch, was signiert ist oder einen Ruf im Netz hat. Eine frisch
-gebaute Exe hat weder das eine noch das andere: das Programm einer
-Schülerin wird auf einem solchen Rechner abgeschossen, bevor es sein
-Fenster zeigt. Dasselbe ist Natter selbst passiert, bevor die
-Auslieferung durchsigniert wurde.
+Eine frisch gebaute Exe hat keinen. Windows nennt sie in jedem Dialog
+„Unbekannter Herausgeber", und wer sie weitergibt, kann nicht zeigen,
+woher sie stammt. Eine Signatur ändert das: sie nennt den Rechner, auf
+dem das Programm entstanden ist, und sie fällt auf, wenn jemand die
+Datei nachträglich verändert.
+
+Was sie nicht leistet, gehört genauso hierher. Smart App Control lässt
+sich mit einem selbst ausgestellten Zertifikat nicht zufriedenstellen.
+Windows führt eine so signierte Datei im Ereignisprotokoll als
+`ValidatedSigningLevel=1`, also als unsigniert, und entscheidet
+stattdessen nach dem Ruf des einzelnen Dateihashs bei Microsoft. Beim
+Ausprobieren lief dieselbe Bibliothek vor dem Nachsignieren und war
+danach gesperrt - gleiches Zertifikat, gleicher Rechner. Auf einem
+Rechner mit eingeschaltetem Smart App Control startet ein selbst
+gebautes Programm deshalb nicht zuverlässig, signiert oder nicht.
+Dafür bräuchte es ein Zertifikat einer öffentlichen
+Zertifizierungsstelle, und das ist eine Entscheidung der Schule, nicht
+die eines Programms.
 
 Der private Schlüssel von Natter liegt ausdrücklich nicht in der
 Auslieferung. Läge er dort, könnte jede Natter-Installation beliebigen
@@ -19,26 +31,15 @@ Signiert wird deshalb mit dem, was auf dem Rechner schon liegt:
 
 * einem Zertifikat, das die Lehrkraft dort eingerichtet hat, oder
 * einem, das Natter auf diesem Rechner anlegt und das ihn nie
-  verlässt. Der Schlüssel ist nicht exportierbar.
-
-Wie weit dieser Eintrag reicht, richtet sich danach, was der Rechner
-verlangt. Ist Smart App Control aus - der Normalfall auf einem
-verwalteten Schulrechner -, genügt der Speicher des angemeldeten
-Kontos, und niemand bekommt eine Rückfrage zu sehen. Ist es an, prüft
-Windows auf Systemebene, wo der Speicher eines einzelnen Kontos nicht
-zählt; dann wird einmal nach Administratorrechten gefragt.
-
-Was damit signiert wurde, läuft auf diesem Rechner. Auf einem fremden
-Rechner mit Smart App Control läuft es weiterhin nicht - dafür
-bräuchte es ein Zertifikat einer öffentlichen Zertifizierungsstelle,
-und das ist eine Entscheidung der Schule, nicht die eines Programms.
+  verlässt. Der Schlüssel ist nicht exportierbar, und eingetragen wird
+  für das angemeldete Konto. Für alle Konten bräuchte es
+  Administratorrechte, und die hätte Natter nur zu verlangen, wenn
+  sich damit etwas erreichen ließe.
 """
 
 from __future__ import annotations
 
-import shutil
 import subprocess
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -113,9 +114,9 @@ def vertrauenswuerdige_fingerabdruecke() -> set[str]:
     """Wem dieser Rechner beim Ausführen von Code vertraut.
 
     Beides zusammen zählt: die Wurzel, damit die Kette überhaupt
-    validiert, und der Herausgeber, damit Smart App Control den Start
-    zulässt. Geprüft werden Konto und Rechner - wer ohne
-    Administratorrechte einträgt, landet im Konto, und das gilt
+    validiert, und der Herausgeber, damit Windows die Signatur beim
+    Ausführen nicht beanstandet. Geprüft werden Konto und Rechner - wer
+    ohne Administratorrechte einträgt, landet im Konto, und das gilt
     trotzdem.
     """
     befehl = (
@@ -131,18 +132,12 @@ def vertrauenswuerdige_fingerabdruecke() -> set[str]:
 def smart_app_control_an() -> bool:
     """Ob Smart App Control auf diesem Rechner scharf geschaltet ist.
 
-    Davon hängt ab, wie weit der Eintrag des Zertifikats reichen muss.
-    Ist Smart App Control aus - der Normalfall auf einem verwalteten
-    Schulrechner -, genügt der Speicher des angemeldeten Kontos, und
-    niemand bekommt eine Rückfrage nach Administratorrechten zu sehen.
-
-    Ist es an, prüft Windows auf Systemebene, und dort zählt der
-    Speicher eines einzelnen Kontos nicht. Das ist beim Bau der
-    Auslieferung aufgefallen: die frisch signierten Dateien meldeten
-    `Status: Valid`, weil die Kette über den Kontospeicher aufging, und
-    wurden beim Laden trotzdem abgewiesen. Eine Exe wäre damit signiert
-    und liefe nicht - der Zustand, in dem nichts auf die Ursache
-    hindeutet.
+    Gebraucht wird das für die Rückmeldung nach dem Export, nicht für
+    eine Entscheidung im Ablauf. Ist es eingeschaltet, startet ein
+    selbst gebautes Programm auf diesem Rechner nicht zuverlässig, und
+    daran ändert die Signatur nichts. Das gehört in den Satz, den
+    jemand nach dem Exportieren liest - sonst sucht er den Fehler in
+    seinem Programm.
     """
     befehl = (
         f"(Get-ItemProperty -Path '{_SAC_SCHLUESSEL}' "
@@ -228,108 +223,7 @@ def zertifikat_anlegen() -> tuple[str | None, str]:
             "starten. Die Rückfrage von Windows dazu muss bejaht werden."
         )
 
-    # Nur wenn es sein muss: der Eintrag für alle Konten braucht
-    # Administratorrechte, und auf einem Rechner ohne Smart App Control
-    # bringt er nichts, was der Eintrag für das eigene Konto nicht
-    # schon leistet.
-    if smart_app_control_an():
-        fehlt = _in_den_rechnerspeicher(neuer)
-        if fehlt:
-            return neuer, fehlt
-        return neuer, (
-            "Zertifikat angelegt und für den ganzen Rechner eingetragen."
-        )
     return neuer, "Zertifikat für dieses Benutzerkonto angelegt."
-
-
-def _fingerabdruecke_im_rechnerspeicher() -> dict[str, set[str]]:
-    """Was in den Speichern des Rechners liegt, nach Speicher getrennt.
-
-    Getrennt und nicht als eine Menge: für Smart App Control muss das
-    Zertifikat in beiden stehen. Eines von beiden genügt nicht, und
-    eine zusammengeworfene Menge würde das verdecken.
-    """
-    befehl = (
-        "foreach ($s in 'Root', 'TrustedPublisher') { "
-        "  Get-ChildItem \"Cert:\\LocalMachine\\$s\" "
-        "-ErrorAction SilentlyContinue | "
-        "    ForEach-Object { Write-Output \"$s`t$($_.Thumbprint)\" } }"
-    )
-    ergebnis = _powershell(befehl)
-    gefunden: dict[str, set[str]] = {"Root": set(), "TrustedPublisher": set()}
-    for zeile in (ergebnis.stdout or "").splitlines():
-        teile = zeile.strip().split("\t")
-        if len(teile) == 2 and teile[0] in gefunden:
-            gefunden[teile[0]].add(teile[1])
-    return gefunden
-
-
-def _eintrag_erhoeht_ausfuehren(fingerabdruck: str) -> None:
-    """Schiebt den öffentlichen Teil über eine Rechteerhöhung hinüber.
-
-    Der Umweg über eine Datei ist nötig, weil `Start-Process -Verb
-    RunAs` einen neuen Vorgang startet: Rückgaben und Fehlertexte von
-    dort kommen hier nicht an. Deshalb steht danach die Prüfung im
-    Zertifikatspeicher, nicht die Auswertung eines Rückgabewerts.
-    """
-    ordner = Path(tempfile.mkdtemp(prefix="natter-zertifikat-"))
-    try:
-        cer = ordner / "programm.cer"
-        skript = ordner / "eintragen.ps1"
-        _powershell(
-            "$z = Get-ChildItem Cert:\\CurrentUser\\My | "
-            f"Where-Object {{ $_.Thumbprint -eq '{fingerabdruck}' }}; "
-            f"[IO.File]::WriteAllBytes('{cer}', $z.RawData)"
-        )
-        if not cer.exists():
-            return
-
-        skript.write_text(
-            "foreach ($s in 'Root', 'TrustedPublisher') {\n"
-            f"  Import-Certificate -FilePath '{cer}' "
-            '-CertStoreLocation "Cert:\\LocalMachine\\$s" | Out-Null\n'
-            "}\n",
-            encoding="utf-8",
-        )
-        _powershell(
-            "Start-Process powershell.exe -Verb RunAs -Wait "
-            "-WindowStyle Hidden -ArgumentList "
-            "'-NoProfile','-ExecutionPolicy','Bypass',"
-            f"'-File','{skript}'",
-            geduld=_GEDULD_SEKUNDEN,
-        )
-    finally:
-        shutil.rmtree(ordner, ignore_errors=True)
-
-
-def _in_den_rechnerspeicher(fingerabdruck: str) -> str:
-    """Trägt das Zertifikat für alle Konten des Rechners ein.
-
-    Gibt einen leeren Text zurück, wenn es geklappt hat, sonst die
-    Begründung. Dorthin wandert allein der öffentliche Teil: er wird in
-    eine `.cer` geschrieben, die der erhöhte Vorgang einliest und die
-    danach wieder verschwindet. Der private Schlüssel bleibt im
-    Kontospeicher und ist ohnehin nicht exportierbar.
-
-    Windows fragt dabei nach Administratorrechten. Wer ablehnt, behält
-    das Zertifikat für das eigene Konto - die Exe ist dann signiert,
-    startet auf diesem Rechner aber nicht, und genau das sagt die
-    Rückmeldung.
-    """
-    _eintrag_erhoeht_ausfuehren(fingerabdruck)
-
-    # Nachsehen statt annehmen: über die Grenze der Rechteerhöhung
-    # hinweg lässt sich nicht ablesen, ob der Vorgang etwas getan hat.
-    im_rechner = _fingerabdruecke_im_rechnerspeicher()
-    if all(fingerabdruck in im_rechner[s] for s in im_rechner):
-        return ""
-    return (
-        "Das Programm ist signiert, aber das Zertifikat gilt nur für "
-        "dieses Benutzerkonto. Smart App Control ist auf diesem Rechner "
-        "eingeschaltet und prüft für den ganzen Rechner - dort startet "
-        "das Programm deshalb nicht. Dafür muss die Rückfrage nach "
-        "Administratorrechten bejaht werden."
-    )
 
 
 def exe_signieren(exe: Path, fingerabdruck: str) -> SignaturErgebnis:
@@ -345,7 +239,14 @@ def exe_signieren(exe: Path, fingerabdruck: str) -> SignaturErgebnis:
     status = (ergebnis.stdout or "").strip().splitlines()
     letzter = status[-1] if status else ""
     if letzter == "Valid":
-        return SignaturErgebnis(True, "Signiert - startet auch mit Smart App Control.")
+        if smart_app_control_an():
+            return SignaturErgebnis(
+                True,
+                "Signiert. Auf diesem Rechner ist Smart App Control "
+                "eingeschaltet; damit startet ein selbst gebautes Programm "
+                "nicht zuverlässig, auch signiert nicht.",
+            )
+        return SignaturErgebnis(True, "Signiert - die Exe nennt jetzt einen Herausgeber.")
     grund = letzter or (ergebnis.stderr or "").strip() or "kein Grund gemeldet"
     return SignaturErgebnis(False, f"Nicht signiert: {grund}")
 
@@ -359,9 +260,10 @@ def signieren_wenn_moeglich(exe: Path, *, anlegen: bool = False) -> SignaturErge
     Rechnereinstellungen, und der gehört gefragt und nicht nebenbei
     erledigt.
 
-    Ohne Zertifikat bleibt die Exe unsigniert. Sie läuft dann überall
-    dort, wo Smart App Control ausgeschaltet ist - auf einem
-    verwalteten Schulrechner also ohne Weiteres.
+    Ohne Zertifikat bleibt die Exe unsigniert. Sie läuft trotzdem
+    überall dort, wo Smart App Control ausgeschaltet ist - auf einem
+    verwalteten Schulrechner also ohne Weiteres. Windows nennt sie dann
+    nur in jedem Dialog „Unbekannter Herausgeber“.
     """
     fingerabdruck = vorhandenes_zertifikat()
     if fingerabdruck is None and anlegen:
@@ -371,7 +273,6 @@ def signieren_wenn_moeglich(exe: Path, *, anlegen: bool = False) -> SignaturErge
     if fingerabdruck is None:
         return SignaturErgebnis(
             False,
-            "Ohne Signatur - auf einem Rechner mit Smart App Control "
-            "startet die Exe nicht.",
+            "Ohne Signatur - Windows nennt die Exe „Unbekannter Herausgeber“.",
         )
     return exe_signieren(exe, fingerabdruck)

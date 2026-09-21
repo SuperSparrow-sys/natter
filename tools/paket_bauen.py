@@ -1,9 +1,9 @@
 """Baut das Paket, das eine Lehrkraft bekommt, und packt es als ZIP.
 
-Die `Natter-Setup.exe` allein genügt nicht: ohne das Zertifikat
-blockiert Windows den Start auf jedem Rechner mit Smart App Control,
-ohne die Skripte lässt sich der Eintrag weder prüfen noch wieder
-zurücknehmen, und ohne Anleitung weiß niemand, warum. Welche Dateien
+Die `Natter-Setup.exe` allein genügt nicht: ohne das Zertifikat meldet
+Windows beim Installieren einen unbekannten Herausgeber, ohne die
+Skripte lässt sich der Eintrag weder prüfen noch wieder zurücknehmen,
+und ohne Anleitung weiß niemand, warum. Welche Dateien
 dazugehören, steht in `tools/paket/README.md`; hier stehen dieselben
 Dateien noch einmal als Tabelle, und `tests/test_paket.py` hält beide
 aneinander.
@@ -215,7 +215,14 @@ def handbuch_als_html(markdown: str, titel: str) -> str:
 # --------------------------------------------- Das Paket
 
 
-def paket_bauen(*, ziel: Path | None = None) -> Path:
+#: Steht in `ZUERST-LESEN.txt` überall dort, wo die Versionsnummer
+#: hingehört. Von Hand gepflegt stand darin zuletzt 0.3.0, während das
+#: Ladebild beim Start 0.3.1 zeigte - wer das liest, glaubt an die
+#: falsche Fassung.
+_VERSIONSMARKE = "{VERSION}"
+
+
+def paket_bauen(*, version: str, ziel: Path | None = None) -> Path:
     """Stellt das Paket zusammen und gibt den Ordner zurück."""
     ordner = ziel or _ZIEL
     fehlend = [str(q) for _, q in _INHALT if not q.exists()]
@@ -233,7 +240,13 @@ def paket_bauen(*, ziel: Path | None = None) -> Path:
     ordner.mkdir(parents=True)
 
     for name, quelle in _INHALT:
-        shutil.copy2(quelle, ordner / name)
+        ziel_datei = ordner / name
+        shutil.copy2(quelle, ziel_datei)
+        if name.endswith(".txt"):
+            text = ziel_datei.read_text(encoding="utf-8")
+            ziel_datei.write_text(
+                text.replace(_VERSIONSMARKE, version), encoding="utf-8"
+            )
 
     markdown = _HANDBUCH.read_text(encoding="utf-8")
     (ordner / "Handbuch.md").write_text(markdown, encoding="utf-8")
@@ -273,7 +286,7 @@ def main(argumente: list[str] | None = None) -> int:
     werte = zerleger.parse_args(argumente)
 
     try:
-        ordner = paket_bauen()
+        ordner = paket_bauen(version=werte.version)
     except PaketFehler as fehler:
         print(f"Abgebrochen: {fehler}")
         return 1

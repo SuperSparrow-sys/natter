@@ -1,4 +1,4 @@
-Natter 0.3.0 - Installation auf einem Schulrechner
+Natter {VERSION} - Installation auf einem Schulrechner
 ==================================================
 
 In diesem Paket:
@@ -13,28 +13,38 @@ In diesem Paket:
   Lizenzen\               die Lizenzen der mitgelieferten Bibliotheken
 
 
-Warum zwei Schritte noetig sind
+Zuerst: laeuft auf diesem Rechner "Smart App Control"?
+------------------------------------------------------
+
+Davon haengt alles Weitere ab. Nachzusehen unter
+
+  Einstellungen -> Datenschutz und Sicherheit -> Windows-Sicherheit
+  -> App- und Browsersteuerung -> Intelligente App-Steuerung
+
+Ist dort "Aus" eingestellt oder fehlt der Punkt ganz, laeuft Natter.
+Das ist der Normalfall auf zentral verwalteten Schulrechnern (Intune,
+Domaene) und auf allem, was von Windows 10 heraufgestuft wurde.
+
+Steht dort "Ein", startet Natter auf diesem Rechner nicht. Das laesst
+sich durch kein Zertifikat aendern, und die Gruende stehen weiter
+unten. Der einzige Weg ist, die intelligente App-Steuerung
+auszuschalten - was Microsoft nur in eine Richtung zulaesst: einmal
+aus, bleibt sie aus, bis Windows neu aufgesetzt wird. Wer das nicht
+will, nimmt einen anderen Rechner.
+
+
+Schritt 1: Zertifikat eintragen
 -------------------------------
 
-Natter ist mit einem selbst ausgestellten Zertifikat signiert. Ein von
-Microsoft anerkanntes Zertifikat kostet mehrere hundert Euro im Jahr;
-fuer ein Schulprojekt ist das nicht vorgesehen.
+Rechtsklick auf Zertifikat-eintragen.ps1, "Mit PowerShell
+ausfuehren", bei der Rueckfrage von Windows "Ja" waehlen. Der Eintrag
+gilt fuer alle Benutzerkonten und braucht deshalb
+Administratorrechte.
 
-Windows kennt dieses Zertifikat nicht. Auf einem Rechner mit "Smart
-App Control" fuehrt das nicht zu einer Warnung, sondern zum Abbruch:
-das Programm wird beim Start abgeschossen, noch bevor ein Fenster
-erscheint. Deshalb wird das Zertifikat einmal pro Rechner als
-vertrauenswuerdig eingetragen.
-
-Betroffen sind vor allem frisch aufgesetzte Einzelgeraete -
-Lehrerlaptops, Privatrechner. Auf zentral verwalteten Schulrechnern
-(Intune, Domaene) ist Smart App Control von Haus aus abgeschaltet;
-dort laeuft Natter auch ohne diesen Schritt, und das Zertifikat
-erspart nur die SmartScreen-Warnung beim Installieren.
-
-Die Datei natter-codesign.cer enthaelt nur den oeffentlichen Teil.
-Mit ihr laesst sich nichts signieren, nur pruefen - der private
-Schluessel liegt beim Entwickler und wird nicht weitergegeben.
+Das erspart die SmartScreen-Warnung beim Installieren und zeigt in
+den Eigenschaften der Datei, woher sie stammt. Ohne den Eintrag laesst
+sich Natter auch installieren - dann meldet Windows beim Start des
+Installationsprogramms einen unbekannten Herausgeber.
 
 Weil mit dem Eintrag Vertrauen vergeben wird, zaehlt nicht die
 Geheimhaltung, sondern die Unverfaelschtheit: wer unterwegs eine
@@ -46,15 +56,9 @@ den das Skript anzeigt:
 
 Stimmt er nicht ueberein, nicht eintragen und nachfragen.
 
-
-Schritt 1: Zertifikat eintragen
--------------------------------
-
-Auf einem einzelnen Rechner genuegt ein Rechtsklick auf
-Zertifikat-eintragen.ps1 und "Mit PowerShell ausfuehren" - bei der
-Rueckfrage von Windows "Ja" waehlen, weil der Eintrag fuer alle
-Benutzerkonten des Rechners gilt und dafuer Administratorrechte
-gebraucht werden.
+Die Datei natter-codesign.cer enthaelt nur den oeffentlichen Teil.
+Mit ihr laesst sich nichts signieren, nur pruefen - der private
+Schluessel liegt beim Entwickler und wird nicht weitergegeben.
 
 Von Hand geht es genauso, in einer PowerShell als Administrator:
 
@@ -62,10 +66,6 @@ Von Hand geht es genauso, in einer PowerShell als Administrator:
       -CertStoreLocation Cert:\LocalMachine\Root
   Import-Certificate -FilePath natter-codesign.cer `
       -CertStoreLocation Cert:\LocalMachine\TrustedPublisher
-
-Beide Speicher werden gebraucht: der erste, damit Windows der
-Signatur glaubt, der zweite, damit Smart App Control den Start
-zulaesst.
 
 Fuer viele Rechner auf einmal ist eine Gruppenrichtlinie der richtige
 Weg:
@@ -114,7 +114,7 @@ Pruefen, ob es geklappt hat
 ---------------------------
 
 Nach der Installation steht Natter im Startmenue. Beim ersten Start
-erscheint kurz ein Ladebild mit der Versionsnummer 0.3.0.
+erscheint kurz ein Ladebild mit der Versionsnummer {VERSION}.
 
 Bleibt der Start aus, hilft ein Blick in die Ereignisanzeige unter
 
@@ -122,15 +122,33 @@ Bleibt der Start aus, hilft ein Blick in die Ereignisanzeige unter
   CodeIntegrity -> Operational
 
 Steht dort "did not meet the Enterprise signing level requirements",
-ist Schritt 1 nicht angekommen.
-
-
-Wenn Natter nicht startet
--------------------------
+hat die intelligente App-Steuerung zugeschlagen. Dann hilft nur, sie
+auszuschalten.
 
 Natter-pruefen.ps1 startet die installierte Fassung ueber ihre eigene
 Python, faengt ab, woran sie scheitert, und legt einen Bericht auf den
 Schreibtisch.
+
+
+Warum das Zertifikat die App-Steuerung nicht ueberzeugt
+-------------------------------------------------------
+
+Natter ist mit einem selbst ausgestellten Zertifikat signiert. Ein von
+Microsoft anerkanntes kostet mehrere hundert Euro im Jahr und setzt
+eine Firma mit Handelsregistereintrag voraus; fuer ein Schulprojekt
+ist das nicht vorgesehen.
+
+Die intelligente App-Steuerung prueft nicht das Zertifikat, sondern
+fragt fuer jede einzelne Datei bei Microsoft nach, ob sie dort bekannt
+und unbedenklich ist. Ein selbst ausgestelltes Zertifikat zaehlt dabei
+nicht mit: Windows fuehrt eine so signierte Datei im Protokoll als
+unsigniert, auch wenn sie ordnungsgemaess signiert und das Zertifikat
+eingetragen ist. Nachgemessen: dieselbe Programmbibliothek lief vor
+dem Nachsignieren und war danach gesperrt - gleiches Zertifikat,
+gleicher Rechner.
+
+Ein Programm wie Natter besteht aus ueber achthundert solcher
+Dateien. Es genuegt, dass eine davon abgewiesen wird.
 
 
 Vertrauen wieder zuruecknehmen
@@ -139,24 +157,22 @@ Vertrauen wieder zuruecknehmen
 Zertifikat-entfernen.ps1 nimmt den Eintrag aus beiden Speichern
 wieder heraus - nach dem Schuljahr, beim Ausmustern eines Geraets
 oder wenn der Verdacht besteht, dass der Schluessel des Entwicklers
-abhandengekommen ist. Natter startet danach auf einem Rechner mit
-Smart App Control nicht mehr.
+abhandengekommen ist.
 
 
 Eigene Programme aus Natter
 ---------------------------
 
 "Projekt -> Als Exe exportieren" baut aus einem Schuelerprojekt eine
-einzelne Exe. Auch die ist ein unsigniertes Programm, und auch sie
-blockiert Smart App Control.
+einzelne Exe. Natter signiert sie mit einem Zertifikat, das auf dem
+Rechner liegt - entweder mit einem, das dort schon eingerichtet ist,
+oder mit einem, das Natter auf Nachfrage anlegt und das den Rechner
+nie verlaesst. Damit nennt die Exe einen Herausgeber, statt als
+unbekannt zu gelten, und eine nachtraegliche Veraenderung faellt auf.
 
-Natter signiert sie deshalb mit einem Zertifikat, das auf dem Rechner
-liegt - entweder mit einem, das dort schon eingerichtet ist, oder mit
-einem, das Natter auf Nachfrage anlegt und das den Rechner nie
-verlaesst. Damit laeuft das Programm auf dem Rechner, auf dem es
-gebaut wurde. Auf einem fremden Rechner mit Smart App Control laeuft
-es nicht; dafuer braeuchte es ein Zertifikat einer oeffentlichen
-Zertifizierungsstelle.
+Auch hier gilt: gegen eine eingeschaltete intelligente App-Steuerung
+hilft das nicht, weder auf dem eigenen noch auf einem fremden
+Rechner.
 
 Natters eigener Schluessel liegt ausdruecklich nicht in der
 Installation. Laege er dort, koennte jeder mit einer Natter-Kopie
