@@ -124,6 +124,21 @@ def starten() -> tuple[QApplication, HauptFenster | None]:
     Start abgelehnt hat.
     """
     app = anwendung_erzeugen()
+    # Ab hier endet ein Fehler in Natter selbst in einer deutschen
+    # Meldung statt in einem Traceback, den in der gebauten Exe ohnehin
+    # niemand zu sehen bekäme (M11, Abschnitt 5).
+    #
+    # Der Haken stand bis September 2026 erst hinter `erstellen()`, und
+    # damit genau hinter der Stelle, an der am meisten schiefgehen
+    # kann: beim Aufbau des Hauptfensters. Scheiterte der, gab es
+    # keinen Dialog und keine Protokolldatei - die Ladeanzeige blitzte
+    # auf, und das Programm verschwand. Auf einem fremden Rechner war
+    # damit nicht einmal zu erkennen, dass überhaupt ein Fehler
+    # vorlag. Er steht deshalb vor allem anderen; `anwendung_erzeugen()`
+    # muss nur davor bleiben, weil ohne `QApplication` kein Dialog
+    # aufgehen kann.
+    fehlerhaken_einrichten()
+
     # Der Ladekreis am Zeiger, solange gebaut wird. Windows zeigt ihn
     # von sich aus nur die ersten Augenblicke nach dem Doppelklick und
     # nimmt ihn dann wieder weg - ausgerechnet in der Zeit, in der
@@ -134,13 +149,16 @@ def starten() -> tuple[QApplication, HauptFenster | None]:
     anzeige.show()
     anzeige.melden("Natter wird gestartet …")
 
-    app, fenster = erstellen(anzeige)
-    # Ab hier endet ein Fehler in Natter selbst in einer deutschen
-    # Meldung statt in einem Traceback, den in der gebauten Exe ohnehin
-    # niemand zu sehen bekäme (M11, Abschnitt 5). Bewusst erst hier und
-    # nicht in `erstellen()`: in den Tests soll ein Fehler weiterhin den
-    # Test scheitern lassen und kein Fenster öffnen.
-    fehlerhaken_einrichten()
+    try:
+        app, fenster = erstellen(anzeige)
+    except BaseException:
+        # Die Ladeanzeige bleibt sonst als Feld ohne Fenster stehen,
+        # und der Mauszeiger dreht sich weiter, während der
+        # Fehlerdialog auf eine Antwort wartet.
+        anzeige.close()
+        QApplication.restoreOverrideCursor()
+        raise
+
     if not integritaet_bestaetigen(fenster):
         anzeige.finish(fenster)
         QApplication.restoreOverrideCursor()

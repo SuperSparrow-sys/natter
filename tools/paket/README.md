@@ -18,7 +18,21 @@ Repository.
 | `Natter-Setup.exe` | `dist/installer/` nach dem Bau |
 | `Handbuch.md` | `docs/fuer_lehrkraefte.md` |
 | `Handbuch.html` | daraus erzeugt, zum Lesen im Browser |
+| `Natter-pruefen.ps1` | aus diesem Ordner |
 | `Lizenzen\` | `dist/Natter/Lizenzen/` nach dem Bau |
+
+## Wenn Natter auf einem Rechner nicht startet
+
+`Natter-pruefen.ps1` startet die installierte Natter über ihre eigene
+Python, fängt ab, woran sie scheitert, und legt einen Bericht auf den
+Schreibtisch. Darin stehen Windows-Fassung, Signaturstatus, wo das
+Zertifikat eingetragen ist, das Ergebnis der Integritätsprüfung und
+der vollständige Traceback des Startversuchs.
+
+Das Skript prüft beide Zertifikatspeicher, `LocalMachine` und
+`CurrentUser`. Eine Prüfung, die nur den ersten kennt, meldet bei
+einem Eintrag ohne Administratorrechte fälschlich „FEHLT" und schickt
+auf eine falsche Fährte.
 
 ## Was niemals hineingehört
 
