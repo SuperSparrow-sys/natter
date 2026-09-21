@@ -5,12 +5,19 @@ In diesem Paket:
 
   Natter-Setup.exe        das Installationsprogramm (275 MB)
   natter-codesign.cer     das Zertifikat, mit dem Natter signiert ist
-  Zertifikat-eintragen.ps1   traegt das Zertifikat ein
-  Zertifikat-entfernen.ps1   nimmt es wieder zurueck
-  Natter-pruefen.ps1      sieht nach, warum Natter nicht startet
+  Zertifikat-eintragen.cmd   traegt das Zertifikat ein
+  Zertifikat-entfernen.cmd   nimmt es wieder zurueck
+  Natter-pruefen.cmd      sieht nach, warum Natter nicht startet
   Handbuch.html           das Handbuch, im Browser zu oeffnen
   Handbuch.md             dasselbe als Textdatei
   Lizenzen\               die Lizenzen der mitgelieferten Bibliotheken
+
+Zu jedem .cmd liegt ein .ps1 mit demselben Namen daneben. Das .cmd
+wird doppelgeklickt, im .ps1 steht, was geschieht. Der Umweg ist
+noetig, weil Windows das Ausfuehren von PowerShell-Skripten per
+Doppelklick auf einem frisch aufgesetzten Rechner verweigert und
+Dateien aus einem entpackten ZIP zusaetzlich als "aus dem Internet"
+markiert sind.
 
 
 Zuerst: laeuft auf diesem Rechner "Smart App Control"?
@@ -36,10 +43,14 @@ will, nimmt einen anderen Rechner.
 Schritt 1: Zertifikat eintragen
 -------------------------------
 
-Rechtsklick auf Zertifikat-eintragen.ps1, "Mit PowerShell
-ausfuehren", bei der Rueckfrage von Windows "Ja" waehlen. Der Eintrag
-gilt fuer alle Benutzerkonten und braucht deshalb
-Administratorrechte.
+Doppelklick auf Zertifikat-eintragen.cmd, bei der Rueckfrage von
+Windows "Ja" waehlen. Der Eintrag gilt fuer alle Benutzerkonten und
+braucht deshalb Administratorrechte.
+
+Meldet Windows davor "Der Computer wurde durch Windows geschuetzt",
+auf "Weitere Informationen" und dann auf "Trotzdem ausfuehren"
+klicken - die Datei kommt von einem Stick und hat deshalb keinen Ruf
+im Netz.
 
 Das erspart die SmartScreen-Warnung beim Installieren und zeigt in
 den Eigenschaften der Datei, woher sie stammt. Ohne den Eintrag laesst
@@ -125,7 +136,7 @@ Steht dort "did not meet the Enterprise signing level requirements",
 hat die intelligente App-Steuerung zugeschlagen. Dann hilft nur, sie
 auszuschalten.
 
-Natter-pruefen.ps1 startet die installierte Fassung ueber ihre eigene
+Natter-pruefen.cmd startet die installierte Fassung ueber ihre eigene
 Python, faengt ab, woran sie scheitert, und legt einen Bericht auf den
 Schreibtisch.
 
@@ -154,7 +165,7 @@ Dateien. Es genuegt, dass eine davon abgewiesen wird.
 Vertrauen wieder zuruecknehmen
 ------------------------------
 
-Zertifikat-entfernen.ps1 nimmt den Eintrag aus beiden Speichern
+Zertifikat-entfernen.cmd nimmt den Eintrag aus beiden Speichern
 wieder heraus - nach dem Schuljahr, beim Ausmustern eines Geraets
 oder wenn der Verdacht besteht, dass der Schluessel des Entwicklers
 abhandengekommen ist.

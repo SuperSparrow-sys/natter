@@ -202,3 +202,33 @@ def test_in_der_vorlage_steht_keine_feste_nummer() -> None:
 
     assert "{VERSION}" in text
     assert "0.3.0" not in text
+
+
+def test_zu_jedem_skript_gehoert_ein_starter() -> None:
+    """Ein PowerShell-Skript laesst sich auf einem frisch
+    aufgesetzten Rechner nicht per Doppelklick starten: die
+    Ausfuehrungsrichtlinie steht dort auf `Restricted`, und Dateien
+    aus einem entpackten ZIP tragen die Markierung „aus dem Internet".
+    Ohne den Starter daneben endet der Rechtsklick in einer roten
+    Meldung."""
+    namen = {name for name, _ in paket_bauen._INHALT}
+    skripte = {name for name in namen if name.endswith(".ps1")}
+
+    fehlend = {s for s in skripte if s[:-4] + ".cmd" not in namen}
+
+    assert not fehlend, f"Ohne Doppelklick-Starter: {sorted(fehlend)}"
+
+
+def test_die_starter_aendern_nichts_am_rechner() -> None:
+    """`-ExecutionPolicy Bypass` gilt nur fuer den einen Aufruf. Ein
+    `Set-ExecutionPolicy` waere eine dauerhafte Aenderung an den
+    Einstellungen des Rechners - und die gehoert nicht in ein
+    Installationspaket."""
+    for name, quelle in paket_bauen._INHALT:
+        if not name.endswith(".cmd"):
+            continue
+        text = quelle.read_text(encoding="utf-8")
+
+        assert "-ExecutionPolicy Bypass" in text
+        assert "Set-ExecutionPolicy" not in text
+        assert "%~dp0" in text, f"{name} findet das Skript nicht neben sich"

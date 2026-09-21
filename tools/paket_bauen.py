@@ -38,10 +38,13 @@ _ZIEL = WURZEL / "dist" / "paket"
 #: Zertifikat eintragen, dann installieren.
 _INHALT: tuple[tuple[str, Path], ...] = (
     ("ZUERST-LESEN.txt", _PAKETQUELLE / "ZUERST-LESEN.txt"),
+    ("Zertifikat-eintragen.cmd", _PAKETQUELLE / "Zertifikat-eintragen.cmd"),
     ("Zertifikat-eintragen.ps1", _PAKETQUELLE / "Zertifikat-eintragen.ps1"),
     ("natter-codesign.cer", _ZERTIFIKAT),
     ("Natter-Setup.exe", _INSTALLER),
+    ("Natter-pruefen.cmd", _PAKETQUELLE / "Natter-pruefen.cmd"),
     ("Natter-pruefen.ps1", _PAKETQUELLE / "Natter-pruefen.ps1"),
+    ("Zertifikat-entfernen.cmd", _PAKETQUELLE / "Zertifikat-entfernen.cmd"),
     ("Zertifikat-entfernen.ps1", _PAKETQUELLE / "Zertifikat-entfernen.ps1"),
 )
 

@@ -4,22 +4,31 @@ Was eine Lehrkraft bekommt, ist nicht die `Natter-Setup.exe` allein.
 Ohne das Zertifikat blockiert Windows den Start auf Rechnern mit Smart
 App Control, und ohne Anleitung weiß niemand, warum.
 
-Hier liegen die beiden Dateien, die dafür von Hand geschrieben sind.
-Alles andere im Paket entsteht beim Bau oder liegt schon im
-Repository.
+Hier liegen die Dateien, die dafür von Hand geschrieben sind. Alles
+andere im Paket entsteht beim Bau oder liegt schon im Repository.
+
+Zu jedem `.ps1` gehört ein gleichnamiges `.cmd`. Ein PowerShell-Skript
+lässt sich auf einem frisch aufgesetzten Rechner nicht per Doppelklick
+starten: die Ausführungsrichtlinie steht dort auf `Restricted`, und
+Dateien aus einem entpackten ZIP tragen zusätzlich die Markierung „aus
+dem Internet". Das `.cmd` ruft dasselbe Skript mit
+`-ExecutionPolicy Bypass` auf, und zwar nur für diesen einen Aufruf.
 
 ## Inhalt des Pakets
 
 | Datei | Woher |
 |---|---|
 | `ZUERST-LESEN.txt` | aus diesem Ordner |
+| `Zertifikat-eintragen.cmd` | aus diesem Ordner |
 | `Zertifikat-eintragen.ps1` | aus diesem Ordner |
 | `natter-codesign.cer` | `tools/signieren/` |
 | `Natter-Setup.exe` | `dist/installer/` nach dem Bau |
+| `Natter-pruefen.cmd` | aus diesem Ordner |
+| `Natter-pruefen.ps1` | aus diesem Ordner |
+| `Zertifikat-entfernen.cmd` | aus diesem Ordner |
+| `Zertifikat-entfernen.ps1` | aus diesem Ordner |
 | `Handbuch.md` | `docs/fuer_lehrkraefte.md` |
 | `Handbuch.html` | daraus erzeugt, zum Lesen im Browser |
-| `Natter-pruefen.ps1` | aus diesem Ordner |
-| `Zertifikat-entfernen.ps1` | aus diesem Ordner |
 | `Lizenzen\` | `dist/Natter/Lizenzen/` nach dem Bau |
 
 ## Wenn Natter auf einem Rechner nicht startet
