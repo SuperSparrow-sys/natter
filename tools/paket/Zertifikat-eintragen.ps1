@@ -11,6 +11,19 @@ $ErrorActionPreference = "Stop"
 
 $zertifikat = Join-Path $PSScriptRoot "natter-codesign.cer"
 
+# Zweiter Ort fuer den Fall, dass diese Datei aus dem Quellbaum heraus
+# aufgerufen wird: dort liegt das Zertifikat unter tools\signieren, und
+# erst beim Paketieren wird es hierher kopiert. Ohne diesen Zweig
+# bricht das Skript im Quellbaum mit der Meldung ab, das Paket sei
+# unvollstaendig entpackt - was dann in die Irre fuehrt.
+if (-not (Test-Path $zertifikat)) {
+    $quellordner = Join-Path (Split-Path $PSScriptRoot -Parent) "signieren"
+    $ausQuelle = Join-Path $quellordner "natter-codesign.cer"
+    if (Test-Path $ausQuelle) {
+        $zertifikat = $ausQuelle
+    }
+}
+
 if (-not (Test-Path $zertifikat)) {
     Write-Host "natter-codesign.cer fehlt neben dieser Datei." -ForegroundColor Red
     Write-Host "Das Paket bitte vollstaendig entpacken, nicht einzelne Dateien."

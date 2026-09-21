@@ -29,6 +29,7 @@ Auslieferung fertigzubauen:
 8. Installer kompilieren (Inno Setup)
 9. Installer signieren
 10. Beide Signaturen prüfen
+11. Paket für die Schule packen (`tools.paket_bauen`)
 
 Beispiel:
 
@@ -137,12 +138,17 @@ print("Rauchprobe bestanden")
 """
 
 
+#: Wie viele Schritte der Bau hat. Steht in der Zeile, die jeder
+#: Schritt ausgibt - wer zusieht, will wissen, wie weit es noch ist.
+_SCHRITTE = 11
+
+
 class BauFehler(RuntimeError):
     """Ein Schritt ist fehlgeschlagen; der Bau wird abgebrochen."""
 
 
 def _schritt(nummer: int, text: str) -> None:
-    print(f"\n[{nummer}/10] {text}", flush=True)
+    print(f"\n[{nummer}/{_SCHRITTE}] {text}", flush=True)
 
 
 def _laufen_lassen(befehl: list[str], *, was: str, cwd: Path | None = None) -> str:
@@ -522,6 +528,26 @@ def _signaturen_pruefen(dateien: list[Path]) -> None:
 # ---------------------------------------------------------------
 
 
+def _paket_packen(version: str) -> None:
+    """Stellt zusammen, was die Lehrkraft bekommt, und packt es.
+
+    Gehört in den Bau und nicht dahinter: das Paket zur Fassung 0.3.0
+    war von Hand gepackt, und zwei der neun Dateien fehlten darin.
+    Einem ZIP sieht man nicht an, was nicht darin ist.
+    """
+    from tools.paket_bauen import PaketFehler, paket_bauen, zip_bauen
+
+    try:
+        ordner = paket_bauen()
+    except PaketFehler as fehler:
+        raise BauFehler(str(fehler)) from fehler
+
+    archiv = zip_bauen(version, ordner=ordner)
+    groesse = archiv.stat().st_size / 1024 / 1024
+    print(f"  {ordner}")
+    print(f"  {archiv.name} ({groesse:.0f} MB)")
+
+
 def auslieferung_bauen(
     *,
     version: str | None = None,
@@ -576,6 +602,9 @@ def auslieferung_bauen(
     # Nicht nur die beiden, die der Bau selbst angefasst hat: Smart App
     # Control prüft jede Datei, die geladen wird.
     _alle_signaturen_pruefen(_AUSGABE)
+
+    _schritt(11, "Paket für die Schule packen")
+    _paket_packen(nummer)
 
     dauer = time.monotonic() - beginn
     print(

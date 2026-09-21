@@ -19,8 +19,14 @@ Signiert wird deshalb mit dem, was auf dem Rechner schon liegt:
 
 * einem Zertifikat, das die Lehrkraft dort eingerichtet hat, oder
 * einem, das Natter auf diesem Rechner anlegt und das ihn nie
-  verlässt. Der Schlüssel ist nicht exportierbar, das Zertifikat gilt
-  nur für das angemeldete Konto.
+  verlässt. Der Schlüssel ist nicht exportierbar.
+
+Wie weit dieser Eintrag reicht, richtet sich danach, was der Rechner
+verlangt. Ist Smart App Control aus - der Normalfall auf einem
+verwalteten Schulrechner -, genügt der Speicher des angemeldeten
+Kontos, und niemand bekommt eine Rückfrage zu sehen. Ist es an, prüft
+Windows auf Systemebene, wo der Speicher eines einzelnen Kontos nicht
+zählt; dann wird einmal nach Administratorrechten gefragt.
 
 Was damit signiert wurde, läuft auf diesem Rechner. Auf einem fremden
 Rechner mit Smart App Control läuft es weiterhin nicht - dafür
@@ -30,7 +36,9 @@ und das ist eine Entscheidung der Schule, nicht die eines Programms.
 
 from __future__ import annotations
 
+import shutil
 import subprocess
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -51,6 +59,11 @@ _JAHRE = 5
 #: sobald das Zertifikat abläuft - auch bei Programmen, die längst
 #: weitergegeben wurden.
 _ZEITSTEMPEL = "http://timestamp.digicert.com"
+
+#: Wo Windows den Zustand von Smart App Control ablegt: 0 aus,
+#: 1 eingeschaltet, 2 Prüfmodus. Lesen geht ohne besondere Rechte.
+_SAC_SCHLUESSEL = "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\CI\\Policy"
+_SAC_WERT = "VerifiedAndReputablePolicyState"
 
 
 @dataclass(frozen=True)
@@ -113,6 +126,32 @@ def vertrauenswuerdige_fingerabdruecke() -> set[str]:
     )
     ergebnis = _powershell(befehl)
     return {z.strip() for z in (ergebnis.stdout or "").splitlines() if z.strip()}
+
+
+def smart_app_control_an() -> bool:
+    """Ob Smart App Control auf diesem Rechner scharf geschaltet ist.
+
+    Davon hängt ab, wie weit der Eintrag des Zertifikats reichen muss.
+    Ist Smart App Control aus - der Normalfall auf einem verwalteten
+    Schulrechner -, genügt der Speicher des angemeldeten Kontos, und
+    niemand bekommt eine Rückfrage nach Administratorrechten zu sehen.
+
+    Ist es an, prüft Windows auf Systemebene, und dort zählt der
+    Speicher eines einzelnen Kontos nicht. Das ist beim Bau der
+    Auslieferung aufgefallen: die frisch signierten Dateien meldeten
+    `Status: Valid`, weil die Kette über den Kontospeicher aufging, und
+    wurden beim Laden trotzdem abgewiesen. Eine Exe wäre damit signiert
+    und liefe nicht - der Zustand, in dem nichts auf die Ursache
+    hindeutet.
+    """
+    befehl = (
+        f"(Get-ItemProperty -Path '{_SAC_SCHLUESSEL}' "
+        f"-Name '{_SAC_WERT}' -ErrorAction SilentlyContinue)"
+        f".{_SAC_WERT}"
+    )
+    ergebnis = _powershell(befehl)
+    zeilen = [z.strip() for z in (ergebnis.stdout or "").splitlines() if z.strip()]
+    return bool(zeilen) and zeilen[-1] == "1"
 
 
 def vorhandenes_zertifikat() -> str | None:
@@ -188,7 +227,109 @@ def zertifikat_anlegen() -> tuple[str | None, str]:
             "eingetragen - ohne das lässt Windows das fertige Programm nicht "
             "starten. Die Rückfrage von Windows dazu muss bejaht werden."
         )
-    return neuer, "Zertifikat für diesen Rechner angelegt."
+
+    # Nur wenn es sein muss: der Eintrag für alle Konten braucht
+    # Administratorrechte, und auf einem Rechner ohne Smart App Control
+    # bringt er nichts, was der Eintrag für das eigene Konto nicht
+    # schon leistet.
+    if smart_app_control_an():
+        fehlt = _in_den_rechnerspeicher(neuer)
+        if fehlt:
+            return neuer, fehlt
+        return neuer, (
+            "Zertifikat angelegt und für den ganzen Rechner eingetragen."
+        )
+    return neuer, "Zertifikat für dieses Benutzerkonto angelegt."
+
+
+def _fingerabdruecke_im_rechnerspeicher() -> dict[str, set[str]]:
+    """Was in den Speichern des Rechners liegt, nach Speicher getrennt.
+
+    Getrennt und nicht als eine Menge: für Smart App Control muss das
+    Zertifikat in beiden stehen. Eines von beiden genügt nicht, und
+    eine zusammengeworfene Menge würde das verdecken.
+    """
+    befehl = (
+        "foreach ($s in 'Root', 'TrustedPublisher') { "
+        "  Get-ChildItem \"Cert:\\LocalMachine\\$s\" "
+        "-ErrorAction SilentlyContinue | "
+        "    ForEach-Object { Write-Output \"$s`t$($_.Thumbprint)\" } }"
+    )
+    ergebnis = _powershell(befehl)
+    gefunden: dict[str, set[str]] = {"Root": set(), "TrustedPublisher": set()}
+    for zeile in (ergebnis.stdout or "").splitlines():
+        teile = zeile.strip().split("\t")
+        if len(teile) == 2 and teile[0] in gefunden:
+            gefunden[teile[0]].add(teile[1])
+    return gefunden
+
+
+def _eintrag_erhoeht_ausfuehren(fingerabdruck: str) -> None:
+    """Schiebt den öffentlichen Teil über eine Rechteerhöhung hinüber.
+
+    Der Umweg über eine Datei ist nötig, weil `Start-Process -Verb
+    RunAs` einen neuen Vorgang startet: Rückgaben und Fehlertexte von
+    dort kommen hier nicht an. Deshalb steht danach die Prüfung im
+    Zertifikatspeicher, nicht die Auswertung eines Rückgabewerts.
+    """
+    ordner = Path(tempfile.mkdtemp(prefix="natter-zertifikat-"))
+    try:
+        cer = ordner / "programm.cer"
+        skript = ordner / "eintragen.ps1"
+        _powershell(
+            "$z = Get-ChildItem Cert:\\CurrentUser\\My | "
+            f"Where-Object {{ $_.Thumbprint -eq '{fingerabdruck}' }}; "
+            f"[IO.File]::WriteAllBytes('{cer}', $z.RawData)"
+        )
+        if not cer.exists():
+            return
+
+        skript.write_text(
+            "foreach ($s in 'Root', 'TrustedPublisher') {\n"
+            f"  Import-Certificate -FilePath '{cer}' "
+            '-CertStoreLocation "Cert:\\LocalMachine\\$s" | Out-Null\n'
+            "}\n",
+            encoding="utf-8",
+        )
+        _powershell(
+            "Start-Process powershell.exe -Verb RunAs -Wait "
+            "-WindowStyle Hidden -ArgumentList "
+            "'-NoProfile','-ExecutionPolicy','Bypass',"
+            f"'-File','{skript}'",
+            geduld=_GEDULD_SEKUNDEN,
+        )
+    finally:
+        shutil.rmtree(ordner, ignore_errors=True)
+
+
+def _in_den_rechnerspeicher(fingerabdruck: str) -> str:
+    """Trägt das Zertifikat für alle Konten des Rechners ein.
+
+    Gibt einen leeren Text zurück, wenn es geklappt hat, sonst die
+    Begründung. Dorthin wandert allein der öffentliche Teil: er wird in
+    eine `.cer` geschrieben, die der erhöhte Vorgang einliest und die
+    danach wieder verschwindet. Der private Schlüssel bleibt im
+    Kontospeicher und ist ohnehin nicht exportierbar.
+
+    Windows fragt dabei nach Administratorrechten. Wer ablehnt, behält
+    das Zertifikat für das eigene Konto - die Exe ist dann signiert,
+    startet auf diesem Rechner aber nicht, und genau das sagt die
+    Rückmeldung.
+    """
+    _eintrag_erhoeht_ausfuehren(fingerabdruck)
+
+    # Nachsehen statt annehmen: über die Grenze der Rechteerhöhung
+    # hinweg lässt sich nicht ablesen, ob der Vorgang etwas getan hat.
+    im_rechner = _fingerabdruecke_im_rechnerspeicher()
+    if all(fingerabdruck in im_rechner[s] for s in im_rechner):
+        return ""
+    return (
+        "Das Programm ist signiert, aber das Zertifikat gilt nur für "
+        "dieses Benutzerkonto. Smart App Control ist auf diesem Rechner "
+        "eingeschaltet und prüft für den ganzen Rechner - dort startet "
+        "das Programm deshalb nicht. Dafür muss die Rückfrage nach "
+        "Administratorrechten bejaht werden."
+    )
 
 
 def exe_signieren(exe: Path, fingerabdruck: str) -> SignaturErgebnis:
