@@ -74,6 +74,15 @@ def _echte_dateien_geschuetzt(tmp_path_factory, monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(bau, "_TEST_STEMPEL", ordner / "bau-cache" / "tests.json")
     monkeypatch.setattr(bau, "_PROTOKOLL", ordner / "auslieferung.log")
 
+    # Kein Test stellt etwas auf GitHub. Die Vorprüfung fragte sonst die
+    # echte `gh`-Anmeldung und den echten Arbeitsbaum ab, und ein Test,
+    # der bis Schritt 12 käme, würde pushen.
+    def nicht_veroeffentlichen(*_a, **_k):  # noqa: ANN202
+        raise AssertionError("Ein Test hat versucht, auf GitHub zu veröffentlichen.")
+
+    monkeypatch.setattr(bau, "vorbedingungen_pruefen", lambda: None)
+    monkeypatch.setattr(bau, "veroeffentlichen", nicht_veroeffentlichen)
+
 
 @pytest.fixture
 def echte_pfade(monkeypatch: pytest.MonkeyPatch) -> None:

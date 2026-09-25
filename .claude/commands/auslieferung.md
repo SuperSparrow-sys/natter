@@ -66,7 +66,7 @@ nichts ändern kann:
   hat; unveränderte Dateien bekommen ihre aufgehobene Signatur zurück.
   Schritt 10 prüft trotzdem jede einzelne.
 
-Die elf Schritte prüfen sich gegenseitig ab. Wichtig sind:
+Die zwölf Schritte prüfen sich gegenseitig ab. Wichtig sind:
 
 - **Schritt 4 (`pytest`)** – rot heißt: nicht bauen, Fehler beheben.
 - **Schritt 6 (Rauchprobe in der gebauten Python)** – die Prüfung, die
@@ -96,17 +96,37 @@ Auslieferung, die aus dem Haus geht.
   aufgedeckt, gehört der Befund dorthin – **mitsamt dem Irrweg**, falls
   einer dabei war. Ein festgehaltener Irrweg spart beim nächsten Mal
   einen halben Tag; siehe den Abschnitt zum Selbstsignieren.
-- Committe die Versionsänderung und die Dokumentation und pushe.
-  `dist/` gehört nicht ins Repository.
+- Committe die Dokumentation und pushe. Die Versionsänderung hat
+  Schritt 12 schon eingecheckt. `dist/` gehört nicht ins Repository.
 - Berichte am Ende in wenigen Zeilen: Version, Dateigröße, Ergebnis der
-  Rauchprobe, Signaturstatus beider Dateien, Dauer. Nenn den Pfad
-  `dist\installer\Natter-Setup.exe`, damit der Nutzer die Datei
-  hochladen kann.
+  Rauchprobe, Signaturstatus beider Dateien, Dauer und die Adresse des
+  Releases.
+
+## 6. Veröffentlichen
+
+Schritt 12 stellt `Natter-Setup.exe` und die ZIP für Lehrkräfte als
+GitHub-Release ins öffentliche Repository, unter dem Tag `v<Version>`.
+Der Nutzer will das nach jedem Bau, ohne eigene Nachfrage. Die Dateien
+hängen am Release und nicht in der Git-Historie: GitHub nimmt dort
+keine Datei über 100 MB an.
+
+- Voraussetzung ist die GitHub-Kommandozeile, angemeldet
+  (`gh auth login`). Schritt 1 prüft das und bricht sofort ab, wenn
+  sie fehlt, statt nach einer halben Stunde.
+- Liegt beim Start etwas anderes als die Versionsdateien nicht
+  eingecheckt im Baum, bricht Schritt 1 ebenfalls ab. Also vorher
+  committen.
+- Ein Tag, das es schon gibt und das auf einen anderen Stand zeigt,
+  bleibt unangetastet; Schritt 12 überspringt dann. Eine vergebene
+  Nummer wird nie umgebogen.
+- Probebauten mit `--nicht-veroeffentlichen`. Mit `--ohne-tests` wird
+  ohnehin nicht veröffentlicht.
+- Schon gebaut, aber noch nicht veröffentlicht, etwa weil `gh` fehlte:
+  `uv run python -m tools.veroeffentlichen --version <Nummer> --commit
+  <Stand des Baus>`.
 
 ## Was du nicht tust
 
-- Die fertige Exe irgendwohin hochladen oder veröffentlichen. Das macht
-  der Nutzer.
 - Einen roten Schritt übergehen, weil der Rest gut aussah.
 - Ein grünes Testprotokoll als Beleg dafür nehmen, dass die
   Auslieferung funktioniert. Getestet wird der Entwicklungsbaum;

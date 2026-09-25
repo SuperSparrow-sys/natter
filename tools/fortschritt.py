@@ -55,6 +55,7 @@ _VORGABE_SEKUNDEN: dict[str, float] = {
     "9": 5,
     "10": 90,
     "11": 60,
+    "12": 240,
 }
 
 #: Farben als ANSI-Folgen. Windows 10 und neuer verstehen sie, sobald

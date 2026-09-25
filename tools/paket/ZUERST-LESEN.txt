@@ -19,6 +19,11 @@ Doppelklick auf einem frisch aufgesetzten Rechner verweigert und
 Dateien aus einem entpackten ZIP zusaetzlich als "aus dem Internet"
 markiert sind.
 
+Wurde die ZIP aus dem Internet geladen, erspart ein Handgriff vor dem
+Entpacken die meisten Rueckfragen: Rechtsklick auf die ZIP ->
+Eigenschaften -> unten "Zulassen" anhaken -> OK, danach entpacken.
+Steht dort kein "Zulassen", ist nichts zu tun.
+
 
 Zuerst: laeuft auf diesem Rechner "Smart App Control"?
 ------------------------------------------------------

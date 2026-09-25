@@ -113,7 +113,7 @@ Eine neue `Natter-Setup.exe` entsteht in einem Befehl, nicht in fünf:
 uv run python -m tools.auslieferung_bauen --version 0.2.0
 ```
 
-Das Skript prüft nach jedem der elf Schritte, ob das Ergebnis stimmt,
+Das Skript prüft nach jedem der zwölf Schritte, ob das Ergebnis stimmt,
 und bricht ab, statt eine kaputte Auslieferung fertigzubauen. Die
 Begründung steht in `docs/arbeitspakete/M13.md`, Abschnitt „Der Bau in
 einem Befehl"; den Ablauf drumherum (wann gebaut werden darf, welche

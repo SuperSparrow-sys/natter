@@ -30,6 +30,7 @@ Auslieferung fertigzubauen:
 9. Installer signieren
 10. Beide Signaturen prüfen
 11. Paket für die Schule packen (`tools.paket_bauen`)
+12. Auf GitHub veröffentlichen (`tools.veroeffentlichen`)
 
 Beispiel:
 
@@ -64,6 +65,12 @@ from pathlib import Path
 from ide.integritaet import ManifestFehler, manifest_pruefen
 from tools.fortschritt import Anzeige, Bauzeiten, ausfuehren
 from tools.ide_paketieren import SIGNIERTE_ENDUNGEN, paketieren
+from tools.veroeffentlichen import (
+    SchonVeroeffentlicht,
+    VeroeffentlichungFehler,
+    veroeffentlichen,
+    vorbedingungen_pruefen,
+)
 
 _PROJEKT_WURZEL = Path(__file__).resolve().parent.parent
 
@@ -154,7 +161,7 @@ print("Rauchprobe bestanden")
 
 #: Wie viele Schritte der Bau hat. Steht in der Zeile, die jeder
 #: Schritt ausgibt - wer zusieht, will wissen, wie weit es noch ist.
-_SCHRITTE = 11
+_SCHRITTE = 12
 
 #: Was Windows lädt und deshalb signiert sein muss - dieselbe Liste,
 #: nach der der Bau signiert. Stünde sie hier ein zweites Mal, prüfte
@@ -778,6 +785,7 @@ def auslieferung_bauen(
     mit_tests: bool = True,
     nur_installer: bool = False,
     alle_tests: bool = False,
+    veroeffentlichen_: bool = True,
     live: bool | None = None,
 ) -> Path:
     """Führt den kompletten Bau aus und liefert den Pfad der fertigen
@@ -803,6 +811,7 @@ def auslieferung_bauen(
             mit_tests=mit_tests,
             nur_installer=nur_installer,
             alle_tests=alle_tests,
+            veroeffentlichen_=veroeffentlichen_,
         )
     except BauFehler as fehler:
         anzeige.fehler(str(fehler))
@@ -833,11 +842,24 @@ def _alle_schritte(
     mit_tests: bool,
     nur_installer: bool,
     alle_tests: bool,
+    veroeffentlichen_: bool,
 ) -> tuple[Path, str, float]:
     beginn = time.monotonic()
 
+    # Eine Auslieferung ohne Tests geht nicht aus dem Haus.
+    veroeffentlichen_ = veroeffentlichen_ and mit_tests
+
     _schritt(1, "Arbeitsbaum ansehen")
     _arbeitsbaum_ansehen()
+    if veroeffentlichen_:
+        # Jetzt und nicht erst in Schritt 12: fehlt `gh` oder liegt
+        # etwas nicht eingecheckt herum, soll das nach Sekunden
+        # auffallen und nicht nach einer halben Stunde.
+        try:
+            vorbedingungen_pruefen()
+        except VeroeffentlichungFehler as fehler:
+            raise BauFehler(f"Veröffentlichen ginge nicht: {fehler}") from fehler
+        print("  Veröffentlichen möglich: gh angemeldet, Baum eingecheckt.")
 
     _schritt(2, "Versionsnummern abgleichen")
     nummer = _versionen_abgleichen(version)
@@ -886,6 +908,25 @@ def _alle_schritte(
 
     _schritt(11, "Paket für die Schule packen")
     _paket_packen(nummer)
+
+    _schritt(12, "Auf GitHub veröffentlichen")
+    if not veroeffentlichen_:
+        _ueberspringen(
+            "Übersprungen (--nicht-veroeffentlichen)."
+            if mit_tests
+            else "Übersprungen: ohne Tests gebaut."
+        )
+    else:
+        try:
+            adresse = veroeffentlichen(nummer, melden=print)
+        except SchonVeroeffentlicht as fehler:
+            # Ein Probebau mit einer schon vergebenen Nummer ist kein
+            # Fehler - er bleibt nur lokal.
+            _ueberspringen(f"Nicht veröffentlicht: {fehler}")
+        except VeroeffentlichungFehler as fehler:
+            raise BauFehler(str(fehler)) from fehler
+        else:
+            print(f"  {adresse}")
     _schritt_beenden()
 
     return installer, nummer, time.monotonic() - beginn
@@ -931,6 +972,15 @@ def main(argumente: list[str] | None = None) -> int:
         ),
     )
     zerleger.add_argument(
+        "--nicht-veroeffentlichen",
+        action="store_true",
+        help=(
+            "Nach dem Bau nichts auf GitHub stellen. Für Probebauten; "
+            "ohne den Schalter kommen Setup-Datei und ZIP als Release "
+            "auf GitHub."
+        ),
+    )
+    zerleger.add_argument(
         "--ohne-balken",
         action="store_true",
         help="Einfache Zeilen statt Fortschrittsbalken, auch in einer Konsole.",
@@ -956,6 +1006,7 @@ def main(argumente: list[str] | None = None) -> int:
             mit_tests=not werte.ohne_tests,
             nur_installer=werte.nur_installer,
             alle_tests=werte.alle_tests,
+            veroeffentlichen_=not werte.nicht_veroeffentlichen,
             live=False if werte.ohne_balken else None,
         )
     except BauFehler:

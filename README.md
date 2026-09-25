@@ -12,6 +12,33 @@ Dialekt, keine versteckte Umschreibung.
 Dieses Dokument beschreibt, **was es gibt**. Wie Natter gebaut und
 ausgeliefert wird, steht in [`docs/entwicklung.md`](docs/entwicklung.md).
 
+## Herunterladen
+
+**[Neueste Fassung für Windows herunterladen](https://github.com/SuperSparrow-sys/natter/releases/latest)**
+
+Dort liegen zwei Dateien:
+
+| Datei | Wofür |
+|---|---|
+| `Natter-<Version>-fuer-Lehrkraefte.zip` | das vollständige Paket für die Schule: Installationsprogramm, Zertifikat, Hilfsskripte und Handbuch |
+| `Natter-Setup.exe` | nur das Installationsprogramm, für einen Rechner, auf dem das Zertifikat schon eingetragen ist |
+
+Mit der ZIP geht es unter Windows so weiter:
+
+1. Die ZIP herunterladen.
+2. **Vor dem Entpacken** Rechtsklick auf die ZIP → *Eigenschaften* →
+   unten *Zulassen* anhaken → *OK*. Windows markiert heruntergeladene
+   Dateien als „aus dem Internet" und fragt sonst bei jeder
+   entpackten Datei einzeln nach. Fehlt der Haken, ist die Datei
+   schon zugelassen.
+3. Rechtsklick → *Alle extrahieren …*, danach `ZUERST-LESEN.txt`
+   öffnen. Dort steht, ob der Rechner die Voraussetzungen erfüllt und
+   in welcher Reihenfolge es weitergeht.
+
+Unter jeder Fassung stehen die SHA-256-Prüfsummen beider Dateien. Mit
+`Get-FileHash <Datei>` in der PowerShell lässt sich nachsehen, ob der
+Download unverändert angekommen ist.
+
 ---
 
 ## 1. Ziele und Abgrenzung
