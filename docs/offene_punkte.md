@@ -3,8 +3,8 @@
 Fehler und Aufgaben, die noch zu erledigen sind. Was hier steht, wird
 abgearbeitet; was erledigt ist, wandert mit Ursache und Änderung nach
 [`erledigte_punkte.md`](erledigte_punkte.md). Dort bleibt auch die
-ganze Vorgeschichte der früheren Punkte stehen - beim nächsten
-ähnlichen Fehler ist die Spur mehr wert als ein leeres Blatt.
+ganze Vorgeschichte der früheren Punkte stehen, damit sich bei einem
+ähnlichen Fehler nachlesen lässt, was schon geprüft wurde.
 
 Die Nummern laufen durch und werden nicht neu vergeben. Der nächste
 Punkt bekommt die **24**.

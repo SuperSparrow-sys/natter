@@ -2,8 +2,8 @@
 
 Was aus [`offene_punkte.md`](offene_punkte.md) erledigt, geklärt oder
 behoben ist - vollständig, mit dem, was beobachtet wurde, was die
-Ursache war und was geändert wurde. Gestrichen wird hier nichts: beim
-nächsten ähnlichen Fehler ist die Spur mehr wert als ein leeres Blatt.
+Ursache war und was geändert wurde. Gestrichen wird hier nichts; bei
+einem ähnlichen Fehler lässt sich so nachlesen, was schon geprüft wurde.
 
 Wie die früheren Punkte umgesetzt wurden, steht in
 [`umsetzungsplan.md`](umsetzungsplan.md).
