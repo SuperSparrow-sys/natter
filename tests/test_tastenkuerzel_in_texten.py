@@ -27,7 +27,7 @@ WURZEL = Path(__file__).resolve().parent.parent
 #: Texte, die jemand liest und in denen ein Kürzel stehen kann.
 TEXTE = [
     WURZEL / "docs" / "erste_schritte.md",
-    WURZEL / "docs" / "fuer_lehrkraefte.md",
+    WURZEL / "docs" / "handbuch.md",
     WURZEL / "docs" / "komponenten.md",
     *sorted((WURZEL / "templates").rglob("*.template")),
     *sorted(WURZEL.glob("beispielprojekte/*/u_main.py")),

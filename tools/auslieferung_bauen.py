@@ -754,7 +754,7 @@ def _signaturen_pruefen(dateien: list[Path]) -> None:
 
 
 def _paket_packen(version: str) -> None:
-    """Stellt zusammen, was die Lehrkraft bekommt, und packt es.
+    """Stellt das Paket für die Schule zusammen und packt es.
 
     Gehört in den Bau und nicht dahinter: das Paket zur Fassung 0.3.0
     war von Hand gepackt, und zwei der neun Dateien fehlten darin.

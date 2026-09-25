@@ -163,7 +163,7 @@ def test_code_bekommt_eine_schrift_die_es_gibt(ansicht: HilfeAnsicht) -> None:
 
 
 @pytest.mark.parametrize(
-    "seite", ["erste_schritte.md", "komponenten.md", "fuer_lehrkraefte.md"]
+    "seite", ["erste_schritte.md", "komponenten.md", "handbuch.md"]
 )
 def test_auch_die_langen_seiten_bleiben_sauber(
     ansicht: HilfeAnsicht, seite: str

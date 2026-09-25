@@ -46,7 +46,7 @@ TEXTDATEIEN = [
     WURZEL / "tools" / "lizenz_vorlagen" / "INSTALLER_HINWEIS.txt",
     WURZEL / "docs" / "erste_schritte.md",
     WURZEL / "docs" / "komponenten.md",
-    WURZEL / "docs" / "fuer_lehrkraefte.md",
+    WURZEL / "docs" / "handbuch.md",
 ]
 
 
@@ -278,7 +278,7 @@ SEITEN_FUER_LERNENDE = [
     WURZEL / "README.md",
     WURZEL / "docs" / "erste_schritte.md",
     WURZEL / "docs" / "komponenten.md",
-    WURZEL / "docs" / "fuer_lehrkraefte.md",
+    WURZEL / "docs" / "handbuch.md",
     *sorted((WURZEL / "templates").rglob("*.template")),
 ]
 

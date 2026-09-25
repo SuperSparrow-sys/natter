@@ -20,7 +20,7 @@ Dort liegen zwei Dateien:
 
 | Datei | Wofür |
 |---|---|
-| `Natter-<Version>-fuer-Lehrkraefte.zip` | das vollständige Paket für die Schule: Installationsprogramm, Zertifikat, Hilfsskripte und Handbuch |
+| `Natter-<Version>-Setup.zip` | das vollständige Paket: Installationsprogramm, Zertifikat, Hilfsskripte und Handbuch |
 | `Natter-Setup.exe` | nur das Installationsprogramm, für einen Rechner, auf dem das Zertifikat schon eingetragen ist |
 
 Mit der ZIP geht es unter Windows so weiter:
@@ -34,10 +34,6 @@ Mit der ZIP geht es unter Windows so weiter:
 3. Rechtsklick → *Alle extrahieren …*, danach `ZUERST-LESEN.txt`
    öffnen. Dort steht, ob der Rechner die Voraussetzungen erfüllt und
    in welcher Reihenfolge es weitergeht.
-
-Unter jeder Fassung stehen die SHA-256-Prüfsummen beider Dateien. Mit
-`Get-FileHash <Datei>` in der PowerShell lässt sich nachsehen, ob der
-Download unverändert angekommen ist.
 
 ---
 
@@ -72,9 +68,9 @@ Download unverändert angekommen ist.
 - Deutsche oder anderssprachige Aliasse für Python-Namen
 - KI-Funktionen in der IDE
 
-## 1a. Für Lehrkräfte
+## 1a. Handbuch
 
-[`docs/fuer_lehrkraefte.md`](docs/fuer_lehrkraefte.md) beschreibt das
+[`docs/handbuch.md`](docs/handbuch.md) beschreibt das
 Einrichten auf einem einzelnen Rechner und im Computerraum, die
 Warnung von Windows beim ersten Start, wo Programm und Schülerdaten
 liegen, den Prüfungsmodus und sämtliche Tastenkürzel. Ohne

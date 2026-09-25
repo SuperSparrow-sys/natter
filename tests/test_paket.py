@@ -99,9 +99,9 @@ def test_spitze_klammern_werden_entschaerft() -> None:
 def test_das_handbuch_laesst_sich_umsetzen() -> None:
     """Gegen die echte Datei und nicht nur gegen Schnipsel: sie ist
     das, was im Paket landet."""
-    markdown = (WURZEL / "docs" / "fuer_lehrkraefte.md").read_text(encoding="utf-8")
+    markdown = (WURZEL / "docs" / "handbuch.md").read_text(encoding="utf-8")
 
-    html = paket_bauen.handbuch_als_html(markdown, "Natter für Lehrkräfte")
+    html = paket_bauen.handbuch_als_html(markdown, "Natter-Handbuch")
 
     assert html.startswith("<!DOCTYPE html>")
     assert html.rstrip().endswith("</html>")
@@ -124,7 +124,7 @@ def test_das_zip_traegt_die_versionsnummer(tmp_path: Path) -> None:
 
     archiv = paket_bauen.zip_bauen("0.3.1", ordner=ordner)
 
-    assert archiv.name == "Natter-0.3.1-fuer-Lehrkraefte.zip"
+    assert archiv.name == "Natter-0.3.1-Setup.zip"
 
 
 def test_das_zip_enthaelt_die_unterordner(tmp_path: Path) -> None:

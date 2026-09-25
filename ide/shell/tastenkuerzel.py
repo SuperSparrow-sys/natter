@@ -58,10 +58,10 @@ EDITORTASTEN = (
 #: Tasten in der Übersicht: sie sind weder ein Menüeintrag noch eine
 #: Editortaste, und wer sie nicht zufällig ausprobiert, schiebt jede
 #: Komponente mit der Maus. Aufgefallen ist die Lücke beim Durchgehen
-#: der Texte - `docs/fuer_lehrkraefte.md` beschreibt sie, und die
+#: der Texte - `docs/handbuch.md` beschreibt sie, und die
 #: Übersicht daneben schwieg.
 #:
-#: Geschrieben wie in `docs/fuer_lehrkraefte.md` - zwei Schreibweisen
+#: Geschrieben wie in `docs/handbuch.md` - zwei Schreibweisen
 #: für dieselbe Taste wären zwei Tasten.
 DESIGNERTASTEN = (
     ("Pfeiltasten", "Ausgewählte Komponente um einen Rasterschritt verschieben"),

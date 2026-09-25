@@ -1,7 +1,7 @@
 """Die aufgeschriebenen Designertasten tun wirklich etwas.
 
 Punkt 11 der offenen Punkte. Beim Durchgehen der Texte fiel auf, dass
-`docs/fuer_lehrkraefte.md` Tasten des Designers beschreibt, die in
+`docs/handbuch.md` Tasten des Designers beschreibt, die in
 der Übersicht unter „Hilfe" fehlten - dort standen nur die Kürzel aus
 den Menüs und die des Quelltexteditors. Wer eine Komponente genau
 setzen will, schiebt sie deshalb mit der Maus.

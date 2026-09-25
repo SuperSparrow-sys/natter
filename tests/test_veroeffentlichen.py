@@ -76,7 +76,7 @@ def gh(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> list[list[str]]:
 def gebaut(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[Path, Path]:
     setup = tmp_path / "Natter-Setup.exe"
     setup.write_bytes(b"MZ setup")
-    archiv = tmp_path / "Natter-0.3.2-fuer-Lehrkraefte.zip"
+    archiv = tmp_path / "Natter-0.3.2-Setup.zip"
     archiv.write_bytes(b"PK zip")
     monkeypatch.setattr(v, "_SETUP", setup)
     monkeypatch.setattr(v, "zip_pfad", lambda _version: archiv)
@@ -190,23 +190,24 @@ def test_ohne_gebaute_dateien_wird_nichts_angefasst(
 # --------------------------------------------- Die Beschreibung
 
 
-def test_die_beschreibung_erklaert_den_weg_unter_windows(tmp_path: Path) -> None:
-    datei = tmp_path / "Natter-0.3.2-fuer-Lehrkraefte.zip"
-    datei.write_bytes(b"PK")
+def test_die_beschreibung_erklaert_den_weg_unter_windows() -> None:
+    text = v.beschreibung("0.3.2")
 
-    text = v.beschreibung("0.3.2", [datei])
-
+    assert "Natter-0.3.2-Setup.zip" in text
     assert "Zulassen" in text
     assert "ZUERST-LESEN.txt" in text
-    assert "Get-FileHash" in text
 
 
-def test_die_beschreibung_nennt_die_pruefsummen(tmp_path: Path) -> None:
-    datei = tmp_path / "Natter-Setup.exe"
-    datei.write_bytes(b"abc")
+def test_die_beschreibung_bleibt_ohne_pruefsummen() -> None:
+    """Eine Tabelle mit 64-stelligen Zeichenketten überfordert, wer nur
+    herunterladen will - so der Einwand beim ersten Release. GitHub
+    zeigt die Prüfsumme ohnehin an jeder Datei."""
+    text = v.beschreibung("0.3.2")
 
-    text = v.beschreibung("0.3.2", [datei])
+    assert "SHA-256" not in text
+    assert "Get-FileHash" not in text
 
-    # SHA-256 von b"abc", so wie Get-FileHash sie ausgibt.
-    assert "BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD" in text
 
+def test_lehrkraefte_steht_nicht_im_namen() -> None:
+    assert "ehrkr" not in v.zip_pfad("0.3.2").name
+    assert "ehrkr" not in v.beschreibung("0.3.2")

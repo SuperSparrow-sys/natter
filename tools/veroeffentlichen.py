@@ -1,7 +1,7 @@
 """Stellt eine fertig gebaute Fassung auf GitHub bereit.
 
 Nach einem erfolgreichen Bau gehören `Natter-Setup.exe` und die ZIP
-für Lehrkräfte dorthin, wo eine Schule sie findet: unter „Releases"
+mit dem ganzen Paket dorthin, wo eine Schule sie findet: unter „Releases"
 im öffentlichen Repository. Die Dateien hängen an einem GitHub-Release
 und nicht in der Git-Historie - GitHub nimmt dort keine Datei über
 100 MB an, und die ZIP hat rund 280 MB.
@@ -27,7 +27,6 @@ werden die Dateien ersetzt.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import shutil
 import subprocess
 import sys
@@ -57,7 +56,7 @@ class VeroeffentlichungFehler(RuntimeError):
 
 
 def zip_pfad(version: str) -> Path:
-    return WURZEL / "dist" / f"Natter-{version}-fuer-Lehrkraefte.zip"
+    return WURZEL / "dist" / f"Natter-{version}-Setup.zip"
 
 
 def _ausfuehren(befehl: list[str]) -> subprocess.CompletedProcess[str]:
@@ -82,22 +81,19 @@ def gh_finden() -> Path | None:
     return next((ort for ort in _GH_ORTE if ort.is_file()), None)
 
 
-def _pruefsumme(datei: Path) -> str:
-    rechner = hashlib.sha256()
-    with datei.open("rb") as strom:
-        for block in iter(lambda: strom.read(1 << 20), b""):
-            rechner.update(block)
-    return rechner.hexdigest().upper()
-
-
-def beschreibung(version: str, dateien: list[Path]) -> str:
+def beschreibung(version: str) -> str:
     """Der Text unter dem Release. Wer von der Schule kommt, liest ihn
-    vor dem Herunterladen - deshalb steht der Weg unter Windows vorn
-    und die Prüfsummen hinten."""
+    vor dem Herunterladen - deshalb nur der Weg unter Windows, in drei
+    Schritten.
+
+    Prüfsummen stehen hier bewusst nicht. Eine Tabelle mit 64-stelligen
+    Zeichenketten hilft niemandem, der nur herunterladen will, und wer
+    sie braucht, findet sie bei GitHub an jeder Datei.
+    """
     zeilen = [
         f"## Natter {version} für Windows",
         "",
-        "Für den Unterricht **die ZIP** herunterladen. Sie enthält das "
+        f"**`Natter-{version}-Setup.zip`** herunterladen. Darin liegen das "
         "Installationsprogramm, das Zertifikat, die Hilfsskripte und das "
         "Handbuch.",
         "",
@@ -109,17 +105,7 @@ def beschreibung(version: str, dateien: list[Path]) -> str:
         "",
         "`Natter-Setup.exe` allein genügt auf einem Rechner, auf dem das "
         "Zertifikat schon eingetragen ist - etwa für ein Update.",
-        "",
-        "### Prüfsummen (SHA-256)",
-        "",
-        "In der PowerShell: `Get-FileHash <Datei>`",
-        "",
-        "| Datei | Größe | SHA-256 |",
-        "|---|---|---|",
     ]
-    for datei in dateien:
-        groesse = datei.stat().st_size / 1024 / 1024
-        zeilen.append(f"| `{datei.name}` | {groesse:.1f} MB | `{_pruefsumme(datei)}` |")
     return "\n".join(zeilen) + "\n"
 
 
@@ -254,7 +240,7 @@ def veroeffentlichen(
     dateien = [archiv, setup]
     with tempfile.TemporaryDirectory() as ordner:
         notizen = Path(ordner) / "notizen.md"
-        notizen.write_text(beschreibung(version, dateien), encoding="utf-8")
+        notizen.write_text(beschreibung(version), encoding="utf-8")
 
         melden(f"  {archiv.name} und {setup.name} werden hochgeladen …")
         vorhanden = _ausfuehren([str(gh), "release", "view", tag, "-R", _REPOSITORY])

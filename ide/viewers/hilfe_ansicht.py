@@ -172,7 +172,7 @@ class HilfeAnsicht(QTextBrowser):
         Hilfeseiten, was die Vorlage allein übrig lässt:
 
             komponenten.md      673 Stellen auf „monospace"
-            fuer_lehrkraefte.md  61
+            handbuch.md          61
             erste_schritte.md    25
             aktionen.md           3
 

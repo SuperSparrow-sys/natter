@@ -104,7 +104,7 @@ Auslieferung, die aus dem Haus geht.
 
 ## 6. Veröffentlichen
 
-Schritt 12 stellt `Natter-Setup.exe` und die ZIP für Lehrkräfte als
+Schritt 12 stellt `Natter-Setup.exe` und `Natter-<Version>-Setup.zip` als
 GitHub-Release ins öffentliche Repository, unter dem Tag `v<Version>`.
 Der Nutzer will das nach jedem Bau, ohne eigene Nachfrage. Die Dateien
 hängen am Release und nicht in der Git-Historie: GitHub nimmt dort

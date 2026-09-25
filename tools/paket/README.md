@@ -1,6 +1,6 @@
 # Das Paket für die Schule
 
-Was eine Lehrkraft bekommt, ist nicht die `Natter-Setup.exe` allein.
+Was eine Schule bekommt, ist nicht die `Natter-Setup.exe` allein.
 Ohne das Zertifikat blockiert Windows den Start auf Rechnern mit Smart
 App Control, und ohne Anleitung weiß niemand, warum.
 
@@ -27,7 +27,7 @@ dem Internet". Das `.cmd` ruft dasselbe Skript mit
 | `Natter-pruefen.ps1` | aus diesem Ordner |
 | `Zertifikat-entfernen.cmd` | aus diesem Ordner |
 | `Zertifikat-entfernen.ps1` | aus diesem Ordner |
-| `Handbuch.md` | `docs/fuer_lehrkraefte.md` |
+| `Handbuch.md` | `docs/handbuch.md` |
 | `Handbuch.html` | daraus erzeugt, zum Lesen im Browser |
 | `Lizenzen\` | `dist/Natter/Lizenzen/` nach dem Bau |
 

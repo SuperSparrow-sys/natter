@@ -1,4 +1,4 @@
-"""Baut das Paket, das eine Lehrkraft bekommt, und packt es als ZIP.
+"""Baut das Paket für die Schule und packt es als ZIP.
 
 Die `Natter-Setup.exe` allein genügt nicht: ohne das Zertifikat meldet
 Windows beim Installieren einen unbekannten Herausgeber, ohne die
@@ -31,7 +31,7 @@ _PAKETQUELLE = WURZEL / "tools" / "paket"
 _ZERTIFIKAT = WURZEL / "tools" / "signieren" / "natter-codesign.cer"
 _INSTALLER = WURZEL / "dist" / "installer" / "Natter-Setup.exe"
 _GEBAUT = WURZEL / "dist" / "Natter"
-_HANDBUCH = WURZEL / "docs" / "fuer_lehrkraefte.md"
+_HANDBUCH = WURZEL / "docs" / "handbuch.md"
 _ZIEL = WURZEL / "dist" / "paket"
 
 #: Was ins Paket gehört, als Name im Paket und Herkunft. Die Reihenfolge
@@ -106,7 +106,7 @@ def _tabellenzeile(zeile: str, kopf: bool) -> str:
 def handbuch_als_html(markdown: str, titel: str) -> str:
     """Wandelt das Handbuch in eine Seite zum Lesen im Browser.
 
-    Umgesetzt wird der Ausschnitt, den `docs/fuer_lehrkraefte.md`
+    Umgesetzt wird der Ausschnitt, den `docs/handbuch.md`
     benutzt: Überschriften, Absätze, Aufzählungen, Tabellen,
     Codeblöcke und Trennlinien.
     """
@@ -255,7 +255,7 @@ def paket_bauen(*, version: str, ziel: Path | None = None) -> Path:
     markdown = _HANDBUCH.read_text(encoding="utf-8")
     (ordner / "Handbuch.md").write_text(markdown, encoding="utf-8")
     (ordner / "Handbuch.html").write_text(
-        handbuch_als_html(markdown, "Natter für Lehrkräfte"), encoding="utf-8"
+        handbuch_als_html(markdown, "Natter-Handbuch"), encoding="utf-8"
     )
 
     shutil.copytree(_GEBAUT / "Lizenzen", ordner / "Lizenzen")
@@ -284,7 +284,7 @@ def zip_bauen(
     gesamten Bytes.
     """
     quelle = ordner or _ZIEL
-    ziel = quelle.parent / f"Natter-{version}-fuer-Lehrkraefte.zip"
+    ziel = quelle.parent / f"Natter-{version}-Setup.zip"
     if ziel.exists():
         ziel.unlink()
 

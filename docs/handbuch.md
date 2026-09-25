@@ -1,4 +1,4 @@
-# Natter für Lehrkräfte
+# Natter-Handbuch
 
 Diese Seite beschreibt, was Natter kann und welche Tasten wo wirken.
 Sie setzt keine Programmierkenntnisse voraus und erklärt nicht, wie
