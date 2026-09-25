@@ -116,7 +116,7 @@ Sie liegen nicht im Programmordner, sondern unter `Dokumente`.
 | Was | Wo |
 |---|---|
 | Natter selbst | `%LOCALAPPDATA%\Programs\Natter` |
-| Arbeitskopien der Beispiele | `Dokumente\Natter` |
+| Arbeitskopien der Beispiele | `Dokumente\Natter\Beispielprojekte` |
 | Eigene Projekte | dort, wo sie beim Anlegen hingelegt werden — vorgeschlagen wird `Dokumente\Natter` |
 
 Welcher Ordner „Dokumente" ist, erfragt Natter beim System. Ist er
@@ -367,8 +367,9 @@ Bildergalerie bis zu Datenbank, CSV-Auswertung und einer kleinen
 Regression.
 
 Ein angeklicktes Beispiel wird **als Arbeitskopie** nach
-`Dokumente\Natter` gelegt und dort geöffnet. Das Original bleibt
-unverändert.
+`Dokumente\Natter\Beispielprojekte` gelegt und dort geöffnet.
+Das Original bleibt unverändert, und die eigenen Projekte eine Ebene
+darüber bleiben unter sich.
 
 Wird dasselbe Beispiel später noch einmal gewählt, öffnet Natter die
 vorhandene Kopie mit dem Stand der letzten Stunde, statt eine weitere

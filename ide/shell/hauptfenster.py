@@ -1073,7 +1073,7 @@ class HauptFenster(QMainWindow):
         for pfad in beispielprojekte():
             eintrag = beispiel_menue.addAction(pfad.parent.name)
             eintrag.setStatusTip(
-                "Wird in den eigenen Dokumente-Ordner kopiert und dort geöffnet"
+                "Wird nach Dokumente\\Natter\\Beispielprojekte kopiert und dort geöffnet"
             )
             eintrag.triggered.connect(lambda _geklickt=False, p=pfad: self.beispiel_oeffnen(p))
         if beispiel_menue.isEmpty():

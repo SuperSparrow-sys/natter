@@ -112,3 +112,18 @@ def natter_ordner() -> Path:
     keinen leeren Ordner hinterlassen. Angelegt wird beim Schreiben.
     """
     return dokumente_ordner() / NATTER_ORDNER
+
+
+#: Unterordner von `natter_ordner()` für die Kopien der Beispiele.
+BEISPIELKOPIEN_ORDNER = "Beispielprojekte"
+
+
+def beispielkopien_ordner() -> Path:
+    """`<Dokumente>/Natter/Beispielprojekte` - die Arbeitskopien der
+    mitgelieferten Beispiele.
+
+    Eine Ebene unter den eigenen Projekten: neun Beispiele zwischen
+    zwei, drei eigenen Projekten machen den Ordner unübersichtlich, und
+    wer sein Projekt sucht, soll nicht erst an ihnen vorbei müssen.
+    """
+    return natter_ordner() / BEISPIELKOPIEN_ORDNER

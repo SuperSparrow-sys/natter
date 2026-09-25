@@ -252,3 +252,67 @@ def test_die_vorgabe_gilt_schon_ab_dem_start() -> None:
 
     assert os.environ.get("NATTER_THEMA") == "dark"
 
+
+
+# --------------------------------------------- Der Ordner der Kopien
+
+
+def test_kopien_liegen_in_einem_eigenen_unterordner() -> None:
+    """Zwischen den eigenen Projekten stören die Beispiele. Sie liegen
+    deshalb eine Ebene tiefer, unter „Beispielprojekte"."""
+    from ide.pfade import beispielkopien_ordner, natter_ordner
+
+    kopie = beispiel_kopieren(_beispiel("04_CookieKlicker"))
+
+    assert kopie.parent.parent == beispielkopien_ordner()
+    assert beispielkopien_ordner().parent == natter_ordner()
+    assert [p.name for p in natter_ordner().iterdir()] == ["Beispielprojekte"]
+
+
+def test_eine_kopie_an_der_alten_stelle_zieht_mit_ihrer_arbeit_um() -> None:
+    """Bis Fassung 0.3.1 lagen die Kopien direkt unter `Natter`. Wer
+    dort gearbeitet hat, findet seine Arbeit nach dem Update am neuen
+    Ort wieder, statt eine frische Kopie vorgesetzt zu bekommen."""
+    from ide.pfade import beispielkopien_ordner, natter_ordner
+
+    alt = beispiel_kopieren(_beispiel("08_Regression"), natter_ordner())
+    (alt.parent / "meine_arbeit.py").write_text("print(1)\n", encoding="utf-8")
+
+    neu = beispiel_kopieren(_beispiel("08_Regression"))
+
+    assert neu.parent == beispielkopien_ordner() / "08_Regression"
+    assert (neu.parent / "meine_arbeit.py").read_text(encoding="utf-8") == "print(1)\n"
+    assert not alt.parent.exists()
+
+
+def test_ein_eigenes_projekt_an_der_alten_stelle_bleibt_liegen() -> None:
+    """Umgezogen wird nur, was an seiner Projektdatei als Kopie zu
+    erkennen ist."""
+    from ide.pfade import natter_ordner
+
+    eigenes = natter_ordner() / "08_Regression"
+    eigenes.mkdir(parents=True)
+    (eigenes / "meine_regression.natter").write_text("{}", encoding="utf-8")
+
+    beispiel_kopieren(_beispiel("08_Regression"))
+
+    assert (eigenes / "meine_regression.natter").exists()
+
+
+def test_die_kopien_landen_nie_bei_den_originalen(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Liegt das Entwicklungsverzeichnis selbst unter
+    `Dokumente/Natter`, wäre `Natter/Beispielprojekte` der Ordner der
+    Originale - Windows unterscheidet keine Groß- und Kleinschreibung.
+    Dann würde das Original als seine eigene Kopie geöffnet."""
+    import ide.pfade
+    from ide.pfade import daten_ordner
+
+    originale = daten_ordner("beispielprojekte")
+    monkeypatch.setattr(ide.pfade, "dokumente_ordner", lambda: originale.parent.parent)
+    monkeypatch.setattr(ide.pfade, "NATTER_ORDNER", originale.parent.name)
+    monkeypatch.setattr(ide.pfade, "BEISPIELKOPIEN_ORDNER", originale.name.upper())
+
+    with pytest.raises(ValueError):
+        beispiel_kopieren(_beispiel("04_CookieKlicker"))

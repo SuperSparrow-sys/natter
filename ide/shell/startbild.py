@@ -42,7 +42,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ide.pfade import NATTER_ORDNER, daten_ordner, natter_ordner
+from ide.pfade import (
+    NATTER_ORDNER,
+    beispielkopien_ordner,
+    daten_ordner,
+    natter_ordner,
+)
 from ide.shell.theme import STARTBILD_EINTRAG
 from pcl.pruefungsmodus import laeuft as pruefungsmodus_laeuft
 
@@ -201,10 +206,26 @@ def beispiel_kopieren(projektdatei: Path, ziel_wurzel: Path | None = None) -> Pa
 
     Nummeriert wird nur noch, wenn ein fremder Ordner den Namen schon
     belegt, etwa ein eigenes Projekt, das zufällig so heißt.
+
+    Ohne `ziel_wurzel` liegen die Kopien unter
+    `Dokumente/Natter/Beispielprojekte`, getrennt von den eigenen
+    Projekten.
     """
     projektdatei = Path(projektdatei)
     quelle = projektdatei.parent
-    wurzel = Path(ziel_wurzel) if ziel_wurzel else natter_ordner()
+    wurzel = Path(ziel_wurzel) if ziel_wurzel else beispielkopien_ordner()
+
+    # Liegt das Entwicklungsverzeichnis unter `Dokumente/Natter`, ist
+    # `Natter/Beispielprojekte` der Ordner der Originale, denn Windows
+    # unterscheidet keine Groß- und Kleinschreibung. Die Suche nach
+    # einer vorhandenen Kopie fände dann das Original selbst, und es
+    # würde an Ort und Stelle geöffnet.
+    if ist_beispiel_original(wurzel):
+        raise ValueError(
+            f"Die Kopien der Beispiele würden bei den Originalen landen ({wurzel})."
+        )
+    if ziel_wurzel is None:
+        _alte_kopie_umziehen(projektdatei, wurzel)
     wurzel.mkdir(parents=True, exist_ok=True)
 
     ziel = wurzel / quelle.name
@@ -217,6 +238,23 @@ def beispiel_kopieren(projektdatei: Path, ziel_wurzel: Path | None = None) -> Pa
 
     shutil.copytree(quelle, ziel, ignore=_NICHT_MITKOPIEREN)
     return ziel / projektdatei.name
+
+
+def _alte_kopie_umziehen(projektdatei: Path, wurzel: Path) -> None:
+    """Holt eine Kopie von ihrem früheren Platz unter `wurzel`.
+
+    Bis Fassung 0.3.1 lagen die Kopien direkt unter
+    `Dokumente/Natter`, zwischen den eigenen Projekten. Wer dort
+    gearbeitet hat, findet seine Arbeit nach dem Update am neuen Ort
+    wieder. Umgezogen wird nur, was an seiner Projektdatei als Kopie zu
+    erkennen ist, und nur, solange am neuen Ort noch keine liegt.
+    """
+    alt = natter_ordner() / projektdatei.parent.name
+    neu = wurzel / projektdatei.parent.name
+    if not (alt / projektdatei.name).exists() or neu.exists():
+        return
+    wurzel.mkdir(parents=True, exist_ok=True)
+    shutil.move(alt, neu)
 
 
 def beispiel_zuruecksetzen(projekt_ordner: Path) -> Path:

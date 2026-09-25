@@ -1272,9 +1272,16 @@ entstünden laufend neue Ordner:
   es entsteht kein neuer. Ohne diesen Eintrag gäbe es seit der
   Wiederverwendung keinen Weg mehr zurück zum Ausgangszustand.
 
-**Nicht angefasst:** die drei alten Kopien im Entwicklungsverzeichnis.
-Sie enthalten Arbeit, zuletzt vom 25.09., und werden nur auf
-Nachfrage verschoben.
+- Die Kopien liegen in einem eigenen Unterordner,
+  `Dokumente\Natter\Beispielprojekte`, und nicht mehr zwischen den
+  eigenen Projekten. Eine Kopie am alten Platz direkt unter `Natter`
+  zieht beim nächsten Öffnen mit ihrem Inhalt dorthin um.
+- Liegt das Entwicklungsverzeichnis selbst unter `Dokumente\Natter`,
+  wäre der Unterordner der Ordner der Originale. Dann bricht das
+  Kopieren ab, statt das Original als seine eigene Kopie zu öffnen.
+
+Die drei alten Kopien im Entwicklungsverzeichnis sind auf Wunsch
+gelöscht.
 
 Tests: `tests/test_beispiel_und_thema.py`.
 

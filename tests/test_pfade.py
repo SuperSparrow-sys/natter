@@ -87,16 +87,17 @@ def test_nachsehen_legt_keinen_ordner_an(tmp_path: Path) -> None:
 # --------------------------------- Die Beispiele landen dort, nicht im Repository
 
 
-def test_eine_beispielkopie_geht_in_den_natter_ordner(
+def test_eine_beispielkopie_geht_in_den_ordner_der_kopien(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import ide.shell.startbild as modul
 
-    monkeypatch.setattr(modul, "natter_ordner", lambda: tmp_path / "Natter")
+    ziel = tmp_path / "Natter" / "Beispielprojekte"
+    monkeypatch.setattr(modul, "beispielkopien_ordner", lambda: ziel)
 
     kopie = beispiel_kopieren(BEISPIEL)
 
-    assert kopie.parent.parent == tmp_path / "Natter"
+    assert kopie.parent.parent == ziel
     assert kopie.exists()
     shutil.rmtree(kopie.parent)
 

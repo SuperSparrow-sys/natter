@@ -110,6 +110,7 @@ Was Natter auf dem Rechner ablegt
 
   Das Programm       %LOCALAPPDATA%\Programs\Natter  (rund 1,2 GB)
   Die Projekte       Dokumente\Natter
+  Die Beispiele      Dokumente\Natter\Beispielprojekte
 
 Beides ist getrennt: ein Update oder eine Deinstallation ruehrt die
 Projekte der Schuelerinnen und Schueler nicht an. Wo der
