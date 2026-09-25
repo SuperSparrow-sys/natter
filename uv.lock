@@ -674,10 +674,6 @@ dev = [
     { name = "pytest" },
     { name = "pytest-qt" },
 ]
-prototypes = [
-    { name = "cryptography" },
-    { name = "jedi" },
-]
 
 [package.metadata]
 requires-dist = [
@@ -702,10 +698,6 @@ requires-dist = [
 dev = [
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-qt", specifier = ">=4.4" },
-]
-prototypes = [
-    { name = "cryptography", specifier = ">=42" },
-    { name = "jedi", specifier = ">=0.19" },
 ]
 
 [[package]]

@@ -1,8 +1,7 @@
 # Einmalige Einrichtung eines selbst erstellten Code-Signing-Zertifikats
-# für Natter (Nutzer-Feedback September 2026: "Weg A" - kostenlose
-# Alternative zu einem gekauften Authenticode-Zertifikat, siehe
-# tools/signieren/VERTEILUNG.md und prototypes/s6_signatur/ für den
-# ursprünglichen Machbarkeitstest).
+# für Natter - die kostenlose Alternative zu einem gekauften
+# Authenticode-Zertifikat. Was es leistet und was nicht, steht in
+# docs/bericht.md, Abschnitt 7.5 und 7.6.
 #
 # Erzeugt das Zertifikat, installiert es auf DIESEM Rechner als
 # vertrauenswürdig (Stammzertifizierungsstellen + Vertrauenswürdige

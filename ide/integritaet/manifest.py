@@ -6,8 +6,9 @@ aller Programmdateien (ohne `benutzer/` und `pakete-zusatz/`) in
 signiert, der öffentliche Schlüssel steckt im Starter“ – damit „der
 Starter veränderte, fehlende oder fremde Dateien erkennt“.
 
-Aus `prototypes/s6_signatur/manifest.py` produktiv gemacht (M8,
-Schritt 4). Zwei bewusste Änderungen gegenüber dem Prototyp: das
+Hervorgegangen aus dem Machbarkeitstest S6 (M8, Schritt 4; der
+Prototyp steht in der Git-Historie). Zwei Änderungen gegenüber dem
+Prototyp: das
 Prüfergebnis ist ein `PruefErgebnis` statt Konsolenausgabe mit
 `sys.exit`, und der öffentliche Schlüssel liegt als Python-Konstante
 (`ide/integritaet/schluessel.py`) statt als Datei neben dem Programm.

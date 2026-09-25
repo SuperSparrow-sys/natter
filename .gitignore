@@ -41,17 +41,12 @@ Thumbs.db
 # frischen Zustands.
 *.sqlite
 *.sqlite3
-prototypes/s2_monaco_jedi/monaco/
-web/monaco/
-prototypes/s6_signatur/*.pem
-prototypes/s6_signatur/*.pfx
 # Privater Signaturschlüssel (tools/signieren/README.md) - niemals
 # committen, wer ihn hat kann im Namen von "Natter" signieren. Der
 # öffentliche Teil (*.cer) ist dagegen unbedenklich und bewusst NICHT
 # hier gelistet, damit er versioniert werden kann.
 tools/signieren/*.pfx
 tools/signieren/*.pfx.passwort.txt
-prototypes/s6_signatur/manifest.signiert.json
 
 # Lazarus-Referenzprojekte (referenz/): nur Quelltext + Bilder, keine
 # Kompilate/Sessiondaten (sonst mehrere hundert MB)

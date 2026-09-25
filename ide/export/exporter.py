@@ -36,11 +36,9 @@ nach, welche dieser Pakete überhaupt vorkommen, und schließt die
 ein Drittel der Größe, bei unverändert einer einzigen Datei. Wer ein
 Diagramm oder scikit-learn benutzt, bekommt alles Nötige nach wie vor.
 
-Baut absichtlich nicht das Prüfsummen-Manifest/die Authenticode-Signatur
-aus `prototypes/s6_signatur` mit ein - eine Signatur braucht ein
-gekauftes Zertifikat, das ein Schulprojekt normalerweise nicht hat;
-das bleibt ein bewusst manueller, optionaler Schritt, siehe
-Arbeitspaket M8.
+Das Prüfsummen-Manifest kommt nicht mit hinein: es schützt Natter
+selbst, nicht das Programm einer Schülerin. Signiert wird die fertige
+Exe über `ide/export/signatur.py`.
 """
 
 from __future__ import annotations

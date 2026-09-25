@@ -1,9 +1,9 @@
 """HTML-Vorschau (Abschnitt 11.3): zeigt eine `.html`-Datei an, mit
 automatischer Aktualisierung beim Speichern und „Im Browser öffnen“.
 
-Rendert über `QTextBrowser` (einfaches HTML/CSS) statt eines vollen
-Web-Engines – die Monaco/QtWebEngine-Entscheidung aus `prototypes/s2`
-ist noch offen (siehe PLAN.md (Git-Historie)); für die im Kurs erzeugten,
+Rendert über `QTextBrowser` (einfaches HTML/CSS) statt einer vollen
+Web-Engine – QtWebEngine hätte rund 100 MB gekostet, siehe
+`docs/bericht.md`, Abschnitt 4; für die im Kurs erzeugten,
 einfachen HTML-Seiten (Abschnitt 11.3-Beispiel: Überschrift, Text,
 Tabellen) reicht das.
 """

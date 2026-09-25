@@ -6,8 +6,7 @@ Startet bewusst keine echten `pcl`-GUI-Projekte (deren Ereignisschleife
 würde nie von selbst enden) - stattdessen kleine, sich selbst
 beendende Skripte, um nur den Start-Mechanismus zu prüfen. Das
 Konsolenfenster selbst (`CREATE_NEW_CONSOLE`) ist nur strukturell
-geprüft (echtes Fenster erst auf dem Windows-Laptop verifizierbar, siehe
-`prototypes/`).
+geprüft (ein echtes Fenster lässt sich headless nicht nachweisen).
 """
 
 from __future__ import annotations

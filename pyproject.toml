@@ -39,10 +39,6 @@ dev = [
     "pytest>=8.0",
     "pytest-qt>=4.4",
 ]
-prototypes = [
-    "jedi>=0.19",
-    "cryptography>=42",
-]
 
 [build-system]
 requires = ["hatchling"]
@@ -54,10 +50,6 @@ packages = ["pcl", "ide"]
 [tool.ruff]
 target-version = "py313"
 line-length = 100
-# Die Prototypen aus der Vorarbeit bleiben, wie sie beim Abschluss des
-# jeweiligen Schritts waren - sie belegen eine Entscheidung und werden
-# nicht mehr angefasst. Sie mitzupruefen hiesse, sie zu veraendern.
-extend-exclude = ["prototypes"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

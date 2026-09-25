@@ -4,10 +4,9 @@ den meisten IDEs, Abschnitt 8.1) und Python-Syntax-Hervorhebung
 (`ide.shell.python_hervorhebung`).
 
 Standardmuster aus der Qt-Dokumentation („Code Editor Example“), mit
-deutschen Bezeichnern. Eine echte Monaco-Integration (Abschnitt 7.5) ist
-ein eigener, späterer Schritt (siehe `prototypes/s2`); die
-Syntax-Hervorhebung selbst ist bereits echt, nur regelbasiert statt über
-eine vollständige Grammatik.
+deutschen Bezeichnern. Monaco war vorgesehen und ist verworfen (siehe
+`docs/bericht.md`, Abschnitt 4); die Syntax-Hervorhebung ist
+regelbasiert statt über eine vollständige Grammatik.
 """
 
 from __future__ import annotations
@@ -268,8 +267,8 @@ class QuelltextEditor(QPlainTextEdit):
         """Automatischer Einzug (Gewünscht: „was
  passiert wenn ich in einer Funktion Enter drücke“ – bisher
  nichts, jede Zeile begann bei Spalte 0). Kein echtes
- Grammatik-Wissen wie bei einer vollständigen Monaco-Integration
- (`prototypes/s2`, noch offen) – nur zwei einfache, zuverlässige
+ Grammatik-Wissen wie in einem vollständigen Editor – nur zwei
+ einfache, zuverlässige
  Regeln wie in den meisten schlanken Editoren: Einzug der
  Vorzeile übernehmen, nach einem ":" am Zeilenende eine Ebene
  mehr einrücken. Tab fügt vier Leerzeichen statt eines
