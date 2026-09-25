@@ -124,9 +124,10 @@ def test_das_original_bleibt_unberuehrt(tmp_path: Path) -> None:
     assert sorted(p.name for p in quelle.parent.iterdir()) == vorher
 
 
-def test_eine_zweite_kopie_ueberschreibt_die_erste_nicht(tmp_path: Path) -> None:
-    """Wer gestern an einem Beispiel gearbeitet hat, bekommt heute eine
-    zweite Kopie daneben statt seine Arbeit zurückgesetzt."""
+def test_ein_zweites_oeffnen_ueberschreibt_die_arbeit_nicht(tmp_path: Path) -> None:
+    """Wer gestern an einem Beispiel gearbeitet hat, findet heute
+    seine Arbeit wieder - in derselben Kopie, nicht in einer zweiten
+    daneben, die er erst suchen müsste."""
     quelle = next(
         pfad for pfad in beispielprojekte() if pfad.parent.name == "05_Bildergalerie"
     )
@@ -135,8 +136,8 @@ def test_eine_zweite_kopie_ueberschreibt_die_erste_nicht(tmp_path: Path) -> None
 
     zweite = beispiel_kopieren(quelle, tmp_path)
 
-    assert zweite.parent != erste.parent
-    assert (erste.parent / "meine_arbeit.py").exists()
+    assert zweite == erste
+    assert (zweite.parent / "meine_arbeit.py").read_text(encoding="utf-8") == "print(1)"
 
 
 def test_die_kopie_nimmt_keinen_bytecode_mit(tmp_path: Path) -> None:

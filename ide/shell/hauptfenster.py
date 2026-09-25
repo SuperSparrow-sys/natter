@@ -95,7 +95,10 @@ from ide.shell.schnellauswahl import SchnellAuswahl
 from ide.shell.startbild import (
     Startbild,
     beispiel_kopieren,
+    beispiel_original,
+    beispiel_zuruecksetzen,
     beispielprojekte,
+    ist_beispiel_original,
     zuletzt_merken,
 )
 from ide.shell.suchen_dialog import SuchenErsetzenDialog
@@ -116,7 +119,7 @@ from pcl.form import Form
 from pcl.pruefungsmodus import laeuft as pruefungsmodus_laeuft
 from pcl.pruefungsmodus import restzeit_text
 from pcl.pruefungsmodus import starten as pruefungsmodus_starten
-from pcl.theme import theme_aufloesen
+from pcl.theme import VORGABE_VARIABLE, theme_aufloesen
 
 _BILD_ENDUNGEN = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".svg"}
 _HTML_ENDUNGEN = {".html", ".htm"}
@@ -278,6 +281,20 @@ if __name__ == "__main__":
 '''
 
 
+def _designvorgabe_setzen(thema: str) -> None:
+    """Gibt das Design von Natter an Formulare und Programme weiter.
+
+    Ein Formular mit `theme = "system"` richtet sich danach - im
+    Designer, weil es im Prozess von Natter läuft, und im gestarteten
+    Programm, weil es die Umgebung erbt. Steht Natter selbst auf
+    „System", gibt es nichts vorzugeben, und alle folgen Windows.
+    """
+    if thema in ("light", "dark"):
+        os.environ[VORGABE_VARIABLE] = thema
+    else:
+        os.environ.pop(VORGABE_VARIABLE, None)
+
+
 class HauptFenster(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -293,6 +310,7 @@ class HauptFenster(QMainWindow):
             QSettings.Format.IniFormat, QSettings.Scope.UserScope, "Natter", "Natter-IDE"
         )
         self._design_thema = self._design_einstellungen.value("design/thema", "system")
+        _designvorgabe_setzen(self._design_thema)
         self._code_schriftart = self._design_einstellungen.value(
             "editor/schriftart", "Consolas"
         )
@@ -1060,6 +1078,22 @@ class HauptFenster(QMainWindow):
             eintrag.triggered.connect(lambda _geklickt=False, p=pfad: self.beispiel_oeffnen(p))
         if beispiel_menue.isEmpty():
             beispiel_menue.setEnabled(False)
+        else:
+            # Seit ein erneutes Öffnen die vorhandene Kopie weiterbenutzt,
+            # statt eine neue anzulegen, ist das hier der Weg zurück zum
+            # Ausgangszustand. Er steht bei den Beispielen, weil er nur
+            # für sie gilt, und ist nur bei einer Kopie bedienbar.
+            beispiel_menue.addSeparator()
+            self._beispiel_zuruecksetzen_eintrag = beispiel_menue.addAction(
+                "Auf Original zurücksetzen …"
+            )
+            self._beispiel_zuruecksetzen_eintrag.setStatusTip(
+                "Ersetzt die Kopie des geöffneten Beispiels durch das Original"
+            )
+            self._beispiel_zuruecksetzen_eintrag.triggered.connect(
+                lambda *_: self.beispiel_zuruecksetzen_nachfragen()
+            )
+            self._zuruecksetzen_pruefen()
         self._beispiel_menue = beispiel_menue
         self._beispielmenue_pruefen()
 
@@ -1900,7 +1934,73 @@ class HauptFenster(QMainWindow):
         self.startbild.aufbauen()
         self.explorer.projekt_anzeigen(self.projekt)
         self.statusBar().showMessage(f"Projekt {self.projekt.name} geöffnet")
+        self._zuruecksetzen_pruefen()
         return self.projekt
+
+    def _zuruecksetzen_pruefen(self) -> None:
+        """„Auf Original zurücksetzen …" ist nur bei der Kopie eines
+        Beispiels bedienbar. Bei einem eigenen Projekt gäbe es nichts,
+        worauf zurückgesetzt werden könnte."""
+        eintrag = getattr(self, "_beispiel_zuruecksetzen_eintrag", None)
+        if eintrag is None:
+            return
+        projekt = getattr(self, "projekt", None)
+        eintrag.setEnabled(
+            projekt is not None and beispiel_original(projekt.ordner) is not None
+        )
+
+    def beispiel_zuruecksetzen_nachfragen(self, *, bestaetigt: bool = False) -> bool:
+        """Setzt das geöffnete Beispiel nach einer Rückfrage auf das
+        Original zurück. `bestaetigt` überspringt die Rückfrage für
+        Tests.
+
+        Offene Tabs des Projekts werden vorher ohne weitere Frage
+        geschlossen: die Rückfrage hier hat schon gesagt, dass alle
+        Änderungen verloren gehen, und eine zweite je Datei fragte
+        dasselbe noch einmal.
+        """
+        if self.projekt is None:
+            return False
+        ordner = self.projekt.ordner
+        if beispiel_original(ordner) is None:
+            return False
+
+        if not bestaetigt:
+            antwort = QMessageBox.question(
+                self,
+                "Auf Original zurücksetzen",
+                f"„{self.projekt.name}“ auf den Auslieferungszustand zurücksetzen?\n\n"
+                "Alle Änderungen an diesem Beispiel gehen dabei verloren.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel,
+            )
+            if antwort != QMessageBox.StandardButton.Yes:
+                return False
+
+        self._tabs_im_ordner_schliessen(ordner)
+        projektdatei = beispiel_zuruecksetzen(ordner)
+        self.projekt_oeffnen(projektdatei)
+        self.statusBar().showMessage(
+            f"„{self.projekt.name}“ steht wieder im Auslieferungszustand."
+        )
+        return True
+
+    def _tabs_im_ordner_schliessen(self, ordner: Path) -> None:
+        """Schließt alle Editor- und Designer-Tabs mit Dateien aus
+        `ordner`, ohne nach dem Speichern zu fragen."""
+        ordner = Path(ordner).resolve()
+        for index in reversed(range(self.editor_tabs.count())):
+            inhalt = self._tab_inhalt(self.editor_tabs.widget(index))
+            pfad = None
+            if isinstance(inhalt, QPlainTextEdit):
+                pfad = inhalt.property(_PFAD_EIGENSCHAFT)
+                inhalt.document().setModified(False)
+            else:
+                for schluessel, formular in self._pfad_zu_formular.items():
+                    if formular._qwidget is inhalt:
+                        pfad = schluessel
+            if pfad and Path(pfad).resolve().is_relative_to(ordner):
+                self._tab_schliessen(index)
 
     def projekt_oeffnen_gemeldet(self, pfad: Path) -> Projekt | None:
         """`projekt_oeffnen()` mit Meldung statt Traceback – der Weg für
@@ -1911,8 +2011,16 @@ class HauptFenster(QMainWindow):
         steckt, oder beschädigt sein, weil sie jemand in einem Editor
         offen hatte. Beides flog vorher als `FileNotFoundError` bzw.
         `JSONDecodeError` aus einem Qt-Signal heraus (M11, Abschnitt 5).
+
+        Ein mitgeliefertes Original wird dabei nie an Ort und Stelle
+        geöffnet, sondern als Kopie - auf demselben Weg wie über
+        „Datei → Beispielprojekte". „Zuletzt geöffnet" führte sonst
+        direkt ins Original, und jede Änderung landete im Beispiel
+        selbst.
         """
         try:
+            if ist_beispiel_original(pfad):
+                return self.beispiel_oeffnen(pfad)
             return self.projekt_oeffnen(pfad)
         except FileNotFoundError:
             QMessageBox.warning(
@@ -2191,8 +2299,16 @@ class HauptFenster(QMainWindow):
         sofort an (inkl. bereits offener Editor-Tabs, Abschnitt 7.5) und
         merkt sich die Wahl für den nächsten Start."""
         self._design_thema = thema
+        _designvorgabe_setzen(thema)
         self.setStyleSheet(ide_qss_erzeugen(thema, code_schriftart=self._code_schriftart))
         self._design_einstellungen.setValue("design/thema", thema)
+
+        # Offene Formulare im Designer. Ein `Form` legt sein Stylesheet
+        # beim Erzeugen fest, und ohne diesen Schritt blieb die
+        # Vorschau im alten Design stehen, bis der Tab neu geöffnet
+        # wurde - Natter war hell, das Formular darin dunkel.
+        for canvas in self._offene_canvases:
+            canvas.formular._stylesheet_aktualisieren()
 
         aufgeloest = theme_aufloesen(thema)
         for index in range(self.editor_tabs.count()):

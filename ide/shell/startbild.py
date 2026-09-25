@@ -151,28 +151,101 @@ def eindeutige_namen(pfade: list[Path]) -> list[str]:
     ]
 
 
-def beispiel_kopieren(projektdatei: Path, ziel_wurzel: Path | None = None) -> Path:
-    """Legt eine Arbeitskopie des Beispiels an und gibt dessen
-    `.natter`-Datei zurück.
+#: Was beim Kopieren eines Beispiels liegen bleibt. Übersetzter
+#: Python-Code gehört zu dem Rechner, auf dem er entstand.
+_NICHT_MITKOPIEREN = shutil.ignore_patterns("__pycache__", "*.pyc")
 
-    Ein vorhandener Ordner wird nicht überschrieben – wer gestern
-    am Beispiel „Ampel" gearbeitet hat, bekommt heute „Ampel 2" statt
-    seine Arbeit zurückgesetzt.
+
+def ist_beispiel_original(pfad: Path) -> bool:
+    """Ob `pfad` im Ordner der mitgelieferten Beispiele liegt.
+
+    Ein Original wird nie an Ort und Stelle geöffnet. In einer
+    installierten Natter liegt es im Programmordner, in den eine
+    Schülerin nicht schreiben darf, und im Entwicklungsbaum ist es eine
+    eingecheckte Datei.
     """
-    quelle = Path(projektdatei).parent
+    ordner = daten_ordner("beispielprojekte").resolve()
+    return Path(pfad).resolve().is_relative_to(ordner)
+
+
+def beispiel_original(projekt_ordner: Path) -> Path | None:
+    """Der Ordner des Beispiels, von dem `projekt_ordner` eine Kopie
+    ist - oder `None` für ein eigenes Projekt und für das Original
+    selbst.
+
+    Erkannt wird eine Kopie an ihrer Projektdatei und nicht am
+    Ordnernamen: ein eigenes Projekt kann zufällig „04_CookieKlicker"
+    heißen, und eine Kopie aus der Zeit, als jedes Öffnen eine neue
+    anlegte, heißt „08_Regression 2".
+    """
+    projekt_ordner = Path(projekt_ordner)
+    if ist_beispiel_original(projekt_ordner):
+        return None
+    eigene = {datei.name for datei in projekt_ordner.glob("*.natter")}
+    for projektdatei in beispielprojekte():
+        if projektdatei.name in eigene:
+            return projektdatei.parent
+    return None
+
+
+def beispiel_kopieren(projektdatei: Path, ziel_wurzel: Path | None = None) -> Path:
+    """Gibt die Arbeitskopie des Beispiels zurück und legt sie an, wenn
+    es noch keine gibt.
+
+    Eine vorhandene Kopie wird weiterbenutzt. Früher entstand bei
+    jedem Öffnen eine neue daneben - „Ampel 2", „Ampel 3" -, damit die
+    Arbeit von gestern nicht überschrieben wird. Überschrieben wurde sie
+    nicht, aber geöffnet wurde eine frische Kopie, und die Arbeit lag
+    unbemerkt im Ordner nebenan. Wer von vorn anfangen will, nimmt
+    „Datei → Beispielprojekte → Auf Original zurücksetzen …".
+
+    Nummeriert wird nur noch, wenn ein fremder Ordner den Namen schon
+    belegt, etwa ein eigenes Projekt, das zufällig so heißt.
+    """
+    projektdatei = Path(projektdatei)
+    quelle = projektdatei.parent
     wurzel = Path(ziel_wurzel) if ziel_wurzel else natter_ordner()
     wurzel.mkdir(parents=True, exist_ok=True)
 
     ziel = wurzel / quelle.name
     nummer = 2
     while ziel.exists():
+        if (ziel / projektdatei.name).exists():
+            return ziel / projektdatei.name
         ziel = wurzel / f"{quelle.name} {nummer}"
         nummer += 1
 
+    shutil.copytree(quelle, ziel, ignore=_NICHT_MITKOPIEREN)
+    return ziel / projektdatei.name
+
+
+def beispiel_zuruecksetzen(projekt_ordner: Path) -> Path:
+    """Setzt die Kopie eines Beispiels auf den Auslieferungszustand
+    zurück und gibt ihre Projektdatei zurück.
+
+    Der Inhalt des Ordners wird ersetzt, der Ordner selbst bleibt. So
+    zeigt „Zuletzt geöffnet" danach auf dasselbe Projekt, und es
+    entsteht kein weiterer Ordner.
+
+    Für ein eigenes Projekt gibt es kein Original. Dann wird nichts
+    gelöscht, sondern ein `ValueError` geworfen - diese Funktion räumt
+    einen Ordner leer, und das darf nur geschehen, wenn feststeht, was
+    danach wieder hineinkommt.
+    """
+    projekt_ordner = Path(projekt_ordner)
+    original = beispiel_original(projekt_ordner)
+    if original is None:
+        raise ValueError(f"{projekt_ordner} ist keine Kopie eines Beispiels.")
+
+    for eintrag in projekt_ordner.iterdir():
+        if eintrag.is_dir():
+            shutil.rmtree(eintrag)
+        else:
+            eintrag.unlink()
     shutil.copytree(
-        quelle, ziel, ignore=shutil.ignore_patterns("__pycache__", "*.pyc")
+        original, projekt_ordner, ignore=_NICHT_MITKOPIEREN, dirs_exist_ok=True
     )
-    return ziel / Path(projektdatei).name
+    return next(projekt_ordner.glob("*.natter"))
 
 
 class _Abschnitt(QWidget):

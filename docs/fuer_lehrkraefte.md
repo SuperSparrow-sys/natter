@@ -368,8 +368,14 @@ Regression.
 
 Ein angeklicktes Beispiel wird **als Arbeitskopie** nach
 `Dokumente\Natter` gelegt und dort geöffnet. Das Original bleibt
-unverändert, und dieselbe Aufgabe kann in der nächsten Stunde noch
-einmal von vorn begonnen werden.
+unverändert.
+
+Wird dasselbe Beispiel später noch einmal gewählt, öffnet Natter die
+vorhandene Kopie mit dem Stand der letzten Stunde, statt eine weitere
+anzulegen. Soll die Aufgabe von vorn beginnen, setzt **Datei →
+Beispielprojekte → Auf Original zurücksetzen …** das geöffnete
+Beispiel auf den Auslieferungszustand zurück. Alle Änderungen daran
+gehen dabei verloren; Natter fragt vorher nach.
 
 Für Schülerinnen und Schüler gibt es unter **Hilfe → Erste Schritte**
 eine Anleitung, die in zehn Minuten vom leeren Bildschirm zum

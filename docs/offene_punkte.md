@@ -11,9 +11,9 @@ Wie die Punkte umgesetzt werden, steht in
 [`umsetzungsplan.md`](umsetzungsplan.md): je Punkt die Änderung, die
 Tests dazu und woran das Erledigtsein erkennbar ist.
 
-## Stand am 20. September 2026
+## Stand am 25. September 2026
 
-Achtzehn der einundzwanzig Punkte sind erledigt oder geklärt. Was ein
+Zwanzig der dreiundzwanzig Punkte sind erledigt oder geklärt. Was ein
 gestrichener Eintrag noch enthält, ist die Vorgeschichte: was
 beobachtet wurde, was die Ursache war und woran das Ergebnis hängt.
 Gelöscht wird nichts davon - beim nächsten ähnlichen Fehler ist die
@@ -1233,3 +1233,85 @@ nach einer halben Deinstallation aus.
 - Prüfen, ob eine solche Regel etwas löscht, das ein Schüler dort
   abgelegt hat. Im Programmordner hat er nichts zu suchen, aber
   „nichts zu suchen" ist kein Beweis.
+
+---
+
+## 22. Jedes Öffnen eines Beispiels legt eine neue Kopie an ~~(erledigt)~~
+
+**Beobachtet:** Im Entwicklungsverzeichnis stehen `04_CookieKlicker`,
+`05_Bildergalerie` und `07_CsvAuswertung`. In „Zuletzt geöffnet"
+erscheinen dieselben Beispiele mehrfach, einmal mit „(Natter)" und
+einmal mit „(beispielprojekte)" dahinter.
+
+**Ursache — nachgewiesen.** Drei Dinge, die zusammen so aussahen, als
+entstünden laufend neue Ordner:
+
+- Die drei Ordner im Entwicklungsverzeichnis stammen vom 20.09.
+  zwischen 17:45 und 17:52, knapp drei Stunden vor der Korrektur aus
+  Punkt 20. Neu angelegt wird dort seitdem nichts. Die Liste „Zuletzt
+  geöffnet" führte aber weiter hinein, und in `04_CookieKlicker` wurde
+  noch am 25.09. gearbeitet.
+- `beispiel_kopieren()` legte bei jedem Öffnen eine weitere Kopie an,
+  sobald es schon eine gab („08_Regression 2", „… 3"). Gedacht war
+  das als Schutz der Arbeit von gestern. Überschrieben wurde sie
+  tatsächlich nicht, aber geöffnet wurde eine frische Kopie, und die
+  Arbeit lag unbemerkt im Ordner daneben.
+- In der Liste standen auch die Originale unter `beispielprojekte`.
+  Ein Klick darauf öffnete das Beispiel selbst, an Ort und Stelle.
+
+**Geändert:**
+
+- Eine vorhandene Kopie wird weiterbenutzt. Erkannt wird sie an ihrer
+  Projektdatei, nicht am Ordnernamen - ein eigenes Projekt, das
+  zufällig „04_CookieKlicker" heißt, bleibt unangetastet und die Kopie
+  bekommt dann eine Nummer.
+- Ein Original aus „Zuletzt geöffnet" oder über „Öffnen …" wird als
+  Kopie geöffnet, auf demselben Weg wie über das Menü.
+- **Datei → Beispielprojekte → Auf Original zurücksetzen …** ersetzt
+  den Inhalt der Kopie durch das Original. Der Ordner bleibt derselbe,
+  es entsteht kein neuer. Ohne diesen Eintrag gäbe es seit der
+  Wiederverwendung keinen Weg mehr zurück zum Ausgangszustand.
+
+**Nicht angefasst:** die drei alten Kopien im Entwicklungsverzeichnis.
+Sie enthalten Arbeit, zuletzt vom 25.09., und werden nur auf
+Nachfrage verschoben.
+
+Tests: `tests/test_beispiel_und_thema.py`.
+
+---
+
+## 23. Nach dem Umschalten auf Hell bleibt der Designer dunkel ~~(erledigt)~~
+
+**Beobachtet:** Nach dem Wechsel von Dunkel auf Hell unter
+„Ansicht → Design" blieben das Formular im Designer und das daraus
+gestartete Programm dunkel.
+
+**Ursache — nachgewiesen.** Zwei Stellen:
+
+- Ein Formular steht auf `theme = "system"`, und `theme_aufloesen()`
+  fragte dafür Windows. Natter auf Hell und Windows auf Dunkel ergab
+  ein dunkles Formular in einer hellen Natter, im Designer wie im
+  gestarteten Programm.
+- Ein `Form` legt sein Stylesheet beim Erzeugen fest.
+  `_design_wechseln()` frischte Editor-Tabs und Symbole auf, offene
+  Designer-Formulare aber nicht; sie behielten das alte Design, bis
+  der Tab neu geöffnet wurde.
+
+**Geändert:**
+
+- Natter setzt beim Start und bei jedem Umschalten die
+  Umgebungsvariable `NATTER_THEMA` auf `light` oder `dark`.
+  `theme_aufloesen("system")` richtet sich zuerst danach. Das Formular
+  im Designer liest sie im Prozess von Natter, das gestartete Programm
+  erbt sie.
+- Steht Natter selbst auf „System", wird die Variable entfernt, und
+  alles folgt Windows.
+- Außerhalb von Natter, mit `python main.py` oder als exportierte Exe,
+  fehlt die Variable, und es gilt wie bisher Windows.
+- `_design_wechseln()` frischt offene Designer-Formulare auf.
+
+**Was bleibt:** Ein Programm, das beim Umschalten schon läuft,
+behält sein Design bis zum nächsten Start. Es ist ein eigener Prozess,
+und Natter greift nicht in ihn hinein.
+
+Tests: `tests/test_beispiel_und_thema.py`.

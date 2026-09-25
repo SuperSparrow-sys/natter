@@ -34,12 +34,23 @@ def test_das_untermenue_steht_im_menue_datei(qtbot) -> None:
     assert _beispiel_menue(fenster) is not None, "Kein Untermenü „Beispielprojekte“"
 
 
+
+def _beispiele_darin(fenster: HauptFenster) -> list:
+    """Die Einträge für die Beispiele selbst, ohne Trennstrich und ohne
+    „Auf Original zurücksetzen …" am Ende."""
+    return [
+        aktion
+        for aktion in _beispiel_menue(fenster).actions()
+        if not aktion.isSeparator()
+        and aktion is not fenster._beispiel_zuruecksetzen_eintrag
+    ]
+
 def test_alle_beispiele_stehen_darin(qtbot) -> None:
     """Alle, nicht eine Auswahl - der Lehrgang ist als Reihe gedacht."""
     fenster = HauptFenster()
     qtbot.addWidget(fenster)
 
-    eintraege = [a.text() for a in _beispiel_menue(fenster).actions()]
+    eintraege = [a.text() for a in _beispiele_darin(fenster)]
     erwartet = [p.parent.name for p in beispielprojekte()]
 
     assert eintraege == erwartet
@@ -73,5 +84,17 @@ def test_jeder_eintrag_erklaert_sich_in_der_statuszeile(qtbot) -> None:
     fenster = HauptFenster()
     qtbot.addWidget(fenster)
 
-    for aktion in _beispiel_menue(fenster).actions():
+    for aktion in _beispiele_darin(fenster):
         assert "kopiert" in aktion.statusTip()
+
+
+def test_das_zuruecksetzen_steht_abgesetzt_am_ende(qtbot) -> None:
+    """Unter den Beispielen, durch einen Strich getrennt: es ist
+    kein Beispiel, sondern gilt für das gerade geöffnete."""
+    fenster = HauptFenster()
+    qtbot.addWidget(fenster)
+
+    aktionen = _beispiel_menue(fenster).actions()
+
+    assert aktionen[-1] is fenster._beispiel_zuruecksetzen_eintrag
+    assert aktionen[-2].isSeparator()

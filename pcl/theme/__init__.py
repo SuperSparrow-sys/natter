@@ -8,6 +8,7 @@ selbst folgt in M2.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -34,17 +35,17 @@ def _tokens_laden() -> dict[str, Any]:
     return json.loads(_TOKENS_PFAD.read_text(encoding="utf-8"))
 
 
-def theme_aufloesen(theme: str) -> str:
-    """Löst `system` auf `light` oder `dark` auf (Abschnitt 6). Ohne
-    laufende `QApplication` oder bei unbekanntem Farbschema des
-    Betriebssystems ist `light` der Ausweich-Standard."""
-    if theme in ("light", "dark"):
-        return theme
-    if theme != "system":
-        raise NatterPropertyError(
-            f"theme erwartet 'system', 'light' oder 'dark', erhalten wurde {theme!r}."
-        )
+#: Setzt Natter, damit „system" in einem Programm dasselbe heißt wie in
+#: der Umgebung, aus der es gestartet wurde. Ein Programm läuft als
+#: eigener Prozess und erbt die Variable; das Formular im Designer
+#: läuft im Prozess von Natter und liest sie ebenso.
+VORGABE_VARIABLE = "NATTER_THEMA"
 
+
+def _farbschema_des_systems() -> str:
+    """Das Farbschema von Windows, `light` oder `dark`. Ohne laufende
+    `QApplication` oder bei unbekanntem Farbschema ist `light` der
+    Ausweich-Standard."""
     from PySide6.QtCore import Qt
     from PySide6.QtWidgets import QApplication
 
@@ -52,6 +53,31 @@ def theme_aufloesen(theme: str) -> str:
     if app is not None and app.styleHints().colorScheme() == Qt.ColorScheme.Dark:
         return "dark"
     return "light"
+
+
+def theme_aufloesen(theme: str) -> str:
+    """Löst `system` auf `light` oder `dark` auf (Abschnitt 6).
+
+    „System" heißt: so wie die Umgebung. Wer ein Programm aus Natter
+    heraus startet oder im Designer entwirft, dessen Umgebung ist
+    Natter - dort steht `NATTER_THEMA`. Stand Natter auf Hell und
+    Windows auf Dunkel, blieben Designer und gestartetes Programm
+    früher dunkel, weil hier nur Windows gefragt wurde.
+
+    Außerhalb von Natter, mit `python main.py` oder als exportierte
+    Exe, fehlt die Variable, und es gilt Windows.
+    """
+    if theme in ("light", "dark"):
+        return theme
+    if theme != "system":
+        raise NatterPropertyError(
+            f"theme erwartet 'system', 'light' oder 'dark', erhalten wurde {theme!r}."
+        )
+
+    vorgabe = os.environ.get(VORGABE_VARIABLE)
+    if vorgabe in ("light", "dark"):
+        return vorgabe
+    return _farbschema_des_systems()
 
 
 def qss_erzeugen(theme: str, tokens: dict[str, Any] | None = None) -> str:

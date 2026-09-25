@@ -122,3 +122,24 @@ def _heimverzeichnis_isoliert(tmp_path_factory, monkeypatch):
     dokumente = heim / "Dokumente"
     monkeypatch.setattr(ide.pfade, "dokumente_ordner", lambda: dokumente)
     return heim
+
+
+@pytest.fixture(autouse=True)
+def _designvorgabe_isoliert():
+    """Kein Test hinterlässt `NATTER_THEMA` in der Umgebung.
+
+    Das Hauptfenster setzt die Variable beim Start und bei jedem
+    Umschalten des Designs, damit gestartete Programme sie erben. Ein
+    Test, der auf Dunkel schaltet, ließe sonst jeden folgenden Test
+    „system" als dunkel auflösen - und welcher das ist, hinge von der
+    Reihenfolge ab.
+
+    Aufgeräumt wird nach dem Test und nicht über `monkeypatch.delenv`:
+    das merkt sich eine fehlende Variable nicht und stellte deshalb
+    nichts wieder her, was der Code erst während des Tests gesetzt hat.
+    """
+    vorher = os.environ.pop("NATTER_THEMA", None)
+    yield
+    os.environ.pop("NATTER_THEMA", None)
+    if vorher is not None:
+        os.environ["NATTER_THEMA"] = vorher
