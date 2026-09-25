@@ -216,7 +216,7 @@ def test_der_farbdialog_haengt_am_fenster() -> None:
 # Stylesheet. Ihre Dialoge erben damit nur das Thema des Fensters -
 # genau das, was sie sollen.
 
-#: Die Dateien aus der Liste in `docs/offene_punkte.md`, Punkt 2.
+#: Die Dateien aus der Liste in `docs/erledigte_punkte.md`, Punkt 2.
 DIALOG_ELTERN = (
     "ide/database/panel.py",
     "ide/project/neu_dialog.py",

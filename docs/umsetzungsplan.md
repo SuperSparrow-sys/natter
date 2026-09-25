@@ -1,6 +1,6 @@
 # Umsetzungsplan zu den offenen Punkten
 
-Zu jedem Punkt aus [`offene_punkte.md`](offene_punkte.md): was geändert
+Zu jedem Punkt aus [`erledigte_punkte.md`](erledigte_punkte.md): was geändert
 wird, womit es geprüft wird und woran erkennbar ist, dass es erledigt
 ist. Die Reihenfolge ist nicht die der Nummern, sondern die der
 Abhängigkeiten.

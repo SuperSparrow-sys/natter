@@ -81,8 +81,8 @@ Programmierkenntnisse lesbar.
 [`docs/offene_punkte.md`](docs/offene_punkte.md) sammelt gefundene
 Fehler und ungeklärte Fragen, die noch nicht behoben sind — jeweils
 mit dem, was nachgewiesen ist, und dem, was noch zu prüfen bleibt.
-[`docs/umsetzungsplan.md`](docs/umsetzungsplan.md) sagt je Punkt, wie
-er umgesetzt und womit er geprüft wird.
+Erledigtes steht mit Ursache und Änderung in
+[`docs/erledigte_punkte.md`](docs/erledigte_punkte.md).
 
 ## 2. Worauf Natter aufbaut
 
