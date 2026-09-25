@@ -74,6 +74,9 @@ _DOCS_ORDNER = _PROJEKT_WURZEL / "docs"
 #: Projektplanung in jeder Installation.
 _HILFESEITEN = ("erste_schritte.md", "komponenten.md")
 _LIZENZ_VORLAGEN = Path(__file__).resolve().parent / "lizenz_vorlagen"
+#: Natters eigene Lizenz. Die Lizenzseite des Installers verweist auf
+#: sie, deshalb liegt sie im Programmordner.
+_NATTER_LIZENZ = _PROJEKT_WURZEL / "LICENSE"
 _SIGNIER_SKRIPT = Path(__file__).resolve().parent / "signieren" / "datei_signieren.ps1"
 _ALLES_SIGNIEREN = Path(__file__).resolve().parent / "signieren" / "alles_signieren.ps1"
 _MANIFEST_SCHLUESSEL = Path(__file__).resolve().parent / "signieren" / "manifest-privat.pem"
@@ -91,36 +94,6 @@ _SIGNATUR_ABLAGE = _PROJEKT_WURZEL / "build" / "bau-cache" / "signaturen"
 #: Wohin Ausgaben und Fortschritt gehen. `paketieren()` setzt ihn; ohne
 #: Anzeige schreibt er wie früher in die Konsole.
 _melder: object = KonsolenMelder()
-
-# Nur diese Laufzeit-Abhängigkeiten interessieren (nicht pytest oder
-# pyinstaller selbst - die stecken nicht in der gebauten Exe).
-#
-# `ruff` steht seit M12 mit drin: es wird zwar nur als Unterprozess
-# aufgerufen, liegt aber seither wirklich in der Exe (die Prüfung vor
-# dem Start braucht es), und dann gehört auch sein Lizenztext dazu.
-_LAUFZEIT_PAKETE = (
-    "pyside6",
-    "pyside6-essentials",
-    "pyside6-addons",
-    "jsonschema",
-    "libcst",
-    "debugpy",
-    "ruff",
-    "sqlalchemy",
-    "pandas",
-    "numpy",
-    "openpyxl",
-    "matplotlib",
-    # M10: scikit-learn liegt bei, damit Fortgeschrittene damit arbeiten
-    # können; Natter selbst rechnet die Regression über numpy. scipy,
-    # joblib und threadpoolctl kommen als seine Abhängigkeiten mit -
-    # alle vier stehen unter BSD-3 und müssen ihren Lizenztext beilegen.
-    "scikit-learn",
-    "scipy",
-    "joblib",
-    "threadpoolctl",
-)
-
 
 #: Was aus der mitgelieferten Python fliegt, weil Natter es nie
 #: anfasst (Gewünscht: „Tk Inter kann komplett raus aus der
@@ -435,10 +408,197 @@ def _starter_bauen() -> None:
     shutil.rmtree(_DIST_ORDNER / "_starter", ignore_errors=True)
 
 
-def _lizenzen_sammeln(ziel: Path) -> None:
+#: Die Qt-Module, die es nur unter GPL gibt, nicht unter LGPL: Charts,
+#: Data Visualization und Graphs. PySide6-Addons bringt sie mit, Natter
+#: benutzt keines davon (Diagramme zeichnet matplotlib). Mit ihnen im
+#: Paket müsste Natter selbst unter GPL stehen.
+#:
+#: Das Muster trifft die DLLs, die Python-Module, ihre .pyi-Dateien und
+#: die zugehörigen Ordner unter glue, include, metatypes, qml und
+#: typesystems - nachgezählt an 0.3.2: 35 Einträge, rund 13 MB.
+_QT_NUR_GPL = re.compile(
+    r"(?i)^(qt6?(charts|datavisualization|graphs)"
+    r"|typesystem_(charts|datavisualization|graphs)"
+    r"|datavisualization_common)"
+)
+
+
+def _qt_nur_gpl_entfernen(site_packages: Path) -> list[Path]:
+    """Löscht die Qt-Module unter GPL aus der mitgelieferten PySide6.
+
+    `PySide6/__init__.py` ermittelt die vorhandenen Module erst beim
+    Zugriff auf `__all__`; ein fehlendes Modul stört dort nicht. Gibt
+    die gelöschten Pfade zurück.
+    """
+    pyside = site_packages / "PySide6"
+    if not pyside.is_dir():
+        return []
+    geloescht: list[Path] = []
+    # Von oben nach unten: ein Ordner wie include/QtCharts geht als
+    # Ganzes weg, sein Inhalt wird danach nicht mehr betrachtet.
+    offen = [pyside]
+    while offen:
+        ordner = offen.pop()
+        for eintrag in sorted(ordner.iterdir()):
+            if _QT_NUR_GPL.match(eintrag.name):
+                if eintrag.is_dir():
+                    shutil.rmtree(eintrag)
+                else:
+                    eintrag.unlink()
+                geloescht.append(eintrag)
+            elif eintrag.is_dir():
+                offen.append(eintrag)
+    return geloescht
+
+
+#: Pakete, die trotz GPL ausgeliefert werden dürfen, mit Begründung.
+#:
+#: PyInstaller steht unter GPL-2.0 mit einer Ausnahme für das, was es
+#: baut: die erzeugte Exe darf unter beliebiger Lizenz stehen. Natter
+#: liefert es mit, damit "Projekt -> Als Exe exportieren" in der
+#: installierten Fassung funktioniert; es wird dort als eigenständiges
+#: Programm aufgerufen und nicht in Natter eingebunden.
+LIZENZ_AUSNAHMEN: dict[str, str] = {
+    "pyinstaller": "GPL-2.0 mit Ausnahme für erzeugte Programme",
+}
+
+#: Natter selbst - sein Lizenztext liegt als LICENSE im Programmordner.
+_EIGENES_PAKET = "natter"
+
+_ERLAUBT = re.compile(
+    r"(?i)\b(MIT|BSD|0BSD|Apache|PSF|Python Software Foundation|ISC"
+    r"|Zlib|CC0|HPND)\b"
+)
+_LGPL = re.compile(r"(?i)LGPL|Lesser General Public")
+_GPL = re.compile(r"(?i)(?<!L)GPL|General Public License")
+
+
+def _begriff_einordnen(begriff: str) -> str:
+    """Ordnet einen einzelnen Lizenznamen ein: "erlaubt", "gpl" oder
+    "unbekannt". LGPL zählt als erlaubt und wird vor GPL geprüft,
+    weil "LGPL" die Buchstaben "GPL" enthält."""
+    if _LGPL.search(begriff):
+        return "erlaubt"
+    if _GPL.search(begriff):
+        return "gpl"
+    if _ERLAUBT.search(begriff):
+        return "erlaubt"
+    return "unbekannt"
+
+
+def _ausdruck_einordnen(ausdruck: str) -> str:
+    """Ordnet einen Lizenzausdruck wie "Apache-2.0 OR BSD-3-Clause"
+    oder "MIT AND PSF-2.0" ein.
+
+    Bei OR genügt eine erlaubte Wahl, bei AND muss jeder Teil erlaubt
+    sein. Getrennt wird nur an großgeschriebenem OR/AND: in einem
+    Fließtext wie "GPLv2-or-later with a special exception" ist das
+    kleine "or" Teil des Namens.
+    """
+    ausdruck = ausdruck.replace("(", " ").replace(")", " ")
+    ergebnisse = []
+    for wahl in re.split(r"\s+OR\s+", ausdruck):
+        teile = [
+            _begriff_einordnen(teil)
+            for teil in re.split(r"\s+AND\s+", wahl)
+            if teil.strip()
+        ]
+        if not teile:
+            continue
+        if "gpl" in teile:
+            ergebnisse.append("gpl")
+        elif "unbekannt" in teile:
+            ergebnisse.append("unbekannt")
+        else:
+            ergebnisse.append("erlaubt")
+    if "erlaubt" in ergebnisse:
+        return "erlaubt"
+    if "gpl" in ergebnisse:
+        return "gpl"
+    return "unbekannt"
+
+
+def lizenz_einordnen(metadaten) -> str:  # noqa: ANN001
+    """Ordnet die Lizenz eines Pakets anhand seiner Metadaten ein:
+    "erlaubt", "gpl" oder "unbekannt".
+
+    Gelesen wird der Reihe nach das, was die Pakete tatsächlich
+    angeben: das Feld License-Expression (neuere Pakete), die erste
+    Zeile von License und die Klassifikatoren "License :: ...". Die
+    erste Quelle, aus der sich etwas ablesen lässt, gilt. Bei
+    matplotlib steht in License zum Beispiel der Anfang des ganzen
+    Lizenztexts, die Einordnung kommt dann aus dem Klassifikator.
+    Mehrere Klassifikatoren gelten als Wahl zwischen den Lizenzen, so
+    wie PyPI sie auch darstellt.
+    """
+    quellen = []
+    if metadaten.get("License-Expression"):
+        quellen.append(metadaten["License-Expression"])
+    zeilen = (metadaten.get("License") or "").strip().splitlines()
+    if zeilen:
+        quellen.append(zeilen[0])
+    klassifikatoren = [
+        k.split("::")[-1].strip()
+        for k in metadaten.get_all("Classifier") or []
+        if k.startswith("License ::")
+    ]
+    if klassifikatoren:
+        quellen.append(" OR ".join(klassifikatoren))
+
+    for quelle in quellen:
+        einordnung = _ausdruck_einordnen(quelle)
+        if einordnung != "unbekannt":
+            return einordnung
+    return "unbekannt"
+
+
+def lizenzen_pruefen(site_packages: Path) -> list[str]:
+    """Prüft jedes Paket in `site_packages` auf eine Lizenz, die sich
+    mit der Weitergabe von Natter verträgt. Gibt eine Zeile je
+    Beanstandung zurück; eine leere Liste heißt: alles in Ordnung."""
+    beanstandungen = []
+    for dist in distributions(path=[str(site_packages)]):
+        name = (dist.metadata["Name"] or "").strip()
+        normalisiert = re.sub(r"[-_.]+", "-", name).lower()
+        if not name or normalisiert == _EIGENES_PAKET:
+            continue
+        if normalisiert in LIZENZ_AUSNAHMEN:
+            continue
+        einordnung = lizenz_einordnen(dist.metadata)
+        if einordnung == "gpl":
+            beanstandungen.append(f"{name}: steht unter GPL")
+        elif einordnung == "unbekannt":
+            beanstandungen.append(
+                f"{name}: Lizenz lässt sich aus den Metadaten nicht ablesen"
+            )
+    return sorted(beanstandungen)
+
+
+def _lizenzen_sammeln(site_packages: Path, ziel: Path) -> None:
     """Kopiert LGPL-3.0-Text + Qt-Hinweis sowie die von jedem Paket
     selbst mitgelieferten Lizenzdateien (`dist-info/licenses/…` bzw.
-    `LICENSE*`/`COPYING*` im Paketordner) in `ziel`."""
+    `LICENSE*`/`COPYING*` im Paketordner) in `ziel`.
+
+    Gesammelt wird aus der mitgelieferten Python, nicht aus der
+    Umgebung, in der gebaut wird: bis 0.3.2 las diese Funktion die
+    Bauumgebung und nahm daraus nur eine feste Liste von 18 Paketen.
+    Die rund 30 Pakete, die als deren Abhängigkeiten mitkamen (jedi,
+    pillow, cryptography, ...), lagen ohne Lizenztext in der
+    Installation.
+
+    Bricht ab, wenn ein Paket unter GPL steht oder seine Lizenz sich
+    nicht ablesen lässt (siehe `lizenzen_pruefen`).
+    """
+    beanstandungen = lizenzen_pruefen(site_packages)
+    if beanstandungen:
+        raise RuntimeError(
+            "Diese Pakete dürfen so nicht ausgeliefert werden:\n  "
+            + "\n  ".join(beanstandungen)
+            + "\nEntweder das Paket entfernen oder, nach Prüfung der "
+            "Lizenz, in LIZENZ_AUSNAHMEN in tools/ide_paketieren.py "
+            "eintragen."
+        )
+
     ziel.mkdir(parents=True, exist_ok=True)
     for datei in _LIZENZ_VORLAGEN.iterdir():
         # Die INSTALLER_*-Texte sind Seiten des Installers (Lizenz,
@@ -449,10 +609,10 @@ def _lizenzen_sammeln(ziel: Path) -> None:
         shutil.copy2(datei, ziel / datei.name)
 
     gesehen: set[str] = set()
-    for dist in distributions():
+    for dist in distributions(path=[str(site_packages)]):
         name = (dist.metadata["Name"] or "").strip()
-        normalisiert = name.lower().replace("_", "-")
-        if not name or normalisiert in gesehen or normalisiert not in _LAUFZEIT_PAKETE:
+        normalisiert = re.sub(r"[-_.]+", "-", name).lower()
+        if not name or normalisiert in gesehen or normalisiert == _EIGENES_PAKET:
             continue
         gesehen.add(normalisiert)
 
@@ -470,7 +630,19 @@ def _lizenzen_sammeln(ziel: Path) -> None:
             shutil.copy2(Path(quelle), paket_ordner / dateiname)
             gefunden = True
         if not gefunden:
-            lizenzfeld = dist.metadata.get("License", "unbekannt")
+            # Neuere Pakete tragen die Lizenz nur noch in
+            # License-Expression ein, ältere nur in License oder in
+            # den Klassifikatoren.
+            lizenzfeld = (
+                dist.metadata.get("License-Expression")
+                or (dist.metadata.get("License") or "").strip()
+                or ", ".join(
+                    k.split("::")[-1].strip()
+                    for k in dist.metadata.get_all("Classifier") or []
+                    if k.startswith("License ::")
+                )
+                or "unbekannt"
+            )
             paket_ordner.mkdir(exist_ok=True)
             (paket_ordner / "LIZENZ_HINWEIS.txt").write_text(
                 f"{name}: keine eigene Lizenzdatei im Paket gefunden.\n"
@@ -478,10 +650,6 @@ def _lizenzen_sammeln(ziel: Path) -> None:
                 f"Siehe https://pypi.org/project/{name}/ für Details.\n",
                 encoding="utf-8",
             )
-
-    fehlend = set(_LAUFZEIT_PAKETE) - gesehen
-    if fehlend:
-        _melder.zeile(f"Warnung: keine Lizenzinformation gefunden für: {sorted(fehlend)}")
 
 
 def _exe_signieren(datei: Path) -> None:
@@ -702,12 +870,16 @@ def paketieren(*, signieren: bool = True, melder: object | None = None) -> Path:
     python = _python_bereitstellen()
     _melder.phase("Pakete installieren")
     _natter_installieren(python)
+    site_packages = python.parent / "Lib" / "site-packages"
+    geloescht = _qt_nur_gpl_entfernen(site_packages)
+    _melder.zeile(f"{len(geloescht)} Qt-Einträge unter GPL entfernt")
     _melder.phase("Daten kopieren")
     _datenordner_kopieren(python)
     _melder.phase("Starter bauen")
     _starter_bauen()
     _melder.phase("Lizenzen sammeln")
-    _lizenzen_sammeln(_AUSGABE / "Lizenzen")
+    _lizenzen_sammeln(site_packages, _AUSGABE / "Lizenzen")
+    shutil.copy2(_NATTER_LIZENZ, _AUSGABE / "LICENSE")
     _melder.phase("Signieren")
     if signieren:
         _exe_signieren(_AUSGABE / "Natter.exe")

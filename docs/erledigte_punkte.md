@@ -1266,3 +1266,33 @@ mehreren Gründen:
 
 Tests: `tests/test_vervollstaendigung_eingabe.py`,
 `tests/test_pruefungsmodus.py`.
+
+---
+
+## 6. Prozesszeiten sind auf diesem Rechner nicht messbar ~~(überholt)~~
+
+**Beobachtet:** Weder `Get-Process | Select CPU` noch die
+WMI-Zähler `UserModeTime`/`KernelModeTime` liefern etwas anderes als
+null — auch nicht für Prozesse, die nachweislich rechnen. Beim
+erfolgreichen Auslieferungsbau standen sie genauso auf null wie beim
+hängenden Testlauf.
+
+**Folge:** „Null CPU-Zuwachs" taugt hier nicht als Beleg für einen
+Stillstand. Zweimal führte das fast zu einer Fehldiagnose: einmal
+wurde ein gesunder Lauf für hängend gehalten, einmal wäre ein echter
+Hänger beinahe mit der falschen Begründung erklärt worden.
+
+**Was stattdessen trägt:** ob das Protokoll fortschreitet, und der
+Vergleich mit der bekannten Normaldauer (Testlauf 3:30–4:00,
+Auslieferungsbau rund 10 Minuten).
+
+**Noch zu prüfen:** Ob es an der Sandbox liegt oder an
+Windows-Berechtigungen. Ein verlässlicher Zähler wäre nützlich, weil
+die Laufzeit-Angaben sonst nur aus Erfahrung stammen.
+
+**Überholt (25. September 2026).** Die Frage, ob ein Lauf hängt oder
+arbeitet, stellt sich seit 0.3.2 nicht mehr über Prozesszeiten.
+`tools/auslieferung_bauen.py` zeigt für jeden Schritt einen Balken mit
+der gemessenen Dauer früherer Läufe, und pytest wie pip schreiben jede
+Zeile sofort ins Protokoll. Steht die Anzeige, steht der Lauf. Ein
+eigener CPU-Zähler wird dafür nicht mehr gebraucht.

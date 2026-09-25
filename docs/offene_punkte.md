@@ -72,29 +72,9 @@ Entweder die Datei beim Paketieren nach `{app}\LICENSE` kopieren oder
 den Satz ändern. Das lässt sich ohne Durchklicken beheben; das
 Durchklicken selbst bleibt.
 
-
----
-
-## 6. Prozesszeiten sind auf diesem Rechner nicht messbar
-
-**Beobachtet:** Weder `Get-Process | Select CPU` noch die
-WMI-Zähler `UserModeTime`/`KernelModeTime` liefern etwas anderes als
-null — auch nicht für Prozesse, die nachweislich rechnen. Beim
-erfolgreichen Auslieferungsbau standen sie genauso auf null wie beim
-hängenden Testlauf.
-
-**Folge:** „Null CPU-Zuwachs" taugt hier nicht als Beleg für einen
-Stillstand. Zweimal führte das fast zu einer Fehldiagnose: einmal
-wurde ein gesunder Lauf für hängend gehalten, einmal wäre ein echter
-Hänger beinahe mit der falschen Begründung erklärt worden.
-
-**Was stattdessen trägt:** ob das Protokoll fortschreitet, und der
-Vergleich mit der bekannten Normaldauer (Testlauf 3:30–4:00,
-Auslieferungsbau rund 10 Minuten).
-
-**Noch zu prüfen:** Ob es an der Sandbox liegt oder an
-Windows-Berechtigungen. Ein verlässlicher Zähler wäre nützlich, weil
-die Laufzeit-Angaben sonst nur aus Erfahrung stammen.
+**Behoben ab 0.3.3:** `paketieren()` kopiert `LICENSE` in den
+Programmordner, und die Rauchprobe (Schritt 6) bricht ab, wenn sie
+fehlt. Offen bleibt nur das Durchklicken.
 
 
 ---

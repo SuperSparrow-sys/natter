@@ -151,6 +151,24 @@ except ImportError:
 else:
     fehler.append("tkinter: ist wieder in der Auslieferung")
 
+# Die Qt-Module, die es nur unter GPL gibt, entfernt
+# tools/ide_paketieren.py (_qt_nur_gpl_entfernen). Laesst sich eines
+# importieren, hat das Muster eine neue Fassung von PySide6 verfehlt.
+for modul in ("QtCharts", "QtDataVisualization", "QtGraphs",
+              "QtGraphsWidgets"):
+    try:
+        importlib.import_module(f"PySide6.{modul}")
+    except ImportError:
+        pass
+    else:
+        fehler.append(f"PySide6.{modul}: steht unter GPL und ist noch da")
+
+# Auf diese Datei verweist die Lizenzseite des Installers.
+from pathlib import Path
+
+if not (Path(sys.executable).parent.parent / "LICENSE").is_file():
+    fehler.append("LICENSE: fehlt im Programmordner")
+
 if fehler:
     for zeile in fehler:
         print(f"FEHLER {zeile}")

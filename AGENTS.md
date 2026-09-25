@@ -134,4 +134,8 @@ Zwei Dinge gelten dabei unabhängig vom Werkzeug:
 ## Lizenzen von Abhängigkeiten
 
 Nur Abhängigkeiten mit freizügigen Lizenzen oder LGPL, kein PyQt, keine
-GPL-only-Qt-Module (z. B. Qt Charts). Siehe docs/bericht.md, Abschnitt 5.
+GPL-only-Qt-Module (z. B. Qt Charts). Einzige ausdrückliche Ausnahme
+ist PyInstaller (GPL-2.0 mit Ausnahme für erzeugte Programme), das für
+„Als Exe exportieren" mitgeliefert wird. Der Bau prüft das und bricht
+bei jedem anderen GPL-Paket ab (`LIZENZ_AUSNAHMEN` in
+`tools/ide_paketieren.py`). Siehe docs/bericht.md, Abschnitt 5.

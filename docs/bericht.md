@@ -236,10 +236,12 @@ Lizenzen. Daraus folgen Regeln für die Auswahl:
 | Regel | Umsetzung |
 |---|---|
 | Nur freizügige Lizenzen oder LGPL | PySide6/Qt (LGPLv3), Jedi, Ruff, libcst, debugpy, SQLAlchemy, openpyxl (MIT), pandas, numpy, scikit-learn, scipy (BSD), matplotlib (PSF-basiert) |
-| Keine Qt-Module, die nur unter GPL stehen | Qt Charts und Qt Data Visualization werden nicht verwendet; `Chart` baut auf matplotlib auf |
+| Keine Qt-Module, die nur unter GPL stehen | Qt Charts, Qt Data Visualization und Qt Graphs werden nicht verwendet; `Chart` baut auf matplotlib auf. PySide6-Addons bringt sie trotzdem mit: bis 0.3.2 lagen sie in der Installation (rund 13 MB). Seit 0.3.3 löscht der Bau sie, und die Rauchprobe prüft, dass sie sich nicht importieren lassen |
 | Kein PyQt | PyQt steht unter GPL |
 | LGPL-Pflichten für Qt | die Qt-Bibliotheken bleiben austauschbare Dateien im Programmordner, die Lizenztexte liegen in `Lizenzen\` |
-| Lizenztexte | der Bau sammelt sie für jedes Laufzeitpaket in `Lizenzen\` und warnt bei Paketen ohne Lizenzangabe. Eine automatische Prüfung auf GPL-Komponenten war geplant und fehlt noch (Punkt 24 in `offene_punkte.md`) |
+| Lizenztexte | der Bau sammelt sie für jedes Paket der mitgelieferten Python in `Lizenzen\` (bis 0.3.2 nur für eine feste Liste von 18 Paketen; die übrigen rund 30 fehlten). Natters eigene `LICENSE` liegt im Programmordner |
+| Prüfung beim Bau | `lizenzen_pruefen` in `tools/ide_paketieren.py` liest die Lizenzangaben jedes mitgelieferten Pakets. Steht eines unter GPL oder lässt sich seine Lizenz nicht ablesen, bricht der Bau ab. LGPL ist erlaubt, ebenso eine Wahl wie „LGPL-3.0 OR GPL-3.0“ |
+| Ausnahme PyInstaller | PyInstaller steht unter GPL-2.0 mit einer Ausnahme für die erzeugten Programme. Es liegt bei, damit „Als Exe exportieren“ in der installierten Fassung funktioniert, und wird dort als eigenes Programm aufgerufen, nicht in Natter eingebunden. Eingetragen in `LIZENZ_AUSNAHMEN`; weitere Ausnahmen nur nach Prüfung der jeweiligen Lizenz |
 
 Mit „Als Exe exportieren" erzeugte Schülerprogramme sind davon
 unabhängig; der PyInstaller-Bootloader erlaubt jede Lizenz für das
