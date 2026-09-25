@@ -7,7 +7,7 @@ eine gewöhnliche, verschiebbare Python-Installation, in die Natter mit
 `pip install` hineingelegt wird. Nur so können die Paketverwaltung und
 „Als Exe exportieren" in der ausgelieferten Fassung überhaupt arbeiten:
 beide brauchen einen Python, den man auseinandernehmen kann (siehe
-`docs/arbeitspakete/M13.md`). PyInstaller baut nur noch den schlanken
+Arbeitspaket M13). PyInstaller baut nur noch den schlanken
 Starter `Natter.exe` aus `tools/launcher.py`.
 
 Anders als `ide/export/exporter.py` (baut ein in der laufenden IDE

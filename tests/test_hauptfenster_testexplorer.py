@@ -1,6 +1,6 @@
 """Tests für den Test-Explorer in HauptFenster (Abschnitt 8.6): Panel
 „Tests“, „Alle Tests ausführen“, Doppelklick führt einen einzelnen Test
-erneut aus, „Neue Test-Unit“. Siehe docs/arbeitspakete/M4.md, Schritt 7.
+erneut aus, „Neue Test-Unit“. Siehe Arbeitspaket M4, Schritt 7.
 """
 
 from __future__ import annotations

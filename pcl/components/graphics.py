@@ -28,7 +28,7 @@ eine Mischfarbe, und „ist dieser Punkt rot?" wäre nicht zu beantworten.
 
 Eigene `Pen`- und `Brush`-Klassen, obwohl `Shape` in
 `additional.py` schon einen `Brush` hat. Der Plan in
-`docs/arbeitspakete/M15.md` sah vor, ihn wiederzuverwenden. Beim Bauen
+Arbeitspaket M15 sah vor, ihn wiederzuverwenden. Beim Bauen
 sprach mehr dagegen als dafür: `Shape.brush` kennt nur `color`, eine
 `Canvas` braucht zusätzlich `style` (gefüllt oder nur Umriss), und ein
 `Shape` würde dieses `style` ignorieren – eine Eigenschaft, die je nach

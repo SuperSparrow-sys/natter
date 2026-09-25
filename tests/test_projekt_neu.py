@@ -1,5 +1,5 @@
 """Tests für ide/project/neu.py: „Neues Projekt …“ (Abschnitt 7.5). Siehe
-docs/arbeitspakete/M2.md, Schritt 4.
+Arbeitspaket M2, Schritt 4.
 """
 
 import sys

@@ -91,11 +91,14 @@ Auslieferung, die aus dem Haus geht.
 
 ## 5. Nachher: festhalten
 
-- Schreib das Ergebnis in `docs/arbeitspakete/M13.md` (Abschnitt „Stand
-  des Baus"): Datum, Version, Größe, Signaturstatus. Hat der Lauf etwas
-  aufgedeckt, gehört der Befund dorthin – **mitsamt dem Irrweg**, falls
-  einer dabei war. Ein festgehaltener Irrweg spart beim nächsten Mal
-  einen halben Tag; siehe den Abschnitt zum Selbstsignieren.
+- Schreib das Ergebnis in `docs/bericht.md`, Abschnitt 8 („Protokoll
+  der Auslieferungen"), als neuen Eintrag oben: Datum, Version, Größe,
+  Signaturstatus, Dauer. Hat der Lauf etwas aufgedeckt, gehört der
+  Befund dorthin – **mitsamt dem Irrweg**, falls einer dabei war. Ein
+  festgehaltener Irrweg spart beim nächsten Mal einen halben Tag;
+  Beispiele stehen in Abschnitt 9.
+- Einen Fehler, der sich nicht gleich beheben lässt, als neuen Punkt
+  in `docs/offene_punkte.md` eintragen.
 - Committe die Dokumentation und pushe. Die Versionsänderung hat
   Schritt 12 schon eingecheckt. `dist/` gehört nicht ins Repository.
 - Berichte am Ende in wenigen Zeilen: Version, Dateigröße, Ergebnis der

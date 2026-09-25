@@ -1,5 +1,5 @@
 """Tests für das Datenbank-Panel (Abschnitt 10.2). Siehe
-docs/arbeitspakete/M5.md, Schritt 8. Headless, gegen echtes
+Arbeitspaket M5, Schritt 8. Headless, gegen echtes
 `:memory:`-SQLite (kein Mock).
 """
 

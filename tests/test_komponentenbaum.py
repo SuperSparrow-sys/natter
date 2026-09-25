@@ -1,5 +1,5 @@
 """Tests für ide/inspector/komponentenbaum.py: Komponentenbaum. Headless.
-Siehe docs/arbeitspakete/M3.md, Schritt 2.
+Siehe Arbeitspaket M3, Schritt 2.
 """
 
 from ide.inspector.komponentenbaum import KOMPONENTE_ROLLE, Komponentenbaum

@@ -1,5 +1,5 @@
 """Tests für „Werkzeuge → Lazarus-Formular importieren …“ (Abschnitt 15).
-Siehe docs/arbeitspakete/M8.md, Schritt 3. Ein eigenes, minimales `.lfm`
+Siehe Arbeitspaket M8, Schritt 3. Ein eigenes, minimales `.lfm`
 in `tmp_path` (kein Zugriff auf `tests/daten/lfm/`, dessen echte
 Dateien sind bereits in tests/test_lfm_parser.py/test_lfm_zuordnung.py
 abgedeckt - hier nur die IDE-Verdrahtung).

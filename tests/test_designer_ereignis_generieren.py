@@ -1,6 +1,6 @@
 """Tests für DesignerCanvas.ereignis_handler_erzeugen(): Doppelklick
 erzeugt eine Ereignis-Methode per libcst (Abschnitt 4.4). Headless. Siehe
-docs/arbeitspakete/M3.md, Schritt 7.
+Arbeitspaket M3, Schritt 7.
 """
 
 from pathlib import Path

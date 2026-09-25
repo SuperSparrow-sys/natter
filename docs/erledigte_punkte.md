@@ -6,7 +6,7 @@ Ursache war und was geändert wurde. Gestrichen wird hier nichts; bei
 einem ähnlichen Fehler lässt sich so nachlesen, was schon geprüft wurde.
 
 Wie die früheren Punkte umgesetzt wurden, steht in
-[`umsetzungsplan.md`](umsetzungsplan.md).
+`umsetzungsplan.md` (Git-Historie).
 
 ---
 

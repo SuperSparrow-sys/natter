@@ -1,7 +1,7 @@
 """Jede Eigenschaft jeder Komponente im Objektinspektor ändern und
 nachsehen, ob die Änderung ankommt.
 
-Das war die letzte Zeile in `docs/pruefbericht.md` unter „Was diese
+Das war die letzte Zeile in `docs/bericht.md, Abschnitt 3` unter „Was diese
 Prüfung nicht abdeckt": die Funktionsprüfung aus M11, Abschnitt 3
 löst jeden Menüeintrag, jeden Werkzeugknopf und jeden Kontextmenü-
 Eintrag wirklich aus – am Objektinspektor hörte sie auf. Dabei ist er

@@ -1,5 +1,5 @@
 """Tests für die IDE-Verdrahtung des Design-Prüfers (Abschnitt 14).
-Siehe docs/arbeitspakete/M7.md, Schritt 2. Ein eigenes, minimales `.pfm`
+Siehe Arbeitspaket M7, Schritt 2. Ein eigenes, minimales `.pfm`
 in `tmp_path` (nicht aus `beispielprojekte/`, weil `DesignerCanvas` bei
 jeder Änderung automatisch zurückschreibt, siehe AGENTS.md).
 """

@@ -1,6 +1,6 @@
 """Tests für ide/run/pruefung.py: Ruff-Prüfung vor dem Start (Abschnitt
 8.2). Läuft gegen echtes `ruff`, kein Mock. Siehe
-docs/arbeitspakete/M4.md, Schritt 1.
+Arbeitspaket M4, Schritt 1.
 """
 
 from __future__ import annotations

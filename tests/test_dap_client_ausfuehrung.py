@@ -1,6 +1,6 @@
 """Tests für ide/debugger/dap_client.py: Breakpoints und Ausführungs-
 steuerung (Abschnitt 8.1). Gegen echtes `debugpy`, kein Mock. Siehe
-docs/arbeitspakete/M4.md, Schritt 4.
+Arbeitspaket M4, Schritt 4.
 """
 
 from __future__ import annotations

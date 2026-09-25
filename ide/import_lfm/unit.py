@@ -1,5 +1,5 @@
 """Erzeugt die Formular-Unit (`u_main.py`) zu einem importierten
-Lazarus-Formular (Abschnitt 15, docs/arbeitspakete/M8.md, Schritt 3).
+Lazarus-Formular (Abschnitt 15, Arbeitspaket M8, Schritt 3).
 
 Die `.lfm` nennt nur die Namen der Ereignis-Handler; der Pascal-Code
 steht in der gleichnamigen `.pas`. Diese Unit legt für jeden Handler

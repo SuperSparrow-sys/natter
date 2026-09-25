@@ -1,7 +1,7 @@
 """Menü-Komponenten: `MainMenu` und `PopupMenu`.
 
 Siehe README.md, Abschnitt 5.2 (Palette „Standard") und
-`docs/arbeitspakete/M15.md`, Schritt 1.
+Arbeitspaket M15, Schritt 1.
 
 Bis M15 war ein Schülerprogramm mit Menüleiste in Natter nicht
 baubar – die Lücke stand im Kopf von `pcl/components/standard.py`

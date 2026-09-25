@@ -1,5 +1,5 @@
 """Tests für pcl/control.py, pcl/form.py, pcl/application.py: Qt-Anbindung,
-headless. Siehe docs/PLAN.md, M1 Schritt 2.
+headless. Siehe PLAN.md (Git-Historie), M1 Schritt 2.
 """
 
 import pytest

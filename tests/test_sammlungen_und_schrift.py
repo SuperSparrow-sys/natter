@@ -1,7 +1,7 @@
 """Tests für Sammlungs-Eigenschaften (`items`/`lines`) und die
 Schrift-Untereigenschaft (`font`) über die ganze `.pfm`-Pipeline.
 
-Siehe docs/arbeitspakete/M8.md, Schritt 6. Beide Lücken blockierten die
+Siehe Arbeitspaket M8, Schritt 6. Beide Lücken blockierten die
 M8-Abnahme: `Items.Strings`/`Lines.Strings` aus einer `.lfm` liessen sich
 gar nicht abbilden, und `Font.Size` (das f_Pizza über eine ScrollBar
 steuert) gab es in `pcl` nicht.

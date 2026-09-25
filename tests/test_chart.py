@@ -1,5 +1,5 @@
 """Tests für die Chart-Komponente (Abschnitt 11.6). Siehe
-docs/arbeitspakete/M5.md, Schritt 4. Headless, gegen echtes matplotlib
+Arbeitspaket M5, Schritt 4. Headless, gegen echtes matplotlib
 (Backend `FigureCanvasQTAgg`, kein Mock).
 """
 

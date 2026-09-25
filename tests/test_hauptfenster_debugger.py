@@ -1,7 +1,7 @@
 """Tests für die Debugger-Verdrahtung in HauptFenster (F5, Abschnitt
 7.8/8.1): Breakpoints aus offenen Editor-Tabs, DebugSitzung-Signale
 füllen Variablen-/Aufrufstapel-Panel. Gegen echtes `debugpy`, kein Mock.
-Siehe docs/arbeitspakete/M4.md, Schritt 6.
+Siehe Arbeitspaket M4, Schritt 6.
 """
 
 from __future__ import annotations

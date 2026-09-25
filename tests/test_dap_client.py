@@ -1,6 +1,6 @@
 """Tests für ide/debugger/dap_client.py: DAP-Client-Grundgerüst gegen
 echtes `debugpy` (kein Mock, kein VS Code nötig – siehe
-docs/arbeitspakete/M4.md, Schritt 3). Startet echte Unterprozesse, daher
+Arbeitspaket M4, Schritt 3). Startet echte Unterprozesse, daher
 langsamer als reine Unit-Tests.
 """
 

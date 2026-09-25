@@ -1,7 +1,7 @@
 """Tests für `ide/inspector/menue_editor.py` und die Wege dorthin:
 Objektinspektor, Designer, `.pfm` und erzeugter Quelltext. Headless.
 
-Siehe `docs/arbeitspakete/M15.md`, Schritt 1.
+Siehe Arbeitspaket M15, Schritt 1.
 """
 
 import json

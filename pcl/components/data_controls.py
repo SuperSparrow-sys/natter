@@ -294,7 +294,7 @@ class DBNavigator(_DatenControl):
         # unter QT_QPA_PLATFORM=offscreen rendern manche Einzelzeichen
         # (z. B. "|") mit falscher Glyphe (siehe AGENTS.md, Abschnitt
         # "Tests"); eigene SVG-Symbole wie beim Rest der IDE folgen mit
-        # dem "Visueller Feinschliff"-Sammelpunkt aus docs/PLAN.md.
+        # dem "Visueller Feinschliff"-Sammelpunkt aus PLAN.md (Git-Historie).
         self.knopf_erster = self._knopf(layout, "<<", self._erster)
         self.knopf_zurueck = self._knopf(layout, "<", self._zurueck)
         self.knopf_vor = self._knopf(layout, ">", self._vor)

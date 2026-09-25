@@ -1,6 +1,6 @@
 """Tests für ide/shell/schnellauswahl.py: SchnellAuswahl („Unit öffnen
 …“, Strg+P). Headless, ohne `exec()` (siehe Modul-Docstring). Siehe
-docs/arbeitspakete/M2.md, Schritt 8.
+Arbeitspaket M2, Schritt 8.
 """
 
 from pathlib import Path

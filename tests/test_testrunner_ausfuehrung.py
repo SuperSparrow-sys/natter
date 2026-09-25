@@ -1,6 +1,6 @@
 """Tests für ide/testrunner/ausfuehrung.py: Tests als eigener Prozess
 ausführen, strukturiertes Ergebnis statt Textausgabe (Abschnitt 8.6).
-Siehe docs/arbeitspakete/M4.md, Schritt 7.
+Siehe Arbeitspaket M4, Schritt 7.
 """
 
 from __future__ import annotations

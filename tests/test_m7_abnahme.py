@@ -1,4 +1,4 @@
-"""Abnahmetest für M7 (docs/arbeitspakete/M7.md, Schritt 4): „alle
+"""Abnahmetest für M7 (Arbeitspaket M7, Schritt 4): „alle
 Prüfregeln erkennen ihre Testformulare“.
 
 Jede Regel einzeln (mit sauberem Gegenbeispiel) ist bereits durch

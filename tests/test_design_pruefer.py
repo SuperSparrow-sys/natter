@@ -1,5 +1,5 @@
 """Tests für den Design-Prüfer (Abschnitt 14). Siehe
-docs/arbeitspakete/M7.md, Schritt 1. Reine Logik gegen den geparsten
+Arbeitspaket M7, Schritt 1. Reine Logik gegen den geparsten
 `.pfm`-Inhalt, kein Qt nötig. Je Regel ein absichtlich fehlerhaftes
 Beispiel und ein sauberes Gegenbeispiel.
 """

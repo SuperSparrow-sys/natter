@@ -36,7 +36,7 @@ from pcl.eigener_code import ist_eigener_code
 # Start dauert praktisch immer < 5s), macht die Testsuite aber robuster
 # gegen Zeitüberschreitungen unter Last, wenn viele DAP-Tests kurz
 # hintereinander eigene debugpy-Unterprozesse starten (siehe
-# docs/arbeitspakete/M4.md, Hinweis zu den DAP-Tests).
+# Arbeitspaket M4, Hinweis zu den DAP-Tests).
 _STANDARD_ZEITLIMIT = 30.0
 
 #: So oft wird ein Start versucht, bevor aufgegeben wird.

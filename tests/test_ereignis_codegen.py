@@ -1,5 +1,5 @@
 """Tests für ide/codegen/ereignis.py: Handler-Methode per libcst
-einfügen. Siehe docs/arbeitspakete/M3.md, Schritt 7.
+einfügen. Siehe Arbeitspaket M3, Schritt 7.
 """
 
 import libcst as cst

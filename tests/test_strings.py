@@ -1,5 +1,5 @@
 """Tests für pcl/strings.py: Strings (Abschnitt 5.0, 11.2). Siehe
-docs/PLAN.md, M1 Schritt 6.
+PLAN.md (Git-Historie), M1 Schritt 6.
 """
 
 from pathlib import Path

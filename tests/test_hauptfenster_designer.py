@@ -1,6 +1,6 @@
 """Tests für HauptFenster.designer_oeffnen(): Doppelklick auf ein
 Formular im Explorer öffnet den Designer statt Rohtext. Headless. Siehe
-docs/arbeitspakete/M3.md, Schritt 3.
+Arbeitspaket M3, Schritt 3.
 
 `designer_oeffnen()` verdrahtet den Designer bewusst so, dass jede
 Änderung automatisch in die `.pfm` zurückgeschrieben wird (Abschnitt

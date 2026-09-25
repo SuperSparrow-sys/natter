@@ -797,7 +797,7 @@ SQLite, eine Datei neben dem Programm. Kein Server, kein Netz, keine
 Zugangsdaten – und damit auch kein Passwort, das irgendwo gespeichert
 werden müsste. (Bis September 2026 gab es zusätzlich
 `MySQLConnection`; warum es weg ist, steht in
-`docs/arbeitspakete/M15.md`, Abschnitt 3.)
+Arbeitspaket M15, Abschnitt 3.)
 
 ### SQLite3Connection
 
@@ -960,7 +960,7 @@ self.hv_seite.load_from_file("auswertung.html")
 Was geht: Überschriften, Absätze, Listen, Tabellen, Fett/Kursiv, Bilder,
 Links. Was nicht geht: JavaScript und alles, was eine Seite erst im
 Browser zusammenbaut. Der Grund steht in
-`docs/arbeitspakete/M15.md`: `QWebEngineView` könnte das, wöge in der
+Arbeitspaket M15: `QWebEngineView` könnte das, wöge in der
 gebauten Exe aber über 100 MB – mehr als das ganze übrige Natter.
 
 ## Sound

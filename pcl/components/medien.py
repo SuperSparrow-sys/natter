@@ -5,7 +5,7 @@ Umstand, dass beide etwas abspielen statt etwas zu rechnen: die eine
 zeigt eine Seite, die andere gibt einen Ton.
 
 `HtmlViewer` auf `QTextBrowser`, nicht auf `QWebEngineView`. Die
-Entscheidung steht in `docs/arbeitspakete/M15.md` und hat einen
+Entscheidung steht in Arbeitspaket M15 und hat einen
 handfesten Grund: `QWebEngineView` kann echtes Web samt JavaScript,
 wiegt in der gebauten Exe aber über 100 MB - mehr als das ganze übrige
 Natter. Für das, was im Unterricht vorkommt (eine Tabelle, ein paar

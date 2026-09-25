@@ -19,7 +19,7 @@ class AktionsKonfliktError(Exception):
 
 class Aktion:
     """Eine Aktion: ID, deutscher Name, Menüposition, Tastenkürzel,
-    Bereich und Symbolname – wie in `docs/aktionen.md` beschrieben. Das
+    Bereich und Symbolname – wie in `docs/bericht.md`, Abschnitt 2.3 beschrieben. Das
     zugehörige `QAction` wird hier einmal erzeugt und überall
     weiterverwendet (Menü, Werkzeugleiste, Befehlspalette)."""
 

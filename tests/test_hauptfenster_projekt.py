@@ -1,5 +1,5 @@
 """Tests für ide/shell/hauptfenster.py: projekt_oeffnen, datei_oeffnen,
-Explorer-Doppelklick. Headless. Siehe docs/arbeitspakete/M2.md,
+Explorer-Doppelklick. Headless. Siehe Arbeitspaket M2,
 Schritt 5/6.
 """
 

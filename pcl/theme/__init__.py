@@ -182,7 +182,7 @@ QLabel {{
    Stylesheet - ohne diese Regeln blieb der Markierungspunkt einfach weg.
    Real erst beim Start eines echten Programms auf dem Windows-Ziel
    sichtbar geworden (im Designer sah dieselbe Komponente korrekt aus),
-   siehe docs/arbeitspakete/M8.md, Schritt 6. */
+   siehe Arbeitspaket M8, Schritt 6. */
 QCheckBox::indicator, QRadioButton::indicator {{
     width: 14px;
     height: 14px;

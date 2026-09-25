@@ -3,7 +3,7 @@ Schritt 4, M14).
 
 Nutzt ein `subprocess.Popen`-Double statt eines echten
 PyInstaller-Baus (dauert real eine halbe bis eine Minute, siehe
-`docs/arbeitspakete/M8.md` für den einmaligen echten Bau/Lauf zur
+Arbeitspaket M8 für den einmaligen echten Bau/Lauf zur
 Abnahme). Geprüft werden die Kommandozusammenstellung, der Ladebalken
 und das aus Sicht des Aufrufers sichtbare Ergebnis.
 
@@ -148,7 +148,7 @@ def test_bindet_den_design_ordner_ein_damit_pcl_theme_tokens_findet(
     """Ohne `--add-data` stürzt jede exportierte Exe beim Start ab, weil
     `pcl.theme` `design/tokens.json` zur Laufzeit lädt statt es zu
     importieren (real mit einem echten PyInstaller-Bau gefunden, siehe
-    `docs/arbeitspakete/M8.md`)."""
+    Arbeitspaket M8)."""
     projekt = _projekt(tmp_path)
 
     exe_exportieren(projekt)

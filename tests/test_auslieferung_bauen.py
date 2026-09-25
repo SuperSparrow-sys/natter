@@ -6,7 +6,7 @@ das, was zwischen den Schritten passiert, denn genau dort sind die
 beiden Fehler entstanden, die es überhaupt zu diesem Skript kommen
 ließen: ein Installer aus einem veralteten `dist\\Natter` und eine
 Auslieferung mit Paketversionen, gegen die nie ein Test lief (siehe
-`docs/arbeitspakete/M13.md`).
+Arbeitspaket M13).
 
 Die Versionsnummer steht an drei Stellen: `pyproject.toml` bestimmt,
 was `pip` in die Auslieferung legt, `tools/natter.iss` das, was

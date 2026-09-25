@@ -1,5 +1,5 @@
 """Tests für die IDE-Verdrahtung der Paketverwaltung (Abschnitt 7.2).
-Siehe docs/arbeitspakete/M7.md, Schritt 3. `pip` selbst ist bereits in
+Siehe Arbeitspaket M7, Schritt 3. `pip` selbst ist bereits in
 tests/test_env_pakete.py gemockt getestet - hier nur die Verdrahtung.
 """
 

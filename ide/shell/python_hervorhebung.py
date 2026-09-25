@@ -2,7 +2,7 @@
 
 Regelbasiert (keine echte Grammatik, kein Jedi) – reicht für den
 Schulunterricht; eine echte Spracherkennung über Monaco/Jedi ist ein
-eigener, späterer Schritt (siehe `prototypes/s2`, `docs/PLAN.md`).
+eigener, späterer Schritt (siehe `prototypes/s2`, `PLAN.md (Git-Historie)`).
 Farben angelehnt an VS Codes Standard-Themes „Light+“/„Dark+“, damit
 Schüler, die VS Code aus dem Unterricht kennen, dieselbe Farbsprache
 wiedererkennen (Gewünscht: Farben sollen exakt zum

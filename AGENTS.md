@@ -37,7 +37,7 @@ bei der Entwicklung von Natter eingesetzt, nicht in der fertigen IDE selbst
   `QT_QPA_PLATFORM=offscreen` (pytest-qt), sobald PySide6-Code entsteht.
 - Tests werden zuerst gegen virtuelle Abbildungen geschrieben (headless,
   In-Memory-SQLite …), erst zuletzt gegen echte Systeme (siehe
-  docs/entwicklung.md, Abschnitt 19).
+  docs/bericht.md, Abschnitt 6).
 - Jedes Beispielprojekt muss auch ohne IDE mit `python main.py` laufen.
 - `HauptFenster.designer_oeffnen()`/`DesignerCanvas(..., pfm_pfad=...)`
   schreiben bei jeder Änderung automatisch in die zugrunde liegende
@@ -88,19 +88,20 @@ bei der Entwicklung von Natter eingesetzt, nicht in der fertigen IDE selbst
 ## Schnittstellen zuerst
 
 - `schemas/*.schema.json`, das `Prop`/`Event`-System, das Aktionsregister und
-  DAP-Schnittstellen sind die verbindlichen Schnittstellen zwischen
-  Arbeitspaketen (siehe Abschnitt 23.2). Änderungen daran betreffen mehrere
-  Arbeitspakete und werden entsprechend sorgfältig geprüft.
+  DAP-Schnittstellen sind die verbindlichen Schnittstellen zwischen den
+  Teilen von Natter (siehe `docs/bericht.md`, Abschnitt 2.3). Änderungen
+  daran betreffen mehrere Teile zugleich und werden entsprechend
+  sorgfältig geprüft.
 - Neue oder geänderte Dateiformate erhalten eine Versionsnummer im Format
   (`pfm/1`, `pdiag/1`, `natter-project/1`) und ein aktualisiertes Schema.
 
-## Definition of Done je Arbeitspaket
+## Definition of Done
 
-Ein Arbeitspaket (siehe `docs/arbeitspakete/`) gilt als abgeschlossen, wenn:
+Ein Punkt aus `docs/offene_punkte.md` gilt als erledigt, wenn:
 
-1. das im Arbeitspaket genannte Abnahmekriterium erfüllt ist,
+1. das unter „Zu tun" genannte Kriterium erfüllt ist,
 2. zugehörige Tests grün sind (`ruff check`, `pytest`),
-3. betroffene Schemas/Dokumente (`docs/komponenten.md`, `docs/aktionen.md`,
+3. betroffene Schemas/Dokumente (`docs/komponenten.md`, `docs/bericht.md`,
    `docs/fehlerkatalog.yaml`, `schemas/*.json`) aktualisiert sind,
 4. keine erzeugten Dateien von Hand geändert wurden,
 5. alle sichtbaren Texte Deutsch sind.
@@ -115,8 +116,8 @@ uv run python -m tools.auslieferung_bauen --version 0.2.0
 
 Das Skript prüft nach jedem der zwölf Schritte, ob das Ergebnis stimmt,
 und bricht ab, statt eine kaputte Auslieferung fertigzubauen. Die
-Begründung steht in `docs/arbeitspakete/M13.md`, Abschnitt „Der Bau in
-einem Befehl"; den Ablauf drumherum (wann gebaut werden darf, welche
+Begründung steht in `docs/bericht.md`, Abschnitt 7.1; den Ablauf
+drumherum (wann gebaut werden darf, welche
 Versionsnummer die nächste ist, was hinterher dokumentiert wird)
 beschreibt `.claude/commands/auslieferung.md`.
 
@@ -133,4 +134,4 @@ Zwei Dinge gelten dabei unabhängig vom Werkzeug:
 ## Lizenzen von Abhängigkeiten
 
 Nur Abhängigkeiten mit freizügigen Lizenzen oder LGPL, kein PyQt, keine
-GPL-only-Qt-Module (z. B. Qt Charts). Siehe docs/entwicklung.md, Abschnitt 17.7.
+GPL-only-Qt-Module (z. B. Qt Charts). Siehe docs/bericht.md, Abschnitt 5.

@@ -1,5 +1,5 @@
 """Tests für ide/designer/canvas.py: DesignerCanvas – Anzeige und
-Auswahl. Headless. Siehe docs/arbeitspakete/M3.md, Schritt 3.
+Auswahl. Headless. Siehe Arbeitspaket M3, Schritt 3.
 """
 
 from PySide6.QtCore import Qt

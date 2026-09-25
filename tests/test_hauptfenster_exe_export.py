@@ -2,7 +2,7 @@
 M8 Schritt 4). Nutzt ein Double für `exe_exportieren`, damit der Test
 nicht 15-40 Sekunden auf einen echten PyInstaller-Bau wartet (siehe
 `tests/test_exporter.py` für die Export-Logik selbst und
-`docs/arbeitspakete/M8.md` für die einmalige echte Abnahme).
+Arbeitspaket M8 für die einmalige echte Abnahme).
 
 Der Export läuft seit September 2026 in einem eigenen Faden - die IDE
 bleibt währenddessen bedienbar. Die Tests warten deshalb auf das

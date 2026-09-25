@@ -1,5 +1,5 @@
 """„Als Tabelle anzeigen“ im Variablen-Panel des Debuggers (Abschnitt
-11.6, docs/arbeitspakete/M5.md „Zurückgestellt“).
+11.6, Arbeitspaket M5 „Zurückgestellt“).
 
 Die Variablenansicht zeigt bisher nur den `repr` einer Variablen. Für
 `DataFrame`s, Listen und Dictionaries ist das unbrauchbar: lange Zeilen,

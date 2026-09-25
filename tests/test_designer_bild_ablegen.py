@@ -1,5 +1,5 @@
 """Tests für Drag & Drop einer Bilddatei in den Formular-Designer
-(Abschnitt 11.4, docs/arbeitspakete/M5.md „Zurückgestellt“).
+(Abschnitt 11.4, Arbeitspaket M5 „Zurückgestellt“).
 
 Alle mutierenden Tests laufen gegen `.pfm`-Dateien in `tmp_path` –
 niemals gegen eingecheckte Beispielprojekte (AGENTS.md).

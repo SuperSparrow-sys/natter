@@ -1,5 +1,5 @@
 """Tests für das Auspacken von `Picture.Data` (`ide/import_lfm/bilder.py`,
-docs/arbeitspakete/M8.md, Schritt 3).
+Arbeitspaket M8, Schritt 3).
 """
 
 from __future__ import annotations

@@ -1,5 +1,5 @@
 """Tests für ide/shell/hauptfenster.py: Grundgerüst. Headless. Siehe
-docs/arbeitspakete/M2.md, Schritt 1.
+Arbeitspaket M2, Schritt 1.
 """
 
 from PySide6.QtCore import Qt

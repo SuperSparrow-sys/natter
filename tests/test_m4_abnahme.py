@@ -1,4 +1,4 @@
-"""Abnahmetest für M4 (docs/arbeitspakete/M4.md, Schritt 8): für jeden
+"""Abnahmetest für M4 (Arbeitspaket M4, Schritt 8): für jeden
 Fehlerkatalog-Eintrag ein Beispielprogramm, das genau diesen Fehler
 auslöst; ein Beispielprojekt (Ampel) mit Breakpoint in einem
 Ereignis-Handler anhalten und Variablen prüfen. Die dritte

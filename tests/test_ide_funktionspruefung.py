@@ -1,7 +1,7 @@
 """Funktionsprüfung der Haupt-IDE (M11, Abschnitt 3): jede
 bedienbare Stelle wirklich auslösen, nicht den Code lesen.
 
-Der Grund steht in `docs/arbeitspakete/M11.md`: In M9 haben
+Der Grund steht in Arbeitspaket M11: In M9 haben
 Bildschirmfotos und zurückgelesene PDFs sieben Fehler gefunden, die alle
 Tests bestanden hatten, und die drei Fehlermeldungen des Nutzers
 (Rollen, Menü-Abstürze, Zwischenablage) waren keine Testlücke, sondern

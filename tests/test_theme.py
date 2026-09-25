@@ -1,5 +1,5 @@
 """Tests für pcl/theme/: QSS-Generator aus design/tokens.json. Siehe
-docs/PLAN.md, M1 Schritt 7.
+PLAN.md (Git-Historie), M1 Schritt 7.
 """
 
 from pathlib import Path
@@ -35,7 +35,7 @@ def test_tokens_pfad_in_einer_pyinstaller_exe_zeigt_in_meipass(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Real mit einem echten PyInstaller-Bau gefunden (siehe
-    `docs/arbeitspakete/M8.md`): ohne diese Fallunterscheidung sucht
+    Arbeitspaket M8): ohne diese Fallunterscheidung sucht
     `pcl.theme` in der Exe am falschen Ort und jedes exportierte
     Programm stürzt schon beim Start ab."""
     import sys
@@ -113,7 +113,7 @@ def test_qss_zeichnet_kaestchen_optionsfelder_und_bildlaufleisten() -> None:
     """Sobald ein Stylesheet gesetzt ist, zeichnet Qt diese Sub-Controls
     nicht mehr nativ. Ohne eigene Regeln fehlte der Markierungszustand
     komplett - im Designer sah dieselbe Komponente korrekt aus, erst das
-    echte Programm auf dem Windows-Ziel zeigte es (docs/arbeitspakete/
+    echte Programm auf dem Windows-Ziel zeigte es (den früheren Arbeitspaketen (Git-Historie)
     M8.md, Schritt 6)."""
     qss = qss_erzeugen("light")
 

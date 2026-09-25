@@ -1,5 +1,5 @@
 """Tests für die Klassen-/Eigenschaftszuordnung `.lfm` → `.pfm`
-(Abschnitt 15). Siehe docs/arbeitspakete/M8.md, Schritt 2.
+(Abschnitt 15). Siehe Arbeitspaket M8, Schritt 2.
 """
 
 from __future__ import annotations

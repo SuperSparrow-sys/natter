@@ -1,5 +1,5 @@
 """Tests für ide/designer/canvas.py: Größenanfasser zum Ziehen mit der
-Maus (wie in Lazarus). Headless. Siehe docs/PLAN.md, „Zurückgestellt“ →
+Maus (wie in Lazarus). Headless. Siehe PLAN.md (Git-Historie), „Zurückgestellt“ →
 visueller Feinschliff.
 """
 

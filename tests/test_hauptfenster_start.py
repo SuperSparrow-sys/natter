@@ -1,5 +1,5 @@
 """Tests für HauptFenster._projekt_starten_aktion(): „Starten ohne
-Debugger“ (Strg+F5, Abschnitt 7.8). Siehe docs/arbeitspakete/M2.md,
+Debugger“ (Strg+F5, Abschnitt 7.8). Siehe Arbeitspaket M2,
 „Ausführung in eigenen Fenstern“.
 """
 

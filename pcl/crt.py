@@ -3,7 +3,7 @@
 in Windows Terminal und der Eingabeaufforderung), Tastatureingabe über
 `msvcrt` (Windows-Standardbibliothek), Piepton über `winsound`. Reines
 Python, keine Voraussetzung für andere `pcl`-Module – deshalb bewusst
-nicht in `pcl/__init__.py` re-exportiert, siehe docs/arbeitspakete/M6.md.
+nicht in `pcl/__init__.py` re-exportiert, siehe Arbeitspaket M6.
 
 Farbnamen sind die klassischen sechzehn Konsolenfarben, wahlweise auch
 als Zahl 0–15.

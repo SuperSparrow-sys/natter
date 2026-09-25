@@ -1,5 +1,5 @@
 """Tests für ide/codegen/design.py: `.pfm` -> `u_*_design.py`. Siehe
-docs/PLAN.md, M1 Schritt 4.
+PLAN.md (Git-Historie), M1 Schritt 4.
 """
 
 from typing import Any

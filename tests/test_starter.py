@@ -1,5 +1,5 @@
 """Tests für ide/run/starter.py: Programmausführung als eigener Prozess
-(Abschnitt 7.8). Siehe docs/arbeitspakete/M2.md, „Ausführung in eigenen
+(Abschnitt 7.8). Siehe Arbeitspaket M2, „Ausführung in eigenen
 Fenstern“.
 
 Startet bewusst keine echten `pcl`-GUI-Projekte (deren Ereignisschleife

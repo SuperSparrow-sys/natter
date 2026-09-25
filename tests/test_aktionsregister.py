@@ -1,5 +1,5 @@
 """Tests für ide/actions/: Aktion, Aktionsregister. Headless. Siehe
-docs/arbeitspakete/M2.md, Schritt 2.
+Arbeitspaket M2, Schritt 2.
 """
 
 import pytest

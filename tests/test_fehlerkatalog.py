@@ -1,6 +1,6 @@
 """Tests für ide/debugger/fehlerkatalog.py: Wo/Was/Prüfe-Meldungen für
 unbehandelte Ausnahmen (Abschnitt 8.3–8.5). Siehe
-docs/arbeitspakete/M4.md, Schritt 2.
+Arbeitspaket M4, Schritt 2.
 """
 
 from __future__ import annotations

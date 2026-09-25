@@ -1,5 +1,5 @@
 """Dekodiert `Picture.Data`-Binärblöcke einer `.lfm` (Abschnitt 15,
-docs/arbeitspakete/M8.md, Schritt 3).
+Arbeitspaket M8, Schritt 3).
 
 Das Lazarus-Containerformat um die eigentlichen Bilddaten ist der
 Delphi/LCL-`TPersistent`-Stream:

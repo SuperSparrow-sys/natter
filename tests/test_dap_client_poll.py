@@ -1,7 +1,7 @@
 """Tests für ide/debugger/dap_client.py: DapClient.naechstes_ereignis_
 abfragen() – nicht-blockierendes Abfragen, Grundlage für DebugSitzung
 (Abschnitt 8.1: die GUI darf nicht einfrieren). Gegen echtes `debugpy`,
-kein Mock. Siehe docs/arbeitspakete/M4.md, Schritt 6.
+kein Mock. Siehe Arbeitspaket M4, Schritt 6.
 """
 
 from __future__ import annotations

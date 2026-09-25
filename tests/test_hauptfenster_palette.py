@@ -1,6 +1,6 @@
 """Tests für die Komponentenpalette im Hauptfenster: Doppelklick
 platziert eine Komponente im aktiven Formular-Designer (Abschnitt 7.3).
-Headless. Siehe docs/arbeitspakete/M3.md, Schritt 6.
+Headless. Siehe Arbeitspaket M3, Schritt 6.
 
 Wichtig: `designer_oeffnen()` aktiviert automatisches `.pfm`-Speichern
 (M3, Schritt 4). Tests, die tatsächlich etwas platzieren/verschieben,

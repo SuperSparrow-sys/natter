@@ -1,5 +1,5 @@
 """Tests für „Als Tabelle anzeigen“ im Variablen-Panel (Abschnitt 11.6,
-docs/arbeitspakete/M5.md „Zurückgestellt“).
+Arbeitspaket M5 „Zurückgestellt“).
 
 Drei Ebenen: die reine Umwandlung (`tabelle_aus_wert`), der Ausdruck,
 der im angehaltenen Schülerprogramm läuft (`tabellen_ausdruck`, gegen

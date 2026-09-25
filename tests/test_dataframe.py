@@ -1,5 +1,5 @@
 """Tests für die pandas-Anbindung (Abschnitt 11.6). Siehe
-docs/arbeitspakete/M5.md, Schritt 3: `StringGrid.load_dataframe`/
+Arbeitspaket M5, Schritt 3: `StringGrid.load_dataframe`/
 `.to_dataframe()`, `SQLQuery.to_dataframe()`. Headless, gegen echtes
 pandas und echtes `:memory:`-SQLite.
 """

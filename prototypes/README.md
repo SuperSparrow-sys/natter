@@ -1,14 +1,14 @@
 # Prototypen S1–S7 (Phase M0)
 
 Wegwerf-Prototypen für die technischen Machbarkeitsprüfungen aus
-docs/entwicklung.md, Abschnitt 23.3. Jeder Ordner ist eigenständig, klein und
+entwicklung.md (Git-Historie), Abschnitt 23.3. Jeder Ordner ist eigenständig, klein und
 nicht Teil von `pcl`/`ide` – Code hier wird nicht weiterverwendet, nur das
 Ergebnis (bestanden/durchgefallen, ggf. Anpassung der Technologie-Entscheidung
-in `docs/entwicklung.md`).
+in `docs/bericht.md`).
 
 Reihenfolge nach Risiko: **S2, S7** zuerst (könnten die Konzept-Entscheidung
 kippen), dann S1, S3, S4, S5, zuletzt S6 (erst für M8 relevant). Siehe
-`docs/PLAN.md`.
+`PLAN.md (Git-Historie)`.
 
 Voraussetzung für S2–S4 und S7 (im normalen Entwicklungs-venv, reicht für
 diese vier): `uv sync --group prototypes`. S1 und S5 brauchen zusätzlich eine

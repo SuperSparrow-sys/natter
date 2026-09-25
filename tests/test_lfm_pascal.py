@@ -1,5 +1,5 @@
 """Tests für den Pascal-Rumpf-Extraktor (`ide/import_lfm/pascal.py`,
-docs/arbeitspakete/M8.md, Schritt 3). Reine Textumwandlung, kein Qt.
+Arbeitspaket M8, Schritt 3). Reine Textumwandlung, kein Qt.
 """
 
 from __future__ import annotations

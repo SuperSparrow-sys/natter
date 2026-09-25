@@ -1,6 +1,6 @@
 """Tests für ide/debugger/dap_client.py: Variablen und Aufrufstapel
 (Abschnitt 8.1). Gegen echtes `debugpy`, kein Mock. Siehe
-docs/arbeitspakete/M4.md, Schritt 5.
+Arbeitspaket M4, Schritt 5.
 """
 
 from __future__ import annotations

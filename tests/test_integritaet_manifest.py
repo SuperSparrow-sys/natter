@@ -1,6 +1,6 @@
 """Tests für das signierte Prüfsummen-Manifest (ide/integritaet/).
 
-Siehe docs/entwicklung.md, Abschnitt 17.8 und docs/arbeitspakete/M8.md,
+Siehe docs/bericht.md, Abschnitt 7.5 und Arbeitspaket M8,
 Schritt 4. Die Tests arbeiten mit einem Wegwerf-Schlüsselpaar und geben
 den öffentlichen Teil beim Prüfen mit – der echte private Schlüssel
 liegt bewusst nicht im Repository und darf deshalb auch in CI nicht

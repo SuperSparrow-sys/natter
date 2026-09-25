@@ -1,5 +1,5 @@
 """Tests für pcl/components/standard.py und additional.py: Button, Label,
-Shape. Headless. Siehe docs/PLAN.md, M1 Schritt 3.
+Shape. Headless. Siehe PLAN.md (Git-Historie), M1 Schritt 3.
 """
 
 import pytest

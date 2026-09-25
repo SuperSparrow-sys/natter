@@ -1,5 +1,5 @@
 """Tests für pcl/components/standard.py: Edit, CheckBox, RadioButton,
-ScrollBar. Headless. Siehe docs/PLAN.md, M1 Schritt 6.
+ScrollBar. Headless. Siehe PLAN.md (Git-Historie), M1 Schritt 6.
 """
 
 from pcl import CheckBox, Edit, Form, RadioButton, ScrollBar

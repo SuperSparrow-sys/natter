@@ -1,5 +1,5 @@
 """Tests für pcl/components/standard.py: Memo, ListBox, ComboBox. Headless.
-Siehe docs/PLAN.md, M1 Schritt 6.
+Siehe PLAN.md (Git-Historie), M1 Schritt 6.
 """
 
 from pcl import ComboBox, Form, ListBox, Memo

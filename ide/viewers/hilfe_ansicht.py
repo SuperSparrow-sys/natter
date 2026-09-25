@@ -168,13 +168,12 @@ class HilfeAnsicht(QTextBrowser):
 
         Seit die Seiten über HTML eingelesen werden, steht
         `code { font-family: … }` in der Vorlage - und trotzdem
-        bleibt dieser Durchlauf nötig. Nachgezählt an den vier
+        bleibt dieser Durchlauf nötig. Nachgezählt an den
         Hilfeseiten, was die Vorlage allein übrig lässt:
 
             komponenten.md      673 Stellen auf „monospace"
             handbuch.md          61
             erste_schritte.md    25
-            aktionen.md           3
 
         Qt schreibt beim Umwandeln von Markdown die Familie als
         Inline-Angabe in das Zeichenformat, und die gewinnt gegen die

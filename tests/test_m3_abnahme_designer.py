@@ -1,4 +1,4 @@
-"""Abnahmetest für M3 (docs/arbeitspakete/M3.md, Schritt 8): baut ein
+"""Abnahmetest für M3 (Arbeitspaket M3, Schritt 8): baut ein
 mitgeliefertes Formular ausschließlich über dieselben Operationen nach,
 die Designer, Objektinspektor und Komponentenpalette in der laufenden
 IDE auslösen (`komponente_platzieren`, `setattr` für Eigenschaften wie

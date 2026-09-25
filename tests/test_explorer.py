@@ -1,5 +1,5 @@
 """Tests für ide/shell/explorer.py: ProjektExplorer. Headless. Siehe
-docs/arbeitspakete/M2.md, Schritt 6.
+Arbeitspaket M2, Schritt 6.
 """
 
 from pathlib import Path

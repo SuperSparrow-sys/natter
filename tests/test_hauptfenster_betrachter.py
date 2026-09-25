@@ -1,7 +1,7 @@
 """Tests für die IDE-Verdrahtung der Betrachter (Abschnitt 11.3-11.5):
 Doppelklick im Explorer auf eine `.csv`-/Bild-/`.html`-Datei öffnet den
 passenden Betrachter-Tab statt des Quelltexteditors. Siehe
-docs/arbeitspakete/M5.md, Schritt 7.
+Arbeitspaket M5, Schritt 7.
 """
 
 from __future__ import annotations

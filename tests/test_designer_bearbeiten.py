@@ -1,6 +1,6 @@
 """Tests für ide/designer/canvas.py: Ziehen, Tastatur, Löschen,
 Duplizieren, automatisches `.pfm`-Speichern. Headless. Siehe
-docs/arbeitspakete/M3.md, Schritt 4.
+Arbeitspaket M3, Schritt 4.
 """
 
 import json

@@ -40,7 +40,7 @@ Baut absichtlich nicht das Prüfsummen-Manifest/die Authenticode-Signatur
 aus `prototypes/s6_signatur` mit ein - eine Signatur braucht ein
 gekauftes Zertifikat, das ein Schulprojekt normalerweise nicht hat;
 das bleibt ein bewusst manueller, optionaler Schritt, siehe
-`docs/arbeitspakete/M8.md`.
+Arbeitspaket M8.
 """
 
 from __future__ import annotations

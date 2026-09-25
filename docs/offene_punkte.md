@@ -7,12 +7,12 @@ ganze Vorgeschichte der früheren Punkte stehen, damit sich bei einem
 ähnlichen Fehler nachlesen lässt, was schon geprüft wurde.
 
 Die Nummern laufen durch und werden nicht neu vergeben. Der nächste
-Punkt bekommt die **24**.
+Punkt bekommt die **25**.
 
 ## Ein neuer Punkt
 
 ```markdown
-## 24. Kurz, was nicht stimmt
+## 25. Kurz, was nicht stimmt
 
 **Gemeldet:** Datum, wo es auffiel (Fenster, Menü, Beispielprojekt),
 Natter-Version.
@@ -99,7 +99,7 @@ Programmordner, und damit den Ordner selbst.
 an, also während des Unterrichts und lange nach der Installation.
 Inno Setup entfernt beim Deinstallieren, was es selbst geschrieben
 hat; alles andere bleibt. Derselbe Fall wie beim Uninstaller im
-Manifest (siehe `docs/arbeitspakete/M13.md`), nur andersherum.
+Manifest (siehe Arbeitspaket M13), nur andersherum.
 
 **Was das bedeutet:** Wer Natter entfernt, findet unter
 `%LOCALAPPDATA%\Programs\Natter` weiterhin einen Ordner. Auf einem
@@ -117,6 +117,33 @@ nach einer halben Deinstallation aus.
   abgelegt hat. Im Programmordner hat er nichts zu suchen, aber
   „nichts zu suchen" ist kein Beweis.
 
+
+---
+
+## 24. Keine Prüfung auf GPL-Komponenten in der Auslieferung
+
+**Gemeldet:** 25. September 2026, beim Zusammenfassen der
+Planungsunterlagen in `docs/bericht.md`, Fassung 0.3.2.
+
+**Beobachtet:** AGENTS.md und `docs/bericht.md`, Abschnitt 5, verlangen
+nur Abhängigkeiten mit freizügiger Lizenz oder LGPL, kein PyQt und
+keine GPL-only-Module von Qt wie Qt Charts. Geplant war dafür ein Test,
+der die Pakete der Auslieferung mit ihrer Lizenz auflistet und bei GPL
+fehlschlägt. Diesen Test gibt es nicht; kein Test im Repository nennt
+„GPL".
+
+**Ursache:** nachgewiesen - der Test stand nur im Plan (früher
+`entwicklung.md`, Abschnitte 17.7 und 19) und wurde nie geschrieben.
+`_lizenzen_sammeln()` in `tools/ide_paketieren.py` sammelt die
+Lizenztexte und warnt bei fehlender Angabe, prüft aber nicht, welche
+Lizenz es ist.
+
+**Zu tun:** Ein Test, der für jedes Laufzeitpaket aus `uv.lock` die
+Lizenz aus den Metadaten liest und bei GPL, AGPL oder unbekannter
+Lizenz fehlschlägt; LGPL ist erlaubt. Dazu eine Prüfung, dass
+`PySide6.QtCharts` und `PySide6.QtDataVisualization` in `dist\Natter`
+nicht vorkommen. Erledigt, wenn der Test grün ist und bei einem
+absichtlich eingetragenen GPL-Paket rot wird.
 
 ---
 

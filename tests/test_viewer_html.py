@@ -1,5 +1,5 @@
 """Tests für die HTML-Vorschau (Abschnitt 11.3). Siehe
-docs/arbeitspakete/M5.md, Schritt 7. Headless. `open_url` wird gemockt
+Arbeitspaket M5, Schritt 7. Headless. `open_url` wird gemockt
 (kein echter Browser, wie in tests/test_files.py).
 """
 

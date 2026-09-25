@@ -2,7 +2,7 @@
 anzeigen, ein Paket installieren, die Paketliste als `requirements.txt`
 exportieren – über `pip` als Subprozess.
 
-Vereinfachung, bewusst dokumentiert (siehe docs/arbeitspakete/M7.md,
+Vereinfachung, bewusst dokumentiert (siehe Arbeitspaket M7,
 Schritt 3): arbeitet auf dem aktuell aktiven Python-Interpreter
 (`sys.executable`), nicht auf den getrennten Paketordnern
 `pakete-ide`/`pakete-projekt`/`pakete-zusatz` aus Abschnitt 17.6 – die

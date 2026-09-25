@@ -11,7 +11,7 @@ die zusätzlichen Qt-Widget-Typen, die im IDE-Rahmen selbst vorkommen
 
 Bisher stand die IDE selbst komplett ohne eigenes Stylesheet da (nur der
 Designer-Auswahlrahmen war gestylt) – deshalb wirkte sie farblos/grau
-(Rückmeldung, siehe docs/PLAN.md, „Visueller
+(Rückmeldung, siehe PLAN.md (Git-Historie), „Visueller
 Feinschliff“).
 """
 

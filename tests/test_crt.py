@@ -1,7 +1,7 @@
 """Tests für pcl/crt.py (Abschnitt 9): CRT-Hilfsmodul für den Umstieg
 aus dem CRT-Unterricht. `msvcrt`/`winsound` sind Windows-Standard-
 bibliotheken; hier über `sys.modules`-Attrappen ersetzt, damit die Tests
-auch auf dem Linux-CI-Runner laufen (siehe docs/arbeitspakete/M6.md).
+auch auf dem Linux-CI-Runner laufen (siehe Arbeitspaket M6).
 """
 
 from __future__ import annotations

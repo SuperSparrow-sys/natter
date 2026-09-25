@@ -11,7 +11,7 @@ Befehl, sondern zwischen ihnen:
  welchem Quelltext sie gebaut wurde.
 - Die Auslieferung enthielt Paketversionen, gegen die nie ein Test
  gelaufen war (pandas 3.0.6 in `dist`, 3.0.5 in den Tests) - siehe
- `docs/arbeitspakete/M13.md`. Dass Windows Smart App Control daran
+ Arbeitspaket M13. Dass Windows Smart App Control daran
  Anstoß nahm, war Zufall; aufgefallen wäre es sonst erst beim Schüler.
 
 Deshalb führt dieses Skript die Schritte nicht nur aus, sondern prüft

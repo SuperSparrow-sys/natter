@@ -1,6 +1,6 @@
 """Tests für ide/debugger/eigener_code.py: erkennt eigenen Schülercode
 gegenüber `pcl`/Qt/Standardbibliothek (Abschnitt 8.1). Siehe
-docs/arbeitspakete/M4.md, Schritt 2/5.
+Arbeitspaket M4, Schritt 2/5.
 """
 
 from __future__ import annotations

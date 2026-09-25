@@ -1,5 +1,5 @@
 """Tests für ide/designer/pfm_schreiben.py: Formular → `.pfm`. Siehe
-docs/arbeitspakete/M3.md, Schritt 4. Rundreise-Test gegen die echte
+Arbeitspaket M3, Schritt 4. Rundreise-Test gegen die echte
 `beispielprojekte/04_CookieKlicker/u_main.pfm`.
 """
 

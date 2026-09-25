@@ -1,5 +1,5 @@
 """Tests für die Data Controls (Abschnitt 10.1). Siehe
-docs/arbeitspakete/M5.md, Schritt 5. Headless, gegen echtes
+Arbeitspaket M5, Schritt 5. Headless, gegen echtes
 `:memory:`-SQLite (kein Mock).
 """
 

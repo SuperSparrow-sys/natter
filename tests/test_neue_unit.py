@@ -1,5 +1,5 @@
 """Tests für HauptFenster.unit_erzeugen(): „Neue Unit“ (Abschnitt 7.2,
-7.4). Siehe docs/arbeitspakete/M2.md, Schritt 9.
+7.4). Siehe Arbeitspaket M2, Schritt 9.
 """
 
 from pathlib import Path

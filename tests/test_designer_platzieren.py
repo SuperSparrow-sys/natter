@@ -1,5 +1,5 @@
 """Tests für DesignerCanvas.komponente_platzieren(): Palette → Formular
-(Abschnitt 7.3). Headless. Siehe docs/arbeitspakete/M3.md, Schritt 6.
+(Abschnitt 7.3). Headless. Siehe Arbeitspaket M3, Schritt 6.
 """
 
 from PySide6.QtCore import QEvent, QPointF, Qt

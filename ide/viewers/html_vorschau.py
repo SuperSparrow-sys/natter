@@ -3,7 +3,7 @@ automatischer Aktualisierung beim Speichern und „Im Browser öffnen“.
 
 Rendert über `QTextBrowser` (einfaches HTML/CSS) statt eines vollen
 Web-Engines – die Monaco/QtWebEngine-Entscheidung aus `prototypes/s2`
-ist noch offen (siehe docs/PLAN.md); für die im Kurs erzeugten,
+ist noch offen (siehe PLAN.md (Git-Historie)); für die im Kurs erzeugten,
 einfachen HTML-Seiten (Abschnitt 11.3-Beispiel: Überschrift, Text,
 Tabellen) reicht das.
 """

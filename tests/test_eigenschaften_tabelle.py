@@ -1,5 +1,5 @@
 """Tests für ide/inspector/eigenschaften_tabelle.py: EigenschaftenTabelle.
-Headless. Siehe docs/arbeitspakete/M3.md, Schritt 1.
+Headless. Siehe Arbeitspaket M3, Schritt 1.
 """
 
 from PySide6.QtCore import Qt

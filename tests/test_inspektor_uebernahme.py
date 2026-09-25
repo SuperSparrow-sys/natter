@@ -7,7 +7,7 @@ ein Screenshot sah also völlig richtig aus -, aber `.pfm` und
 `u_*_design.py` blieben unverändert. Jede allein über den Inspektor
 gesetzte Eigenschaft war nach dem nächsten Öffnen wieder weg und
 erreichte das laufende Schülerprogramm nie. Siehe
-docs/arbeitspakete/M8.md, Schritt 6.
+Arbeitspaket M8, Schritt 6.
 """
 
 import json

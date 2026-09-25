@@ -1,4 +1,4 @@
-"""Tests für ide/project/projekt.py. Siehe docs/arbeitspakete/M2.md,
+"""Tests für ide/project/projekt.py. Siehe Arbeitspaket M2,
 Schritt 3. Gegen die echten Beispielprojekte aus `beispielprojekte/`
 geprüft.
 """

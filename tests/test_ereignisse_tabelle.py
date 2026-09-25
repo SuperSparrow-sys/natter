@@ -1,5 +1,5 @@
 """Tests für ide/inspector/ereignisse_tabelle.py: EreignisseTabelle.
-Headless. Siehe docs/arbeitspakete/M3.md, Schritt 2.
+Headless. Siehe Arbeitspaket M3, Schritt 2.
 """
 
 from ide.inspector.ereignisse_tabelle import KEIN_HANDLER, EreignisseTabelle

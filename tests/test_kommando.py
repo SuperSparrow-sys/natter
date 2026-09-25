@@ -1,5 +1,5 @@
 """Tests für ide/designer/kommando.py: Kommando-Muster für Undo/Redo.
-Siehe docs/arbeitspakete/M3.md, Schritt 5.
+Siehe Arbeitspaket M3, Schritt 5.
 """
 
 from ide.designer.kommando import EigenschaftKommando, Kommandostapel

@@ -1,6 +1,6 @@
 """Signiertes Prüfsummen-Manifest einer Natter-Installation.
 
-Siehe docs/entwicklung.md, Abschnitt 17.8: „beim Build SHA-256-Prüfsummen
+Siehe docs/bericht.md, Abschnitt 7.5: „beim Build SHA-256-Prüfsummen
 aller Programmdateien (ohne `benutzer/` und `pakete-zusatz/`) in
 `manifest.json`; das Manifest wird mit einem eigenen Ed25519-Schlüssel
 signiert, der öffentliche Schlüssel steckt im Starter“ – damit „der
@@ -14,7 +14,7 @@ Prüfergebnis ist ein `PruefErgebnis` statt Konsolenausgabe mit
 Eine Datei müsste in der gebauten Exe eigens über `--add-data`
 mitgegeben werden – genau das ist bei `design/tokens.json` und den
 Symbolen schon zweimal vergessen worden und erst beim Start der
-fertigen Exe aufgefallen (siehe docs/arbeitspakete/M8.md).
+fertigen Exe aufgefallen (siehe Arbeitspaket M8).
 
 Der private Schlüssel gehört nie ins Repository (Abschnitt 17.8); er
 wird einmalig mit `tools/signieren/manifest_schluessel_erzeugen.py`

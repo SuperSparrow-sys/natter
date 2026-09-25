@@ -1,6 +1,6 @@
 """Tests für ide/inspector/objektinspektor.py: Objektinspektor
 (Komponentenbaum + Eigenschaften-/Ereignisse-Reiter). Headless. Siehe
-docs/arbeitspakete/M3.md, Schritt 2.
+Arbeitspaket M3, Schritt 2.
 """
 
 import json

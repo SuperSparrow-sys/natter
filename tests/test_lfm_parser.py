@@ -1,5 +1,5 @@
 """Tests für den `.lfm`-Parser (Abschnitt 15). Siehe
-docs/arbeitspakete/M8.md, Schritt 1. Gegen echte `.lfm`-Dateien aus
+Arbeitspaket M8, Schritt 1. Gegen echte `.lfm`-Dateien aus
 `tests/daten/lfm/`, kein Mock.
 """
 

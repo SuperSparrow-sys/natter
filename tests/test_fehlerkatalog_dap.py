@@ -1,7 +1,7 @@
 """Tests für ide/debugger/fehlerkatalog.py: fehlermeldung_aus_dap_
 erzeugen() – Fehlerkatalog-Meldung aus einer DAP-`exceptionInfo`-Antwort
 statt einem lokalen Exception-Objekt (Abschnitt 8.1). Formen der Antwort
-gegen echtes `debugpy` ermittelt. Siehe docs/arbeitspakete/M4.md,
+gegen echtes `debugpy` ermittelt. Siehe Arbeitspaket M4,
 Schritt 6.
 """
 

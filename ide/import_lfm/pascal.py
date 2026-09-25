@@ -1,5 +1,5 @@
 """Einfacher Extraktor für Pascal-Methodenrümpfe aus einer `.pas`-Unit
-(Abschnitt 15, docs/arbeitspakete/M8.md, Schritt 3).
+(Abschnitt 15, Arbeitspaket M8, Schritt 3).
 
 Beim Import eines Lazarus-Formulars verweist die `.lfm` nur auf die
 Namen der Ereignis-Handler (`OnClick = b_startClick`); der eigentliche

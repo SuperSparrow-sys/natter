@@ -1,5 +1,5 @@
 """Tests für die CSV-Tabellenansicht (Abschnitt 11.5). Siehe
-docs/arbeitspakete/M5.md, Schritt 7. Headless.
+Arbeitspaket M5, Schritt 7. Headless.
 """
 
 from __future__ import annotations

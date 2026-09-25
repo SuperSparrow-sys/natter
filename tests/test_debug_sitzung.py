@@ -2,7 +2,7 @@
 jede DAP-Interaktion auf einem eigenen Thread ausführt und über Signale
 zurückmeldet (Abschnitt 8.1) – die GUI darf beim Warten auf das
 Schülerprogramm nicht einfrieren. Gegen echtes `debugpy`, kein Mock.
-Siehe docs/arbeitspakete/M4.md, Schritt 6. `qtbot.waitSignal()` pumpt
+Siehe Arbeitspaket M4, Schritt 6. `qtbot.waitSignal()` pumpt
 dabei die Qt-Ereignisschleife, die Queued-Connection-Signale aus dem
 Worker-Thread brauchen, um im Test (Hauptthread) anzukommen.
 """

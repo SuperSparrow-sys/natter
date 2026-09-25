@@ -1,5 +1,5 @@
 """Tests für die Paketverwaltung (Abschnitt 7.2, 18). Siehe
-docs/arbeitspakete/M7.md, Schritt 3. `subprocess.run` wird gemockt -
+Arbeitspaket M7, Schritt 3. `subprocess.run` wird gemockt -
 echte `pip`-Aufrufe (Netzwerk/Installation) gehören nicht in die
 automatisierte Testsuite.
 """

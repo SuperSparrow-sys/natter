@@ -5,7 +5,7 @@ Bewusst ein eigenständiges `QMainWindow` ohne Elternfenster, damit
 Windows einen eigenen Taskleisten-Eintrag vergibt und das Fenster
 unabhängig vom Hauptfenster verschoben werden kann (z. B. auf einen
 zweiten Bildschirm) – kein Dock und kein Tab in der IDE
-(entschieden, siehe docs/arbeitspakete/M9.md).
+(entschieden, siehe Arbeitspaket M9).
 
 Stand M9, Schritt 6: Formen- und Verbindungs-Palette links,
 Zeichenfläche in der Mitte, Eigenschaften-Bereich rechts. Die

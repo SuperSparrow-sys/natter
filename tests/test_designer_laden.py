@@ -1,5 +1,5 @@
 """Tests für ide/designer/laden.py: formular_fuer_designer_laden(). Siehe
-docs/arbeitspakete/M3.md, Schritt 3. Gegen die echte
+Arbeitspaket M3, Schritt 3. Gegen die echte
 `beispielprojekte/04_CookieKlicker/u_main.pfm` geprüft.
 """
 

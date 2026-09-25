@@ -10,7 +10,7 @@ Projekt-Explorer. Wer Python kennt, findet gewöhnliches Python vor — kein
 Dialekt, keine versteckte Umschreibung.
 
 Dieses Dokument beschreibt, **was es gibt**. Wie Natter gebaut und
-ausgeliefert wird, steht in [`docs/entwicklung.md`](docs/entwicklung.md).
+ausgeliefert wird, steht in [`docs/bericht.md`](docs/bericht.md).
 
 ## Herunterladen
 
@@ -395,7 +395,7 @@ funktioniert. Der Zielordner lässt sich frei wählen.
 ## Mitwirken
 
 Wie Natter gebaut, getestet und ausgeliefert wird, steht in
-[`docs/entwicklung.md`](docs/entwicklung.md); die Regeln für Beiträge in
+[`docs/bericht.md`](docs/bericht.md); die Regeln für Beiträge in
 [`AGENTS.md`](AGENTS.md).
 
 ## Lizenz

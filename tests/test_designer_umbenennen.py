@@ -1,6 +1,6 @@
 """Tests für DesignerCanvas.komponente_umbenennen(): die Eigenschaft
 „Name“ ändert den Attributnamen im Formular (Abschnitt 7.6). Headless.
-Siehe docs/arbeitspakete/M3.md, Schritt 8.
+Siehe Arbeitspaket M3, Schritt 8.
 """
 
 from pathlib import Path

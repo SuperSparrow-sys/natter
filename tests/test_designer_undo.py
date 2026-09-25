@@ -1,5 +1,5 @@
 """Tests für Undo/Redo im DesignerCanvas (Command-Pattern). Headless.
-Siehe docs/arbeitspakete/M3.md, Schritt 5.
+Siehe Arbeitspaket M3, Schritt 5.
 """
 
 from PySide6.QtCore import QEvent, QPointF, Qt

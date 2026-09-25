@@ -1,5 +1,5 @@
 """Erzeugt einmalig das Ed25519-Schlüsselpaar für das signierte
-Prüfsummen-Manifest (docs/entwicklung.md, Abschnitt 17.8).
+Prüfsummen-Manifest (docs/bericht.md, Abschnitt 7.5).
 
 Der private Schlüssel bleibt auf dem Rechner des Maintainers und ist
 über `.gitignore` ausgeschlossen; der öffentliche Teil wird als

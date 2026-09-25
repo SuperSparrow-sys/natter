@@ -1,5 +1,5 @@
 """Tests für pcl/properties.py: Standardwert, Typprüfung, Tippfehler-
-Erkennung, Lesen liefert aktuellen Wert. Siehe docs/PLAN.md, M1 Schritt 1.
+Erkennung, Lesen liefert aktuellen Wert. Siehe PLAN.md (Git-Historie), M1 Schritt 1.
 """
 
 import pytest

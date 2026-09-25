@@ -1,5 +1,5 @@
 """Tests für pcl/components/additional.py: StringGrid, Image. Headless.
-Siehe docs/PLAN.md, M1 Schritt 6.
+Siehe PLAN.md (Git-Historie), M1 Schritt 6.
 """
 
 from pathlib import Path

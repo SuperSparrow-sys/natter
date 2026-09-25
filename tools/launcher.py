@@ -1,7 +1,7 @@
 """Der Starter, aus dem `Natter.exe` gebaut wird (M13).
 
 Seit M13 liegt Natter als gewöhnliche Python-Installation vor (siehe
-`docs/arbeitspakete/M13.md`). Gestartet wird sie über diesen schlanken
+Arbeitspaket M13). Gestartet wird sie über diesen schlanken
 Starter: er sucht die mitgelieferte `pythonw.exe` neben sich und
 übergibt ihr `-m ide` samt allem, was an `Natter.exe` übergeben wurde
 (etwa der Pfad einer doppelgeklickten `.natter`-Datei).

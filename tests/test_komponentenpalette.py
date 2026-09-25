@@ -1,5 +1,5 @@
 """Tests für ide/palette/palette.py: Komponentenpalette. Headless. Siehe
-docs/arbeitspakete/M3.md, Schritt 6.
+Arbeitspaket M3, Schritt 6.
 """
 
 from ide.palette import Komponentenpalette

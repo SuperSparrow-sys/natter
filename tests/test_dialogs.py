@@ -1,6 +1,6 @@
 """Tests für pcl/dialogs.py: show_message, input_box. Headless über
 QTimer.singleShot, das den aktiven modalen Dialog während `exec()`
-automatisch bedient. Siehe docs/PLAN.md, M1 Schritt 6.
+automatisch bedient. Siehe PLAN.md (Git-Historie), M1 Schritt 6.
 """
 
 from PySide6.QtCore import QTimer
