@@ -219,7 +219,7 @@ Testlauf nicht gehört, etwa ein Programm starten oder installieren.
 | Nur SQLite, keine Passwörter (M15) | MySQL hätte ein gespeichertes Passwort in der `.pfm` und dafür einen Schlüsselspeicher nach sich gezogen. Stattdessen ist die Datenbank einfacher geworden: eine Abfrage ist `db.query("SELECT …")` |
 | Exe-Export als eine Datei (M14) | für Natter selbst ist der entpackte Ordner richtig (1,2 GB entpacken sich nicht bei jedem Start), für ein Schülerprogramm die eine Datei, die sich verschicken lässt |
 | Diagramm-Editor in eigenem Fenster | mit eigenem Taskleisten-Eintrag, nur zum Zeichnen von Hand; UML-Inhalte werden über einen Eigenschaften-Dialog bearbeitet |
-| Prüfungsmodus | vier Stunden ohne Lösungsvorschläge und ohne Quelltexterzeugung aus Diagrammen; übersteht einen Neustart und läuft von selbst aus |
+| Prüfungsmodus | vier Stunden ohne Lösungsvorschläge, ohne Vervollständigung und ohne Quelltexterzeugung aus Diagrammen; übersteht einen Neustart und läuft von selbst aus |
 | Keine KI in der IDE, nur Deutsch, keine Aliasse für Python-Namen | Natter soll Python unterrichten, wie es ist |
 | Beispiele als Arbeitskopien | ein Beispiel wird nach `Dokumente\Natter\Beispielprojekte` kopiert und dort weiterbenutzt; „Auf Original zurücksetzen …" holt den Ausgangszustand zurück |
 | Zurückgestellt | Update-Mechanismus (auf Schulrechnern verteilt die Systembetreuung), ER-Diagramm, Syntaxdiagramm, DIA-Import, mehrere Struktogramme auf einer Seite |

@@ -332,11 +332,13 @@ def test_in_der_pruefung_bleibt_nur_der_name() -> None:
     assert _vorschlag().anzeige_text(mit_erklaerung=False) == "on_click"
 
 
-def test_die_liste_selbst_bleibt_an(
+def test_im_pruefungsmodus_bleibt_die_liste_zu(
     echte_einstellungen: QSettings, tmp_path: Path
 ) -> None:
-    """Geprueft wird am Editor, nicht an der Datenklasse: die Liste muss
-    Einträge zeigen, und zwar ohne Erklärung."""
+    """Bis September 2026 blieb die Liste im Prüfungsmodus an, nur ohne
+    Erklärung. Der Nutzer hat entschieden, dass sie in der Prüfung
+    ganz ausbleibt: auch ein Name wie `bank_abheben_konto` samt
+    Parametern ist in einer Klausur schon ein Stück Antwort."""
     from ide.shell.quelltexteditor import QuelltextEditor
 
     quelltext = """from pcl import Form, Button
@@ -358,14 +360,11 @@ class Form1(Form):
     cursor.movePosition(cursor.MoveOperation.EndOfLine)
     editor.setTextCursor(cursor)
 
-    anzahl = editor.vorschlaege_anzeigen()
+    anzahl = editor.vorschlaege_anzeigen(erzwungen=True)
 
-    assert anzahl > 0, "Die Vervollstaendigung ist im Pruefungsmodus abgeschaltet"
-    zeilen = [
-        editor.vorschlagsliste.item(i).text()
-        for i in range(editor.vorschlagsliste.count())
-    ]
-    assert not any("   –   " in zeile for zeile in zeilen), zeilen
+    assert anzahl == 0
+    assert not editor.vorschlagsliste.isVisible()
+    assert editor.parameterhilfe_anzeigen() == ""
 
 
 # ------------------------------- Kein Weg an fremden Code im Pruefmodus

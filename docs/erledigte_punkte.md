@@ -1214,3 +1214,55 @@ behält sein Design bis zum nächsten Start. Es ist ein eigener Prozess,
 und Natter greift nicht in ihn hinein.
 
 Tests: `tests/test_beispiel_und_thema.py`.
+
+---
+
+## 25. Die Vervollständigung war nicht zu sehen ~~(erledigt)~~
+
+**Gemeldet:** 25. September 2026, vom Nutzer: jedi habe er noch nie
+gefunden. Bei `pri` solle schon `print(` kommen, bei `bank_ab` die
+eigene Funktion `bank_abheben_konto` mit ihren Parametern, und beim
+Tippen in die Klammern hinein sollen Parameter und Datentypen zu sehen
+sein. Im Prüfungsmodus soll nichts davon gehen.
+
+**Ursache — nachgewiesen.** Die Vervollständigung selbst arbeitete, im
+Entwicklungsbaum wie in der gebauten Python. Nicht zu sehen war sie aus
+mehreren Gründen:
+
+- In den Einstellungen des Nutzers stand `vervollstaendigung=false`,
+  also „Ansicht → Vervollständigung" ausgeschaltet. Wieder
+  eingeschaltet.
+- Die Parameterhilfe erschien nie. Beim Tippen von `(` schließt der
+  Editor die Klammer selbst und beendete den Tastendruck damit; die
+  Parameterhilfe hing an genau diesem Tastendruck.
+- Beim Übernehmen aus der Liste kam nur der Name, ohne Klammern.
+- Neben eingebauten Funktionen stand jedis englischer Hilfetext
+  („Prints the values to a stream, or to sys.stdout by default.").
+- Der erste Vorschlag brauchte 1,5 Sekunden, weil jedi seine Daten
+  erst beim ersten Tastendruck einlas.
+- Im Prüfungsmodus blieb die Liste an, nur ohne Erklärung. Das war
+  eine Entscheidung aus M11; der Nutzer hat sie umgekehrt.
+
+**Geändert:**
+
+- Die Liste zeigt eigene Funktionen mit Parametern, Typen,
+  Rückgabetyp und der ersten Zeile des eigenen Docstrings:
+  `bank_abheben_konto(konto: str, betrag: float) -> bool – Hebt einen
+  Betrag vom Konto ab.`
+- Übernehmen setzt bei Funktionen die Klammern mit, die Schreibmarke
+  steht dazwischen, und die Parameterhilfe geht auf. Steht schon eine
+  Klammer da, bleibt es beim Namen.
+- Die Parameterhilfe erscheint bei `(` und nach jedem Komma. Der
+  gerade einzugebende Parameter ist fett und unterstrichen, dahinter
+  steht der Rückgabetyp, darunter die Erklärung. Typen stehen nur da,
+  wo sie im Quelltext angegeben sind; erfunden wird keiner.
+- Erklärungen kommen aus dem eigenen Code oder aus einer deutschen
+  Liste für die eingebauten Funktionen (`PYTHON_HILFE`). Englische
+  Hilfetexte aus Python und Bibliotheken werden nicht mehr gezeigt.
+- jedi wird beim Start von Natter im Hintergrund aufgewärmt. Der erste
+  Vorschlag kommt nach 107 ms statt nach 1,5 Sekunden.
+- Im Prüfungsmodus gibt es weder Liste noch Parameterhilfe, und der
+  Menüeintrag heißt „Vervollständigung (im Prüfungsmodus aus)".
+
+Tests: `tests/test_vervollstaendigung_eingabe.py`,
+`tests/test_pruefungsmodus.py`.

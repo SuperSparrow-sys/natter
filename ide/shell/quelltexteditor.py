@@ -43,7 +43,7 @@ from ide.shell.vervollstaendigung import (
     Fundstelle,
     Vorschlag,
     definition,
-    parameterhilfe,
+    parameterhilfe_anzeige,
     vorschlaege,
 )
 from pcl.pruefungsmodus import laeuft as pruefungsmodus_laeuft
@@ -198,6 +198,9 @@ class QuelltextEditor(QPlainTextEdit):
 
         #: Vervollständigung (M11, 2.2)
         self.vervollstaendigung_an = True
+        #: Was die Parameterhilfe zuletzt gezeigt hat, als HTML. Der
+        #: Kurzhinweis selbst lässt sich nicht auslesen.
+        self.letzte_parameterhilfe = ""
         self._vorschlaege: list[Vorschlag] = []
         # Kind des Viewports, kein eigenes Fenster. Mit
         # `Qt.WindowType.ToolTip` wäre die Liste ein Fenster für sich -
@@ -324,6 +327,10 @@ class QuelltextEditor(QPlainTextEdit):
             self.definition_gesucht.emit()
             return
         if not event.modifiers() and self._klammer_schliessen(event):
+            # Auch nach einer selbst geschlossenen Klammer: an `(`
+            # hängt die Parameterhilfe. Bis September 2026 war der
+            # Tastendruck hier zu Ende, und die Hilfe erschien nie.
+            self._nach_der_eingabe(event)
             return
         super().keyPressEvent(event)
         self._nach_der_eingabe(event)
@@ -334,7 +341,10 @@ class QuelltextEditor(QPlainTextEdit):
         if not self.vervollstaendigung_an:
             return
         text = event.text()
-        if text == "(":
+        if text in ("(", ","):
+            # Nach dem Komma ist der nächste Parameter dran - die
+            # Hervorhebung wandert mit.
+            self.vorschlagsliste_schliessen()
             self.parameterhilfe_anzeigen()
             return
         if text in (")", ""):
@@ -493,7 +503,11 @@ class QuelltextEditor(QPlainTextEdit):
         nach einem Punkt, wo noch gar nichts getippt wurde – genau dort
         braucht man sie am meisten.
         """
-        if not self.vervollstaendigung_an:
+        # Im Prüfungsmodus gar nicht. Auch ein Name wie
+        # `bank_abheben_konto` samt Parametern ist in einer Klausur
+        # schon ein Stück Antwort.
+        if not self.vervollstaendigung_an or pruefungsmodus_laeuft():
+            self.vorschlagsliste_schliessen()
             return 0
         cursor = self.textCursor()
         links = cursor.block().text()[: cursor.positionInBlock()]
@@ -515,14 +529,8 @@ class QuelltextEditor(QPlainTextEdit):
 
         self._vorschlaege = gefunden
         self.vorschlagsliste.clear()
-        # Im Prüfungsmodus ohne die deutschen Erklärungen (M11,
-        # Abschnitt 6). Die Liste selbst bleibt an - sie ist
-        # Schreibhilfe; „Wird beim Klicken ausgelöst“ neben
-        # `on_click` ist dagegen nah an
-        # der Antwort auf genau die Frage, die in der Klausur steht.
-        mit_erklaerung = not pruefungsmodus_laeuft()
         for vorschlag in gefunden:
-            self.vorschlagsliste.addItem(vorschlag.anzeige_text(mit_erklaerung))
+            self.vorschlagsliste.addItem(vorschlag.anzeige_text())
         self.vorschlagsliste.setCurrentRow(0)
         self._vorschlagsliste_platzieren()
         self.vorschlagsliste.show()
@@ -577,29 +585,50 @@ class QuelltextEditor(QPlainTextEdit):
         nummer = self.vorschlagsliste.currentRow() if zeile is None else zeile
         if not 0 <= nummer < len(self._vorschlaege):
             return False
-        name = self._vorschlaege[nummer].name
+        vorschlag = self._vorschlaege[nummer]
+        name = vorschlag.name
         bereits = self._wort_vor_dem_cursor()
 
         cursor = self.textCursor()
         for _ in range(len(bereits)):
             cursor.deletePreviousChar()
         cursor.insertText(name)
+
+        # Eine Funktion kommt mit ihren Klammern, und die Schreibmarke
+        # steht gleich dazwischen - aus `pri` wird `print(|)`, und die
+        # Parameterhilfe zeigt, was hineingehört. Steht schon eine
+        # Klammer da, etwa weil nur der Name ausgetauscht wird, bleibt
+        # es beim Namen.
+        rechts = cursor.block().text()[cursor.positionInBlock():]
+        aufrufbar = vorschlag.art in ("function", "class") or vorschlag.signatur.startswith(
+            f"{name}("
+        )
+        if aufrufbar and not rechts.startswith("("):
+            cursor.insertText("()")
+            cursor.movePosition(cursor.MoveOperation.Left)
         self.setTextCursor(cursor)
         self.vorschlagsliste_schliessen()
+        if aufrufbar and not rechts.startswith("("):
+            self.parameterhilfe_anzeigen()
         return True
 
     def parameterhilfe_anzeigen(self) -> str:
-        """Zeigt beim Tippen der öffnenden Klammer, welche Parameter
-        erwartet werden – als Kurzhinweis über dem Cursor."""
-        if not self.vervollstaendigung_an:
+        """Zeigt beim Tippen der öffnenden Klammer und nach jedem Komma,
+        welche Parameter erwartet werden – als Kurzhinweis über dem
+        Cursor, mit Typ und dem gerade einzugebenden Parameter
+        hervorgehoben. Im Prüfungsmodus nicht."""
+        if not self.vervollstaendigung_an or pruefungsmodus_laeuft():
+            self.letzte_parameterhilfe = ""
+            QToolTip.hideText()
             return ""
         cursor = self.textCursor()
-        text = parameterhilfe(
+        text = parameterhilfe_anzeige(
             self.toPlainText(),
             cursor.blockNumber() + 1,
             cursor.positionInBlock(),
             self.property(_PFAD_EIGENSCHAFT),
         )
+        self.letzte_parameterhilfe = text
         if text:
             QToolTip.showText(
                 self.mapToGlobal(self.cursorRect().topLeft()), text, self

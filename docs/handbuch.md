@@ -231,8 +231,8 @@ Für **vier Stunden** ab dem Einschalten gilt dann:
   woran es liegen könnte — kein Lösungsvorschlag.
 - Aus Klassendiagramm und Struktogramm lässt sich kein Quelltext mehr
   erzeugen.
-- Die Vervollständigung im Editor bleibt, aber ohne die deutschen
-  Erklärungen daneben.
+- Die Vervollständigung im Editor ist aus: keine Vorschlagsliste beim
+  Tippen und keine Parameterhilfe beim Öffnen einer Klammer.
 
 Alles andere bleibt: zeichnen, starten, schrittweise ausführen,
 deutsche Meldungen.

@@ -7,12 +7,12 @@ ganze Vorgeschichte der früheren Punkte stehen, damit sich bei einem
 ähnlichen Fehler nachlesen lässt, was schon geprüft wurde.
 
 Die Nummern laufen durch und werden nicht neu vergeben. Der nächste
-Punkt bekommt die **25**.
+Punkt bekommt die **27**.
 
 ## Ein neuer Punkt
 
 ```markdown
-## 25. Kurz, was nicht stimmt
+## 27. Kurz, was nicht stimmt
 
 **Gemeldet:** Datum, wo es auffiel (Fenster, Menü, Beispielprojekt),
 Natter-Version.
@@ -197,6 +197,70 @@ Lizenz es ist.
 - Erledigt, wenn die drei Module in `dist\Natter` fehlen, jedes Paket
   einen Lizenztext in `Lizenzen\` hat und der Test bei einem
   absichtlich eingetragenen GPL-Paket rot wird.
+
+---
+
+## 26. Ein Update erkennt die vorhandene Fassung nicht sichtbar
+
+**Gemeldet:** 25. September 2026, vom Nutzer: „Wenn bereits ein
+Natter-Programm installiert ist, soll die Exe das erkennen und sagen:
+Update auf Version … Dabei sollen die veränderten Daten entweder
+komplett gelöscht oder ersetzt werden."
+
+**Stand heute (`tools/natter.iss`):** Die Grundlage ist da. Die feste
+`AppId` lässt Inno Setup eine vorhandene Installation erkennen und
+deren Ordner wieder vorschlagen, und `[InstallDelete]` leert vor dem
+Kopieren die sieben Ordner, die Natter selbst in `site-packages`
+mitbringt (`ide`, `pcl`, `docs` …). Es fehlt:
+
+- Kein Hinweis auf das Update. Der Assistent sieht genauso aus wie
+  bei einer Erstinstallation; die installierte Fassung wird nirgends
+  genannt.
+- Zielordner und Startmenü-Ordner werden bei einem Update erneut
+  abgefragt (`DisableDirPage=no`, `DisableProgramGroupPage=no`).
+- Kein Schutz gegen eine ältere Fassung über einer neueren.
+- Die mitgelieferte Python wird nur überschrieben. Bringt eine neue
+  Fassung etwa ein neueres numpy mit, bleiben Dateien der alten
+  Paketversion liegen, die es in der neuen nicht mehr gibt - ein
+  gemischter Stand, der erst beim Import auffällt. Dieselbe Sorte
+  Befund wie beim Update auf 0.2.0 (`docs/bericht.md`, Abschnitt 8).
+
+**Wie es in der Praxis gelöst wird** (Inno-Setup-Installer wie VS
+Code, Git für Windows, Notepad++):
+
+- Dieselbe `AppId` für alle Fassungen; Inno übernimmt dann Ordner,
+  Startmenü und Zusatzaufgaben der vorhandenen Installation.
+- `DisableDirPage=auto` und `DisableProgramGroupPage=auto`: bei einem
+  Update entfallen die Seiten, bei einer Erstinstallation erscheinen
+  sie.
+- Die installierte Fassung aus der Registrierung lesen
+  (`…\Uninstall\{AppId}_is1`, Wert `DisplayVersion`, unter HKCU oder
+  HKLM) und im `[Code]`-Abschnitt auf der Willkommensseite nennen:
+  „Natter 0.3.2 ist installiert und wird auf 0.3.3 aktualisiert. Die
+  Projekte bleiben erhalten." Ist die installierte Fassung neuer,
+  nachfragen oder abbrechen.
+- Den Programmordner vollständig ersetzen, weil alles, was einem
+  Benutzer gehört, woanders liegt: Projekte unter `Dokumente\Natter`,
+  Einstellungen unter `%APPDATA%\Natter`. Zwei übliche Wege: den
+  Anwendungsordner vor dem Kopieren leeren (`[InstallDelete]` mit
+  `filesandordirs` für `{app}\python`), oder die alte Fassung vorher
+  still über ihren eigenen Uninstaller entfernen. Der erste Weg ist
+  der schlichtere und behält die Startmenü-Einträge.
+- Eine laufende Natter vorher schließen (`CloseApplications`, Inno
+  nutzt dafür den Neustart-Manager von Windows).
+
+**Zu klären:** Über das Menü „Pakete" nachinstallierte Pakete liegen
+in `{app}\python` und gingen beim vollständigen Ersetzen verloren. Die
+Update-Meldung muss das sagen, oder die Liste der nachinstallierten
+Pakete wird vorher gesichert und danach wieder eingespielt.
+
+**Zu tun:** Hinweis auf der Willkommensseite mit alter und neuer
+Nummer, Ordner-Seiten bei einem Update überspringen, Schutz gegen
+eine ältere Fassung, `{app}\python` vor dem Kopieren vollständig
+leeren, laufende Natter schließen. Erledigt, wenn ein Update von
+0.3.2 auf die neue Fassung den Hinweis zeigt, danach keine Datei der
+alten Fassung mehr im Programmordner liegt und Projekte und
+Einstellungen unberührt sind.
 
 ---
 

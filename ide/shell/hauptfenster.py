@@ -104,6 +104,7 @@ from ide.shell.startbild import (
 from ide.shell.suchen_dialog import SuchenErsetzenDialog
 from ide.shell.tastenkuerzel import als_markdown as tastenkuerzel_als_markdown
 from ide.shell.theme import ide_qss_erzeugen
+from ide.shell.vervollstaendigung import aufwaermen as vervollstaendigung_aufwaermen
 from ide.testrunner import Testergebnis, ergebnisse_als_html, tests_ausfuehren
 from ide.viewers import (
     MARKDOWN_ENDUNGEN,
@@ -502,6 +503,10 @@ class HauptFenster(QMainWindow):
         self.vervollstaendigung_aktion.toggled.connect(
             self._vervollstaendigung_umschalten
         )
+        # Einmal jetzt, im Hintergrund: der erste Vorschlag kostete
+        # sonst ein bis zwei Sekunden, in denen der Editor stillstand.
+        if self.vervollstaendigung_aktion.isChecked() and not pruefungsmodus_laeuft():
+            vervollstaendigung_aufwaermen()
 
         # „Ansicht → Zeilenumbruch“ (M11, Abschnitt 2.3). Standardmäßig
         # aus: in Python trägt die Einrückung Bedeutung, und eine
@@ -1096,6 +1101,7 @@ class HauptFenster(QMainWindow):
             self._zuruecksetzen_pruefen()
         self._beispiel_menue = beispiel_menue
         self._beispielmenue_pruefen()
+        self._vervollstaendigung_pruefen()
 
         # Der Zustand der Start-Einträge hängt am Debugger und ändert
         # sich damit im Betrieb. Er wird an jeder Stelle nachgeführt,
@@ -1466,6 +1472,23 @@ class HauptFenster(QMainWindow):
             "Beispielprojekte (im Prüfungsmodus gesperrt)"
             if laeuft
             else "Beispielprojekte"
+        )
+
+    def _vervollstaendigung_pruefen(self) -> None:
+        """Sperrt „Ansicht → Vervollständigung" im Prüfungsmodus.
+
+        Der Editor fragt den Prüfungsmodus bei jedem Vorschlag selbst
+        ab; der Menüeintrag zeigt nur an, warum gerade keiner kommt.
+        Gesperrt und nicht verschwunden, aus demselben Grund wie bei den
+        Beispielprojekten.
+        """
+        aktion = getattr(self, "vervollstaendigung_aktion", None)
+        if aktion is None:
+            return
+        laeuft = pruefungsmodus_laeuft()
+        aktion.setEnabled(not laeuft)
+        aktion.setText(
+            "Vervollständigung (im Prüfungsmodus aus)" if laeuft else "Vervollständigung"
         )
 
     def _startaktionen_pruefen(self) -> None:
@@ -2468,6 +2491,7 @@ class HauptFenster(QMainWindow):
         # stehen und das Beispielmenü offen, bis jemand das Fenster
         # wechselt - also genau so lange, wie es darauf ankommt.
         self._beispielmenue_pruefen()
+        self._vervollstaendigung_pruefen()
         self.startbild.aufbauen()
         self.statusBar().showMessage(
             f"{restzeit_text()}. Lösungsvorschläge und Quelltexterzeugung sind "

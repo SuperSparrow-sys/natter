@@ -25,7 +25,9 @@ braucht. Dieses Modul holt ihn direkt aus `pcl.properties`.
 
 from __future__ import annotations
 
+import html
 import re
+import threading
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -88,6 +90,112 @@ SCHLUESSELWORT_HILFE: dict[str, str] = {
     "while": "Schleife, solange die Bedingung zutrifft",
     "with": "öffnet etwas und schließt es zuverlässig wieder",
 }
+
+#: Deutsche Erklärungen zu den eingebauten Funktionen, die im Unterricht
+#: vorkommen. jedi liefert dafür Pythons eigene, englische Hilfe; neben
+#: `print` stand „Prints the values to a stream, or to sys.stdout by
+#: default." Was hier fehlt, bekommt gar keine Erklärung - lieber keine
+#: als eine englische.
+PYTHON_HILFE: dict[str, str] = {
+    "abs": "Betrag einer Zahl, ohne Vorzeichen",
+    "all": "wahr, wenn jedes Element zutrifft",
+    "any": "wahr, wenn mindestens ein Element zutrifft",
+    "bool": "Wahrheitswert: True oder False",
+    "chr": "das Zeichen zu einer Zahl im Zeichensatz",
+    "dict": "Wörterbuch aus Schlüsseln und Werten",
+    "enumerate": "zählt beim Durchlaufen mit: (Nummer, Element)",
+    "float": "Kommazahl",
+    "input": "liest eine Eingabe von der Tastatur, als Text",
+    "int": "ganze Zahl; wandelt auch Text wie \"42\" um",
+    "isinstance": "prüft, ob ein Wert von einem bestimmten Typ ist",
+    "len": "Anzahl der Elemente oder Zeichen",
+    "list": "Liste",
+    "max": "der größte Wert",
+    "min": "der kleinste Wert",
+    "open": "öffnet eine Datei zum Lesen oder Schreiben",
+    "ord": "die Zahl eines Zeichens im Zeichensatz",
+    "print": "gibt Werte aus",
+    "range": "Zahlenfolge, etwa für eine Zählschleife",
+    "reversed": "durchläuft etwas von hinten nach vorn",
+    "round": "rundet eine Zahl, auf Wunsch auf Nachkommastellen",
+    "set": "Menge ohne doppelte Elemente",
+    "sorted": "sortierte Kopie einer Folge",
+    "str": "Text; wandelt auch Zahlen in Text um",
+    "sum": "Summe aller Elemente",
+    "tuple": "unveränderliche Folge",
+    "type": "der Typ eines Werts",
+    "zip": "durchläuft mehrere Folgen nebeneinander",
+}
+
+#: jedi ist nicht dafür gebaut, aus zwei Fäden zugleich benutzt zu
+#: werden. Das Aufwärmen läuft im Hintergrund, alles andere beim Tippen.
+_JEDI_SPERRE = threading.Lock()
+
+#: Ob `aufwaermen()` in diesem Programmlauf schon angestoßen wurde.
+_aufgewaermt = False
+
+
+def aufwaermen() -> None:
+    """Lässt jedi im Hintergrund einmal arbeiten, bevor jemand tippt.
+
+    Der erste Vorschlag kostete 1,2 bis 2,2 Sekunden, weil jedi erst
+    seine Daten zu Python selbst einliest - und das geschah im
+    Tastendruck, der Editor stand so lange still. Danach sind es 50 bis
+    120 Millisekunden. Angestoßen wird das einmal je Programmlauf, beim
+    Start von Natter.
+    """
+    global _aufgewaermt
+    if _aufgewaermt:
+        return
+    _aufgewaermt = True
+    _aufwaermen_im_hintergrund()
+
+
+def _aufwaermen_im_hintergrund() -> None:
+    threading.Thread(
+        target=_aufwaermen_jetzt, name="jedi-aufwaermen", daemon=True
+    ).start()
+
+
+def _aufwaermen_jetzt() -> None:
+    try:
+        with _JEDI_SPERRE:
+            import jedi
+
+            # Nicht nur die Namen: Unterschrift und Hilfetext liest die
+            # Vorschlagsliste auch, und erst dabei lädt jedi die
+            # Beschreibung der eingebauten Funktionen. Nur mit
+            # `complete()` aufgewärmt, dauerte der erste echte Vorschlag
+            # noch 600 ms.
+            for eintrag in jedi.Script(code="pri").complete(1, 3):
+                eintrag.docstring(raw=True)
+                eintrag.get_signatures()
+            jedi.Script(code="print(").get_signatures(1, 6)
+        # Die deutschen Texte der Komponenten: beim ersten Aufruf wird
+        # dafür jede `pcl`-Komponente einmal durchgesehen.
+        _pcl_hilfetexte()
+    except Exception:  # noqa: BLE001 - Aufwärmen darf nie etwas stören
+        pass
+
+
+def _ist_eigener_code(modul_pfad: Path | None, pfad: Path | str | None) -> bool:
+    """Ob eine Fundstelle zum Projekt gehört statt zu Python oder einer
+    Bibliothek.
+
+    Nur dort steht ein Docstring, den jemand aus dem Kurs geschrieben
+    hat und der sich als Erklärung eignet. Ohne Pfad (eine noch nicht
+    gespeicherte Datei) liegt eigener Code in keiner Datei; alles aus
+    einer Datei im selben Ordner gehört ebenfalls dazu - eine andere
+    Unit desselben Projekts.
+    """
+    if modul_pfad is None:
+        return True
+    if not pfad:
+        return False
+    try:
+        return Path(modul_pfad).resolve().parent == Path(pfad).resolve().parent
+    except OSError:
+        return False
 
 
 @dataclass(frozen=True)
@@ -165,10 +273,21 @@ def eigene_komponenten(quelltext: str) -> dict[str, str]:
 
 
 def _erklaerung(
-    name: str, art: str, docstring: str, komponenten: dict[str, str]
+    name: str,
+    docstring: str,
+    komponenten: dict[str, str],
+    *,
+    modul: str = "",
+    eigen: bool = True,
 ) -> str:
     """Eine kurze deutsche Erklärung. Eine Liste aus nackten Namen
-    hilft niemandem, der gerade erst anfängt."""
+    hilft niemandem, der gerade erst anfängt.
+
+    Der Docstring zählt nur bei eigenem Code. Aus Python selbst und aus
+    Bibliotheken kommt er auf Englisch; für die eingebauten Funktionen
+    steht deshalb ein eigener deutscher Text in `PYTHON_HILFE`, alles
+    andere bleibt ohne Erklärung.
+    """
     if name in komponenten:
         return f"{komponenten[name]} auf diesem Formular"
     if name in SCHLUESSELWORT_HILFE:
@@ -176,6 +295,10 @@ def _erklaerung(
     aus_pcl = _pcl_hilfetexte().get(name)
     if aus_pcl:
         return aus_pcl
+    if modul == "builtins":
+        return PYTHON_HILFE.get(name, "")
+    if not eigen:
+        return ""
     erste_zeile = (docstring or "").strip().splitlines()
     return erste_zeile[0].strip() if erste_zeile else ""
 
@@ -192,6 +315,28 @@ def _rang(name: str, art: str, komponenten: dict[str, str]) -> int:
     return RANG_DATEI
 
 
+def _vorschlag_aus(eintrag, komponenten: dict[str, str], pfad) -> Vorschlag:  # noqa: ANN001
+    try:
+        docstring = eintrag.docstring(raw=True)
+        signatur = eintrag.name
+        unterschriften = eintrag.get_signatures()
+        if unterschriften:
+            signatur = unterschriften[0].to_string()
+        modul = eintrag.module_name or ""
+        eigen = _ist_eigener_code(eintrag.module_path, pfad)
+    except Exception:  # noqa: BLE001
+        docstring, signatur, modul, eigen = "", eintrag.name, "", False
+    return Vorschlag(
+        name=eintrag.name,
+        art=eintrag.type,
+        erklaerung=_erklaerung(
+            eintrag.name, docstring, komponenten, modul=modul, eigen=eigen
+        ),
+        signatur=signatur,
+        rang=_rang(eintrag.name, eintrag.type, komponenten),
+    )
+
+
 def vorschlaege(
     quelltext: str,
     zeile: int,
@@ -205,43 +350,26 @@ def vorschlaege(
     jedi selbst stolpert. Eine halb getippte Zeile ist syntaktisch fast
     immer kaputt; ein Fehler darf die Eingabe nie unterbrechen.
     """
-    try:
-        import jedi
-
-        skript = jedi.Script(code=quelltext, path=str(pfad) if pfad else None)
-        gefunden = skript.complete(zeile, spalte)
-    except Exception:  # noqa: BLE001 - beim Tippen darf nichts hochgehen
-        return []
-
     komponenten = eigene_komponenten(quelltext)
     ergebnis: list[Vorschlag] = []
-    for eintrag in gefunden:
-        # Alles mit führendem Unterstrich bleibt draußen. In Python
-        # heißt das „geht dich nichts an“, und für die Zielgruppe wären
-        # `_qwidget` oder `_bei_prop_aenderung` zwischen `caption` und
-        # `width` nicht nur Rauschen, sondern eine Einladung, an den
-        # Innereien zu drehen.
-        if eintrag.name.startswith("_"):
-            continue
-        try:
-            docstring = eintrag.docstring(raw=True)
-            signatur = eintrag.name
-            unterschriften = eintrag.get_signatures()
-            if unterschriften:
-                signatur = unterschriften[0].to_string()
-        except Exception:  # noqa: BLE001
-            docstring, signatur = "", eintrag.name
-        ergebnis.append(
-            Vorschlag(
-                name=eintrag.name,
-                art=eintrag.type,
-                erklaerung=_erklaerung(
-                    eintrag.name, eintrag.type, docstring, komponenten
-                ),
-                signatur=signatur,
-                rang=_rang(eintrag.name, eintrag.type, komponenten),
-            )
-        )
+    try:
+        with _JEDI_SPERRE:
+            import jedi
+
+            skript = jedi.Script(code=quelltext, path=str(pfad) if pfad else None)
+            gefunden = skript.complete(zeile, spalte)
+            for eintrag in gefunden:
+                # Alles mit führendem Unterstrich bleibt draußen. In
+                # Python heißt das „geht dich nichts an“, und für die
+                # Zielgruppe wären `_qwidget` oder
+                # `_bei_prop_aenderung` zwischen `caption` und `width`
+                # nicht nur Rauschen, sondern eine Einladung, an den
+                # Innereien zu drehen.
+                if eintrag.name.startswith("_"):
+                    continue
+                ergebnis.append(_vorschlag_aus(eintrag, komponenten, pfad))
+    except Exception:  # noqa: BLE001 - beim Tippen darf nichts hochgehen
+        return []
 
     ergebnis.sort(key=lambda v: (v.rang, v.name.lower()))
     return ergebnis[:hoechstzahl]
@@ -253,15 +381,63 @@ def parameterhilfe(
     """Welche Parameter hier erwartet werden – für die Anzeige beim
     Tippen der öffnenden Klammer. Leer, wenn es nichts zu sagen gibt."""
     try:
-        import jedi
+        with _JEDI_SPERRE:
+            import jedi
 
-        skript = jedi.Script(code=quelltext, path=str(pfad) if pfad else None)
-        unterschriften = skript.get_signatures(zeile, spalte)
+            skript = jedi.Script(code=quelltext, path=str(pfad) if pfad else None)
+            unterschriften = skript.get_signatures(zeile, spalte)
     except Exception:  # noqa: BLE001
         return ""
     if not unterschriften:
         return ""
     return unterschriften[0].to_string()
+
+
+def parameterhilfe_anzeige(
+    quelltext: str, zeile: int, spalte: int, pfad: Path | str | None = None
+) -> str:
+    """Die Parameterhilfe als Kurzhinweis in HTML: jeder Parameter mit
+    seinem Typ, der gerade einzugebende fett und unterstrichen, dahinter
+    der Rückgabetyp und darunter die Erklärung.
+
+    Typen stehen nur da, wo sie im Quelltext angegeben sind. Ohne
+    Angabe weiß niemand, was erwartet wird, und ein erfundener Typ
+    wäre schlimmer als keiner.
+
+    Leer, wenn es nichts zu sagen gibt.
+    """
+    try:
+        with _JEDI_SPERRE:
+            import jedi
+
+            skript = jedi.Script(code=quelltext, path=str(pfad) if pfad else None)
+            unterschriften = skript.get_signatures(zeile, spalte)
+            if not unterschriften:
+                return ""
+            unterschrift = unterschriften[0]
+            parameter = [p.to_string() for p in unterschrift.params]
+            aktuell = unterschrift.index
+            ganz = unterschrift.to_string()
+            docstring = unterschrift.docstring(raw=True)
+            modul = unterschrift.module_name or ""
+            eigen = _ist_eigener_code(unterschrift.module_path, pfad)
+            name = unterschrift.name
+    except Exception:  # noqa: BLE001
+        return ""
+
+    teile = []
+    for nummer, text in enumerate(parameter):
+        text = html.escape(text)
+        teile.append(f"<b><u>{text}</u></b>" if nummer == aktuell else text)
+    zeile_oben = f"{html.escape(name)}({', '.join(teile)})"
+    _, pfeil, rueckgabe = ganz.rpartition(") -> ")
+    if pfeil and rueckgabe:
+        zeile_oben += f" → {html.escape(rueckgabe)}"
+
+    erklaerung = _erklaerung(name, docstring, {}, modul=modul, eigen=eigen)
+    if erklaerung:
+        return f"{zeile_oben}<br><i>{html.escape(erklaerung)}</i>"
+    return zeile_oben
 
 
 @dataclass(frozen=True)
@@ -304,10 +480,11 @@ def definition(
     woher der Name stammt, statt die Datei zu öffnen.
     """
     try:
-        import jedi
+        with _JEDI_SPERRE:
+            import jedi
 
-        skript = jedi.Script(code=quelltext, path=str(pfad) if pfad else None)
-        gefunden = skript.goto(zeile, spalte, follow_imports=True)
+            skript = jedi.Script(code=quelltext, path=str(pfad) if pfad else None)
+            gefunden = skript.goto(zeile, spalte, follow_imports=True)
     except Exception:  # noqa: BLE001 - F12 darf nie etwas hochgehen lassen
         return None
     if not gefunden:
