@@ -94,7 +94,7 @@ $zaehler = 0
 
 foreach ($datei in $offen) {
     $zaehler++
-    if ($zaehler % 50 -eq 0) {
+    if ($zaehler % 10 -eq 0) {
         Write-Host ("  {0}/{1} ..." -f $zaehler, $offen.Count)
     }
     # Mit Zeitstempel: ohne ihn werden alle Signaturen ungueltig,

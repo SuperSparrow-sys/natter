@@ -66,6 +66,14 @@ def _echte_dateien_geschuetzt(tmp_path_factory, monkeypatch: pytest.MonkeyPatch)
         pfad.write_text(inhalt, encoding="utf-8")
         monkeypatch.setattr(bau, name, pfad)
 
+    # Protokoll, Schrittzeiten und Teststempel: ein Test, der den Lauf
+    # antreibt, schriebe sie sonst nach `dist/` und `build/` - und ein
+    # Teststempel dort ließe den nächsten echten Bau glauben, die
+    # Tests seien schon grün gewesen.
+    monkeypatch.setattr(bau, "_BAU_CACHE", ordner / "bau-cache")
+    monkeypatch.setattr(bau, "_TEST_STEMPEL", ordner / "bau-cache" / "tests.json")
+    monkeypatch.setattr(bau, "_PROTOKOLL", ordner / "auslieferung.log")
+
 
 @pytest.fixture
 def echte_pfade(monkeypatch: pytest.MonkeyPatch) -> None:

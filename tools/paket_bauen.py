@@ -22,6 +22,7 @@ import html
 import re
 import shutil
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
 
 WURZEL = Path(__file__).resolve().parent.parent
@@ -261,22 +262,46 @@ def paket_bauen(*, version: str, ziel: Path | None = None) -> Path:
     return ordner
 
 
-def zip_bauen(version: str, *, ordner: Path | None = None) -> Path:
+#: Was schon gepackt ist und im ZIP nur abgelegt wird. Die Setup-Datei
+#: ist mit LZMA komprimiert; ein zweites Mal durch Deflate gejagt,
+#: kostet sie Zeit und wird nicht kleiner.
+_SCHON_GEPACKT = {".exe"}
+
+
+def zip_bauen(
+    version: str,
+    *,
+    ordner: Path | None = None,
+    fortschritt: Callable[[int, int], None] | None = None,
+) -> Path:
     """Packt das Paket in ein ZIP mit der Versionsnummer im Namen.
 
     Die Nummer steht im Dateinamen, weil auf einem USB-Stick sonst
     zwei Fassungen nebeneinander liegen, denen man nicht ansieht,
     welche die neuere ist.
+
+    `fortschritt` bekommt nach jeder Datei die geschriebenen und die
+    gesamten Bytes.
     """
     quelle = ordner or _ZIEL
     ziel = quelle.parent / f"Natter-{version}-fuer-Lehrkraefte.zip"
     if ziel.exists():
         ziel.unlink()
 
+    dateien = [pfad for pfad in sorted(quelle.rglob("*")) if pfad.is_file()]
+    gesamt = sum(pfad.stat().st_size for pfad in dateien)
+    geschrieben = 0
     with zipfile.ZipFile(ziel, "w", zipfile.ZIP_DEFLATED) as archiv:
-        for pfad in sorted(quelle.rglob("*")):
-            if pfad.is_file():
-                archiv.write(pfad, pfad.relative_to(quelle).as_posix())
+        for pfad in dateien:
+            verfahren = (
+                zipfile.ZIP_STORED
+                if pfad.suffix.lower() in _SCHON_GEPACKT
+                else zipfile.ZIP_DEFLATED
+            )
+            archiv.write(pfad, pfad.relative_to(quelle).as_posix(), compress_type=verfahren)
+            geschrieben += pfad.stat().st_size
+            if fortschritt is not None:
+                fortschritt(geschrieben, gesamt)
     return ziel
 
 

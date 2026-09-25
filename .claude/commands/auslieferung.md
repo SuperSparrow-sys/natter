@@ -44,12 +44,29 @@ zusammen mit allem anderen, was noch offen ist.
 uv run python -m tools.auslieferung_bauen [--version <Nummer>]
 ```
 
-Der Lauf dauert **zwanzig bis dreißig Minuten** – Tests, `pip`,
-PyInstaller und die LZMA2-Kompression des Installers. Starte ihn im
-Hintergrund und arbeite nicht daneben am selben Baum weiter; sonst baut
-er einen Stand, den es nie gab.
+Der Lauf dauert **rund eine halbe Stunde**, davon die Hälfte für die
+Tests. Starte ihn im Hintergrund und arbeite nicht daneben am selben
+Baum weiter; sonst baut er einen Stand, den es nie gab.
 
-Die zehn Schritte prüfen sich gegenseitig ab. Wichtig sind:
+In einer Konsole zeigt er Balken für den ganzen Bau und den laufenden
+Schritt samt Restzeit; umgeleitet in eine Datei gibt er einfache Zeilen
+aus. Jede Zeile aller beteiligten Programme steht in
+`dist\auslieferung.log`, auch wenn der Bildschirm nur das Ergebnis
+zeigt. Die Schätzungen stammen aus dem letzten Lauf
+(`build\bau-cache\bauzeiten.json`).
+
+Zwei Abkürzungen greifen von selbst, und beide nur, wo sich am Ergebnis
+nichts ändern kann:
+
+- **Schritt 4** entfällt, wenn derselbe eingecheckte Stand mit
+  denselben Paketen schon einmal grün war – etwa beim Neustart nach
+  einem Abbruch in Schritt 8. Mit offenen Änderungen im Baum laufen
+  die Tests immer; `--alle-tests` erzwingt sie.
+- **Schritt 5** signiert nur, was sich seit dem letzten Bau geändert
+  hat; unveränderte Dateien bekommen ihre aufgehobene Signatur zurück.
+  Schritt 10 prüft trotzdem jede einzelne.
+
+Die elf Schritte prüfen sich gegenseitig ab. Wichtig sind:
 
 - **Schritt 4 (`pytest`)** – rot heißt: nicht bauen, Fehler beheben.
 - **Schritt 6 (Rauchprobe in der gebauten Python)** – die Prüfung, die
@@ -63,6 +80,8 @@ Die zehn Schritte prüfen sich gegenseitig ab. Wichtig sind:
 ## 4. Wenn es abbricht
 
 Rate nicht, sondern lies die Ausgabe des fehlgeschlagenen Schritts.
+Die Meldung zeigt deren Ende; vollständig steht sie in
+`dist\auslieferung.log`.
 Behebe die Ursache und starte **den ganzen Lauf neu**, nicht nur den
 einen Schritt – die Schritte bauen aufeinander auf.
 

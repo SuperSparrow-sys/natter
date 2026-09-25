@@ -49,17 +49,31 @@ gebauten `pcl`/`ide`-Pakets, läuft nie aus der laufenden IDE heraus.
 from __future__ import annotations
 
 import argparse
+import hashlib
+import io
+import json
 import re
 import shutil
 import subprocess
 import sys
 import time
+import traceback
+from importlib.metadata import distributions
 from pathlib import Path
 
 from ide.integritaet import ManifestFehler, manifest_pruefen
-from tools.ide_paketieren import paketieren
+from tools.fortschritt import Anzeige, Bauzeiten, ausfuehren
+from tools.ide_paketieren import SIGNIERTE_ENDUNGEN, paketieren
 
 _PROJEKT_WURZEL = Path(__file__).resolve().parent.parent
+
+#: Was von Bau zu Bau aufgehoben wird: die gemessenen Schrittzeiten,
+#: der Stempel des letzten grünen Testlaufs und die signierten
+#: Fassungen unveränderter Dateien. Der Ordner trägt eine eigene
+#: `.gitignore`, wie `build/python-download`.
+_BAU_CACHE = _PROJEKT_WURZEL / "build" / "bau-cache"
+_TEST_STEMPEL = _BAU_CACHE / "tests.json"
+_PROTOKOLL = _PROJEKT_WURZEL / "dist" / "auslieferung.log"
 _PYPROJECT = _PROJEKT_WURZEL / "pyproject.toml"
 _ISS = _PROJEKT_WURZEL / "tools" / "natter.iss"
 _MAIN = _PROJEKT_WURZEL / "ide" / "main.py"
@@ -142,41 +156,123 @@ print("Rauchprobe bestanden")
 #: Schritt ausgibt - wer zusieht, will wissen, wie weit es noch ist.
 _SCHRITTE = 11
 
-#: Was Windows lädt und deshalb signiert sein muss. Dieselbe Liste
-#: steht in `tools/signieren/alles_signieren.ps1`; liefen die beiden
-#: auseinander, prüfte Schritt 10 etwas anderes, als der Bau signiert
-#: hat. `tests/test_auslieferung_bauen.py` hält sie zusammen.
-_SIGNIERTE_ENDUNGEN = (".exe", ".dll", ".pyd", ".sys", ".cat", ".ocx")
+#: Was Windows lädt und deshalb signiert sein muss - dieselbe Liste,
+#: nach der der Bau signiert. Stünde sie hier ein zweites Mal, prüfte
+#: Schritt 10 womöglich etwas anderes, als signiert wurde.
+_SIGNIERTE_ENDUNGEN = SIGNIERTE_ENDUNGEN
 
 
 class BauFehler(RuntimeError):
     """Ein Schritt ist fehlgeschlagen; der Bau wird abgebrochen."""
 
 
+class _StillerMelder:
+    """Nimmt Ausgaben entgegen und tut nichts damit - so verhalten
+    sich die Schritte, wenn sie einzeln aufgerufen werden, etwa aus
+    den Tests heraus: wie früher, ohne Zwischenzeilen."""
+
+    def zeile(self, text: str) -> None:
+        pass
+
+    def stand(self, erledigt: int, gesamt: int, einheit: str = "") -> None:
+        pass
+
+    def anteil(self, wert: float) -> None:
+        pass
+
+
+#: Die Anzeige des laufenden Baus. Außerhalb von `auslieferung_bauen()`
+#: der stille Melder.
+_anzeige: Anzeige | _StillerMelder = _StillerMelder()
+_uebersprungen_markiert = False
+
+
+class _Zeilenweiche(io.TextIOBase):
+    """Leitet `print()` während des Baus zur Anzeige um. Jede Zeile,
+    die ein Schritt ausgibt, ist sein Ergebnis und soll über den
+    Balken stehen bleiben - ohne dass jede Stelle im Skript davon
+    wissen muss."""
+
+    def __init__(self, ziel) -> None:  # noqa: ANN001
+        super().__init__()
+        self._ziel = ziel
+        self._rest = ""
+
+    def write(self, text: str) -> int:
+        self._rest += text
+        while "\n" in self._rest:
+            zeile, self._rest = self._rest.split("\n", 1)
+            if zeile.strip():
+                self._ziel(zeile)
+        return len(text)
+
+    def flush(self) -> None:
+        pass
+
+
 def _schritt(nummer: int, text: str) -> None:
-    print(f"\n[{nummer}/{_SCHRITTE}] {text}", flush=True)
+    _schritt_beenden()
+    if isinstance(_anzeige, Anzeige):
+        _anzeige.schritt(nummer, text)
+    else:
+        print(f"\n[{nummer}/{_SCHRITTE}] {text}", flush=True)
 
 
-def _laufen_lassen(befehl: list[str], *, was: str, cwd: Path | None = None) -> str:
-    """Führt `befehl` aus und gibt die Ausgabe zurück. Bei einem
-    Fehlschlag wird die Ausgabe mit in die Meldung genommen - wer den
-    Bau nachts anstößt, soll am Morgen sehen, woran es lag."""
-    ergebnis = subprocess.run(
-        befehl,
-        cwd=str(cwd or _PROJEKT_WURZEL),
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
+def _schritt_beenden() -> None:
+    global _uebersprungen_markiert
+    if isinstance(_anzeige, Anzeige) and _anzeige.schritt_offen:
+        _anzeige.schritt_beendet(uebersprungen=_uebersprungen_markiert)
+    _uebersprungen_markiert = False
+
+
+def _ueberspringen(grund: str) -> None:
+    """Der laufende Schritt findet nicht statt. Seine Dauer geht dann
+    nicht in die Schätzung für den nächsten Lauf ein."""
+    global _uebersprungen_markiert
+    _uebersprungen_markiert = True
+    print(f"  {grund}")
+
+
+def _laufen_lassen(
+    befehl: list[str],
+    *,
+    was: str,
+    cwd: Path | None = None,
+    auswerten=None,  # noqa: ANN001
+) -> str:
+    """Führt `befehl` aus und gibt die Ausgabe zurück. Jede Zeile geht
+    sofort an die Anzeige und ins Protokoll. Bei einem Fehlschlag wird
+    die Ausgabe mit in die Meldung genommen - wer den Bau nachts
+    anstößt, soll am Morgen sehen, woran es lag."""
+    code, ausgabe = ausfuehren(
+        befehl, _anzeige, zeile_auswerten=auswerten, cwd=str(cwd or _PROJEKT_WURZEL)
     )
-    if ergebnis.returncode != 0:
-        ausgabe = (ergebnis.stdout or "") + (ergebnis.stderr or "")
+    if code != 0:
         letzte = "\n".join(ausgabe.strip().splitlines()[-25:])
         raise BauFehler(f"{was} fehlgeschlagen:\n{letzte}")
-    return (ergebnis.stdout or "").strip()
+    return ausgabe.strip()
 
 
 # --------------------------------------------------------------- 1
+
+
+def _git(*argumente: str) -> str | None:
+    """Die Ausgabe eines Git-Befehls, oder `None` ohne Git oder
+    Arbeitsbaum. Nur `stdout`: Git schreibt Hinweise wie „LF will be
+    replaced by CRLF" auf `stderr`, und die zählten sonst als
+    geänderte Dateien."""
+    try:
+        ergebnis = subprocess.run(
+            ["git", *argumente],
+            cwd=_PROJEKT_WURZEL,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except FileNotFoundError:
+        return None
+    return ergebnis.stdout.strip() if ergebnis.returncode == 0 else None
 
 
 def _arbeitsbaum_ansehen() -> None:
@@ -187,9 +283,8 @@ def _arbeitsbaum_ansehen() -> None:
     es nicht: welcher Stand darin steckt, lässt sich hinterher nicht
     mehr feststellen. Deshalb steht es hier deutlich in der Ausgabe.
     """
-    try:
-        offen = _laufen_lassen(["git", "status", "--porcelain"], was="git status")
-    except (BauFehler, FileNotFoundError):
+    offen = _git("status", "--porcelain")
+    if offen is None:
         print("  Kein Git-Arbeitsbaum - übersprungen.")
         return
 
@@ -314,10 +409,87 @@ def _ruff_pruefen() -> None:
     print("  Keine Beanstandungen.")
 
 
-def _tests_laufen_lassen() -> None:
-    ausgabe = _laufen_lassen([sys.executable, "-m", "pytest", "-q"], was="pytest")
+def _prozent_von_pytest(zeile: str) -> None:
+    """pytest schreibt hinter jede Zeile Punkte seinen Stand, etwa
+    „[ 58%]". Daraus wird der Balken."""
+    treffer = re.search(r"\[\s*(\d+)%\]\s*$", zeile)
+    if treffer:
+        _anzeige.anteil(int(treffer.group(1)) / 100)
+
+
+def _teststand() -> str | None:
+    """Ein Fingerabdruck dessen, was die Tests prüfen, oder `None`,
+    wenn er sich nicht sicher bestimmen lässt.
+
+    Er besteht aus dem Git-Baum des eingecheckten Stands und den
+    installierten Paketen samt Versionen. Liegt irgendetwas nicht
+    eingecheckt im Arbeitsbaum - geändert oder neu -, gibt es keinen
+    Fingerabdruck: dann ist nicht sicher, was die Tests sähen, und sie
+    laufen.
+    """
+    offen = _git("status", "--porcelain")
+    baum = _git("rev-parse", "HEAD^{tree}")
+    if offen is None or offen or not baum:
+        return None
+    pakete = sorted(
+        f"{verteilung.metadata['Name']}=={verteilung.version}"
+        for verteilung in distributions()
+    )
+    inhalt = "\n".join([baum, sys.version, *pakete])
+    return hashlib.sha256(inhalt.encode("utf-8")).hexdigest()
+
+
+def _tests_schon_gruen(stand: str | None) -> str | None:
+    """Wann derselbe Stand zuletzt grün getestet wurde, oder `None`."""
+    if stand is None:
+        return None
+    try:
+        gemerkt = json.loads(_TEST_STEMPEL.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return gemerkt.get("zeit") if gemerkt.get("stand") == stand else None
+
+
+def _tests_gruen_merken(stand: str | None, ergebnis: str) -> None:
+    if stand is None:
+        return
+    _TEST_STEMPEL.parent.mkdir(parents=True, exist_ok=True)
+    (_TEST_STEMPEL.parent / ".gitignore").write_text("*\n", encoding="utf-8")
+    _TEST_STEMPEL.write_text(
+        json.dumps(
+            {"stand": stand, "zeit": time.strftime("%d.%m.%Y %H:%M"), "ergebnis": ergebnis},
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+
+def _tests_laufen_lassen(*, immer: bool = False) -> None:
+    """Lässt pytest laufen - es sei denn, genau dieser Stand war schon
+    grün.
+
+    Ein Bau, der hinter den Tests scheitert, an einer Zeitstempel-
+    Anfrage etwa oder an Inno Setup, wird ohne jede Änderung am Code
+    neu gestartet. Die gut dreizehn Minuten Tests brächten dann
+    dasselbe Ergebnis wie beim ersten Mal. Übersprungen wird nur, wenn
+    sich das sicher sagen lässt, siehe `_teststand()`; mit
+    `--alle-tests` nie.
+    """
+    stand = _teststand()
+    zuletzt = None if immer else _tests_schon_gruen(stand)
+    if zuletzt is not None:
+        _ueberspringen(
+            f"Übersprungen: derselbe eingecheckte Stand mit denselben Paketen "
+            f"war am {zuletzt} grün."
+        )
+        return
+
+    ausgabe = _laufen_lassen(
+        [sys.executable, "-m", "pytest", "-q"], was="pytest", auswerten=_prozent_von_pytest
+    )
     letzte = ausgabe.strip().splitlines()[-1] if ausgabe.strip() else "(keine Ausgabe)"
     print(f"  {letzte}")
+    _tests_gruen_merken(stand, letzte)
 
 
 # --------------------------------------------------------------- 6
@@ -411,8 +583,22 @@ def _installer_bauen() -> Path:
         "powershell.exe -NoProfile -ExecutionPolicy Bypass "
         f"-File $q{_SIGNIER_SKRIPT}$q -Datei $f"
     )
+    # Inno meldet jede Datei mit „Compressing: …". Gezählt gegen die
+    # Dateien in `dist\Natter` ergibt das einen echten Balken statt
+    # einer Schätzung - dieser Schritt ist nach den Tests der längste.
+    gesamt = sum(1 for pfad in _AUSGABE.rglob("*") if pfad.is_file())
+    gepackt = 0
+
+    def auswerten(zeile: str) -> None:
+        nonlocal gepackt
+        if zeile.lstrip().startswith("Compressing:"):
+            gepackt += 1
+            _anzeige.stand(min(gepackt, gesamt), gesamt, "Dateien")
+
     _laufen_lassen(
-        [str(iscc), f"/Snatter={signierbefehl}", str(_ISS)], was="Inno Setup"
+        [str(iscc), f"/Snatter={signierbefehl}", str(_ISS)],
+        was="Inno Setup",
+        auswerten=auswerten,
     )
     if not _INSTALLER.exists():
         raise BauFehler(f"Inno Setup meldete Erfolg, aber {_INSTALLER.name} fehlt.")
@@ -466,21 +652,40 @@ def _luecken_in_den_signaturen(ordner: Path) -> list[str]:
     # meldete deshalb 29341 Lücken, angeführt von `manifest.json` und
     # den Lizenztexten.
     endungen = ", ".join(f"'{e}'" for e in _SIGNIERTE_ENDUNGEN)
+    # Eine Zeile je geprüfter Datei: „OK" oder „LUECKE <Pfad>". Die
+    # OK-Zeilen braucht niemand zu lesen, aber an ihnen zählt die
+    # Anzeige mit, wie weit die Prüfung ist.
     befehl = (
         f"Get-ChildItem -LiteralPath '{ordner}' -Recurse -File "
         "-ErrorAction SilentlyContinue | "
         f"Where-Object {{ $_.Extension -in {endungen} }} | "
         "ForEach-Object { $s = Get-AuthenticodeSignature $_.FullName; "
-        "if ($s.Status -ne 'Valid') { Write-Output $_.FullName } }"
+        "if ($s.Status -ne 'Valid') { Write-Output ('LUECKE ' + $_.FullName) } "
+        "else { Write-Output 'OK' } }"
     )
-    ergebnis = subprocess.run(
+    gesamt = sum(
+        1
+        for pfad in ordner.rglob("*")
+        if pfad.suffix.lower() in _SIGNIERTE_ENDUNGEN and pfad.is_file()
+    )
+    geprueft = 0
+    luecken: list[str] = []
+
+    def auswerten(zeile: str) -> None:
+        nonlocal geprueft
+        zeile = zeile.strip()
+        if zeile == "OK" or zeile.startswith("LUECKE "):
+            geprueft += 1
+            _anzeige.stand(min(geprueft, gesamt), gesamt, "Dateien")
+        if zeile.startswith("LUECKE "):
+            luecken.append(zeile.removeprefix("LUECKE "))
+
+    ausfuehren(
         ["powershell", "-NoProfile", "-Command", befehl],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
+        _StillerMelder(),
+        zeile_auswerten=auswerten,
     )
-    return [z.strip() for z in (ergebnis.stdout or "").splitlines() if z.strip()]
+    return luecken
 
 
 def _alle_signaturen_pruefen(ordner: Path) -> None:
@@ -497,8 +702,8 @@ def _alle_signaturen_pruefen(ordner: Path) -> None:
     raise BauFehler(
         f"{len(luecken)} Datei(en) ohne gültige Signatur:\n"
         f"{beispiele}{weitere}\n\n"
-        "Smart App Control blockiert den Start, sobald eine davon geladen "
-        "wird - auch mit eingetragenem Zertifikat. Erst "
+        "Eine unsignierte Datei nennt keinen Herausgeber, und eine "
+        "nachträgliche Veränderung fiele an ihr nicht auf. Erst "
         "tools/signieren/alles_signieren.ps1 laufen lassen."
     )
 
@@ -555,7 +760,13 @@ def _paket_packen(version: str) -> None:
     except PaketFehler as fehler:
         raise BauFehler(str(fehler)) from fehler
 
-    archiv = zip_bauen(version, ordner=ordner)
+    archiv = zip_bauen(
+        version,
+        ordner=ordner,
+        fortschritt=lambda fertig, gesamt: _anzeige.stand(
+            fertig // (1024 * 1024), gesamt // (1024 * 1024), "MB"
+        ),
+    )
     groesse = archiv.stat().st_size / 1024 / 1024
     print(f"  {ordner}")
     print(f"  {archiv.name} ({groesse:.0f} MB)")
@@ -566,9 +777,63 @@ def auslieferung_bauen(
     version: str | None = None,
     mit_tests: bool = True,
     nur_installer: bool = False,
+    alle_tests: bool = False,
+    live: bool | None = None,
 ) -> Path:
     """Führt den kompletten Bau aus und liefert den Pfad der fertigen
-    `Natter-Setup.exe`."""
+    `Natter-Setup.exe`.
+
+    Während des Baus zeigt eine Anzeige den Fortschritt (siehe
+    `tools/fortschritt.py`), und jede Zeile aller beteiligten Programme
+    landet in `dist/auslieferung.log`. Bei einem Fehler steht das Ende
+    des Protokolls in der Meldung, der Rest in der Datei.
+    """
+    global _anzeige
+    _BAU_CACHE.mkdir(parents=True, exist_ok=True)
+    (_BAU_CACHE / ".gitignore").write_text("*\n", encoding="utf-8")
+    anzeige = Anzeige(
+        _SCHRITTE, _PROTOKOLL, Bauzeiten(_BAU_CACHE / "bauzeiten.json"), live=live
+    )
+    vorher = sys.stdout
+    _anzeige = anzeige
+    sys.stdout = _Zeilenweiche(anzeige.ergebnis)
+    try:
+        installer, nummer, dauer = _alle_schritte(
+            version=version,
+            mit_tests=mit_tests,
+            nur_installer=nur_installer,
+            alle_tests=alle_tests,
+        )
+    except BauFehler as fehler:
+        anzeige.fehler(str(fehler))
+        raise
+    except Exception as fehler:
+        # Alles, was keine erwartete Bau-Meldung ist - ein Fehler in
+        # pip, in PyInstaller oder in diesem Skript selbst. Die Balken
+        # verschwinden trotzdem sauber, und der vollständige
+        # Stapelverlauf steht im Protokoll.
+        anzeige.fehler(f"{type(fehler).__name__}: {fehler}\n\n{traceback.format_exc()}")
+        raise BauFehler(str(fehler)) from fehler
+    finally:
+        sys.stdout = vorher
+        _anzeige = _StillerMelder()
+
+    anzeige.beenden(
+        f"\nFertig: Natter {nummer} als {installer} "
+        f"({installer.stat().st_size / 1024 / 1024:.1f} MB) "
+        f"in {dauer / 60:.1f} Minuten.\n"
+        f"Protokoll: {_PROTOKOLL}"
+    )
+    return installer
+
+
+def _alle_schritte(
+    *,
+    version: str | None,
+    mit_tests: bool,
+    nur_installer: bool,
+    alle_tests: bool,
+) -> tuple[Path, str, float]:
     beginn = time.monotonic()
 
     _schritt(1, "Arbeitsbaum ansehen")
@@ -579,23 +844,26 @@ def auslieferung_bauen(
 
     _schritt(3, "ruff check")
     if nur_installer:
-        print("  Übersprungen (--nur-installer).")
+        _ueberspringen("Übersprungen (--nur-installer).")
     else:
         _ruff_pruefen()
 
     _schritt(4, "pytest")
     if nur_installer or not mit_tests:
-        print("  Übersprungen.")
+        _ueberspringen("Übersprungen.")
     else:
-        _tests_laufen_lassen()
+        _tests_laufen_lassen(immer=alle_tests)
 
     _schritt(5, "dist\\Natter bauen")
     if nur_installer:
         if not _AUSGABE.exists():
             raise BauFehler(f"{_AUSGABE} fehlt - ohne --nur-installer starten.")
-        print(f"  Vorhandenen Ordner benutzt: {_AUSGABE}")
+        _ueberspringen(f"Vorhandenen Ordner benutzt: {_AUSGABE}")
     else:
-        paketieren()
+        try:
+            paketieren(melder=_anzeige)
+        except RuntimeError as fehler:
+            raise BauFehler(str(fehler)) from fehler
         print(f"  {_AUSGABE}")
 
     _schritt(6, "Rauchprobe in der gebauten Python")
@@ -618,14 +886,9 @@ def auslieferung_bauen(
 
     _schritt(11, "Paket für die Schule packen")
     _paket_packen(nummer)
+    _schritt_beenden()
 
-    dauer = time.monotonic() - beginn
-    print(
-        f"\nFertig: Natter {nummer} als {installer} "
-        f"({installer.stat().st_size / 1024 / 1024:.1f} MB) "
-        f"in {dauer / 60:.1f} Minuten."
-    )
-    return installer
+    return installer, nummer, time.monotonic() - beginn
 
 
 def main(argumente: list[str] | None = None) -> int:
@@ -659,6 +922,19 @@ def main(argumente: list[str] | None = None) -> int:
             "PyInstaller, wenn nur an natter.iss etwas geändert wurde."
         ),
     )
+    zerleger.add_argument(
+        "--alle-tests",
+        action="store_true",
+        help=(
+            "pytest auch dann laufen lassen, wenn derselbe eingecheckte "
+            "Stand schon grün war."
+        ),
+    )
+    zerleger.add_argument(
+        "--ohne-balken",
+        action="store_true",
+        help="Einfache Zeilen statt Fortschrittsbalken, auch in einer Konsole.",
+    )
     werte = zerleger.parse_args(argumente)
 
     if werte.version and werte.nur_installer:
@@ -679,9 +955,12 @@ def main(argumente: list[str] | None = None) -> int:
             version=werte.version,
             mit_tests=not werte.ohne_tests,
             nur_installer=werte.nur_installer,
+            alle_tests=werte.alle_tests,
+            live=False if werte.ohne_balken else None,
         )
-    except BauFehler as fehler:
-        print(f"\nAbgebrochen: {fehler}", file=sys.stderr)
+    except BauFehler:
+        # Die Meldung hat die Anzeige schon ausgegeben, mit dem Ende
+        # des Protokolls und dem Pfad dorthin.
         return 1
     return 0
 

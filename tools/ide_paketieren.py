@@ -37,7 +37,9 @@ Beispiel:
 
 from __future__ import annotations
 
+import hashlib
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -45,6 +47,7 @@ from importlib.metadata import distributions
 from pathlib import Path
 
 from ide.integritaet import manifest_schreiben
+from tools.fortschritt import KonsolenMelder, ausfuehren
 from tools.python_beschaffen import python_beschaffen
 
 _PROJEKT_WURZEL = Path(__file__).resolve().parent.parent
@@ -74,6 +77,20 @@ _LIZENZ_VORLAGEN = Path(__file__).resolve().parent / "lizenz_vorlagen"
 _SIGNIER_SKRIPT = Path(__file__).resolve().parent / "signieren" / "datei_signieren.ps1"
 _ALLES_SIGNIEREN = Path(__file__).resolve().parent / "signieren" / "alles_signieren.ps1"
 _MANIFEST_SCHLUESSEL = Path(__file__).resolve().parent / "signieren" / "manifest-privat.pem"
+
+#: Was Windows lädt und deshalb signiert sein muss. Dieselbe Liste
+#: steht in `tools/signieren/alles_signieren.ps1`, und Schritt 10 von
+#: `tools/auslieferung_bauen.py` prüft genau diese Endungen;
+#: `tests/test_auslieferung_bauen.py` hält die beiden zusammen.
+SIGNIERTE_ENDUNGEN = (".exe", ".dll", ".pyd", ".sys", ".cat", ".ocx")
+
+#: Die signierten Fassungen unveränderter Dateien, siehe
+#: `_signieren_mit_zwischenspeicher`.
+_SIGNATUR_ABLAGE = _PROJEKT_WURZEL / "build" / "bau-cache" / "signaturen"
+
+#: Wohin Ausgaben und Fortschritt gehen. `paketieren()` setzt ihn; ohne
+#: Anzeige schreibt er wie früher in die Konsole.
+_melder: object = KonsolenMelder()
 
 # Nur diese Laufzeit-Abhängigkeiten interessieren (nicht pytest oder
 # pyinstaller selbst - die stecken nicht in der gebauten Exe).
@@ -168,7 +185,7 @@ def _python_bereitstellen() -> Path:
 
     gespart = _tcl_tk_entfernen(ziel)
     if gespart:
-        print(f"Tcl/Tk entfernt: {gespart / 1024 / 1024:.1f} MB gespart")
+        _melder.zeile(f"Tcl/Tk entfernt: {gespart / 1024 / 1024:.1f} MB gespart")
 
     # `uv` legt in seine Python-Installationen einen PEP-668-Vermerk
     # („extern verwaltet“), der jedes `pip install` ablehnt - richtig,
@@ -260,14 +277,27 @@ def _gesperrte_versionen(ziel: Path) -> Path | None:
     )
     if ergebnis.returncode != 0:
         meldung = ergebnis.stderr.strip().splitlines()[-1:] or ["uv nicht gefunden"]
-        print(f"Warnung: Versionen nicht aus uv.lock übernommen ({meldung[0]})")
+        _melder.zeile(f"Warnung: Versionen nicht aus uv.lock übernommen ({meldung[0]})")
         return None
 
     datei = ziel / "requirements-auslieferung.txt"
     datei.write_text(ergebnis.stdout, encoding="utf-8")
     anzahl = sum(1 for zeile in ergebnis.stdout.splitlines() if "==" in zeile)
-    print(f"Versionen aus uv.lock übernommen: {anzahl} Pakete")
+    _melder.zeile(f"Versionen aus uv.lock übernommen: {anzahl} Pakete")
     return datei
+
+
+def _pakete_zaehlen(gesamt: int):  # noqa: ANN202
+    """Zählt die Pakete, die pip meldet, für den Balken."""
+    geholt = 0
+
+    def auswerten(zeile: str) -> None:
+        nonlocal geholt
+        if gesamt and zeile.startswith(("Collecting ", "Requirement already satisfied")):
+            geholt += 1
+            _melder.stand(min(geholt, gesamt), gesamt, "Pakete")
+
+    return auswerten
 
 
 def _natter_installieren(python: Path) -> None:
@@ -297,12 +327,28 @@ def _natter_installieren(python: Path) -> None:
     # als Netz für den Fall ohne `uv`.
     schritte.append(("PyInstaller", ["pyinstaller"]))
 
+    # Für den Balken: wie viele Pakete pip anfassen wird. Jede Zeile in
+    # der Liste, die mit einem Paketnamen beginnt, ist eines; darunter
+    # stehen eingerückt die Prüfsummen.
+    anzahl = 0
+    if gesperrt is not None:
+        anzahl = sum(
+            1
+            for zeile in gesperrt.read_text(encoding="utf-8").splitlines()
+            if re.match(r"[A-Za-z0-9]", zeile)
+        )
+
     for schritt, argumente in schritte:
-        print(f"Installiere {schritt} in die mitgelieferte Python ...", flush=True)
-        # Ausgabe bewusst nicht eingefangen: ein Bau, der Minuten
-        # läuft, soll zeigen, wo er steht - und wenn etwas schiefgeht,
-        # will man pips eigene Zeilen sehen.
-        ergebnis = subprocess.run(
+        _melder.zeile(f"Installiere {schritt} in die mitgelieferte Python ...")
+        # Gezählt wird nur bei der Liste aus `uv.lock`; bei Natter selbst
+        # und PyInstaller steht die Gesamtzahl nicht fest.
+        auswerten = _pakete_zaehlen(anzahl if argumente[:1] == ["-r"] else 0)
+
+        # Jede Zeile von pip geht sofort weiter: ins Protokoll und als
+        # Hinweis unter den Balken. Ein Bau, der Minuten läuft, soll
+        # zeigen, wo er steht - und wenn etwas schiefgeht, will man
+        # pips eigene Zeilen sehen.
+        code, ausgabe = ausfuehren(
             [
                 str(python),
                 "-m",
@@ -312,12 +358,14 @@ def _natter_installieren(python: Path) -> None:
                 "--disable-pip-version-check",
                 *argumente,
             ],
+            _melder,
+            zeile_auswerten=auswerten,
             env=_saubere_umgebung(),
         )
-        if ergebnis.returncode != 0:
+        if code != 0:
+            letzte = "\n".join(ausgabe.strip().splitlines()[-15:])
             raise RuntimeError(
-                f"pip install {schritt} fehlgeschlagen (Rückgabewert "
-                f"{ergebnis.returncode}), siehe Ausgabe oben."
+                f"pip install {schritt} fehlgeschlagen (Rückgabewert {code}):\n{letzte}"
             )
 
 
@@ -375,11 +423,12 @@ def _starter_bauen() -> None:
         str(_SPEC_ORDNER),
         str(_STARTER_SKRIPT),
     ]
-    ergebnis = subprocess.run(befehl, cwd=_PROJEKT_WURZEL)
+    code, ausgabe = ausfuehren(befehl, _melder, cwd=_PROJEKT_WURZEL)
     shutil.rmtree(_BUILD_ORDNER, ignore_errors=True)
     shutil.rmtree(_SPEC_ORDNER, ignore_errors=True)
-    if ergebnis.returncode != 0:
-        raise RuntimeError("Der Bau des Starters ist fehlgeschlagen, siehe Ausgabe oben.")
+    if code != 0:
+        letzte = "\n".join(ausgabe.strip().splitlines()[-15:])
+        raise RuntimeError(f"Der Bau des Starters ist fehlgeschlagen:\n{letzte}")
 
     quelle = _DIST_ORDNER / "_starter" / "Natter.exe"
     shutil.copy2(quelle, _AUSGABE / "Natter.exe")
@@ -432,7 +481,7 @@ def _lizenzen_sammeln(ziel: Path) -> None:
 
     fehlend = set(_LAUFZEIT_PAKETE) - gesehen
     if fehlend:
-        print(f"Warnung: keine Lizenzinformation gefunden für: {sorted(fehlend)}")
+        _melder.zeile(f"Warnung: keine Lizenzinformation gefunden für: {sorted(fehlend)}")
 
 
 def _exe_signieren(datei: Path) -> None:
@@ -457,30 +506,40 @@ def _exe_signieren(datei: Path) -> None:
     )
     if ergebnis.returncode != 0:
         meldung = ergebnis.stderr.strip() or ergebnis.stdout.strip()
-        print(f"Warnung: Signieren übersprungen ({meldung})")
+        _melder.zeile(f"Warnung: Signieren übersprungen ({meldung})")
         return
-    print(ergebnis.stdout.strip())
+    _melder.zeile(ergebnis.stdout.strip())
 
 
 def _alles_signieren(ordner: Path) -> None:
     """Signiert jede Binärdatei im Ordner, die noch keine gültige
     Signatur trägt.
 
-    Smart App Control prüft nicht die Exe, sondern jede Datei, die
-    geladen wird. Bis September 2026 signierte der Bau nur
-    `Natter.exe`; von 820 Binärdateien blieben 377 ohne Signatur,
-    darunter die gesamte mitgelieferte Python samt numpy, scipy,
-    pandas und sklearn. Auf einem Rechner mit eingeschaltetem Smart
-    App Control starb Natter deshalb beim Start, sobald die erste
-    unsignierte Datei geladen wurde - auch mit ordnungsgemäß
-    eingetragenem Zertifikat. Auf einem Testrechner nachgewiesen:
-    eine einzige signierte Datei reichte, damit Natter startete.
+    Bis September 2026 signierte der Bau nur `Natter.exe`; von 820
+    Binärdateien blieben 377 ohne Signatur, darunter die gesamte
+    mitgelieferte Python samt numpy, scipy, pandas und sklearn. Eine
+    Auslieferung, bei der fast jede zweite Datei keine Herkunft nennt,
+    ist keine signierte Auslieferung. Gegen eine eingeschaltete
+    intelligente App-Steuerung hilft das Signieren dagegen nicht; die
+    Messung dazu steht in `tools/signieren/README.md`.
 
     Läuft vor `_manifest_schreiben()`: jede Signatur ändert die Bytes
     der Datei, und ein Manifest, das davor entsteht, meldet beim
     ersten Start 377 veränderte Dateien.
     """
-    ergebnis = subprocess.run(
+    gesamt = 0
+
+    def auswerten(zeile: str) -> None:
+        nonlocal gesamt
+        treffer = re.match(r"\s*Signiere (\d+) Dateien", zeile)
+        if treffer:
+            gesamt = int(treffer.group(1))
+            return
+        treffer = re.match(r"\s*(\d+)/(\d+)\b", zeile)
+        if treffer:
+            _melder.stand(int(treffer.group(1)), int(treffer.group(2)), "Dateien")
+
+    code, ausgabe = ausfuehren(
         [
             "powershell",
             "-NoProfile",
@@ -491,13 +550,112 @@ def _alles_signieren(ordner: Path) -> None:
             "-Ordner",
             str(ordner),
         ],
+        _melder,
+        zeile_auswerten=auswerten,
+    )
+    if code != 0:
+        letzte = ausgabe.strip().splitlines()[-1:] or ["kein Grund gemeldet"]
+        _melder.zeile(f"Warnung: Massensignierung übersprungen ({letzte[0]})")
+
+
+# ------------------------------------------ Signaturen wiederverwenden
+#
+# Von den 377 Dateien, die der Bau signiert, stammen fast alle aus
+# Paketen von PyPI und sind von Bau zu Bau Byte für Byte gleich. Sie
+# jedes Mal neu zu signieren kostete gut drei Minuten, fast nur für
+# die Anfrage beim Zeitstempeldienst.
+#
+# Aufgehoben wird deshalb die signierte Fassung, abgelegt unter der
+# Prüfsumme der unsignierten. Trifft der nächste Bau auf eine Datei
+# mit derselben Prüfsumme, kommt die aufgehobene Fassung an ihre
+# Stelle - sie ist genau das, was das Signieren dieser Datei mit
+# diesem Zertifikat ergeben hat, und der Zeitstempel darin bleibt
+# gültig. Was sich geändert hat, hat eine andere Prüfsumme und wird
+# neu signiert.
+#
+# Abgelegt wird je Zertifikat getrennt: mit einem neuen Zertifikat
+# passt keine alte Signatur mehr. Und nichts davon ersetzt die
+# Prüfung: Schritt 10 von `tools/auslieferung_bauen.py` sieht jede
+# einzelne Signatur nach, auch die aus dem Zwischenspeicher.
+
+
+def _pruefsumme(datei: Path) -> str:
+    rechner = hashlib.sha256()
+    with datei.open("rb") as strom:
+        for block in iter(lambda: strom.read(1 << 20), b""):
+            rechner.update(block)
+    return rechner.hexdigest()
+
+
+def _fingerabdruck_des_zertifikats() -> str | None:
+    ergebnis = subprocess.run(
+        [
+            "powershell",
+            "-NoProfile",
+            "-Command",
+            "Get-ChildItem Cert:\\CurrentUser\\My -CodeSigningCert | "
+            "Where-Object { $_.Subject -eq 'CN=Natter Codesignatur' } | "
+            "Select-Object -First 1 -ExpandProperty Thumbprint",
+        ],
         capture_output=True,
         text=True,
     )
-    print(ergebnis.stdout.strip())
-    if ergebnis.returncode != 0:
-        meldung = ergebnis.stderr.strip() or ergebnis.stdout.strip()
-        print(f"Warnung: Massensignierung übersprungen ({meldung})")
+    fingerabdruck = ergebnis.stdout.strip()
+    return fingerabdruck if re.fullmatch(r"[0-9A-F]{40}", fingerabdruck) else None
+
+
+def _binaerdateien(ordner: Path) -> list[Path]:
+    return sorted(
+        datei
+        for datei in ordner.rglob("*")
+        if datei.suffix.lower() in SIGNIERTE_ENDUNGEN and datei.is_file()
+    )
+
+
+def _signieren_mit_zwischenspeicher(ordner: Path) -> None:
+    fingerabdruck = _fingerabdruck_des_zertifikats()
+    if fingerabdruck is None:
+        _alles_signieren(ordner)
+        return
+
+    ablage = _SIGNATUR_ABLAGE / fingerabdruck
+    ablage.mkdir(parents=True, exist_ok=True)
+    vorher = {datei: _pruefsumme(datei) for datei in _binaerdateien(ordner)}
+
+    uebernommen = 0
+    for datei, summe in vorher.items():
+        eintrag = ablage / f"{summe}.bin"
+        if eintrag.is_file():
+            shutil.copyfile(eintrag, datei)
+            uebernommen += 1
+    _melder.zeile(f"Aus dem Zwischenspeicher übernommen: {uebernommen} Signaturen")
+
+    _alles_signieren(ordner)
+
+    gebraucht: set[str] = set()
+    neu = 0
+    for datei, summe in vorher.items():
+        eintrag = ablage / f"{summe}.bin"
+        if eintrag.is_file():
+            gebraucht.add(summe)
+            continue
+        if _pruefsumme(datei) != summe:
+            # Erst unter einem Zwischennamen, dann umbenennen: ein
+            # abgebrochener Bau hinterlässt sonst eine halbe Datei, die
+            # beim nächsten Mal als fertig signiert gälte.
+            halb = eintrag.with_suffix(".tmp")
+            shutil.copyfile(datei, halb)
+            os.replace(halb, eintrag)
+            gebraucht.add(summe)
+            neu += 1
+
+    # Was dieser Bau nicht gebraucht hat, gehört zu einer älteren
+    # Paketversion. Ohne das Aufräumen wüchse die Ablage mit jedem
+    # Update um die nächsten paar hundert Megabyte.
+    for eintrag in ablage.glob("*.bin"):
+        if eintrag.stem not in gebraucht:
+            eintrag.unlink()
+    _melder.zeile(f"Neu im Zwischenspeicher: {neu} Signaturen")
 
 
 def _manifest_schreiben(ordner: Path) -> None:
@@ -507,26 +665,54 @@ def _manifest_schreiben(ordner: Path) -> None:
     meldet schon der erste Start eine veränderte Datei. Ohne privaten
     Schlüssel nur eine Warnung, wie beim Signieren auch."""
     if not _MANIFEST_SCHLUESSEL.exists():
-        print(
+        _melder.zeile(
             f"Warnung: Prüfsummen-Manifest übersprungen ({_MANIFEST_SCHLUESSEL.name} fehlt - "
             "einmalig mit tools/signieren/manifest_schluessel_erzeugen.py anlegen)"
         )
         return
     ziel = manifest_schreiben(ordner, _MANIFEST_SCHLUESSEL)
-    print(f"Prüfsummen-Manifest geschrieben: {ziel}")
+    _melder.zeile(f"Prüfsummen-Manifest geschrieben: {ziel}")
 
 
-def paketieren(*, signieren: bool = True) -> Path:
+#: Die Abschnitte des Baus mit ihrer ungefähren Dauer in Sekunden.
+#: Nur ein Ausgangswert für die Fortschrittsanzeige; nach dem ersten
+#: Lauf gilt die gemessene Dauer.
+_PHASEN: tuple[tuple[str, float], ...] = (
+    ("Python bereitstellen", 15),
+    ("Pakete installieren", 240),
+    ("Daten kopieren", 15),
+    ("Starter bauen", 60),
+    ("Lizenzen sammeln", 5),
+    ("Signieren", 190),
+    ("Prüfsummen", 20),
+)
+
+
+def paketieren(*, signieren: bool = True, melder: object | None = None) -> Path:
+    """Baut `dist/Natter`. Mit `melder` (siehe `tools/fortschritt.py`)
+    gehen Ausgaben und Fortschritt an eine Anzeige statt direkt in die
+    Konsole."""
+    global _melder
+    _melder = melder if melder is not None else KonsolenMelder()
+    _melder.phasen_ankuendigen(list(_PHASEN))
+
+    _melder.phase("Python bereitstellen")
     if _AUSGABE.exists():
         shutil.rmtree(_AUSGABE)
     python = _python_bereitstellen()
+    _melder.phase("Pakete installieren")
     _natter_installieren(python)
+    _melder.phase("Daten kopieren")
     _datenordner_kopieren(python)
+    _melder.phase("Starter bauen")
     _starter_bauen()
+    _melder.phase("Lizenzen sammeln")
     _lizenzen_sammeln(_AUSGABE / "Lizenzen")
+    _melder.phase("Signieren")
     if signieren:
         _exe_signieren(_AUSGABE / "Natter.exe")
-        _alles_signieren(_AUSGABE)
+        _signieren_mit_zwischenspeicher(_AUSGABE)
+    _melder.phase("Prüfsummen")
     _manifest_schreiben(_AUSGABE)
     return _AUSGABE
 
