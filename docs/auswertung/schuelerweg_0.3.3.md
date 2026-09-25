@@ -138,19 +138,6 @@ schon im Lauf davor (22:51).
 | Ladebild sichtbar nach | 0,89 s |
 | Umgebung prüfen (vollständig) | 2,4 s |
 
-## 4. Nur von Hand prüfbar
-
-Checkliste für Jonathan. Was hier steht, ließ sich auf diesem Rechner
-nicht oder nicht aussagekräftig prüfen.
-
-- [ ] Installer interaktiv durchklicken: Lizenz- und Hinweisseite vollständig, Umlaute, keine abgeschnittenen Zeilen (Punkt 4). Die Seiten liegen als Bild unter `bilder\08_v032_ueber_v030_seite2.png` und `…seite3.png`; geprüft wurde nur ihr Text
-- [ ] SmartScreen beim Start von `Natter-Setup.exe` auf einem Rechner ohne eingetragenes Zertifikat, Datei frisch aus dem Internet
-- [ ] Smart App Control eingeschaltet: Verhalten von Setup und `Natter.exe`, Eintrag im Ereignisprotokoll `CodeIntegrity/Operational`
-- [ ] Echter Schulrechner mit Standardkonto (nicht Administrator) und Proxy: Installation, Start, Paketverwaltung über pip
-- [ ] `Zertifikat-eintragen.cmd` ausführen, die UAC-Rückfrage einmal ablehnen und einmal annehmen
-- [ ] Verteilung „für viele Rechner" wie in `ZUERST-LESEN.txt` (`/VERYSILENT`) über eine Softwareverteilung: landet Natter dann im Profil des Verteilkontos statt beim Schüler?
-- [ ] Druck auf A4 (Teil 2)
-
 ## Stand für Teil 2
 
 | | |
@@ -165,6 +152,174 @@ nicht oder nicht aussagekräftig prüfen.
 | Testgerüst | `build\auswertung\venv` (pywinauto 0.6.9, Pillow, psutil), Skripte `erster_start.py`, `installation.py`, `setup_seiten.py`, `ladebild.py` |
 | Auftrag Teil 2 | `build\auswertung\auftrag_teil2.md`, mit den vorab geklärten Antworten |
 
+---
+
+# Teil 2: Schülerweg in der installierten Natter
+
+26.09.2026, 00:00–01:30, derselbe Rechner, Natter 0.3.3 frisch
+installiert (siehe „Stand für Teil 2“). Vorab geklärt: Prüfungsmodus
+wird durch Löschen von `pruefung/ende` aus der INI beendet; der
+Exe-Export darf das vorhandene Bauzertifikat benutzen, es wird kein
+Zertifikat angelegt oder verändert; Endstand ist 0.3.3 aus diesem Bau.
+
+## Wie bedient wurde
+
+Natter wurde als echtes Fenster über UIA bedient (pywinauto 0.6.9),
+belegt mit Bildschirmfotos. Vier Grenzen des Testaufbaus, die keine
+Fehler von Natter sind, aber die Spalte „geprüft per“ erklären:
+
+- **Doppelklick.** Über die Eingabewarteschlange erzeugte Doppelklicks
+  (pywinauto, `SendInput`) kamen in Natter nicht als Doppelklick an,
+  einfache Klicks schon. Direkt geschickte `WM_LBUTTONDBLCLK` wirken.
+  Doppelklicks sind deshalb „UIA + Nachricht“. Mit echter Maus steht
+  der Doppelklick auf der Liste „Nur von Hand prüfbar“.
+- **Tastatur.** pywinauto schickt Zeichen standardmäßig als
+  Unicode-Pakete ohne Umschalttaste; mit `vk_packet=False` bildet es
+  das deutsche Layout falsch ab („=“ wird „+“). Kurzer Code wurde
+  getippt (Schritt 16), längerer über die Zwischenablage eingefügt.
+- **Modale Menüaktionen und Auswahllisten.** UIA-Invoke auf einen
+  Menüeintrag, der einen modalen Dialog öffnet, kehrt nicht zurück;
+  UIA-Select wechselt den Eintrag einer Auswahlliste nicht. Beides
+  wurde mit der Maus bedient.
+- **Konsolenfenster.** Konsolenprogramme öffnen sich in Windows
+  Terminal. Der Text wurde über das UIA-Element `TermControl` gelesen.
+
+## 6. Schritte Teil 2
+
+| Nr | Schritt | Erwartet | Beobachtet | Ergebnis | Beleg | Punkt | geprüft per |
+|---|---|---|---|---|---|---|---|
+| 14 | A Lehrgang 01–09 | öffnen, starten, Kernfunktion | Alle neun öffnen sich als Arbeitskopie unter `Dokumente\Natter\Beispielprojekte` und laufen. 01: „Jörg“, 15 → „Freut mich, Jörg!“, „In 10 Jahren bist du 25.“; 02: „Zu groß.“ und „keine Zahl“; 03: 12+4=16, Division durch 0 abgefangen; 04: 3 Klicks → „3 Kekse“; 05: Bild über den Dateidialog → „testbild_natter.png - 43,9 kB“; 06: Konto „Björn Größe“, 12,50 eingezahlt; 07: Ort Köln → neue Kennzahlen; 08: polynomial → neue Formel, 165 cm → 38,2; 09: 120 g/190 mm/35 mm → „Banane“ | OK | [teil2_A.json](../../build/auswertung/ergebnisse/teil2_A.json), Bilder `A_*` | – | UIA; Menü und Auswahllisten mit der Maus |
+| 14a | A Auf Original zurücksetzen | Rückfrage, Original | „„03_Taschenrechner“ auf den Auslieferungszustand zurücksetzen? Alle Änderungen an diesem Beispiel gehen dabei verloren.“ Ja → Datei gleich dem Original | OK | [Bild](../../build/auswertung/bilder/A_zuruecksetzen_rueckfrage.png) | – | UIA |
+| 14b | A Beispielkommentare | keine Anrede | `01_Begruessung/u_main.py`: „# Drücke F5, um das Programm zu starten.“ | Auffällig | – | 45 | Skript |
+| 15 | B Projekt, Palette, Objektinspektor | platzieren, verschieben, Eigenschaft, Rückgängig | „Projekt → Neues Projekt …“ (ein „Datei → Neu“ gibt es nicht). Label, Edit, Button platziert, Button um 120/40 px verschoben, Beschriftung „Verdoppeln“ im Objektinspektor; zweimal Rückgängig stellt Ausgangslage her, zweimal Wiederholen wieder her | OK | [teil2_B2.json](../../build/auswertung/ergebnisse/teil2_B2.json) | – | UIA + Maus |
+| 15a | B Design-Prüfung | keine Fehlalarme | Direkt nach dem Platzieren „9 Funde“, darunter „label liegt teilweise außerhalb des Formulars“, obwohl alles bei 32/32 bis 224/192 in 480 × 360 liegt: `_geometrie_pruefen` liest die Formulargröße mit 0 als Ersatz, ein neues Projekt speichert keine Größe | Fehler | [Bild](../../build/auswertung/bilder/B_1_platziert.png) | 36 | UIA + Code |
+| 15b | B Komponentenbaum | zeigt neue Komponenten | nach dem Platzieren nur „Form1: Form“; erst nach Neuöffnen alle (auch in Schritt G) | Auffällig | [Bild](../../build/auswertung/bilder/B_1_platziert.png) | 45 | UIA |
+| 15c | B Menü-Editor | über drei Wege | Doppelklick auf das Symbol und Doppelklick auf `entries` öffnen „Menü bearbeiten“; „Datei → Beenden“ angelegt, `entries` „(1 Eintrag)“. F2 nach dem Anklicken des Symbols öffnet nichts (Tastaturfokus bleibt außerhalb der Zeichenfläche) | OK / Auffällig | [Bild](../../build/auswertung/bilder/B_3_menue_editor.png) | 45 | UIA + Nachricht |
+| 15d | B Doppelklick auf Button | Methode anlegen und hinspringen | Methode `button_click` wird angelegt und verknüpft, die Unit öffnet sich aber nicht und der Cursor springt nicht hin – Handbuch und Tastenübersicht versprechen „anlegen und hinspringen“ | Fehler | [Bild](../../build/auswertung/bilder/B_3_editor.png) | 37 | Nachricht + Code |
+| 16 | B Code, starten, bedienen | Zahl mit Komma → Ergebnis | Zwei Zeilen im Editor getippt, gespeichert. Programm: „2,5“ → „5,00“, nach Neuöffnen „3,25“ → „6,50“, ohne Natter mit `python.exe main.py` ebenso (Fenster nach 1,6 s) | OK | [Bild](../../build/auswertung/bilder/B_4_programm.png) | – | UIA, Code getippt |
+| 16a | B Menü im Programm | „Datei“ in der Menüleiste | Menüleiste leer, „Datei“ nur über den Knopf „···“ oben rechts erreichbar; der Button-Text „Verdoppeln“ ist abgeschnitten („erdoppel“), ohne Hinweis der Design-Prüfung | Fehler / Auffällig | [Bild](../../build/auswertung/bilder/B_5_punkte_geklickt.png) | 39, 45 | UIA + Maus |
+| 17 | C Konsolenprojekt | eigenes Fenster, Eingabe, Umlaute | Fenster „Natter – Gruss“; „Jürgen Weiß“ → „Grüße, Jürgen Weiß! Äpfel, Öl, Übung, Maß: 3,5 €“ | OK | [Bild](../../build/auswertung/bilder/C_konsole.png) | – | UIA (TermControl) |
+| 17a | C Klammern automatisch schließen | wie beschrieben | Nur ohne Zusatztaste aktiv (`not event.modifiers()`); mit Umschalttaste (deutsche Tastatur: `(`, `"`) bleibt `print("` offen | Auffällig | [teil2_C_klammern.json](../../build/auswertung/ergebnisse/teil2_C_klammern.json) | 43 | Tasten + Code |
+| 18 | D Name falsch / Doppelpunkt / Einrückung | nicht starten, Zeile, Wo/Was/Prüfe | alle drei nicht gestartet, richtige Zeile, deutsch, kein Code. Beim Einrückungsfehler fragt der Hinweis nach Doppelpunkt, Klammer oder Anführungszeichen, nicht nach der Einrückung | OK / Auffällig | [teil2_D.json](../../build/auswertung/ergebnisse/teil2_D.json) | 45 | UIA |
+| 18a | D `int("3,5")`, Division durch 0 | Wo/Was/Prüfe im Programmfenster | „Laufzeitfehler: Ungültiger Wert (ValueError) / Wo: u_main.py, Zeile 2 / Was: Der Text „3,5“ lässt sich nicht als ganze Zahl lesen. / Prüfe: …“; ebenso Division durch 0 | OK | [Bild](../../build/auswertung/bilder/D_int_komma_konsole.png) | – | UIA (TermControl) |
+| 18b | D Endlosschleife | anhalten | „Start → Stopp“ beendet sie nach 1,5 s | OK | [teil2_D.json](../../build/auswertung/ergebnisse/teil2_D.json) | – | UIA |
+| 18c | D Komponente fehlt | Wo/Was/Prüfe | Fehlerfenster deutsch mit Zeile 6; im Panel danach „Programm beendet (Code 0)“ | OK / Auffällig | [Bild](../../build/auswertung/bilder/D_komponente_fehlt_0.png) | 41 | UIA |
+| 18d | D `input()` im GUI-Programm | deutsche Erklärung | „Zu diesem Fehler gibt es noch keine deutsche Erklärung“, darunter englischer Traceback `EOFError: EOF when reading a line`; im Panel „Programm beendet (Code 0)“ | Fehler | [Bild](../../build/auswertung/bilder/D_input_gui_0.png) | 41 | UIA |
+| 19 | E Vervollständigung | Liste, Typen, Erklärung | „pri“ → `print(*values: object, …) -> None – gibt Werte aus`; „konto_ab“ → `konto_abheben(konto: int, betrag: float) -> float – Hebt einen Betrag ab …`; Eingabe fügt `konto_abheben()` ein | OK | [Bild](../../build/auswertung/bilder/E_konto_ab.png) | – | UIA |
+| 19a | E Parameterhilfe | nach `(` und nach Übernahme | erscheint nach `print` + Umschalt+8 und nach `input(`, mit Typen; nach Übernahme aus der Liste ist sie nicht zu sehen | OK / Auffällig | [Bild](../../build/auswertung/bilder/E_parameterhilfe.png) | 43 | UIA + Tasten |
+| 19b | E Tastenkürzel, hell/dunkel, Minimap | vorhanden | Tastenkürzel als Reiter; hell/dunkel siehe Schritt 12; eine Minimap gibt es nur im Diagramm-Editor (Schritt 23), nicht im Quelltexteditor | OK | [Bild](../../build/auswertung/bilder/E_editor_minimap.png) | – | UIA |
+| 20 | F Debugger | Haltepunkt, Einzelschritt, Variablen | Klick in den Rand setzt Haltepunkt; F5 „Angehalten: an einem Haltepunkt“, F11 „nach einem Einzelschritt“, `i` wechselt 1 → 2; Stopp beendet. Erste Zeile der Tabelle „special variables“ (englisch); das Panel zeigt in der Grundaufteilung nur eine Zeile | OK / Auffällig | [Bild](../../build/auswertung/bilder/F_angehalten.png) | 45 | UIA + Maus |
+| 20a | F Test-Explorer | grün und rot | „Datei → Neue Test-Unit“ legt `test_neu1.py` ohne Namensfrage an; „2 Tests gelaufen, 1 nicht bestanden“ | OK | [Bild](../../build/auswertung/bilder/F_tests.png) | – | UIA |
+| 21 | G Datenbank | Vorlage gui_db, Tabelle, Grid, ändern, neu laden | Eine Vorlage gui_db gibt es nicht (`templates/` hat nur `gui` und `console`; `bericht.md` nennt sie trotzdem). Mit GUI-Projekt, StringGrid und `SQLite3Connection`: 2 Namen gespeichert, einer geändert, nach Neustart beide geladen | OK / Auffällig | [Bild](../../build/auswertung/bilder/G_neustart.png) | 45 | UIA; Code per Zwischenablage |
+| 21a | G Ereignisse verknüpfen | vorhandene Methode wählbar | Die Auswahlliste im Reiter „Ereignisse“ zeigt nur „(kein)“, obwohl `button_click` im Code steht; Doppelklick auf die Komponente verknüpft die gleichnamige Methode | Fehler | [Bild](../../build/auswertung/bilder/G_ereignisse.png) | 38 | UIA + Code |
+| 21b | G Datenbank-Panel | Tabelle sichtbar | schwebendes Fenster, links abgeschnitten, „Nicht verbunden“ | Auffällig | [Bild](../../build/auswertung/bilder/G_db_panel.png) | 45 | UIA |
+| 22 | H CSV, pandas, Chart, Bild, HTML | alles sichtbar | Grid, Balkendiagramm „Hamburg“, Bild, „Mittelwert Hamburg: 9,7 °C“; `bericht.html` in Natter als Reiter mit „Im Browser öffnen“. Im Grid aus `load_dataframe` stehen die Temperaturen mit Punkt: „2.4“, „2.8“ | OK / Fehler | [Bild](../../build/auswertung/bilder/H_programm.png) | 42 | UIA |
+| 23 | I Paketverwaltung | installieren, importieren | `cowsay` in 18 s installiert, Oberfläche dabei bedienbar (Antwort ≤ 0,09 s), Import funktioniert | OK | [teil2_I.json](../../build/auswertung/ergebnisse/teil2_I.json) | – | UIA |
+| 23a | I Umgebung prüfen danach | keine Warnung | „Natter wurde nach der Erstellung verändert: python/Scripts/cowsay.exe (zusätzlich) … Natter neu installieren“ | Fehler | [Bild](../../build/auswertung/bilder/I_umgebung.png) | 40 | UIA |
+| 24 | J Klassendiagramm | zeichnen, speichern, öffnen, exportieren | zwei Klassen mit Namen und Attribut über F2 → „Eigenschaften: UML – Klasse“, Vererbung per zwei Klicks, gespeichert, wieder geöffnet; PNG (Auflösung wählbar) und PDF exportiert; Minimap und Lineale | OK | [Export](../../build/auswertung/bilder/J_export_Bank.png), [Minimap](../../build/auswertung/bilder/J_minimap.png) | – | UIA + Maus |
+| 24a | J Quelltext aus Klassendiagramm | Vererbung im Code | `class Sparkonto:` statt `class Sparkonto(Konto):`. Ein Attribut mit „stand: float“ im Namensfeld ergibt `self.__stand: float = stand: float` (Syntaxfehler), das danach jeden Start des Projekts blockiert | Fehler | [teil2_J3.json](../../build/auswertung/ergebnisse/teil2_J3.json) | 35 | UIA |
+| 24b | J Struktogramm | Blöcke, Export, Quelltext | Block über Palette + Klick auf den Kopf eingefügt, PDF 12 KB, Quelltext `def Ablauf(): …` | OK | [Bild](../../build/auswertung/bilder/J_struktogramm_bloecke.png) | – | UIA + Maus |
+| 25 | K `.lfm`-Import | im Designer | `f_Pizza`: „31 Hinweise im Importbericht“, Formular im Designer, `pizza.pfm/.py/_design.py` angelegt. Im Konsolenprojekt erscheint das Formular nicht im Projekt-Explorer | OK / Auffällig | [Bild](../../build/auswertung/bilder/K_import.png) | 45 | UIA + Dateidialog |
+| 26 | L Prüfungsmodus | Einschränkungen, Neustart | Rückfrage nennt 4 h und „lässt sich bis dahin nicht abschalten“; Fußzeile „Prüfungsmodus – noch 3:59 h“; keine Vorschlagsliste, keine Parameterhilfe, Meldungen ohne „Prüfe“, „Quelltext → Erzeugen …“ gesperrt; übersteht Neustart. Beendet über die INI wie vereinbart; in der Oberfläche gibt es keinen Weg | OK / Auffällig | [Bild](../../build/auswertung/bilder/L_an_editor.png) | 45 | UIA; Ende per INI |
+| 27 | M Quelltext als PDF | A4 | eine Seite 595 × 842 pt, 16 KB | OK | `build\auswertung\M_Umrechner_Quelltext.pdf` | – | UIA + Dateidialog |
+| 27a | M Exe-Export | Dauer, Größe, Signatur | GUI 55 s / 54,9 MB, Konsole 9,7 s / 8,0 MB; beide „Nicht signiert: UnknownError“, kein Zertifikat angelegt. Ursache: der Bau hat die Bootloader-Vorlagen von PyInstaller in der Installation signiert; eine daraus gebaute Exe lässt sich nicht mehr signieren („%1 ist keine zulässige Win32-Anwendung“) | Fehler | [teil2_M.json](../../build/auswertung/ergebnisse/teil2_M.json) | 34 | UIA + Skript |
+| 27b | M Exe im fremden Ordner | läuft ohne Natter | `%TEMP%\fremd`, ohne Python im PATH: GUI in 3,8 s ohne Konsole, „1,5“ → „3,00“; Konsole in 1,4 s, „Zoë Brück“ → Umlaute und € richtig | OK | [GUI](../../build/auswertung/bilder/M_fremd_gui.png), [Konsole](../../build/auswertung/bilder/M_fremd_konsole.png) | – | UIA |
+| 28 | N Deinstallation | alles weg | 12,9 s; Programmordner vollständig weg, auch `python\` mit `cowsay`; kein `.ruff_cache` entstanden (Punkt 21 erledigt); Startmenü, Desktop, `.natter`, Uninstall-Eintrag weg. Es bleiben `%APPDATA%\Natter\Natter-IDE.ini` und `Dokumente\Natter` (gewollt: Nutzerdaten) sowie `HKCU\Software\Natter\Diagramm` (Minimap/Lineale) und ein leerer Schlüssel `…\Natter-IDE` | OK / Auffällig | [deinstallieren_033_teil2.json](../../build/auswertung/ergebnisse/deinstallieren_033_teil2.json) | 21, 45 | Skript |
+| 28a | N Exe nach Deinstallation | eigenständig | beide wie in 27b | OK | [teil2_N_exe.json](../../build/auswertung/ergebnisse/teil2_N_exe.json) | – | UIA |
+| 29 | O Aufräumen | Ausgangszustand | Testprojekte nach `build\auswertung\teil2_projekte\` verschoben (nicht gelöscht), Sicherung zurückgespielt (13 Dateien, INI byte-gleich), 0.3.3 still installiert, das dabei neu angelegte Desktopsymbol entfernt. Zertifikate: 0 Unterschiede zum Anfang, nichts zu entfernen | OK | – | – | Skript |
+
+Eingriffe per Skript statt über die Oberfläche: in Schritt 21 die
+SQL-Platzhalter meines Testcodes (`:name` statt `?`), in Schritt 27
+das Zurücksetzen von `u_main.py` in beiden Projekten nach den
+Fehlerfällen aus Schritt 18.
+
+## 7. Messwerte Teil 2
+
+| Messung | Wert |
+|---|---|
+| Start eines Lehrgangsbeispiels bis Programmfenster | 10–16 s je Beispiel einschließlich Öffnen |
+| Paketinstallation `cowsay` | 18 s, Oberfläche reagiert in ≤ 0,09 s |
+| Exe-Export GUI / Konsole | 55 s / 9,7 s |
+| Exe-Größe GUI / Konsole | 54,9 MB / 8,0 MB |
+| Start der Exe im fremden Ordner GUI / Konsole | 3,8 s / 1,4 s bis zur ersten Ausgabe |
+| Endlosschleife stoppen | 1,5 s |
+| Quelltext als PDF | 1 Seite A4, 16 KB |
+| Diagramm-Export PNG / PDF | 3,7 KB / 12 KB |
+| Deinstallation nach Benutzung | 12,9 s, 0 Reste im Programmordner |
+| Neuinstallation Endstand | 149,4 s, 30 075 Dateien |
+
+## 4. Nur von Hand prüfbar
+
+Checkliste für Jonathan. Was hier steht, ließ sich auf diesem Rechner
+nicht oder nicht aussagekräftig prüfen.
+
+- [ ] Installer interaktiv durchklicken: Lizenz- und Hinweisseite vollständig, Umlaute, keine abgeschnittenen Zeilen (Punkt 4). Die Seiten liegen als Bild unter `bilder\08_v032_ueber_v030_seite2.png` und `…seite3.png`; geprüft wurde nur ihr Text
+- [ ] SmartScreen beim Start von `Natter-Setup.exe` auf einem Rechner ohne eingetragenes Zertifikat, Datei frisch aus dem Internet
+- [ ] Smart App Control eingeschaltet: Verhalten von Setup, `Natter.exe` und einer exportierten Schüler-Exe; Eintrag im Ereignisprotokoll `CodeIntegrity/Operational`
+- [ ] Druck auf A4: Quelltext, Klassendiagramm, Struktogramm auf einem echten Drucker (geprüft wurde nur das Seitenformat der PDFs)
+- [ ] Echter Schulrechner mit Standardkonto (nicht Administrator) und Proxy: Installation, Start, Paketverwaltung über pip
+- [ ] `Zertifikat-eintragen.cmd` ausführen, die UAC-Rückfrage einmal ablehnen und einmal annehmen
+- [ ] Verteilung „für viele Rechner" wie in `ZUERST-LESEN.txt` (`/VERYSILENT`) über eine Softwareverteilung: landet Natter dann im Profil des Verteilkontos statt beim Schüler?
+- [ ] Doppelklick mit echter Maus: Projekt-Explorer, Palettenkachel, Komponente im Designer, Klasse im Diagramm (Testaufbau siehe „Wie bedient wurde“)
+- [ ] Exe-Export auf einem Rechner ohne Bauzertifikat: legt Natter „Natter Programme dieses Rechners“ an, fragt Windows nach dem Stammzertifikat, und scheitert die Signatur dort genauso (Punkt 34)?
+- [ ] Tippen mit deutscher Tastatur: Klammern und Anführungszeichen im Editor, Parameterhilfe nach `(`
+
 ## 5. Zusammenfassung
 
-Folgt am Ende von Teil 2.
+**Ergebnis gesamt.** Der Weg eines Schülers funktioniert von der
+Installation bis zur eigenständigen Exe: alle neun Lehrgangsprojekte,
+ein eigenes GUI- und Konsolenprojekt, Fehlermeldungen, Debugger,
+Tests, Datenbank, pandas, Diagramme, Import, Prüfungsmodus, Export und
+Deinstallation laufen, und die Meldungen für Schüler sind deutsch, mit
+Ort und Zeile, ohne Lösungscode und ohne Anrede. Die Befunde liegen
+dort, wo Natter etwas zusagt, das es nicht hält – Signatur beim
+Export, Vererbung im erzeugten Code, Sprung zur Methode, Update und
+Integritätsprüfung – und bei Fehlalarmen, die Schüler in die Irre
+schicken.
+
+**Die fünf wichtigsten Befunde, nach Schwere:**
+
+1. **Exe-Export ohne Signatur (Punkt 34).** Der Bau signiert die
+   Bootloader-Vorlagen von PyInstaller; jede Schüler-Exe ist dadurch
+   unsignierbar, die Statuszeile sagt nur „UnknownError“.
+2. **Integritätsprüfung lässt sich still abschalten (Punkt 27)** und
+   **meldet nach Natters eigener Paketinstallation eine Veränderung
+   (Punkt 40)** – einmal schweigt sie, wo sie warnen sollte, einmal
+   warnt sie mit dem Rat zur Neuinstallation, wo alles in Ordnung ist.
+3. **Update lässt Altdateien liegen (Punkt 28)**, darunter die
+   Qt-Module unter GPL; danach meldet pip natter 0.3.2.
+4. **Quelltext aus dem Klassendiagramm (Punkt 35):** Vererbung fehlt,
+   ungültige Namen ergeben Code, der jeden Start blockiert.
+5. **Design-Prüfung mit Fehlalarm in jedem neuen Projekt (Punkt 36)**,
+   zusammen mit dem fehlenden Sprung zur Methode (Punkt 37) und der
+   nicht wählbaren eigenen Methode im Reiter „Ereignisse“ (Punkt 38)
+   die Stellen, an denen ein Schüler im ersten eigenen Projekt hängen
+   bleibt.
+
+**Neu angelegte Punkte in `offene_punkte.md`:**
+
+| Nr | Titel |
+|---|---|
+| 27 | Die Integritätsprüfung entfällt still, wenn `manifest.json` fehlt oder unlesbar ist |
+| 28 | Ein Update lässt Dateien der alten Fassung in `site-packages` liegen |
+| 29 | `Zertifikat-eintragen` lässt den verlangten Vergleich des Fingerabdrucks nicht zu |
+| 30 | Der Installer spricht mit „Sie" an |
+| 31 | `Natter-pruefen` meldet eine fehlende Installation als „unvollständig" |
+| 32 | Der Auslieferungsbau prüft mit ruff auch nicht eingecheckte Ordner |
+| 33 | Kleinere Befunde aus dem Schülerweg 0.3.3, Teil 1 |
+| 34 | Exportierte Exe lassen sich nicht signieren, weil der Bau die PyInstaller-Vorlagen signiert |
+| 35 | Der Quelltext aus dem Klassendiagramm übernimmt keine Vererbung und prüft keine Namen |
+| 36 | Die Design-Prüfung meldet in neuen Projekten jede Komponente als außerhalb des Formulars |
+| 37 | Doppelklick auf eine Komponente springt nicht zur Methode |
+| 38 | Der Reiter „Ereignisse" bietet selbst geschriebene Methoden nicht an |
+| 39 | Das Hauptmenü eines Schülerprogramms ist nur über „···" erreichbar |
+| 40 | „Umgebung prüfen" meldet nach einer Paketinstallation über Natter eine Veränderung |
+| 41 | `input()` im GUI-Programm endet mit englischem Traceback |
+| 42 | `StringGrid.load_dataframe` zeigt Zahlen mit Dezimalpunkt |
+| 43 | Klammern schließen und Parameterhilfe hängen an der Tastatur |
+| 44 | Palettenkacheln und Menüsymbol sind für UIA namenlos |
+| 45 | Kleinere Befunde aus dem Schülerweg 0.3.3, Teil 2 |
+
+Punkt 21 (Rest nach dem Deinstallieren) ist mit Schritt 28
+nachgewiesen und kann nach `erledigte_punkte.md`; Punkt 26 ist mit
+Schritt 8 belegt.

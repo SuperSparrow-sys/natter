@@ -7,12 +7,12 @@ ganze Vorgeschichte der früheren Punkte stehen, damit sich bei einem
 ähnlichen Fehler nachlesen lässt, was schon geprüft wurde.
 
 Die Nummern laufen durch und werden nicht neu vergeben. Der nächste
-Punkt bekommt die **34**.
+Punkt bekommt die **46**.
 
 ## Ein neuer Punkt
 
 ```markdown
-## 34. Kurz, was nicht stimmt
+## 46. Kurz, was nicht stimmt
 
 **Gemeldet:** Datum, wo es auffiel (Fenster, Menü, Beispielprojekt),
 Natter-Version.
@@ -125,6 +125,13 @@ Dateien und damit den Ordner stehen. Eine frisch installierte 0.3.3
 ließ sich restlos entfernen, allerdings ohne dass vorher die Prüfung
 vor dem Start gelaufen war. Der eigentliche Nachweis, also
 Deinstallation nach Benutzung, folgt in Teil 2 (Schritt N).
+
+**Nachgewiesen 26. September 2026 (Schülerweg 0.3.3, Teil 2, Schritt
+28):** Nach ausgiebiger Benutzung mit vielen Prüfungen vor dem Start
+entstand kein `.ruff_cache`; die stille Deinstallation entfernte den
+Programmordner vollständig, auch `python\` mit einem über „Pakete“
+nachinstallierten Paket. Das Kriterium ist erfüllt; der Punkt kann
+nach `erledigte_punkte.md`.
 
 
 ---
@@ -481,6 +488,308 @@ vollständige Prüfung in einen Hintergrund-Thread legen; die
 Python-Version für Bau und Entwicklungsbaum aus derselben Quelle
 nehmen. Erledigt, wenn die vier Stellen behoben oder einzeln
 begründet zurückgestellt sind.
+
+---
+
+## 34. Exportierte Exe lassen sich nicht signieren, weil der Bau die PyInstaller-Vorlagen signiert
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 27.
+
+**Beobachtet:** „Projekt → Als Exe exportieren …“ baut die Exe (GUI
+55 s, 54,9 MB; Konsole 9,7 s, 8,0 MB), die Statuszeile endet aber mit
+„Exe erstellt: … - Nicht signiert: UnknownError“.
+`Get-AuthenticodeSignature` meldet `NotSigned`. Von Hand mit demselben
+Zertifikat und Aufruf signiert: „%1 ist keine zulässige
+Win32-Anwendung“. Eine Kopie von `Natter.exe` lässt sich dagegen
+einwandfrei signieren. Die exportierte Exe trägt mitten in der Datei
+eine Zertifikatstabelle (Offset 311 808, 7 160 Byte).
+
+**Ursache:** nachgewiesen. Der Auslieferungsbau signiert jede
+Binärdatei der Installation, auch
+`python\Lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\run.exe`,
+`runw.exe`, `run_d.exe`, `runw_d.exe` („Natter Codesignatur“, im
+Entwicklungsbaum unsigniert). PyInstaller hängt beim Export das
+Programmarchiv hinter diese Vorlage; die vorhandene Signatur steht
+danach nicht mehr am Ende, und Windows lehnt die Datei beim Signieren
+ab. Betroffen ist jede Fassung, seit der Bau alle Binärdateien
+signiert (0.3.1).
+
+**Zu tun:** Die Bootloader-Vorlagen von PyInstaller beim Signieren
+auslassen (Ausnahmeliste in `tools/signieren/alles_signieren.ps1` und
+`_signieren_mit_zwischenspeicher`, Schritt 10 entsprechend), oder
+beim Export vor dem Signieren eine vorhandene Signatur entfernen. Die
+Meldung „UnknownError“ durch einen deutschen Satz mit Grund ersetzen.
+Ein Test in der Rauchprobe: aus der gebauten Python eine kleine Exe
+exportieren und signieren. Erledigt, wenn eine in der installierten
+Fassung exportierte Exe `Valid` signiert ist.
+
+---
+
+## 35. Der Quelltext aus dem Klassendiagramm übernimmt keine Vererbung und prüft keine Namen
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 24.
+
+**Beobachtet:** Klassendiagramm mit „Konto“ und „Sparkonto“ und einer
+Vererbung von Sparkonto nach Konto (in der `.pdiag` als
+`{"kind": "inheritance", "from": "s2", "to": "s1"}`, im Export als
+Pfeil sichtbar). „Quelltext → Erzeugen …“ schreibt `class Sparkonto:`
+statt `class Sparkonto(Konto):`. Ein Attribut, bei dem „stand: float“
+im Feld „Name“ steht, wird zu `self.__stand: float = stand: float` -
+ein Syntaxfehler in `u_bank.py`, der danach jeden Start des Projekts
+über die Prüfung vor dem Start blockiert.
+
+**Ursache:** noch offen (Generator unter `ide/diagramm/`).
+
+**Zu tun:** Vererbungen (und Realisierungen) aus `connectors` in die
+Klassenköpfe übernehmen; Namen von Klassen, Attributen und
+Operationen im Eigenschaften-Dialog als Python-Bezeichner prüfen
+(oder beim Erzeugen mit einer deutschen Meldung ablehnen). Erledigt,
+wenn das Beispiel oben `class Sparkonto(Konto):` erzeugt und ein
+ungültiger Name nicht mehr in den Code gelangt.
+
+---
+
+## 36. Die Design-Prüfung meldet in neuen Projekten jede Komponente als außerhalb des Formulars
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 15.
+
+**Beobachtet:** Neues GUI-Projekt, Label bei 32/32, Edit bei 32/80,
+Button bei 32/128 im Formular 480 × 360. Die Design-Prüfung meldet
+sofort „9 Funde“, darunter „label liegt teilweise außerhalb des
+Formulars. Ins Formular hineinschieben oder das Formular größer
+machen - sonst fehlt sie im laufenden Programm.“
+
+**Ursache:** nachgewiesen. `_geometrie_pruefen` in
+`ide/lint/regeln.py` liest Breite und Höhe des Formulars mit dem
+Ersatzwert 0. Eine neu angelegte `.pfm` enthält keine Größe, das
+Formular gilt dann stillschweigend als 480 × 360.
+
+**Zu tun:** Denselben Standard wie das Formular verwenden (480 × 360)
+statt 0. Erledigt, wenn ein neues Projekt mit drei Komponenten im
+Formular keinen Geometrie-Fund mehr meldet und ein Test das festhält.
+
+---
+
+## 37. Doppelklick auf eine Komponente springt nicht zur Methode
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 15.
+
+**Beobachtet:** Ein Doppelklick auf den Button im Designer legt
+`button_click` in `u_main.py` an und verknüpft sie, die Unit öffnet
+sich aber nicht, und der Cursor steht nicht in der Methode. Ist die
+Methode schon da, passiert sichtbar gar nichts. `docs/handbuch.md`
+sagt: „Ein Doppelklick auf eine Komponente legt die zugehörige Methode
+im Quelltext an und springt dorthin“, die Tastenübersicht:
+„Doppelklick | Ereignis-Methode anlegen und hinspringen“.
+
+**Ursache:** nachgewiesen. `ereignis_handler_erzeugen` in
+`ide/designer/canvas.py` schreibt die Methode und liefert ihren Namen;
+niemand öffnet danach die Unit.
+
+**Zu tun:** Nach dem Doppelklick die Unit im Editor öffnen (bzw. den
+Reiter aktivieren) und den Cursor in die erste Zeile des
+Methodenrumpfs setzen, auch wenn die Methode schon bestand. Erledigt,
+wenn nach dem Doppelklick der Editor mit dem Cursor in der Methode
+vorn ist.
+
+---
+
+## 38. Der Reiter „Ereignisse" bietet selbst geschriebene Methoden nicht an
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 21.
+
+**Beobachtet:** `u_main.py` enthält `form_create`, `button_click` und
+`button2_click` mit `(self, sender)`. Im Objektinspektor, Reiter
+„Ereignisse“, bietet die Auswahlliste bei `on_click` und `on_create`
+nur „(kein)“. `docs/erste_schritte.md` sagt, dort lasse sich „auch
+eine schon vorhandene Methode auswählen“.
+
+**Ursache:** nachgewiesen. `formular_fuer_designer_laden` in
+`ide/designer/laden.py` baut die Formularklasse nur aus der `.pfm` und
+legt Platzhalter für bereits verknüpfte Methoden an; `passende_methoden`
+sucht in genau dieser Klasse. Methoden, die nur in der Unit stehen,
+kennt sie nicht.
+
+**Zu tun:** Die Methodennamen zusätzlich aus der Unit lesen (libcst ist
+schon da) und in die Auswahl aufnehmen. Erledigt, wenn eine von Hand
+geschriebene Methode mit passender Signatur in der Liste erscheint und
+sich verknüpfen lässt.
+
+---
+
+## 39. Das Hauptmenü eines Schülerprogramms ist nur über „···" erreichbar
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 16.
+
+**Beobachtet:** Ein `MainMenu` mit „Datei → Beenden“. Im laufenden
+Programm (aus Natter und ohne Natter) ist die Menüleiste leer; oben
+rechts steht nur ein Knopf „···“, der „Datei“ aufklappt. Ein Klick auf
+die Stelle, an der UIA „Datei“ meldet (links oben), öffnet nichts.
+
+**Ursache:** noch offen (`pcl/components/menus.py`, Aufbau der
+`QMenuBar` im Formular).
+
+**Zu tun:** Die Einträge direkt in der Menüleiste zeigen. Erledigt,
+wenn „Datei“ im laufenden Programm links oben sichtbar ist und sich
+mit einem Klick öffnet.
+
+---
+
+## 40. „Umgebung prüfen" meldet nach einer Paketinstallation über Natter eine Veränderung
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 23.
+
+**Beobachtet:** Nach „Pakete → Paket installieren …“ mit `cowsay`
+meldet „Werkzeuge → Umgebung prüfen“: „Natter wurde nach der
+Erstellung verändert: python/Scripts/cowsay.exe (zusätzlich). … Natter
+neu installieren und dabei den alten Programmordner ersetzen; bleibt
+die Meldung, hilft die Systembetreuung der Schule weiter.“ Der Rat
+würde das eben installierte Paket wieder entfernen.
+
+**Ursache:** nachgewiesen. Das Manifest nimmt die Fremdpakete in
+`site-packages` aus, damit pip dort nachinstallieren darf; pip legt
+aber zusätzlich Startdateien in `python\Scripts` an.
+
+**Zu tun:** `python/Scripts/` wie `site-packages` behandeln (zusätzliche
+Dateien dort sind kein Befund), veränderte oder fehlende Dateien von
+Natter selbst weiter melden. Erledigt, wenn nach einer Installation
+über die Paketverwaltung „Umgebung prüfen“ „unverändert“ meldet.
+
+---
+
+## 41. `input()` im GUI-Programm endet mit englischem Traceback
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 18.
+
+**Beobachtet:** `input("Name? ")` in einer Ereignismethode. Das
+Fehlerfenster sagt „Zu diesem Fehler gibt es noch keine deutsche
+Erklärung. Die Originalmeldung von Python steht darunter.“ und zeigt
+den Traceback mit `EOFError: EOF when reading a line`. Nach diesem und
+nach einem `AttributeError` steht im Panel „Programm beendet (Code
+0)“, obwohl das Fehlerfenster „Das Programm wurde mit einem Fehler
+beendet“ sagt.
+
+**Ursache:** noch offen. Der Fehlerkatalog hat keinen Eintrag für
+`EOFError`; ein GUI-Programm läuft ohne Konsole, `input()` bekommt
+keine Eingabe. Der Rückgabewert 0 kommt vermutlich aus dem normalen
+Ende der Qt-Ereignisschleife nach dem Fehlerfenster.
+
+**Zu tun:** Eintrag im Fehlerkatalog: was los ist (in einem Programm
+mit Fenster gibt es keine Konsole für `input()`) und was zu prüfen ist
+(Eingaben über ein Eingabefeld). Nach einem Laufzeitfehler mit einem
+Rückgabewert ungleich 0 enden. Erledigt, wenn der Fall eine deutsche
+Meldung mit Wo/Was/Prüfe zeigt und das Panel einen Fehler meldet.
+
+---
+
+## 42. `StringGrid.load_dataframe` zeigt Zahlen mit Dezimalpunkt
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 22.
+
+**Beobachtet:** Ein mit `pd.read_csv(…, decimal=",")` gelesener
+DataFrame, per `load_dataframe` ins StringGrid: die Temperaturen
+erscheinen als „2.4“, „2.8“, „5.1“. Im selben Programm steht der
+Mittelwert, von Hand formatiert, als „9,7 °C“.
+
+**Ursache:** noch offen (`pcl/dataframe.py`, Umwandlung der Zellwerte
+in Text).
+
+**Zu tun:** Zahlen beim Übertragen ins Grid mit Dezimalkomma
+darstellen. Erledigt, wenn dasselbe Beispiel „2,4“ zeigt.
+
+---
+
+## 43. Klammern schließen und Parameterhilfe hängen an der Tastatur
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritte
+17 und 19.
+
+**Beobachtet:**
+
+- Das automatische Schließen von Klammern und Anführungszeichen greift
+  nur, wenn beim Tastendruck keine Zusatztaste gedrückt ist. Auf einer
+  deutschen Tastatur brauchen `(`, `)`, `"`, `'` die Umschalttaste und
+  `[ ] { }` AltGr: Umschalt+8, Umschalt+2 ergibt `print("` ohne
+  Ergänzung.
+- Die Parameterhilfe erscheint nach `(` (auch mit Umschalttaste), aber
+  nicht, nachdem ein Vorschlag mit der Eingabetaste übernommen wurde
+  (`konto_abheben()` wird eingefügt, die Hilfe ist nicht zu sehen).
+
+**Ursache:** nachgewiesen für den ersten Teil:
+`if not event.modifiers() and self._klammer_schliessen(event)` in
+`ide/shell/quelltexteditor.py`. Für den zweiten vermutlich: das
+Schließen der Vorschlagsliste blendet den gerade gezeigten Tooltip
+wieder aus.
+
+**Zu tun:** Statt auf „keine Zusatztaste“ auf das erzeugte Zeichen
+(`event.text()`) prüfen und nur Strg/Alt ohne AltGr ausschließen. Die
+Parameterhilfe nach dem Schließen der Liste zeigen. Erledigt, wenn
+beides mit einer deutschen Tastatur funktioniert und ein Test mit
+Umschalt-Tastendruck das festhält.
+
+---
+
+## 44. Palettenkacheln und Menüsymbol sind für UIA namenlos
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 15.
+
+**Beobachtet:** Die 14 Kacheln der Komponentenpalette erscheinen in
+UI Automation als `ListItem` ohne Namen; das Symbol eines `MainMenu`
+auf der Zeichenfläche erscheint gar nicht. Ein Bildschirmleser liest
+nichts vor, und ein automatischer Test muss über Reihenfolge und
+Koordinaten gehen.
+
+**Ursache:** nachgewiesen für die Palette: `ide/palette/palette.py`
+setzt nur Symbol und Tooltip, keinen Text und keinen zugänglichen
+Namen.
+
+**Zu tun:** Den Komponentennamen als zugänglichen Namen setzen (Text
+der Kachel oder `Qt.AccessibleTextRole`), ebenso für die Symbole
+nicht sichtbarer Komponenten. Erledigt, wenn UIA „Button“, „Label“ …
+liefert.
+
+---
+
+## 45. Kleinere Befunde aus dem Schülerweg 0.3.3, Teil 2
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2.
+
+**Beobachtet:**
+
+- Der Komponentenbaum zeigt neu platzierte Komponenten erst nach
+  erneutem Öffnen des Formulars (Schritte 15, 21).
+- F2 öffnet den Menü-Editor nicht, wenn das Menüsymbol zuvor
+  angeklickt wurde; der Tastaturfokus bleibt außerhalb der
+  Zeichenfläche. Doppelklick und `entries` wirken (Schritt 15).
+- Ein Button-Text, der nicht in die Standardbreite passt
+  („Verdoppeln“), wird im Designer und im Programm abgeschnitten, ohne
+  Fund der Design-Prüfung (Schritt 16).
+- Bei falscher Einrückung fragt der Hinweis nach Doppelpunkt, Klammer
+  oder Anführungszeichen, nicht nach der Einrückung (Schritt 18).
+- Die Variablentabelle beginnt mit „special variables“ (englisch, aus
+  debugpy); das Panel zeigt in der Grundaufteilung nur eine Zeile
+  (Schritt 20).
+- Eine Projektvorlage „gui_db“ gibt es nicht, `docs/bericht.md`,
+  Abschnitt 2.1, nennt sie (Schritt 21).
+- „Ansicht → Datenbank“ öffnet ein schwebendes Fenster, links
+  abgeschnitten, „Nicht verbunden“ (Schritt 21).
+- Im Konsolenprojekt erscheint ein importiertes Formular nicht im
+  Projekt-Explorer (Schritt 25).
+- Der Prüfungsmodus lässt sich in der Oberfläche nicht vorzeitig
+  beenden; die Rückfrage sagt das, das Handbuch nicht ausdrücklich
+  (Schritt 26).
+- Der Diagramm-Editor speichert „Minimap“ und „Lineale“ über
+  `QSettings("Natter", "Diagramm")` in der Registry
+  (`HKCU\Software\Natter\Diagramm`); nach dem Deinstallieren bleibt der
+  Schlüssel, ebenso ein leerer `…\Natter-IDE` (Schritt 28).
+- `beispielprojekte/01_Begruessung/u_main.py`: „# Drücke F5, um das
+  Programm zu starten.“ spricht mit „du“ an (Schritt 14).
+
+**Ursache:** jeweils wie angegeben.
+
+**Zu tun:** Jede Stelle beheben oder begründet zurückstellen; die
+Diagramm-Einstellungen in dieselbe INI legen wie den Rest. Erledigt,
+wenn alle Stellen abgearbeitet sind.
 
 ---
 
