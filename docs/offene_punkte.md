@@ -62,6 +62,16 @@ Umlaute und Byte-Order-Mark prüfen bereits
 `test_der_installer_liest_seine_texte_als_utf8` und die
 Umlaut-Tests.
 
+**Nachgewiesen ohne Durchklicken (25. September 2026):** Die
+Lizenzseite sagt „Die vollständige Lizenz steht nach der Installation
+in der Datei LICENSE im Installationsordner." Dort liegt keine: der
+Installationsordner enthält nur `Natter.exe`, `python\`, `Lizenzen\`
+und `manifest.json`; Natters `LICENSE` steckt nur in
+`python\Lib\site-packages\natter-<Version>.dist-info\licenses\`.
+Entweder die Datei beim Paketieren nach `{app}\LICENSE` kopieren oder
+den Satz ändern. Das lässt sich ohne Durchklicken beheben; das
+Durchklicken selbst bleibt.
+
 
 ---
 
@@ -106,10 +116,21 @@ Manifest (siehe Arbeitspaket M13), nur andersherum.
 Schulrechner, der zwischen zwei Halbjahren aufgeräumt wird, sieht das
 nach einer halben Deinstallation aus.
 
+**Woher der Cache kommt — nachgewiesen (25. September 2026).**
+`projekt_pruefen()` in `ide/run/pruefung.py` ruft `ruff check`
+ohne Arbeitsordner und ohne `--no-cache` auf. ruff legt seinen Cache
+dann im Arbeitsordner von Natter an, und das ist der Programmordner.
+Der Cache bringt der Prüfung nichts: sie läuft über ein kleines
+Schülerprojekt und ist ohnehin schnell.
+
 **Zu tun:**
 
-- Eine `[UninstallDelete]`-Regel für `{app}\.ruff_cache` in
-  `tools/natter.iss`, und eine für den Ordner selbst.
+- Die Ursache: `--no-cache` in `projekt_pruefen()`. Dann entsteht kein
+  `.ruff_cache` mehr, weder im Programmordner noch sonst wo.
+- Als Netz dahinter eine `[UninstallDelete]`-Regel für
+  `{app}\.ruff_cache` in `tools/natter.iss`. Nicht für `{app}` selbst:
+  wählt jemand beim Installieren einen Ordner wie `Dokumente`, würde
+  eine solche Regel ihn beim Entfernen leeren.
 - Nachsehen, was die IDE sonst noch neben sich schreibt: `__pycache__`
   in `site-packages` entsteht beim ersten Import und dürfte dasselbe
   Problem haben. Beim Bau von 0.2.0 waren es über achtzig `.pyc`.
@@ -120,7 +141,7 @@ nach einer halben Deinstallation aus.
 
 ---
 
-## 24. Keine Prüfung auf GPL-Komponenten in der Auslieferung
+## 24. Die Auslieferung enthält GPL-Module, und Lizenztexte fehlen
 
 **Gemeldet:** 25. September 2026, beim Zusammenfassen der
 Planungsunterlagen in `docs/bericht.md`, Fassung 0.3.2.
@@ -138,12 +159,44 @@ fehlschlägt. Diesen Test gibt es nicht; kein Test im Repository nennt
 Lizenztexte und warnt bei fehlender Angabe, prüft aber nicht, welche
 Lizenz es ist.
 
-**Zu tun:** Ein Test, der für jedes Laufzeitpaket aus `uv.lock` die
-Lizenz aus den Metadaten liest und bei GPL, AGPL oder unbekannter
-Lizenz fehlschlägt; LGPL ist erlaubt. Dazu eine Prüfung, dass
-`PySide6.QtCharts` und `PySide6.QtDataVisualization` in `dist\Natter`
-nicht vorkommen. Erledigt, wenn der Test grün ist und bei einem
-absichtlich eingetragenen GPL-Paket rot wird.
+**Nachgemessen in `dist\Natter` (Fassung 0.3.2):**
+
+- **Qt Charts, Qt Data Visualization und Qt Graphs werden
+  ausgeliefert.** In `site-packages\PySide6` liegen `Qt6Charts.dll`,
+  `Qt6ChartsQml.dll`, `Qt6DataVisualization.dll`,
+  `Qt6DataVisualizationQml.dll`, `Qt6Graphs.dll`,
+  `Qt6GraphsWidgets.dll` und die passenden `.pyd`/`.pyi`. Sie kommen
+  mit `PySide6_Addons` und stehen nur unter GPL-3.0 oder einer
+  kaufbaren Lizenz, nicht unter LGPL. Natter benutzt sie nicht; die
+  frühere Planung sagte, sie würden aus dem Paket entfernt - das ist
+  nie umgesetzt worden.
+- **32 von rund 50 mitgelieferten Paketen haben keinen Lizenztext in
+  `Lizenzen\`**, darunter PyInstaller, jedi, cryptography, Pillow,
+  fontTools, contourpy, attrs, packaging und setuptools. MIT, BSD und
+  Apache verlangen, dass der Lizenztext bei der Weitergabe dabei ist.
+  Ursache: `_LAUFZEIT_PAKETE` in `tools/ide_paketieren.py` ist eine
+  von Hand gepflegte Liste; laut ihrem Kommentar steckt PyInstaller
+  „nicht in der gebauten Exe", was seit M13 nicht mehr stimmt.
+- **PyInstaller steht unter GPL-2.0** mit einer Ausnahme für die
+  erzeugten Programme. Natter braucht es für „Als Exe exportieren".
+  Die Regel in AGENTS.md („nur freizügige Lizenzen oder LGPL") deckt
+  das nicht ab; die Lizenzseite des Installers nennt es bereits.
+
+**Zu tun:**
+
+- Die Qt-Module Charts, DataVisualization und Graphs nach dem
+  Auspacken entfernen, wie Tcl/Tk (`_tcl_tk_entfernen()`), und in der
+  Rauchprobe (Schritt 6) prüfen, dass sie fehlen.
+- Lizenztexte für **jedes** Paket der mitgelieferten Python sammeln,
+  aus den Metadaten der installierten Pakete statt aus einer Liste.
+- Ein Test, der für jedes Laufzeitpaket die Lizenz liest und bei GPL,
+  AGPL oder unbekannter Lizenz fehlschlägt. Erlaubt: LGPL, die
+  Doppellizenzen von PySide6/shiboken6 („LGPL-3.0 OR GPL"), und
+  PyInstaller als ausdrücklich genannte Ausnahme - sofern das so
+  entschieden wird.
+- Erledigt, wenn die drei Module in `dist\Natter` fehlen, jedes Paket
+  einen Lizenztext in `Lizenzen\` hat und der Test bei einem
+  absichtlich eingetragenen GPL-Paket rot wird.
 
 ---
 
