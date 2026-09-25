@@ -203,6 +203,13 @@ def test_die_geprueften_versionen_werden_zuerst_installiert(
 
     aufruf = _Aufruf()
     monkeypatch.setattr(ide_paketieren.subprocess, "run", aufruf)
+    # pip läuft über `ausfuehren`, damit jede Zeile sofort an die
+    # Fortschrittsanzeige geht; `uv export` weiter über `subprocess.run`.
+    monkeypatch.setattr(
+        ide_paketieren,
+        "ausfuehren",
+        lambda befehl, _melder, **_k: (aufruf.befehle.append([str(t) for t in befehl]), (0, ""))[1],
+    )
     (tmp_path / "python").mkdir()
 
     ide_paketieren._natter_installieren(tmp_path / "python" / "python.exe")
