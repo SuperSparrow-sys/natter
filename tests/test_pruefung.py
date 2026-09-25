@@ -65,3 +65,19 @@ def test_fund_als_text_enthaelt_dateiname_zeile_code_und_meldung(tmp_path: Path)
     assert "main.py" in text
     assert "F821" in text
     assert str(fund.zeile) in text
+
+
+def test_die_pruefung_hinterlaesst_keinen_ruff_cache(tmp_path: Path, monkeypatch) -> None:  # noqa: ANN001
+    """Offener Punkt 21: nach dem Deinstallieren blieb ein
+    `.ruff_cache` im Programmordner liegen. ruff legte ihn im
+    Arbeitsordner von Natter an, und das ist in der Installation der
+    Programmordner. Hier steht `arbeitsordner` für ihn."""
+    arbeitsordner = tmp_path / "programmordner"
+    arbeitsordner.mkdir()
+    monkeypatch.chdir(arbeitsordner)
+    projekt = _projekt_schreiben(tmp_path / "projekt", "print('hallo')\n")
+
+    projekt_pruefen(projekt)
+
+    assert not (arbeitsordner / ".ruff_cache").exists()
+    assert not (projekt.ordner / ".ruff_cache").exists()

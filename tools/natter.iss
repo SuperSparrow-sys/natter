@@ -150,6 +150,13 @@ Root: HKA; Subkey: "Software\Classes\NatterProjekt\shell\open\command"; ValueTyp
 ; wird. Ohne diese Zeile bliebe nach dem Deinstallieren ein Ordner mit
 ; hunderten Megabyte stehen (M13).
 Type: filesandordirs; Name: "{app}\python"
+; Der Cache der Prüfung vor dem Start. Seit ruff mit --no-cache läuft,
+; entsteht er nicht mehr; eine ältere Fassung kann ihn aber
+; hinterlassen haben. Nicht "{app}" selbst: wählt jemand beim
+; Installieren einen Ordner wie "Dokumente", würde eine solche Regel
+; ihn beim Entfernen leeren.
+Type: filesandordirs; Name: "{app}\.ruff_cache"
+Type: dirifempty; Name: "{app}"
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent

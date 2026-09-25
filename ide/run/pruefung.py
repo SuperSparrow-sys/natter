@@ -149,6 +149,11 @@ def projekt_pruefen(projekt: Projekt) -> list[RuffFund]:
             *ruff_befehl(),
             "check",
             "--isolated",
+            # Ohne das legt ruff einen `.ruff_cache` im Arbeitsordner
+            # von Natter an - in der installierten Fassung also im
+            # Programmordner, wo er nach dem Deinstallieren liegen blieb.
+            # Bei einem Schülerprojekt bringt der Cache ohnehin nichts.
+            "--no-cache",
             f"--select={_AUSGEWAEHLTE_REGELN}",
             "--output-format=json",
             str(projekt.ordner),
