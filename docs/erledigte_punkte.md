@@ -2048,3 +2048,41 @@ Installation entspricht (bis auf die Uninstaller-Dateien) und
 
 **Nachgewiesen und erledigt (26. September 2026).** Vor dem Update lag in der installierten 0.3.3 ein über pip nachinstalliertes `cowsay` 6.1. Nach dem Update auf 0.3.4: nur noch `natter-0.3.4.dist-info` in `site-packages`, `cowsay` 6.1 wieder installiert, die Merkliste `%APPDATA%\Natter\pakete_vor_update.txt` gelöscht, `import PySide6.QtCharts` findet nichts, „Werkzeuge → Umgebung prüfen“ meldet „alle Programmdateien unverändert“.
 
+---
+
+## 34. Exportierte Exe lassen sich nicht signieren, weil der Bau die PyInstaller-Vorlagen signiert ~~(erledigt)~~
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 27.
+
+**Beobachtet:** „Projekt → Als Exe exportieren …“ baut die Exe (GUI
+55 s, 54,9 MB; Konsole 9,7 s, 8,0 MB), die Statuszeile endet aber mit
+„Exe erstellt: … - Nicht signiert: UnknownError“.
+`Get-AuthenticodeSignature` meldet `NotSigned`. Von Hand mit demselben
+Zertifikat und Aufruf signiert: „%1 ist keine zulässige
+Win32-Anwendung“. Eine Kopie von `Natter.exe` lässt sich dagegen
+einwandfrei signieren. Die exportierte Exe trägt mitten in der Datei
+eine Zertifikatstabelle (Offset 311 808, 7 160 Byte).
+
+**Ursache:** nachgewiesen. Der Auslieferungsbau signiert jede
+Binärdatei der Installation, auch
+`python\Lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\run.exe`,
+`runw.exe`, `run_d.exe`, `runw_d.exe` („Natter Codesignatur“, im
+Entwicklungsbaum unsigniert). PyInstaller hängt beim Export das
+Programmarchiv hinter diese Vorlage; die vorhandene Signatur steht
+danach nicht mehr am Ende, und Windows lehnt die Datei beim Signieren
+ab. Betroffen ist jede Fassung, seit der Bau alle Binärdateien
+signiert (0.3.1).
+
+**Zu tun:** Die Bootloader-Vorlagen von PyInstaller beim Signieren
+auslassen (Ausnahmeliste in `tools/signieren/alles_signieren.ps1` und
+`_signieren_mit_zwischenspeicher`, Schritt 10 entsprechend), oder
+beim Export vor dem Signieren eine vorhandene Signatur entfernen. Die
+Meldung „UnknownError“ durch einen deutschen Satz mit Grund ersetzen.
+Ein Test in der Rauchprobe: aus der gebauten Python eine kleine Exe
+exportieren und signieren. Erledigt, wenn eine in der installierten
+Fassung exportierte Exe `Valid` signiert ist.
+
+**Umgesetzt am 26. September 2026, Nachweis am nächsten Bau offen.** Die Vorlagen unter `PyInstaller\bootloader\` sind vom Signieren ausgenommen, an allen drei Stellen gleich (`ausgenommen_vom_signieren`/`NICHT_SIGNIERT` in `tools/ide_paketieren.py`, `$AUSGENOMMEN` in `tools/signieren/alles_signieren.ps1`, Schritt 10); Schritt 10 bricht jetzt umgekehrt ab, wenn eine Vorlage signiert ist (Test mit echtem PowerShell und einer von Microsoft signierten Datei). Nachgewiesen am Entwicklungsbaum: eine mit dem unsignierten Bootloader gebaute Exe lässt sich signieren (`Valid`). Die Statuszeile nennt statt „UnknownError“ einen deutschen Grund mit der Meldung von Windows. Offen: in der nächsten gebauten Installation eine Schüler-Exe exportieren; sie muss `Valid` signiert sein.
+
+**Nachgewiesen und erledigt (26. September 2026).** In der installierten 0.3.4 ein GUI-Projekt über „Projekt → Als Exe exportieren …“ exportiert: nach 3:29 Minuten „Exe erstellt“, `Test034.exe` 57,6 MB, `Get-AuthenticodeSignature` meldet `Valid`, Unterzeichner „CN=Natter Codesignatur“. Die Exe startet in 7 Sekunden und zeigt Menü und Knopf. Bildschirmfotos `build\auswertung\bilder\T034e_*.png`. Im CI läuft der zugehörige Test von Schritt 10 noch nicht (Punkt 46).
+

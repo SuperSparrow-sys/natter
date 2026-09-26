@@ -497,6 +497,28 @@ README zeigt auf die neueste Fassung. Vor dem Entpacken die ZIP unter
 Nach jedem Bau kommt hier ein Eintrag dazu: Datum, Fassung, Größe,
 Signaturen, Dauer, und was der Lauf aufgedeckt hat, samt Irrweg.
 
+### 0.3.5 – 26. September 2026
+
+`Natter-Setup.exe`, 276,5 MB. `Natter.exe` und `Natter-Setup.exe`
+`Valid`, jede Binärdatei gültig signiert. ZIP 277 MB. Veröffentlicht als
+Release `v0.3.5`, das Tag zeigt auf `39fdfdf`. 48,9 Minuten: pytest
+22:51 (4250 Tests), `dist\Natter` 12:45, Installer 10:29. Behebt die
+drei Fehler, die beim Bedienen der installierten 0.3.4 auffielen (siehe
+dort).
+
+Update 0.3.4 → 0.3.5 auf dem Baurechner: Hinweis „Natter 0.3.4 ist
+installiert und wird auf 0.3.5 aktualisiert.“, 3:20 Minuten, danach nur
+`natter-0.3.5.dist-info`, `cowsay` wieder da. In der installierten
+Fassung durchgespielt, mit Bildschirmfotos: neues GUI-Projekt, Button
+und Hauptmenü aus der Palette (die Kacheln sind über UI Automation mit
+Namen ansprechbar), Komponentenbaum sofort aktuell, Doppelklick auf den
+Button öffnet `u_main.py` in `button_click` mit markiertem `pass`,
+„Umgebung prüfen“ ohne Befund, Programm gestartet, Knopf geklickt.
+Schon an 0.3.4 geprüft und in 0.3.5 unverändert: `form_create` über den
+Reiter „Ereignisse“ verknüpft, Menü „Datei“ links oben im laufenden
+Programm, `input()` im Programm mit Fenster mit deutscher Meldung und
+Code 1, Exe-Export mit gültiger Signatur (Punkt 34).
+
 ### 0.3.4 – 26. September 2026
 
 `Natter-Setup.exe`, 276,5 MB. `Natter.exe` und `Natter-Setup.exe`
