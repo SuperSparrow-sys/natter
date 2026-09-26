@@ -387,3 +387,30 @@ def test_das_symbol_zeichnet_wirklich_etwas() -> None:
 
     farben = {QColor(bild.pixel(x, y)).name() for x in range(32) for y in range(32)}
     assert len(farben) > 2
+
+
+def test_hohe_eintraege_stehen_in_der_leiste_und_nicht_im_ueberlauf(qtbot) -> None:
+    """Unter Windows 11 ist ein Menüeintrag 32 Pixel hoch. In der fest
+    26 Pixel hohen Leiste bis 0.3.3 passte keiner hinein, Qt schob
+    alle in den Knopf „···“, und „Datei“ war links oben nicht zu sehen
+    (Punkt 39 der offenen Punkte). Nachgestellt mit einem größeren
+    Innenabstand, damit es auf jedem Rechner gleich ausfällt."""
+    from PySide6.QtWidgets import QApplication, QToolButton
+
+    app = QApplication.instance()
+    vorher = app.styleSheet()
+    app.setStyleSheet("QMenuBar::item { padding: 10px 8px; }")
+    try:
+        formular = _Formular()
+        qtbot.addWidget(formular._qwidget)
+        formular.show()
+        QApplication.processEvents()
+
+        leiste = formular._menueleiste
+        ueberlauf = leiste.findChild(QToolButton, "qt_menubar_ext_button")
+        assert ueberlauf is None or not ueberlauf.isVisible()
+        for aktion in leiste.actions():
+            assert leiste.actionGeometry(aktion).bottom() < leiste.height()
+        assert formular.b_start._qwidget.y() == 10 + leiste.height()
+    finally:
+        app.setStyleSheet(vorher)

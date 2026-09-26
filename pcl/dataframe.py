@@ -30,9 +30,25 @@ def load_dataframe(grid: StringGrid, df: pd.DataFrame) -> None:
     grid.row_count = len(df) + 1
     for spalte, name in enumerate(df.columns):
         grid.cells[spalte, 0] = str(name)
-    for zeile, (_, reihe) in enumerate(df.iterrows(), start=1):
+    # `itertuples` statt `iterrows`: eine Zeile aus `iterrows` hat einen
+    # gemeinsamen Typ, und neben einer Kommazahl wurde aus der ganzen
+    # Zahl 1 in derselben Zeile „1.0“.
+    for zeile, reihe in enumerate(df.itertuples(index=False), start=1):
         for spalte, wert in enumerate(reihe):
-            grid.cells[spalte, zeile] = "" if pd.isna(wert) else str(wert)
+            grid.cells[spalte, zeile] = _zelltext(wert, pd)
+
+
+def _zelltext(wert: Any, pd: Any) -> str:
+    """Der Text für eine Zelle. Kommazahlen mit Dezimalkomma wie überall
+    in Natter: bis 0.3.3 stand „2.4“ in der Tabelle, während
+    daneben ein von Hand formatierter Mittelwert „9,7“ zeigte."""
+    import numpy as np
+
+    if pd.isna(wert):
+        return ""
+    if isinstance(wert, float | np.floating):
+        return str(wert).replace(".", ",")
+    return str(wert)
 
 
 def to_dataframe(grid: StringGrid) -> pd.DataFrame:

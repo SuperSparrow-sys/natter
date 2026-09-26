@@ -54,6 +54,7 @@ def _in_fenster_zeigen(text: str) -> bool:
     Liefert `False`, wenn keine Qt-Anwendung läuft – dann ist es ein
     Konsolenprogramm, und die Meldung gehört in die Konsole.
     """
+    from PySide6.QtCore import QThread
     from PySide6.QtWidgets import QApplication, QMessageBox
 
     if QApplication.instance() is None:
@@ -64,6 +65,14 @@ def _in_fenster_zeigen(text: str) -> bool:
     kasten.setText(TITEL)
     kasten.setInformativeText(text)
     kasten.exec()
+    # Die Überschrift sagt „beendet“, also endet das Programm auch,
+    # und zwar mit einem Rückgabewert, der einen Fehler meldet. Bis
+    # 0.3.3 lief es weiter, und nach dem Schließen stand im Panel
+    # „Programm beendet (Code 0)“. Nur aus einer laufenden
+    # Ereignisschleife heraus: ohne sie merkte Qt sich das Ende und
+    # beendete die nächste Schleife sofort, die jemand startet.
+    if QThread.currentThread().loopLevel() > 0:
+        QApplication.exit(1)
     return True
 
 

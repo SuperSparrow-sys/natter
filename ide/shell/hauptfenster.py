@@ -139,6 +139,16 @@ MENUETITEL = (
     "Hilfe",
 )
 
+#: Gruppenzeilen, die debugpy unter die Variablen mischt.
+_DEBUGPY_GRUPPEN = frozenset(
+    {
+        "special variables",
+        "function variables",
+        "class variables",
+        "protected variables",
+    }
+)
+
 PANEL_REITER = ("Meldungen", "Ausgabe", "Variablen", "Aufrufstapel", "Tests")
 
 #: Wie oft nachgesehen wird, ob das gestartete Programm inzwischen zu
@@ -3681,6 +3691,13 @@ class HauptFenster(QMainWindow):
 
     def _debugger_variablen_bereit(self, variablen: list[dict]) -> None:
         self.variablen_baum.clear()
+        # debugpy stellt Gruppen wie „special variables“ und „function
+        # variables“ an den Anfang: englisch, ohne Wert und für eine
+        # Schülerin ohne Bedeutung. Die Tabelle begann bis 0.3.3 mit
+        # dieser Zeile.
+        variablen = [
+            v for v in variablen if v.get("name") not in _DEBUGPY_GRUPPEN
+        ]
         for variable in variablen:
             QTreeWidgetItem(self.variablen_baum, [variable["name"], str(variable.get("value"))])
         # Beim Bildschirmfoto gefunden: das Programm stand am
@@ -3692,6 +3709,8 @@ class HauptFenster(QMainWindow):
         # Fehlermeldung aus dem Fehlerkatalog.
         if variablen and self._letzter_haltegrund != "exception":
             self.panels.setCurrentWidget(self.variablen_baum)
+            # In der Grundaufteilung war nur eine Zeile zu sehen.
+            self._panel_hoehe_sichern(min(len(variablen), 8) + 1)
 
     # -- „Als Tabelle anzeigen“ (Abschnitt 11.6) -----------------------------
 

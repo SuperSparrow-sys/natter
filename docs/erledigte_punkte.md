@@ -1652,3 +1652,71 @@ liefert.
 
 **Behoben (26. September 2026).** Die Kacheln der Komponentenpalette tragen den Komponentennamen als `Qt.AccessibleTextRole`, die Symbole von `MainMenu`, `PopupMenu` und `Timer` im Designer einen zugänglichen Namen. Mit pywinauto gegen die laufende Palette geprüft: UIA liefert „Button“, „Label“, „Edit“ … „PopupMenu“ für alle 14 Kacheln und „MainMenu“ für das Symbol auf dem Formular. `tests/test_designer_zugaenglichkeit.py` prüft dasselbe über `QAccessible` und dazu den F2-Befund aus Punkt 45.
 
+---
+
+## 39. Das Hauptmenü eines Schülerprogramms ist nur über „···" erreichbar ~~(erledigt)~~
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 16.
+
+**Beobachtet:** Ein `MainMenu` mit „Datei → Beenden“. Im laufenden
+Programm (aus Natter und ohne Natter) ist die Menüleiste leer; oben
+rechts steht nur ein Knopf „···“, der „Datei“ aufklappt. Ein Klick auf
+die Stelle, an der UIA „Datei“ meldet (links oben), öffnet nichts.
+
+**Ursache:** noch offen (`pcl/components/menus.py`, Aufbau der
+`QMenuBar` im Formular).
+
+**Zu tun:** Die Einträge direkt in der Menüleiste zeigen. Erledigt,
+wenn „Datei“ im laufenden Programm links oben sichtbar ist und sich
+mit einem Klick öffnet.
+
+**Behoben (26. September 2026).** Die Menüleiste war fest 26 Pixel hoch, ein Eintrag unter Windows 11 aber 32. Qt schob deshalb jeden Eintrag in den Überlaufknopf „···“. `Form._menueleiste_aufbauen` in `pcl/form.py` baut jetzt erst die Einträge und misst dann die Höhe (mindestens 26 Pixel); der Arbeitsbereich rutscht um die gemessene Höhe nach unten, Mausereignisse rechnen mit ihr, und die Leiste wächst bei einer Größenänderung zur Laufzeit mit. Die Koordinaten aus der `.pfm` bleiben unberührt, sie zählen ab dem Arbeitsbereich. Mit pywinauto an einem laufenden Formular geprüft: „Datei“ steht links oben, ein Klick darauf öffnet das Menü mit „Beenden“. `tests/test_components_menus.py` stellt hohe Einträge mit einem größeren Innenabstand nach und schlägt gegen den alten Code an.
+
+
+---
+
+## 41. `input()` im GUI-Programm endet mit englischem Traceback ~~(erledigt)~~
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 18.
+
+**Beobachtet:** `input("Name? ")` in einer Ereignismethode. Das
+Fehlerfenster sagt „Zu diesem Fehler gibt es noch keine deutsche
+Erklärung. Die Originalmeldung von Python steht darunter.“ und zeigt
+den Traceback mit `EOFError: EOF when reading a line`. Nach diesem und
+nach einem `AttributeError` steht im Panel „Programm beendet (Code
+0)“, obwohl das Fehlerfenster „Das Programm wurde mit einem Fehler
+beendet“ sagt.
+
+**Ursache:** noch offen. Der Fehlerkatalog hat keinen Eintrag für
+`EOFError`; ein GUI-Programm läuft ohne Konsole, `input()` bekommt
+keine Eingabe. Der Rückgabewert 0 kommt vermutlich aus dem normalen
+Ende der Qt-Ereignisschleife nach dem Fehlerfenster.
+
+**Zu tun:** Eintrag im Fehlerkatalog: was los ist (in einem Programm
+mit Fenster gibt es keine Konsole für `input()`) und was zu prüfen ist
+(Eingaben über ein Eingabefeld). Nach einem Laufzeitfehler mit einem
+Rückgabewert ungleich 0 enden. Erledigt, wenn der Fall eine deutsche
+Meldung mit Wo/Was/Prüfe zeigt und das Panel einen Fehler meldet.
+
+**Behoben (26. September 2026).** Der Fehlerkatalog hat einen Eintrag für `EOFError` (`_eof_error` in `pcl/fehlerkatalog.py`, `eof_error` in `docs/fehlerkatalog.yaml`): im Programm mit Fenster sagt er, dass es keine Konsole für `input()` gibt, und fragt nach einem Eingabefeld. Nach dem Fehlerfenster endet ein GUI-Programm jetzt tatsächlich, wie die Überschrift „Das Programm wurde mit einem Fehler beendet“ sagt, und zwar mit Rückgabewert 1 (`QApplication.exit(1)` in `pcl/fehleranzeige.py`, `sys.exit` in `Application.run`, weil `main.py` den Rückgabewert von `app.run` nicht weitergibt). `exit` wird nur aus einer laufenden Ereignisschleife gerufen; ohne sie merkte sich Qt das Ende und beendete die nächste Schleife sofort, was vier Tests der IDE scheitern ließ. `tests/test_fehleranzeige_im_programm.py` startet ein echtes GUI-Programm mit `input()` in einer Ereignismethode als Unterprozess: deutsche Meldung, Code 1. Gegen den alten Code läuft es in die Zeitgrenze, weil das Programm nach dem Fehler weiterlief.
+
+
+---
+
+## 42. `StringGrid.load_dataframe` zeigt Zahlen mit Dezimalpunkt ~~(erledigt)~~
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 22.
+
+**Beobachtet:** Ein mit `pd.read_csv(…, decimal=",")` gelesener
+DataFrame, per `load_dataframe` ins StringGrid: die Temperaturen
+erscheinen als „2.4“, „2.8“, „5.1“. Im selben Programm steht der
+Mittelwert, von Hand formatiert, als „9,7 °C“.
+
+**Ursache:** noch offen (`pcl/dataframe.py`, Umwandlung der Zellwerte
+in Text).
+
+**Zu tun:** Zahlen beim Übertragen ins Grid mit Dezimalkomma
+darstellen. Erledigt, wenn dasselbe Beispiel „2,4“ zeigt.
+
+**Behoben (26. September 2026).** `load_dataframe` in `pcl/dataframe.py` schreibt Kommazahlen mit Dezimalkomma. Dabei fiel ein zweiter Fehler auf: `iterrows` gibt jeder Zeile einen gemeinsamen Typ, neben einer Kommazahl wurde aus der ganzen Zahl 1 deshalb „1.0“. Jetzt läuft es über `itertuples`, das die Typen je Spalte behält. `docs/komponenten.md` beschreibt das Format. `tests/test_dataframe.py` liest das Beispiel aus der Auswertung als CSV mit `decimal=","` und erwartet „2,4“, „2,8“, „5,1“ und „1“.
+

@@ -229,6 +229,10 @@ Programm selbst hineinschreibt (`cells[…] = …`, `load_dataframe`),
 löst es nicht aus – sonst feuerte schon das Füllen der Tabelle hundert
 Ereignisse.
 
+`load_dataframe(df)` schreibt die Spaltennamen in Zeile 0 und die Werte
+als Text darunter, Kommazahlen mit Dezimalkomma („2,4“).
+`to_dataframe()` liest den Text so zurück, wie er in den Zellen steht.
+
 Ein Doppelklick im Designer legt `on_select_cell` an: das ist das
 kennzeichnende Ereignis der Tabelle (`standard_ereignis`).
 

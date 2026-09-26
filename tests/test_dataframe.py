@@ -100,3 +100,18 @@ def test_sqlquery_to_dataframe_liefert_alle_zeilen() -> None:
 
     assert list(df.columns) == ["name", "ort"]
     assert df.values.tolist() == [["Anna", "Köln"], ["Bo", "Bonn"]]
+
+
+def test_kommazahlen_erscheinen_mit_dezimalkomma(tmp_path) -> None:  # noqa: ANN001
+    """Punkt 42 der offenen Punkte: eine mit `decimal=","` gelesene
+    CSV zeigte im Grid „2.4“. Die ganze Zahl daneben blieb dabei nicht
+    „1“, sondern wurde über `iterrows` zu „1.0“."""
+    csv = tmp_path / "wetter.csv"
+    csv.write_text("monat;temperatur\n1;2,4\n2;2,8\n3;5,1\n", encoding="utf-8")
+    df = pd.read_csv(csv, sep=";", decimal=",")
+    formular = _Formular()
+
+    formular.sg_tabelle.load_dataframe(df)
+
+    assert [formular.sg_tabelle.cells[1, z] for z in (1, 2, 3)] == ["2,4", "2,8", "5,1"]
+    assert formular.sg_tabelle.cells[0, 1] == "1"

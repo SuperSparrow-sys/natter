@@ -33,4 +33,9 @@ class Application:
         fehleranzeige_einhaengen()
         formular = form_klasse()
         formular.show()
-        return self._qapp.exec()
+        ergebnis = self._qapp.exec()
+        if ergebnis != 0:
+            # `main.py` ruft `app.run(Form1)` ohne `sys.exit`. Ohne das
+            # hier endete ein Programm nach einem Fehler mit Code 0.
+            sys.exit(ergebnis)
+        return ergebnis

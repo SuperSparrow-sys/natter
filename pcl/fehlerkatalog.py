@@ -895,6 +895,32 @@ def _recursion_error(exc: BaseException) -> tuple[str, str, str]:
     )
 
 
+def _eof_error(exc: BaseException) -> tuple[str, str, str]:
+    """`EOFError`: `input()` bekam keine Eingabe. Im Unterricht fast
+    immer ein `input()` in einem Programm mit Fenster, das keine
+    Konsole hat. Bis 0.3.3 stand hier der englische Traceback mit
+    „EOF when reading a line“."""
+    from PySide6.QtWidgets import QApplication
+
+    if QApplication.instance() is not None:
+        was = (
+            "input() wartet auf eine Eingabe von der Tastatur, aber ein "
+            "Programm mit Fenster hat keine Konsole, in die sich etwas "
+            "tippen ließe."
+        )
+    else:
+        was = (
+            "input() hat keine Eingabe mehr bekommen, die Eingabe war "
+            "schon zu Ende."
+        )
+    return (
+        "Keine Eingabe für input()",
+        was,
+        "Woher soll der Wert kommen? Gibt es auf dem Formular ein "
+        "Eingabefeld, aus dem er sich lesen lässt?",
+    )
+
+
 def _assertion_error(exc: BaseException) -> tuple[str, str, str]:
     """`AssertionError` (M12). Kommt aus einem `assert` im eigenen Code
     und aus jeder fehlgeschlagenen Prüfung in einer Test-Unit."""
@@ -994,6 +1020,7 @@ _KATALOG: dict[type[BaseException], Callable[[BaseException], tuple[str, str, st
     ImportError: _import_error,
     RecursionError: _recursion_error,
     AssertionError: _assertion_error,
+    EOFError: _eof_error,
     OSError: _os_error,
     ArithmeticError: _arithmetic_error,
     # `pcl`-eigene Ausnahmen: NatterPropertyError und

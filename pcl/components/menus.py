@@ -68,9 +68,12 @@ EINTRAG_VORGABE: dict[str, Any] = {
     "children": [],
 }
 
-#: Höhe der Menüleiste in Pixeln. Fest statt gemessen: die `.pfm` hält
-#: Koordinaten, die auf jedem Rechner dasselbe bedeuten sollen, und
-#: eine gemessene Höhe fiele je nach Windows-Schriftgröße anders aus.
+#: Mindesthöhe der Menüleiste in Pixeln. Die tatsächliche Höhe misst
+#: das Formular, sobald die Einträge in der Leiste stehen: unter
+#: Windows 11 ist ein Eintrag 32 Pixel hoch, und in einer festen
+#: 26-Pixel-Leiste schob Qt alle Einträge in den Knopf „···“ am
+#: rechten Rand. Die Koordinaten aus der `.pfm` hängen davon nicht ab,
+#: sie zählen ab dem Arbeitsbereich unter der Leiste.
 MENUELEISTE_HOEHE = 26
 
 

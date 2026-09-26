@@ -279,3 +279,35 @@ def test_unbehandelte_ausnahme_zeigt_weiter_die_meldungen(qtbot, tmp_path: Path)
     finally:
         if fenster.debug_sitzung is not None:
             fenster._debugger_stoppen_aktion()
+
+
+def test_variablen_ohne_englische_gruppenzeilen(qtbot, tmp_path: Path) -> None:
+    """debugpy liefert „special variables“ und „function variables“
+    als eigene Zeilen. Bis 0.3.3 begann die Tabelle damit (Punkt 45 der
+    offenen Punkte). Gegen den echten debugpy."""
+    fenster = HauptFenster()
+    _projekt_oeffnen(
+        fenster,
+        tmp_path,
+        "def verdoppeln(x):\n    return 2 * x\n\n\nzahl = 42\nmarker = 1\n",
+    )
+    editor = fenster.datei_oeffnen(fenster.projekt.haupt_datei)
+    editor.breakpoint_umschalten(6)
+
+    fenster._projekt_mit_debugger_starten_aktion()
+    qtbot.waitUntil(lambda: fenster._aktueller_thread_id is not None, timeout=DEBUG_ZEITGRENZE)
+
+    try:
+        qtbot.waitUntil(
+            lambda: fenster.variablen_baum.topLevelItemCount() > 0,
+            timeout=DEBUG_ZEITGRENZE,
+        )
+        namen = [
+            fenster.variablen_baum.topLevelItem(i).text(0)
+            for i in range(fenster.variablen_baum.topLevelItemCount())
+        ]
+        assert "zahl" in namen
+        assert not [n for n in namen if n.endswith(" variables")]
+    finally:
+        if fenster.debug_sitzung is not None:
+            fenster._debugger_stoppen_aktion()

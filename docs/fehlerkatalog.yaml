@@ -132,6 +132,13 @@ entries:
     was: "Eine Behauptung (`assert`) hat nicht gestimmt. Dazu steht da: {meldung}."
     pruefe: "Welche Werte haben die Namen in der Behauptung an dieser Stelle wirklich? Ist die Behauptung falsch - oder das, was vorher berechnet wurde?"
 
+  # „was“ je nach Programmart: mit Fenster fehlt die Konsole, ohne
+  # Fenster war die Eingabe schon zu Ende.
+  - id: eof_error
+    exception: EOFError
+    was: "input() wartet auf eine Eingabe von der Tastatur, aber ein Programm mit Fenster hat keine Konsole, in die sich etwas tippen ließe."
+    pruefe: "Woher soll der Wert kommen? Gibt es auf dem Formular ein Eingabefeld, aus dem er sich lesen lässt?"
+
   # Rückfall für alle OSError ohne eigenen Eintrag (FileExistsError,
   # IsADirectoryError, volle Platte). Ohne ihn fiel die Suche über die
   # Klassenhierarchie ins Leere.

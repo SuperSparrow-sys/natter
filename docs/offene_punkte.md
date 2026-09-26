@@ -380,66 +380,6 @@ ungültiger Name nicht mehr in den Code gelangt.
 
 ---
 
-## 39. Das Hauptmenü eines Schülerprogramms ist nur über „···" erreichbar
-
-**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 16.
-
-**Beobachtet:** Ein `MainMenu` mit „Datei → Beenden“. Im laufenden
-Programm (aus Natter und ohne Natter) ist die Menüleiste leer; oben
-rechts steht nur ein Knopf „···“, der „Datei“ aufklappt. Ein Klick auf
-die Stelle, an der UIA „Datei“ meldet (links oben), öffnet nichts.
-
-**Ursache:** noch offen (`pcl/components/menus.py`, Aufbau der
-`QMenuBar` im Formular).
-
-**Zu tun:** Die Einträge direkt in der Menüleiste zeigen. Erledigt,
-wenn „Datei“ im laufenden Programm links oben sichtbar ist und sich
-mit einem Klick öffnet.
-
----
-
-## 41. `input()` im GUI-Programm endet mit englischem Traceback
-
-**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 18.
-
-**Beobachtet:** `input("Name? ")` in einer Ereignismethode. Das
-Fehlerfenster sagt „Zu diesem Fehler gibt es noch keine deutsche
-Erklärung. Die Originalmeldung von Python steht darunter.“ und zeigt
-den Traceback mit `EOFError: EOF when reading a line`. Nach diesem und
-nach einem `AttributeError` steht im Panel „Programm beendet (Code
-0)“, obwohl das Fehlerfenster „Das Programm wurde mit einem Fehler
-beendet“ sagt.
-
-**Ursache:** noch offen. Der Fehlerkatalog hat keinen Eintrag für
-`EOFError`; ein GUI-Programm läuft ohne Konsole, `input()` bekommt
-keine Eingabe. Der Rückgabewert 0 kommt vermutlich aus dem normalen
-Ende der Qt-Ereignisschleife nach dem Fehlerfenster.
-
-**Zu tun:** Eintrag im Fehlerkatalog: was los ist (in einem Programm
-mit Fenster gibt es keine Konsole für `input()`) und was zu prüfen ist
-(Eingaben über ein Eingabefeld). Nach einem Laufzeitfehler mit einem
-Rückgabewert ungleich 0 enden. Erledigt, wenn der Fall eine deutsche
-Meldung mit Wo/Was/Prüfe zeigt und das Panel einen Fehler meldet.
-
----
-
-## 42. `StringGrid.load_dataframe` zeigt Zahlen mit Dezimalpunkt
-
-**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 22.
-
-**Beobachtet:** Ein mit `pd.read_csv(…, decimal=",")` gelesener
-DataFrame, per `load_dataframe` ins StringGrid: die Temperaturen
-erscheinen als „2.4“, „2.8“, „5.1“. Im selben Programm steht der
-Mittelwert, von Hand formatiert, als „9,7 °C“.
-
-**Ursache:** noch offen (`pcl/dataframe.py`, Umwandlung der Zellwerte
-in Text).
-
-**Zu tun:** Zahlen beim Übertragen ins Grid mit Dezimalkomma
-darstellen. Erledigt, wenn dasselbe Beispiel „2,4“ zeigt.
-
----
-
 ## 45. Kleinere Befunde aus dem Schülerweg 0.3.3, Teil 2
 
 **Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2.
@@ -482,6 +422,8 @@ Diagramm-Einstellungen in dieselbe INI legen wie den Rest. Erledigt,
 wenn alle Stellen abgearbeitet sind.
 
 **Stand 26. September 2026, Paket „Designer und Editor“.** Erledigt: Der Komponentenbaum baut sich nach jeder Änderung im Designer neu auf und markiert die im Designer gewählte Komponente (`Komponentenbaum.auffrischen`, `tests/test_komponentenbaum_live.py`). Die Symbole von Menü und Zeitgeber nehmen nach einem Klick den Tastaturfokus an, F2 öffnet danach den Menü-Editor (`tests/test_designer_zugaenglichkeit.py`). Ein abgeschnittener Button-Text ist ein Fund der Design-Prüfung (siehe Punkt 36). Einrückungsfehler haben vor dem Start eigene Meldungen, die nach der Einrückung fragen (`_SYNTAX_GENAUER` in `ide/run/pruefung.py`, `tests/test_vorstart_einrueckung.py` mit dem echten Ruff). Die übrigen Stellen folgen mit Laufzeit, Diagramm und Dokumenten.
+
+**Stand 26. September 2026, Paket „Laufzeit“.** Erledigt: Die Variablentabelle lässt die Gruppenzeilen von debugpy weg („special variables“, „function variables“ …), und das Panel wird beim Anhalten hoch genug für bis zu acht Variablen (`_debugger_variablen_bereit` in `ide/shell/hauptfenster.py`, Test gegen den echten debugpy in `tests/test_hauptfenster_debugger.py`).
 
 ---
 

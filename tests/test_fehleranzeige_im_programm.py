@@ -166,3 +166,58 @@ def test_ein_konsolenprogramm_meldet_sich_auf_deutsch(
     assert erwartet in ausgabe
     assert "Traceback (most recent call last)" not in ausgabe
     assert ergebnis.returncode == 1
+
+
+_GUI_PROGRAMM = """
+import sys
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QMessageBox
+from pcl import Application, Form
+
+# Statt eines Fensters, das jemand wegklicken müsste
+QMessageBox.exec = lambda selbst: print(
+    selbst.informativeText(), file=sys.stderr
+)
+
+
+class Form1(Form):
+    def create_components(self) -> None:
+        QTimer.singleShot(0, self.frage)
+
+    def frage(self) -> None:
+        self.caption = input("Name? ")
+
+
+app = Application()
+app.run(Form1)
+print("nach run", file=sys.stderr)
+"""
+
+
+def test_input_im_gui_programm_meldet_sich_deutsch_und_endet_mit_fehler(
+    tmp_path: Path,
+) -> None:
+    """`input()` in einer Ereignismethode (Punkt 41 der offenen
+    Punkte). Bis 0.3.3: englischer Traceback mit „EOF when reading a
+    line“, das Programm lief weiter und endete mit Code 0. In einem
+    echten Unterprozess, weil es auf den Rückgabewert ankommt."""
+    (tmp_path / "main.py").write_text(_GUI_PROGRAMM, encoding="utf-8")
+
+    ergebnis = subprocess.run(
+        [sys.executable, "main.py"],
+        cwd=tmp_path,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        env=dict(
+            os.environ, PYTHONIOENCODING="utf-8", QT_QPA_PLATFORM="offscreen"
+        ),
+        timeout=60,
+        check=False,
+    )
+
+    ausgabe = ergebnis.stderr.decode("utf-8", "replace")
+    assert "Programm mit Fenster hat keine Konsole" in ausgabe
+    assert "Wo:" in ausgabe
+    assert "EOF when reading" not in ausgabe
+    assert "nach run" not in ausgabe
+    assert ergebnis.returncode == 1

@@ -115,6 +115,8 @@ class Form(Komponente):
         unterste Zeile verschwände.
         """
         self._qwidget.resize(self.width, self.height + self._leistenhoehe())
+        if self._menueleiste is not None:
+            self._menueleiste.resize(self.width, self._menueleiste.height())
 
     def _maus_melden(self, name: str, ereignis: Any) -> None:
         """Wie in `Komponente`, aber gezählt ab dem Arbeitsbereich.
@@ -135,9 +137,9 @@ class Form(Komponente):
         )
 
     def _leistenhoehe(self) -> int:
-        from pcl.components.menus import MENUELEISTE_HOEHE
-
-        return MENUELEISTE_HOEHE if self._menueleiste is not None else 0
+        if self._menueleiste is None:
+            return 0
+        return self._menueleiste.height()
 
     def _menue_komponenten(self) -> list[Any]:
         """Die `MainMenu`-Komponenten auf diesem Formular.
@@ -174,16 +176,19 @@ class Form(Komponente):
         if not menues or self._menueleiste is not None:
             return
 
-        self._menueleiste = QMenuBar(self._qwidget)
-        self._menueleiste.setGeometry(0, 0, self._qwidget.width(), MENUELEISTE_HOEHE)
-        for kind in self._qwidget.findChildren(QWidget, options=Qt.FindDirectChildrenOnly):
-            if kind is not self._menueleiste:
-                kind.move(kind.x(), kind.y() + MENUELEISTE_HOEHE)
-        self._groesse_anwenden()
-        self._menueleiste.show()
-
+        leiste = QMenuBar(self._qwidget)
         for menue in menues:
-            menue.in_leiste_aufbauen(self._menueleiste)
+            menue.in_leiste_aufbauen(leiste)
+        # Erst die Einträge, dann messen: wie hoch ein Eintrag ist,
+        # hängt von Windows-Stil und Schriftgröße ab.
+        hoehe = max(MENUELEISTE_HOEHE, leiste.sizeHint().height())
+        leiste.setGeometry(0, 0, self._qwidget.width(), hoehe)
+        for kind in self._qwidget.findChildren(QWidget, options=Qt.FindDirectChildrenOnly):
+            if kind is not leiste:
+                kind.move(kind.x(), kind.y() + hoehe)
+        self._menueleiste = leiste
+        self._groesse_anwenden()
+        leiste.show()
 
     def show(self) -> None:
         self._menueleiste_aufbauen()
