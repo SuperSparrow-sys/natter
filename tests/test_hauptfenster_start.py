@@ -103,3 +103,46 @@ def test_erneuter_start_waehrend_das_programm_noch_laeuft_wird_abgelehnt(
     finally:
         laufender_prozess.kill()
         laufender_prozess.wait(timeout=10)
+
+
+class _Ladeanzeige:
+    """Merkt sich, was das Ladebild meldet."""
+
+    gemeldet: list[str] = []
+
+    def __init__(self, _version: str) -> None:
+        _Ladeanzeige.gemeldet = []
+
+    def show(self) -> None:
+        pass
+
+    def melden(self, text: str) -> None:
+        _Ladeanzeige.gemeldet.append(text)
+
+    def finish(self, _fenster) -> None:  # noqa: ANN001
+        pass
+
+    def close(self) -> None:
+        pass
+
+
+def test_das_ladebild_nennt_ein_projekt_nur_wenn_eines_kommt(monkeypatch) -> None:
+    """Punkt 33: bis 0.3.3 stand „Projekt wird geöffnet …“ bei jedem
+    Start im Ladebild, auch ohne Projekt."""
+    import sys
+
+    from ide import main as ide_main
+
+    monkeypatch.setattr(ide_main, "Ladeanzeige", _Ladeanzeige)
+    monkeypatch.setattr(ide_main, "_projekt_aus_argv_oeffnen", lambda *a: None)
+
+    monkeypatch.setattr(sys, "argv", ["natter"])
+    ide_main.starten()
+    ohne = list(_Ladeanzeige.gemeldet)
+
+    monkeypatch.setattr(sys, "argv", ["natter", r"C:\Projekte\Ampel\Ampel.natter"])
+    ide_main.starten()
+    mit = list(_Ladeanzeige.gemeldet)
+
+    assert "Projekt wird geöffnet …" not in ohne
+    assert "Projekt wird geöffnet …" in mit

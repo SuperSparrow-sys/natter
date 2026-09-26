@@ -14,7 +14,21 @@ param([switch]$Still)
 
 $ErrorActionPreference = "Continue"
 
-$programm = Join-Path $env:LOCALAPPDATA "Programs\Natter"
+# Wo Natter liegt, steht im Deinstallationseintrag - fuer das eigene
+# Konto unter HKCU, fuer alle Benutzer unter HKLM. Bis 0.3.3 war der
+# Pfad fest eingetragen; eine Installation unter C:\Program Files
+# galt damit als "unvollstaendig" (Punkt 31).
+$schluessel = "Software\Microsoft\Windows\CurrentVersion\Uninstall\{961DA420-CA63-4436-9023-9CA411B620DA}_is1"
+$eintrag = $null
+foreach ($wurzel in "HKCU:", "HKLM:") {
+    $eintrag = Get-ItemProperty -Path "$wurzel\$schluessel" -ErrorAction SilentlyContinue
+    if ($eintrag) { break }
+}
+if ($eintrag -and $eintrag.InstallLocation) {
+    $programm = $eintrag.InstallLocation.TrimEnd('\')
+} else {
+    $programm = Join-Path $env:LOCALAPPDATA "Programs\Natter"
+}
 $python = Join-Path $programm "python\python.exe"
 $bericht = Join-Path ([Environment]::GetFolderPath("Desktop")) "Natter-Pruefbericht.txt"
 
@@ -29,9 +43,21 @@ Merken ""
 Merken "Rechner und System"
 Merken "  Windows:      $([Environment]::OSVersion.VersionString)"
 Merken "  Benutzer:     $env:USERNAME"
+Merken "  Installiert laut Windows: $(if ($eintrag) { "ja, Fassung $($eintrag.DisplayVersion)" } else { 'nein' })"
+Merken "  Programmordner: $programm"
 Merken "  Programmordner vorhanden: $(Test-Path $programm)"
 Merken "  Python vorhanden:         $(Test-Path $python)"
 Merken ""
+
+if (-not $eintrag -and -not (Test-Path $programm)) {
+    Merken "Natter ist fuer dieses Konto nicht installiert."
+    Merken "Zum Installieren Natter-Setup.exe aus diesem Paket ausfuehren."
+    $zeilen | Out-File -FilePath $bericht -Encoding utf8
+    if (-not $Still) {
+        Read-Host "Bericht liegt auf dem Schreibtisch. Eingabetaste zum Schliessen"
+    }
+    exit 1
+}
 
 if (-not (Test-Path $python)) {
     Merken "Die Installation ist unvollstaendig - python\python.exe fehlt."

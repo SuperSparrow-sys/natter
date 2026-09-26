@@ -24,7 +24,9 @@ jobs:
           version: "latest"
 
       - name: Python 3.13 einrichten
-        run: uv python install 3.13
+        # Ohne Angabe liest uv .python-version - dieselbe Fassung, die der
+        # Auslieferungsbau herunterlädt (Punkt 33).
+        run: uv python install
 
       - name: Abhängigkeiten installieren
         run: uv sync --group dev

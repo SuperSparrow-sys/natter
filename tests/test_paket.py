@@ -232,3 +232,42 @@ def test_die_starter_aendern_nichts_am_rechner() -> None:
         assert "-ExecutionPolicy Bypass" in text
         assert "Set-ExecutionPolicy" not in text
         assert "%~dp0" in text, f"{name} findet das Skript nicht neben sich"
+
+
+def test_zertifikat_eintragen_prueft_den_fingerabdruck_selbst() -> None:
+    """Punkt 29: bis 0.3.3 zeigte das Skript den Fingerabdruck nur an
+    und trug im selben Zug ein. Jetzt steht der erwartete Wert im
+    Skript - derselbe wie in ZUERST-LESEN.txt und wie der der
+    mitgelieferten natter-codesign.cer."""
+    import hashlib
+    import re
+
+    skript = (WURZEL / "tools" / "paket" / "Zertifikat-eintragen.ps1").read_text(
+        encoding="utf-8"
+    )
+    im_skript = re.search(r'\$ERWARTET = "([0-9A-F]{40})"', skript).group(1)
+
+    lies = (WURZEL / "tools" / "paket" / "ZUERST-LESEN.txt").read_text(encoding="utf-8")
+    im_text = re.search(r"((?:[0-9A-F]{8} ){4}[0-9A-F]{8})", lies).group(1).replace(" ", "")
+
+    cer = (WURZEL / "tools" / "signieren" / "natter-codesign.cer").read_bytes()
+    if cer.startswith(b"-----BEGIN"):
+        import base64
+
+        cer = base64.b64decode(b"".join(cer.splitlines()[1:-1]))
+    echt = hashlib.sha1(cer).hexdigest().upper()
+
+    assert im_skript == im_text == echt
+    # Geprüft wird vor dem Eintragen, nicht danach
+    assert skript.index("$ERWARTET") < skript.index("Import-Certificate")
+
+
+def test_natter_pruefen_sucht_die_installation_ueber_windows() -> None:
+    """Punkt 31: der Ort kommt aus dem Deinstallationseintrag, und
+    „nicht installiert“ und „unvollständig“ sind zwei Meldungen."""
+    skript = (WURZEL / "tools" / "paket" / "Natter-pruefen.ps1").read_text(encoding="utf-8")
+
+    assert "InstallLocation" in skript
+    assert '"HKCU:", "HKLM:"' in skript
+    assert "nicht installiert" in skript
+    assert skript.index("nicht installiert") < skript.index("unvollstaendig - python")

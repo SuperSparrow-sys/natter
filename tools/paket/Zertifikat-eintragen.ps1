@@ -66,6 +66,23 @@ Write-Host "Gueltig bis:   $($daten.NotAfter.ToString('dd.MM.yyyy'))"
 Write-Host "Fingerabdruck: $($daten.Thumbprint)"
 Write-Host ""
 
+# Der Fingerabdruck steht hier fest drin, derselbe wie in
+# ZUERST-LESEN.txt. Bis 0.3.3 zeigte das Skript ihn nur an und trug
+# im selben Zug ein - der verlangte Vergleich war erst moeglich, als
+# es schon zu spaet war (Punkt 29). Eine untergeschobene andere .cer
+# wird jetzt gar nicht erst eingetragen.
+$ERWARTET = "DFE4686FB0E8442FD5CAC3C8A76D58A8EB27A8E8"
+if ($daten.Thumbprint -ne $ERWARTET) {
+    Write-Host "Nichts eingetragen." -ForegroundColor Red
+    Write-Host "Der Fingerabdruck stimmt nicht mit dem von Natter ueberein:"
+    Write-Host "  erwartet: $ERWARTET"
+    Write-Host "  gefunden: $($daten.Thumbprint)"
+    Write-Host "Diese natter-codesign.cer stammt nicht aus dem Natter-Paket."
+    Write-Host ""
+    Read-Host "Mit der Eingabetaste schliessen"
+    exit 1
+}
+
 # Zwei Speicher, zwei Aufgaben: "Root" laesst Windows der Signatur
 # glauben, "TrustedPublisher" laesst sie beim Ausfuehren durchgehen,
 # ohne nachzufragen. Einer allein genuegt nicht.

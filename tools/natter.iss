@@ -40,9 +40,17 @@ DefaultGroupName={#MyAppName}
 ; Inno Setup 6 blendet die Willkommensseite in der modernen Darstellung
 ; standardmäßig aus - hier ausdrücklich wieder eingeschaltet.
 DisableWelcomePage=no
-DisableProgramGroupPage=no
-DisableDirPage=no
+; "auto": bei einer Erstinstallation erscheinen Zielordner und
+; Startmenü-Ordner, bei einem Update nicht - dann gelten die der
+; vorhandenen Installation, und die Willkommensseite nennt, was
+; aktualisiert wird (Punkt 26; [Code] unten).
+DisableProgramGroupPage=auto
+DisableDirPage=auto
 DisableReadyPage=no
+; Eine laufende Natter hält Dateien in python\ offen; vor dem
+; Ersetzen wird sie über den Neustart-Manager von Windows geschlossen.
+CloseApplications=yes
+RestartApplications=no
 ; Lizenzseite, die angenommen werden muss.
 LicenseFile=lizenz_vorlagen\INSTALLER_LIZENZ.txt
 ; Kurzer Hinweis vor der Installation, wie viel Platz gebraucht wird.
@@ -53,8 +61,10 @@ InfoBeforeFile=lizenz_vorlagen\INSTALLER_HINWEIS.txt
 ; Natter dann nicht mehr deinstallieren. "natter" ist der Name, den
 ; der Compiler-Aufruf mit /Snatter=... belegt (siehe
 ; tools/auslieferung_bauen.py).
+#ifndef OhneProgramm
 SignTool=natter
 SignedUninstaller=yes
+#endif
 OutputDir=..\dist\installer
 OutputBaseFilename=Natter-Setup
 SetupIconFile={#MyAppIcon}
@@ -86,8 +96,10 @@ PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 
 [Languages]
-Name: "german"; MessagesFile: "compiler:Languages\German.isl"
-Name: "english"; MessagesFile: "compiler:Default.isl"
+; Nur Deutsch, ohne Frage nach der Setup-Sprache: Natter ist
+; durchgehend deutsch. installer_texte.isl überschreibt jede Meldung
+; aus German.isl, die mit "Sie" oder "Ihr" anspricht (Punkt 30).
+Name: "german"; MessagesFile: "compiler:Languages\German.isl,installer_texte.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
@@ -106,22 +118,27 @@ Name: "natterverknuepfung"; Description: "{cm:AssocFileExtension,{#MyAppName},.n
 ; ein entferntes Modul bliebe importierbar und könnte das neue
 ; verdecken.
 ;
-; Gelöscht wird nur, was Natter selbst mitbringt und vollständig
-; ersetzt. "beispielprojekte" gehört dazu, weil die IDE ein
-; Beispiel vor dem Öffnen ins Heimverzeichnis kopiert
-; (ide/shell/startbild.py, beispiel_kopieren) - in der Installation
-; arbeitet niemand darin. Der übrige Inhalt von site-packages
-; (PySide6, numpy, ...) bleibt unangetastet; den verwaltet pip.
-Type: filesandordirs; Name: "{app}\python\Lib\site-packages\ide"
-Type: filesandordirs; Name: "{app}\python\Lib\site-packages\pcl"
-Type: filesandordirs; Name: "{app}\python\Lib\site-packages\docs"
-Type: filesandordirs; Name: "{app}\python\Lib\site-packages\design"
-Type: filesandordirs; Name: "{app}\python\Lib\site-packages\schemas"
-Type: filesandordirs; Name: "{app}\python\Lib\site-packages\templates"
-Type: filesandordirs; Name: "{app}\python\Lib\site-packages\beispielprojekte"
+; Bis 0.3.3 wurden nur Natters eigene Ordner in site-packages
+; geleert. Beim Update von 0.3.2 blieben dadurch 148 Dateien liegen:
+; die Qt-Module unter GPL, die 0.3.3 gar nicht mehr ausliefert, und
+; eine zweite natter-0.3.2.dist-info, nach der pip die Fassung als
+; 0.3.2 meldete (Punkt 28). Deshalb wird die mitgelieferte Python
+; jetzt vollständig ersetzt. Was über "Pakete" nachinstalliert war,
+; merkt sich [Code] vorher und installiert es danach wieder.
+; Alles, was einem Benutzer gehört, liegt ohnehin außerhalb:
+; Projekte unter Dokumente\Natter, Einstellungen unter
+; %APPDATA%\Natter.
+Type: filesandordirs; Name: "{app}\python"
 
 [Files]
+; "OhneProgramm" übersetzt das Skript ohne Programmdateien und ohne
+; Signatur - für tests/test_installer_update.py, der Texte und [Code]
+; prüft, ohne einen Bau zu brauchen.
+#ifndef OhneProgramm
 Source: "..\dist\Natter\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+#endif
+; Nur für das Update, landet nicht in der Installation ([Code]).
+Source: "installer_pakete_merken.py"; Flags: dontcopy
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
@@ -160,3 +177,144 @@ Type: dirifempty; Name: "{app}"
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
+
+[Code]
+// Update erkennen und nachinstallierte Pakete mitnehmen (Punkte 26
+// und 28). Der Eintrag unter ...\Uninstall\<AppId>_is1 ist derselbe,
+// den "Apps & Features" liest; DisplayVersion schreibt Inno Setup
+// selbst aus AppVersion.
+const
+  UNINSTALL_SCHLUESSEL =
+    'Software\Microsoft\Windows\CurrentVersion\Uninstall\{961DA420-CA63-4436-9023-9CA411B620DA}_is1';
+
+var
+  AlteFassung: String;
+  PaketListe: String;
+
+function InstallierteFassung(): String;
+begin
+  Result := '';
+  if not RegQueryStringValue(HKCU, UNINSTALL_SCHLUESSEL, 'DisplayVersion', Result) then
+    RegQueryStringValue(HKLM, UNINSTALL_SCHLUESSEL, 'DisplayVersion', Result);
+end;
+
+// Nimmt die nächste Zahl vor dem Punkt aus S heraus.
+function NaechsteZahl(var S: String): Integer;
+var
+  P: Integer;
+begin
+  P := Pos('.', S);
+  if P = 0 then
+  begin
+    Result := StrToIntDef(S, 0);
+    S := '';
+  end
+  else
+  begin
+    Result := StrToIntDef(Copy(S, 1, P - 1), 0);
+    Delete(S, 1, P);
+  end;
+end;
+
+// -1, 0 oder 1, je nachdem ob A älter, gleich oder neuer ist als B.
+function FassungVergleichen(A, B: String): Integer;
+var
+  I, X, Y: Integer;
+begin
+  Result := 0;
+  for I := 1 to 3 do
+  begin
+    X := NaechsteZahl(A);
+    Y := NaechsteZahl(B);
+    if X < Y then
+    begin
+      Result := -1;
+      Exit;
+    end;
+    if X > Y then
+    begin
+      Result := 1;
+      Exit;
+    end;
+  end;
+end;
+
+function InitializeSetup(): Boolean;
+begin
+  Result := True;
+  AlteFassung := InstallierteFassung();
+  if (AlteFassung <> '') and (FassungVergleichen(AlteFassung, '{#MyAppVersion}') > 0) then
+  begin
+    SuppressibleMsgBox(
+      'Auf diesem Computer ist Natter ' + AlteFassung + ' installiert, eine neuere ' +
+      'Fassung als {#MyAppVersion}. Eine ältere Fassung wird nicht darüber installiert.',
+      mbError, MB_OK, IDOK);
+    Result := False;
+  end;
+end;
+
+procedure InitializeWizard();
+begin
+  if AlteFassung = '' then
+    Exit;
+  if AlteFassung = '{#MyAppVersion}' then
+    WizardForm.WelcomeLabel2.Caption :=
+      'Natter {#MyAppVersion} ist bereits installiert und wird erneut installiert.'
+  else
+    WizardForm.WelcomeLabel2.Caption :=
+      'Natter ' + AlteFassung + ' ist installiert und wird auf {#MyAppVersion} aktualisiert.';
+  WizardForm.WelcomeLabel2.Caption := WizardForm.WelcomeLabel2.Caption + #13#10#13#10 +
+    'Projekte und Einstellungen bleiben erhalten. Die mitgelieferten Bibliotheken ' +
+    'werden vollständig ersetzt; Pakete, die über "Pakete" nachinstalliert wurden, ' +
+    'installiert das Setup danach wieder. Dafür ist eine Internetverbindung nötig.';
+end;
+
+// Vor dem Kopieren: mit der Python der alten Installation aufschreiben,
+// was nicht mitgeliefert wurde (tools/installer_pakete_merken.py).
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  AltePython: String;
+  Code: Integer;
+begin
+  Result := '';
+  PaketListe := ExpandConstant('{userappdata}\Natter\pakete_vor_update.txt');
+  AltePython := ExpandConstant('{app}\python\python.exe');
+  if (AlteFassung <> '') and FileExists(AltePython) then
+  begin
+    ExtractTemporaryFile('installer_pakete_merken.py');
+    if not Exec(AltePython,
+        '"' + ExpandConstant('{tmp}\installer_pakete_merken.py') + '" "' + PaketListe + '"',
+        '', SW_HIDE, ewWaitUntilTerminated, Code) then
+      Log('Nachinstallierte Pakete ließen sich nicht ermitteln.');
+  end;
+end;
+
+// Nach dem Kopieren: die gemerkten Pakete mit der neuen Python wieder
+// installieren. Klappt das nicht (etwa ohne Netz), bleibt die Liste
+// stehen, und die Meldung sagt, wo.
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  Code: Integer;
+  Pakete: AnsiString;
+begin
+  if (CurStep <> ssPostInstall) or (PaketListe = '') or not FileExists(PaketListe) then
+    Exit;
+  WizardForm.StatusLabel.Caption := 'Nachinstallierte Pakete werden wieder installiert ...';
+  if Exec(ExpandConstant('{app}\python\python.exe'),
+      '-m pip install --disable-pip-version-check --no-warn-script-location ' +
+      '--retries 1 --timeout 15 -r "' + PaketListe + '"',
+      '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0) then
+    DeleteFile(PaketListe)
+  else
+  begin
+    LoadStringFromFile(PaketListe, Pakete);
+    Log('Pakete nicht wieder installiert: ' + String(Pakete));
+    SuppressibleMsgBox(
+      'Diese über "Pakete" nachinstallierten Pakete ließen sich nicht wieder ' +
+      'installieren, vermutlich fehlt die Internetverbindung:' + #13#10#13#10 +
+      String(Pakete) + #13#10 +
+      'In Natter lassen sich die Pakete später über "Pakete -> Paket installieren ..." ' +
+      'erneut installieren. Die Liste steht in ' + PaketListe + '.',
+      mbInformation, MB_OK, IDOK);
+  end;
+end;

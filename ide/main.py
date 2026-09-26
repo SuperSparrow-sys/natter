@@ -164,7 +164,10 @@ def starten() -> tuple[QApplication, HauptFenster | None]:
         QApplication.restoreOverrideCursor()
         return app, None
 
-    anzeige.melden("Projekt wird geöffnet …")
+    # Nur mit übergebenem Projekt: bis 0.3.3 stand „Projekt wird
+    # geöffnet …“ bei jedem Start im Ladebild (Punkt 33).
+    if len(sys.argv) > 1 and sys.argv[1].lower().endswith(".natter"):
+        anzeige.melden("Projekt wird geöffnet …")
     _projekt_aus_argv_oeffnen(fenster, sys.argv)
     fenster.show()
     # `finish` blendet das Bild genau dann aus, wenn das Hauptfenster

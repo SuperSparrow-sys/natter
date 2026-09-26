@@ -154,13 +154,21 @@ def test_ein_fehlschlag_wird_gemeldet_und_nicht_verschwiegen(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        subprocess, "run", lambda *a, **k: _Antwort(stdout="UnknownError\n")
+        subprocess,
+        "run",
+        lambda *a, **k: _Antwort(
+            stdout="UnknownError|%1 ist keine zulässige Win32-Anwendung.\n"
+        ),
     )
 
     ergebnis = signatur.exe_signieren(Path("C:/tmp/Spiel.exe"), "ABC123")
 
     assert ergebnis.signiert is False
-    assert "UnknownError" in ergebnis.grund
+    # Deutsch statt des englischen Statuswerts, mit der Meldung von
+    # Windows dahinter (Schülerweg 0.3.3, Punkt 34).
+    assert "UnknownError" not in ergebnis.grund
+    assert "abgelehnt" in ergebnis.grund
+    assert "keine zulässige Win32-Anwendung" in ergebnis.grund
 
 
 def test_ein_angelegtes_zertifikat_ist_nicht_exportierbar() -> None:

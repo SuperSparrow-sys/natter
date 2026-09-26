@@ -115,7 +115,15 @@ def ist_nachinstalliert(relativer_pfad: str) -> bool:
     Unter Aufsicht bleibt, was Natter selbst ist: `Natter.exe`, die
     mitgelieferte Python und die Pakete aus `NATTER_EIGEN`. Taucht dort
     etwas Neues auf, hat es jemand hineingelegt.
+
+    Dazu gehören auch die Startdateien, die pip für ein Paket in
+    `python/Scripts` ablegt (`cowsay.exe`, `pip.exe`, `ruff.exe` …). Bis
+    0.3.3 fehlten sie hier: nach „Pakete → Paket installieren …“
+    meldete „Umgebung prüfen“, Natter sei verändert, und riet zur
+    Neuinstallation (Punkt 40).
     """
+    if relativer_pfad.startswith("python/Scripts/"):
+        return True
     if not relativer_pfad.startswith(SITE_PACKAGES):
         return False
     rest = relativer_pfad[len(SITE_PACKAGES) :]
@@ -208,10 +216,17 @@ class PruefErgebnis:
     fehlend: list[str] = field(default_factory=list)
     fremd: list[str] = field(default_factory=list)
     veraendert: list[str] = field(default_factory=list)
+    #: Warum sich das Manifest selbst nicht prüfen ließ (fehlt, unlesbar,
+    #: unbekanntes Format) - leer, wenn es sich prüfen ließ.
+    manifest_fehler: str = ""
 
     @property
     def in_ordnung(self) -> bool:
-        return self.signatur_gueltig and not (self.fehlend or self.fremd or self.veraendert)
+        return (
+            self.signatur_gueltig
+            and not self.manifest_fehler
+            and not (self.fehlend or self.fremd or self.veraendert)
+        )
 
     @property
     def betroffene_dateien(self) -> list[str]:
@@ -229,6 +244,11 @@ class PruefErgebnis:
         """
         if self.in_ordnung:
             return ""
+        if self.manifest_fehler:
+            return (
+                "Natter wurde nach der Erstellung verändert: "
+                f"{self.manifest_fehler} {WAS_ZU_TUN_IST}"
+            )
         if not self.signatur_gueltig:
             return (
                 "Natter wurde nach der Erstellung verändert: die Signatur des "
@@ -283,10 +303,10 @@ def manifest_pruefen(
         manifest = daten["manifest"]
         signatur = base64.b64decode(daten["signatur_base64"])
     except (ValueError, KeyError) as fehler:
-        raise ManifestFehler(f"{MANIFEST_DATEINAME} ist unlesbar: {fehler}") from fehler
+        raise ManifestFehler(f"{MANIFEST_DATEINAME} ist unlesbar.") from fehler
 
     if manifest.get("format") != FORMAT:
-        raise ManifestFehler(f"Unbekanntes Manifest-Format: {manifest.get('format')!r}")
+        raise ManifestFehler(f"{MANIFEST_DATEINAME} hat ein unbekanntes Format.")
 
     try:
         _oeffentlicher_schluessel(oeffentlicher_schluessel_pem).verify(

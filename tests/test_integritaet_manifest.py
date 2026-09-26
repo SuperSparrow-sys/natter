@@ -229,6 +229,37 @@ def test_selbst_nachinstalliertes_paket_loest_keinen_alarm_aus(
     assert _pruefen(programm, oeffentlich).in_ordnung
 
 
+def test_die_startdatei_eines_nachinstallierten_pakets_loest_keinen_alarm_aus(
+    programm, schluesselpaar
+) -> None:
+    """pip legt zu einem Paket eine Startdatei in `python/Scripts` ab.
+    Nach `cowsay` meldete „Umgebung prüfen“ in 0.3.3 „Natter wurde nach
+    der Erstellung verändert: python/Scripts/cowsay.exe (zusätzlich)“
+    (Punkt 40)."""
+    privat, oeffentlich = schluesselpaar
+    _legen(programm, "python/Scripts/pip.exe", b"pip")
+    manifest_schreiben(programm, privat)
+    _legen(programm, "python/Scripts/cowsay.exe", b"cowsay")
+    _legen(programm, "python/Scripts/pip.exe", b"pip, angehoben")
+
+    assert _pruefen(programm, oeffentlich).in_ordnung
+
+
+def test_eine_neue_datei_in_der_python_selbst_faellt_weiter_auf(
+    programm, schluesselpaar
+) -> None:
+    """Die Gegenprobe zu `python/Scripts`: daneben bleibt alles unter
+    Aufsicht."""
+    privat, oeffentlich = schluesselpaar
+    manifest_schreiben(programm, privat)
+    _legen(programm, "python/fremd.dll", b"fremd")
+
+    ergebnis = _pruefen(programm, oeffentlich)
+
+    assert not ergebnis.in_ordnung
+    assert "python/fremd.dll" in ergebnis.fremd
+
+
 def test_eine_angehobene_bibliothek_loest_keinen_alarm_aus(programm, schluesselpaar) -> None:
     """`pip` löst beim Nachinstallieren Abhängigkeiten mit auf und hebt
     dabei ohne Rückfrage etwa numpy an. Stünde das unter Aufsicht,
@@ -330,12 +361,61 @@ def test_die_ausgelieferte_installation_wird_erkannt(programm, schluesselpaar, m
     assert programmordner() == programm
 
 
-def test_ohne_manifest_daneben_gilt_es_nicht_als_installation(programm, monkeypatch) -> None:
+def test_ohne_natter_exe_daneben_gilt_es_nicht_als_installation(
+    programm, monkeypatch
+) -> None:
     """Die Gegenprobe: im Entwicklungsbaum zeigt derselbe Weg auf
-    `.venv`, und dort liegt kein Manifest."""
+    `.venv`, und dort liegt keine `Natter.exe`."""
+    (programm / "Natter.exe").unlink()
     monkeypatch.setattr(sys, "executable", str(programm / "python" / "pythonw.exe"))
 
     assert programmordner() is None
+
+
+def test_eine_installation_wird_auch_ohne_manifest_erkannt(programm, monkeypatch) -> None:
+    """Bis 0.3.3 galt ein Ordner ohne `manifest.json` als
+    Entwicklungsbaum - wer das Manifest löschte, schaltete die Prüfung
+    ab (Punkt 27)."""
+    monkeypatch.setattr(sys, "executable", str(programm / "python" / "pythonw.exe"))
+
+    assert programmordner() == programm
+
+
+def test_ein_fehlendes_manifest_ist_ein_befund(programm, monkeypatch) -> None:
+    monkeypatch.setattr(sys, "executable", str(programm / "python" / "pythonw.exe"))
+
+    ergebnis = installation_pruefen()
+
+    assert ergebnis is not None
+    assert not ergebnis.in_ordnung
+    assert "manifest.json fehlt" in ergebnis.als_meldung()
+    assert ergebnis.als_meldung().startswith("Natter wurde nach der Erstellung verändert")
+
+
+def test_ein_unlesbares_manifest_ist_ein_befund(programm, monkeypatch) -> None:
+    _legen(programm, "manifest.json", b"{ kein json")
+    monkeypatch.setattr(sys, "executable", str(programm / "python" / "pythonw.exe"))
+
+    ergebnis = installation_pruefen(vollstaendig=True)
+
+    assert ergebnis is not None
+    assert not ergebnis.in_ordnung
+    assert "manifest.json ist unlesbar." in ergebnis.als_meldung()
+
+
+def test_manifest_loeschen_verbirgt_keine_veraenderung(
+    programm, schluesselpaar, monkeypatch
+) -> None:
+    """Der Weg aus der Auswertung zu 0.3.3: Kerndatei verändern und das
+    Manifest löschen - bis dahin startete Natter ohne jede Meldung."""
+    privat, _ = schluesselpaar
+    manifest_schreiben(programm, privat)
+    _legen(programm, f"{SP}/pcl/application.py", b"veraendert")
+    (programm / "manifest.json").unlink()
+    monkeypatch.setattr(sys, "executable", str(programm / "python" / "pythonw.exe"))
+
+    assert not installation_pruefen().in_ordnung
+    assert not installation_pruefen(vollstaendig=True).in_ordnung
 
 
 def test_im_entwicklungsbaum_wird_nicht_geprueft() -> None:
@@ -382,11 +462,12 @@ def test_veraenderte_installation_fragt_vor_dem_start_nach(monkeypatch) -> None:
     assert "Natter wurde nach der Erstellung verändert" in gezeigt["text"]
 
 
-def test_werkzeuge_umgebung_pruefen_listet_betroffene_dateien(monkeypatch) -> None:
+def test_werkzeuge_umgebung_pruefen_listet_betroffene_dateien(monkeypatch, qtbot) -> None:
     from ide.integritaet import PruefErgebnis
     from ide.shell import hauptfenster as hauptfenster_modul
     from ide.shell.hauptfenster import HauptFenster
 
+    monkeypatch.setattr(hauptfenster_modul, "programmordner", lambda: Path("C:/Natter"))
     monkeypatch.setattr(
         hauptfenster_modul,
         "installation_pruefen",
@@ -397,9 +478,58 @@ def test_werkzeuge_umgebung_pruefen_listet_betroffene_dateien(monkeypatch) -> No
     fenster = HauptFenster()
 
     fenster.aktionen["werkzeuge.umgebung_pruefen"].qaction.trigger()
+    qtbot.waitUntil(lambda: fenster.meldungen_liste.count() >= 2, timeout=5000)
 
     eintraege = [
         fenster.meldungen_liste.item(i).text() for i in range(fenster.meldungen_liste.count())
     ]
     assert "[Umgebung] python/Lib/os.py" in eintraege
     assert "[Umgebung] Lizenzen/Qt.txt" in eintraege
+
+
+def test_umgebung_pruefen_haelt_die_oberflaeche_nicht_an(monkeypatch, qtbot) -> None:
+    """Punkt 33: die vollständige Prüfung dauert in einer Installation
+    2,4 s; bis 0.3.3 lief sie im Faden der Oberfläche."""
+    import time
+
+    from ide.integritaet import PruefErgebnis
+    from ide.shell import hauptfenster as hauptfenster_modul
+    from ide.shell.hauptfenster import HauptFenster
+
+    def langsam(*_a, **_k):
+        time.sleep(1.0)
+        return PruefErgebnis(signatur_gueltig=True)
+
+    monkeypatch.setattr(hauptfenster_modul, "programmordner", lambda: Path("C:/Natter"))
+    monkeypatch.setattr(hauptfenster_modul, "installation_pruefen", langsam)
+    fenster = HauptFenster()
+
+    start = time.perf_counter()
+    fenster.aktionen["werkzeuge.umgebung_pruefen"].qaction.trigger()
+    dauer = time.perf_counter() - start
+
+    assert dauer < 0.5
+    qtbot.waitUntil(
+        lambda: "unverändert" in fenster.statusBar().currentMessage(), timeout=5000
+    )
+
+
+def test_ein_fehlendes_manifest_steht_im_panel(monkeypatch, qtbot) -> None:
+    from ide.integritaet import PruefErgebnis
+    from ide.shell import hauptfenster as hauptfenster_modul
+    from ide.shell.hauptfenster import HauptFenster
+
+    monkeypatch.setattr(hauptfenster_modul, "programmordner", lambda: Path("C:/Natter"))
+    monkeypatch.setattr(
+        hauptfenster_modul,
+        "installation_pruefen",
+        lambda *a, **k: PruefErgebnis(
+            signatur_gueltig=False, manifest_fehler="manifest.json fehlt in C:\\Natter."
+        ),
+    )
+    fenster = HauptFenster()
+
+    fenster.aktionen["werkzeuge.umgebung_pruefen"].qaction.trigger()
+    qtbot.waitUntil(lambda: fenster.meldungen_liste.count() >= 1, timeout=5000)
+
+    assert fenster.meldungen_liste.item(0).text() == "[Umgebung] manifest.json fehlt in C:\\Natter."

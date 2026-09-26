@@ -3,7 +3,7 @@ Natter {VERSION} - Installation auf einem Schulrechner
 
 In diesem Paket:
 
-  Natter-Setup.exe        das Installationsprogramm (275 MB)
+  Natter-Setup.exe        das Installationsprogramm
   natter-codesign.cer     das Zertifikat, mit dem Natter signiert ist
   Zertifikat-eintragen.cmd   traegt das Zertifikat ein
   Zertifikat-entfernen.cmd   nimmt es wieder zurueck
@@ -54,8 +54,7 @@ braucht deshalb Administratorrechte.
 
 Meldet Windows davor "Der Computer wurde durch Windows geschuetzt",
 auf "Weitere Informationen" und dann auf "Trotzdem ausfuehren"
-klicken - die Datei kommt von einem Stick und hat deshalb keinen Ruf
-im Netz.
+klicken - die Datei ist neu und hat deshalb noch keinen Ruf im Netz.
 
 Das erspart die SmartScreen-Warnung beim Installieren und zeigt in
 den Eigenschaften der Datei, woher sie stammt. Ohne den Eintrag laesst
@@ -65,12 +64,15 @@ Installationsprogramms einen unbekannten Herausgeber.
 Weil mit dem Eintrag Vertrauen vergeben wird, zaehlt nicht die
 Geheimhaltung, sondern die Unverfaelschtheit: wer unterwegs eine
 andere .cer unterschiebt, bekommt seinen eigenen Vertrauensanker auf
-den Rechner. Vor dem Eintragen deshalb den Fingerabdruck vergleichen,
-den das Skript anzeigt:
+den Rechner. Zertifikat-eintragen.cmd vergleicht deshalb vor dem
+Eintragen den Fingerabdruck mit dem von Natter und traegt bei einer
+Abweichung nichts ein:
 
   DFE4686F B0E8442F D5CAC3C8 A76D58A8 EB27A8E8
 
-Stimmt er nicht ueberein, nicht eintragen und nachfragen.
+Wer das Zertifikat von Hand eintraegt (siehe unten), vergleicht ihn
+vorher selbst; stimmt er nicht ueberein, nicht eintragen und
+nachfragen.
 
 Die Datei natter-codesign.cer enthaelt nur den oeffentlichen Teil.
 Mit ihr laesst sich nichts signieren, nur pruefen - der private

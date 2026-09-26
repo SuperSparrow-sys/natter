@@ -351,3 +351,97 @@ def test_das_gate_filtert_nicht_ueber_include() -> None:
     assert any("-LiteralPath" in z for z in code)
     assert any("Where-Object" in z for z in code)
     assert not any("-Include" in z for z in code)
+
+
+# -- Vorlagen des Exe-Exports bleiben unsigniert (Punkt 34) ------------
+
+
+def test_signierskript_und_bau_nehmen_dieselben_vorlagen_aus() -> None:
+    """Die Ausnahme für die PyInstaller-Vorlagen steht im Bau, im
+    Signierskript und in Schritt 10. Liefen sie auseinander, würde eine
+    Vorlage signiert und jede exportierte Exe unsignierbar."""
+    from tools.ide_paketieren import NICHT_SIGNIERT
+
+    wurzel = Path(__file__).resolve().parent.parent
+    skript = (wurzel / "tools" / "signieren" / "alles_signieren.ps1").read_text(
+        encoding="utf-8"
+    )
+    zeile = next(z for z in skript.splitlines() if z.startswith("$AUSGENOMMEN"))
+
+    assert zeile.split("=", 1)[1].strip().strip('"') == NICHT_SIGNIERT
+
+
+def test_der_bau_zaehlt_die_vorlagen_nicht_zu_den_binaerdateien(
+    tmp_path: Path,
+) -> None:
+    from tools.ide_paketieren import _binaerdateien
+
+    vorlage = tmp_path / "Lib" / "site-packages" / "PyInstaller" / "bootloader"
+    (vorlage / "Windows-64bit-intel").mkdir(parents=True)
+    (vorlage / "Windows-64bit-intel" / "runw.exe").write_bytes(b"MZ")
+    (tmp_path / "Natter.exe").write_bytes(b"MZ")
+
+    assert [p.name for p in _binaerdateien(tmp_path)] == ["Natter.exe"]
+
+
+@pytest.mark.skipif(
+    not Path(r"C:\Windows\System32\notepad.exe").exists(),
+    reason="braucht eine von Microsoft signierte Datei",
+)
+def test_schritt_10_meldet_eine_signierte_vorlage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Mit echtem PowerShell: eine signierte Vorlage bricht ab, eine
+    unsignierte Vorlage nicht, eine unsignierte Datei sonst schon."""
+    import shutil
+
+    monkeypatch.setattr(bau, "_anzeige", _StummeAnzeige())
+    vorlagen = tmp_path / "PyInstaller" / "bootloader" / "Windows-64bit-intel"
+    vorlagen.mkdir(parents=True)
+    shutil.copy(r"C:\Windows\System32\notepad.exe", vorlagen / "run.exe")
+    (vorlagen / "runw.exe").write_bytes(b"MZ unsigniert")
+    (tmp_path / "Lib.dll").write_bytes(b"MZ unsigniert")
+
+    luecken = bau._luecken_in_den_signaturen(tmp_path)
+
+    assert any(p.endswith("run.exe (Vorlage für den Exe-Export, muss unsigniert bleiben)")
+               for p in luecken)
+    assert any(p.endswith("Lib.dll") for p in luecken)
+    assert not any("runw.exe" in p for p in luecken)
+
+
+class _StummeAnzeige:
+    def stand(self, *_a, **_k) -> None:
+        pass
+
+
+def test_ruff_prueft_nichts_unter_build() -> None:
+    """Schritt 3 ruft `ruff check .`; unter build/ liegen Zwischenstände
+    und Auswertungen mit Kopien von Schülerprojekten. Der erste
+    Bauversuch zu 0.3.3 brach daran ab (Punkt 32)."""
+    import subprocess
+    import sys
+
+    wurzel = Path(__file__).resolve().parent.parent
+    ergebnis = subprocess.run(
+        [sys.executable, "-m", "ruff", "check", ".", "--show-files"],
+        cwd=wurzel, capture_output=True, text=True, timeout=120,
+    )
+    dateien = [z for z in ergebnis.stdout.splitlines() if z.strip()]
+
+    assert dateien, "ruff hat keine Dateien genannt"
+    unter_build = [d for d in dateien if Path(d).relative_to(wurzel).parts[0] == "build"]
+    assert unter_build == []
+
+
+def test_entwicklungsbaum_und_auslieferung_haben_dieselbe_python() -> None:
+    """Punkt 33: ausgeliefert wurde 3.13.15, getestet mit 3.13.14 -
+    `uv.lock` legt die Patch-Version von Python nicht fest. Jetzt steht
+    sie in `.python-version` (uv und die CI lesen sie) und muss zu der
+    Fassung passen, die der Bau herunterlädt."""
+    from tools.python_beschaffen import PYTHON_FASSUNG
+
+    wurzel = Path(__file__).resolve().parent.parent
+    festgelegt = (wurzel / ".python-version").read_text(encoding="utf-8").strip()
+
+    assert PYTHON_FASSUNG.split("-")[1] == festgelegt

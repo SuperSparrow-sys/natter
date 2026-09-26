@@ -16,7 +16,6 @@ import sys
 from pathlib import Path
 
 from ide.integritaet.manifest import (
-    MANIFEST_DATEINAME,
     ManifestFehler,
     PruefErgebnis,
     manifest_pruefen,
@@ -34,34 +33,44 @@ def programmordner() -> Path | None:
     ausgelieferten Fassung stillschweigend ganz aus. Bemerkt hätte das
     niemand: sie meldet sich ja nur, wenn etwas nicht stimmt.
 
-    Erkennungsmerkmal ist deshalb jetzt das `manifest.json` selbst. Es
-    liegt eine Ebene über der mitgelieferten Python, also neben
-    `Natter.exe`:
+    Erkennungsmerkmal ist der Aufbau der Installation: die mitgelieferte
+    Python liegt im Ordner `python` neben `Natter.exe`:
 
         <Installation>/Natter.exe
         <Installation>/manifest.json
         <Installation>/python/pythonw.exe   <- sys.executable
 
+    Bis 0.3.3 war das Merkmal das `manifest.json` selbst. Wer eine Datei
+    im Programmordner veränderte und das Manifest dazu löschte, schaltete
+    die Prüfung damit ganz ab, ohne jede Meldung (Punkt 27). Den Aufbau
+    zu entfernen hieße dagegen, Natter nicht mehr starten zu können.
+
     Im Entwicklungsbaum zeigt derselbe Weg auf `.venv`, und dort liegt
-    kein Manifest - die Prüfung entfällt wie bisher ersatzlos.
+    keine `Natter.exe` - die Prüfung entfällt wie bisher ersatzlos.
     """
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent
-    moeglich = Path(sys.executable).resolve().parent.parent
-    return moeglich if (moeglich / MANIFEST_DATEINAME).is_file() else None
+    python = Path(sys.executable).resolve().parent
+    moeglich = python.parent
+    if python.name.lower() == "python" and (moeglich / "Natter.exe").is_file():
+        return moeglich
+    return None
 
 
 def installation_pruefen(
     ordner: Path | None = None, *, vollstaendig: bool = False
 ) -> PruefErgebnis | None:
     """Prüft die Installation. Gibt `None` zurück, wenn es nichts zu
-    prüfen gibt (Entwicklungsbaum oder fehlendes Manifest) - ein
-    fehlendes Manifest ist kein Manipulationsverdacht, sondern der
-    Normalfall außerhalb einer gebauten Installation."""
+    prüfen gibt (Entwicklungsbaum).
+
+    In einer Installation ist ein fehlendes, unlesbares oder
+    unbekanntes Manifest selbst ein Befund: das Manifest gehört zur
+    Auslieferung, und ohne es ließe sich jede andere Veränderung
+    verbergen."""
     ordner = ordner if ordner is not None else programmordner()
     if ordner is None:
         return None
     try:
         return manifest_pruefen(ordner, nur_kern=not vollstaendig)
-    except ManifestFehler:
-        return None
+    except ManifestFehler as fehler:
+        return PruefErgebnis(signatur_gueltig=False, manifest_fehler=str(fehler))

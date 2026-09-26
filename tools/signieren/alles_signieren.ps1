@@ -32,6 +32,13 @@ $ErrorActionPreference = "Stop"
 #: eine kuenftige Abhaengigkeit nicht stillschweigend durchrutscht.
 $ENDUNGEN = @("*.exe", "*.dll", "*.pyd", "*.sys", "*.cat", "*.ocx")
 
+#: Vorlagen, aus denen PyInstaller bei "Als Exe exportieren" die
+#: Schueler-Exe baut. Signiert laesst sich die fertige Exe nicht mehr
+#: signieren (die Signatur der Vorlage steht dann mitten in der Datei).
+#: Dieselbe Ausnahme steht in tools/ide_paketieren.py (NICHT_SIGNIERT)
+#: und in Schritt 10 von tools/auslieferung_bauen.py.
+$AUSGENOMMEN = "\PyInstaller\bootloader\"
+
 $ZERT_NAME = "CN=Natter Codesignatur"
 $ZEITSTEMPEL = "http://timestamp.digicert.com"
 
@@ -49,7 +56,8 @@ if (-not $zert -and -not $NurPruefen) {
 }
 
 Write-Host "Sehe $Ordner durch ..."
-$alle = Get-ChildItem $Ordner -Recurse -File -Include $ENDUNGEN -ErrorAction SilentlyContinue
+$alle = Get-ChildItem $Ordner -Recurse -File -Include $ENDUNGEN -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName.IndexOf($AUSGENOMMEN, [StringComparison]::OrdinalIgnoreCase) -lt 0 }
 
 # Fremd signierte Dateien bleiben unangetastet. Qt und Microsoft haben
 # ein Zertifikat einer oeffentlichen CA; ihre Signatur ist staerker als

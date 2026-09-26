@@ -226,6 +226,28 @@ def zertifikat_anlegen() -> tuple[str | None, str]:
     return neuer, "Zertifikat für dieses Benutzerkonto angelegt."
 
 
+#: Was hinter den Statuswerten von `Set-AuthenticodeSignature` steht.
+#: Bis 0.3.3 stand der englische Wert allein in der Statuszeile, etwa
+#: „Nicht signiert: UnknownError“ - damit weiß niemand, was los ist.
+_SIGNATUR_GRUENDE = {
+    "UnknownError": "Windows hat die Datei zum Signieren abgelehnt",
+    "NotTrusted": "dem Zertifikat vertraut dieser Rechner nicht",
+    "HashMismatch": "die Datei wurde nach dem Signieren verändert",
+    "NotSigned": "Windows hat keine Signatur angebracht",
+    "NotSupportedFileFormat": "diese Art Datei lässt sich nicht signieren",
+    "Incompatible": "das Zertifikat passt nicht zu dieser Datei",
+}
+
+
+def signatur_grund(status: str, meldung: str = "") -> str:
+    """Deutscher Grund zu einem Statuswert, mit der Meldung von Windows
+    dahinter, sofern es eine gibt (sie ist auf einem deutschen Windows
+    schon deutsch)."""
+    grund = _SIGNATUR_GRUENDE.get(status, status or "kein Grund gemeldet")
+    meldung = meldung.strip()
+    return f"{grund} ({meldung})" if meldung else grund
+
+
 def exe_signieren(exe: Path, fingerabdruck: str) -> SignaturErgebnis:
     """Signiert `exe` mit dem Zertifikat zu `fingerabdruck`."""
     befehl = (
@@ -233,11 +255,11 @@ def exe_signieren(exe: Path, fingerabdruck: str) -> SignaturErgebnis:
         f"Where-Object {{ $_.Thumbprint -eq '{fingerabdruck}' }}; "
         f"$e = Set-AuthenticodeSignature -FilePath '{exe}' -Certificate $z "
         f"-TimestampServer '{_ZEITSTEMPEL}' -HashAlgorithm SHA256; "
-        "Write-Output $e.Status"
+        "Write-Output ([string]$e.Status + '|' + $e.StatusMessage)"
     )
     ergebnis = _powershell(befehl)
     status = (ergebnis.stdout or "").strip().splitlines()
-    letzter = status[-1] if status else ""
+    letzter, _, meldung = (status[-1] if status else "").partition("|")
     if letzter == "Valid":
         if smart_app_control_an():
             return SignaturErgebnis(
@@ -247,8 +269,9 @@ def exe_signieren(exe: Path, fingerabdruck: str) -> SignaturErgebnis:
                 "nicht zuverlässig, auch signiert nicht.",
             )
         return SignaturErgebnis(True, "Signiert - die Exe nennt jetzt einen Herausgeber.")
-    grund = letzter or (ergebnis.stderr or "").strip() or "kein Grund gemeldet"
-    return SignaturErgebnis(False, f"Nicht signiert: {grund}")
+    if not letzter:
+        meldung = (ergebnis.stderr or "").strip()
+    return SignaturErgebnis(False, f"Nicht signiert: {signatur_grund(letzter, meldung)}")
 
 
 def signieren_wenn_moeglich(exe: Path, *, anlegen: bool = False) -> SignaturErgebnis:

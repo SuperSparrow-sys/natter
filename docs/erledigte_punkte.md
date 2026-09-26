@@ -1296,3 +1296,226 @@ arbeitet, stellt sich seit 0.3.2 nicht mehr über Prozesszeiten.
 der gemessenen Dauer früherer Läufe, und pytest wie pip schreiben jede
 Zeile sofort ins Protokoll. Steht die Anzeige, steht der Lauf. Ein
 eigener CPU-Zähler wird dafür nicht mehr gebraucht.
+
+---
+
+## 27. Die Integritätsprüfung entfällt still, wenn `manifest.json` fehlt oder unlesbar ist ~~(erledigt)~~
+
+**Gemeldet:** 25. September 2026, Schülerweg 0.3.3, Teil 1,
+Schritt 11, an der installierten Fassung.
+
+**Beobachtet:** Mit veränderter `pcl\crt.py` erscheint beim Start
+„Natter wurde verändert" mit der Datei und „Trotzdem starten?" - wie
+vorgesehen. Wird zusätzlich `manifest.json` gelöscht, startet Natter
+ohne jede Meldung. Dasselbe, wenn `manifest.json` nur unlesbar ist
+(`{ kein json`). `installation_pruefen()` liefert in beiden Fällen
+`None`, für die schnelle wie für die vollständige Prüfung. „Werkzeuge
+→ Umgebung prüfen" meldet dann „Keine Prüfung möglich: Natter läuft
+nicht aus einer gebauten Installation" - in einer gebauten
+Installation.
+
+**Ursache:** nachgewiesen. `programmordner()` in
+`ide/integritaet/start_pruefung.py` erkennt die Installation am
+Vorhandensein von `manifest.json`; fehlt die Datei, gilt der Ordner
+als Entwicklungsbaum. `installation_pruefen()` fängt `ManifestFehler`
+ab und gibt ebenfalls `None` zurück, also auch bei unlesbarer Datei
+oder unbekanntem Format. Der Docstring nennt ein fehlendes Manifest
+ausdrücklich „keinen Manipulationsverdacht". Wer eine Datei im
+Programmordner verändert, kann die Prüfung damit durch Löschen einer
+zweiten Datei abschalten.
+
+**Zu tun:** Die Installation an etwas erkennen, das sich nicht mit
+dem Manifest zusammen entfernen lässt, etwa am Ort
+(`python\pythonw.exe` neben `Natter.exe`) oder an einer Marke im
+Starter. In einer erkannten Installation sind fehlendes, unlesbares
+und unbekanntes Manifest Abweichungen mit eigener Meldung. Erledigt,
+wenn die drei Fälle aus der Auswertung (Kerndatei verändert, Manifest
+entfernt, Manifest unlesbar) je eine Warnung zeigen und der
+Entwicklungsbaum weiter ohne Warnung startet.
+
+**Behoben (26. September 2026).** `programmordner()` in `ide/integritaet/start_pruefung.py` erkennt die Installation jetzt an ihrem Aufbau (`Natter.exe` neben `python\pythonw.exe`), nicht mehr am Manifest. Ein fehlendes, unlesbares oder unbekanntes `manifest.json` ist selbst ein Befund (`PruefErgebnis.manifest_fehler`), mit der Meldung „Natter wurde nach der Erstellung verändert: manifest.json fehlt in …“ beim Start und in „Umgebung prüfen“. Die Meldungen von `ManifestFehler` sind dabei deutsch geworden (vorher hing die englische Meldung von `json` daran). Tests in `tests/test_integritaet_manifest.py`, darunter der Weg aus der Auswertung (Kerndatei verändern und Manifest löschen); vier von ihnen schlagen gegen den alten Code an.
+
+
+---
+
+## 29. `Zertifikat-eintragen` lässt den verlangten Vergleich des Fingerabdrucks nicht zu ~~(erledigt)~~
+
+**Gemeldet:** 25. September 2026, Schülerweg 0.3.3, Teil 1, Schritt 5
+(gelesen, nicht ausgeführt).
+
+**Beobachtet:** `ZUERST-LESEN.txt` verlangt: „Vor dem Eintragen
+deshalb den Fingerabdruck vergleichen, den das Skript anzeigt …
+Stimmt er nicht ueberein, nicht eintragen und nachfragen."
+`Zertifikat-eintragen.ps1` zeigt Aussteller, Gültigkeit und
+Fingerabdruck an und trägt unmittelbar danach in beide Speicher ein,
+ohne anzuhalten. Den Vergleich kann eine Lehrkraft erst anstellen,
+wenn das Zertifikat schon eingetragen ist.
+
+**Ursache:** nachgewiesen, `tools/paket/Zertifikat-eintragen.ps1`:
+zwischen der Ausgabe des Fingerabdrucks und `Import-Certificate` steht
+keine Rückfrage.
+
+**Zu tun:** Nach der Anzeige nachfragen („Stimmt der Fingerabdruck mit
+dem in ZUERST-LESEN.txt überein? (J/N)") und bei Nein ohne Eintrag
+beenden; alternativ den erwarteten Fingerabdruck im Skript
+hinterlegen und bei Abweichung abbrechen. Erledigt, wenn ein
+untergeschobenes anderes `.cer` nicht mehr eingetragen wird, ohne dass
+jemand es bestätigt.
+
+**Behoben (26. September 2026).** `Zertifikat-eintragen.ps1` kennt den erwarteten Fingerabdruck und trägt bei einer Abweichung nichts ein, sondern nennt beide Werte. `ZUERST-LESEN.txt` beschreibt das; von Hand verglichen wird nur noch beim Eintragen ohne Skript. `tests/test_paket.py` hält Skript, Text und die mitgelieferte `natter-codesign.cer` zusammen und prüft, dass der Vergleich vor `Import-Certificate` steht.
+
+
+---
+
+## 30. Der Installer spricht mit „Sie" an ~~(erledigt)~~
+
+**Gemeldet:** 25. September 2026, Schülerweg 0.3.3, Teil 1, Schritte 8
+und 13.
+
+**Beobachtet:** Die Seiten des Setup-Assistenten enthalten 19 Stellen
+mit „Sie" oder „Ihr": „Wählen Sie die Sprache aus", „auf Ihrem
+Computer installieren", „Sie sollten alle anderen Anwendungen
+beenden", „Lesen Sie bitte …", „Klicken Sie auf ‚Weiter'". AGENTS.md
+schließt die Textseiten des Installers ausdrücklich in die Regel ein,
+niemanden anzusprechen. Vor der Willkommensseite fragt das Setup
+außerdem nach der Sprache (Deutsch oder Englisch).
+
+**Ursache:** nachgewiesen. Die Texte sind die Standardmeldungen von
+Inno Setup aus `compiler:Languages\German.isl`; `tools/natter.iss`
+überschreibt keine davon. `tests/test_textstil.py` prüft die eigenen
+Textseiten unter `tools/lizenz_vorlagen/` und `natter.iss` selbst
+(auf Verweise auf fremde Werkzeuge), aber nicht die Meldungen, die
+Inno Setup aus `German.isl` mitbringt. Die Sprachauswahl
+erscheint, weil zwei Sprachen eingetragen sind und
+`ShowLanguageDialog` nicht gesetzt ist.
+
+**Zu tun:** Die angezeigten Meldungen in einem `[Messages]`-Abschnitt
+(oder einer eigenen `.isl`) unpersönlich fassen, etwa „Natter 0.3.3
+wird jetzt installiert." und „Zum Fortfahren auf ‚Weiter' klicken.";
+die Sprachauswahl abschalten oder nur Deutsch eintragen. Ein Test,
+der die überschriebenen Meldungen mit derselben Regel prüft wie die
+übrigen Texte. Erledigt, wenn ein Durchlauf aller Seiten ohne „Sie"
+und „Ihr" auskommt.
+
+**Behoben (26. September 2026).** `tools/installer_texte.isl` überschreibt alle 64 Meldungen aus `German.isl`, die mit „Sie“ oder „Ihr“ ansprechen; `tools/natter.iss` lädt sie hinter `German.isl` und hat nur noch Deutsch, die Frage nach der Setup-Sprache entfällt. `tests/test_installer_update.py` prüft, dass jede Anrede aus `German.isl` ein Gegenstück hat und keines selbst anspricht. Nachgesehen an einem ohne Programmdateien übersetzten Setup (Schalter `OhneProgramm`): keine Sprachauswahl, alle Seiten unpersönlich (`build\auswertung\ergebnisse\setup_seiten_probe_034_ueber_033.json`).
+
+
+---
+
+## 31. `Natter-pruefen` meldet eine fehlende Installation als „unvollständig" ~~(erledigt)~~
+
+**Gemeldet:** 25. September 2026, Schülerweg 0.3.3, Teil 1, Schritt 5.
+
+**Beobachtet:** Ohne installierte Natter schreibt der Bericht
+„Programmordner vorhanden: False" und darunter „Die Installation ist
+unvollstaendig - python\python.exe fehlt. Natter neu installieren."
+Eine Installation gibt es aber gar nicht. Gesucht wird außerdem nur
+unter `%LOCALAPPDATA%\Programs\Natter`; eine Installation für alle
+Benutzer unter `C:\Program Files\Natter` würde genauso gemeldet.
+
+**Ursache:** nachgewiesen, `tools/paket/Natter-pruefen.ps1`: der Pfad
+ist fest eingetragen, und die beiden Fälle „Ordner fehlt" und „Ordner
+da, Python fehlt" teilen sich eine Meldung.
+
+**Zu tun:** Den Installationsort aus dem Deinstallationseintrag lesen
+(`…\Uninstall\{961DA420-CA63-4436-9023-9CA411B620DA}_is1`,
+`InstallLocation`, unter HKCU und HKLM) und die Fälle trennen: „Natter
+ist für dieses Konto nicht installiert" gegenüber „Die Installation
+ist unvollständig". Erledigt, wenn beide Fälle ihre eigene Meldung
+bekommen und eine systemweite Installation gefunden wird.
+
+**Behoben (26. September 2026).** `Natter-pruefen.ps1` liest den Installationsort aus dem Deinstallationseintrag (HKCU, dann HKLM) und meldet „Natter ist für dieses Konto nicht installiert“ getrennt von „Die Installation ist unvollständig“. Der Bericht nennt die installierte Fassung. Nachgesehen an der installierten 0.3.3; Test in `tests/test_paket.py`.
+
+
+---
+
+## 32. Der Auslieferungsbau prüft mit ruff auch nicht eingecheckte Ordner ~~(erledigt)~~
+
+**Gemeldet:** 25. September 2026, Schülerweg 0.3.3, Teil 1, Schritt 3.
+
+**Beobachtet:** Der erste Bauversuch brach in Schritt 3 ab. `ruff
+check .` hatte eine Sicherungskopie von Schülerprojekten unter
+`build\auswertung\sicherung\` mitgeprüft und dort `I001` gemeldet -
+dieselbe Regel, die für `beispielprojekte/**` ausdrücklich
+abgeschaltet ist. Schritt 1 meldet `build/` zugleich als nicht
+eingecheckt.
+
+**Ursache:** nachgewiesen. `_ruff_pruefen()` in
+`tools/auslieferung_bauen.py` ruft `ruff check .` auf. Die Ordner, die
+der Bau selbst unter `build\` anlegt (`bau-cache`, `python-download`),
+tragen je eine eigene `.gitignore` mit `*` und sind damit für git und
+ruff ausgenommen. `build/` als Ganzes steht aber weder in der
+`.gitignore` des Repositorys noch in einer `exclude`-Liste von ruff;
+jeder andere Ordner dort wird mitgeprüft.
+
+**Zu tun:** `build/` in die `.gitignore` des Repositorys aufnehmen
+(ruff beachtet sie) oder `extend-exclude = ["build"]` in
+`pyproject.toml`. Erledigt, wenn ein Ordner mit fehlerhaften `.py`
+unter `build\` den Bau nicht mehr aufhält und Schritt 1 ihn nicht mehr
+meldet.
+
+**Behoben (26. September 2026).** `/build/` steht in der `.gitignore` des Repositorys und `extend-exclude = ["build"]` in `pyproject.toml`. `tests/test_auslieferung_bauen.py::test_ruff_prueft_nichts_unter_build` lässt sich von ruff die geprüften Dateien nennen; ohne die Änderung schlägt er an.
+
+
+---
+
+## 33. Kleinere Befunde aus dem Schülerweg 0.3.3, Teil 1 ~~(erledigt)~~
+
+**Gemeldet:** 25. September 2026, Schülerweg 0.3.3, Teil 1.
+
+**Beobachtet:**
+
+- Das Ladebild zeigt bei jedem Start „Projekt wird geöffnet …", auch
+  wenn kein Projekt übergeben wurde (`ide/main.py`, `starten()`: die
+  Meldung steht vor `_projekt_aus_argv_oeffnen`, ohne Prüfung).
+- `ZUERST-LESEN.txt` nennt die Setup-Datei fest mit „(275 MB)",
+  tatsächlich sind es 276,4 MB, und schreibt „die Datei kommt von
+  einem Stick", obwohl die ZIP über GitHub verteilt wird.
+- „Werkzeuge → Umgebung prüfen" läuft im GUI-Thread; das Fenster
+  reagiert für die Dauer der Prüfung (2,4 s) nicht.
+- Ausgeliefert wird Python 3.13.15, getestet wird im Entwicklungsbaum
+  mit 3.13.14. `uv.lock` legt die Patch-Version von Python nicht fest;
+  die Rauchprobe in Schritt 6 fängt grobe Folgen ab.
+
+**Ursache:** jeweils wie oben angegeben.
+
+**Zu tun:** Die Meldung im Ladebild nur zeigen, wenn ein `.natter`
+übergeben wurde; die Größe in `ZUERST-LESEN.txt` beim Bau einsetzen
+oder weglassen und den Satz zum Stick allgemein fassen; die
+vollständige Prüfung in einen Hintergrund-Thread legen; die
+Python-Version für Bau und Entwicklungsbaum aus derselben Quelle
+nehmen. Erledigt, wenn die vier Stellen behoben oder einzeln
+begründet zurückgestellt sind.
+
+**Behoben (26. September 2026).**
+
+- Das Ladebild zeigt „Projekt wird geöffnet …“ nur noch, wenn eine `.natter`-Datei übergeben wurde (`ide/main.py`; Test in `tests/test_hauptfenster_start.py`).
+- `ZUERST-LESEN.txt` nennt keine feste Größe mehr und schreibt „die Datei ist neu und hat deshalb noch keinen Ruf im Netz“.
+- „Werkzeuge → Umgebung prüfen“ läuft über `_hintergrund_starten` in einem eigenen Faden; der Menüaufruf kehrt sofort zurück (Test mit einer Prüfung, die eine Sekunde dauert).
+- `.python-version` legt 3.13.15 fest, dieselbe Fassung wie `PYTHON_FASSUNG` des Baus; die CI installiert Python ohne Versionsangabe und liest die Datei. Ein Test hält beide gleich.
+
+
+---
+
+## 40. „Umgebung prüfen" meldet nach einer Paketinstallation über Natter eine Veränderung ~~(erledigt)~~
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 23.
+
+**Beobachtet:** Nach „Pakete → Paket installieren …“ mit `cowsay`
+meldet „Werkzeuge → Umgebung prüfen“: „Natter wurde nach der
+Erstellung verändert: python/Scripts/cowsay.exe (zusätzlich). … Natter
+neu installieren und dabei den alten Programmordner ersetzen; bleibt
+die Meldung, hilft die Systembetreuung der Schule weiter.“ Der Rat
+würde das eben installierte Paket wieder entfernen.
+
+**Ursache:** nachgewiesen. Das Manifest nimmt die Fremdpakete in
+`site-packages` aus, damit pip dort nachinstallieren darf; pip legt
+aber zusätzlich Startdateien in `python\Scripts` an.
+
+**Zu tun:** `python/Scripts/` wie `site-packages` behandeln (zusätzliche
+Dateien dort sind kein Befund), veränderte oder fehlende Dateien von
+Natter selbst weiter melden. Erledigt, wenn nach einer Installation
+über die Paketverwaltung „Umgebung prüfen“ „unverändert“ meldet.
+
+**Behoben (26. September 2026).** `ist_nachinstalliert` in `ide/integritaet/manifest.py` behandelt `python/Scripts/` wie die Fremdpakete in `site-packages`: dort legt pip die Startdateien ab, auch beim Anheben von pip selbst. Eine neue Datei unmittelbar in `python/` fällt weiter auf. Tests in `tests/test_integritaet_manifest.py`; der für `cowsay.exe` schlägt gegen den alten Code an.
+

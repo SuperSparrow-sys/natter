@@ -50,6 +50,10 @@ packages = ["pcl", "ide"]
 [tool.ruff]
 target-version = "py313"
 line-length = 100
+# build/ hält Zwischenstände des Baus und Auswertungen, darunter
+# Kopien von Schülerprojekten; der Auslieferungsbau prüft mit
+# `ruff check .` und brach daran ab (Punkt 32).
+extend-exclude = ["build"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

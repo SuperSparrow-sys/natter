@@ -17,6 +17,10 @@ uv.lock.tmp
 # Build-/Paketausgabe
 dist/
 build_out/
+# Zwischenspeicher des Baus und Auswertungen (Punkt 32 der offenen
+# Punkte): was hier liegt, wird nie eingecheckt und von ruff nicht
+# geprüft.
+/build/
 runtime/
 *.zip
 # PyInstaller-Zwischenstände (ide/export/exporter.py, tools/ide_paketieren.py)

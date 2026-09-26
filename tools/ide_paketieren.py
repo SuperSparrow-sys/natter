@@ -772,11 +772,35 @@ def _fingerabdruck_des_zertifikats() -> str | None:
     return fingerabdruck if re.fullmatch(r"[0-9A-F]{40}", fingerabdruck) else None
 
 
+def ausgenommen_vom_signieren(datei: Path) -> bool:
+    """Ob `datei` zu den Vorlagen gehört, die unsigniert bleiben müssen.
+
+    PyInstaller baut „Als Exe exportieren" aus diesen Vorlagen: es
+    kopiert `run.exe`/`runw.exe` und hängt das Programmarchiv an. Trägt
+    die Vorlage schon eine Signatur, steht sie danach mitten in der
+    Datei, und Windows lehnt die fertige Exe beim Signieren ab („%1 ist
+    keine zulässige Win32-Anwendung"). So war es von 0.3.1 bis 0.3.3:
+    keine einzige exportierte Schüler-Exe ließ sich signieren.
+    """
+    teile = [t.lower() for t in datei.parts]
+    return any(
+        teile[i : i + 2] == ["pyinstaller", "bootloader"] for i in range(len(teile) - 1)
+    )
+
+
+#: Dieselbe Ausnahme als Pfadstück, für das Signierskript und Schritt
+#: 10 von `tools/auslieferung_bauen.py`; ein Test hält alle drei
+#: zusammen.
+NICHT_SIGNIERT = "\\PyInstaller\\bootloader\\"
+
+
 def _binaerdateien(ordner: Path) -> list[Path]:
     return sorted(
         datei
         for datei in ordner.rglob("*")
-        if datei.suffix.lower() in SIGNIERTE_ENDUNGEN and datei.is_file()
+        if datei.suffix.lower() in SIGNIERTE_ENDUNGEN
+        and datei.is_file()
+        and not ausgenommen_vom_signieren(datei)
     )
 
 

@@ -357,17 +357,31 @@ die Auslieferung geraten.
 Inno Setup mit den üblichen Seiten: Willkommen, Lizenz zum Annehmen,
 Zielordner, Startmenü, Zusatzaufgaben (Desktopsymbol,
 `.natter`-Verknüpfung), Zusammenfassung, Fertigstellen mit „Natter
-starten". Deinstallation über „Apps & Features".
+starten". Deinstallation über „Apps & Features". Nur Deutsch, ohne
+Frage nach der Sprache; `tools/installer_texte.isl` fasst alle
+Meldungen von Inno Setup unpersönlich.
 
 Voreinstellung ist die Installation nur für den angemeldeten Benutzer
 unter `%LOCALAPPDATA%\Programs\Natter`. Auf einem Schulrechner ohne
 Administratorrechte ist das der einzige Weg, und nur dort kann `pip`
 später auch schreiben.
 
-`[InstallDelete]` leert bei einem Update die sieben Ordner, die Natter
-selbst mitbringt. Inno Setup überschreibt sonst nur und löscht nichts,
-was in der neuen Fassung fehlt; ein entferntes Modul bliebe
-importierbar und könnte das neue verdecken.
+**Update.** Das Setup liest die installierte Fassung aus dem
+Deinstallationseintrag und nennt sie auf der Willkommensseite („Natter
+0.3.3 ist installiert und wird auf 0.3.4 aktualisiert.“); Zielordner
+und Startmenü entfallen dann, eine ältere Fassung über einer neueren
+lehnt es ab, eine laufende Natter schließt es. `[InstallDelete]`
+ersetzt `python\` vollständig: Inno Setup überschreibt sonst nur und
+lässt liegen, was in der neuen Fassung fehlt. Bis 0.3.3 wurden nur
+Natters eigene Ordner geleert, und ein Update von 0.3.2 behielt 148
+Altdateien, darunter die Qt-Module unter GPL. Pakete, die über
+„Pakete“ nachinstalliert waren, schreibt `tools/installer_pakete_merken.py`
+vorher mit der alten Python auf; danach installiert das Setup sie per
+pip wieder, ohne Netz bleibt die Liste in `%APPDATA%\Natter` stehen.
+
+`tools/natter.iss` lässt sich mit `ISCC /DOhneProgramm` ohne
+Programmdateien und ohne Signatur übersetzen - in Sekunden statt
+Minuten, um Texte und `[Code]` zu prüfen, ohne zu bauen.
 
 ### 7.5 Signatur und Prüfsummen-Manifest
 
@@ -379,10 +393,18 @@ Zwei Ebenen, beide ohne Kosten:
 | Prüfsummen-Manifest | SHA-256 der Programmdateien in `manifest.json`, mit einem eigenen Ed25519-Schlüssel signiert; der öffentliche Schlüssel steckt im Starter | Natter erkennt beim Start veränderte, fehlende oder fremde Dateien |
 
 Bei jedem Start werden die Kerndateien geprüft (0,07 s), über
-„Werkzeuge → Umgebung prüfen" alle (2,6 s). Nicht geprüft werden
-übersetzte Module und die Fremdbibliotheken in `site-packages`: dort
-legt Python beim ersten Import `.pyc` an, und `pip` darf dort Pakete
-nachinstallieren.
+„Werkzeuge → Umgebung prüfen" alle (2,4 s, im Hintergrund). Nicht
+geprüft werden übersetzte Module, die Fremdbibliotheken in
+`site-packages` und die Startdateien in `python\Scripts`: dort legt
+Python beim ersten Import `.pyc` an, und `pip` darf dort Pakete
+nachinstallieren. Die Installation erkennt Natter an ihrem Aufbau
+(`Natter.exe` neben `python\pythonw.exe`); ein fehlendes oder
+unlesbares Manifest ist selbst ein Befund.
+
+Nicht signiert werden die Vorlagen unter `PyInstaller\bootloader\`:
+aus ihnen baut „Als Exe exportieren“ die Schüler-Exe, und eine schon
+signierte Vorlage macht die fertige Exe unsignierbar. Schritt 10
+prüft beides - jede andere Binärdatei signiert, die Vorlagen nicht.
 
 Beide privaten Schlüssel liegen nur auf dem Baurechner
 (`tools/signieren/`, von Git ausgeschlossen) und nie in der
@@ -466,7 +488,7 @@ README zeigt auf die neueste Fassung. Vor dem Entpacken die ZIP unter
 | SmartScreen-Warnung beim Installieren | keine Reputation für ein eigenes Zertifikat | Zertifikat eintragen, oder „Weitere Informationen" → „Trotzdem ausführen" |
 | „Das System kann den angegebenen Pfad nicht finden" | ein sehr langer Zielordner reißt die Windows-Pfadgrenze | kurzen Zielordner wählen; die Vorgabe ist kurz genug |
 | Nachinstallieren über „Pakete" schlägt fehl | systemweite Installation ohne Schreibrecht | für den angemeldeten Benutzer installieren |
-| Nach dem Deinstallieren bleibt ein Ordner | `.ruff_cache` aus der Prüfung vor dem Start | offen, Punkt 21 in `offene_punkte.md` |
+| Nach dem Deinstallieren bleibt ein Ordner | `.ruff_cache` aus der Prüfung vor dem Start (bis 0.3.2) | behoben (Punkt 21): ruff läuft ohne Cache, der Uninstaller räumt einen alten weg |
 
 ---
 

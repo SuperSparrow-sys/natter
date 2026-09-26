@@ -77,7 +77,7 @@ from ide.import_lfm import (
     unit_quelltext_erzeugen,
 )
 from ide.inspector import Objektinspektor
-from ide.integritaet.start_pruefung import installation_pruefen
+from ide.integritaet.start_pruefung import installation_pruefen, programmordner
 from ide.lint import pruefen
 from ide.palette import Komponentenpalette
 from ide.palette.palette import TYP_ROLLE
@@ -2920,19 +2920,38 @@ class HauptFenster(QMainWindow):
         Prüfung aller Programmdateien gegen das signierte
         Prüfsummen-Manifest – im Unterschied zur schnellen Prüfung der
         Kerndateien bei jedem Start. Jede betroffene Datei erscheint
-        einzeln im Panel „Meldungen“."""
-        ergebnis = installation_pruefen(vollstaendig=True)
-        if ergebnis is None:
+        einzeln im Panel „Meldungen“.
+
+        Die Prüfung liest rund 30 000 Dateien (2,4 s) und läuft deshalb
+        nebenher; bis 0.3.3 nahm das Fenster so lange keine Klicks an.
+        Im Entwicklungsbaum gibt es nichts zu prüfen - dort bleibt es bei
+        der sofortigen Meldung."""
+        if programmordner() is None:
             self.statusBar().showMessage(
                 "Keine Prüfung möglich: Natter läuft nicht aus einer gebauten Installation. "
                 "Die Prüfung gilt nur für die ausgelieferte Natter.exe."
             )
+            return
+        if not self._hintergrund_frei("Umgebung prüfen"):
+            return
+        self.statusBar().showMessage("Umgebung wird geprüft …")
+        self._hintergrund_starten(
+            lambda _melden: installation_pruefen(vollstaendig=True),
+            self._umgebung_geprueft,
+            "Umgebung prüfen",
+        )
+
+    def _umgebung_geprueft(self, ergebnis) -> None:  # noqa: ANN001
+        self._fortschritt_verbergen()
+        if ergebnis is None:
             return
         if ergebnis.in_ordnung:
             self.statusBar().showMessage("Umgebung geprüft: alle Programmdateien unverändert.")
             return
 
         self.meldungen_liste.clear()
+        if ergebnis.manifest_fehler:
+            self.meldungen_liste.addItem(f"[Umgebung] {ergebnis.manifest_fehler}")
         for datei in ergebnis.betroffene_dateien:
             self.meldungen_liste.addItem(f"[Umgebung] {datei}")
         self.panels.setCurrentWidget(self.meldungen_liste)

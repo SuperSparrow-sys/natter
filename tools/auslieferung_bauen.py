@@ -680,12 +680,22 @@ def _luecken_in_den_signaturen(ordner: Path) -> list[str]:
     # Eine Zeile je geprüfter Datei: „OK" oder „LUECKE <Pfad>". Die
     # OK-Zeilen braucht niemand zu lesen, aber an ihnen zählt die
     # Anzeige mit, wie weit die Prüfung ist.
+    # Die Vorlagen von PyInstaller müssen umgekehrt unsigniert sein
+    # (siehe `ausgenommen_vom_signieren` in tools/ide_paketieren.py):
+    # eine signierte Vorlage meldet sich als „VORLAGE“ und bricht den
+    # Bau genauso ab wie eine Lücke.
+    from tools.ide_paketieren import NICHT_SIGNIERT
+
     befehl = (
         f"Get-ChildItem -LiteralPath '{ordner}' -Recurse -File "
         "-ErrorAction SilentlyContinue | "
         f"Where-Object {{ $_.Extension -in {endungen} }} | "
         "ForEach-Object { $s = Get-AuthenticodeSignature $_.FullName; "
-        "if ($s.Status -ne 'Valid') { Write-Output ('LUECKE ' + $_.FullName) } "
+        f"$vorlage = $_.FullName.IndexOf('{NICHT_SIGNIERT}', "
+        "[StringComparison]::OrdinalIgnoreCase) -ge 0; "
+        "if ($vorlage) { if ($s.Status -eq 'Valid') "
+        "{ Write-Output ('VORLAGE ' + $_.FullName) } else { Write-Output 'OK' } } "
+        "elseif ($s.Status -ne 'Valid') { Write-Output ('LUECKE ' + $_.FullName) } "
         "else { Write-Output 'OK' } }"
     )
     gesamt = sum(
@@ -699,11 +709,16 @@ def _luecken_in_den_signaturen(ordner: Path) -> list[str]:
     def auswerten(zeile: str) -> None:
         nonlocal geprueft
         zeile = zeile.strip()
-        if zeile == "OK" or zeile.startswith("LUECKE "):
+        if zeile == "OK" or zeile.startswith(("LUECKE ", "VORLAGE ")):
             geprueft += 1
             _anzeige.stand(min(geprueft, gesamt), gesamt, "Dateien")
         if zeile.startswith("LUECKE "):
             luecken.append(zeile.removeprefix("LUECKE "))
+        if zeile.startswith("VORLAGE "):
+            luecken.append(
+                zeile.removeprefix("VORLAGE ")
+                + " (Vorlage für den Exe-Export, muss unsigniert bleiben)"
+            )
 
     ausfuehren(
         ["powershell", "-NoProfile", "-Command", befehl],
