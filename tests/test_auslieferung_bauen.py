@@ -384,21 +384,53 @@ def test_der_bau_zaehlt_die_vorlagen_nicht_zu_den_binaerdateien(
     assert [p.name for p in _binaerdateien(tmp_path)] == ["Natter.exe"]
 
 
-@pytest.mark.skipif(
-    not Path(r"C:\Windows\System32\notepad.exe").exists(),
-    reason="braucht eine von Microsoft signierte Datei",
-)
+def _signierte_kopie(ziel: Path) -> bool:
+    """Kopiert eine Datei mit eingebetteter gültiger Signatur nach
+    `ziel`.
+
+    Nicht jede signierte Windows-Datei taugt dafür: auf dem
+    GitHub-Runner (Windows Server) ist `notepad.exe` nur über einen
+    Katalog signiert, und die Kopie gilt dann als unsigniert. Deshalb
+    wird die Kopie selbst geprüft und notfalls die nächste Datei
+    versucht.
+    """
+    import shutil
+    import subprocess
+
+    kandidaten = [
+        Path(r"C:\Windows\System32\notepad.exe"),
+        Path(r"C:\Program Files\PowerShell\7\pwsh.exe"),
+        *(Path(p) for p in (shutil.which("git"), shutil.which("pwsh")) if p),
+    ]
+    for quelle in kandidaten:
+        if not quelle.is_file():
+            continue
+        shutil.copy(quelle, ziel)
+        status = subprocess.run(
+            [
+                "powershell", "-NoProfile", "-Command",
+                f"(Get-AuthenticodeSignature -LiteralPath '{ziel}').Status",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        ).stdout.strip()
+        if status == "Valid":
+            return True
+    return False
+
+
 def test_schritt_10_meldet_eine_signierte_vorlage(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Mit echtem PowerShell: eine signierte Vorlage bricht ab, eine
     unsignierte Vorlage nicht, eine unsignierte Datei sonst schon."""
-    import shutil
-
     monkeypatch.setattr(bau, "_anzeige", _StummeAnzeige())
     vorlagen = tmp_path / "PyInstaller" / "bootloader" / "Windows-64bit-intel"
     vorlagen.mkdir(parents=True)
-    shutil.copy(r"C:\Windows\System32\notepad.exe", vorlagen / "run.exe")
+    if not _signierte_kopie(vorlagen / "run.exe"):
+        pytest.skip("keine Datei mit eingebetteter Signatur gefunden")
     (vorlagen / "runw.exe").write_bytes(b"MZ unsigniert")
     (tmp_path / "Lib.dll").write_bytes(b"MZ unsigniert")
 
