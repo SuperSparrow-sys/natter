@@ -497,6 +497,36 @@ README zeigt auf die neueste Fassung. Vor dem Entpacken die ZIP unter
 Nach jedem Bau kommt hier ein Eintrag dazu: Datum, Fassung, Größe,
 Signaturen, Dauer, und was der Lauf aufgedeckt hat, samt Irrweg.
 
+### 0.3.4 – 26. September 2026
+
+`Natter-Setup.exe`, 276,5 MB. `Natter.exe` und `Natter-Setup.exe`
+`Valid`, jede Binärdatei gültig signiert. ZIP 277 MB. Veröffentlicht als
+Release `v0.3.4`, das Tag zeigt auf `c141d68`. Enthält die Befunde aus
+dem Schülerweg 0.3.3 (Punkte 21, 26 bis 45). 46,3 Minuten: pytest
+18:56 (4247 Tests), `dist\Natter` 13:45, Installer 10:50.
+
+Das Update wurde auf dem Baurechner über die dort installierte Fassung
+0.3.3 durchgespielt, in die vorher `cowsay` über pip nachinstalliert
+worden war. Der Assistent nannte „Natter 0.3.3 ist installiert und wird
+auf 0.3.4 aktualisiert.“, zeigte fünf statt acht Seiten ohne
+Sprachauswahl und lief in 3:39 Minuten ohne Meldung durch. Danach:
+Deinstallationseintrag 0.3.4, nur noch `natter-0.3.4.dist-info`,
+`cowsay` 6.1 wieder da, die Merkliste unter `%APPDATA%\Natter`
+gelöscht, `PySide6.QtCharts` nicht vorhanden, „Umgebung prüfen“ meldet
+„alle Programmdateien unverändert“.
+
+Beim Bedienen der installierten Fassung fiel ein Fehler auf, den kein
+Test gefunden hatte: der Doppelklick auf einen Knopf öffnete die Unit,
+markierte aber ein Stück Kommentar statt des `pass` in der neuen
+Methode. Der Sprung bewegte den Cursor mit „Zeile nach unten“, und das
+zählt bei eingeschaltetem Zeilenumbruch sichtbare Zeilen; die langen
+Kommentare der Projektvorlage werden in einem schmalen Editor
+umbrochen. Die Tests liefen mit einem Editor, der breit genug war, und
+konnten den Fehler nicht zeigen. Dazu kam ein stehengebliebenes `pass`
+in der Klasse über der ersten Methode und ein Satz in der Ausgabe, nach
+dem das Fenster eines abgestürzten GUI-Programms offen bleibe. Alles
+drei ist in 0.3.5 behoben.
+
 ### 0.3.2 – 25. September 2026
 
 `Natter-Setup.exe`, 277,9 MB. `Natter.exe` und `Natter-Setup.exe`

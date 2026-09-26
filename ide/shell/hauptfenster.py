@@ -3494,8 +3494,12 @@ class HauptFenster(QMainWindow):
 
         Ein Exitcode ungleich 0 heißt, dass das Programm mit einem
         Fehler geendet ist. Das steht dabei, weil „Code 1“ allein
-        niemandem etwas sagt – die Fehlermeldung selbst steht im
-        Konsolenfenster des Programms, das offen bleibt."""
+        niemandem etwas sagt. Wo die Fehlermeldung steht, hängt von
+        der Art des Programms ab: ein Konsolenprogramm lässt sein
+        Fenster dafür offen, ein Programm mit Fenster hat sie in einem
+        Meldungsfenster gezeigt, das beim Erscheinen dieser Zeile
+        schon geschlossen ist. Bis 0.3.4 hieß es in beiden Fällen, das
+        Fenster bleibe offen."""
         dauer = ""
         if self._start_zeitpunkt is not None:
             sekunden = time.monotonic() - self._start_zeitpunkt
@@ -3504,10 +3508,17 @@ class HauptFenster(QMainWindow):
         if code == 0:
             self.ausgabe_zeile(f"Programm beendet (Code 0){dauer}")
             return
+        konsole = self.projekt is not None and self.projekt.typ == "console"
+        wo = (
+            "Die Fehlermeldung steht im Konsolenfenster des Programms, es "
+            "bleibt dafür offen."
+            if konsole
+            else "Die Fehlermeldung hat das Programm vor dem Beenden in "
+            "einem eigenen Fenster gezeigt."
+        )
         self.ausgabe_zeile(
             f"Programm beendet (Code {code}){dauer} – Code {code} heißt: mit einem Fehler "
-            f"geendet. Die Fehlermeldung steht im Fenster des Programms, es bleibt dafür "
-            f"offen."
+            f"geendet. {wo}"
         )
 
     # -- Debugger (F5, Abschnitt 7.8/8.1) ------------------------------------

@@ -97,14 +97,32 @@ def test_das_programmende_nennt_exitcode_und_laufzeit(fenster: HauptFenster) -> 
     assert "Code 0" in _zeilen(fenster)[-1]
 
 
-def test_ein_exitcode_ungleich_null_wird_erklaert(fenster: HauptFenster) -> None:
-    """„Code 1“ allein sagt niemandem etwas."""
+def test_ein_exitcode_ungleich_null_wird_erklaert(
+    fenster: HauptFenster, tmp_path: Path
+) -> None:
+    """„Code 1“ allein sagt niemandem etwas. Ein Programm mit Fenster
+    hat seine Meldung schon gezeigt und geschlossen; bis 0.3.4 hieß es
+    auch hier, das Fenster bleibe offen."""
+    from ide.project.neu import projekt_erzeugen
+
+    projekt = projekt_erzeugen("gui", tmp_path / "gui", "Fenster")
+    fenster.projekt_oeffnen(projekt.ordner / "Fenster.natter")
+
     fenster.programmende_melden(1)
 
     zeile = _zeilen(fenster)[-1]
     assert "Code 1" in zeile
     assert "Fehler" in zeile
-    assert "Fenster des Programms" in zeile
+    assert "eigenen Fenster gezeigt" in zeile
+    assert "bleibt dafür offen" not in zeile
+
+
+def test_im_konsolenprojekt_bleibt_die_konsole_offen(fenster: HauptFenster) -> None:
+    """Nur ein Konsolenprogramm lässt sein Fenster für die Meldung
+    offen; das Projekt der Fixture ist eines."""
+    fenster.programmende_melden(1)
+
+    assert "Konsolenfenster des Programms, es bleibt dafür offen" in _zeilen(fenster)[-1]
 
 
 def test_jede_zeile_traegt_die_uhrzeit(fenster: HauptFenster) -> None:
