@@ -51,7 +51,21 @@ def _leere_handler_methode(
                 )
             ]
         ),
-        leading_lines=[cst.EmptyLine()],
+        # `indent=False`: sonst stünden in der Leerzeile vor der Methode
+        # vier Leerzeichen.
+        leading_lines=[cst.EmptyLine(indent=False)],
+    )
+
+
+def _nur_pass(anweisung: cst.BaseStatement) -> bool:
+    """Ob die Anweisung ein alleinstehendes `pass` ohne Kommentar ist -
+    der Platzhalter einer leeren Klasse aus der Projektvorlage."""
+    return (
+        isinstance(anweisung, cst.SimpleStatementLine)
+        and len(anweisung.body) == 1
+        and isinstance(anweisung.body[0], cst.Pass)
+        and not any(z.comment for z in anweisung.leading_lines)
+        and anweisung.trailing_whitespace.comment is None
     )
 
 
@@ -76,9 +90,14 @@ class _MethodeAnhaengen(cst.CSTTransformer):
             return updated_node
 
         self.eingefuegt = True
-        neuer_body = list(updated_node.body.body) + [
-            _leere_handler_methode(self.methodenname, self.zusatz_parameter)
-        ]
+        bisher = list(updated_node.body.body)
+        methode = _leere_handler_methode(self.methodenname, self.zusatz_parameter)
+        # Die leere Klasse aus der Vorlage besteht nur aus `pass`. Das
+        # blieb bis 0.3.4 über der ersten angelegten Methode stehen.
+        if len(bisher) == 1 and _nur_pass(bisher[0]):
+            bisher = []
+            methode = methode.with_changes(leading_lines=[])
+        neuer_body = [*bisher, methode]
         return updated_node.with_changes(body=updated_node.body.with_changes(body=neuer_body))
 
 

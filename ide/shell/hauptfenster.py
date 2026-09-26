@@ -2713,12 +2713,14 @@ class HauptFenster(QMainWindow):
         ziel = min(treffer + 1, len(zeilen) - 1)
         while ziel < len(zeilen) - 1 and zeilen[ziel].strip().startswith("#"):
             ziel += 1
-        cursor = editor.textCursor()
-        cursor.movePosition(cursor.MoveOperation.Start)
-        cursor.movePosition(cursor.MoveOperation.Down, cursor.MoveMode.MoveAnchor, ziel)
+        # Über den Textblock und nicht mit „Zeile nach unten“: das zählt
+        # bei eingeschaltetem Zeilenumbruch sichtbare Zeilen, und in der
+        # Projektvorlage mit ihren langen Kommentaren landete der
+        # Cursor in 0.3.4 mitten in einem Kommentar.
         einrueckung = len(zeilen[ziel]) - len(zeilen[ziel].lstrip())
-        cursor.movePosition(
-            cursor.MoveOperation.Right, cursor.MoveMode.MoveAnchor, einrueckung
+        cursor = editor.textCursor()
+        cursor.setPosition(
+            editor.document().findBlockByNumber(ziel).position() + einrueckung
         )
         if zeilen[ziel].strip() == "pass":
             cursor.movePosition(cursor.MoveOperation.EndOfBlock, cursor.MoveMode.KeepAnchor)

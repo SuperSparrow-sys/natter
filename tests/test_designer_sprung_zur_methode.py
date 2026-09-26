@@ -80,3 +80,38 @@ def test_ungespeicherte_aenderungen_in_der_unit_bleiben_erhalten(tmp_path: Path)
     text = _aktueller_editor(fenster).toPlainText()
     assert f"def {name}(" in text
     assert "# eigene Notiz, noch nicht gespeichert" in text
+
+
+def test_sprung_trifft_die_methode_auch_mit_zeilenumbruch(qtbot, tmp_path: Path) -> None:  # noqa: ANN001
+    """In der installierten 0.3.4 umbrach der Editor die langen
+    Kommentare der Projektvorlage. Der Sprung zählte mit „Zeile nach
+    unten“ sichtbare statt echter Zeilen und markierte ein Stück
+    Kommentar statt des `pass` in der neuen Methode."""
+    fenster, canvas, knopf, _unit = _neues_projekt(tmp_path)
+    qtbot.addWidget(fenster)
+    fenster.resize(900, 600)
+    fenster.show()
+    editor = fenster.datei_oeffnen(_unit)
+    editor.zeilenumbruch_setzen(True)
+    editor.resize(300, 400)
+    fenster.editor_tabs.setCurrentIndex(0)
+
+    name = canvas.ereignis_handler_erzeugen(knopf)
+
+    editor = _aktueller_editor(fenster)
+    assert editor.textCursor().selectedText() == "pass"
+    davor = editor.textCursor().block().previous()
+    while davor.isValid() and davor.text().strip().startswith("#"):
+        davor = davor.previous()
+    assert davor.text().strip().startswith(f"def {name}(")
+
+
+def test_die_erste_methode_ersetzt_das_pass_der_leeren_klasse(tmp_path: Path) -> None:
+    fenster, canvas, knopf, unit = _neues_projekt(tmp_path)
+
+    name = canvas.ereignis_handler_erzeugen(knopf)
+
+    text = unit.read_text(encoding="utf-8")
+    klasse = text[text.index("class Form1"):]
+    assert klasse.splitlines()[1].strip().startswith(f"def {name}(")
+    assert not [z for z in text.splitlines() if z and not z.strip()]
