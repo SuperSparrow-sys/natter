@@ -7,12 +7,12 @@ ganze Vorgeschichte der früheren Punkte stehen, damit sich bei einem
 ähnlichen Fehler nachlesen lässt, was schon geprüft wurde.
 
 Die Nummern laufen durch und werden nicht neu vergeben. Der nächste
-Punkt bekommt die **46**.
+Punkt bekommt die **47**.
 
 ## Ein neuer Punkt
 
 ```markdown
-## 46. Kurz, was nicht stimmt
+## 47. Kurz, was nicht stimmt
 
 **Gemeldet:** Datum, wo es auffiel (Fenster, Menü, Beispielprojekt),
 Natter-Version.
@@ -296,6 +296,41 @@ exportieren und signieren. Erledigt, wenn eine in der installierten
 Fassung exportierte Exe `Valid` signiert ist.
 
 **Umgesetzt am 26. September 2026, Nachweis am nächsten Bau offen.** Die Vorlagen unter `PyInstaller\bootloader\` sind vom Signieren ausgenommen, an allen drei Stellen gleich (`ausgenommen_vom_signieren`/`NICHT_SIGNIERT` in `tools/ide_paketieren.py`, `$AUSGENOMMEN` in `tools/signieren/alles_signieren.ps1`, Schritt 10); Schritt 10 bricht jetzt umgekehrt ab, wenn eine Vorlage signiert ist (Test mit echtem PowerShell und einer von Microsoft signierten Datei). Nachgewiesen am Entwicklungsbaum: eine mit dem unsignierten Bootloader gebaute Exe lässt sich signieren (`Valid`). Die Statuszeile nennt statt „UnknownError“ einen deutschen Grund mit der Meldung von Windows. Offen: in der nächsten gebauten Installation eine Schüler-Exe exportieren; sie muss `Valid` signiert sein.
+
+---
+
+## 46. Der Signaturtest läuft im CI nicht, und ein Debugger-Test wackelt dort
+
+**Gemeldet:** 26. September 2026, GitHub-Actions-Läufe zu `250930c`
+bis `18432cd`.
+
+**Beobachtet:**
+
+- `test_schritt_10_meldet_eine_signierte_vorlage` in
+  `tests/test_auslieferung_bauen.py` braucht eine Datei, deren Kopie
+  `Get-AuthenticodeSignature` als `Valid` meldet. Auf dem Runner
+  (Windows Server) gilt keine der Kandidaten als gültig signiert,
+  weder `notepad.exe` noch `pwsh.exe` noch `git.exe`. Der Test wird
+  dort übersprungen („keine Datei mit eingebetteter Signatur
+  gefunden“); lokal läuft er und ist grün. Die Prüfung von Schritt 10
+  auf signierte Vorlagen wird damit im CI nicht getestet.
+- `test_variablen_panel_kommt_beim_halt_nach_vorne` in
+  `tests/test_hauptfenster_debugger.py` lief in Lauf 18432cd in die
+  Zeitgrenze von 45 Sekunden, bevor debugpy am Haltepunkt hielt. Der
+  Code war derselbe wie im grünen Lauf davor; die Wiederholung des
+  Jobs war grün.
+
+**Ursache:** für den ersten Teil vermutlich die Zertifikatsprüfung auf
+dem Runner (Katalogsignaturen, Sperrlisten ohne Netz), nicht
+nachgewiesen. Für den zweiten noch offen; ein langsamer Runner liegt
+nahe.
+
+**Zu tun:** Für den Signaturtest eine Datei finden, die auch auf dem
+Runner `Valid` ist, ohne dafür ein Zertifikat in einen Windows-Speicher
+einzutragen. Beim Debugger-Test beobachten, ob er wieder ausfällt;
+wenn ja, die Startzeit von debugpy auf dem Runner messen. Erledigt,
+wenn der Signaturtest im CI läuft und der Debugger-Test in zehn
+Läufen hintereinander grün ist.
 
 ---
 
