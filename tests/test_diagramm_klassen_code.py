@@ -442,3 +442,66 @@ def test_der_kopf_nennt_die_typen_von_ausserhalb() -> None:
 
     assert "noch importiert werden" in code
     assert "SQLQuery" in code.splitlines()[1]
+
+
+# -- Schülerweg 0.3.3 (Punkt 35 der offenen Punkte) ------------------------
+
+
+def _bank(attribut: str = "stand") -> dict:
+    """Das Diagramm aus der Auswertung: Sparkonto erbt von Konto, die
+    Verbindung so, wie die Palette des Klassendiagramms sie anlegt."""
+    return {
+        "format": "pdiag/1",
+        "type": "class",
+        "name": "Bank",
+        "shapes": [
+            _klasse(
+                "Sparkonto",
+                id="s2",
+                attributes=[{"name": "zins", "type": "float", "visibility": "private"}],
+            ),
+            _klasse(
+                "Konto",
+                id="s1",
+                attributes=[{"name": attribut, "type": "float", "visibility": "private"}],
+            ),
+        ],
+        "connectors": [{"id": "c1", "kind": "inheritance", "from": "s2", "to": "s1"}],
+    }
+
+
+def test_vererbung_aus_der_palette_landet_im_klassenkopf() -> None:
+    quelltext = diagramm_als_python(_bank())
+
+    _gueltig(quelltext)
+    assert "class Sparkonto(Konto):" in quelltext
+    assert quelltext.index("class Konto") < quelltext.index("class Sparkonto")
+
+
+def test_ungueltige_namen_werden_gemeldet() -> None:
+    from ide.diagramm.klassen_code import ungueltige_namen
+
+    assert ungueltige_namen(_bank()) == []
+    meldungen = ungueltige_namen(_bank("stand: float"))
+
+    assert meldungen == ["Konto: Das Attribut „stand: float“ ist kein gültiger Python-Name."]
+    assert ungueltige_namen({"shapes": [_klasse("class")]})
+
+
+def test_mit_ungueltigem_namen_entsteht_keine_datei(tmp_path: Path) -> None:
+    """Bis 0.3.3 stand danach `self.__stand: float = stand: float` in der
+    Unit, und die Prüfung vor dem Start blockierte jeden Start."""
+    from ide.diagramm import DiagrammFenster, diagramm_erzeugen
+
+    diagramm = diagramm_erzeugen("class", tmp_path / "bank.pdiag")
+    bank = _bank("stand: float")
+    diagramm.daten["shapes"] = bank["shapes"]
+    diagramm.daten["connectors"] = bank["connectors"]
+    fenster = DiagrammFenster(diagramm)
+    ziel = tmp_path / "u_bank.py"
+
+    ergebnis = fenster.quelltext_erzeugen("datei", "alles", ziel)
+
+    assert ergebnis is None
+    assert not ziel.exists()
+    assert "stand: float" in fenster.statusBar().currentMessage()

@@ -356,30 +356,6 @@ Fassung exportierte Exe `Valid` signiert ist.
 
 ---
 
-## 35. Der Quelltext aus dem Klassendiagramm übernimmt keine Vererbung und prüft keine Namen
-
-**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 24.
-
-**Beobachtet:** Klassendiagramm mit „Konto“ und „Sparkonto“ und einer
-Vererbung von Sparkonto nach Konto (in der `.pdiag` als
-`{"kind": "inheritance", "from": "s2", "to": "s1"}`, im Export als
-Pfeil sichtbar). „Quelltext → Erzeugen …“ schreibt `class Sparkonto:`
-statt `class Sparkonto(Konto):`. Ein Attribut, bei dem „stand: float“
-im Feld „Name“ steht, wird zu `self.__stand: float = stand: float` -
-ein Syntaxfehler in `u_bank.py`, der danach jeden Start des Projekts
-über die Prüfung vor dem Start blockiert.
-
-**Ursache:** noch offen (Generator unter `ide/diagramm/`).
-
-**Zu tun:** Vererbungen (und Realisierungen) aus `connectors` in die
-Klassenköpfe übernehmen; Namen von Klassen, Attributen und
-Operationen im Eigenschaften-Dialog als Python-Bezeichner prüfen
-(oder beim Erzeugen mit einer deutschen Meldung ablehnen). Erledigt,
-wenn das Beispiel oben `class Sparkonto(Konto):` erzeugt und ein
-ungültiger Name nicht mehr in den Code gelangt.
-
----
-
 ## 45. Kleinere Befunde aus dem Schülerweg 0.3.3, Teil 2
 
 **Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2.
@@ -424,6 +400,8 @@ wenn alle Stellen abgearbeitet sind.
 **Stand 26. September 2026, Paket „Designer und Editor“.** Erledigt: Der Komponentenbaum baut sich nach jeder Änderung im Designer neu auf und markiert die im Designer gewählte Komponente (`Komponentenbaum.auffrischen`, `tests/test_komponentenbaum_live.py`). Die Symbole von Menü und Zeitgeber nehmen nach einem Klick den Tastaturfokus an, F2 öffnet danach den Menü-Editor (`tests/test_designer_zugaenglichkeit.py`). Ein abgeschnittener Button-Text ist ein Fund der Design-Prüfung (siehe Punkt 36). Einrückungsfehler haben vor dem Start eigene Meldungen, die nach der Einrückung fragen (`_SYNTAX_GENAUER` in `ide/run/pruefung.py`, `tests/test_vorstart_einrueckung.py` mit dem echten Ruff). Die übrigen Stellen folgen mit Laufzeit, Diagramm und Dokumenten.
 
 **Stand 26. September 2026, Paket „Laufzeit“.** Erledigt: Die Variablentabelle lässt die Gruppenzeilen von debugpy weg („special variables“, „function variables“ …), und das Panel wird beim Anhalten hoch genug für bis zu acht Variablen (`_debugger_variablen_bereit` in `ide/shell/hauptfenster.py`, Test gegen den echten debugpy in `tests/test_hauptfenster_debugger.py`).
+
+**Stand 26. September 2026, Paket „Diagramm“.** Erledigt: Lineale und Minimap des Diagramm-Editors stehen in der INI der IDE unter `diagramm/ansicht/…` statt über `QSettings("Natter", "Diagramm")` in der Registry (`_ansicht_einstellungen` in `ide/diagramm/fenster.py`, Test in `tests/test_diagramm_ansicht_lineale.py`). Der Uninstaller entfernt die Reste älterer Fassungen, `HKCU\Software\Natter\Diagramm` ganz und `…\Natter-IDE` und `…\Natter`, wenn sie leer sind; angelegt wird dort nichts (`dontcreatekey` in `tools/natter.iss`, Test in `tests/test_installer_update.py`). Woher der leere Schlüssel `Natter-IDE` stammt, ließ sich im heutigen Code nicht finden: jeder Zugriff auf diesen Namen geht über die INI. Er stammt vermutlich aus einer Fassung vor der Umstellung auf die INI. Das Deinstallieren selbst ist am nächsten Bau nachzusehen.
 
 ---
 

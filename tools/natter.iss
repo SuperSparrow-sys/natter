@@ -159,6 +159,15 @@ Root: HKA; Subkey: "Software\Classes\.natter"; ValueType: string; ValueName: "";
 Root: HKA; Subkey: "Software\Classes\NatterProjekt"; ValueType: string; ValueName: ""; ValueData: "Natter-Projekt"; Flags: uninsdeletekey; Tasks: natterverknuepfung
 Root: HKA; Subkey: "Software\Classes\NatterProjekt\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#MyAppExeName},0"; Tasks: natterverknuepfung
 Root: HKA; Subkey: "Software\Classes\NatterProjekt\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""; Tasks: natterverknuepfung
+; Reste älterer Fassungen: bis 0.3.3 speicherte der Diagramm-Editor
+; Lineale und Minimap unter HKCU\Software\Natter\Diagramm, und nach dem
+; Deinstallieren blieb der Schlüssel stehen, dazu ein leerer
+; ...\Natter-IDE. Heute steht alles in der INI unter %APPDATA%\Natter.
+; dontcreatekey: angelegt wird hier nichts, der Uninstaller entfernt
+; nur, was eine ältere Fassung hinterlassen hat.
+Root: HKCU; Subkey: "Software\Natter\Diagramm"; Flags: uninsdeletekey dontcreatekey
+Root: HKCU; Subkey: "Software\Natter\Natter-IDE"; Flags: uninsdeletekeyifempty dontcreatekey
+Root: HKCU; Subkey: "Software\Natter"; Flags: uninsdeletekeyifempty dontcreatekey
 
 [UninstallDelete]
 ; Der Uninstaller entfernt von sich aus nur, was der Installer gelegt

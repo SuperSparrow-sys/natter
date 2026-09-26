@@ -122,3 +122,18 @@ def test_jede_anrede_aus_german_isl_ist_ueberschrieben() -> None:
     assert mit_anrede, "German.isl nicht gelesen"
     assert sorted(mit_anrede - set(eigene)) == []
     assert {n: w for n, w in eigene.items() if anrede.search(w)} == {}
+
+
+def test_uninstaller_raeumt_registry_reste_aelterer_fassungen() -> None:
+    """Bis 0.3.3 standen die Ansichtsschalter des Diagramm-Editors in
+    der Registry und blieben nach dem Deinstallieren stehen (Punkt 45
+    der offenen Punkte). Angelegt wird dort nichts mehr."""
+    zeilen = ISS.read_text(encoding="utf-8-sig").splitlines()
+    registry = [z for z in zeilen if z.startswith('Root: HKCU; Subkey: "Software\\Natter')]
+
+    assert any(
+        'Natter\\Diagramm"' in z and "uninsdeletekey dontcreatekey" in z
+        for z in registry
+    )
+    assert all("dontcreatekey" in z for z in registry)
+    assert not any("ValueType" in z for z in registry)

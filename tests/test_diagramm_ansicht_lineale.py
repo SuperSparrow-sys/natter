@@ -315,3 +315,24 @@ def test_der_ausschnittsrahmen_laesst_sich_setzen(qtbot) -> None:
     minimap.ausschnitt_setzen(QRect(10, 20, 300, 200))
 
     assert minimap._ausschnitt == QRect(10, 20, 300, 200)
+
+
+def test_ansicht_steht_in_der_ini_der_ide(tmp_path: Path) -> None:
+    """Punkt 45 der offenen Punkte: Lineale und Minimap standen über
+    `QSettings("Natter", "Diagramm")` in einem eigenen Speicher, unter
+    Windows in der Registry, und blieben nach dem Deinstallieren
+    zurück. Jetzt stehen sie in derselben INI wie alles andere."""
+    from PySide6.QtCore import QSettings
+
+    fenster = DiagrammFenster(_diagramm(tmp_path))
+    _AM_LEBEN.append(fenster)
+
+    fenster.aktionen["Ansicht/Minimap"].setChecked(True)
+    fenster.aktionen["Ansicht/Lineale"].setChecked(False)
+
+    ini = QSettings(
+        QSettings.Format.IniFormat, QSettings.Scope.UserScope, "Natter", "Natter-IDE"
+    )
+    assert ini.value("diagramm/ansicht/minimap", type=bool) is True
+    assert ini.value("diagramm/ansicht/lineale", type=bool) is False
+    assert not (tmp_path / "Natter" / "Diagramm.ini").exists()

@@ -19,6 +19,7 @@ Reine Funktionen ohne Qt – einzeln testbar.
 
 from __future__ import annotations
 
+import keyword
 from typing import Any
 
 from ide.diagramm.uml_modell import attribute, formname, ist_klasse, operationen
@@ -28,7 +29,10 @@ EINRUECKUNG = "    "
 #: Verbindungsarten, die zu einer Basisklasse werden (Abschnitt 13.6).
 #: Aggregation und Komposition werden dagegen zu Attributen – sie sagen
 #: „hat ein“, nicht „ist ein“.
-VERERBUNGSARTEN = ("generalization", "realization", "implements")
+#: „inheritance“ ist die Art, die die Palette des Klassendiagramms
+#: anlegt; sie fehlte bis 0.3.3 in dieser Liste, und eine dort
+#: gezogene Vererbung kam nie im Klassenkopf an.
+VERERBUNGSARTEN = ("inheritance", "generalization", "realization", "implements")
 
 
 def _bezeichner(name: str, sichtbarkeit: str) -> str:
@@ -248,6 +252,47 @@ def klasse_als_python(shape: dict[str, Any], daten: dict[str, Any] | None = None
     while rumpf and rumpf[-1] == "":
         rumpf.pop()
     return "\n".join([kopf, *rumpf]) + "\n"
+
+
+def _gueltiger_name(name: str) -> bool:
+    return name.isidentifier() and not keyword.iskeyword(name)
+
+
+def ungueltige_namen(
+    daten: dict[str, Any], shape: dict[str, Any] | None = None
+) -> list[str]:
+    """Namen im Diagramm, die in Python keine Bezeichner sind, als
+    deutsche Meldungen.
+
+    Steht im Feld „Name“ eines Attributs „stand: float“, entstand bis
+    0.3.3 die Zeile `self.__stand: float = stand: float`. Das ist ein
+    Syntaxfehler in der Unit, und die Prüfung vor dem Start blockierte
+    danach jeden Start des Projekts. Ein leerer Name ist kein Fehler,
+    den übergeht der Erzeuger ohnehin.
+    """
+    klassen = [shape] if shape is not None else [
+        f for f in daten.get("shapes") or [] if ist_klasse(f)
+    ]
+    meldungen: list[str] = []
+
+    def pruefen(name: Any, was: str) -> None:
+        text = str(name or "").strip()
+        if text and not _gueltiger_name(text):
+            meldungen.append(f"{was} „{text}“ ist kein gültiger Python-Name.")
+
+    for klasse in klassen:
+        klassenname = formname(klasse)
+        pruefen(klassenname, "Die Klasse")
+        for attribut in attribute(klasse):
+            pruefen(attribut.get("name"), f"{klassenname}: Das Attribut")
+        for operation in operationen(klasse):
+            pruefen(operation.get("name"), f"{klassenname}: Die Operation")
+            for parameter in operation.get("parameters") or []:
+                pruefen(
+                    parameter.get("name"),
+                    f"{klassenname}.{operation.get('name', '')}: Der Parameter",
+                )
+    return meldungen
 
 
 def fremde_typen(daten: dict[str, Any], klassen: list[dict[str, Any]]) -> list[str]:

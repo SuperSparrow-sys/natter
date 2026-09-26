@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QMainWindow,
     QMenu,
+    QMessageBox,
     QScrollArea,
     QWidget,
 )
@@ -48,7 +49,7 @@ from ide.diagramm.export import (
 )
 from ide.diagramm.exportdialog import PngDialog, PngEinstellungen
 from ide.diagramm.formen import formen_fuer
-from ide.diagramm.klassen_code import diagramm_als_python
+from ide.diagramm.klassen_code import diagramm_als_python, ungueltige_namen
 from ide.diagramm.kommandos import WerteKommando
 from ide.diagramm.lineale import LINEALBREITE, Lineal, hilfslinien_lesen
 from ide.diagramm.minimap import RAND as MINIMAP_RAND
@@ -183,6 +184,19 @@ _TABELLENMENUE = (
     "Regel nach links",
     "Regel nach rechts",
 )
+
+
+def _ansicht_einstellungen() -> QSettings:
+    r"""Dieselbe INI wie der Rest der IDE, Abschnitt „diagramm“.
+
+    Bis 0.3.3 standen Lineale und Minimap über `QSettings("Natter",
+    "Diagramm")` in der Registry. Beim Deinstallieren blieb der Schlüssel
+    `HKCU\Software\Natter\Diagramm` zurück, während alles andere in
+    der INI unter `%APPDATA%\Natter` liegt.
+    """
+    return QSettings(
+        QSettings.Format.IniFormat, QSettings.Scope.UserScope, "Natter", "Natter-IDE"
+    )
 
 
 class DiagrammFenster(QMainWindow):
@@ -800,12 +814,22 @@ class DiagrammFenster(QMainWindow):
             return struktogramm_als_python(self.diagramm.daten, auswahl).text
         return diagramm_als_python(self.diagramm.daten, auswahl)
 
+    def ungueltige_namen(self, umfang: str = "alles") -> list[str]:
+        """Namen, die kein Python sind; nur im Klassendiagramm."""
+        if self.diagramm.typ != "class":
+            return []
+        auswahl = None
+        if umfang == "auswahl":
+            auswahl = getattr(self.zeichenflaeche, "ausgewaehlte_form", None)
+        return ungueltige_namen(self.diagramm.daten, auswahl)
+
     def quelltext_erzeugen(
         self, ziel: str | None = None, umfang: str | None = None, pfad: Path | None = None
     ):
         """„Quelltext → Erzeugen …“. Ohne Angaben fragt ein Dialog nach
         Ziel und Umfang; in Tests werden beide direkt übergeben."""
-        if ziel is None or umfang is None:
+        interaktiv = ziel is None or umfang is None
+        if interaktiv:
             dialog = CodeOptionenDialog(
                 self,
                 "Umfang" if self.diagramm.typ == "class" else "Ausschnitt",
@@ -813,6 +837,19 @@ class DiagrammFenster(QMainWindow):
             if dialog.exec() != CodeOptionenDialog.DialogCode.Accepted:
                 return None
             ziel, umfang = dialog.merken()
+
+        fehler = self.ungueltige_namen(umfang)
+        if fehler:
+            meldung = (
+                "Kein Quelltext erzeugt. " + " ".join(fehler)
+                + " Die Namen lassen sich im Eigenschaften-Dialog der "
+                "Klasse ändern; Typ und Standardwert haben dort eigene "
+                "Felder."
+            )
+            self.statusBar().showMessage(meldung)
+            if interaktiv:
+                QMessageBox.warning(self, "Quelltext erzeugen", meldung)
+            return None
 
         quelltext = self.quelltext_code(umfang)
         if not quelltext.strip():
@@ -916,16 +953,18 @@ class DiagrammFenster(QMainWindow):
             )
 
         # Lineale und Minimap hängen nicht an der Zeichenfläche, sondern
-        # am Fenster - und ihr Zustand überlebt das Schließen
-        # (`QSettings`), wie bei jedem anderen Ansichtsschalter auch.
-        einstellungen = QSettings("Natter", "Diagramm")
+        # am Fenster - und ihr Zustand überlebt das Schließen, wie bei
+        # jedem anderen Ansichtsschalter auch.
+        einstellungen = _ansicht_einstellungen()
         for pfad, schluessel, standard, umschalten in (
             ("Ansicht/Lineale", "lineale", True, self._lineale_umschalten),
             ("Ansicht/Minimap", "minimap", False, self._minimap_umschalten),
         ):
             aktion = self.aktionen[pfad]
             aktion.setCheckable(True)
-            an = einstellungen.value(f"ansicht/{schluessel}", standard, type=bool)
+            an = einstellungen.value(
+                f"diagramm/ansicht/{schluessel}", standard, type=bool
+            )
             aktion.toggled.connect(umschalten)
             aktion.setChecked(an)
             umschalten(an)
@@ -933,14 +972,14 @@ class DiagrammFenster(QMainWindow):
     def _lineale_umschalten(self, an: bool) -> None:
         for widget in (self.lineal_oben, self.lineal_links, self.lineal_ecke):
             widget.setVisible(an)
-        QSettings("Natter", "Diagramm").setValue("ansicht/lineale", an)
+        _ansicht_einstellungen().setValue("diagramm/ansicht/lineale", an)
         if an:
             self._ansicht_nachfuehren()
 
     def _minimap_umschalten(self, an: bool) -> None:
         self._minimap_an = an
         self.minimap.setVisible(an)
-        QSettings("Natter", "Diagramm").setValue("ansicht/minimap", an)
+        _ansicht_einstellungen().setValue("diagramm/ansicht/minimap", an)
         if an:
             self._minimap_abbild_erneuern()
 

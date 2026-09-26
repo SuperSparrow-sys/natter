@@ -1720,3 +1720,29 @@ darstellen. Erledigt, wenn dasselbe Beispiel „2,4“ zeigt.
 
 **Behoben (26. September 2026).** `load_dataframe` in `pcl/dataframe.py` schreibt Kommazahlen mit Dezimalkomma. Dabei fiel ein zweiter Fehler auf: `iterrows` gibt jeder Zeile einen gemeinsamen Typ, neben einer Kommazahl wurde aus der ganzen Zahl 1 deshalb „1.0“. Jetzt läuft es über `itertuples`, das die Typen je Spalte behält. `docs/komponenten.md` beschreibt das Format. `tests/test_dataframe.py` liest das Beispiel aus der Auswertung als CSV mit `decimal=","` und erwartet „2,4“, „2,8“, „5,1“ und „1“.
 
+---
+
+## 35. Der Quelltext aus dem Klassendiagramm übernimmt keine Vererbung und prüft keine Namen ~~(erledigt)~~
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 24.
+
+**Beobachtet:** Klassendiagramm mit „Konto“ und „Sparkonto“ und einer
+Vererbung von Sparkonto nach Konto (in der `.pdiag` als
+`{"kind": "inheritance", "from": "s2", "to": "s1"}`, im Export als
+Pfeil sichtbar). „Quelltext → Erzeugen …“ schreibt `class Sparkonto:`
+statt `class Sparkonto(Konto):`. Ein Attribut, bei dem „stand: float“
+im Feld „Name“ steht, wird zu `self.__stand: float = stand: float` -
+ein Syntaxfehler in `u_bank.py`, der danach jeden Start des Projekts
+über die Prüfung vor dem Start blockiert.
+
+**Ursache:** noch offen (Generator unter `ide/diagramm/`).
+
+**Zu tun:** Vererbungen (und Realisierungen) aus `connectors` in die
+Klassenköpfe übernehmen; Namen von Klassen, Attributen und
+Operationen im Eigenschaften-Dialog als Python-Bezeichner prüfen
+(oder beim Erzeugen mit einer deutschen Meldung ablehnen). Erledigt,
+wenn das Beispiel oben `class Sparkonto(Konto):` erzeugt und ein
+ungültiger Name nicht mehr in den Code gelangt.
+
+**Behoben (26. September 2026).** Die Palette des Klassendiagramms legt eine Vererbung als `"kind": "inheritance"` an, der Erzeuger in `ide/diagramm/klassen_code.py` kannte aber nur `generalization`, `realization` und `implements`. `inheritance` steht jetzt in `VERERBUNGSARTEN`; das Beispiel ergibt `class Sparkonto(Konto):`, Konto steht davor. Namen prüft `ungueltige_namen` vor dem Erzeugen (Klassen, Attribute, Operationen, Parameter; `str.isidentifier` und keine Schlüsselwörter). „Quelltext → Erzeugen …“ schreibt bei einem Fund nichts und nennt die Namen, im Dialog als Meldungsfenster, sonst in der Statuszeile. Eine Prüfung schon im Eigenschaften-Dialog gibt es nicht; die Unit bleibt aber sauber, und die Meldung sagt, wo sich der Name ändern lässt. Tests in `tests/test_diagramm_klassen_code.py`; alle drei neuen schlagen gegen den alten Code an.
+
