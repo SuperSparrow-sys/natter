@@ -79,63 +79,6 @@ fehlt. Offen bleibt nur das Durchklicken.
 
 ---
 
-## 21. Nach dem Deinstallieren bleibt ein Ordner zurück
-
-**Beobachtet:** Beim Durchgang zu 0.3.0 entfernte der Uninstaller
-30.375 Dateien und ließ acht liegen — einen `.ruff_cache` im
-Programmordner, und damit den Ordner selbst.
-
-**Ursache — nachgewiesen.** Den Cache legt die Prüfung vor dem Start
-an, also während des Unterrichts und lange nach der Installation.
-Inno Setup entfernt beim Deinstallieren, was es selbst geschrieben
-hat; alles andere bleibt. Derselbe Fall wie beim Uninstaller im
-Manifest (siehe Arbeitspaket M13), nur andersherum.
-
-**Was das bedeutet:** Wer Natter entfernt, findet unter
-`%LOCALAPPDATA%\Programs\Natter` weiterhin einen Ordner. Auf einem
-Schulrechner, der zwischen zwei Halbjahren aufgeräumt wird, sieht das
-nach einer halben Deinstallation aus.
-
-**Woher der Cache kommt — nachgewiesen (25. September 2026).**
-`projekt_pruefen()` in `ide/run/pruefung.py` ruft `ruff check`
-ohne Arbeitsordner und ohne `--no-cache` auf. ruff legt seinen Cache
-dann im Arbeitsordner von Natter an, und das ist der Programmordner.
-Der Cache bringt der Prüfung nichts: sie läuft über ein kleines
-Schülerprojekt und ist ohnehin schnell.
-
-**Zu tun:**
-
-- Die Ursache: `--no-cache` in `projekt_pruefen()`. Dann entsteht kein
-  `.ruff_cache` mehr, weder im Programmordner noch sonst wo.
-- Als Netz dahinter eine `[UninstallDelete]`-Regel für
-  `{app}\.ruff_cache` in `tools/natter.iss`. Nicht für `{app}` selbst:
-  wählt jemand beim Installieren einen Ordner wie `Dokumente`, würde
-  eine solche Regel ihn beim Entfernen leeren.
-- Nachsehen, was die IDE sonst noch neben sich schreibt: `__pycache__`
-  in `site-packages` entsteht beim ersten Import und dürfte dasselbe
-  Problem haben. Beim Bau von 0.2.0 waren es über achtzig `.pyc`.
-- Prüfen, ob eine solche Regel etwas löscht, das ein Schüler dort
-  abgelegt hat. Im Programmordner hat er nichts zu suchen, aber
-  „nichts zu suchen" ist kein Beweis.
-
-**Stand 25. September 2026 (Schülerweg 0.3.3, Teil 1):** `--no-cache`
-und die `[UninstallDelete]`-Regel sind in Commit `d1db77a`. Der
-Uninstaller von 0.3.0 ließ erwartungsgemäß `.ruff_cache` mit fünf
-Dateien und damit den Ordner stehen. Eine frisch installierte 0.3.3
-ließ sich restlos entfernen, allerdings ohne dass vorher die Prüfung
-vor dem Start gelaufen war. Der eigentliche Nachweis, also
-Deinstallation nach Benutzung, folgt in Teil 2 (Schritt N).
-
-**Nachgewiesen 26. September 2026 (Schülerweg 0.3.3, Teil 2, Schritt
-28):** Nach ausgiebiger Benutzung mit vielen Prüfungen vor dem Start
-entstand kein `.ruff_cache`; die stille Deinstallation entfernte den
-Programmordner vollständig, auch `python\` mit einem über „Pakete“
-nachinstallierten Paket. Das Kriterium ist erfüllt; der Punkt kann
-nach `erledigte_punkte.md`.
-
-
----
-
 ## 24. Die Auslieferung enthält GPL-Module, und Lizenztexte fehlen
 
 **Gemeldet:** 25. September 2026, beim Zusammenfassen der
@@ -353,55 +296,6 @@ exportieren und signieren. Erledigt, wenn eine in der installierten
 Fassung exportierte Exe `Valid` signiert ist.
 
 **Umgesetzt am 26. September 2026, Nachweis am nächsten Bau offen.** Die Vorlagen unter `PyInstaller\bootloader\` sind vom Signieren ausgenommen, an allen drei Stellen gleich (`ausgenommen_vom_signieren`/`NICHT_SIGNIERT` in `tools/ide_paketieren.py`, `$AUSGENOMMEN` in `tools/signieren/alles_signieren.ps1`, Schritt 10); Schritt 10 bricht jetzt umgekehrt ab, wenn eine Vorlage signiert ist (Test mit echtem PowerShell und einer von Microsoft signierten Datei). Nachgewiesen am Entwicklungsbaum: eine mit dem unsignierten Bootloader gebaute Exe lässt sich signieren (`Valid`). Die Statuszeile nennt statt „UnknownError“ einen deutschen Grund mit der Meldung von Windows. Offen: in der nächsten gebauten Installation eine Schüler-Exe exportieren; sie muss `Valid` signiert sein.
-
----
-
-## 45. Kleinere Befunde aus dem Schülerweg 0.3.3, Teil 2
-
-**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2.
-
-**Beobachtet:**
-
-- Der Komponentenbaum zeigt neu platzierte Komponenten erst nach
-  erneutem Öffnen des Formulars (Schritte 15, 21).
-- F2 öffnet den Menü-Editor nicht, wenn das Menüsymbol zuvor
-  angeklickt wurde; der Tastaturfokus bleibt außerhalb der
-  Zeichenfläche. Doppelklick und `entries` wirken (Schritt 15).
-- Ein Button-Text, der nicht in die Standardbreite passt
-  („Verdoppeln“), wird im Designer und im Programm abgeschnitten, ohne
-  Fund der Design-Prüfung (Schritt 16).
-- Bei falscher Einrückung fragt der Hinweis nach Doppelpunkt, Klammer
-  oder Anführungszeichen, nicht nach der Einrückung (Schritt 18).
-- Die Variablentabelle beginnt mit „special variables“ (englisch, aus
-  debugpy); das Panel zeigt in der Grundaufteilung nur eine Zeile
-  (Schritt 20).
-- Eine Projektvorlage „gui_db“ gibt es nicht, `docs/bericht.md`,
-  Abschnitt 2.1, nennt sie (Schritt 21).
-- „Ansicht → Datenbank“ öffnet ein schwebendes Fenster, links
-  abgeschnitten, „Nicht verbunden“ (Schritt 21).
-- Im Konsolenprojekt erscheint ein importiertes Formular nicht im
-  Projekt-Explorer (Schritt 25).
-- Der Prüfungsmodus lässt sich in der Oberfläche nicht vorzeitig
-  beenden; die Rückfrage sagt das, das Handbuch nicht ausdrücklich
-  (Schritt 26).
-- Der Diagramm-Editor speichert „Minimap“ und „Lineale“ über
-  `QSettings("Natter", "Diagramm")` in der Registry
-  (`HKCU\Software\Natter\Diagramm`); nach dem Deinstallieren bleibt der
-  Schlüssel, ebenso ein leerer `…\Natter-IDE` (Schritt 28).
-- `beispielprojekte/01_Begruessung/u_main.py`: „# Drücke F5, um das
-  Programm zu starten.“ spricht mit „du“ an (Schritt 14).
-
-**Ursache:** jeweils wie angegeben.
-
-**Zu tun:** Jede Stelle beheben oder begründet zurückstellen; die
-Diagramm-Einstellungen in dieselbe INI legen wie den Rest. Erledigt,
-wenn alle Stellen abgearbeitet sind.
-
-**Stand 26. September 2026, Paket „Designer und Editor“.** Erledigt: Der Komponentenbaum baut sich nach jeder Änderung im Designer neu auf und markiert die im Designer gewählte Komponente (`Komponentenbaum.auffrischen`, `tests/test_komponentenbaum_live.py`). Die Symbole von Menü und Zeitgeber nehmen nach einem Klick den Tastaturfokus an, F2 öffnet danach den Menü-Editor (`tests/test_designer_zugaenglichkeit.py`). Ein abgeschnittener Button-Text ist ein Fund der Design-Prüfung (siehe Punkt 36). Einrückungsfehler haben vor dem Start eigene Meldungen, die nach der Einrückung fragen (`_SYNTAX_GENAUER` in `ide/run/pruefung.py`, `tests/test_vorstart_einrueckung.py` mit dem echten Ruff). Die übrigen Stellen folgen mit Laufzeit, Diagramm und Dokumenten.
-
-**Stand 26. September 2026, Paket „Laufzeit“.** Erledigt: Die Variablentabelle lässt die Gruppenzeilen von debugpy weg („special variables“, „function variables“ …), und das Panel wird beim Anhalten hoch genug für bis zu acht Variablen (`_debugger_variablen_bereit` in `ide/shell/hauptfenster.py`, Test gegen den echten debugpy in `tests/test_hauptfenster_debugger.py`).
-
-**Stand 26. September 2026, Paket „Diagramm“.** Erledigt: Lineale und Minimap des Diagramm-Editors stehen in der INI der IDE unter `diagramm/ansicht/…` statt über `QSettings("Natter", "Diagramm")` in der Registry (`_ansicht_einstellungen` in `ide/diagramm/fenster.py`, Test in `tests/test_diagramm_ansicht_lineale.py`). Der Uninstaller entfernt die Reste älterer Fassungen, `HKCU\Software\Natter\Diagramm` ganz und `…\Natter-IDE` und `…\Natter`, wenn sie leer sind; angelegt wird dort nichts (`dontcreatekey` in `tools/natter.iss`, Test in `tests/test_installer_update.py`). Woher der leere Schlüssel `Natter-IDE` stammt, ließ sich im heutigen Code nicht finden: jeder Zugriff auf diesen Namen geht über die INI. Er stammt vermutlich aus einer Fassung vor der Umstellung auf die INI. Das Deinstallieren selbst ist am nächsten Bau nachzusehen.
 
 ---
 

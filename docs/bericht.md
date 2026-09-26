@@ -93,7 +93,7 @@ natter/
     signieren/              Zertifikat, Signierskripte
     paket/                  ZUERST-LESEN.txt und die Skripte für die ZIP
   schemas/             pfm-, project- und pdiag-Schema mit Versionsnummer
-  templates/           Projektvorlagen gui, console, gui_db
+  templates/           Projektvorlagen gui, console
   beispielprojekte/    der Lehrgang, 01_Begruessung bis 09_ObstSortierer
   design/              tokens.json: Farben, Abstände, Schriften für hell und dunkel
   tests/               pytest, headless mit QT_QPA_PLATFORM=offscreen

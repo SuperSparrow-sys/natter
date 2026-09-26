@@ -244,6 +244,11 @@ Zwei Eigenschaften sind für die Aufsicht wichtig:
 2. **Er läuft von selbst aus.** Niemand muss daran denken, ihn wieder
    abzuschalten, und kein Rechner bleibt über den Schultag hinaus
    eingeschränkt.
+3. **Er lässt sich in Natter nicht vorzeitig beenden.** Es gibt keinen
+   Menüeintrag zum Ausschalten; die Rückfrage beim Einschalten sagt
+   das. Wer ihn nur ausprobieren will, schaltet ihn deshalb besser
+   nicht an einem Rechner ein, auf dem am selben Tag noch mit
+   Lösungsvorschlägen gearbeitet werden soll.
 
 ---
 

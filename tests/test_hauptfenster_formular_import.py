@@ -254,3 +254,28 @@ def test_import_schreibt_bilder_aus_picture_data_nach_assets(
         fenster.meldungen_liste.item(i).text() for i in range(fenster.meldungen_liste.count())
     ]
     assert any("assets/Image1.png" in m for m in meldungen)
+
+
+def test_importiertes_formular_steht_im_projekt_explorer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Punkt 45 der offenen Punkte: im Konsolenprojekt fehlte das
+    importierte Formular im Projekt-Explorer, bis das Projekt neu
+    geöffnet wurde."""
+    from ide.project.neu import projekt_erzeugen
+    from ide.shell.explorer import PFAD_ROLLE
+
+    projekt = projekt_erzeugen("console", tmp_path, "Pizza")
+    quelle = tmp_path / "pizza.lfm"
+    quelle.write_text(_LFM_TEXT, encoding="utf-8")
+    ziel = projekt.ordner / "u_pizza.pfm"
+    _dialoge_vorbereiten(monkeypatch, tmp_path, quelle=quelle, ziel=ziel)
+    fenster = HauptFenster()
+    fenster.projekt_oeffnen(projekt.ordner / "Pizza.natter")
+
+    fenster._formular_importieren_aktion()
+
+    gruppe = fenster.explorer.formulare_gruppe
+    pfade = [gruppe.child(i).data(0, PFAD_ROLLE) for i in range(gruppe.childCount())]
+    assert str(ziel) in pfade
+    assert not gruppe.isHidden()

@@ -112,3 +112,22 @@ def test_layout_zuruecksetzen_fuehrt_zur_selben_voreinstellung(
     schulfenster.restoreState(schulfenster._urspruengliches_layout)
 
     assert schulfenster.datenbank_dock.isVisible() is False
+
+
+def test_ansicht_menue_holt_ein_schwebendes_dock_ins_fenster(qtbot) -> None:  # noqa: ANN001
+    """Das gemerkte Layout enthielt das Dock „Datenbank“ schwebend. Nach
+    „Ansicht → Datenbank“ stand es als loses Fenster über dem Editor
+    (Punkt 45 der offenen Punkte)."""
+    fenster = HauptFenster()
+    qtbot.addWidget(fenster)
+    fenster.resize(1366, 728)
+    fenster.show()
+    dock = fenster.datenbank_dock
+    dock.show()
+    dock.setFloating(True)
+    dock.hide()
+
+    dock.toggleViewAction().trigger()
+
+    assert dock.isVisible()
+    assert not dock.isFloating()

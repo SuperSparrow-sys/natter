@@ -484,6 +484,14 @@ class HauptFenster(QMainWindow):
             self.panels_dock,
         ):
             self._menues["Ansicht"].addAction(dock.toggleViewAction())
+            # Über das Menü geöffnet, kommt ein Dock an seinen Platz im
+            # Fenster zurück. Das gemerkte Layout kann es schwebend
+            # enthalten, und „Ansicht → Datenbank“ öffnete dann ein
+            # loses Fenster irgendwo über dem Editor. Wer es schwebend
+            # haben will, zieht es danach wieder heraus.
+            dock.toggleViewAction().triggered.connect(
+                lambda an, d=dock: an and d.isFloating() and d.setFloating(False)
+            )
 
         # „Ansicht → Einrückungslinien“ (M11, Abschnitt 2.1). Bei Python
         # ist die Einrückung die Syntax; wer sie nicht sieht, sucht
@@ -3085,6 +3093,11 @@ class HauptFenster(QMainWindow):
         ziel_pfad = Path(ziel)
         bild_pfade = self._import_bilder_schreiben(ergebnis, ziel_pfad)
         self._import_unit_schreiben(ergebnis, Path(quelle), ziel_pfad, bild_pfade)
+        # Formular und Unit sind jetzt Dateien im Projekt. Bis 0.3.3
+        # erschienen sie im Projekt-Explorer erst nach erneutem Öffnen
+        # des Projekts.
+        if self.projekt is not None:
+            self.explorer.projekt_anzeigen(self.projekt)
 
         formular = self.designer_oeffnen(Path(ziel))
         canvas = self._widget_zu_canvas[formular._qwidget]
