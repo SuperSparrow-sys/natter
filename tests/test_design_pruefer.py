@@ -317,3 +317,49 @@ def test_button_mit_abweichender_groesse_nennt_die_echte_standardgroesse() -> No
     assert "150×50" in befunde[0].meldung
     assert "75×25" in befunde[0].meldung
     assert "0×0" not in befunde[0].meldung
+
+
+# -- Standardgrößen aus der Komponente (Punkt 36) --------------------------
+
+
+def _neues_formular(kinder: list[dict]) -> dict:
+    """So speichert ein frisch angelegtes Projekt: ohne Größe."""
+    return {"format": "pfm/1", "class": "Form1", "type": "Form",
+            "properties": {"caption": "Umrechner"}, "children": kinder}
+
+
+def _ohne_groesse(name: str, typ: str, left: int, top: int, **rest) -> dict:
+    return {"name": name, "type": typ, "properties": {"left": left, "top": top, **rest}}
+
+
+def test_ein_neues_formular_hat_seine_standardgroesse() -> None:
+    """Die Auswertung zu 0.3.3: Label, Edit, Button bei 32/32 bis
+    32/128 in einem neuen Formular ergaben „teilweise außerhalb des
+    Formulars“, weil die Prüfung mit 0 × 0 rechnete."""
+    pfm = _neues_formular([
+        _ohne_groesse("label", "Label", 32, 32),
+        _ohne_groesse("edit", "Edit", 32, 80),
+        _ohne_groesse("button", "Button", 224, 192),
+    ])
+
+    assert "geometrie.ausserhalb_formular" not in _regeln(pfm)
+
+
+def test_die_standardgroesse_der_komponente_zaehlt() -> None:
+    """Ein Chart ist 320 × 240 groß, nicht 75 × 25: bei left 200 ragt
+    es über das 480 breite Formular hinaus."""
+    pfm = _neues_formular([_ohne_groesse("ch", "Chart", 200, 8)])
+
+    assert "geometrie.ausserhalb_formular" in _regeln(pfm)
+
+
+def test_eine_zu_lange_beschriftung_wird_gemeldet() -> None:
+    pfm = _neues_formular([
+        _ohne_groesse("b_verdoppeln", "Button", 8, 8, caption="Verdoppeln"),
+        _ohne_groesse("b_ok", "Button", 8, 48, caption="OK"),
+    ])
+
+    befunde = [b for b in pruefen(pfm) if b.regel == "lesbarkeit.text_abgeschnitten"]
+
+    assert [b.komponente for b in befunde] == ["b_verdoppeln"]
+    assert "„Verdoppeln“" in befunde[0].meldung

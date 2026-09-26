@@ -73,6 +73,38 @@ _UEBERSETZUNGEN: dict[str, tuple[str, str]] = {
     ),
 }
 
+#: Genauere Fassungen für `invalid-syntax`, gesucht im englischen Text
+#: von Ruff. Ein Einrückungsfehler lief bis 0.3.3 unter der
+#: allgemeinen Meldung, die nach Doppelpunkt, Klammer oder
+#: Anführungszeichen fragt, und die Einrückung kam darin nicht vor.
+_SYNTAX_GENAUER: tuple[tuple[str, tuple[str, str]], ...] = (
+    (
+        "expected an indented block",
+        (
+            "Nach dem Doppelpunkt in der Zeile darüber fehlt ein "
+            "eingerückter Block.",
+            "Die Zeile um eine Ebene einrücken (Tab-Taste, vier "
+            "Leerzeichen).",
+        ),
+    ),
+    (
+        "unexpected indentation",
+        (
+            "Diese Zeile ist eingerückt, aber davor beginnt kein Block.",
+            "Die Zeile so weit ausrücken wie die Zeile davor. Oder "
+            "fehlt dort am Ende ein Doppelpunkt?",
+        ),
+    ),
+    (
+        "indent",
+        (
+            "Die Einrückung dieser Zeile passt zu keiner Ebene darüber.",
+            "Die Zeile genauso weit einrücken wie die anderen Zeilen "
+            "ihres Blocks.",
+        ),
+    ),
+)
+
 #: Wenn Ruff eine Regel meldet, für die hier nichts steht.
 _UNBEKANNT = (
     "{meldung}",
@@ -113,10 +145,18 @@ class RuffFund:
         """
         return self.code not in NUR_HINWEIS
 
+    def _vorlage(self) -> tuple[str, str]:
+        if self.code == "invalid-syntax":
+            meldung = self.meldung.lower()
+            for stichwort, vorlage in _SYNTAX_GENAUER:
+                if stichwort in meldung:
+                    return vorlage
+        return _UEBERSETZUNGEN.get(self.code, _UNBEKANNT)
+
     @property
     def was(self) -> str:
         """Was los ist, auf Deutsch."""
-        vorlage = _UEBERSETZUNGEN.get(self.code, _UNBEKANNT)[0]
+        vorlage = self._vorlage()[0]
         return vorlage.format(name=self.name, meldung=self.meldung)
 
     @property
@@ -129,7 +169,7 @@ class RuffFund:
         """
         if pruefungsmodus_laeuft():
             return ""
-        return _UEBERSETZUNGEN.get(self.code, _UNBEKANNT)[1]
+        return self._vorlage()[1]
 
     def __str__(self) -> str:
         """Eine Zeile für das Panel „Meldungen“ und für den Tooltip im

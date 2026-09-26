@@ -52,6 +52,13 @@ def passende_methoden(formular: Any, ereignis_name: str = "") -> list[str]:
     Fall für Aufrufer, die kein bestimmtes Ereignis meinen.
     """
     erwartet = erwartete_parameter(ereignis_name) if ereignis_name else 1
+    # Methoden, die seit dem Öffnen des Designers in der Unit
+    # dazugekommen sind. Die Funktion hängt der Designer an die
+    # Klasse (`ide/designer/laden.py`); ein Formular ohne Unit hat
+    # sie nicht.
+    nachladen = getattr(type(formular), "_methoden_nachladen", None)
+    if nachladen is not None:
+        nachladen()
     namen = []
     for name in dir(type(formular)):
         if name.startswith("_"):

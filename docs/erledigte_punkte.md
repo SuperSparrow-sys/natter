@@ -1519,3 +1519,136 @@ Natter selbst weiter melden. Erledigt, wenn nach einer Installation
 
 **Behoben (26. September 2026).** `ist_nachinstalliert` in `ide/integritaet/manifest.py` behandelt `python/Scripts/` wie die Fremdpakete in `site-packages`: dort legt pip die Startdateien ab, auch beim Anheben von pip selbst. Eine neue Datei unmittelbar in `python/` fällt weiter auf. Tests in `tests/test_integritaet_manifest.py`; der für `cowsay.exe` schlägt gegen den alten Code an.
 
+---
+
+## 36. Die Design-Prüfung meldet in neuen Projekten jede Komponente als außerhalb des Formulars ~~(erledigt)~~
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 15.
+
+**Beobachtet:** Neues GUI-Projekt, Label bei 32/32, Edit bei 32/80,
+Button bei 32/128 im Formular 480 × 360. Die Design-Prüfung meldet
+sofort „9 Funde“, darunter „label liegt teilweise außerhalb des
+Formulars. Ins Formular hineinschieben oder das Formular größer
+machen - sonst fehlt sie im laufenden Programm.“
+
+**Ursache:** nachgewiesen. `_geometrie_pruefen` in
+`ide/lint/regeln.py` liest Breite und Höhe des Formulars mit dem
+Ersatzwert 0. Eine neu angelegte `.pfm` enthält keine Größe, das
+Formular gilt dann stillschweigend als 480 × 360.
+
+**Zu tun:** Denselben Standard wie das Formular verwenden (480 × 360)
+statt 0. Erledigt, wenn ein neues Projekt mit drei Komponenten im
+Formular keinen Geometrie-Fund mehr meldet und ein Test das festhält.
+
+**Behoben (26. September 2026).** `_geometrie_pruefen` in `ide/lint/regeln.py` rechnet ohne Größenangabe in der `.pfm` mit der Standardgröße des Formulars, gelesen aus `pcl.Form` (`_formulargroesse`). Dasselbe gilt jetzt für Kinder: `_rechteck` nimmt die Standardgröße des jeweiligen Typs statt pauschal 75 × 25, ein `Chart` ohne Angabe ist also 320 × 240 groß. Dazu kam die Regel `lesbarkeit.text_abgeschnitten` für den Befund aus Punkt 45: eine Beschriftung auf Button, CheckBox oder RadioButton, die geschätzt nicht in die Breite passt („Verdoppeln“ im 75 Pixel breiten Knopf), ist eine Warnung mit der nötigen Breite. Tests in `tests/test_design_pruefer.py` (neues Formular ohne Größe, Chart in Standardgröße, lange Beschriftung); die ersten beiden schlagen gegen den alten Code an.
+
+
+---
+
+## 37. Doppelklick auf eine Komponente springt nicht zur Methode ~~(erledigt)~~
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 15.
+
+**Beobachtet:** Ein Doppelklick auf den Button im Designer legt
+`button_click` in `u_main.py` an und verknüpft sie, die Unit öffnet
+sich aber nicht, und der Cursor steht nicht in der Methode. Ist die
+Methode schon da, passiert sichtbar gar nichts. `docs/handbuch.md`
+sagt: „Ein Doppelklick auf eine Komponente legt die zugehörige Methode
+im Quelltext an und springt dorthin“, die Tastenübersicht:
+„Doppelklick | Ereignis-Methode anlegen und hinspringen“.
+
+**Ursache:** nachgewiesen. `ereignis_handler_erzeugen` in
+`ide/designer/canvas.py` schreibt die Methode und liefert ihren Namen;
+niemand öffnet danach die Unit.
+
+**Zu tun:** Nach dem Doppelklick die Unit im Editor öffnen (bzw. den
+Reiter aktivieren) und den Cursor in die erste Zeile des
+Methodenrumpfs setzen, auch wenn die Methode schon bestand. Erledigt,
+wenn nach dem Doppelklick der Editor mit dem Cursor in der Methode
+vorn ist.
+
+**Behoben (26. September 2026).** Der Designer meldet jede angelegte oder schon vorhandene Methode über `methode_beobachten`; das Hauptfenster öffnet daraufhin die Unit (`_zur_methode_springen`), setzt den Cursor in den Rumpf der Methode und markiert ein dort stehendes `pass`. Ist die Unit schon offen und ungespeichert verändert, kommt die neue Methode in den Editortext statt nur in die Datei, damit beim Speichern keine der beiden Änderungen verloren geht. `tests/test_designer_sprung_zur_methode.py` stellt den Weg aus der Auswertung nach (neues Projekt, Button, Doppelklick) und prüft auch den zweiten Doppelklick und die ungespeicherte Unit; alle drei schlagen gegen den alten Code an.
+
+
+---
+
+## 38. Der Reiter „Ereignisse" bietet selbst geschriebene Methoden nicht an ~~(erledigt)~~
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 21.
+
+**Beobachtet:** `u_main.py` enthält `form_create`, `button_click` und
+`button2_click` mit `(self, sender)`. Im Objektinspektor, Reiter
+„Ereignisse“, bietet die Auswahlliste bei `on_click` und `on_create`
+nur „(kein)“. `docs/erste_schritte.md` sagt, dort lasse sich „auch
+eine schon vorhandene Methode auswählen“.
+
+**Ursache:** nachgewiesen. `formular_fuer_designer_laden` in
+`ide/designer/laden.py` baut die Formularklasse nur aus der `.pfm` und
+legt Platzhalter für bereits verknüpfte Methoden an; `passende_methoden`
+sucht in genau dieser Klasse. Methoden, die nur in der Unit stehen,
+kennt sie nicht.
+
+**Zu tun:** Die Methodennamen zusätzlich aus der Unit lesen (libcst ist
+schon da) und in die Auswahl aufnehmen. Erledigt, wenn eine von Hand
+geschriebene Methode mit passender Signatur in der Liste erscheint und
+sich verknüpfen lässt.
+
+**Behoben (26. September 2026).** `formular_fuer_designer_laden` in `ide/designer/laden.py` liest die Methoden der Formularklasse aus der Unit (`unit_methoden`, mit `ast`) und legt für jede einen Platzhalter mit ihrer echten Signatur an; `passende_methoden` filtert danach wie bisher nach der Zahl der Parameter. Gelesen wird bei jedem Anzeigen des Reiters neu, eine im Editor dazugeschriebene und gespeicherte Methode erscheint also ohne neues Öffnen des Designers. Eine Unit mit Syntaxfehler liefert keine Methoden statt eines Fehlers. `tests/test_ereignisse_unit_methoden.py`: die handgeschriebene `button_click(self, sender)` steht in der Auswahl für `on_click` und lässt sich verknüpfen, `maus_runter(self, sender, x, y)` nur bei `on_mouse_down`, private Methoden nie.
+
+
+---
+
+## 43. Klammern schließen und Parameterhilfe hängen an der Tastatur ~~(erledigt)~~
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritte
+17 und 19.
+
+**Beobachtet:**
+
+- Das automatische Schließen von Klammern und Anführungszeichen greift
+  nur, wenn beim Tastendruck keine Zusatztaste gedrückt ist. Auf einer
+  deutschen Tastatur brauchen `(`, `)`, `"`, `'` die Umschalttaste und
+  `[ ] { }` AltGr: Umschalt+8, Umschalt+2 ergibt `print("` ohne
+  Ergänzung.
+- Die Parameterhilfe erscheint nach `(` (auch mit Umschalttaste), aber
+  nicht, nachdem ein Vorschlag mit der Eingabetaste übernommen wurde
+  (`konto_abheben()` wird eingefügt, die Hilfe ist nicht zu sehen).
+
+**Ursache:** nachgewiesen für den ersten Teil:
+`if not event.modifiers() and self._klammer_schliessen(event)` in
+`ide/shell/quelltexteditor.py`. Für den zweiten vermutlich: das
+Schließen der Vorschlagsliste blendet den gerade gezeigten Tooltip
+wieder aus.
+
+**Zu tun:** Statt auf „keine Zusatztaste“ auf das erzeugte Zeichen
+(`event.text()`) prüfen und nur Strg/Alt ohne AltGr ausschließen. Die
+Parameterhilfe nach dem Schließen der Liste zeigen. Erledigt, wenn
+beides mit einer deutschen Tastatur funktioniert und ein Test mit
+Umschalt-Tastendruck das festhält.
+
+**Behoben (26. September 2026).** Klammern und Anführungszeichen werden geschlossen, wenn der Tastendruck ein Zeichen erzeugt und kein Kürzel ist (`_zeichen_ohne_kuerzel` in `ide/shell/quelltexteditor.py`): Umschalt ist erlaubt, AltGr (Strg und Alt zugleich) ebenso, Strg oder Alt allein nicht. Die Parameterhilfe nach dem Übernehmen eines Vorschlags wurde angezeigt, aber gleich wieder ausgeblendet: ruhte die Maus über dem Editor, schickte Qt ein Tooltip-Ereignis, als die Vorschlagsliste unter ihr verschwand, und der Editor blendete an einer Stelle ohne Fund jeden Kurzhinweis aus. Jetzt bleibt die Parameterhilfe dabei stehen; ein Fund-Hinweis verschwindet wie bisher. Die Ursache ist mit einem nachgestellten Tooltip-Ereignis belegt, nicht mit echter Maus und Tastatur; beim nächsten Schülerweg ist das mit zu prüfen. Tests in `tests/test_editor_deutsche_tastatur.py` (Umschalt, AltGr, Strg allein, Parameterhilfe nach Eingabetaste); drei davon schlagen gegen den alten Code an.
+
+
+---
+
+## 44. Palettenkacheln und Menüsymbol sind für UIA namenlos ~~(erledigt)~~
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 15.
+
+**Beobachtet:** Die 14 Kacheln der Komponentenpalette erscheinen in
+UI Automation als `ListItem` ohne Namen; das Symbol eines `MainMenu`
+auf der Zeichenfläche erscheint gar nicht. Ein Bildschirmleser liest
+nichts vor, und ein automatischer Test muss über Reihenfolge und
+Koordinaten gehen.
+
+**Ursache:** nachgewiesen für die Palette: `ide/palette/palette.py`
+setzt nur Symbol und Tooltip, keinen Text und keinen zugänglichen
+Namen.
+
+**Zu tun:** Den Komponentennamen als zugänglichen Namen setzen (Text
+der Kachel oder `Qt.AccessibleTextRole`), ebenso für die Symbole
+nicht sichtbarer Komponenten. Erledigt, wenn UIA „Button“, „Label“ …
+liefert.
+
+**Behoben (26. September 2026).** Die Kacheln der Komponentenpalette tragen den Komponentennamen als `Qt.AccessibleTextRole`, die Symbole von `MainMenu`, `PopupMenu` und `Timer` im Designer einen zugänglichen Namen. Mit pywinauto gegen die laufende Palette geprüft: UIA liefert „Button“, „Label“, „Edit“ … „PopupMenu“ für alle 14 Kacheln und „MainMenu“ für das Symbol auf dem Formular. `tests/test_designer_zugaenglichkeit.py` prüft dasselbe über `QAccessible` und dazu den F2-Befund aus Punkt 45.
+

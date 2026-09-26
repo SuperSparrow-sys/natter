@@ -380,74 +380,6 @@ ungültiger Name nicht mehr in den Code gelangt.
 
 ---
 
-## 36. Die Design-Prüfung meldet in neuen Projekten jede Komponente als außerhalb des Formulars
-
-**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 15.
-
-**Beobachtet:** Neues GUI-Projekt, Label bei 32/32, Edit bei 32/80,
-Button bei 32/128 im Formular 480 × 360. Die Design-Prüfung meldet
-sofort „9 Funde“, darunter „label liegt teilweise außerhalb des
-Formulars. Ins Formular hineinschieben oder das Formular größer
-machen - sonst fehlt sie im laufenden Programm.“
-
-**Ursache:** nachgewiesen. `_geometrie_pruefen` in
-`ide/lint/regeln.py` liest Breite und Höhe des Formulars mit dem
-Ersatzwert 0. Eine neu angelegte `.pfm` enthält keine Größe, das
-Formular gilt dann stillschweigend als 480 × 360.
-
-**Zu tun:** Denselben Standard wie das Formular verwenden (480 × 360)
-statt 0. Erledigt, wenn ein neues Projekt mit drei Komponenten im
-Formular keinen Geometrie-Fund mehr meldet und ein Test das festhält.
-
----
-
-## 37. Doppelklick auf eine Komponente springt nicht zur Methode
-
-**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 15.
-
-**Beobachtet:** Ein Doppelklick auf den Button im Designer legt
-`button_click` in `u_main.py` an und verknüpft sie, die Unit öffnet
-sich aber nicht, und der Cursor steht nicht in der Methode. Ist die
-Methode schon da, passiert sichtbar gar nichts. `docs/handbuch.md`
-sagt: „Ein Doppelklick auf eine Komponente legt die zugehörige Methode
-im Quelltext an und springt dorthin“, die Tastenübersicht:
-„Doppelklick | Ereignis-Methode anlegen und hinspringen“.
-
-**Ursache:** nachgewiesen. `ereignis_handler_erzeugen` in
-`ide/designer/canvas.py` schreibt die Methode und liefert ihren Namen;
-niemand öffnet danach die Unit.
-
-**Zu tun:** Nach dem Doppelklick die Unit im Editor öffnen (bzw. den
-Reiter aktivieren) und den Cursor in die erste Zeile des
-Methodenrumpfs setzen, auch wenn die Methode schon bestand. Erledigt,
-wenn nach dem Doppelklick der Editor mit dem Cursor in der Methode
-vorn ist.
-
----
-
-## 38. Der Reiter „Ereignisse" bietet selbst geschriebene Methoden nicht an
-
-**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 21.
-
-**Beobachtet:** `u_main.py` enthält `form_create`, `button_click` und
-`button2_click` mit `(self, sender)`. Im Objektinspektor, Reiter
-„Ereignisse“, bietet die Auswahlliste bei `on_click` und `on_create`
-nur „(kein)“. `docs/erste_schritte.md` sagt, dort lasse sich „auch
-eine schon vorhandene Methode auswählen“.
-
-**Ursache:** nachgewiesen. `formular_fuer_designer_laden` in
-`ide/designer/laden.py` baut die Formularklasse nur aus der `.pfm` und
-legt Platzhalter für bereits verknüpfte Methoden an; `passende_methoden`
-sucht in genau dieser Klasse. Methoden, die nur in der Unit stehen,
-kennt sie nicht.
-
-**Zu tun:** Die Methodennamen zusätzlich aus der Unit lesen (libcst ist
-schon da) und in die Auswahl aufnehmen. Erledigt, wenn eine von Hand
-geschriebene Methode mit passender Signatur in der Liste erscheint und
-sich verknüpfen lässt.
-
----
-
 ## 39. Das Hauptmenü eines Schülerprogramms ist nur über „···" erreichbar
 
 **Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 16.
@@ -508,57 +440,6 @@ darstellen. Erledigt, wenn dasselbe Beispiel „2,4“ zeigt.
 
 ---
 
-## 43. Klammern schließen und Parameterhilfe hängen an der Tastatur
-
-**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritte
-17 und 19.
-
-**Beobachtet:**
-
-- Das automatische Schließen von Klammern und Anführungszeichen greift
-  nur, wenn beim Tastendruck keine Zusatztaste gedrückt ist. Auf einer
-  deutschen Tastatur brauchen `(`, `)`, `"`, `'` die Umschalttaste und
-  `[ ] { }` AltGr: Umschalt+8, Umschalt+2 ergibt `print("` ohne
-  Ergänzung.
-- Die Parameterhilfe erscheint nach `(` (auch mit Umschalttaste), aber
-  nicht, nachdem ein Vorschlag mit der Eingabetaste übernommen wurde
-  (`konto_abheben()` wird eingefügt, die Hilfe ist nicht zu sehen).
-
-**Ursache:** nachgewiesen für den ersten Teil:
-`if not event.modifiers() and self._klammer_schliessen(event)` in
-`ide/shell/quelltexteditor.py`. Für den zweiten vermutlich: das
-Schließen der Vorschlagsliste blendet den gerade gezeigten Tooltip
-wieder aus.
-
-**Zu tun:** Statt auf „keine Zusatztaste“ auf das erzeugte Zeichen
-(`event.text()`) prüfen und nur Strg/Alt ohne AltGr ausschließen. Die
-Parameterhilfe nach dem Schließen der Liste zeigen. Erledigt, wenn
-beides mit einer deutschen Tastatur funktioniert und ein Test mit
-Umschalt-Tastendruck das festhält.
-
----
-
-## 44. Palettenkacheln und Menüsymbol sind für UIA namenlos
-
-**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 15.
-
-**Beobachtet:** Die 14 Kacheln der Komponentenpalette erscheinen in
-UI Automation als `ListItem` ohne Namen; das Symbol eines `MainMenu`
-auf der Zeichenfläche erscheint gar nicht. Ein Bildschirmleser liest
-nichts vor, und ein automatischer Test muss über Reihenfolge und
-Koordinaten gehen.
-
-**Ursache:** nachgewiesen für die Palette: `ide/palette/palette.py`
-setzt nur Symbol und Tooltip, keinen Text und keinen zugänglichen
-Namen.
-
-**Zu tun:** Den Komponentennamen als zugänglichen Namen setzen (Text
-der Kachel oder `Qt.AccessibleTextRole`), ebenso für die Symbole
-nicht sichtbarer Komponenten. Erledigt, wenn UIA „Button“, „Label“ …
-liefert.
-
----
-
 ## 45. Kleinere Befunde aus dem Schülerweg 0.3.3, Teil 2
 
 **Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2.
@@ -599,6 +480,8 @@ liefert.
 **Zu tun:** Jede Stelle beheben oder begründet zurückstellen; die
 Diagramm-Einstellungen in dieselbe INI legen wie den Rest. Erledigt,
 wenn alle Stellen abgearbeitet sind.
+
+**Stand 26. September 2026, Paket „Designer und Editor“.** Erledigt: Der Komponentenbaum baut sich nach jeder Änderung im Designer neu auf und markiert die im Designer gewählte Komponente (`Komponentenbaum.auffrischen`, `tests/test_komponentenbaum_live.py`). Die Symbole von Menü und Zeitgeber nehmen nach einem Klick den Tastaturfokus an, F2 öffnet danach den Menü-Editor (`tests/test_designer_zugaenglichkeit.py`). Ein abgeschnittener Button-Text ist ein Fund der Design-Prüfung (siehe Punkt 36). Einrückungsfehler haben vor dem Start eigene Meldungen, die nach der Einrückung fragen (`_SYNTAX_GENAUER` in `ide/run/pruefung.py`, `tests/test_vorstart_einrueckung.py` mit dem echten Ruff). Die übrigen Stellen folgen mit Laufzeit, Diagramm und Dokumenten.
 
 ---
 

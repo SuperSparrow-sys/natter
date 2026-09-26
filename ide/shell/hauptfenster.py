@@ -2605,7 +2605,11 @@ class HauptFenster(QMainWindow):
         self._design_datei_abgleichen(pfad)
         canvas.auswahl_beobachten(self._designer_auswahl_geaendert)
         canvas.aenderung_beobachten(lambda: self._design_pruefen_automatisch(canvas))
+        canvas.aenderung_beobachten(
+            lambda: self._komponentenbaum_auffrischen(canvas)
+        )
         canvas.bild_beobachten(self._designer_bild_abgelegt)
+        canvas.methode_beobachten(self._zur_methode_springen)
         self._offene_canvases.append(canvas)
         self._pfad_zu_formular[schluessel] = formular
         self._widget_zu_canvas[formular._qwidget] = canvas
@@ -2640,6 +2644,70 @@ class HauptFenster(QMainWindow):
         self._offene_diagramme[schluessel] = fenster
         fenster.show()
         return fenster
+
+    def _zur_methode_springen(
+        self, unit: Path, klassenname: str, methode: str, parameter: tuple
+    ) -> None:
+        """Doppelklick auf eine Komponente: Unit öffnen, Cursor in die
+        Methode (Punkt 37). Bis 0.3.3 legte Natter die Methode nur in
+        der Datei an; die Unit blieb zu, obwohl Handbuch und
+        Tastenübersicht „anlegen und hinspringen“ versprechen.
+
+        Ist die Unit schon offen, fehlt dem Editor die gerade in die
+        Datei geschriebene Methode. Ohne eigene Änderungen wird er neu
+        geladen; mit ungespeicherten Änderungen wird die Methode
+        genauso in seinen Text eingefügt - sonst ginge sie beim nächsten
+        Speichern verloren.
+        """
+        from ide.codegen.ereignis import handler_methode_einfuegen
+
+        editor = None
+        for index in range(self.editor_tabs.count()):
+            kandidat = self.editor_tabs.widget(index)
+            if isinstance(kandidat, QuelltextEditor) and (
+                kandidat.property(_PFAD_EIGENSCHAFT) == str(unit)
+            ):
+                editor = kandidat
+        if editor is not None:
+            text = editor.toPlainText()
+            if not re.search(rf"^\s*def {re.escape(methode)}\(", text, re.M):
+                if editor.document().isModified():
+                    editor.setPlainText(
+                        handler_methode_einfuegen(text, klassenname, methode, parameter)
+                    )
+                    editor.document().setModified(True)
+                else:
+                    editor.setPlainText(unit.read_text(encoding="utf-8"))
+                    editor.document().setModified(False)
+        editor = self.datei_oeffnen(unit)
+        if editor is None:
+            return
+        zeilen = editor.toPlainText().split("\n")
+        treffer = next(
+            (i for i, z in enumerate(zeilen) if re.match(rf"\s*def {re.escape(methode)}\(", z)),
+            None,
+        )
+        if treffer is None:
+            return
+        # Erste Zeile des Rumpfs: hinter die Einrückung, dort wird
+        # geschrieben; ein vorhandenes `pass` wird markiert, damit das
+        # erste Tippen es ersetzt.
+        ziel = min(treffer + 1, len(zeilen) - 1)
+        while ziel < len(zeilen) - 1 and zeilen[ziel].strip().startswith("#"):
+            ziel += 1
+        cursor = editor.textCursor()
+        cursor.movePosition(cursor.MoveOperation.Start)
+        cursor.movePosition(cursor.MoveOperation.Down, cursor.MoveMode.MoveAnchor, ziel)
+        einrueckung = len(zeilen[ziel]) - len(zeilen[ziel].lstrip())
+        cursor.movePosition(
+            cursor.MoveOperation.Right, cursor.MoveMode.MoveAnchor, einrueckung
+        )
+        if zeilen[ziel].strip() == "pass":
+            cursor.movePosition(cursor.MoveOperation.EndOfBlock, cursor.MoveMode.KeepAnchor)
+        editor.setTextCursor(cursor)
+        editor.ensureCursorVisible()
+        editor.setFocus()
+        self.statusBar().showMessage(f"Methode {methode} in {unit.name}.")
 
     def _erzeugte_datei_uebernehmen(self, pfad: Path) -> None:
         """Holt eine vom Diagramm-Editor geschriebene Datei herein.
@@ -2855,6 +2923,16 @@ class HauptFenster(QMainWindow):
 
     def _designer_auswahl_geaendert(self, komponente) -> None:
         self.objektinspektor._eigenschaften_anzeigen(komponente)
+        self.objektinspektor.baum.komponente_markieren(komponente)
+
+    def _komponentenbaum_auffrischen(self, canvas: DesignerCanvas) -> None:
+        """Nach jeder Änderung im Designer: der Komponentenbaum zeigt,
+        was jetzt auf dem Formular liegt. Nur, wenn der Objektinspektor
+        gerade dieses Formular zeigt."""
+        if self.objektinspektor.formular is canvas.formular:
+            self.objektinspektor.baum.auffrischen(
+                canvas.ausgewaehlte_komponente
+            )
 
     def _designer_bild_abgelegt(self, relativer_pfad: str) -> None:
         """Nach Drag & Drop einer Bilddatei in den Designer (Abschnitt

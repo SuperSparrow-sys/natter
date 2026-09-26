@@ -326,7 +326,7 @@ class QuelltextEditor(QPlainTextEdit):
         if event.key() == Qt.Key.Key_F12 and not event.modifiers():
             self.definition_gesucht.emit()
             return
-        if not event.modifiers() and self._klammer_schliessen(event):
+        if self._zeichen_ohne_kuerzel(event) and self._klammer_schliessen(event):
             # Auch nach einer selbst geschlossenen Klammer: an `(`
             # hängt die Parameterhilfe. Bis September 2026 war der
             # Tastendruck hier zu Ende, und die Hilfe erschien nie.
@@ -334,6 +334,22 @@ class QuelltextEditor(QPlainTextEdit):
             return
         super().keyPressEvent(event)
         self._nach_der_eingabe(event)
+
+    @staticmethod
+    def _zeichen_ohne_kuerzel(event: QKeyEvent) -> bool:
+        """Ob der Tastendruck ein Zeichen schreibt und kein Kürzel ist.
+
+        Auf einer deutschen Tastatur brauchen `(`, `)` und die
+        Anführungszeichen die Umschalttaste, `[ ] { }` AltGr. Bis
+        September 2026 wurden Klammern nur ohne jede Zusatztaste
+        geschlossen und damit auf dieser Tastatur nie. Windows meldet
+        AltGr als Strg und Alt zugleich; nur eine der beiden allein
+        ist ein Kürzel.
+        """
+        tasten = event.modifiers()
+        strg = bool(tasten & Qt.KeyboardModifier.ControlModifier)
+        alt = bool(tasten & Qt.KeyboardModifier.AltModifier)
+        return bool(event.text()) and strg == alt
 
     def _nach_der_eingabe(self, event: QKeyEvent) -> None:
         """Nach jedem getippten Zeichen: Liste auffrischen bzw.
@@ -693,6 +709,21 @@ class QuelltextEditor(QPlainTextEdit):
         self._fundmarkierungen = markierungen
         self._markierungen_setzen()
 
+    def _parameterhilfe_sichtbar(self) -> bool:
+        """Ob der gerade gezeigte Kurzhinweis die Parameterhilfe ist.
+
+        Ruht die Maus über dem Editor, schickt Qt nach kurzer Zeit ein
+        Tooltip-Ereignis, zum Beispiel wenn die Vorschlagsliste unter
+        der Maus verschwindet. Steht an der Stelle kein Fund, wurde
+        jeder Kurzhinweis ausgeblendet, auch die Parameterhilfe, die
+        gerade nach dem Übernehmen eines Vorschlags erschienen war.
+        """
+        return (
+            bool(self.letzte_parameterhilfe)
+            and QToolTip.isVisible()
+            and QToolTip.text() == self.letzte_parameterhilfe
+        )
+
     def _markierungen_setzen(self) -> None:
         self.setExtraSelections(
             [*self._fundmarkierungen, *self._zeilenmarkierung]
@@ -707,7 +738,7 @@ class QuelltextEditor(QPlainTextEdit):
             meldung = self._funde.get(zeile, "")
             if meldung:
                 QToolTip.showText(ereignis.globalPos(), meldung, self)
-            else:
+            elif not self._parameterhilfe_sichtbar():
                 QToolTip.hideText()
             return True
         return super().event(ereignis)

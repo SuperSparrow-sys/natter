@@ -94,16 +94,41 @@ def _eigenschaft(objekt: dict[str, Any], name: str, standard: Any = 0) -> Any:
     return objekt.get("properties", {}).get(name, standard)
 
 
+def _standardwert(typname: str, name: str, ersatz: int) -> int:
+    """Der Standardwert einer Größe, so wie ihn die pcl-Komponente selbst
+    hat (`Prop.standardwert`). Die .pfm speichert nur, was davon
+    abweicht; wer die Standardgröße nicht kennt, rechnet mit falschen
+    Maßen."""
+    import pcl
+
+    klasse = getattr(pcl, typname, None)
+    wert = getattr(getattr(klasse, name, None), "standardwert", None)
+    return wert if isinstance(wert, int) else ersatz
+
+
+def _formulargroesse(pfm: dict[str, Any]) -> tuple[int, int]:
+    """Breite und Höhe des Formulars. Ein neu angelegtes Formular hat
+    beide nicht in der .pfm; bis 0.3.3 galt es dann als 0 × 0, und die
+    Design-Prüfung meldete jede Komponente als „teilweise außerhalb des
+    Formulars“ (Punkt 36)."""
+    return (
+        _eigenschaft(pfm, "width", _standardwert("Form", "width", 480)),
+        _eigenschaft(pfm, "height", _standardwert("Form", "height", 360)),
+    )
+
+
 def _rechteck(komponente: dict[str, Any]) -> tuple[int, int, int, int]:
-    # width/height defaulten wie pcl.Control selbst (75×25) statt auf 0 -
+    # width/height defaulten wie die Komponente selbst statt auf 0 -
     # die .pfm speichert nur Eigenschaften, die vom Standardwert
     # abweichen (Abschnitt 4.2), ein Kind mit Standardgröße hat also gar
-    # keinen "width"/"height"-Schlüssel.
+    # keinen "width"/"height"-Schlüssel. Meist 75×25, ein Chart aber
+    # 320×240.
+    typ = komponente.get("type", "")
     return (
         _eigenschaft(komponente, "left", 0),
         _eigenschaft(komponente, "top", 0),
-        _eigenschaft(komponente, "width", 75),
-        _eigenschaft(komponente, "height", 25),
+        _eigenschaft(komponente, "width", _standardwert(typ, "width", 75)),
+        _eigenschaft(komponente, "height", _standardwert(typ, "height", 25)),
     )
 
 
@@ -133,8 +158,7 @@ def pruefen(pfm: dict[str, Any], *, abgeschaltete_regeln: set[str] | None = None
 def _geometrie_pruefen(pfm: dict[str, Any]) -> list[Befund]:
     befunde: list[Befund] = []
     kinder = pfm.get("children", [])
-    form_breite = _eigenschaft(pfm, "width", 0)
-    form_hoehe = _eigenschaft(pfm, "height", 0)
+    form_breite, form_hoehe = _formulargroesse(pfm)
 
     for kind in kinder:
         left, top, width, height = _rechteck(kind)
@@ -283,6 +307,40 @@ def _lesbarkeit_pruefen(pfm: dict[str, Any]) -> list[Befund]:
                         "Eine deutlich hellere oder dunklere Farbe wählen.",
                     )
                 )
+    befunde.extend(_beschriftung_pruefen(pfm))
+    return befunde
+
+
+#: Grobe Breite je Zeichen und Rand eines Knopfs bei der Standardschrift
+#: (9 pt Segoe UI). Die Prüfung läuft ohne Qt und kann nicht messen;
+#: geschätzt reicht, um „Verdoppeln“ in einem 75 Pixel breiten Knopf zu
+#: erkennen, den die Auswertung zu 0.3.3 abgeschnitten fand.
+_ZEICHENBREITE = 7
+_KNOPFRAND = 12
+_MIT_BESCHRIFTUNG = ("Button", "CheckBox", "RadioButton")
+
+
+def _beschriftung_pruefen(pfm: dict[str, Any]) -> list[Befund]:
+    befunde: list[Befund] = []
+    for kind in pfm.get("children", []):
+        if kind.get("type") not in _MIT_BESCHRIFTUNG:
+            continue
+        text = str(_eigenschaft(kind, "caption", "")).replace("&", "")
+        _, _, breite, _ = _rechteck(kind)
+        noetig = len(text) * _ZEICHENBREITE + _KNOPFRAND
+        if text and noetig > breite:
+            befunde.append(
+                _befund(
+                    "lesbarkeit.text_abgeschnitten",
+                    "Lesbarkeit",
+                    "warnung",
+                    kind["name"],
+                    f"{kind['name']}: Die Beschriftung „{text}“ ist breiter als "
+                    f"die Komponente ({breite} Pixel) und wird abgeschnitten.",
+                    f"Die Komponente auf etwa {noetig} Pixel verbreitern oder die "
+                    "Beschriftung kürzen.",
+                )
+            )
     return befunde
 
 

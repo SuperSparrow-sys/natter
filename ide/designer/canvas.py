@@ -460,6 +460,10 @@ class DesignerCanvas(QObject):
         self._anfasser_start_werte: dict[str, int] | None = None
         self._platzierungs_typ: type | None = None
         self._bild_beobachter: list[Callable[[str], None]] = []
+        #: Wer wissen will, zu welcher Methode ein Doppelklick führt
+        #: (Unit, Klasse, Methode, Parameter) - das Hauptfenster
+        #: öffnet die Unit dort (Punkt 37).
+        self._methoden_beobachter: list[Callable[[Path, str, str, tuple], None]] = []
 
         # Drag & Drop einer Bilddatei aus dem Windows-Explorer bzw. dem
         # Projekt-Explorer (Abschnitt 11.4). Nur das Formular-Widget
@@ -482,6 +486,14 @@ class DesignerCanvas(QObject):
         # anklicken können, also kommt sie hier zum Vorschein.
         if getattr(type(objekt), "nur_im_designer", False):
             widget.show()
+            # Das Symbol ist gezeichnet und hat keinen Text; ohne Namen
+            # übergeht es ein Bildschirmleser ganz.
+            widget.setAccessibleName(type(objekt).__name__)
+            # Ein gezeichnetes Symbol nimmt von sich aus keinen
+            # Tastaturfokus an. Nach einem Klick darauf gingen F2, Entf
+            # und die Pfeiltasten deshalb an ein anderes Widget, und der
+            # Menü-Editor ließ sich nur per Doppelklick öffnen.
+            widget.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
         for _, komponente in kind_komponenten(objekt):
             self._ueberwachung_einrichten(komponente)
 
@@ -1013,6 +1025,21 @@ class DesignerCanvas(QObject):
         self._nach_aenderung(kommando.neue_komponente)
         return kommando.neue_komponente
 
+    def methode_beobachten(
+        self, beobachter: Callable[[Path, str, str, tuple], None]
+    ) -> None:
+        """Meldet nach `ereignis_handler_erzeugen` Unit, Klasse, Methode
+        und Parameter - für neue wie für schon vorhandene Methoden."""
+        self._methoden_beobachter.append(beobachter)
+
+    def _methode_melden(self, methodenname: str, ereignis_name: str) -> None:
+        if self.unit_pfad is None:
+            return
+        klassenname = type(self.formular).__name__
+        parameter = tuple(EREIGNIS_PARAMETER.get(ereignis_name, ()))
+        for beobachter in self._methoden_beobachter:
+            beobachter(self.unit_pfad, klassenname, methodenname, parameter)
+
     def bild_beobachten(self, beobachter: Callable[[str], None]) -> None:
         """Meldet nach jedem abgelegten Bild den projektrelativen Pfad
         (`"assets/cookie.png"`) – das Hauptfenster zeigt ihn in der
@@ -1199,6 +1226,7 @@ class DesignerCanvas(QObject):
 
         vorhandener_handler = getattr(komponente, ereignis_name)
         if vorhandener_handler is not None:
+            self._methode_melden(vorhandener_handler.__name__, ereignis_name)
             return vorhandener_handler.__name__
 
         if komponente is self.formular:
@@ -1228,6 +1256,7 @@ class DesignerCanvas(QObject):
             EigenschaftKommando(komponente, {ereignis_name: gebundene_methode})
         )
         self._nach_aenderung(komponente)
+        self._methode_melden(methodenname, ereignis_name)
         return methodenname
 
     # -- Struktur-Hilfsmethoden (auch von den Kommandos oben genutzt) -------

@@ -21,7 +21,11 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem
+from PySide6.QtWidgets import (
+    QTreeWidget,
+    QTreeWidgetItem,
+    QTreeWidgetItemIterator,
+)
 
 from ide.assets import symbol
 from ide.shell.explorer import EINRUECKUNG
@@ -91,6 +95,43 @@ class Komponentenbaum(QTreeWidget):
         self.addTopLevelItem(wurzel)
         self._kinder_hinzufuegen(wurzel, formular)
         self.expandAll()
+
+    def auffrischen(self, auswahl: Any = None) -> None:
+        """Baut den Baum aus dem Live-Formular neu auf und markiert
+        `auswahl`.
+
+        Bis 0.3.3 entstand der Baum nur beim Öffnen des Formulars. Eine
+        neu platzierte, gelöschte oder umbenannte Komponente erschien
+        dort erst, nachdem der Designer geschlossen und wieder geöffnet
+        war. Während des Neuaufbaus schweigen die Signale: der
+        Objektinspektor soll dabei nicht zwischendurch das Formular
+        anzeigen.
+        """
+        if self._formular is None:
+            return
+        self.blockSignals(True)
+        try:
+            self.formular_anzeigen(self._formular)
+        finally:
+            self.blockSignals(False)
+        if auswahl is not None:
+            self.komponente_markieren(auswahl)
+
+    def komponente_markieren(self, komponente: Any) -> None:
+        """Markiert die Zeile dieser Komponente, ohne `currentItemChanged`
+        auszulösen - die Auswahl kommt aus dem Designer, der die
+        Eigenschaften schon selbst anzeigt."""
+        zeilen = QTreeWidgetItemIterator(self)
+        while zeilen.value() is not None:
+            zeile = zeilen.value()
+            if zeile.data(0, KOMPONENTE_ROLLE) is komponente:
+                self.blockSignals(True)
+                try:
+                    self.setCurrentItem(zeile)
+                finally:
+                    self.blockSignals(False)
+                return
+            zeilen += 1
 
     def symbole_erneuern(self, theme: str = "system") -> None:
         """Lädt die Symbole im angegebenen Theme neu – nötig nach

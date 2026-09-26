@@ -219,6 +219,12 @@ class Komponentenpalette(QTabWidget):
             eintrag = QListWidgetItem(symbol(f"komponente_{typ.__name__.lower()}"), "")
             eintrag.setData(TYP_ROLLE, typ)
             eintrag.setToolTip(kurzbeschreibung(typ))
+            # Die Kachel zeigt nur ein Symbol. Ohne Namen las ein
+            # Bildschirmleser nichts vor, und UI Automation meldete 14
+            # namenlose Einträge.
+            eintrag.setData(
+                Qt.ItemDataRole.AccessibleTextRole, typ.__name__
+            )
             liste.addItem(eintrag)
         return liste
 
