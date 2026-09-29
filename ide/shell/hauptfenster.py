@@ -9,6 +9,7 @@ Statusleiste. `projekt_oeffnen`/`datei_oeffnen` sind die Grundlage für
 
 from __future__ import annotations
 
+import contextlib
 import json
 import keyword
 import os
@@ -1010,6 +1011,13 @@ class HauptFenster(QMainWindow):
         self._offene_diagramme: dict[str, DiagrammFenster] = {}
         self._widget_zu_canvas: dict[QWidget, DesignerCanvas] = {}
         self._aktueller_canvas: DesignerCanvas | None = None
+        #: Haltepunkte und Bedingungen von Dateien, deren Reiter
+        #: geschlossen wurde, je Pfad (Punkt 419). Sie gelten beim
+        #: Start weiter und kommen beim Öffnen zurück in den Editor.
+        #: Beim Wechsel oder Schließen des Projekts wird geleert.
+        self._gemerkte_haltepunkte: dict[
+            str, tuple[set[int], dict[int, str]]
+        ] = {}
         self.editor_tabs.currentChanged.connect(self._bei_tab_wechsel)
         self.editor_tabs.tabCloseRequested.connect(self._tab_schliessen)
 
@@ -2166,13 +2174,20 @@ class HauptFenster(QMainWindow):
         if dialog.exec() == QDialog.DialogCode.Accepted and dialog.ausgewaehlte_datei is not None:
             self.datei_oeffnen(dialog.ausgewaehlte_datei)
 
-    def unit_erzeugen(self, name: str | None = None, *, inhalt: str | None = None) -> Path:
+    def unit_erzeugen(
+        self, name: str | None = None, *, inhalt: str | None = None
+    ) -> Path | None:
         """„Neue Unit“ (Abschnitt 7.2, 7.4): legt `u_neu<n>.py` an (oder
         mit gegebenem `name`), fügt sie dem Projekt-Explorer hinzu und
         öffnet sie im Editor.
 
         Ohne `inhalt` entsteht das Gerüst aus `neue_unit_vorlage()` -
-        bis M12 war es eine leere Datei."""
+        bis M12 war es eine leere Datei.
+
+        Lässt sich die Datei nicht schreiben, meldet das
+        `datei_schreiben_gemeldet` wie beim Speichern, und zurück kommt
+        `None` (Punkt 417). Bis 0.4.2 flog der `PermissionError` aus
+        dem Menü heraus und endete in der Absturzmeldung."""
         if self.projekt is None:
             raise RuntimeError("Kein Projekt offen.")
 
@@ -2183,10 +2198,12 @@ class HauptFenster(QMainWindow):
         if pfad.exists():
             raise FileExistsError(f"{pfad} existiert bereits.")
 
-        atomar_schreiben(
+        if not self.datei_schreiben_gemeldet(
             pfad,
             neue_unit_vorlage(name) if inhalt is None else inhalt,
-        )
+            folge=f"Die Unit {name} wurde nicht angelegt.",
+        ):
+            return None
         self.explorer.projekt_anzeigen(self.projekt)
         self.datei_oeffnen(pfad)
         return pfad
@@ -2230,12 +2247,18 @@ class HauptFenster(QMainWindow):
             nummer += 1
         return f"u_form{nummer}", f"Form{nummer}"
 
-    def formular_erzeugen(self, unit: str) -> Path:
+    def formular_erzeugen(self, unit: str) -> Path | None:
         """Legt `<unit>.pfm`, `<unit>.py` und `<unit>_design.py` an,
         zeigt sie im Explorer und öffnet das Formular im Designer.
 
         Die Klasse heißt wie die nächste freie Nummer (`Form2`), die
-        Unit wie angegeben. Zurück kommt der Pfad der `.pfm`."""
+        Unit wie angegeben. Zurück kommt der Pfad der `.pfm`.
+
+        Scheitert eine der drei Dateien beim Schreiben, meldet das
+        `datei_schreiben_gemeldet` wie beim Speichern, die schon
+        geschriebenen werden wieder entfernt, und zurück kommt `None`
+        (Punkt 417). Vorher blieb dann etwa eine `.pfm` ohne Unit
+        liegen."""
         if self.projekt is None:
             raise RuntimeError("Kein Projekt offen.")
         if unit.endswith((".py", ".pfm")):
@@ -2268,31 +2291,40 @@ class HauptFenster(QMainWindow):
         klasse = self._naechster_formularname()[1]
 
         pfm_pfad = ordner / f"{unit}.pfm"
-        atomar_schreiben(
-            pfm_pfad,
-            json.dumps(
-                {
-                    "format": "pfm/1",
-                    "class": klasse,
-                    "type": "Form",
-                    "properties": {
-                        "caption": klasse,
-                        "width": 480,
-                        "height": 360,
-                        "theme": "system",
-                    },
-                    "children": [],
-                },
-                indent=2,
-                ensure_ascii=False,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        atomar_schreiben(
-            ordner / f"{unit}.py", neues_formular_vorlage(unit, klasse)
-        )
-        self._design_datei_abgleichen(pfm_pfad)
+        pfm = {
+            "format": "pfm/1",
+            "class": klasse,
+            "type": "Form",
+            "properties": {
+                "caption": klasse,
+                "width": 480,
+                "height": 360,
+                "theme": "system",
+            },
+            "children": [],
+        }
+        dateien = [
+            (
+                pfm_pfad,
+                json.dumps(pfm, indent=2, ensure_ascii=False) + "\n",
+            ),
+            (ordner / f"{unit}.py", neues_formular_vorlage(unit, klasse)),
+            (
+                ordner / f"{unit}_design.py",
+                design_code_erzeugen(pfm, pfm_pfad.name),
+            ),
+        ]
+        geschrieben: list[Path] = []
+        for pfad, inhalt in dateien:
+            if not self.datei_schreiben_gemeldet(
+                pfad, inhalt,
+                folge=f"Das Formular {klasse} wurde nicht angelegt.",
+            ):
+                for alt in geschrieben:
+                    with contextlib.suppress(OSError):
+                        alt.unlink(missing_ok=True)
+                return None
+            geschrieben.append(pfad)
         self.explorer.projekt_anzeigen(self.projekt)
         self.designer_oeffnen(pfm_pfad)
         self.statusBar().showMessage(
@@ -3791,6 +3823,7 @@ class HauptFenster(QMainWindow):
             sperre.freigeben(self.projekt.ordner)
         if not dasselbe:
             self._sicherung_eigen = False
+            self._gemerkte_haltepunkte.clear()
         anderes_fenster = sperre.anderer_besitzer(neu.ordner)
         # Die Sperre eines anderen Fensters bleibt stehen; die
         # Originale der Beispiele öffnet Natter nie zum Bearbeiten.
@@ -3839,6 +3872,7 @@ class HauptFenster(QMainWindow):
         sperre.freigeben(self.projekt.ordner)
         self.projekt = None
         self._sicherung_eigen = False
+        self._gemerkte_haltepunkte.clear()
         self.datenbank_panel.projektordner_setzen(None)
         self.explorer.leeren()
         self.objektinspektor.leeren()
@@ -4928,6 +4962,9 @@ class HauptFenster(QMainWindow):
             return None
         editor.setPlainText(inhalt)
         editor.setProperty(_PFAD_EIGENSCHAFT, str(pfad))
+        gemerkt = self._gemerkte_haltepunkte.pop(str(pfad), None)
+        if gemerkt is not None:
+            editor.haltepunkte_setzen(*gemerkt)
         _stand_merken(editor)
         # Ein Tab, der nach der Prüfung aufgeht, zeigt seine Funde
         # trotzdem - sonst müsste man erst neu starten, um sie zu sehen.
@@ -5872,6 +5909,7 @@ class HauptFenster(QMainWindow):
         if self.projekt is not None and im_beispiel(self.projekt.ordner):
             sperre.freigeben(self.projekt.ordner)
             self.projekt = None
+            self._gemerkte_haltepunkte.clear()
             self.explorer.leeren()
             self._zuruecksetzen_pruefen()
             geschlossen = True
@@ -6859,12 +6897,32 @@ class HauptFenster(QMainWindow):
                 self.objektinspektor.leeren()
             self._formular_docks_anpassen()
 
+        if isinstance(widget, QuelltextEditor):
+            self._haltepunkte_merken(widget)
         seite = self.editor_tabs.widget(index)
         self.editor_tabs.removeTab(index)
         self._reiter_freigeben(seite, widget)
         # Nach „Verwerfen“ ist der Text des Reiters auch in der
         # Sicherung nicht mehr gefragt (Punkt 344).
         self._sicherung_aufraeumen()
+
+    def _haltepunkte_merken(self, editor: QuelltextEditor) -> None:
+        """Hebt die Haltepunkte eines Editors auf, dessen Reiter gleich
+        zugeht (Punkt 419). Bis 0.4.2 standen sie nur im Editor, und
+        mit dem Reiter waren sie fort: F5 hielt nicht mehr an, und die
+        wieder geöffnete Datei hatte keinen Haltepunkt.
+
+        Gemerkt wird der Stand beim Schließen, mit den Zeilen, zu denen
+        die Haltepunkte beim Bearbeiten gewandert sind."""
+        pfad = editor.property(_PFAD_EIGENSCHAFT)
+        if not pfad:
+            return
+        if editor.breakpoints:
+            self._gemerkte_haltepunkte[str(pfad)] = (
+                set(editor.breakpoints), dict(editor.bedingungen)
+            )
+        else:
+            self._gemerkte_haltepunkte.pop(str(pfad), None)
 
     def _reiter_freigeben(self, seite: QWidget, inhalt: QWidget) -> None:
         """Gibt die Seite eines geschlossenen Reiters frei (Punkt 376).
@@ -8232,7 +8290,12 @@ class HauptFenster(QMainWindow):
             )
 
     def _offene_bedingungen(self) -> dict[Path, dict[int, str]]:
-        ergebnis: dict[Path, dict[int, str]] = {}
+        gemerkt = self._gemerkte_haltepunkte
+        ergebnis: dict[Path, dict[int, str]] = {
+            Path(pfad): dict(bedingungen)
+            for pfad, (_zeilen, bedingungen) in gemerkt.items()
+            if bedingungen
+        }
         for index in range(self.editor_tabs.count()):
             editor = self.editor_tabs.widget(index)
             if isinstance(editor, QuelltextEditor) and editor.bedingungen:
@@ -8374,8 +8437,15 @@ class HauptFenster(QMainWindow):
 
     def _offene_breakpoints(self) -> dict[Path, list[int]]:
         """Breakpoints aus allen offenen `QuelltextEditor`-Tabs, gebündelt
-        nach Datei – für `DebugSitzung.starten(..., anfangs_breakpoints=...)`."""
-        ergebnis: dict[Path, list[int]] = {}
+        nach Datei – für `DebugSitzung.starten(..., anfangs_breakpoints=...)`.
+
+        Dazu kommen die Haltepunkte geschlossener Reiter aus
+        `_gemerkte_haltepunkte` (Punkt 419)."""
+        gemerkt = self._gemerkte_haltepunkte
+        ergebnis: dict[Path, list[int]] = {
+            Path(pfad): sorted(zeilen)
+            for pfad, (zeilen, _bedingungen) in gemerkt.items()
+        }
         for index in range(self.editor_tabs.count()):
             editor = self.editor_tabs.widget(index)
             if isinstance(editor, QuelltextEditor) and editor.breakpoints:
