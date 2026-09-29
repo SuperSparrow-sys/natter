@@ -23,7 +23,15 @@ import time
 import traceback
 import unittest
 
-_SOLL_IST_MUSTER = re.compile(r"^(?P<ist>.+?) != (?P<soll>.+)$")
+# Bei Listen, Tupeln und anderen Folgen setzt unittest „Lists
+# differ: “, „Tuples differ: “ oder „Sequences differ: “ vor den
+# Vergleich. Der Vorsatz gehört nicht zum Ist-Wert.
+_SOLL_IST_MUSTER = re.compile(
+    r"^(?:\w+ differ: )?(?P<ist>.+?) != (?P<soll>.+)$"
+)
+
+#: Längere Werte werden für Tooltip und Protokoll gekürzt.
+_WERT_HOECHSTLAENGE = 200
 
 #: Steht in der Standardausgabe unmittelbar vor dem JSON-Ergebnis.
 #: `ausfuehrung.py` liest nur, was danach kommt; alles davor hat der
@@ -31,10 +39,52 @@ _SOLL_IST_MUSTER = re.compile(r"^(?P<ist>.+?) != (?P<soll>.+)$")
 ERGEBNIS_MARKE = "@@natter-testergebnis@@"
 
 
-def _soll_ist_extrahieren(nachricht: str) -> tuple[str, str] | tuple[None, None]:
-    """`assertEqual` formatiert Fehlschläge standardmäßig als
-    `"<ist> != <soll>"` (erste Zeile der Meldung, vor einem optionalen
-    eigenen `msg`-Zusatz)."""
+def _wert_text(wert: object) -> str:
+    try:
+        text = repr(wert)
+    except Exception:
+        text = object.__repr__(wert)
+    if len(text) > _WERT_HOECHSTLAENGE:
+        text = text[: _WERT_HOECHSTLAENGE - 1] + "…"
+    return text
+
+
+def _werte_aus_assertequal(tb) -> tuple[str, str] | tuple[None, None]:
+    """Soll und Ist aus dem Aufruf von `assertEqual` im Traceback.
+
+    Die Meldung allein reicht nicht: bei Mengen schreibt unittest nur
+    „Items in the first set but not the second: …“ ohne die Werte, und
+    lange Folgen kürzt es zu „[0, 1[126 chars]…“. Die Argumente
+    `first` (Ist) und `second` (Soll) stehen im Rahmen von
+    `assertEqual` aus `unittest.case`."""
+    while tb is not None:
+        rahmen = tb.tb_frame
+        if (
+            rahmen.f_code.co_name == "assertEqual"
+            and rahmen.f_globals.get("__name__") == "unittest.case"
+        ):
+            lokale = rahmen.f_locals
+            if "first" in lokale and "second" in lokale:
+                return (
+                    _wert_text(lokale["second"]),
+                    _wert_text(lokale["first"]),
+                )
+        tb = tb.tb_next
+    return None, None
+
+
+def _soll_ist_extrahieren(
+    nachricht: str, tb=None
+) -> tuple[str, str] | tuple[None, None]:
+    """Soll und Ist eines fehlgeschlagenen Vergleichs.
+
+    Zuerst aus den Argumenten von `assertEqual` (`tb` ist der
+    Traceback des Fehlschlags), sonst aus der ersten Zeile der
+    Meldung, die `assertEqual` als `"<ist> != <soll>"` formatiert,
+    bei Folgen mit einem Vorsatz wie „Lists differ: “."""
+    soll, ist = _werte_aus_assertequal(tb)
+    if soll is not None:
+        return soll, ist
     erste_zeile = nachricht.split("\n", 1)[0]
     treffer = _SOLL_IST_MUSTER.match(erste_zeile)
     if treffer is None:
@@ -62,9 +112,12 @@ class _StrukturiertesErgebnis(unittest.TestResult):
         )
 
     def addFailure(self, test: unittest.TestCase, err) -> None:
-        super().addFailure(test, err)
+        # Vor super().addFailure(): TestResult schneidet dort beim
+        # Aufbereiten die Rahmen aus unittest vom Traceback ab, und
+        # mit ihnen den Aufruf von assertEqual.
         nachricht = str(err[1])
-        soll, ist = _soll_ist_extrahieren(nachricht)
+        soll, ist = _soll_ist_extrahieren(nachricht, err[2])
+        super().addFailure(test, err)
         self.eintraege.append(
             {
                 "id": test.id(),

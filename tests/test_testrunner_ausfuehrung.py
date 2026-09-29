@@ -56,6 +56,66 @@ def test_soll_ist_werden_bei_assertequal_fehlschlag_extrahiert(tmp_path: Path) -
     assert fehlschlag.ist == "45"
 
 
+_SAMMLUNGEN_INHALT = '''\
+import unittest
+
+
+class TestSammlungen(unittest.TestCase):
+    def test_liste(self):
+        self.assertEqual(sorted([3, 1, 2]), [1, 2, 4])
+
+    def test_tupel(self):
+        self.assertEqual((1, 2), (1, 2, 3))
+
+    def test_folge(self):
+        self.assertSequenceEqual([1], (2,))
+
+    def test_menge(self):
+        self.assertEqual({1, 2}, {1, 3})
+
+    def test_woerterbuch(self):
+        self.assertEqual({"a": 1}, {"a": 2})
+
+    def test_mehrzeiliger_text(self):
+        self.assertEqual("a\\nb", "a\\nc")
+
+    def test_liste_mit_eigener_meldung(self):
+        self.assertEqual([3], [4], "falsch sortiert")
+'''
+
+
+@pytest.fixture(scope="module")
+def sammlungen_ergebnisse(tmp_path_factory: pytest.TempPathFactory):
+    projekt = tmp_path_factory.mktemp("sammlungen")
+    (projekt / "test_sammlungen.py").write_text(
+        _SAMMLUNGEN_INHALT, encoding="utf-8"
+    )
+    return {e.id.rsplit(".", 1)[-1]: e for e in ausfuehren(projekt)}
+
+
+@pytest.mark.parametrize(
+    ("test", "soll", "ist"),
+    [
+        ("test_liste", "[1, 2, 4]", "[1, 2, 3]"),
+        ("test_tupel", "(1, 2, 3)", "(1, 2)"),
+        ("test_folge", "(2,)", "[1]"),
+        ("test_menge", "{1, 3}", "{1, 2}"),
+        ("test_woerterbuch", "{'a': 2}", "{'a': 1}"),
+        ("test_mehrzeiliger_text", "'a\\nc'", "'a\\nb'"),
+        ("test_liste_mit_eigener_meldung", "[4]", "[3]"),
+    ],
+)
+def test_soll_ist_bei_sammlungen_ohne_vorsatz_von_unittest(
+    sammlungen_ergebnisse, test: str, soll: str, ist: str
+) -> None:
+    """Bei Folgen schreibt unittest „Lists differ: “ und Ähnliches vor
+    den Vergleich, bei Mengen nennt die Meldung die Werte gar nicht.
+    Soll und Ist zeigen trotzdem nur die Werte."""
+    ergebnis = sammlungen_ergebnisse[test]
+    assert ergebnis.status == "fehlgeschlagen"
+    assert (ergebnis.soll, ergebnis.ist) == (soll, ist)
+
+
 def test_fehler_hat_keine_soll_ist_werte(tmp_path: Path) -> None:
     projekt = _projekt_mit_testdatei(tmp_path)
     ergebnisse = ausfuehren(projekt)
