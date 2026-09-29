@@ -107,7 +107,10 @@ def test_testlauf_bekommt_keine_eingabe(
 
     class _Prozess:
         # Seit Punkt 247 startet der Testlauf mit `Popen` und liest
-        # die Ausgabe aus einer Datei.
+        # die Ausgabe aus einer Datei. Seit Punkt 425 wertet er auch
+        # den Rückgabewert aus.
+        returncode = 0
+
         def __init__(self, befehl, **kwargs) -> None:  # noqa: ANN001
             aufrufe.append(kwargs)
 
