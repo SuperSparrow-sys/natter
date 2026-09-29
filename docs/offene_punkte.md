@@ -7,12 +7,12 @@ ganze Vorgeschichte der früheren Punkte stehen, damit sich bei einem
 ähnlichen Fehler nachlesen lässt, was schon geprüft wurde.
 
 Die Nummern laufen durch und werden nicht neu vergeben. Der nächste
-Punkt bekommt die **415**.
+Punkt bekommt die **416**.
 
 ## Ein neuer Punkt
 
 ```markdown
-## 415. Kurz, was nicht stimmt
+## 416. Kurz, was nicht stimmt
 
 **Gemeldet:** Datum, wo es auffiel (Fenster, Menü, Beispielprojekt),
 Natter-Version.
@@ -29,30 +29,6 @@ erkennen ist.
 ---
 
 # Offen
-
-## 413. Die Ladeanzeige in der Statusleiste nimmt die halbe Leiste ein
-
-**Gemeldet:** 29. September 2026, Prüfung der installierten Fassung 0.4.2 (`build\auswertung\042\`, Bilder `02_d1` bis `02_d6`, `02_d3b_leiste_rechte_haelfte.png`).
-
-**Beobachtet:** Solange „Programm wird geladen … N s“ steht, reicht die Ladeanzeige über die ganze rechte Hälfte der Statusleiste. Balken und Text stehen links darin, also etwa in der Mitte der Leiste (x ≈ 2200 von 3840), und „Zeile N, Spalte M“ springt von ganz rechts (x 3663) in die Mitte (x 1828). Die Farbe stimmt seit Punkt 412.
-
-**Ursache:** vermutet: Der Behälter in `_ladeanzeige_starten` (`ide/shell/hauptfenster.py`) hat keine Größenbegrenzung; das `QLabel` darin dehnt sich, und `addPermanentWidget` gibt ihm den ganzen freien Platz.
-
-**Zu tun:** Die Ladeanzeige nur so breit wie Balken und Text, rechts neben „Zeile N, Spalte M“, ohne dass diese Anzeige springt. Erledigt, wenn ein Test die Lage beider Anzeigen vor und während des Ladens vergleicht.
-
----
-
-## 414. Das Ladebild bleibt beim ersten Start weiß
-
-**Gemeldet:** 29. September 2026, Prüfung der installierten Fassung 0.4.2 (Bilder `01_erster_start_b_ladebild.png`, `01_k08_lade_6_29s.png`, `01_k08_lade_6_29s_fenster_dc.png`), nicht sicher belegt.
-
-**Beobachtet:** Auf dem Bildschirm ist das Ladebild von 6,1 s bis 13,0 s nach dem Start eine rein weiße Fläche. Die Zeichenfläche des Fensters selbst enthält dabei „Natter / Version 0.4.2 / Oberfläche wird geladen …“. In der ganzen Zeit antwortet das Fenster nicht auf `WM_NULL`. Gestartet wurde aus einem Hintergrundprozess; ob es beim Start aus dem Startmenü genauso aussieht, ist nicht geprüft.
-
-**Ursache:** vermutet: Während der Importe verarbeitet der Faden der Oberfläche keine Nachrichten, und Windows zeigt ein Fenster, das nicht antwortet, nicht mit seinem Inhalt an.
-
-**Zu tun:** Am Startmenü-Eintrag nachprüfen. Bestätigt es sich: das Ladebild zwischen den Import-Abschnitten neu zeichnen lassen oder in einem Fenster zeigen, das nicht vom beschäftigten Faden abhängt. Erledigt, wenn ein Bildschirmfoto beim ersten Start den Text des Ladebilds zeigt.
-
----
 
 # Zurückgestellt
 

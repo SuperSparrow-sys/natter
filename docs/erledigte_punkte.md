@@ -11746,3 +11746,47 @@ Die Statusleiste beim Start bleibt, wie sie ist: links steht, dass das Programm 
 
 **Behoben (29. September 2026, ab 0.4.2).** Neue Regel `QStatusBar QWidget { background-color: transparent; }` in `ide/shell/theme.py`: Behälter, Text und Balken der Ladeanzeige, die Anzeige von Zeile und Spalte und der Fortschrittsbalken stehen jetzt auf dem Grau der Statusleiste, in beiden Themen. Die rote Anzeige des Prüfungsmodus hat eine eigene Regel am Widget und bleibt rot. Test: `test_die_ladeanzeige_steht_ohne_eigenen_kasten_in_der_statusleiste[light|dark]` in `tests/test_ide_theme.py` vergleicht den Hintergrund des Textes mit dem der Leiste, nachdem die Leiste ihre Farbe hat; gegen den alten Stand scheitert er mit #ffffff statt #f5f5f5 bzw. #1e1e1e statt #252526.
 
+---
+
+## 413. Die Ladeanzeige in der Statusleiste nimmt die halbe Leiste ein ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Prüfung der installierten Fassung 0.4.2 (`build\auswertung\042\`, Bilder `02_d1` bis `02_d6`, `02_d3b_leiste_rechte_haelfte.png`).
+
+**Beobachtet:** Solange „Programm wird geladen … N s“ steht, reicht die Ladeanzeige über die ganze rechte Hälfte der Statusleiste. Balken und Text stehen links darin, also etwa in der Mitte der Leiste (x ≈ 2200 von 3840), und „Zeile N, Spalte M“ springt von ganz rechts (x 3663) in die Mitte (x 1828). Die Farbe stimmt seit Punkt 412.
+
+**Ursache:** vermutet: Der Behälter in `_ladeanzeige_starten` (`ide/shell/hauptfenster.py`) hat keine Größenbegrenzung; das `QLabel` darin dehnt sich, und `addPermanentWidget` gibt ihm den ganzen freien Platz.
+
+**Zu tun:** Die Ladeanzeige nur so breit wie Balken und Text, rechts neben „Zeile N, Spalte M“, ohne dass diese Anzeige springt. Erledigt, wenn ein Test die Lage beider Anzeigen vor und während des Ladens vergleicht.
+
+**Behoben (29. September 2026, in der neu gebauten 0.4.2).** Der Behälter der Ladeanzeige in `_ladeanzeige_starten` (`ide/shell/hauptfenster.py`) hat jetzt die Größenregel `Maximum`: er ist nur so breit wie Balken und Text. Nachgemessen im Hauptfenster bei 1920 px Breite: vorher 932 px bei 274 px Inhalt, weil die Statusleiste einem Widget mit der üblichen Regel `Preferred` den halben freien Platz gab. Test: `test_die_ladeanzeige_ist_nur_so_breit_wie_ihr_inhalt` in `tests/test_statusleiste_ladeanzeige.py` prüft Breite und Lage der Ladeanzeige und wie weit „Zeile N, Spalte M“ beim Laden rückt; gegen den alten Stand scheitert er mit „Ladeanzeige 886 px breit, ihr Inhalt braucht 274 px“.
+
+
+---
+
+## 414. Das Ladebild bleibt beim ersten Start weiß ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Prüfung der installierten Fassung 0.4.2 (Bilder `01_erster_start_b_ladebild.png`, `01_k08_lade_6_29s.png`, `01_k08_lade_6_29s_fenster_dc.png`), nicht sicher belegt.
+
+**Beobachtet:** Auf dem Bildschirm ist das Ladebild von 6,1 s bis 13,0 s nach dem Start eine rein weiße Fläche. Die Zeichenfläche des Fensters selbst enthält dabei „Natter / Version 0.4.2 / Oberfläche wird geladen …“. In der ganzen Zeit antwortet das Fenster nicht auf `WM_NULL`. Gestartet wurde aus einem Hintergrundprozess; ob es beim Start aus dem Startmenü genauso aussieht, ist nicht geprüft.
+
+**Ursache:** vermutet: Während der Importe verarbeitet der Faden der Oberfläche keine Nachrichten, und Windows zeigt ein Fenster, das nicht antwortet, nicht mit seinem Inhalt an.
+
+**Zu tun:** Am Startmenü-Eintrag nachprüfen. Bestätigt es sich: das Ladebild zwischen den Import-Abschnitten neu zeichnen lassen oder in einem Fenster zeigen, das nicht vom beschäftigten Faden abhängt. Erledigt, wenn ein Bildschirmfoto beim ersten Start den Text des Ladebilds zeigt.
+
+**Behoben (29. September 2026, in der neu gebauten 0.4.2).** Ursache: Beim ersten Start dauerte der Import von `ide.shell.hauptfenster` 6,8 bis 7,4 s (Punkt 407), und in der Zeit holte der Faden der Oberfläche keine Nachricht ab. Windows hält ein Fenster, das 5 s lang nicht antwortet, für hängend und zeigt eine weiße Fläche; das hängt nicht davon ab, wie Natter gestartet wurde. Neu: `ansprechbar_beim_laden()` in `ide/ladeanzeige.py` hängt einmal einen Prüfhaken (`sys.addaudithook`) ein, der beim Ereignis `import` höchstens alle 0,25 s `QApplication.processEvents` ohne Eingaben aufruft. `ide/main.py` legt ihn nur um den Import des Hauptfensters, nicht um dessen Aufbau, damit keine Uhr in ein halb gebautes Fenster feuert. Tests in `tests/test_ladeanzeige_ansprechbar.py`: eine Kette aus fünf Modulen, die je 0,3 s laden, lässt eine Uhr der Anzeige mindestens dreimal schlagen (gegen den ausgeschalteten Haken 0 Schläge), und außerhalb des Ladens bleibt der Import unberührt.
+
+
+---
+
+## 415. Programme aus Natter zeigen ein leeres Fenstersymbol ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, vom Nutzer an der installierten Fassung 0.4.2 (Obst-Sortierer: Titelleiste und Taskleiste).
+
+**Beobachtet:** Ein gestartetes Programm ohne eigenes `icon` zeigt in der Titelleiste und in der Taskleiste ein allgemeines Fenstersymbol, die IDE daneben die Natter.
+
+**Ursache:** `pcl.Application` setzt kein Symbol der Anwendung, und `Form._symbol_anwenden` setzt ohne `icon` ein leeres `QIcon`.
+
+**Zu tun:** Ohne eigenes `icon` das Symbol von Natter zeigen, auch in einer exportierten Exe und mit `python main.py`. Erledigt, wenn ein Test das Symbol eines Formulars ohne `icon` prüft und ein eigenes `icon` Vorrang behält.
+
+**Behoben (29. September 2026, in der neu gebauten 0.4.2).** Das Symbol liegt als `design/natter.png` neben `tokens.json` (Kopie von `ide/assets/icons/app.png`); der Ordner `design` kommt schon in die Auslieferung und über `--add-data` in jede exportierte Exe. `pcl.theme.NATTER_SYMBOL` nennt den Pfad, und `pcl.Application` setzt ihn als Symbol der Anwendung, wenn noch keins gesetzt ist (`_natter_symbol_setzen` in `pcl/application.py`). Qt nimmt es für jedes Fenster ohne eigenes Symbol; ein Formular mit `icon` behält seins. `docs/komponenten.md` nennt das. Tests in `tests/test_programmsymbol.py`: Symbol vorhanden, Formular ohne `icon` zeigt das Symbol der Anwendung (gegen den alten Stand leer), eigenes `icon` hat Vorrang.
+

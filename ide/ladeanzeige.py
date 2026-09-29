@@ -28,7 +28,13 @@ kein eigener Faden.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+import sys
+import threading
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
+
+from PySide6.QtCore import QEventLoop, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPixmap
 from PySide6.QtWidgets import QApplication, QLabel, QWidget
 
@@ -68,6 +74,60 @@ def _bild(version: str) -> QPixmap:
     maler.fillRect(0, _HOEHE - 4, _BREITE, 4, QColor(_BALKEN))
     maler.end()
     return pixmap
+
+
+#: So lange schweigt der Faden der Oberfläche beim Laden höchstens.
+#: Windows hält ein Fenster, das 5 s lang keine Nachricht abholt, für
+#: hängend und zeigt statt seines Inhalts eine weiße Fläche. Beim
+#: ersten Start nach einer Installation dauert allein der Import des
+#: Hauptfensters 7 s, weil der Virenschutz jede Datei zum ersten Mal
+#: prüft (Punkt 414).
+_HOECHSTENS_STILL_S = 0.25
+
+#: Beim Laden gesetzt; der Prüfhaken tut sonst nichts.
+_laden: dict[str, float] = {}
+_haken_eingehaengt = False
+
+
+def _beim_import(ereignis: str, _argumente: tuple) -> None:
+    """Holt zwischen zwei Modulen die wartenden Nachrichten ab.
+
+    Ein Prüfhaken (`sys.addaudithook`) lässt sich nicht wieder
+    entfernen; außerhalb des Ladens kehrt er deshalb sofort zurück.
+    Nur Nachrichten ohne Eingaben: es gibt noch kein Fenster, das
+    jemand bedienen könnte, und ein Klick darf nichts auslösen,
+    während ein Modul erst halb geladen ist.
+    """
+    if ereignis != "import" or not _laden:
+        return
+    if threading.current_thread() is not threading.main_thread():
+        return
+    jetzt = time.monotonic()
+    if jetzt - _laden["zuletzt"] < _HOECHSTENS_STILL_S:
+        return
+    _laden["zuletzt"] = jetzt
+    try:
+        QApplication.processEvents(
+            QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents
+        )
+    except Exception:  # noqa: BLE001
+        # Ein Fehler hier bräche den Import ab, und Natter startete
+        # nicht. Das Neuzeichnen ist es nicht wert.
+        pass
+
+
+@contextmanager
+def ansprechbar_beim_laden() -> Iterator[None]:
+    """Hält die Ladeanzeige ansprechbar, während Module geladen werden."""
+    global _haken_eingehaengt
+    if not _haken_eingehaengt:
+        sys.addaudithook(_beim_import)
+        _haken_eingehaengt = True
+    _laden["zuletzt"] = time.monotonic()
+    try:
+        yield
+    finally:
+        _laden.clear()
 
 
 class Ladeanzeige(QWidget):

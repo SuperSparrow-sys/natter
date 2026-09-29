@@ -175,6 +175,7 @@ Ein Fenster erscheint in der Mitte des Bildschirms. Mit `position =
 `left` oder `top` verschiebt ein offenes Fenster sofort. `icon` ist
 wie das Bild eines `Image` eine Datei relativ zum Projektordner; im
 Objektinspektor wählt „…“ sie aus und kopiert sie nach `assets/`.
+Ohne `icon` zeigen Titelleiste und Taskleiste das Symbol von Natter.
 
 Eigene Attribute auf dem Formular sind erlaubt, etwa
 `self.punkte = 0`. Bei einer Komponente führt ein unbekannter Name

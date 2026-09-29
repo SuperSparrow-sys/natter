@@ -49,6 +49,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QProgressBar,
     QScrollArea,
+    QSizePolicy,
     QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
@@ -7915,6 +7916,13 @@ class HauptFenster(QMainWindow):
         """
         if self._lade_anzeige is None:
             anzeige = QWidget()
+            # Nur so breit wie Balken und Text. Mit der üblichen
+            # Größenregel bekam der Behälter den ganzen freien Platz
+            # der Leiste, der Text stand in der Mitte, und „Zeile N,
+            # Spalte M“ sprang beim Laden nach links (Punkt 413).
+            anzeige.setSizePolicy(
+                QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred,
+            )
             zeile = QHBoxLayout(anzeige)
             zeile.setContentsMargins(0, 0, 0, 0)
             balken = QProgressBar()

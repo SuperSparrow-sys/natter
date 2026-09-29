@@ -27,7 +27,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from ide.deutsch import deutsch_einschalten
 from ide.fehlermeldung import fehlerhaken_einrichten
 from ide.integritaet.start_pruefung import installation_pruefen
-from ide.ladeanzeige import Ladeanzeige
+from ide.ladeanzeige import Ladeanzeige, ansprechbar_beim_laden
 
 if TYPE_CHECKING:
     from ide.shell.hauptfenster import HauptFenster
@@ -94,7 +94,12 @@ def erstellen(anzeige: Ladeanzeige | None = None) -> tuple[QApplication, HauptFe
     if anzeige is not None:
         anzeige.melden("Oberfläche wird geladen …")
 
-    from ide.shell.hauptfenster import HauptFenster
+    # Während des Imports holt die Ladeanzeige ihre Nachrichten ab;
+    # sonst stand sie beim ersten Start weiß da (Punkt 414). Nur beim
+    # Import: im Aufbau des Hauptfensters könnte eine Uhr feuern, bevor
+    # das Fenster fertig ist.
+    with ansprechbar_beim_laden():
+        from ide.shell.hauptfenster import HauptFenster
 
     if anzeige is not None:
         anzeige.melden("Fenster wird aufgebaut …")

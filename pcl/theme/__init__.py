@@ -30,6 +30,12 @@ def _tokens_pfad_ermitteln() -> Path:
 
 _TOKENS_PFAD = _tokens_pfad_ermitteln()
 
+#: Das Symbol von Natter, neben `tokens.json` im Ordner `design`. Ein
+#: Programm ohne eigenes `icon` zeigt es in Titelleiste und Taskleiste
+#: (Punkt 415); in einer exportierten Exe liegt es mit dem ganzen
+#: Ordner im Bundle.
+NATTER_SYMBOL = _TOKENS_PFAD.parent / "natter.png"
+
 
 def _tokens_laden() -> dict[str, Any]:
     return json.loads(_TOKENS_PFAD.read_text(encoding="utf-8"))
