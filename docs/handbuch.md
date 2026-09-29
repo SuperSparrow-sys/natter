@@ -222,16 +222,31 @@ bisher; die Exe ist für die Weitergabe gedacht.
 ### Der erste Start dauert länger
 
 Nach einer Installation oder einem Update braucht der erste Start
-deutlich länger als alle folgenden, gemessen 13 bis 18 Sekunden statt
-2 bis 3. In den ersten rund 8 Sekunden ist noch gar nichts zu sehen,
-auch das Ladebild nicht. Der Grund ist der Virenschutz von Windows: er
-prüft jede neu geschriebene Datei beim ersten Öffnen, und Natter
-bringt rund 30 000 Dateien mit. Ab dem zweiten Start sind sie geprüft.
+deutlich länger als alle folgenden. Gemessen mit 0.4.1 auf einem
+Rechner mit Windows Defender: rund 16 Sekunden bis zum Hauptfenster
+statt 1,5. Nach einer Sekunde steht das Fenster „Natter startet …“,
+nach rund 5 Sekunden das Ladebild mit der Versionsnummer. Der Grund
+ist der Virenschutz von Windows: er prüft jede neu geschriebene Datei
+beim ersten Öffnen, und Natter bringt rund 30 000 Dateien mit. Ab dem
+zweiten Start sind sie geprüft.
+
+Dasselbe gilt für das erste Programm, das große Bibliotheken lädt.
+Das Beispiel 09_ObstSortierer (scikit-learn, matplotlib) brauchte beim
+ersten Start 76 Sekunden bis zu seinem Fenster, beim zweiten 6,5.
 
 Für den Unterricht heißt das: nach dem ersten Doppelklick abwarten
 und nicht ein zweites Mal klicken. Wer Natter nach dem Installieren
 einmal startet und wieder schließt, etwa über „Natter starten“ auf der
-letzten Seite des Installers, erspart der Klasse die Wartezeit.
+letzten Seite des Installers, erspart der Klasse die Wartezeit; wer
+dazu einmal das Beispiel 09_ObstSortierer startet, auch die für
+scikit-learn und matplotlib.
+
+Eine Ausnahme im Virenschutz für den Programmordner beseitigt die
+Wartezeit ganz. Sinnvoll ist sie nur bei einer Installation für alle
+Benutzer unter `C:\Program Files\Natter`, in die Schülerkonten nicht
+schreiben können. Den Ordner einer Installation für das eigene Konto
+(`%LOCALAPPDATA%\Programs\Natter`) kann jedes Programm des Kontos
+verändern; ihn vom Virenschutz auszunehmen, öffnet eine Lücke.
 
 ### 1.5 Entfernen
 

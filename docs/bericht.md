@@ -427,7 +427,11 @@ Zwei Ebenen, beide ohne Kosten:
 | Prüfsummen-Manifest | SHA-256 der Programmdateien in `manifest.json`, mit einem eigenen Ed25519-Schlüssel signiert; der öffentliche Schlüssel steckt im Starter | Natter erkennt beim Start veränderte, fehlende oder fremde Dateien |
 
 Bei jedem Start werden die Kerndateien geprüft (0,07 s), über
-„Werkzeuge → Umgebung prüfen" alle (2,4 s, im Hintergrund). Nicht
+„Werkzeuge → Umgebung prüfen" alle (2,4 s, im Hintergrund). Beim
+ersten Start nach einer Installation wartet jede dieser rund 860
+Dateien auf den Virenschutz; gelesen werden sie deshalb in 16 Fäden
+zugleich, was die Prüfung dort von 9,4 bis 10,3 s auf 1,8 bis 2,2 s
+verkürzt (Punkt 407). Nicht
 geprüft werden die Fremdbibliotheken in `site-packages` und die
 Startdateien in `python\Scripts`: dort darf `pip` Pakete
 nachinstallieren. Die mitgelieferten `.pyc` stehen seit Punkt 270 im

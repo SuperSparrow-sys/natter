@@ -766,3 +766,40 @@ def test_ein_fehlendes_manifest_steht_im_panel(monkeypatch, qtbot, hauptfenster_
     qtbot.waitUntil(lambda: fenster.meldungen_liste.count() >= 1, timeout=5000)
 
     assert fenster.meldungen_liste.item(0).text() == "[Umgebung] manifest.json fehlt in C:\\Natter."
+
+
+def test_pruefsummen_entstehen_fuer_mehrere_dateien_zugleich(
+    programm: Path, monkeypatch
+) -> None:
+    """Punkt 407: Beim ersten Start nach einer Installation wartet jedes
+    erste Öffnen einer Datei auf den Virenschutz. Nacheinander gelesen
+    kostete die schnelle Prüfung so 9,6 s; zugleich gelesen überlappen
+    sich die Wartezeiten. Nachgestellt mit einem Lesen, das 20 ms
+    wartet."""
+    import hashlib
+    import threading
+    import time
+
+    for nummer in range(40):
+        _legen(programm, f"{SP}/ide/modul_{nummer}.py", b"x = %d" % nummer)
+    gleichzeitig = 0
+    hoechstens = 0
+    sperre = threading.Lock()
+    lesen = Path.read_bytes
+
+    def langsam_lesen(pfad: Path) -> bytes:
+        nonlocal gleichzeitig, hoechstens
+        with sperre:
+            gleichzeitig += 1
+            hoechstens = max(hoechstens, gleichzeitig)
+        time.sleep(0.02)
+        with sperre:
+            gleichzeitig -= 1
+        return lesen(pfad)
+
+    monkeypatch.setattr(Path, "read_bytes", langsam_lesen)
+    dateien = manifest_erstellen(programm, nur_kern=True)["dateien"]
+
+    assert f"{SP}/ide/modul_39.py" in dateien
+    assert dateien[f"{SP}/ide/main.py"] == hashlib.sha256(b"ide").hexdigest()
+    assert hoechstens >= 4

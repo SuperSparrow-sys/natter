@@ -30,52 +30,6 @@ erkennen ist.
 
 # Offen
 
-## 407. Der erste Start nach der Installation dauert 92 Sekunden
-
-**Gemeldet:** 29. September 2026, Prüfung der installierten Fassung 0.4.0 (`build\auswertung\040\`).
-
-**Beobachtet:** Vom Start von `Natter.exe` bis zum bedienbaren Hauptfenster vergingen beim ersten Mal nach dem Update 91,9 s; das Ladebild „Natter startet …“ stand ab 2,1 s. Der zweite Start brauchte 1,55 s. Bei 0.3.6 dauerte der erste Start 22,7 s (Punkt 48). Der erste Start des ObstSortierers dauerte 62,9 s, der zweite 4,0 s. In die Installation wurde keine `.pyc` geschrieben.
-
-**Ursache:** nicht geklärt. Möglich sind die Prüfung frischer Dateien durch den Virenscanner (mit `starter\` sind 53 Dateien mehr dabei) oder Last durch eine zweite Sitzung, die während der Messung Fenster auf demselben Bildschirm öffnete.
-
-**Zu tun:** Ursache messen (Prozessmonitor bzw. Zeitstempel je Import beim ersten Start, Vergleich mit einer frisch kopierten 0.3.6, ohne fremde Last). Liegt es an Natter, beheben; liegt es am Virenscanner, im Handbuch unter „Der erste Start dauert länger“ die gemessene Zeit nennen. Erledigt, wenn der erste Start ohne fremde Last gemessen und erklärt ist und nicht länger dauert als bei 0.3.6.
-
----
-
-## 408. „Projekt öffnen …“ beginnt im Programmordner von Natter
-
-**Gemeldet:** 29. September 2026, Prüfung der installierten Fassung 0.4.0 (Bild `09_dialog_projekt_oeffnen.png`).
-
-**Beobachtet:** Der Dialog zeigt `…\AppData\Local\Programs\Natter` mit `Lizenzen`, `python` und `starter`. Eine Schülerin sucht ihre Projekte dort vergeblich und sieht Ordner, die sie nichts angehen.
-
-**Ursache:** Der Startmenü-Eintrag setzt den Programmordner als Arbeitsordner, und `QFileDialog.getOpenFileName` wird in `_projekt_oeffnen_dialog` und `_datei_oeffnen_dialog` (`ide/shell/hauptfenster.py`) ohne Startordner aufgerufen.
-
-**Zu tun:** Als Startordner den Ordner des offenen Projekts, sonst den zuletzt benutzten, sonst `Dokumente\Natter` nehmen. Erledigt, wenn ein Test den Startordner des Dialogs prüft.
-
----
-
-## 409. Die Vorschlagsliste geht mitten in einem Kommentar auf
-
-**Gemeldet:** 29. September 2026, Prüfung der installierten Fassung 0.4.0 (Bild `08_unit_geaendert_ungespeichert.png`).
-
-**Beobachtet:** Beim Tippen der Kommentarzeile `# Sicherungsprobe 040 - bitte verwerfen` erschien die Vervollständigung mit `sorted(…)`, `abs(…)` usw. und fing die Eingabe ab.
-
-**Ursache:** vermutet: Der Anstoß der Vervollständigung im Nebenfaden (Punkt 313) prüft nicht, ob der Cursor in einem Kommentar oder einer Zeichenkette steht.
-
-**Zu tun:** In Kommentaren und Zeichenketten keine Vorschlagsliste von selbst öffnen (Strg+Leertaste darf weiter). Erledigt, wenn ein Test das Tippen in einem Kommentar und in einer Zeichenkette ohne Liste zeigt.
-
----
-
-## 410. Doppelklick im Projekt-Explorer öffnet eine Unit nicht zuverlässig
-
-**Gemeldet:** 29. September 2026, Prüfung der installierten Fassung 0.4.0, nicht sicher belegt.
-
-**Beobachtet:** In drei Sitzungen blieben 12 Doppelklicks per UI Automation auf `u_main.py` bzw. `u_info.py` ohne Wirkung, einer um 09:09 öffnete die Unit; die Eingabetaste öffnete immer. Auf dem Bildschirm lagen dabei fremde Fenster einer anderen Sitzung, eine Störung der Automatisierung ist nicht ausgeschlossen. Dazu zwei Kleinigkeiten: Während der Ladeanzeige steht links schon „… gestartet (mit Debugger)“, und die Frage „Ungespeicherte Änderungen gefunden“ erscheint vor dem Hauptfenster allein auf dem Bildschirm.
-
-**Zu tun:** Doppelklick im Explorer offscreen mit echten Mausereignissen (`QTest.mouseDClick`) und an der installierten Fassung von Hand nachprüfen; ist er belegt, beheben. Die Frage zur Sicherung erst zeigen, wenn das Hauptfenster steht. Erledigt, wenn der Doppelklick in einem Test eine Unit öffnet und die Frage ein Elternfenster hat.
-
----
-
 # Zurückgestellt
 
 Bewusst nicht jetzt, mit Begründung. Beim Abarbeiten der Liste werden diese Punkte übergangen, bis jemand sie wieder hervorholt.

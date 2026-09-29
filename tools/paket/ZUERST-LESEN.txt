@@ -269,18 +269,26 @@ Nach der Installation steht Natter im Startmenue. Beim Start
 erscheint kurz ein Ladebild mit der Versionsnummer {VERSION}.
 
 Der erste Start nach der Installation oder einem Update dauert
-deutlich laenger als alle folgenden, gemessen 13 bis 18 Sekunden
-statt 2 bis 3. In den ersten 8 Sekunden ist dabei noch gar nichts zu
-sehen, auch kein Ladebild. Das liegt nicht an Natter: der Virenschutz
-prueft jede neu geschriebene Datei beim ersten Oeffnen, und Natter
-bringt rund 30 000 davon mit. Ab dem zweiten Start sind sie
-geprueft. Also nach dem ersten Doppelklick abwarten, statt ein
-zweites Mal zu klicken.
+deutlich laenger als alle folgenden, gemessen mit Windows Defender
+rund 16 Sekunden statt 1,5. Nach einer Sekunde steht das Fenster
+"Natter startet ...", nach rund 5 Sekunden das Ladebild. Der
+Virenschutz prueft jede neu geschriebene Datei beim ersten Oeffnen,
+und Natter bringt rund 30 000 davon mit. Ab dem zweiten Start sind
+sie geprueft. Also nach dem ersten Doppelklick abwarten, statt ein
+zweites Mal zu klicken. Beim ersten Programm mit scikit-learn oder
+matplotlib wiederholt sich das: das Beispiel 09_ObstSortierer
+brauchte beim ersten Start 76 Sekunden, beim zweiten 6,5.
 
 Auf vielen Rechnern hilft es, Natter nach der Installation einmal zu
 starten und wieder zu schliessen, bevor die Klasse kommt - etwa
 gleich auf der letzten Seite des Installationsprogramms ueber
-"Natter starten".
+"Natter starten" - und dabei einmal 09_ObstSortierer laufen zu
+lassen.
+
+Eine Ausnahme im Virenschutz fuer den Programmordner beseitigt die
+Wartezeit ganz. Sinnvoll ist sie nur bei einer Installation fuer alle
+Benutzer (C:\Program Files\Natter), in die Schuelerkonten nicht
+schreiben koennen, nicht fuer %LOCALAPPDATA%\Programs\Natter.
 
 Bleibt der Start aus, hilft ein Blick in die Ereignisanzeige unter
 

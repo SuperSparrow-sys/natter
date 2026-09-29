@@ -29,6 +29,7 @@ import hashlib
 import json
 import sys
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -351,6 +352,14 @@ def _kandidaten(
         yield programmordner / relativ
 
 
+#: So viele Dateien liest `manifest_erstellen` zugleich.
+_PRUEF_FAEDEN = 16
+
+
+def _pruefsumme(pfad: Path) -> str:
+    return hashlib.sha256(pfad.read_bytes()).hexdigest()
+
+
 def manifest_erstellen(
     programmordner: Path,
     *,
@@ -368,14 +377,26 @@ def manifest_erstellen(
     dateien: dict[str, str] = {}
     bibliotheken: dict[str, str] = {}
     kandidaten = _kandidaten(programmordner, nur_kern=nur_kern, geladen=geladen)
+    auftraege: list[tuple[dict[str, str], str, Path]] = []
     for pfad in sorted(set(kandidaten)):
         if not pfad.is_file():
             continue
         relativ = pfad.relative_to(programmordner).as_posix()
         if _erfasst(relativ):
-            dateien[relativ] = hashlib.sha256(pfad.read_bytes()).hexdigest()
+            auftraege.append((dateien, relativ, pfad))
         elif not nur_kern and ist_bibliothek(relativ):
-            bibliotheken[relativ] = hashlib.sha256(pfad.read_bytes()).hexdigest()
+            auftraege.append((bibliotheken, relativ, pfad))
+    # Mehrere Dateien zugleich (Punkt 407). Beim ersten Start nach
+    # einer Installation prüft der Virenschutz jede Datei beim ersten
+    # Öffnen. Die schnelle Prüfung liest rund 860 Dateien, viele davon
+    # zum ersten Mal: die `.py` von `ide` und `pcl` (geladen werden nur
+    # die `.pyc`), `python\DLLs` und `starter`. Nacheinander wartete
+    # der erste Start darauf 9,4 bis 10,3 s, zugleich 1,8 bis 2,2 s.
+    # Lesen und `sha256` geben die GIL frei.
+    with ThreadPoolExecutor(max_workers=_PRUEF_FAEDEN) as pool:
+        summen = pool.map(_pruefsumme, (pfad for _, _, pfad in auftraege))
+        for (ziel, relativ, _), summe in zip(auftraege, summen, strict=True):
+            ziel[relativ] = summe
     manifest: dict = {"format": FORMAT, "dateien": dateien}
     if not nur_kern:
         manifest["bibliotheken"] = bibliotheken
