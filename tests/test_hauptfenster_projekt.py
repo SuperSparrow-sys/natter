@@ -67,6 +67,73 @@ def test_explorer_doppelklick_oeffnet_die_datei(hauptfenster) -> None:
     assert hauptfenster.editor_tabs.tabText(0) == eintrag.text(0)
 
 
+def _maus(widget, art, pos) -> None:
+    """Ein Ereignis der linken Maustaste, wie es Windows zustellt."""
+    from PySide6.QtCore import QEvent, QPointF, Qt
+    from PySide6.QtGui import QMouseEvent
+    from PySide6.QtWidgets import QApplication
+
+    gedrueckt = (
+        Qt.MouseButton.NoButton if art == QEvent.Type.MouseButtonRelease
+        else Qt.MouseButton.LeftButton
+    )
+    QApplication.sendEvent(widget, QMouseEvent(
+        art, QPointF(pos), QPointF(widget.mapToGlobal(pos)),
+        Qt.MouseButton.LeftButton, gedrueckt,
+        Qt.KeyboardModifier.NoModifier,
+    ))
+
+
+def test_doppelklick_mit_der_maus_oeffnet_die_unit(
+    hauptfenster, qtbot, tmp_path: Path
+) -> None:
+    """Punkt 410: an der installierten 0.4.0 öffnete ein Doppelklick
+    per UI Automation eine Unit fast nie. Das lag an der
+    Automatisierung: pywinauto schickt beide Klicks mit demselben
+    Zeitstempel, und daraus macht Qt keinen Doppelklick, auch in
+    einem gewöhnlichen `QTreeWidget` nicht. Mit 20 ms zwischen
+    Drücken und Loslassen öffnete die installierte Fassung jede Unit.
+
+    Hier kommen die Ereignisse in der Folge, in der Windows sie
+    schickt: Drücken, Loslassen, Doppelklick, Loslassen. Zwischen den
+    beiden Klicks schlagen die Uhren, die im Hintergrund laufen, und
+    das Fenster wird aktiv. Baute dabei etwas den Baum neu auf,
+    verlöre der Doppelklick seinen Eintrag.
+
+    `QTest.mouseDClick` allein taugt dafür nicht: es schickt nur das
+    Doppelklick-Ereignis ohne das Drücken davor, und Qt übergeht
+    einen Doppelklick auf einen Eintrag, der vorher nicht gedrückt
+    wurde."""
+    import shutil
+
+    from PySide6.QtCore import QEvent
+
+    ordner = tmp_path / "06_Kontoverwaltung"
+    shutil.copytree(_AMPEL_ORDNER, ordner)
+    hauptfenster.show()
+    qtbot.waitExposed(hauptfenster)
+    hauptfenster.projekt_oeffnen(ordner)
+    baum = hauptfenster.explorer
+    flaeche = baum.viewport()
+    tabs = hauptfenster.editor_tabs
+
+    for i in range(baum.units_gruppe.childCount()):
+        eintrag = baum.units_gruppe.child(i)
+        rechteck = baum.visualItemRect(eintrag)
+        pos = rechteck.center()
+        pos.setX(rechteck.left() + 20)
+        _maus(flaeche, QEvent.Type.MouseButtonPress, pos)
+        _maus(flaeche, QEvent.Type.MouseButtonRelease, pos)
+        hauptfenster._sperre_uhr.timeout.emit()
+        hauptfenster._sicherung_uhr.timeout.emit()
+        hauptfenster.changeEvent(QEvent(QEvent.Type.ActivationChange))
+        _maus(flaeche, QEvent.Type.MouseButtonDblClick, pos)
+        _maus(flaeche, QEvent.Type.MouseButtonRelease, pos)
+
+        assert tabs.count() == i + 1
+        assert tabs.tabText(tabs.currentIndex()) == eintrag.text(0)
+
+
 def test_aenderung_markiert_den_tab_und_speichern_entfernt_die_markierung(
     tmp_path: Path, hauptfenster_bauen
 ) -> None:

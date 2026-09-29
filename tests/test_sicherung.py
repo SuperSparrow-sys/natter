@@ -179,6 +179,64 @@ def test_naechstes_oeffnen_bietet_die_sicherung_an(
     assert not (ordner / "T.natter-sicherung").exists()
 
 
+def test_beim_start_kommt_die_frage_ueber_dem_sichtbaren_fenster(
+    fenster: HauptFenster, natter: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Punkt 410: mit dem Projekt auf der Befehlszeile stand die Frage
+    vor dem Hauptfenster allein auf dem Bildschirm. Sie gehört über
+    das Fenster, und das muss da schon zu sehen sein."""
+    import sys
+
+    import ide.main as modul
+    from tests.conftest import hauptfenster_aufraeumen
+
+    fenster._sicherung_uhr.timeout.emit()
+    _beendet(fenster)
+    # Sonst fragte der Start erst, ob das Projekt in einem anderen
+    # Fenster weiterbearbeitet werden soll.
+    sperre.freigeben(natter.parent)
+
+    class _Anzeige:
+        def __init__(self, version: str) -> None:
+            pass
+
+        def show(self) -> None:
+            pass
+
+        def melden(self, text: str) -> None:
+            pass
+
+        def finish(self, fenster: object) -> None:
+            pass
+
+        def close(self) -> None:
+            pass
+
+    gefragt: list[tuple[bool, bool]] = []
+
+    def exec_(frage: QMessageBox) -> int:
+        eltern = frage.parentWidget()
+        gefragt.append((
+            isinstance(eltern, HauptFenster) and eltern is not fenster,
+            eltern is not None and eltern.isVisible(),
+        ))
+        return 0
+
+    monkeypatch.setattr(modul, "Ladeanzeige", _Anzeige)
+    monkeypatch.setattr(modul, "integritaet_bestaetigen", lambda f: True)
+    monkeypatch.setattr(modul, "fehlerhaken_einrichten", lambda: None)
+    monkeypatch.setattr(sys, "argv", ["Natter.exe", str(natter)])
+    monkeypatch.setattr(QMessageBox, "exec", exec_)
+
+    _app, gestartet = modul.starten()
+    try:
+        assert gefragt == [(True, True)], (
+            "Die Frage kam ohne sichtbares Hauptfenster dahinter."
+        )
+    finally:
+        hauptfenster_aufraeumen(gestartet)
+
+
 def test_seither_geaenderte_datei_wird_genannt_und_nicht_ueberschrieben(
     fenster: HauptFenster, hauptfenster_bauen, natter: Path,
     monkeypatch: pytest.MonkeyPatch,

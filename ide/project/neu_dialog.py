@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ide.pfade import natter_ordner
+from ide.pfade import dialog_startordner, natter_ordner
 from ide.project.neu import VORLAGEN, name_pruefen
 
 _VORLAGEN_ANZEIGE = {
@@ -120,7 +120,9 @@ class NeuesProjektDialog(QDialog):
 
     def _ordner_waehlen(self) -> None:
         ordner = QFileDialog.getExistingDirectory(
-            self, "Übergeordneter Ordner", self.ordner_eingabe.text()
+            self,
+            "Übergeordneter Ordner",
+            str(dialog_startordner(self.ordner_eingabe.text().strip())),
         )
         if ordner:
             self.ordner_eingabe.setText(ordner)

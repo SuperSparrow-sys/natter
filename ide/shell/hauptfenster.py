@@ -109,6 +109,7 @@ from ide.papierkorb import in_den_papierkorb, papierkorb_verfuegbar
 from ide.pfade import (
     beispielkopien_ordner,
     daten_ordner,
+    dialog_startordner,
     natter_ordner,
     vorlaeufig_entpackt,
 )
@@ -181,6 +182,10 @@ from pcl.theme import VORGABE_VARIABLE, theme_aufloesen
 
 _BILD_ENDUNGEN = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".svg"}
 _HTML_ENDUNGEN = {".html", ".htm"}
+
+#: Schlüssel in den Einstellungen: der Ordner, in dem zuletzt in einem
+#: Datei-Dialog etwas gewählt wurde (Punkt 408).
+_LETZTER_ORDNER = "dialoge/letzter_ordner"
 
 MENUETITEL = (
     "Datei",
@@ -2015,16 +2020,48 @@ class HauptFenster(QMainWindow):
         ansicht.insertAction(ansicht.actions()[0], self.formular_code_aktion)
         ansicht.insertSeparator(ansicht.actions()[1])
 
+    def _dialog_startordner(self) -> str:
+        """Wo „Öffnen …“ und die übrigen Datei-Dialoge beginnen: im
+        offenen Projekt, sonst im zuletzt in einem Dialog gewählten
+        Ordner, sonst neben dem zuletzt geöffneten Projekt, sonst in
+        `natter_ordner()` (Punkt 408)."""
+        from ide.shell.startbild import zuletzt_geoeffnet
+
+        kandidaten: list[Path | str | None] = []
+        if self.projekt is not None:
+            kandidaten.append(self.projekt.ordner)
+        kandidaten.append(
+            self._design_einstellungen.value(_LETZTER_ORDNER, "") or None
+        )
+        zuletzt = zuletzt_geoeffnet(self._design_einstellungen)
+        if zuletzt:
+            kandidaten.append(zuletzt[0].parent.parent)
+        return str(dialog_startordner(*kandidaten))
+
+    def _dialog_ordner_merken(self, pfad: str) -> None:
+        self._design_einstellungen.setValue(
+            _LETZTER_ORDNER, str(Path(pfad).parent)
+        )
+
     def _datei_oeffnen_dialog(self) -> None:
-        pfad, _ = QFileDialog.getOpenFileName(self, "Öffnen")
+        pfad, _ = QFileDialog.getOpenFileName(
+            self, "Öffnen", self._dialog_startordner()
+        )
         if pfad:
+            self._dialog_ordner_merken(pfad)
             self.oeffnen(Path(pfad))
 
     def _projekt_oeffnen_dialog(self) -> None:
         pfad, _ = QFileDialog.getOpenFileName(
-            self, "Projekt öffnen", filter="Natter-Projekte (*.natter)"
+            self,
+            "Projekt öffnen",
+            self._dialog_startordner(),
+            "Natter-Projekte (*.natter)",
         )
         if pfad:
+            # Gemerkt wird der Ordner über dem Projekt: von dort aus
+            # lässt sich beim nächsten Mal ein anderes wählen.
+            self._dialog_ordner_merken(str(Path(pfad).parent))
             self.projekt_oeffnen_gemeldet(Path(pfad))
 
     def _neues_projekt_dialog(self) -> None:
@@ -2348,7 +2385,10 @@ class HauptFenster(QMainWindow):
             )
             return
         pfad, _ = QFileDialog.getSaveFileName(
-            self, "Testergebnisse exportieren", filter="HTML-Datei (*.html)"
+            self,
+            "Testergebnisse exportieren",
+            self._dialog_startordner(),
+            "HTML-Datei (*.html)",
         )
         if not pfad:
             return
@@ -7055,10 +7095,14 @@ class HauptFenster(QMainWindow):
         Eigenschaften landen als Hinweis im Importbericht (Panel
         „Meldungen“), zusammen mit den Design-Prüfer-Funden."""
         quelle, _ = QFileDialog.getOpenFileName(
-            self, "Formular importieren", filter="Formulardateien (*.lfm)"
+            self,
+            "Formular importieren",
+            self._dialog_startordner(),
+            "Formulardateien (*.lfm)",
         )
         if not quelle:
             return
+        self._dialog_ordner_merken(quelle)
         try:
             lfm_objekt = parse_lfm(Path(quelle).read_text(encoding="utf-8-sig"))
         except LfmParserError as fehler:
@@ -7084,7 +7128,10 @@ class HauptFenster(QMainWindow):
         ziel, _ = QFileDialog.getSaveFileName(
             self,
             "Formular speichern unter",
-            str(Path(quelle).with_suffix(".pfm").name),
+            str(
+                Path(self._dialog_startordner())
+                / Path(quelle).with_suffix(".pfm").name
+            ),
             filter="Natter-Formulare (*.pfm)",
         )
         if not ziel:
@@ -7251,7 +7298,10 @@ class HauptFenster(QMainWindow):
         """„Pakete → Paketliste exportieren …“: `pip freeze` in eine
         `requirements.txt`."""
         pfad, _ = QFileDialog.getSaveFileName(
-            self, "Paketliste exportieren", "requirements.txt", "Text (*.txt)"
+            self,
+            "Paketliste exportieren",
+            str(Path(self._dialog_startordner()) / "requirements.txt"),
+            "Text (*.txt)",
         )
         if not pfad:
             return

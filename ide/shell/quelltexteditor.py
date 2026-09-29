@@ -209,6 +209,27 @@ def _code_maske(text: str) -> list[bool]:
     return maske
 
 
+def schreibmarke_im_code(links: str, in_dreifach: bool = False) -> bool:
+    """Steht die Schreibmarke hinter `links` im Code, also weder in
+    einem Kommentar noch in einer Zeichenkette?
+
+    `links` ist die Zeile bis zur Schreibmarke. `in_dreifach` heißt,
+    dass die Zeile in einer mehrzeiligen Zeichenkette beginnt; das
+    weiß die Hervorhebung aus der Zeile davor. Welches Zeichen sie
+    geöffnet hat, merkt sie sich nicht. Genommen wird deshalb das
+    erste dreifache Anführungszeichen der Zeile, denn nur das kann
+    sie schließen.
+    """
+    if in_dreifach:
+        doppelt, einfach = links.find('"""'), links.find("'''")
+        if einfach >= 0 and (doppelt < 0 or einfach < doppelt):
+            links = "'''" + links
+        else:
+            links = '"""' + links
+    # Ein Zeichen als Stellvertreter für das nächste, das getippt wird.
+    return _code_maske(links + "x")[-1]
+
+
 def _gegenklammer(text: str, stelle: int) -> int | None:
     anfang = max(0, stelle - _KLAMMER_SUCHWEITE)
     ende = min(len(text), stelle + _KLAMMER_SUCHWEITE)
@@ -765,6 +786,16 @@ class QuelltextEditor(QPlainTextEdit):
             return False
         cursor = self.textCursor()
         links = cursor.block().text()[: cursor.positionInBlock()]
+        # In einem Kommentar oder einer Zeichenkette steht deutscher
+        # Text. Eine Liste, die dort von selbst aufgeht, fängt die
+        # Eingabetaste ab (Punkt 409). Strg+Leertaste darf trotzdem.
+        if not erzwungen:
+            # Zustand 1 setzt die Hervorhebung am Ende einer Zeile, in
+            # der eine mehrzeilige Zeichenkette offen bleibt.
+            davor = cursor.block().previous()
+            in_dreifach = davor.isValid() and davor.userState() == 1
+            if not schreibmarke_im_code(links, in_dreifach):
+                return False
         nach_punkt = links.rstrip().endswith(".")
         return (
             erzwungen

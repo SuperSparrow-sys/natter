@@ -159,6 +159,25 @@ def natter_ordner() -> Path:
     return dokumente_ordner() / NATTER_ORDNER
 
 
+def dialog_startordner(*kandidaten: Path | str | None) -> Path:
+    """Der Ordner, in dem ein Datei-Dialog beginnt.
+
+    Der erste Kandidat, der als Ordner existiert, sonst
+    `natter_ordner()`, sonst die Dokumente. Ohne Startordner zeigt ein
+    Dialog den Arbeitsordner des Prozesses, und den setzt der
+    Startmenü-Eintrag auf den Programmordner von Natter - dort sucht
+    niemand seine Projekte (Punkt 408). Ein Ordner, den es nicht
+    gibt, führte zum selben Ergebnis, deshalb die Prüfung.
+    """
+    for kandidat in (*kandidaten, natter_ordner()):
+        if kandidat is None or kandidat == "":
+            continue
+        pfad = Path(kandidat)
+        if pfad.is_dir():
+            return pfad
+    return dokumente_ordner()
+
+
 #: Unterordner von `natter_ordner()` für die Kopien der Beispiele.
 BEISPIELKOPIEN_ORDNER = "Beispielprojekte"
 

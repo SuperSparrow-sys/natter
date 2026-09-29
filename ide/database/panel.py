@@ -47,6 +47,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ide.pfade import dialog_startordner
 from ide.viewers.csv_ansicht import csv_erkennen
 from pcl import SQLite3Connection
 from pcl.errors import NatterDatenbankError
@@ -551,11 +552,10 @@ class DatenbankPanel(QWidget):
         self._projektordner = Path(ordner) if ordner is not None else None
 
     def _sqlite_datei_waehlen(self) -> None:
-        start = str(self._projektordner) if self._projektordner else ""
         pfad, _ = QFileDialog.getOpenFileName(
             self,
             "Datenbankdatei wählen",
-            start,
+            str(dialog_startordner(self._projektordner)),
             "SQLite-Datenbanken (*.sqlite *.sqlite3 *.db);;Alle Dateien (*)",
         )
         if pfad:
@@ -1116,7 +1116,12 @@ class DatenbankPanel(QWidget):
                 "eine Datei wählen und auf „Verbinden“ klicken."
             )
             return
-        pfad, _ = QFileDialog.getOpenFileName(self, "CSV-Datei wählen", filter="CSV (*.csv)")
+        pfad, _ = QFileDialog.getOpenFileName(
+            self,
+            "CSV-Datei wählen",
+            str(dialog_startordner(self._projektordner)),
+            "CSV (*.csv)",
+        )
         if not pfad:
             return
         name = _tabellenname_aus_dateiname(Path(pfad))
@@ -1384,7 +1389,9 @@ class DatenbankPanel(QWidget):
         if tabelle is None:
             self._status_label.setText("Keine Tabelle im Baum ausgewählt.")
             return
-        pfad, _ = QFileDialog.getSaveFileName(self, titel, filter=filter_)
+        pfad, _ = QFileDialog.getSaveFileName(
+            self, titel, str(dialog_startordner(self._projektordner)), filter_
+        )
         if not pfad:
             return
         try:

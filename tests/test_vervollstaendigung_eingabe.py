@@ -120,6 +120,62 @@ def test_ein_ueberholtes_ergebnis_verfaellt(qtbot) -> None:  # noqa: ANN001
     assert not editor.vorschlagsliste.isVisible()
 
 
+def _ausrechnen_lassen(editor: QuelltextEditor) -> None:
+    """Wartet, bis die Tipp-Pause um ist und jedi im Nebenfaden fertig
+    gerechnet hat; danach stünde eine Liste, wenn eine käme."""
+    ende = time.monotonic() + 30
+    while time.monotonic() < ende and (
+        editor._vorschlag_uhr.isActive() or editor._rechnet
+    ):
+        schleife = QEventLoop()
+        QTimer.singleShot(20, schleife.quit)
+        schleife.exec()
+    assert not editor._vorschlag_uhr.isActive() and not editor._rechnet
+    QTest.qWait(50)
+
+
+@pytest.mark.parametrize(
+    ("davor", "liste"),
+    [
+        ("# Sicherungsprobe - ", False),
+        ('gruss = "Hallo ', False),
+        ('text = """Erste Zeile\n', False),
+        ("text = '''Erste Zeile\nzweite ", False),
+        ('text = """Erste\nZeile"""\n', True),
+        ('# Kommentar\ngruss = "Hallo" + ', True),
+    ],
+    ids=[
+        "kommentar",
+        "zeichenkette",
+        "mehrzeilig",
+        "mehrzeilig_einfach",
+        "nach_mehrzeilig",
+        "nach_zeichenkette",
+    ],
+)
+def test_in_kommentar_und_zeichenkette_bleibt_die_liste_zu(
+    qtbot, davor: str, liste: bool  # noqa: ANN001
+) -> None:
+    """Beim Tippen eines Kommentars ging die Liste mit `sorted(…)` und
+    `abs(…)` auf und fing die Eingabe ab (Punkt 409). In Kommentaren
+    und Zeichenketten steht Text, kein Code."""
+    editor = _editor(qtbot, davor)
+
+    QTest.keyClicks(editor, "pri")
+    _ausrechnen_lassen(editor)
+
+    assert editor.vorschlagsliste.isVisible() == liste
+
+
+def test_strg_leertaste_geht_auch_im_kommentar(qtbot) -> None:  # noqa: ANN001
+    """Von selbst nicht, auf Strg+Leertaste schon: wer die Liste
+    ausdrücklich will, bekommt sie."""
+    editor = _editor(qtbot, "# Probe pri")
+
+    assert not editor._vorschlag_anlass()
+    assert editor._vorschlag_anlass(erzwungen=True)
+
+
 # --------------------------------------------- Übernehmen
 
 

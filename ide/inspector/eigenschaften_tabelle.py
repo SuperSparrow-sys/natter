@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (
 
 from ide.inspector.menue_editor import MenueEditor
 from ide.inspector.sammlung_dialog import SammlungDialog
+from ide.pfade import dialog_startordner
 from pcl.errors import NatterPropertyError
 from pcl.properties import (
     ART_BILD,
@@ -90,7 +91,7 @@ def bilddatei_erfragen(eltern: QWidget, startordner: Path | None) -> str:
     pfad, _ = QFileDialog.getOpenFileName(
         eltern,
         "Bild auswählen",
-        str(startordner or ""),
+        str(dialog_startordner(startordner)),
         f"Bilder ({muster})",
     )
     return pfad

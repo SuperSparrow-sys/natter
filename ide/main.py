@@ -172,7 +172,6 @@ def starten() -> tuple[QApplication, HauptFenster | None]:
     # geöffnet …“ bei jedem Start im Ladebild (Punkt 33).
     if len(sys.argv) > 1 and sys.argv[1].lower().endswith(".natter"):
         anzeige.melden("Projekt wird geöffnet …")
-    _projekt_aus_argv_oeffnen(fenster, sys.argv)
     # Vor `show()`: sonst erscheint das Fenster erst klein und springt
     # danach auf die gemerkte Größe (Punkt 299).
     fenster.fensterlage_herstellen()
@@ -181,6 +180,14 @@ def starten() -> tuple[QApplication, HauptFenster | None]:
     # zu sehen ist - sonst blitzt der Schreibtisch dazwischen auf.
     anzeige.finish(fenster)
     QApplication.restoreOverrideCursor()
+    # Das Projekt erst, wenn das Fenster steht (Punkt 410). Beim
+    # Öffnen können Fragen kommen: ob eine Sicherung ungespeicherter
+    # Änderungen wiederhergestellt werden soll, ob das Projekt in
+    # einem anderen Fenster offen ist, wohin eine Kopie soll. Vor
+    # `show()` standen sie allein auf dem Bildschirm, ohne ein
+    # Natter-Fenster dahinter, und der Ladekreis drehte sich über
+    # der Frage weiter.
+    _projekt_aus_argv_oeffnen(fenster, sys.argv)
     # Markendateien der Ladeanzeige, die ein früheres Natter nach
     # einem Absturz liegen ließ (Punkt 314). Erst nach dem Fenster:
     # es kostet einen Blick in den Temp-Ordner, und der kann auf
