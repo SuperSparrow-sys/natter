@@ -69,6 +69,12 @@ class DapFehler(Exception):
     Debug-Adapter."""
 
 
+class DapProtokollFehler(DapFehler):
+    """Eine Nachricht von debugpy, die sich nicht lesen lässt. Anders
+    als eine geschlossene Verbindung kein gewöhnliches Ende der
+    Sitzung, sondern etwas, das gemeldet wird (Punkt 428)."""
+
+
 class DapAbgebrochen(DapFehler):
     """Der Start wurde über `DapClient.stoppen()` abgebrochen. Kein
     Fehler, den jemand gemeldet bekommen muss."""
@@ -327,18 +333,19 @@ class DapClient:
         GUI nicht einfrieren)."""
         assert self._socket is not None
         try:
-            while b"\r\n\r\n" not in self._puffer:
-                stueck = self._socket.recv(4096)
+            while True:
+                nachricht = self._nachricht_aus_puffer()
+                if nachricht is not None:
+                    return nachricht
+                # Alles Empfangene kommt sofort in den Puffer. Bis 0.4.2
+                # sammelte sich der Rest einer Nachricht in einer
+                # lokalen Variablen und ging verloren, wenn die kurze
+                # Zeitgrenze von `naechstes_ereignis_abfragen` mitten
+                # in einer Nachricht über 4 KB ablief (Punkt 428).
+                stueck = self._socket.recv(65536)
                 if not stueck:
                     raise DapFehler("Verbindung zu debugpy wurde geschlossen.")
                 self._puffer += stueck
-            kopf, rest = self._puffer.split(b"\r\n\r\n", 1)
-            laenge = int(kopf.split(b":")[1].strip())
-            while len(rest) < laenge:
-                stueck = self._socket.recv(4096)
-                if not stueck:
-                    raise DapFehler("Verbindung zu debugpy wurde geschlossen.")
-                rest += stueck
         except TimeoutError as fehler:
             if nachsichtig:
                 return None
@@ -346,8 +353,34 @@ class DapClient:
         except OSError as fehler:
             raise DapFehler("Verbindung zu debugpy wurde geschlossen.") from fehler
 
+    def _nachricht_aus_puffer(self) -> dict[str, Any] | None:
+        """Nimmt eine vollständige Nachricht aus dem Puffer, oder `None`,
+        solange noch Bytes fehlen."""
+        if b"\r\n\r\n" not in self._puffer:
+            return None
+        kopf, rest = self._puffer.split(b"\r\n\r\n", 1)
+        try:
+            laenge = int(kopf.split(b":", 1)[1].strip())
+        except (IndexError, ValueError) as fehler:
+            raise DapProtokollFehler(
+                "Unverständliche Nachricht von debugpy: Kopfzeile "
+                f"{kopf[:80]!r}."
+            ) from fehler
+        if len(rest) < laenge:
+            return None
         self._puffer = rest[laenge:]
-        return json.loads(rest[:laenge])
+        try:
+            nachricht = json.loads(rest[:laenge])
+        except ValueError as fehler:
+            raise DapProtokollFehler(
+                "Unverständliche Nachricht von debugpy: kein gültiges "
+                "JSON."
+            ) from fehler
+        if not isinstance(nachricht, dict):
+            raise DapProtokollFehler(
+                "Unverständliche Nachricht von debugpy: kein Objekt."
+            )
+        return nachricht
 
     def anfrage(self, command: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
         """Sendet `command` und wartet auf die zugehörige Antwort.

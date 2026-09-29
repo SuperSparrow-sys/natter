@@ -21,7 +21,11 @@ from typing import Any
 
 from PySide6.QtCore import QObject, Signal
 
-from ide.debugger.dap_client import DapClient, DapFehler
+from ide.debugger.dap_client import (
+    DapClient,
+    DapFehler,
+    DapProtokollFehler,
+)
 
 _ABFRAGE_INTERVALL = 0.05
 
@@ -163,6 +167,40 @@ class DebugSitzung(QObject):
         anfangs_breakpoints: dict[Path, list[int]] | None,
         konsole_titel: str | None = None,
     ) -> None:
+        """Der Lesefaden. Endet er mit einer unerwarteten Ausnahme,
+        etwa einer Nachricht, die sich nicht lesen lässt, meldete bis
+        0.4.2 niemand das Ende der Sitzung, und Start und Stopp blieben
+        im Zustand des laufenden Debuggers stehen, bis Natter neu
+        startete (Punkt 428). Jetzt endet die Sitzung mit einer
+        Meldung und `beendet`, und das Programm wird beendet."""
+        try:
+            self._worker_ablauf(
+                skriptpfad, arbeitsordner, anfangs_breakpoints,
+                konsole_titel,
+            )
+        except Exception as fehler:  # noqa: BLE001
+            if self.client.gestoppt:
+                return
+            grund = (
+                str(fehler)
+                if isinstance(fehler, DapFehler)
+                else f"{type(fehler).__name__}: {fehler}"
+            )
+            self.fehler.emit(
+                f"Die Debug-Sitzung wurde wegen eines Fehlers beendet. "
+                f"{grund}"
+            )
+            self._laeuft = False
+            self.beendet.emit(self._letzter_exitcode)
+            self.client.stoppen()
+
+    def _worker_ablauf(
+        self,
+        skriptpfad: Path,
+        arbeitsordner: Path,
+        anfangs_breakpoints: dict[Path, list[int]] | None,
+        konsole_titel: str | None,
+    ) -> None:
         try:
             self.client.starten(
                 skriptpfad,
@@ -184,6 +222,9 @@ class DebugSitzung(QObject):
                 break
             try:
                 ereignis = self.client.naechstes_ereignis_abfragen(_ABFRAGE_INTERVALL)
+            except DapProtokollFehler:
+                # Wird in `_worker` gemeldet und beendet die Sitzung.
+                raise
             except DapFehler:
                 # Verbindung weg (z. B. nach einem harten Stopp/`kill()`) -
                 # kein Protokollfehler, sondern das erwartete Ende der

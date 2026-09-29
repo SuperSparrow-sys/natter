@@ -268,3 +268,92 @@ def test_ein_vom_test_gestarteter_prozess_endet_mit_dem_lauf(
     finally:
         if kind_pid is not None and _prozess_lebt(kind_pid):
             os.kill(kind_pid, 9)
+
+
+_SCHEITERNDER_TEST = (
+    "import unittest\n"
+    "\n"
+    "class TestB(unittest.TestCase):\n"
+    "    def test_vergleich(self):\n"
+    "        self.assertEqual(2, 3)\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("inhalt", "erwartete_id", "erwartet"),
+    [
+        pytest.param(
+            "import unittest\n"
+            "from pcl import Form\n"
+            "\n"
+            "class TestA(unittest.TestCase):\n"
+            "    def test_formular(self):\n"
+            "        Form()\n",
+            "test_a.TestA.test_formular",
+            ["während dieses Tests", "0xC0000409", "QApplication"],
+            id="formular_ohne_qapplication",
+        ),
+        pytest.param(
+            "import os, unittest\n"
+            "\n"
+            "class TestA(unittest.TestCase):\n"
+            "    def test_beendet(self):\n"
+            "        os._exit(3)\n",
+            "test_a.TestA.test_beendet",
+            ["während dieses Tests", "Rückgabewert 3"],
+            id="os_exit_im_test",
+        ),
+        pytest.param(
+            "import os\n"
+            "os._exit(3)\n",
+            "test_a",
+            ["beim Laden der Testdatei test_a.py", "Rückgabewert 3"],
+            id="os_exit_beim_laden",
+        ),
+    ],
+)
+def test_absturz_nimmt_die_anderen_ergebnisse_nicht_mit(
+    tmp_path: Path, inhalt: str, erwartete_id: str, erwartet: list[str]
+) -> None:
+    """Punkt 425: stürzte der Testprozess ab, fielen alle Ergebnisse
+    weg, und der Test-Explorer meldete „0 Tests gelaufen“."""
+    (tmp_path / "test_a.py").write_text(inhalt, encoding="utf-8")
+    (tmp_path / "test_b.py").write_text(
+        _SCHEITERNDER_TEST, encoding="utf-8"
+    )
+
+    ergebnisse = ausfuehren(tmp_path, zeitlimit=60)
+
+    nach_id = {e.id: e for e in ergebnisse}
+    assert set(nach_id) == {erwartete_id, "test_b.TestB.test_vergleich"}
+    assert nach_id["test_b.TestB.test_vergleich"].status == "fehlgeschlagen"
+    abbruch = nach_id[erwartete_id]
+    assert abbruch.status == "fehler"
+    assert "abgebrochen" in abbruch.nachricht
+    for teil in erwartet:
+        assert teil in abbruch.nachricht
+
+
+def test_unlesbares_ergebnis_wird_deutsch_gemeldet(tmp_path: Path) -> None:
+    """Punkt 425: stand hinter der letzten Marke kein gültiges JSON,
+    endete der Lauf mit einem englischen JSONDecodeError."""
+    (tmp_path / "test_kaputt.py").write_text(
+        "import atexit, os, unittest\n"
+        "\n"
+        "atexit.register(\n"
+        "    lambda: os.write(1, b'@@natter-testergebnis@@{kaputt\\n')\n"
+        ")\n"
+        "\n"
+        "class TestKaputt(unittest.TestCase):\n"
+        "    def test_x(self):\n"
+        "        pass\n",
+        encoding="utf-8",
+    )
+
+    ergebnisse = ausfuehren(tmp_path)
+
+    assert [(e.id, e.status) for e in ergebnisse] == [
+        ("test_kaputt.TestKaputt.test_x", "bestanden"),
+        ("Testlauf", "fehler"),
+    ]
+    assert "ließ sich nicht lesen" in ergebnisse[1].nachricht
