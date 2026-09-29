@@ -575,6 +575,38 @@ README zeigt auf die neueste Fassung. Vor dem Entpacken die ZIP unter
 Nach jedem Bau kommt hier ein Eintrag dazu: Datum, Fassung, Größe,
 Signaturen, Dauer, und was der Lauf aufgedeckt hat, samt Irrweg.
 
+### 0.4.2 – 29. September 2026
+
+`Natter-Setup.exe`, 276,4 MB, ZIP 277 MB, jede Binärdatei gültig
+signiert. Veröffentlicht als Release `v0.4.2`. 29,5 Minuten: pytest
+5:14, `dist\Natter` 12:56, Installer 8:56. Enthält die Punkte 411
+(CSV-Ansicht ohne Absturz beim Schließen während des Neuladens) und
+412 (Statusleiste ohne hellen Kasten hinter der Ladeanzeige).
+
+Update 0.4.1 → 0.4.2 still, Rückgabe 0 nach 394 s; Windows führt
+„Natter 0.4.2“. Geprüft mit Bildschirmfotos
+(`build\auswertung\042\`): Die Ladeanzeige und „Zeile N, Spalte M“
+stehen auf dem Grau der Leiste (`#f5f5f5` links wie hinter dem Text,
+kein weißes Pixel im Anzeigebereich). Eine offene CSV-Datei wurde von
+außen 4 s lang 16- bis 24-mal mit bis zu 60.000 Zeilen neu geschrieben
+und ihr Reiter mittendrin geschlossen, in fünf Runden; Natter
+antwortete jedes Mal, keine Meldung. Die Wache blieb ohne Befund.
+
+Erster Start nach der Installation 21,2 s bis zum antwortenden
+Hauptfenster, zweiter 1,9 s, dritter und vierter 2,2 und 2,3 s. Die
+Last lag diesmal bei 17 % vorher und 25 % während des Starts, der
+Virenschutz rechnete 30,2 s (beim zweiten Start 0,6 s). Die 21,2 s
+sind eine Obergrenze, weil das Prüfskript das Ladebild synchron nach
+vorn holte und dabei auf den beschäftigten Faden wartete. Erster
+Programmstart des ObstSortierers 75,8 s.
+
+Zwei neue Punkte, nicht behoben, weil der Nutzer nach dieser Prüfung
+anhalten wollte: Die Ladeanzeige nimmt die halbe Statusleiste ein und
+schiebt „Zeile N, Spalte M“ in die Mitte (413), und das Ladebild
+erscheint beim ersten Start auf dem Bildschirm weiß, obwohl sein
+Fenster den Text enthält (414, nur aus einem Hintergrundprozess
+gestartet, am Startmenü noch nicht nachgeprüft).
+
 ### 0.4.1 – 29. September 2026
 
 `Natter-Setup.exe`, 276,4 MB, ZIP 277 MB. `Natter-Setup.exe` `Valid`,
