@@ -26,6 +26,10 @@ from pcl.theme import NATTER_SYMBOL
 #: Texte fallen ohne Meldung ins Englische zurück.
 _UEBERSETZER: list[QTranslator] = []
 
+#: Unter dieser Kennung führt Windows ein Programm in der Taskleiste,
+#: getrennt von der IDE mit ihrer Kennung `Natter.IDE` (Punkt 416).
+ANWENDUNGS_KENNUNG = "Natter.Programm"
+
 
 def _qt_deutsch_laden(app: QApplication) -> None:
     """Lädt Qts deutsche Texte: „Abbrechen“ in `input_box`,
@@ -66,8 +70,32 @@ def _natter_symbol_setzen(app: QApplication) -> None:
     app.setWindowIcon(QIcon(str(NATTER_SYMBOL)))
 
 
+def _anwendungs_kennung_setzen() -> None:
+    """Meldet das Programm bei Windows unter eigener Kennung an, bevor
+    ein Fenster entsteht (Punkt 416).
+
+    Ohne sie ordnete die Taskleiste das Programm der `pythonw.exe` zu
+    und beschriftete den Knopf mit „Python“. Eine als Exe exportierte
+    Fassung bleibt ohne: sie ist ein eigenes Programm mit eigenem
+    Namen und Symbol und soll nicht mit anderen Natter-Programmen in
+    einer Gruppe landen.
+    """
+    if sys.platform != "win32" or getattr(sys, "frozen", False):
+        return
+    import ctypes
+
+    try:
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            ANWENDUNGS_KENNUNG
+        )
+    except (AttributeError, OSError):
+        pass
+
+
 class Application:
     def __init__(self) -> None:
+        if QApplication.instance() is None:
+            _anwendungs_kennung_setzen()
         self._qapp = QApplication.instance() or QApplication(sys.argv)
         _qt_deutsch_laden(self._qapp)
         _natter_symbol_setzen(self._qapp)

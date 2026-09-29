@@ -23,6 +23,7 @@
 #define MyAppPublisher "Natter-Projekt"
 #define MyAppExeName "Natter.exe"
 #define MyAppIcon "..\ide\assets\icons\app.ico"
+#define MyAppUserModelID "Natter.IDE"
 
 [Setup]
 ; Feste, projekteigene AppId (nicht neu würfeln - sonst behandelt
@@ -155,9 +156,12 @@ Source: "..\dist\Natter\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdir
 Source: "installer_pakete_merken.py"; Flags: dontcopy
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+; Dieselbe Kennung setzt die IDE beim Start (ANWENDUNGS_KENNUNG in
+; ide/main.py). Daran erkennt die Taskleiste das Fenster als Natter
+; und zeigt Namen und Symbol der Verknüpfung (Punkt 416).
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; AppUserModelID: "{#MyAppUserModelID}"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; AppUserModelID: "{#MyAppUserModelID}"; Tasks: desktopicon
 
 [Registry]
 ; .natter-Dateiendung mit Natter verknüpfen - Doppelklick im Explorer

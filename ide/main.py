@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QCursor
+from PySide6.QtGui import QCursor, QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from ide.deutsch import deutsch_einschalten
@@ -36,6 +36,36 @@ if TYPE_CHECKING:
 #: `importlib.metadata` gelesen: die Paketangaben nachzuschlagen dauert
 #: länger als das Bild, das sie zeigen soll.
 VERSION = "0.4.2"
+
+#: Unter dieser Kennung führt Windows die IDE in der Taskleiste. Die
+#: Verknüpfungen im Startmenü und auf dem Schreibtisch tragen dieselbe
+#: (`tools/natter.iss`); so nimmt die Taskleiste Namen und Symbol aus
+#: der Verknüpfung und nicht aus `pythonw.exe` (Punkt 416).
+ANWENDUNGS_KENNUNG = "Natter.IDE"
+
+_SYMBOL = Path(__file__).resolve().parent / "assets" / "icons" / "app.ico"
+
+
+def anwendungs_kennung_setzen() -> None:
+    """Meldet den Prozess bei Windows als Natter an, bevor das erste
+    Fenster entsteht (Punkt 416).
+
+    Ohne eigene Kennung ordnete die Taskleiste die IDE der
+    `pythonw.exe` zu: die Knöpfe hießen „Python“, und beim ersten
+    Start nach der Installation zeigte einer das leere Fenstersymbol.
+    Gesetzt wird sie nur in `starten()`, nicht in den Tests, die
+    `anwendung_erzeugen()` im Testprozess aufrufen.
+    """
+    if sys.platform != "win32":
+        return
+    import ctypes
+
+    try:
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            ANWENDUNGS_KENNUNG
+        )
+    except (AttributeError, OSError):
+        pass
 
 
 def integritaet_bestaetigen(fenster: HauptFenster) -> bool:
@@ -78,6 +108,12 @@ def anwendung_erzeugen() -> QApplication:
     # Tastenkürzel in den Menüs („Strg+S“ statt „Ctrl+S“) werden beim
     # Aufbau gesetzt (M11, Abschnitt 4).
     deutsch_einschalten(app)
+    # Das Symbol für jedes Fenster, das keins mitbringt, und zwar vor
+    # dem ersten (Punkt 416). Bis 0.4.2 setzte es erst das
+    # Hauptfenster für sich selbst. Die `.ico` statt `symbol("app")`:
+    # das zöge QtSvg nach, bevor das Startbild steht.
+    if app.windowIcon().isNull() and _SYMBOL.is_file():
+        app.setWindowIcon(QIcon(str(_SYMBOL)))
     return app
 
 
@@ -132,6 +168,7 @@ def starten() -> tuple[QApplication, HauptFenster | None]:
     Liefert `None` als Fenster, wenn die Prüfung der Installation den
     Start abgelehnt hat.
     """
+    anwendungs_kennung_setzen()
     app = anwendung_erzeugen()
     # Ab hier endet ein Fehler in Natter selbst in einer deutschen
     # Meldung statt in einem Traceback, den in der gebauten Exe ohnehin

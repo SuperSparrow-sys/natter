@@ -27,7 +27,14 @@ os.environ.setdefault("QT_QPA_FONTDIR", r"C:\Windows\Fonts")
 #: nicht mehr zuverlässig: in vier Durchläufen fiel jedes Mal ein
 #: *anderer* Debugger-Test um. Das war nie ein Fehler im Debugger,
 #: sondern eine zu knappe Grenze unter Last.
-DEBUG_ZEITGRENZE = 45000
+#:
+#: Auf dem Runner von GitHub (dort ist `CI` gesetzt) blieben auch mit
+#: 45 Sekunden drei Tests je einmal ohne Halt stehen, jeder war beim
+#: erneuten Lauf grün, und lokal fiel keiner aus (Punkt 46). Dort gilt
+#: deshalb die doppelte Grenze. Hält ein Test auch nach 90 Sekunden
+#: nicht, ist es kein langsamer Rechner mehr und gehört als neuer
+#: Punkt in die Liste.
+DEBUG_ZEITGRENZE = 90000 if os.environ.get("CI") else 45000
 
 import pytest  # noqa: E402
 from PySide6.QtCore import QSettings  # noqa: E402
