@@ -19,6 +19,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from PySide6.QtGui import QIcon
 
 from ide.integritaet import start_pruefung
 from tools import launcher
@@ -134,6 +135,12 @@ def test_qt_bekommt_keine_befehlszeilenschalter(
             pass
 
         def setApplicationName(self, _: str) -> None:  # noqa: N802
+            pass
+
+        def windowIcon(self) -> QIcon:  # noqa: N802
+            return QIcon()
+
+        def setWindowIcon(self, _: QIcon) -> None:  # noqa: N802
             pass
 
     monkeypatch.setattr(main, "QApplication", Attrappe)
