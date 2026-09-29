@@ -4,12 +4,15 @@ Arbeitspaket M5, Schritt 7. Headless.
 
 from __future__ import annotations
 
+import gc
+import threading
 import time
+import weakref
 from itertools import pairwise
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QCoreApplication, QEvent, Qt, QTimer
 from PySide6.QtTest import QTest
 
 from ide.viewers import CsvAnsicht, csv_erkennen
@@ -311,6 +314,46 @@ def test_csvansicht_laedt_nach_aenderung_der_datei_neu(
     kopfleiste = ansicht.tabelle.horizontalHeader()
     assert kopfleiste.sortIndicatorSection() == 1
     assert ansicht._filter.text() == "ann"
+
+
+def test_csvansicht_verfaellt_ein_neuladen_nach_dem_schliessen(
+    tmp_path: Path, qtbot, monkeypatch,  # noqa: ANN001
+) -> None:
+    """Punkt 411: der Nebenfaden hielt die Ansicht selbst und sendete
+    nach ihrem Löschen an ein zerstörtes Widget; im CI endete das mit
+    „access violation“. Er darf nur den Boten halten, und sein
+    Ergebnis verfällt."""
+    from ide.viewers import csv_ansicht
+
+    datei = tmp_path / "punkte.csv"
+    datei.write_text("name;punkte\nAnna;12\n", encoding="utf-8")
+    ansicht = CsvAnsicht(datei)
+
+    weiter = threading.Event()
+    echt = csv_ansicht._datei_lesen
+
+    def langsam(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+        weiter.wait(10)
+        return echt(*args, **kwargs)
+
+    monkeypatch.setattr(csv_ansicht, "_datei_lesen", langsam)
+    ansicht._neu_laden()
+    faden = next(
+        f for f in threading.enumerate() if f.name == "CsvAnsicht-Neuladen"
+    )
+
+    verweis = weakref.ref(ansicht)
+    ansicht.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    del ansicht
+    gc.collect()
+    try:
+        assert verweis() is None, "der Nebenfaden hält die Ansicht"
+    finally:
+        weiter.set()
+        faden.join(10)
+    assert not faden.is_alive()
+    qtbot.wait(50)
 
 
 @pytest.mark.parametrize(

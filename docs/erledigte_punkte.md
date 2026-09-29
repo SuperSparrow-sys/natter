@@ -11717,3 +11717,32 @@ Der Doppelklick im Projekt-Explorer ist kein Fehler von Natter. Geprüft: das Ö
 
 Die Statusleiste beim Start bleibt, wie sie ist: links steht, dass das Programm gestartet wurde, rechts, dass es noch lädt. Der Prozess besteht in dem Moment schon, beim Debugger wenige Millisekunden später.
 
+---
+
+## 411. Die CSV-Ansicht kann abstürzen, wenn sie während des Neuladens geschlossen wird ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, CI-Lauf 36546621839 zu Commit 718f5aa (Job „schnell und mittel“).
+
+**Beobachtet:** „Windows fatal exception: access violation“ im Aufräumen nach `tests/test_viewer_csv.py::test_csvansicht_laedt_nach_aenderung_der_datei_neu` (`tests/conftest.py`, `_fenster_des_tests_aufraeumen`, beim Löschen der Fenster). Der Prozess gw3 fiel aus, der Lauf stand danach bis zur Zeitgrenze von 60 Minuten. Derselbe Stand lief im nächsten CI-Lauf und lokal (4980 Tests) grün.
+
+**Ursache:** `CsvAnsicht._neu_laden` (`ide/viewers/csv_ansicht.py`) startet den Nebenfaden mit der gebundenen Methode `self._im_nebenfaden_laden`. Der Faden hält damit das Widget selbst und sendet sein Ergebnis über dessen Signal `_neu_geladen`. Wird die Ansicht gelöscht, während der Faden noch liest (Reiter geschlossen, Test zu Ende), sendet er an ein zerstörtes Qt-Objekt, oder das Widget wird im Nebenfaden abgeräumt. Der Editor löst dasselbe mit einem `_Bote` (Punkt 313).
+
+**Zu tun:** Der Nebenfaden hält nur einen Boten, nie die Ansicht. Erledigt, wenn ein Test zeigt, dass der laufende Faden keinen Verweis auf die Ansicht hält und ein Ergebnis nach dem Löschen der Ansicht ohne Absturz verfällt.
+
+**Behoben (29. September 2026, ab 0.4.2).** `CsvAnsicht._neu_laden` startet den Nebenfaden jetzt mit der Funktion `_im_nebenfaden_laden` auf Modulebene und gibt ihr nur einen `_Bote` mit (`ide/viewers/csv_ansicht.py`), wie der Editor bei der Vervollständigung (Punkt 313). Der Bote hat keine Eltern und lebt, solange Ansicht oder Faden ihn halten; wird die Ansicht gelöscht, löst Qt die Verbindung, und das Ergebnis verfällt. Vorher hielt der Faden über die gebundene Methode die Ansicht selbst und sendete über ihr Signal `_neu_geladen`. Test: `test_csvansicht_verfaellt_ein_neuladen_nach_dem_schliessen` in `tests/test_viewer_csv.py` hält das Lesen im Faden an, löscht die Ansicht und verlangt, dass kein Verweis auf sie übrig bleibt; gegen den alten Stand scheitert er mit „der Nebenfaden hält die Ansicht“. Offen bleibt, warum der CI-Lauf nach dem Ausfall von gw3 bis zur Zeitgrenze stand, statt mit einem Fehler zu enden; `timeout-minutes: 60` hat ihn beendet.
+
+
+---
+
+## 412. Die Ladeanzeige in der Statusleiste steht auf einem weißen Kasten ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, vom Nutzer an der installierten Fassung 0.4.1 (Datenbank-Panel offen, „Programm wird geladen … 15 s“).
+
+**Beobachtet:** Die Statusleiste ist grau, Balken und Text der Ladeanzeige stehen auf einem weißen Rechteck, das mitten in der Leiste hart beginnt.
+
+**Ursache:** Die allgemeine Regel `QWidget { background-color: … }` in `ide/shell/theme.py` gibt dem Behälter der Ladeanzeige, ihrem `QLabel` und dem `QProgressBar` die Grundfarbe des Fensters; die Statusleiste selbst hat die Farbe `surface`. Dasselbe betrifft die Anzeige von Zeile und Spalte und den Fortschrittsbalken.
+
+**Zu tun:** Alles in der Statusleiste ohne eigenen Hintergrund zeichnen, in beiden Themen. Erledigt, wenn ein Test den Hintergrund der Ladeanzeige mit dem der Statusleiste vergleicht.
+
+**Behoben (29. September 2026, ab 0.4.2).** Neue Regel `QStatusBar QWidget { background-color: transparent; }` in `ide/shell/theme.py`: Behälter, Text und Balken der Ladeanzeige, die Anzeige von Zeile und Spalte und der Fortschrittsbalken stehen jetzt auf dem Grau der Statusleiste, in beiden Themen. Die rote Anzeige des Prüfungsmodus hat eine eigene Regel am Widget und bleibt rot. Test: `test_die_ladeanzeige_steht_ohne_eigenen_kasten_in_der_statusleiste[light|dark]` in `tests/test_ide_theme.py` vergleicht den Hintergrund des Textes mit dem der Leiste, nachdem die Leiste ihre Farbe hat; gegen den alten Stand scheitert er mit #ffffff statt #f5f5f5 bzw. #1e1e1e statt #252526.
+

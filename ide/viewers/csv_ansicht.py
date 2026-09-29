@@ -22,6 +22,7 @@ from PySide6.QtCore import (
     QAbstractTableModel,
     QFileSystemWatcher,
     QModelIndex,
+    QObject,
     QPersistentModelIndex,
     Qt,
     QTimer,
@@ -533,14 +534,54 @@ class _CsvModell(QAbstractTableModel):
         self.endResetModel()
 
 
+class _Bote(QObject):
+    """Bringt das Ergebnis eines Neuladens aus dem Nebenfaden: laufende
+    Nummer des Auftrags und die `_Ladung`. Qt stellt das Signal im
+    Faden der Oberfläche zu.
+
+    Der Nebenfaden hält nur den Boten, nie die Ansicht (Punkt 411).
+    Hielt er die Ansicht selbst, sendete er nach dem Schließen des
+    Reiters an ein schon gelöschtes Widget, und Python stürzte mit
+    „access violation“ ab. Der Bote hat keine Eltern: er lebt, solange
+    Ansicht oder Faden ihn halten, und geht nicht mit der Ansicht
+    unter, während der Faden noch sendet. Die Verbindung zur Ansicht
+    löst Qt beim Löschen der Ansicht von selbst.
+    """
+
+    fertig = Signal(int, object)
+
+
+def _im_nebenfaden_laden(
+    bote: _Bote,
+    auftrag: int,
+    pfad: Path,
+    filtertext: str,
+    sortierung: tuple[int, bool],
+) -> None:
+    # Ohne automatische Speicherbereinigung: eine Million Zeilen
+    # sind eine Million neue Listen, und jeder volle Durchgang der
+    # Bereinigung darüber hielt den Faden der Oberfläche bis zu
+    # 0,9 s an. Dazu räumte sie womöglich im Nebenfaden ein altes
+    # Qt-Objekt ab.
+    try:
+        with nebenfaden_rechnet():
+            ladung = _datei_lesen(pfad, filtertext, sortierung)
+    except Exception as fehler:  # noqa: BLE001
+        # Ein Fehler im Nebenfaden ginge sonst ungesehen verloren,
+        # und die Ansicht bliebe für immer beim Laden stehen.
+        ladung = _Ladung(
+            lesefehler=(
+                f"„{pfad.name}“ lässt sich nicht lesen. Beim "
+                f"Einlesen trat ein Fehler auf "
+                f"({type(fehler).__name__})."
+            ),
+        )
+    bote.fertig.emit(auftrag, ladung)
+
+
 class CsvAnsicht(QWidget):
     """Zeigt eine CSV-Datei als sortierbare, filterbare Tabelle oder als
     Rohtext (Abschnitt 11.5)."""
-
-    # Bringt das Ergebnis eines Neuladens aus dem Nebenfaden: laufende
-    # Nummer des Auftrags und die `_Ladung`. Qt stellt das Signal im
-    # Faden der Oberfläche zu.
-    _neu_geladen = Signal(int, object)
 
     def __init__(self, pfad: Path, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -620,7 +661,8 @@ class CsvAnsicht(QWidget):
         self._auftrag = 0
         self._faden_laeuft = False
         self._noch_einmal = False
-        self._neu_geladen.connect(self._neu_geladen_einsetzen)
+        self._bote = _Bote()
+        self._bote.fertig.connect(self._neu_geladen_einsetzen)
 
         # Das erste Lesen geschieht gleich hier: wer die Ansicht
         # öffnet, erwartet den Inhalt. Ohne Sortierung und Filter ist
@@ -785,45 +827,14 @@ class CsvAnsicht(QWidget):
         self._faden_laeuft = True
         self._noch_einmal = False
         threading.Thread(
-            target=self._im_nebenfaden_laden,
+            target=_im_nebenfaden_laden,
             args=(
-                self._auftrag, self._pfad, self._filter.text(),
-                self._sortierung(),
+                self._bote, self._auftrag, self._pfad,
+                self._filter.text(), self._sortierung(),
             ),
             name="CsvAnsicht-Neuladen",
             daemon=True,
         ).start()
-
-    def _im_nebenfaden_laden(
-        self,
-        auftrag: int,
-        pfad: Path,
-        filtertext: str,
-        sortierung: tuple[int, bool],
-    ) -> None:
-        # Ohne automatische Speicherbereinigung: eine Million Zeilen
-        # sind eine Million neue Listen, und jeder volle Durchgang der
-        # Bereinigung darüber hielt den Faden der Oberfläche bis zu
-        # 0,9 s an. Dazu räumte sie womöglich im Nebenfaden ein altes
-        # Qt-Objekt ab.
-        try:
-            with nebenfaden_rechnet():
-                ladung = _datei_lesen(pfad, filtertext, sortierung)
-        except Exception as fehler:  # noqa: BLE001
-            # Ein Fehler im Nebenfaden ginge sonst ungesehen verloren,
-            # und die Ansicht bliebe für immer beim Laden stehen.
-            ladung = _Ladung(
-                lesefehler=(
-                    f"„{pfad.name}“ lässt sich nicht lesen. Beim "
-                    f"Einlesen trat ein Fehler auf "
-                    f"({type(fehler).__name__})."
-                ),
-            )
-        try:
-            self._neu_geladen.emit(auftrag, ladung)
-        except RuntimeError:
-            # Die Ansicht wurde inzwischen geschlossen.
-            pass
 
     def _neu_geladen_einsetzen(self, auftrag: int, ladung: _Ladung) -> None:
         if auftrag != self._auftrag:

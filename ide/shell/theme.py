@@ -278,6 +278,14 @@ QStatusBar {{
     background-color: {farben["surface"]};
     border-top: 1px solid {farben["border"]};
 }}
+/* Ladeanzeige, Zeile und Spalte und Fortschrittsbalken bekämen über
+   die allgemeine QWidget-Regel die Grundfarbe des Fensters und
+   stünden als heller Kasten in der Leiste (Punkt 412). Die rote
+   Anzeige des Prüfungsmodus hat eine eigene Regel am Widget und
+   bleibt rot. */
+QStatusBar QWidget {{
+    background-color: transparent;
+}}
 
 QPushButton {{
     background-color: {farben["surface"]};

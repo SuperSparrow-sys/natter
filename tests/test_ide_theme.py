@@ -4,7 +4,17 @@ Gemeldet: die IDE wirkte insgesamt farblos/grau,
 weil dafür bisher gar kein eigenes Stylesheet existierte.
 """
 
-from ide.shell.theme import ide_qss_erzeugen
+import pytest
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QProgressBar,
+    QWidget,
+)
+
+from ide.shell.theme import _tokens_laden, ide_qss_erzeugen
 
 
 def test_qss_enthaelt_die_tokens_des_gewaehlten_themes() -> None:
@@ -50,3 +60,49 @@ def test_im_dunklen_thema_steht_keine_weisse_schrift_fest() -> None:
  zum Hover: „die schrift darf nicht weis werden").
  """
     assert "#ffffff" not in ide_qss_erzeugen("dark").lower()
+
+
+@pytest.mark.parametrize("thema", ["light", "dark"])
+def test_die_ladeanzeige_steht_ohne_eigenen_kasten_in_der_statusleiste(
+    qtbot, thema: str,  # noqa: ANN001
+) -> None:
+    """Punkt 412: Behälter, Text und Balken der Ladeanzeige bekamen
+ über die allgemeine QWidget-Regel die Grundfarbe des Fensters und
+ standen als heller Kasten in der grauen Statusleiste."""
+    fenster = QMainWindow()
+    qtbot.addWidget(fenster)
+    fenster.setStyleSheet(ide_qss_erzeugen(thema))
+    fenster.setCentralWidget(QWidget())
+    anzeige = QWidget()
+    zeile = QHBoxLayout(anzeige)
+    zeile.setContentsMargins(0, 0, 0, 0)
+    balken = QProgressBar()
+    balken.setRange(0, 0)
+    balken.setMaximumWidth(120)
+    balken.setMaximumHeight(14)
+    balken.setTextVisible(False)
+    text = QLabel("Programm wird geladen … 15 s")
+    zeile.addWidget(balken)
+    zeile.addWidget(text)
+    leiste = fenster.statusBar()
+    leiste.addPermanentWidget(anzeige)
+    fenster.resize(600, 200)
+    fenster.show()
+    qtbot.waitExposed(fenster)
+    # Die Leiste bekommt ihre Farbe erst nach dem ersten Zeichnen;
+    # vorher ist alles hell, und der Vergleich bewiese nichts.
+    flaeche = QColor(_tokens_laden()["color"][thema]["surface"])
+    qtbot.waitUntil(
+        lambda: leiste.grab().toImage().pixelColor(5, 11) == flaeche,
+    )
+
+    bild = leiste.grab().toImage()
+    grund = bild.pixelColor(5, bild.height() // 2)
+    # Die oberste Zeile über der Schrift, mitten im Text: rechts
+    # davon liegt der Griff zum Ziehen der Fenstergröße.
+    oben = text.mapTo(leiste, text.rect().center())
+    im_text = bild.pixelColor(oben.x(), text.mapTo(leiste, text.rect().topLeft()).y())
+    assert im_text == grund, (
+        f"Hintergrund der Ladeanzeige {im_text.name()}, "
+        f"Statusleiste {grund.name()}"
+    )
