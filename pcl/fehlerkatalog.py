@@ -1559,13 +1559,12 @@ def self_fehlt_leitfrage(unit: Path, zeile: int, name: str) -> str | None:
     ):
         return (
             f"Auf dem Formular gibt es eine Komponente {name}. Ist sie "
-            f"gemeint, und fehlt davor self., also self.{name}?"
+            f"gemeint, und fehlt davor self.?"
         )
     if name in _self_attribute(klasse):
         return (
             f"In der Klasse {klasse.name} wird self.{name} gesetzt. Ist "
-            f"dieser Wert gemeint, und fehlt davor self., also "
-            f"self.{name}?"
+            f"dieser Wert gemeint, und fehlt davor self.?"
         )
     return None
 

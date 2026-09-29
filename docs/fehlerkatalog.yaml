@@ -39,11 +39,12 @@ entries:
     # Steht die Zeile in einer Methode einer Klasse und ist der Name
     # eine Komponente ihres Formulars (laut .pfm) oder ein Attribut,
     # das die Klasse als self.name setzt, fehlt vermutlich nur self.
-    # davor (Punkt 431). Die Leitfrage nennt dann den Namen mit self.,
-    # den es in der Klasse schon gibt; einen neuen Namen schlägt sie
-    # nicht vor. Die Prüfung vor dem Start stellt dieselbe Frage.
-    hinweis_self_komponente: "Auf dem Formular gibt es eine Komponente {name}. Ist sie gemeint, und fehlt davor self., also self.{name}?"
-    hinweis_self_attribut: "In der Klasse {klasse} wird self.{name} gesetzt. Ist dieser Wert gemeint, und fehlt davor self., also self.{name}?"
+    # davor (Punkt 431). Die Leitfrage nennt den Namen, den es in der
+    # Klasse schon gibt, und fragt nach self.; die fertige Schreibweise
+    # nennt sie nicht, damit keine Ersatzzeile entsteht. Die Prüfung
+    # vor dem Start stellt dieselbe Frage.
+    hinweis_self_komponente: "Auf dem Formular gibt es eine Komponente {name}. Ist sie gemeint, und fehlt davor self.?"
+    hinweis_self_attribut: "In der Klasse {klasse} wird self.{name} gesetzt. Ist dieser Wert gemeint, und fehlt davor self.?"
 
   - id: unbound_local_error
     exception: UnboundLocalError

@@ -42,13 +42,13 @@ FAELLE = [
     pytest.param(
         '        edit.text = "x"\n',
         "Auf dem Formular gibt es eine Komponente edit. Ist sie gemeint, "
-        "und fehlt davor self., also self.edit?",
+        "und fehlt davor self.?",
         id="komponente",
     ),
     pytest.param(
         "        print(zaehler)\n",
         "In der Klasse Form1 wird self.zaehler gesetzt. Ist dieser Wert "
-        "gemeint, und fehlt davor self., also self.zaehler?",
+        "gemeint, und fehlt davor self.?",
         id="attribut",
     ),
     pytest.param("        print(ergebnis)\n", None, id="sonst"),
