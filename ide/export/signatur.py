@@ -27,14 +27,19 @@ sich nicht widerrufen lässt. Die mitgelieferte `natter-codesign.cer`
 enthält nur den öffentlichen Teil; damit lässt sich prüfen, nicht
 signieren.
 
-Signiert wird deshalb mit dem, was auf dem Rechner schon liegt:
+Signiert wird deshalb nur mit einem Zertifikat, das Natter auf diesem
+Rechner anlegt und das ihn nie verlässt. Der Schlüssel ist nicht
+exportierbar, und eingetragen wird für das angemeldete Konto. Für
+alle Konten bräuchte es Administratorrechte, und die hätte Natter nur
+zu verlangen, wenn sich damit etwas erreichen ließe.
 
-* einem Zertifikat, das die Lehrkraft dort eingerichtet hat, oder
-* einem, das Natter auf diesem Rechner anlegt und das ihn nie
-  verlässt. Der Schlüssel ist nicht exportierbar, und eingetragen wird
-  für das angemeldete Konto. Für alle Konten bräuchte es
-  Administratorrechte, und die hätte Natter nur zu verlangen, wenn
-  sich damit etwas erreichen ließe.
+Andere Zertifikate zur Codesignatur im Konto nimmt Natter nicht, auch
+wenn der Rechner ihnen vertraut. Bis 0.4.2 griff der Export zum
+ersten brauchbaren (Punkt 423). Lag im Konto einer Lehrkraft das
+Zertifikat der Schule, etwa für Skripte oder für Regeln nach
+Herausgeber in AppLocker, trug jedes dort exportierte
+Schülerprogramm ohne Nachfrage den Herausgeber der Schule. Eine
+Einstellung, die ein fremdes Zertifikat erlaubt, gibt es nicht.
 """
 
 from __future__ import annotations
@@ -53,6 +58,9 @@ from ide.prozess import ohne_konsole
 #: gleicher Name würde in der Zertifikatsverwaltung zwei ganz
 #: verschiedene Dinge nebeneinanderstellen.
 ZERT_NAME = "Natter Programme dieses Rechners"
+
+#: So steht der Name im Zertifikat.
+_ZERT_SUBJEKT = f"CN={ZERT_NAME}"
 
 #: Fünf Jahre, wie beim Zertifikat der Auslieferung. Länger wäre bei
 #: einem Schlüssel ohne Sperrmöglichkeit nicht zu verantworten.
@@ -189,18 +197,19 @@ def smart_app_control_an() -> bool:
 
 
 def vorhandenes_zertifikat() -> str | None:
-    """Der Fingerabdruck eines brauchbaren Zertifikats, oder `None`.
+    """Der Fingerabdruck des eigenen Zertifikats, oder `None`.
 
-    Brauchbar heißt dreierlei: privater Schlüssel vorhanden, noch
-    gültig, und dieser Rechner vertraut ihm auch. Der dritte Teil ist
-    der wichtigste und fehlte zuerst. Ein Zertifikat, das nur im
-    persönlichen Speicher liegt, setzt zwar eine Signatur, aber
-    Windows lehnt sie ab: die Exe wäre signiert und startete trotzdem
-    nicht. Das ist der schlechteste aller Zustände, weil nichts darauf
-    hindeutet - beim Ausprobieren genau so aufgetreten.
+    Gesucht wird nur `CN=Natter Programme dieses Rechners`. Brauchbar
+    ist es, wenn der private Schlüssel vorhanden ist, es noch gilt und
+    dieser Rechner ihm vertraut. Der dritte Teil fehlte zuerst. Ein
+    Zertifikat, das nur im persönlichen Speicher liegt, setzt zwar
+    eine Signatur, aber Windows lehnt sie ab: die Exe wäre signiert
+    und startete trotzdem nicht, und nichts deutete darauf hin.
 
-    Ein eigenes von Natter hat Vorrang vor einem fremden: es ist auf
-    diesen Zweck zugeschnitten.
+    Jedes andere Zertifikat bleibt liegen, auch ein vertrautes
+    (Punkt 423, siehe Moduldoku). Der Name wird zweimal geprüft: im
+    Befehl, damit PowerShell nur die eigenen meldet, und hier noch
+    einmal an der gemeldeten Zeile.
     """
     vertraut = vertrauenswuerdige_fingerabdruecke()
     if not vertraut:
@@ -208,14 +217,14 @@ def vorhandenes_zertifikat() -> str | None:
 
     befehl = (
         "Get-ChildItem Cert:\\CurrentUser\\My -CodeSigningCert | "
-        "Where-Object { $_.HasPrivateKey -and $_.NotAfter -gt (Get-Date) } | "
-        f"Sort-Object {{ $_.Subject -eq 'CN={ZERT_NAME}' }} -Descending | "
-        "ForEach-Object { Write-Output $_.Thumbprint }"
+        f"Where-Object {{ $_.Subject -eq '{_ZERT_SUBJEKT}' -and "
+        "$_.HasPrivateKey -and $_.NotAfter -gt (Get-Date) } | "
+        "ForEach-Object { Write-Output ($_.Thumbprint + '|' + $_.Subject) }"
     )
     ergebnis = _powershell(befehl)
     for zeile in (ergebnis.stdout or "").splitlines():
-        fingerabdruck = zeile.strip()
-        if fingerabdruck in vertraut:
+        fingerabdruck, _, subjekt = zeile.strip().partition("|")
+        if subjekt.strip() == _ZERT_SUBJEKT and fingerabdruck in vertraut:
             return fingerabdruck
     return None
 
@@ -485,10 +494,14 @@ def exe_signieren(exe: Path, fingerabdruck: str) -> SignaturErgebnis:
         )
         ohne_zeitstempel = True
     if status == "Valid":
+        # Den Herausgeber zu nennen, kostet einen Halbsatz und zeigt,
+        # welches Zertifikat die Exe trägt (Punkt 423). Es ist immer
+        # das eigene: `vorhandenes_zertifikat` findet kein anderes.
+        herausgeber = f"Herausgeber: „{ZERT_NAME}“."
         grund = (
-            OHNE_ZEITSTEMPEL
+            f"{OHNE_ZEITSTEMPEL} {herausgeber}"
             if ohne_zeitstempel
-            else "Signiert - die Exe nennt jetzt einen Herausgeber."
+            else f"Signiert. {herausgeber}"
         )
         if smart_app_control_an():
             grund = (

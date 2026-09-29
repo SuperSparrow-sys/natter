@@ -44,8 +44,50 @@ KEIN_SCHREIBRECHT_HINWEIS = (
 
 
 class PaketFehler(RuntimeError):
-    """`pip` meldete einen Fehler; die Nachricht enthält `pip`s eigene
-    Fehlerausgabe."""
+    """`pip` meldete einen Fehler.
+
+    Die Nachricht ist deutsch, sofern sich der Fehler erkennen lässt
+    (`paket_installieren`), sonst `pip`s eigene Fehlerausgabe.
+    `rohausgabe` enthält, was `pip` geschrieben hat, für das Panel
+    „Meldungen“; leer, wenn die Nachricht sie schon ist.
+    """
+
+    def __init__(self, meldung: str, rohausgabe: str = "") -> None:
+        super().__init__(meldung)
+        self.rohausgabe = rohausgabe
+
+
+#: Sekunden, die `pip` auf eine Antwort des Paketverzeichnisses
+#: wartet, und wie oft es danach neu ansetzt. Die Vorgaben von `pip`
+#: sind 15 Sekunden und fünf Wiederholungen. Ohne Netz, oder hinter
+#: einem Proxy, der Verbindungen stumm verwirft, dauerte eine
+#: Installation damit 106 Sekunden, bevor überhaupt eine Meldung kam,
+#: und so lange waren Testlauf und Exe-Export gesperrt (Punkt 424).
+#: Mit diesen Werten sind es rund 12 Sekunden. Eine Wiederholung
+#: bleibt, weil `pip` nur bei einer Wiederholung den Verbindungsfehler
+#: überhaupt ausgibt; ohne sie stünde da nur, das Paket gebe es
+#: nicht. Die Wartezeit gilt je Antwort, nicht für den ganzen
+#: Download: ein großes Paket über eine langsame Leitung bricht
+#: deshalb nicht ab.
+_PIP_WARTEZEIT_SEKUNDEN = 5
+_PIP_WIEDERHOLUNGEN = 1
+
+#: Woran in der Ausgabe von `pip` zu erkennen ist, dass keine
+#: Verbindung zum Paketverzeichnis zustande kam: die Warnung vor einer
+#: Wiederholung und die Namen der Fehler aus `urllib3`.
+_VERBINDUNGSZEICHEN = (
+    "Retrying (Retry(",
+    "ConnectTimeoutError",
+    "NewConnectionError",
+    "ProxyError",
+    "Max retries exceeded",
+    "Failed to establish a new connection",
+    "getaddrinfo failed",
+    "ReadTimeoutError",
+)
+
+#: Woran zu erkennen ist, dass es keine passende Fassung gibt.
+_UNBEKANNT_ZEICHEN = "No matching distribution found for"
 
 
 def installierte_pakete() -> list[Paket]:
@@ -67,14 +109,60 @@ def installierte_pakete() -> list[Paket]:
 
 def paket_installieren(name: str) -> str:
     """Installiert `name` per `pip install`. Liefert `pip`s Ausgabe bei
-    Erfolg, löst `PaketFehler` bei Misserfolg aus."""
+    Erfolg, löst `PaketFehler` bei Misserfolg aus.
+
+    Bei fehlender Verbindung und bei einem unbekannten Namen ist die
+    Nachricht des Fehlers ein deutscher Satz (`_fehler_deuten`), und
+    `pip`s Ausgabe steht in `rohausgabe`. Die Versionsprüfung von
+    `pip` selbst bleibt aus: sie ginge ein weiteres Mal ins Netz.
+    """
     ergebnis = subprocess.run(
-        [sys.executable, "-m", "pip", "install", name],
+        [
+            sys.executable, "-m", "pip", "install",
+            "--timeout", str(_PIP_WARTEZEIT_SEKUNDEN),
+            "--retries", str(_PIP_WIEDERHOLUNGEN),
+            "--disable-pip-version-check",
+            "--no-input",
+            name,
+        ],
         **ohne_konsole(capture_output=True, text=True),
     )
     if ergebnis.returncode != 0:
-        raise PaketFehler(_mit_rechtehinweis(ergebnis))
+        raise _fehler_deuten(name, ergebnis)
     return ergebnis.stdout
+
+
+def _fehler_deuten(
+    name: str, ergebnis: subprocess.CompletedProcess
+) -> PaketFehler:
+    """Macht aus der Ausgabe eines gescheiterten `pip install` einen
+    Fehler mit deutscher Nachricht.
+
+    Ohne Verbindung endet `pip` mit „No matching distribution found“,
+    derselben Zeile wie bei einem falsch geschriebenen Namen. Dass
+    keine Verbindung zustande kam, steht nur englisch in den Zeilen
+    davor. Deshalb wird zuerst nach der Verbindung gesehen.
+    """
+    roh = "\n".join(
+        teil.strip() for teil in (ergebnis.stderr, ergebnis.stdout)
+        if teil and teil.strip()
+    )
+    if any(zeichen in roh for zeichen in _VERBINDUNGSZEICHEN):
+        return PaketFehler(
+            "Keine Verbindung zum Paketverzeichnis. "
+            f"„{name}“ wurde nicht installiert. Ohne Netz, oder wenn "
+            "ein Proxy die Verbindung nicht durchlässt, lassen sich "
+            "keine Pakete nachinstallieren.",
+            roh,
+        )
+    if _UNBEKANNT_ZEICHEN in roh:
+        return PaketFehler(
+            f"Ein Paket „{name}“ gibt es im Paketverzeichnis nicht, "
+            "jedenfalls nicht für diese Python-Fassung. Die "
+            "Schreibweise des Namens prüfen.",
+            roh,
+        )
+    return PaketFehler(_mit_rechtehinweis(ergebnis))
 
 
 def _mit_rechtehinweis(ergebnis: subprocess.CompletedProcess) -> str:

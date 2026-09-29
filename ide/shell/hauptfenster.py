@@ -7426,11 +7426,29 @@ class HauptFenster(QMainWindow):
             f"{name} wird installiert - das kann je nach Netz dauern, die IDE bleibt "
             f"bedienbar."
         )
-        self._hintergrund_starten(
-            lambda _melden: paket_installieren(name),
-            lambda _ergebnis: self.statusBar().showMessage(f"{name} installiert."),
-            f"Installation von {name} fehlgeschlagen",
-        )
+        fehlertext = f"Installation von {name} fehlgeschlagen"
+
+        def arbeit(_melden: Callable[[int, str], None]) -> object:
+            # Der Fehler kommt als Ergebnis zurück statt als Ausnahme:
+            # so steht in der Statuszeile nur der deutsche Satz, und
+            # die Ausgabe von `pip` folgt im Panel „Meldungen“
+            # (Punkt 424).
+            try:
+                return paket_installieren(name)
+            except PaketFehler as fehler:
+                return fehler
+
+        def fertig(ergebnis: object) -> None:
+            if isinstance(ergebnis, PaketFehler):
+                self._hintergrund_fehler(fehlertext, str(ergebnis))
+                roh = ergebnis.rohausgabe.splitlines()
+                if roh:
+                    self.meldungen_liste.addItem("Ausgabe von pip:")
+                    self.meldungen_liste.addItems(roh)
+                return
+            self.statusBar().showMessage(f"{name} installiert.")
+
+        self._hintergrund_starten(arbeit, fertig, fehlertext)
 
     def _paketliste_exportieren_aktion(self) -> None:
         """„Pakete → Paketliste exportieren …“: `pip freeze` in eine

@@ -475,12 +475,16 @@ zurückgesetzt werden (Wächterkarte, verbindliche oder temporäre
 Profile), ist das Zertifikat danach weg. Die Warnung kommt dann beim
 ersten Export nach jeder Anmeldung wieder, bei jeder Schülerin und
 jedem Schüler. Ein „Nein“ hilft dort nicht auf Dauer, denn der
-Vermerk darüber liegt ebenfalls im Profil. Liegt im Konto schon ein
-Zertifikat zur Codesignatur mit privatem Schlüssel, dem der Rechner
-vertraut, etwa aus der Zertifikatsverteilung einer eigenen
-Zertifizierungsstelle der Schule, nimmt Natter dieses und fragt
-nicht. Wie sich das Zertifikat wieder
-entfernen lässt, steht in 1.5.
+Vermerk darüber liegt ebenfalls im Profil. Wie sich das Zertifikat
+wieder entfernen lässt, steht in 1.5.
+
+Signiert wird nur mit „Natter Programme dieses Rechners“. Andere
+Zertifikate zur Codesignatur im Konto nimmt Natter nicht, auch wenn
+der Rechner ihnen vertraut, etwa das Zertifikat der Schule aus einer
+eigenen Zertifizierungsstelle, mit dem eine Lehrkraft Skripte
+signiert oder auf das sich Regeln nach Herausgeber in AppLocker
+stützen. Ein Schülerprogramm trüge sonst den Herausgeber der Schule.
+Eine Einstellung, die ein anderes Zertifikat zulässt, gibt es nicht.
 
 ### 3.6 Eine Aufgabe verteilen und die Abgaben einsammeln
 
