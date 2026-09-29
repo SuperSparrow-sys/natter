@@ -6,8 +6,13 @@ Arbeitspaket M4, Schritt 2.
 from __future__ import annotations
 
 import json
+import operator
+import random
+
+import pytest
 
 from ide.debugger import fehlermeldung_erzeugen
+from pcl.fehlerkatalog import ORIGINALMELDUNG_PRAEFIX
 
 
 def _ausloesen(f):
@@ -197,3 +202,62 @@ def test_was_enthaelt_niemals_did_you_mean() -> None:
 
     meldung = fehlermeldung_erzeugen(_ausloesen(f))
     assert "did you mean" not in meldung.was.lower()
+
+
+# Nach „In“ und „Über“ steht der Akkusativ (Punkt 421). Die weiblichen
+# und sächlichen Formen ändern sich dabei nicht, die männlichen schon.
+@pytest.mark.parametrize(
+    ("f", "erwartet"),
+    [
+        (lambda: operator.setitem("abc", 1, "x"), "In einen Text "),
+        (lambda: list(True), "Über einen Wahrheitswert "),
+        (lambda: operator.setitem((1, 2), 0, 5), "In ein Tupel "),
+        (lambda: list(5), "Über eine ganze Zahl "),
+    ],
+    ids=["text", "wahrheitswert", "tupel", "zahl"],
+)
+def test_typ_nach_praeposition_steht_im_akkusativ(f, erwartet) -> None:  # noqa: ANN001
+    meldung = fehlermeldung_erzeugen(_ausloesen(f))
+
+    assert meldung.was.startswith(erwartet)
+
+
+# Häufige Fehler im Unterricht, die bis 0.4.2 nur mit dem englischen
+# Zitat von Python ankamen (Punkt 422).
+@pytest.mark.parametrize(
+    ("f", "erwartet"),
+    [
+        (lambda: random.randint(5, 1), "die erste Grenze (5)"),
+        (lambda: min([]), "kleinsten Wert einer leeren Sammlung"),
+        (lambda: max(()), "größten Wert einer leeren Sammlung"),
+    ],
+    ids=["randint", "min", "max"],
+)
+def test_haeufige_meldung_ist_deutsch_ohne_zitat(f, erwartet) -> None:  # noqa: ANN001
+    meldung = fehlermeldung_erzeugen(_ausloesen(f))
+
+    assert erwartet in meldung.was
+    assert ORIGINALMELDUNG_PRAEFIX not in meldung.was
+
+
+def _ohne_return():
+    pass
+
+
+# Beim fehlenden Attribut nennt die Meldung, was dort stattdessen
+# steht; bei None mit dem Hinweis auf das vergessene return
+# (Punkt 422).
+@pytest.mark.parametrize(
+    ("f", "erwartet"),
+    [
+        (lambda: _ohne_return().upper(), ("None", "return")),
+        (lambda: (3).append(4), ("„append“", "eine ganze Zahl")),
+        (lambda: random.randInt(1, 6), ("„randInt“", "ein Modul")),
+    ],
+    ids=["none", "zahl", "modul"],
+)
+def test_fehlendes_attribut_nennt_den_typ(f, erwartet) -> None:  # noqa: ANN001
+    meldung = fehlermeldung_erzeugen(_ausloesen(f))
+
+    for teil in erwartet:
+        assert teil in meldung.was

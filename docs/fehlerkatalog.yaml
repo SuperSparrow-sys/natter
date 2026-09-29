@@ -57,6 +57,10 @@ entries:
     # Was genau das.
     hinweis_ereignis_ohne_methode: "Das Ereignis {ereignis} der Komponente {komponente} ist im Formular {unit}.pfm mit der Methode {methode} verknüpft, aber in {unit}.py gibt es diese Methode nicht."
     hinweis_komponente_fehlt: "Auf dem Formular {klasse} gibt es keine Komponente {name}, und die Klasse hat auch keine Methode oder Variable dieses Namens."
+    # Den Typ nennt Python in der Meldung vor dem fehlenden Namen. Bei
+    # None ist fast immer ein vergessenes return der Grund (Punkt 422).
+    hinweis_typ: "{name} existiert bei diesem Objekt nicht; hier steht {typ}."
+    hinweis_none: "{name} existiert bei diesem Objekt nicht; hier steht None, also gar kein Wert. Eine Funktion ohne return liefert None als Ergebnis."
 
   - id: type_error
     exception: TypeError
@@ -72,6 +76,10 @@ entries:
     # Der leere Text ist der häufigste Fall: geklickt, bevor etwas im
     # Eingabefeld steht (Punkt 293).
     hinweis_leerer_text: "Der Text ist leer - es wurde nichts eingegeben, bevor die Zahl gelesen wurde. Leitfrage: Wird der Fall, dass das Feld leer ist, vorher geprüft?"
+    # randint() mit vertauschten Grenzen und min()/max() einer leeren
+    # Sammlung (Punkt 422).
+    hinweis_leerer_bereich: "Aus dem Bereich lässt sich keine Zufallszahl ziehen, weil er leer ist: die erste Grenze ({start}) darf nicht größer als die zweite sein."
+    hinweis_leere_sammlung: "min() sollte den kleinsten Wert einer leeren Sammlung bestimmen. Ohne einen einzigen Eintrag gibt es keinen kleinsten Wert."
 
   # Eigener Eintrag, obwohl `NatterDatenError` von `ValueError` erbt
   # (M15, Abschnitt 6). Die Leitfrage oben fragt nach "Leerzeichen,

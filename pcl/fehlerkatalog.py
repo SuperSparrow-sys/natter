@@ -28,6 +28,7 @@ ausgerichtet, ohne sie selbst nachzubauen.
 
 from __future__ import annotations
 
+import ast
 import builtins
 import importlib
 import json
@@ -121,27 +122,32 @@ def _name_ermitteln(exc: BaseException) -> str | None:
 #: englische Rest von Python stammt und nicht von Natter.
 ORIGINALMELDUNG_PRAEFIX = "Python meldet dazu wörtlich: "
 
-#: Typnamen von Python als deutsche Nominativ-Wortgruppe. Bewusst
-#: unvollständig: ein hier nicht eingetragener Typ erscheint mit seinem
-#: Python-Namen in Anführungszeichen, was für seltene Typen (`Decimal`,
-#: eigene Klassen) auch richtig ist.
-_TYPNAMEN = {
-    "int": "eine ganze Zahl",
-    "float": "eine Kommazahl",
-    "complex": "eine komplexe Zahl",
-    "str": "ein Text",
-    "bool": "ein Wahrheitswert",
-    "list": "eine Liste",
-    "tuple": "ein Tupel",
-    "dict": "ein Wörterbuch",
-    "set": "eine Menge",
-    "range": "ein Zahlenbereich",
-    "bytes": "eine Folge von Bytes",
-    "NoneType": "None, also gar kein Wert",
-    "function": "eine Funktion",
-    "method": "eine Methode",
-    "module": "ein Modul",
-    "type": "eine Klasse",
+#: Typnamen von Python als deutsche Wortgruppe, im Nominativ und im
+#: Akkusativ. Nach „In“ und „Über“ steht der Akkusativ: „In einen Text
+#: lässt sich kein einzelner Platz überschreiben.“ Mit dem Nominativ
+#: allein hieß es dort „In ein Text“ (Punkt 421); die Meldungen der
+#: Komponenten führen den Artikel aus demselben Grund schon doppelt
+#: (`pcl/properties.py`, Punkt 297). Bewusst unvollständig: ein hier
+#: nicht eingetragener Typ erscheint mit seinem Python-Namen in
+#: Anführungszeichen, was für seltene Typen (`Decimal`, eigene
+#: Klassen) auch richtig ist.
+_TYPNAMEN: dict[str, tuple[str, str]] = {
+    "int": ("eine ganze Zahl", "eine ganze Zahl"),
+    "float": ("eine Kommazahl", "eine Kommazahl"),
+    "complex": ("eine komplexe Zahl", "eine komplexe Zahl"),
+    "str": ("ein Text", "einen Text"),
+    "bool": ("ein Wahrheitswert", "einen Wahrheitswert"),
+    "list": ("eine Liste", "eine Liste"),
+    "tuple": ("ein Tupel", "ein Tupel"),
+    "dict": ("ein Wörterbuch", "ein Wörterbuch"),
+    "set": ("eine Menge", "eine Menge"),
+    "range": ("ein Zahlenbereich", "einen Zahlenbereich"),
+    "bytes": ("eine Folge von Bytes", "eine Folge von Bytes"),
+    "NoneType": ("None, also gar kein Wert", "None, also gar keinen Wert"),
+    "function": ("eine Funktion", "eine Funktion"),
+    "method": ("eine Methode", "eine Methode"),
+    "module": ("ein Modul", "ein Modul"),
+    "type": ("eine Klasse", "eine Klasse"),
 }
 
 #: „Did you mean …?“/„Maybe you meant …“ – Pythons Namensvorschläge, die
@@ -191,9 +197,13 @@ class _Zahlwortformat(string.Formatter):
 _FORMAT = _Zahlwortformat()
 
 
-def _typname(python_name: str) -> str:
-    """Deutscher Nominativ zu einem Python-Typnamen."""
-    return _TYPNAMEN.get(python_name, f"ein Objekt der Art „{python_name}“")
+def _typname(python_name: str, *, akkusativ: bool = False) -> str:
+    """Deutsche Wortgruppe zu einem Python-Typnamen, im Nominativ oder
+    mit `akkusativ=True` im Akkusativ."""
+    formen = _TYPNAMEN.get(python_name)
+    if formen is None:
+        return f"ein Objekt der Art „{python_name}“"
+    return formen[1] if akkusativ else formen[0]
 
 
 def _in_deutsche_anfuehrungszeichen(wert: str) -> str:
@@ -219,8 +229,9 @@ class _Standardmeldung:
 
     `was` und `pruefe` sind Vorlagen, in denen die benannten Gruppen von
     `muster` als `{gruppe}` stehen. Gruppen, deren Name mit `typ`
-    beginnt, werden vorher durch `_typname()` geschickt, Gruppen mit
-    `gross_` davor zusätzlich großgeschrieben.
+    beginnt, werden vorher durch `_typname()` geschickt, im Akkusativ,
+    wenn der Name auf `_akk` endet. Gruppen mit `gross_` davor werden
+    zusätzlich großgeschrieben.
     """
 
     muster: re.Pattern[str]
@@ -292,8 +303,8 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
         "denselben Namen wie eine Funktion?",
     ),
     _m(
-        r"^'(?P<typ>.+?)' object is not iterable$",
-        "Über {typ} lässt sich nicht Stück für Stück laufen.",
+        r"^'(?P<typ_akk>.+?)' object is not iterable$",
+        "Über {typ_akk} lässt sich nicht Stück für Stück laufen.",
         "Was soll die Schleife durchlaufen – eine Liste, einen Text oder einen Zahlenbereich?",
     ),
     _m(
@@ -338,8 +349,8 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
         "Wie heißen die Parameter in der Definition von {funktion}() wirklich?",
     ),
     _m(
-        r"^'(?P<typ>.+?)' object does not support item assignment$",
-        "In {typ} lässt sich kein einzelner Platz überschreiben.",
+        r"^'(?P<typ_akk>.+?)' object does not support item assignment$",
+        "In {typ_akk} lässt sich kein einzelner Platz überschreiben.",
         "Texte und Tupel bleiben, wie sie sind – soll stattdessen ein neuer Wert entstehen?",
     ),
     _m(
@@ -422,6 +433,34 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
         r"^(?P<wert>.+) is not in list$",
         "{wert} kommt in der Liste nicht vor.",
         "Steht der gesuchte Wert wirklich in der Liste – und in derselben Schreibweise?",
+    ),
+    # Beim Zahlenraten wandert die untere Grenze leicht über die obere.
+    # Python nennt dann randrange() statt randint() und als zweite Zahl
+    # die obere Grenze plus eins, die so nirgends im Programm steht;
+    # die Meldung übernimmt deshalb nur die erste. Ältere Fassungen von
+    # Python schreiben „for randrange() (5, 2, -3)“.
+    _m(
+        r"^empty range (?:in|for) randrange(?:\(\) \(|\()"
+        r"(?P<start>-?\d+)\b.*$",
+        "Aus dem Bereich lässt sich keine Zufallszahl ziehen, weil er "
+        "leer ist: die erste Grenze ({start}) darf nicht größer als die "
+        "zweite sein.",
+        "Welche Werte haben die beiden Grenzen an dieser Stelle? Ist die "
+        "untere Grenze zwischendurch über die obere gewandert?",
+    ),
+    _m(
+        r"^min\(\) (?:iterable argument is empty|arg is an empty sequence)$",
+        "min() sollte den kleinsten Wert einer leeren Sammlung bestimmen. "
+        "Ohne einen einzigen Eintrag gibt es keinen kleinsten Wert.",
+        "Ist die Sammlung an dieser Stelle schon gefüllt? Wird vorher "
+        "geprüft, ob sie überhaupt Einträge enthält?",
+    ),
+    _m(
+        r"^max\(\) (?:iterable argument is empty|arg is an empty sequence)$",
+        "max() sollte den größten Wert einer leeren Sammlung bestimmen. "
+        "Ohne einen einzigen Eintrag gibt es keinen größten Wert.",
+        "Ist die Sammlung an dieser Stelle schon gefüllt? Wird vorher "
+        "geprüft, ob sie überhaupt Einträge enthält?",
     ),
     _m(
         r"^math domain error$",
@@ -799,7 +838,7 @@ def _standardmeldung_uebersetzen(text: str) -> tuple[str, str] | None:
             elif name == "einleitung":
                 wert = _EINLEITUNGEN.get(wert, "der Zeile davor")
             elif name.startswith("typ"):
-                wert = _typname(wert)
+                wert = _typname(wert, akkusativ=name.endswith("_akk"))
             elif name in ("wert", "namen"):
                 wert = _in_deutsche_anfuehrungszeichen(wert)
             werte[name] = wert
@@ -882,6 +921,26 @@ def _name_error(exc: NameError) -> tuple[str, str, str]:
     )
 
 
+#: Wie Python den Besitzer eines fehlenden Attributs nennt: ein Objekt
+#: mit seinem Typ, ein Modul oder eine Klasse. Gelesen wird die
+#: Meldung und nicht `exc.obj`, weil im Debugger nur sie ankommt.
+_OBJEKTART_MUSTER = (
+    (re.compile(r"^'(?P<art>[^']+)' object has no attribute '"), None),
+    (re.compile(r"^module '[^']+' has no attribute '"), "module"),
+    (re.compile(r"^type object '[^']+' has no attribute '"), "type"),
+)
+
+
+def _objektart(nachricht: str) -> str | None:
+    """Python-Typname des Objekts, dem ein Attribut fehlt, oder `None`,
+    wenn die Meldung ihn nicht nennt."""
+    for muster, art in _OBJEKTART_MUSTER:
+        treffer = muster.match(nachricht)
+        if treffer is not None:
+            return art or treffer.group("art")
+    return None
+
+
 def _attribute_error(exc: AttributeError) -> tuple[str, str, str]:
     name = _name_ermitteln(exc)
     if name and name.startswith("__") and not name.endswith("__"):
@@ -899,11 +958,21 @@ def _attribute_error(exc: AttributeError) -> tuple[str, str, str]:
     if _ist_natter_meldung(exc) and str(exc):
         return ("Unbekannte Eigenschaft", str(exc), pruefe)
     ziel = f"„{name}“" if name else "Die verwendete Eigenschaft"
-    return (
-        "Unbekannte Eigenschaft",
-        f"{ziel} existiert bei diesem Objekt nicht.",
-        pruefe,
-    )
+    was = f"{ziel} existiert bei diesem Objekt nicht."
+    art = _objektart(str(exc))
+    if art == "NoneType":
+        # Fast immer ein vergessenes return: die Funktion, deren
+        # Ergebnis hier weiterverwendet wird, liefert None.
+        return (
+            "Unbekannte Eigenschaft",
+            f"{was[:-1]}; hier steht {_typname(art)}. Eine Funktion "
+            "ohne return liefert None als Ergebnis.",
+            "Woher stammt der Wert an dieser Stelle? Gibt die Funktion, "
+            "die ihn liefern soll, ihr Ergebnis mit return zurück?",
+        )
+    if art is not None:
+        was = f"{was[:-1]}; hier steht {_typname(art)}."
+    return ("Unbekannte Eigenschaft", was, pruefe)
 
 
 def _type_error(exc: TypeError) -> tuple[str, str, str]:
@@ -1002,8 +1071,9 @@ def _key_error(exc: KeyError) -> tuple[str, str, str]:
 
 def _file_not_found(exc: FileNotFoundError) -> tuple[str, str, str]:
     # exc.filename ist nur gesetzt, wenn Python die Ausnahme selbst
-    # erzeugt hat - beim DAP-Nachbau (fehlermeldung_aus_dap_erzeugen())
-    # fehlt es, str(exc) enthält den Pfad aber ohnehin schon als Text.
+    # erzeugt hat. Beim DAP-Nachbau liest `_DapAusnahme` ihn aus der
+    # Meldung; eine selbst ausgelöste Ausnahme ohne Dateinamen landet
+    # im Rückfall mit Zitat.
     pruefe = (
         "Stimmt der Pfad, und ist er relativ zum aktuellen Arbeitsverzeichnis "
         "gemeint? Liegt die Datei wirklich im Projektordner?"
@@ -1498,11 +1568,75 @@ class _DapAusnahme:
         self.name: str | None = None
         self.filename: str | None = None
         self.encoding: str | None = None
-        self.args = (nachricht,)
+        self.args: tuple[Any, ...] = (nachricht,)
         self.msg = nachricht
+        if klasse is not None:
+            self._felder_aus_nachricht(klasse, nachricht)
+
+    def _felder_aus_nachricht(self, klasse: type, nachricht: str) -> None:
+        """Holt Name, Schlüssel, Dateiname und Zeichensatz aus der
+        Meldung, dort, wo Python sie selbst hineinschreibt.
+
+        Ohne das nahm `_name_ermitteln()` bei einem `AttributeError`
+        das erste Wort in Hochkommas, und das ist der Typ
+        („'NoneType' object has no attribute 'caption'“). Mit und ohne
+        Debugger kamen für denselben Fehler verschiedene Meldungen
+        heraus (Punkt 418).
+        """
+        if issubclass(klasse, AttributeError):
+            treffer = _ATTRIBUT_IN_MELDUNG.search(nachricht)
+            if treffer is not None:
+                self.name = treffer.group(1)
+        elif issubclass(klasse, KeyError):
+            # `str(KeyError('a'))` ist schon `'a'`, mit Hochkommas.
+            self.args = (_wert_aus_repr(nachricht),) if nachricht else ()
+        elif issubclass(klasse, OSError):
+            treffer = _DATEI_IN_MELDUNG.match(nachricht)
+            if treffer is not None:
+                wert = _wert_aus_repr(treffer.group("datei"))
+                if isinstance(wert, str):
+                    self.filename = wert
+        elif issubclass(klasse, UnicodeDecodeError):
+            treffer = _ZEICHENSATZ_IN_MELDUNG.match(nachricht)
+            if treffer is not None:
+                self.encoding = treffer.group(1)
 
     def __str__(self) -> str:
         return self._nachricht
+
+
+#: „'int' object has no attribute 'append'“: das fehlende Attribut
+#: steht hinter „has no attribute“, der Typ davor.
+_ATTRIBUT_IN_MELDUNG = re.compile(r"has no attribute '([^']+)'")
+#: „[Errno 2] No such file or directory: 'daten.csv'“, unter Windows
+#: auch „[WinError 5] …“. Der Dateiname steht so da, wie `repr()` ihn
+#: schreibt; bei zwei Pfaden (Umbenennen) folgt „ -> 'ziel'“.
+_DATEI_IN_MELDUNG = re.compile(
+    r"^\[(?:Errno|WinError) -?\d+\] [^:]*: "
+    r"(?P<datei>'(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\")"
+)
+_ZEICHENSATZ_IN_MELDUNG = re.compile(r"^'([^']+)' codec can't decode")
+
+
+class _Wiedergabe:
+    """Ein Wert, von dem nur seine `repr()`-Form bekannt ist, etwa ein
+    Objekt als Schlüssel. `repr()` gibt sie unverändert zurück."""
+
+    def __init__(self, text: str) -> None:
+        self._text = text
+
+    def __repr__(self) -> str:
+        return self._text
+
+
+def _wert_aus_repr(text: str) -> Any:
+    """Der Wert zu seiner `repr()`-Form, soweit er sich ohne Ausführen
+    von Code zurückgewinnen lässt (Text, Zahl, Tupel), sonst ein
+    Platzhalter, der dieselbe Form wieder ausgibt."""
+    try:
+        return ast.literal_eval(text)
+    except (ValueError, SyntaxError, TypeError, MemoryError, RecursionError):
+        return _Wiedergabe(text)
 
 
 def _exception_klasse_aufloesen(exception_id: str) -> type[BaseException] | None:
