@@ -8,9 +8,19 @@ Schülertests genau das ausführen, was sie mit `python -m unittest` auch
 in der Kommandozeile täten (Abschnitt 8.6: „Tests in Dateien `test_*.py`
 mit `unittest`“).
 
-Aufruf: `python harness.py [--pattern MUSTER] [--ziel PUNKT.GETRENNTE.ID]`
+Aufruf: `python harness.py [--pattern MUSTER] [--ziel PUNKT.GETRENNTE.ID]
+[--auslassen MODUL ...]`
 `--ziel` adressiert wie `unittest`selbst ein Modul, eine Klasse oder eine
 einzelne Methode (`test_x`, `test_x.Klasse`, `test_x.Klasse.methode`).
+`--auslassen` überspringt Testmodule, die ein früherer, abgebrochener
+Lauf schon erledigt hat.
+
+Jedes Ergebnis steht sofort in einer eigenen Zeile hinter der Marke,
+nicht erst am Ende. Bricht der Prozess mitten im Lauf ab, etwa weil
+Qt ein Formular ohne `QApplication` nicht anlegen kann, bleibt so
+erhalten, was bis dahin gelaufen ist. Dazu kommen Zeilen, die sagen,
+welches Modul gerade geladen und welcher Test gerade gestartet wird,
+und am Ende eine Zeile `{"fertig": true}`.
 """
 
 from __future__ import annotations
@@ -21,6 +31,7 @@ import re
 import sys
 import time
 import traceback
+import types
 import unittest
 
 # Bei Listen, Tupeln und anderen Folgen setzt unittest „Lists
@@ -37,6 +48,22 @@ _WERT_HOECHSTLAENGE = 200
 #: `ausfuehrung.py` liest nur, was danach kommt; alles davor hat der
 #: getestete Code selbst geschrieben.
 ERGEBNIS_MARKE = "@@natter-testergebnis@@"
+
+#: Die echte Standardausgabe. Während der Tests zeigt `sys.stdout` auf
+#: die Fehlerausgabe (siehe `main`).
+_echte_ausgabe = sys.stdout
+
+
+def _melden(eintrag: dict) -> None:
+    """Schreibt eine Zeile hinter der Marke und leert den Puffer
+    sofort, damit sie einen Absturz des Prozesses übersteht."""
+    # Die Zeile beginnt mit einem Umbruch, falls der getestete Code
+    # direkt auf die Standardausgabe geschrieben hat, ohne die Zeile
+    # abzuschließen.
+    _echte_ausgabe.write(
+        "\n" + ERGEBNIS_MARKE + json.dumps(eintrag) + "\n"
+    )
+    _echte_ausgabe.flush()
 
 
 def _wert_text(wert: object) -> str:
@@ -92,14 +119,23 @@ def _soll_ist_extrahieren(
     return treffer.group("soll"), treffer.group("ist")
 
 
+class _Eintraege(list):
+    """Eine Liste, die jeden neuen Eintrag sofort meldet."""
+
+    def append(self, eintrag: dict) -> None:
+        super().append(eintrag)
+        _melden(eintrag)
+
+
 class _StrukturiertesErgebnis(unittest.TestResult):
     def __init__(self) -> None:
         super().__init__()
-        self.eintraege: list[dict] = []
+        self.eintraege: list[dict] = _Eintraege()
         self._start: dict[unittest.TestCase, float] = {}
 
     def startTest(self, test: unittest.TestCase) -> None:
         super().startTest(test)
+        _melden({"start": test.id(), "modul": type(test).__module__})
         self._start[test] = time.perf_counter()
 
     def _dauer(self, test: unittest.TestCase) -> float:
@@ -177,8 +213,30 @@ def ladefehler_meldung(modul: str, text: str) -> str:
     return "\n\n".join(teile)
 
 
-def _suite_erzeugen(pattern: str, ziel: str | None) -> unittest.TestSuite:
-    lader = unittest.TestLoader()
+class _Lader(unittest.TestLoader):
+    """Meldet jedes Testmodul vor dem Import und lässt die Module aus
+    `auslassen` ganz weg.
+
+    Übersprungen wird schon der Import, weil auch er abstürzen kann,
+    etwa mit einem Formular auf oberster Ebene der Testdatei. An
+    Stelle des Moduls tritt ein leeres, in dem `discover` keine Tests
+    findet."""
+
+    def __init__(self, auslassen: set[str]) -> None:
+        super().__init__()
+        self._auslassen = auslassen
+
+    def _get_module_from_name(self, name: str) -> types.ModuleType:
+        if name in self._auslassen:
+            return types.ModuleType(name)
+        _melden({"laden": name})
+        return super()._get_module_from_name(name)
+
+
+def _suite_erzeugen(
+    pattern: str, ziel: str | None, auslassen: set[str]
+) -> unittest.TestSuite:
+    lader = _Lader(auslassen)
     if ziel:
         return lader.loadTestsFromName(ziel)
     return lader.discover(start_dir=".", pattern=pattern)
@@ -196,6 +254,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--pattern", default="test_*.py")
     parser.add_argument("--ziel", default=None)
+    parser.add_argument("--auslassen", action="append", default=[])
     argumente = parser.parse_args()
 
     # Ein print() im geprüften Code ist im Anfangsunterricht die
@@ -203,12 +262,15 @@ def main() -> None:
     # und der ganze Testlauf scheiterte mit einem JSONDecodeError.
     # Während der Tests geht die Ausgabe deshalb auf die
     # Fehlerausgabe, und das Ergebnis steht hinter einer Marke.
-    echte_ausgabe = sys.stdout
     sys.stdout = sys.stderr
     ergebnis = _StrukturiertesErgebnis()
     try:
         try:
-            suite = _suite_erzeugen(argumente.pattern, argumente.ziel)
+            suite = _suite_erzeugen(
+                argumente.pattern,
+                argumente.ziel,
+                set(argumente.auslassen),
+            )
         except Exception:
             # loadTestsFromName reicht Fehler beim Import der Testdatei
             # durch, statt einen _FailedTest zu liefern. Ohne diesen
@@ -229,10 +291,9 @@ def main() -> None:
         else:
             suite.run(ergebnis)
     finally:
-        sys.stdout = echte_ausgabe
+        sys.stdout = _echte_ausgabe
 
-    print(ERGEBNIS_MARKE)
-    print(json.dumps(ergebnis.eintraege))
+    _melden({"fertig": True})
 
 
 if __name__ == "__main__":
