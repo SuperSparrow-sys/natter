@@ -148,6 +148,8 @@ class _Zertifikatspeicher:
         self.speicher: dict[str, set[str]] = {
             "My": set(), "Root": set(), "TrustedPublisher": set(),
         }
+        #: Der Name im Zertifikat, sofern es nicht das eigene ist.
+        self.subjekte: dict[str, str] = {}
         self.angelegt = 0
         self.ausgang = ausgang
 
@@ -179,7 +181,23 @@ class _Zertifikatspeicher:
             vertraut = self.speicher["Root"] | self.speicher["TrustedPublisher"]
             return _Antwort(stdout="\n".join(sorted(vertraut)))
         if "-CodeSigningCert" in befehl:
-            return _Antwort(stdout="\n".join(sorted(self.speicher["My"])))
+            # Wie PowerShell: ein `Where-Object` auf den Namen filtert,
+            # und ausgegeben wird, was der Befehl verlangt.
+            filter_ = re.search(
+                r"Where-Object \{ \$_\.Subject -eq '([^']*)'", befehl
+            )
+            zeilen = []
+            for fingerabdruck in sorted(self.speicher["My"]):
+                subjekt = self.subjekte.get(
+                    fingerabdruck, f"CN={signatur.ZERT_NAME}"
+                )
+                if filter_ and subjekt != filter_.group(1):
+                    continue
+                if "'|' + $_.Subject" in befehl:
+                    zeilen.append(f"{fingerabdruck}|{subjekt}")
+                else:
+                    zeilen.append(fingerabdruck)
+            return _Antwort(stdout="\n".join(zeilen))
         raise AssertionError(f"Unerwarteter Befehl: {befehl}")
 
 
@@ -238,6 +256,52 @@ def test_kein_ausgang_ausser_erfolg_laesst_ein_zertifikat_liegen(
     assert windows.speicher["My"] == set()
 
 
+@pytest.mark.parametrize("eigenes", [False, True], ids=["nur_fremdes", "beide"])
+def test_ein_fremdes_vertrautes_zertifikat_wird_nicht_genommen(
+    monkeypatch: pytest.MonkeyPatch, eigenes: bool
+) -> None:
+    """Punkt 423: lag im Konto ein anderes Codesignatur-Zertifikat,
+    dem der Rechner vertraut, etwa das der Schule, signierte der Export
+    ohne Nachfrage damit. Signiert wird nur mit dem eigenen; fehlt
+    es, gilt der Ablauf zum Anlegen mit der Ankündigung davor."""
+    windows = _Zertifikatspeicher("nein")
+    for speicher in ("My", "Root", "TrustedPublisher"):
+        windows.speicher[speicher].add("SCHULE123")
+    windows.subjekte["SCHULE123"] = "CN=Gymnasium Musterstadt"
+    if eigenes:
+        for speicher in ("My", "Root", "TrustedPublisher"):
+            windows.speicher[speicher].add("EIGEN456")
+    monkeypatch.setattr(signatur, "_powershell", windows)
+    signiert_mit: list[str] = []
+    monkeypatch.setattr(
+        signatur,
+        "exe_signieren",
+        lambda exe, fp: (
+            signiert_mit.append(fp),
+            signatur.SignaturErgebnis(True, "signiert"),
+        )[1],
+    )
+    angekuendigt: list[bool] = []
+
+    ergebnis = signatur.signieren_wenn_moeglich(
+        Path("egal.exe"),
+        anlegen=True,
+        vor_dem_anlegen=lambda: angekuendigt.append(True),
+    )
+
+    assert "SCHULE123" not in signiert_mit
+    if eigenes:
+        assert signiert_mit == ["EIGEN456"]
+        assert not angekuendigt
+    else:
+        assert signiert_mit == []
+        assert angekuendigt == [True]
+        assert windows.angelegt == 1
+        assert ergebnis.signiert is False
+    # Das fremde Zertifikat bleibt, wo es ist.
+    assert "SCHULE123" in windows.speicher["My"]
+
+
 def test_nur_der_stammspeicher_steht_im_try() -> None:
     """Die Rückfrage kommt beim Eintrag in `Root`. Verneint, darf das
     Zertifikat auch nicht zu den vertrauenswürdigen Herausgebern."""
@@ -266,6 +330,8 @@ def test_mit_zertifikat_wird_signiert(monkeypatch: pytest.MonkeyPatch) -> None:
     ergebnis = signatur.exe_signieren(Path("C:/tmp/Spiel.exe"), "ABC123")
 
     assert ergebnis.signiert is True
+    # Die Rückmeldung nennt den Herausgeber (Punkt 423).
+    assert f"Herausgeber: „{signatur.ZERT_NAME}“" in ergebnis.grund
     # Pfad und Fingerabdruck stehen nicht im Befehlstext, sondern
     # kommen als Umgebungsvariablen an (Punkt 229).
     assert "ABC123" not in befehle[0]

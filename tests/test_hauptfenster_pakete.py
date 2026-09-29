@@ -78,7 +78,10 @@ def test_paket_installieren_bei_fehler_zeigt_meldung(
     monkeypatch.setattr(QInputDialog, "getText", staticmethod(lambda *a, **k: ("kaputt", True)))
 
     def fake_installieren(name: str) -> str:
-        raise PaketFehler("No matching distribution found for kaputt")
+        raise PaketFehler(
+            "Keine Verbindung zum Paketverzeichnis.",
+            "ERROR: No matching distribution found for kaputt",
+        )
 
     monkeypatch.setattr("ide.shell.hauptfenster.paket_installieren", fake_installieren)
     fenster = hauptfenster_bauen()
@@ -86,7 +89,17 @@ def test_paket_installieren_bei_fehler_zeigt_meldung(
     fenster._paket_installieren_aktion()
     hintergrund_abwarten(fenster)
 
-    assert "fehlgeschlagen" in fenster.statusBar().currentMessage()
+    status = fenster.statusBar().currentMessage()
+    assert "fehlgeschlagen" in status
+    assert "Keine Verbindung zum Paketverzeichnis" in status
+    # Die Ausgabe von pip steht nur im Panel „Meldungen“ (Punkt 424).
+    assert "No matching distribution" not in status
+    assert "PaketFehler" not in status
+    eintraege = [
+        fenster.meldungen_liste.item(i).text()
+        for i in range(fenster.meldungen_liste.count())
+    ]
+    assert "ERROR: No matching distribution found for kaputt" in eintraege
 
 
 def test_paketliste_exportieren_schreibt_an_den_gewaehlten_pfad(
