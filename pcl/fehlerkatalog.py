@@ -143,7 +143,7 @@ _TYPNAMEN: dict[str, tuple[str, str]] = {
     "set": ("eine Menge", "eine Menge"),
     "range": ("ein Zahlenbereich", "einen Zahlenbereich"),
     "bytes": ("eine Folge von Bytes", "eine Folge von Bytes"),
-    "NoneType": ("None, also gar kein Wert", "None, also gar keinen Wert"),
+    "NoneType": ("None (gar kein Wert)", "None (gar keinen Wert)"),
     "function": ("eine Funktion", "eine Funktion"),
     "method": ("eine Methode", "eine Methode"),
     "module": ("ein Modul", "ein Modul"),

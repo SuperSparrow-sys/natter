@@ -60,7 +60,7 @@ entries:
     # Den Typ nennt Python in der Meldung vor dem fehlenden Namen. Bei
     # None ist fast immer ein vergessenes return der Grund (Punkt 422).
     hinweis_typ: "{name} existiert bei diesem Objekt nicht; hier steht {typ}."
-    hinweis_none: "{name} existiert bei diesem Objekt nicht; hier steht None, also gar kein Wert. Eine Funktion ohne return liefert None als Ergebnis."
+    hinweis_none: "{name} existiert bei diesem Objekt nicht; hier steht None (gar kein Wert). Eine Funktion ohne return liefert None als Ergebnis."
 
   - id: type_error
     exception: TypeError
