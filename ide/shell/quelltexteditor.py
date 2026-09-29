@@ -425,6 +425,21 @@ class QuelltextEditor(QPlainTextEdit):
         self.breakpoint_umgeschaltet.emit(zeile, gesetzt)
         self.breakpoints_geaendert.emit()
 
+    def haltepunkte_setzen(
+        self, zeilen: set[int], bedingungen: dict[int, str]
+    ) -> None:
+        """Setzt Haltepunkte und Bedingungen auf einmal, etwa beim
+        Wiederöffnen einer Datei (Punkt 419). Zeilen jenseits des
+        Textendes fallen weg; die Datei kann sich inzwischen geändert
+        haben."""
+        letzte = self.document().blockCount()
+        self.breakpoints = {z for z in zeilen if 1 <= z <= letzte}
+        self.bedingungen = {
+            z: b for z, b in bedingungen.items() if z in self.breakpoints
+        }
+        self._rand.update()
+        self.breakpoints_geaendert.emit()
+
     def _breakpoints_nachfuehren(self, position: int, _entfernt: int, _dazu: int) -> None:
         """Haltepunkte wandern mit ihrer Zeile (Punkt 119). Bis 0.3.5
         waren sie feste Zeilennummern: zwei Zeilen darüber eingefügt,

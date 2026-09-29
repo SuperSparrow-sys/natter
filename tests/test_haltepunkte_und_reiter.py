@@ -148,3 +148,52 @@ def test_haltepunkt_waehrend_des_debuggens_setzen(
     finally:
         if hauptfenster.debug_sitzung is not None:
             hauptfenster._debugger_stoppen_aktion()
+
+
+# -- 419 -----------------------------------------------------------------
+
+
+def test_haltepunkte_ueberstehen_das_schliessen_des_reiters(
+    qtbot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, hauptfenster  # noqa: ANN001
+) -> None:
+    main = _projekt(hauptfenster, tmp_path, "a = 1\nb = 2\nc = 3\nd = 4\n")
+    editor = hauptfenster.datei_oeffnen(main)
+    editor.breakpoint_umschalten(3)
+    editor.bedingung_setzen(4, "d > 0")
+    # Eine Zeile darüber: beide wandern eine Zeile nach unten, und
+    # gemerkt wird dieser Stand.
+    _cursor_auf(editor, 1).insertText("x = 0\n")
+    monkeypatch.setattr(
+        HauptFenster, "_reiter_schliessen_fragen", lambda self: QMessageBox.StandardButton.Save
+    )
+    hauptfenster._tab_schliessen(hauptfenster.editor_tabs.indexOf(editor))
+    assert hauptfenster.editor_tabs.indexOf(editor) == -1
+
+    assert hauptfenster._offene_breakpoints() == {main: [4, 5]}
+    assert hauptfenster._offene_bedingungen() == {main: {5: "d > 0"}}
+
+    wieder = hauptfenster.datei_oeffnen(main)
+    assert wieder.breakpoints == {4, 5}
+    assert wieder.bedingungen == {5: "d > 0"}
+    assert hauptfenster._offene_breakpoints() == {main: [4, 5]}
+
+
+def test_haltepunkt_im_geschlossenen_reiter_haelt_das_programm(
+    qtbot, tmp_path: Path, hauptfenster
+) -> None:  # noqa: ANN001
+    main = _projekt(hauptfenster, tmp_path, "a = 1\nb = 2\nc = 3\nd = 4\n")
+    editor = hauptfenster.datei_oeffnen(main)
+    editor.breakpoint_umschalten(3)
+    hauptfenster._tab_schliessen(hauptfenster.editor_tabs.indexOf(editor))
+
+    hauptfenster._projekt_mit_debugger_starten_aktion()
+    try:
+        qtbot.waitUntil(
+            lambda: hauptfenster._aktueller_thread_id is not None
+            and hauptfenster.aufrufstapel_liste.count() > 0
+            and hauptfenster.aufrufstapel_liste.item(0).text() == "main.py, Zeile 3, in <module>",
+            timeout=DEBUG_ZEITGRENZE,
+        )
+    finally:
+        if hauptfenster.debug_sitzung is not None:
+            hauptfenster._debugger_stoppen_aktion()
