@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 #: Steht auf dem Startbild. Von Hand gepflegt und nicht über
 #: `importlib.metadata` gelesen: die Paketangaben nachzuschlagen dauert
 #: länger als das Bild, das sie zeigen soll.
-VERSION = "0.4.0"
+VERSION = "0.4.1"
 
 
 def integritaet_bestaetigen(fenster: HauptFenster) -> bool:
