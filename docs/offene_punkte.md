@@ -116,3 +116,12 @@ einmal von vorn aufgemacht wird. Gemessene Alternativen waren:
 `--onedir` statt `--onefile` (spart 200 ms, kostet 15,8 MB und einen
 Ordner neben der Exe) und die Verknüpfung direkt auf `pythonw.exe`
 (spart 790 ms, kostet das eigene signierte `Natter.exe`).
+
+**Nachtrag 29. September 2026:** Seit 0.4.0 ist der Starter doch eine
+Ordnerfassung mit `starter\` (Punkt 399), weil die Einzeldatei bei
+jedem Start einen Ordner `%TEMP%\_MEI…` hinterließ, wenn Natter hart
+beendet wurde. Warmer Start von 0.4.0: 1,55 s. Erster Start nach der
+Installation: 0.4.0 rund 24 s, 0.4.1 an frischen Kopien 17,3 und
+24,9 s, an der Installation 44,5 s bei fremder Last (Punkt 407 und
+`docs/bericht.md`, Abschnitt 8). Den größten Teil davon kostet die
+Prüfung jeder neuen Datei durch den Virenschutz, nicht der Starter.

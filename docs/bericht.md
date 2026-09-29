@@ -575,6 +575,53 @@ README zeigt auf die neueste Fassung. Vor dem Entpacken die ZIP unter
 Nach jedem Bau kommt hier ein Eintrag dazu: Datum, Fassung, Größe,
 Signaturen, Dauer, und was der Lauf aufgedeckt hat, samt Irrweg.
 
+### 0.4.1 – 29. September 2026
+
+`Natter-Setup.exe`, 276,4 MB, ZIP 277 MB. `Natter-Setup.exe` `Valid`,
+jede Binärdatei gültig signiert. Veröffentlicht als Release `v0.4.1`.
+35,4 Minuten: pytest 4:52, `dist\Natter` 14:52, Installer 12:28, Rest
+Signaturen, Paket und Release. Enthält die Punkte 407 bis 410 aus der
+Prüfung von 0.4.0.
+
+Update 0.4.0 → 0.4.1 still, Rückgabe 0 nach 386 s; Windows führt
+„Natter 0.4.1“, `Natter.exe` trägt die Dateiversion 0.4.1. Geprüft
+über UI Automation mit Bildschirmfotos (`build\auswertung\041\`):
+„Projekt öffnen …“ beginnt im Ordner des offenen Projekts, ohne
+Projekt beim zuletzt geöffneten, nie im Programmordner (408). In
+einem Kommentar und in einer Zeichenkette geht beim Tippen von
+`sorted` und `abs` keine Vorschlagsliste auf, im Code nach `sor`
+schon (409). Nach hartem Beenden steht die Frage zur Sicherung nach
+3,3 s über dem schon sichtbaren Hauptfenster, und ein Doppelklick
+aus zwei echten Mausklicks öffnet eine Unit beim ersten Versuch
+(410). Notizbuch, Konsole mit „Grüße“ und ObstSortierer liefen, die
+Wache blieb ohne Befund.
+
+Die 91,9 s von 0.4.0 waren zum größten Teil ein Messfehler: eine
+UI-Automation-Abfrage hing bis zu 78,6 s, während das Hauptfenster
+längst stand. Gemessen wird der Start seitdem über `EnumWindows` und
+`WM_NULL`. Tatsächlich lag der erste Start von 0.4.0 bei rund 24 s,
+davon 9,4 bis 10,3 s für die Integritätsprüfung, die rund 860 Dateien
+nacheinander las, jede zum ersten Mal vom Virenschutz geprüft. In 16
+Fäden braucht sie 1,8 bis 2,2 s (Punkt 407). An der Installation von
+0.4.1 dauerte der erste Start trotzdem 44,5 s, der zweite 2,8 s;
+frische Kopien der Installation 24,9 und 17,3 s. Während dieser
+Messung arbeitete eine andere Sitzung am selben Bildschirm (Last 33
+bis 45 %), und der Start begann vier Minuten nach dem Setup, als der
+Virenschutz die neuen Dateien womöglich noch prüfte. Ein sauberer
+Wert ohne fremde Last steht aus. Erster Start des ObstSortierers an
+der Installation rund 61 s, danach 3,5 s.
+
+Zwei Befunde führen zu 0.4.2: Der CI-Lauf zum Archiv-Commit stürzte
+mit „access violation“ ab, weil der Nebenfaden der CSV-Ansicht die
+Ansicht selbst hielt (411), und der Nutzer meldete an der
+installierten Fassung den hellen Kasten hinter der Ladeanzeige in
+der Statusleiste (412). Irrweg bei 411: Der Lauf stand nach dem
+Absturz 55 Minuten ohne Ausgabe; zuerst sah es nach einem hängenden
+Runner aus, der Grund stand erst im Protokoll nach dem Abbruch durch
+`timeout-minutes: 60`. Bei 412 bestand der erste Test auch gegen den
+alten Stand, weil er die Leiste abgriff, bevor sie ihre Farbe hatte;
+er wartet jetzt darauf.
+
 ### 0.4.0 – 29. September 2026
 
 `Natter-Setup.exe`, 276,4 MB, ZIP 277 MB. `Natter.exe` und
