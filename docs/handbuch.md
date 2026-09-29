@@ -873,6 +873,11 @@ Programm erzeugt und ist damit immer aktuell.
 „Start → Pause“ hält auch ein Programm an, das in einer Schleife
 festhängt und nie an einem Haltepunkt vorbeikommt.
 
+Haltepunkte und ihre Bedingungen bleiben erhalten, wenn ein Reiter,
+das Projekt oder Natter geschlossen wird. Natter merkt sie sich je
+Benutzer für die letzten 20 Projekte und nicht im Projektordner; eine
+Kopie des Ordners, etwa für eine Klasse, hat deshalb keine.
+
 ### Bewegen im Programm
 
 | Taste | Was passiert |
