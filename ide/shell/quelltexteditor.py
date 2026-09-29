@@ -49,6 +49,7 @@ from PySide6.QtWidgets import (
 )
 
 from ide.shell.python_hervorhebung import PythonHervorhebung
+from ide.shell.tastenkuerzel import EDITORBEFEHLE
 from ide.shell.vervollstaendigung import (
     MINDESTZEICHEN,
     Fundstelle,
@@ -1506,12 +1507,26 @@ class QuelltextEditor(QPlainTextEdit):
         menue.addSeparator()
         # (Text, Rückruf, ändert den Text?) - was den Text ändert, ist
         # in einer schreibgeschützten Datei grau.
+        # Name und Taste kommen aus `EDITORBEFEHLE`, derselben Quelle
+        # wie die Tastenkürzel-Übersicht (Punkt 440).
+        def befehl(schluessel: str) -> str:
+            eintrag = EDITORBEFEHLE[schluessel]
+            return f"{eintrag.name}\t{eintrag.taste}"
+
         eintraege = (
-            ("Zur Definition springen\tF12", self.definition_gesucht.emit, False),
-            ("Zeile duplizieren\tStrg+D", self.zeile_duplizieren, True),
-            ("Zeile nach oben\tAlt+Pfeil oben", lambda: self.zeile_verschieben(False), True),
-            ("Zeile nach unten\tAlt+Pfeil unten", lambda: self.zeile_verschieben(True), True),
-            ("Kommentar umschalten\tStrg+#", self.kommentar_gewuenscht.emit, True),
+            (befehl("definition"), self.definition_gesucht.emit, False),
+            (befehl("duplizieren"), self.zeile_duplizieren, True),
+            (
+                befehl("nach_oben"),
+                lambda: self.zeile_verschieben(False),
+                True,
+            ),
+            (
+                befehl("nach_unten"),
+                lambda: self.zeile_verschieben(True),
+                True,
+            ),
+            (befehl("kommentar"), self.kommentar_gewuenscht.emit, True),
             (None, None, False),
             ("Alles zuklappen", self.alles_falten, False),
             ("Alles aufklappen", self.alles_entfalten, False),

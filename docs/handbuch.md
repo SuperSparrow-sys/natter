@@ -896,8 +896,8 @@ Kopie des Ordners, etwa für eine Klasse, hat deshalb keine.
 | Taste | Was passiert |
 |---|---|
 | `Strg+#` | Zeile aus- oder einkommentieren |
-| `Strg+D` | Zeile darunter noch einmal einfügen |
-| `Alt+Pfeil hoch/runter` | Zeile nach oben oder unten schieben |
+| `Strg+D` | Zeile duplizieren: die Zeile darunter noch einmal einfügen |
+| `Alt+Pfeil hoch`, `Alt+Pfeil runter` | Zeile nach oben schieben, Zeile nach unten schieben |
 | `Strg+Leertaste` | Vervollständigung erzwingen |
 | `Strg+Mausrad`, `Strg+Plus`, `Strg+Minus` | Schrift größer oder kleiner, gilt für alle Editoren und die Panels „Ausgabe“ und „Meldungen“ und bleibt gemerkt |
 | `Strg+0` | Normale Schriftgröße |

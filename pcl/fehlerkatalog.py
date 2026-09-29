@@ -526,7 +526,9 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
         r"on line (?P<zeile>\d+)$",
         "Nach {einleitung} (Zeile {zeile}) muss der zugehörige Block eingerückt "
         "sein; hier steht nichts Eingerücktes.",
-        "Ist die Zeile darunter eingerückt? Python nutzt die Einrückung anstelle von begin/end.",
+        "Ist die Zeile darunter eingerückt? Was zu einem if, for, while oder "
+        "def gehört, steht darunter weiter eingerückt als die Zeile mit dem "
+        "Doppelpunkt.",
     ),
     _m(
         r"^unexpected indent$",
@@ -556,7 +558,9 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
     _m(
         r"^expected an indented block$",
         "Hier fehlt der eingerückte Block.",
-        "Ist die Zeile darunter eingerückt? Python nutzt die Einrückung anstelle von begin/end.",
+        "Ist die Zeile darunter eingerückt? Was zu einem if, for, while oder "
+        "def gehört, steht darunter weiter eingerückt als die Zeile mit dem "
+        "Doppelpunkt.",
     ),
     _m(
         r"^invalid decimal literal$",
@@ -1424,14 +1428,19 @@ def _ort_umlenken(
       Methode verknüpft: die Methode fehlt in der Unit, etwa weil sie
       mit Strg+Z im Editor wieder verschwunden ist (Punkt 290).
 
-    Und einer, in dem der Ort stimmt, aber „existiert bei diesem
-    Objekt nicht“ zu wenig sagt: `self.label` in der Unit eines
-    Formulars, nachdem `label` im Designer gelöscht wurde
-    (Laufzeitteil von Punkt 294).
+    Und zwei, in denen der Ort stimmt, aber die allgemeine Leitfrage
+    wegführt: `self.label` in der Unit eines Formulars, nachdem
+    `label` im Designer gelöscht wurde (Laufzeitteil von Punkt 294),
+    und `edit.text` ohne `self.` in einer Methode eines Formulars
+    mit einer Komponente `edit` (Punkt 431).
     """
     if ort is None:
         return None
     datei, zeile = Path(ort[0]).name, ort[1]
+    if issubclass(klasse, NameError) and not issubclass(
+        klasse, UnboundLocalError
+    ):
+        return _self_fehlt_zur_laufzeit(klasse, nachricht, ort)
     if issubclass(klasse, ImportError):
         fehlt = _NAME_FEHLT_IN_UNIT.match(nachricht)
         if fehlt is None:
@@ -1468,6 +1477,97 @@ def _ort_umlenken(
         "Designer legt die Methode neu an.",
         f"{unit}.py, Methode {methode}",
     )
+
+
+#: „name 'edit' is not defined“
+_NAME_NICHT_DEFINIERT = re.compile(r"^name '(?P<name>\w+)' is not defined")
+
+
+def _self_fehlt_zur_laufzeit(
+    klasse: type, nachricht: str, ort: tuple[str, int]
+) -> tuple[str, str, str, None] | None:
+    treffer = _NAME_NICHT_DEFINIERT.match(nachricht)
+    if treffer is None:
+        return None
+    leitfrage = self_fehlt_leitfrage(
+        Path(ort[0]), ort[1], treffer.group("name")
+    )
+    if leitfrage is None:
+        return None
+    kurz, was, _ = _name_error(_NurMeldung(nachricht, klasse))
+    return kurz, was, leitfrage, None
+
+
+def _klasse_der_methode_an(
+    baum: ast.Module, zeile: int
+) -> ast.ClassDef | None:
+    """Die Klasse, in deren Methode `zeile` steht, oder `None`."""
+    for knoten in ast.walk(baum):
+        if not isinstance(knoten, ast.ClassDef):
+            continue
+        for glied in knoten.body:
+            if not isinstance(
+                glied, (ast.FunctionDef, ast.AsyncFunctionDef)
+            ):
+                continue
+            ende = glied.end_lineno or glied.lineno
+            if glied.lineno <= zeile <= ende:
+                return knoten
+    return None
+
+
+def _self_attribute(klasse: ast.ClassDef) -> set[str]:
+    """Die Namen, die die Klasse irgendwo als `self.name` setzt."""
+    return {
+        knoten.attr
+        for knoten in ast.walk(klasse)
+        if isinstance(knoten, ast.Attribute)
+        and isinstance(knoten.ctx, ast.Store)
+        and isinstance(knoten.value, ast.Name)
+        and knoten.value.id == "self"
+    }
+
+
+def self_fehlt_leitfrage(unit: Path, zeile: int, name: str) -> str | None:
+    """Leitfrage für einen unbekannten Namen, vor dem vermutlich
+    `self.` fehlt, sonst `None`.
+
+    Der häufigste Fehler in den ersten Fensterprogrammen ist
+    `edit.text = "x"` statt `self.edit.text = "x"`. Die allgemeine
+    Leitfrage fragt dann nach Schreibweise und Import, und beides
+    stimmt ja. Erkannt wird der Fall, wenn die Zeile in einer Methode
+    einer Klasse steht und der Name eine Komponente ihres Formulars
+    ist (laut `.pfm` neben der Unit) oder ein Attribut, das die
+    Klasse als `self.name` setzt. Die Prüfung vor dem Start
+    (`ide/run/pruefung.py`) nimmt dieselbe Frage (Punkt 431).
+    """
+    try:
+        baum = ast.parse(unit.read_bytes(), str(unit))
+    except (OSError, SyntaxError, ValueError):
+        return None
+    klasse = _klasse_der_methode_an(baum, zeile)
+    if klasse is None:
+        return None
+    try:
+        pfm = json.loads(unit.with_suffix(".pfm").read_text("utf-8-sig"))
+    except (OSError, ValueError):
+        pfm = None
+    if (
+        isinstance(pfm, dict)
+        and pfm.get("class") == klasse.name
+        and name in _komponenten_der_pfm(pfm)
+    ):
+        return (
+            f"Auf dem Formular gibt es eine Komponente {name}. Ist sie "
+            f"gemeint, und fehlt davor self., also self.{name}?"
+        )
+    if name in _self_attribute(klasse):
+        return (
+            f"In der Klasse {klasse.name} wird self.{name} gesetzt. Ist "
+            f"dieser Wert gemeint, und fehlt davor self., also "
+            f"self.{name}?"
+        )
+    return None
 
 
 #: „'Form1' object has no attribute 'label'“

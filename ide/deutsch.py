@@ -34,6 +34,40 @@ _UEBERSETZER: list[QTranslator] = []
 #: Sammeldatei älterer Qt-Fassungen und schadet nicht, wenn sie fehlt.
 DATEIEN = ("qtbase_de", "qt_de")
 
+#: Stellen, an denen Qts deutsche Übersetzung ein anderes Wort nimmt
+#: als Natter: (Kontext, englischer Text) auf den Text von Natter.
+#: Die Kontextmenüs jedes Eingabefelds und des Quelltexteditors
+#: hießen „Wiederherstellen“, das Menü „Bearbeiten“, die
+#: Werkzeugleiste und die Tastenkürzel-Übersicht „Wiederholen“
+#: (Punkt 440). `QLineEdit` baut das Menü der einzeiligen Felder,
+#: `QWidgetTextControl` das von `QPlainTextEdit` und `QTextEdit`.
+ERSETZUNGEN = {
+    ("QLineEdit", "&Redo"): "&Wiederholen",
+    ("QWidgetTextControl", "&Redo"): "&Wiederholen",
+}
+
+
+class _Ersetzer(QTranslator):
+    """Liefert die Texte aus `ERSETZUNGEN` und für alles andere
+    nichts, damit Qt bei der geladenen Übersetzung weitersucht. Qt
+    fragt den zuletzt eingerichteten Übersetzer zuerst."""
+
+    def translate(
+        self,
+        kontext: str,
+        quelle: str,
+        disambiguation: str | None = None,
+        n: int = -1,
+    ) -> str | None:
+        return ERSETZUNGEN.get((kontext, quelle))
+
+    def isEmpty(self) -> bool:
+        return False
+
+
+#: Der eingerichtete `_Ersetzer`, am Leben gehalten wie `_UEBERSETZER`.
+_ERSETZER: list[_Ersetzer] = []
+
 #: Das deutsche Zahlen- und Datumsformat, unabhängig von der
 #: Einstellung unter „Region“ in Windows.
 DEUTSCH = QLocale(QLocale.Language.German, QLocale.Country.Germany)
@@ -84,4 +118,11 @@ def deutsch_einschalten(app: QApplication | None = None) -> int:
         if uebersetzer.load(name, ordner):
             app.installTranslator(uebersetzer)
             _UEBERSETZER.append(uebersetzer)
+    if _UEBERSETZER:
+        # Nach den Dateien, damit er zuerst gefragt wird. Ohne
+        # deutsche Übersetzung bleibt es beim englischen „Redo“, statt
+        # ein einzelnes deutsches Wort in ein englisches Menü zu setzen.
+        ersetzer = _Ersetzer()
+        app.installTranslator(ersetzer)
+        _ERSETZER.append(ersetzer)
     return len(_UEBERSETZER)

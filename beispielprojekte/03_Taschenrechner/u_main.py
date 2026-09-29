@@ -6,8 +6,10 @@
 #   Programm auf ein Ereignis - hier auf einen Klick.
 #
 # So entsteht eine neue Schaltfläche:
-#   1. Doppelklick auf u_main.pfm öffnet den Designer.
-#   2. Button aus der Palette aufs Formular ziehen.
+#   1. Im Projekt-Explorer unter „Formulare“ ein Doppelklick auf
+#      „u_main“ öffnet den Designer.
+#   2. In der Palette die Kachel „Button“ anklicken und dann an der
+#      gewünschten Stelle ins Formular klicken.
 #   3. Doppelklick auf den Button - Natter legt die Methode hier an.
 
 from pcl import text, zahl

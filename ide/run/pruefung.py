@@ -18,13 +18,14 @@ import json
 import re
 import subprocess
 import warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
 from ide.project import Projekt
 from ide.prozess import ohne_konsole
 from ide.run.interpreter import ruff_befehl
+from pcl.fehlerkatalog import self_fehlt_leitfrage
 from pcl.pruefungsmodus import laeuft as pruefungsmodus_laeuft
 
 _AUSGEWAEHLTE_REGELN = "E9,F821,F401,F841"
@@ -157,9 +158,11 @@ class RuffFund:
     spalte: int
     code: str
     meldung: str
-    #: Nur bei den Prüfungen, die Natter selbst anstellt
+    #: Bei den Prüfungen, die Natter selbst anstellt
     #: (`EIGENE_REGELN`): dort ist `meldung` schon deutsch, und die
-    #: Leitfrage hängt vom Einzelfall ab.
+    #: Leitfrage hängt vom Einzelfall ab. Bei einem Fund von Ruff
+    #: ersetzt sie die feste Leitfrage der Regel, etwa bei einem
+    #: unbekannten Namen, vor dem `self.` fehlt (`_self_pruefen`).
     leitfrage: str = ""
 
     @property
@@ -190,6 +193,10 @@ class RuffFund:
     def _vorlage(self) -> tuple[str, str]:
         if self.code in EIGENE_REGELN:
             return "{meldung}", self.leitfrage
+        if self.leitfrage:
+            return _UEBERSETZUNGEN.get(self.code, _UNBEKANNT)[0], (
+                self.leitfrage
+            )
         if self.code == "invalid-syntax":
             meldung = self.meldung.lower()
             for stichwort, vorlage in _SYNTAX_GENAUER:
@@ -249,7 +256,9 @@ def projekt_pruefen(projekt: Projekt) -> list[RuffFund]:
     steht (`_importe_pruefen`), und ob jede Methode, die ein Formular
     mit einem Ereignis verknüpft, in seiner Unit steht
     (`_ereignisse_pruefen`)."""
-    funde = _syntaxfehler_zusammenfassen(_ruff_pruefen(projekt))
+    funde = _self_pruefen(
+        _syntaxfehler_zusammenfassen(_ruff_pruefen(projekt))
+    )
     funde.extend(_importe_pruefen(projekt))
     funde.extend(_ereignisse_pruefen(projekt))
     return funde
@@ -293,6 +302,23 @@ def _ruff_pruefen(projekt: Projekt) -> list[RuffFund]:
         )
         for fund in json.loads(ergebnis.stdout)
     ]
+
+
+def _self_pruefen(funde: list[RuffFund]) -> list[RuffFund]:
+    """Gibt einem unbekannten Namen, der eine Komponente des Formulars
+    oder ein Attribut der Klasse ist, die Frage nach dem fehlenden
+    `self.` mit (Punkt 431). Die Frage kommt aus dem Fehlerkatalog,
+    damit Prüfung und Laufzeitmeldung gleich lauten."""
+    ergebnis: list[RuffFund] = []
+    for fund in funde:
+        if fund.code == "F821" and fund.name:
+            leitfrage = self_fehlt_leitfrage(
+                fund.datei, fund.zeile, fund.name
+            )
+            if leitfrage is not None:
+                fund = replace(fund, leitfrage=leitfrage)
+        ergebnis.append(fund)
+    return ergebnis
 
 
 # -- Syntaxfehler: einer je Datei, mit Pythons eigener Zeile ----------------

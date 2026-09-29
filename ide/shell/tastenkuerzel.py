@@ -38,15 +38,42 @@ MENUE_REIHENFOLGE = (
     "Hilfe",
 )
 
+@dataclass(frozen=True)
+class Editorbefehl:
+    """Ein Befehl im Kontextmenü des Editors mit seiner Taste."""
+
+    name: str
+    taste: str
+
+
+#: Die Befehle, die das Kontextmenü des Editors unter Qts
+#: Standardeinträgen zeigt. Kontextmenü und Übersicht lesen Name und
+#: Taste hier. Vorher standen sie an beiden Stellen getrennt, und
+#: dieselbe Taste hieß im Menü „Alt+Pfeil oben“, in der Übersicht
+#: „Alt+Pfeil hoch“ (Punkt 440). „Kommentar umschalten“ steht dazu im
+#: Menü „Quelltext“ und kommt dort in die Übersicht; Name und Taste
+#: sind dieselben wie im Aktionsregister.
+EDITORBEFEHLE = {
+    "definition": Editorbefehl("Zur Definition springen", "F12"),
+    "duplizieren": Editorbefehl("Zeile duplizieren", "Strg+D"),
+    "nach_oben": Editorbefehl("Zeile nach oben schieben", "Alt+Pfeil hoch"),
+    "nach_unten": Editorbefehl(
+        "Zeile nach unten schieben", "Alt+Pfeil runter"
+    ),
+    "kommentar": Editorbefehl("Kommentar umschalten", "Strg+#"),
+}
+
 #: Was nur im Editor gilt und in keinem Menü steht. Der Test
 #: `tests/test_tastenkuerzel.py` hält jede dieser Zeilen gegen den
 #: Editor – eine Übersicht, die etwas Falsches verspricht, schickt
 #: jemanden auf die Suche nach einem Fehler, den es nicht gibt.
 EDITORTASTEN = (
     ("Strg+Leertaste", "Vervollständigung auch ohne angefangenes Wort"),
-    ("Strg+D", "Zeile darunter noch einmal einfügen"),
-    ("Alt+Pfeil hoch/runter", "Zeile nach oben oder unten schieben"),
-    ("F12", "Zur Definition des Namens unter dem Cursor springen"),
+    *(
+        (befehl.taste, befehl.name)
+        for schluessel, befehl in EDITORBEFEHLE.items()
+        if schluessel != "kommentar"
+    ),
     ("Strg+Mausrad", "Schrift größer oder kleiner, für alle Editoren gemerkt"),
     ("Strg+Plus/Minus", "Schrift größer oder kleiner"),
     ("Strg+0", "Normale Schriftgröße"),

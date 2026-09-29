@@ -11,7 +11,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+from PySide6.QtWidgets import QLineEdit, QPlainTextEdit
+
 from ide.shell.quelltexteditor import QuelltextEditor
+from ide.shell.tastenkuerzel import EDITORTASTEN, uebersicht
 
 QUELLTEXT = (
     "class Konto:\n"
@@ -86,8 +90,9 @@ def test_kontextmenue_hat_die_befehle_der_tastenkuerzel(qtbot) -> None:  # noqa:
     editor.definition_gesucht.connect(lambda: gesucht.append(True))
 
     aktionen = _aktionen(editor)
-    for name in ("Zur Definition springen", "Zeile duplizieren", "Zeile nach oben",
-                 "Zeile nach unten", "Kommentar umschalten", "Alles zuklappen",
+    for name in ("Zur Definition springen", "Zeile duplizieren",
+                 "Zeile nach oben schieben", "Zeile nach unten schieben",
+                 "Kommentar umschalten", "Alles zuklappen",
                  "Alles aufklappen"):
         assert name in aktionen, name
 
@@ -109,3 +114,59 @@ def test_schreibgeschuetzt_sind_die_aendernden_befehle_grau(qtbot) -> None:  # n
     assert not aktionen["Kommentar umschalten"].isEnabled()
     assert aktionen["Zur Definition springen"].isEnabled()
     assert aktionen["Alles zuklappen"].isEnabled()
+
+
+# -- Punkt 440: dieselben Wörter wie im Menü und in der Übersicht ----------
+
+
+@pytest.mark.parametrize(
+    "feld",
+    [QuelltextEditor, QLineEdit, QPlainTextEdit],
+    ids=["editor", "eingabefeld", "textfeld"],
+)
+def test_das_kontextmenue_sagt_wiederholen_wie_das_menue(
+    qtbot, feld
+) -> None:  # noqa: ANN001
+    """Qts Übersetzung nennt Strg+Y „Wiederherstellen“, das Menü
+    „Bearbeiten“ und die Übersicht „Wiederholen“."""
+    widget = feld()
+    qtbot.addWidget(widget)
+    menue = (
+        widget.kontextmenue()
+        if isinstance(widget, QuelltextEditor)
+        else widget.createStandardContextMenu()
+    )
+
+    namen = [a.text().split("	")[0].replace("&", "") for a in menue.actions()]
+
+    assert "Wiederholen" in namen
+    assert "Wiederherstellen" not in namen
+
+
+def test_jede_taste_im_kontextmenue_steht_so_in_der_uebersicht(
+    qtbot, hauptfenster
+) -> None:  # noqa: ANN001
+    """Kontextmenü und Tastenkürzel-Übersicht nennen denselben Befehl
+    mit derselben Taste: „Alt+Pfeil oben“ und „Alt+Pfeil hoch“ waren
+    zwei Schreibweisen für eine Taste."""
+    uebersichtszeilen = {
+        (taste, name.replace("…", "").strip())
+        for gruppe in uebersicht(hauptfenster.aktionen)
+        for taste, name in gruppe.eintraege
+    } | set(EDITORTASTEN)
+    editor = QuelltextEditor()
+    qtbot.addWidget(editor)
+
+    im_menue = [
+        tuple(a.text().replace("&", "").split("	"))
+        for a in editor.kontextmenue().actions()
+        if "	" in a.text()
+    ]
+
+    assert len(im_menue) >= 10
+    fehlt = [
+        f"{name} ({taste})"
+        for name, taste in im_menue
+        if (taste, name) not in uebersichtszeilen
+    ]
+    assert not fehlt, fehlt
