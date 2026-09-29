@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import stat
 from pathlib import Path
 
@@ -197,3 +198,52 @@ def test_haltepunkt_im_geschlossenen_reiter_haelt_das_programm(
     finally:
         if hauptfenster.debug_sitzung is not None:
             hauptfenster._debugger_stoppen_aktion()
+
+
+# Beim Schließen des Projekts ist der Reiter vorher schon zu, die
+# Haltepunkte kommen also aus `_gemerkte_haltepunkte`; beim Neustart
+# ist er bis zum Beenden offen.
+@pytest.mark.parametrize("weg", ["projekt_schliessen", "neustart"])
+def test_haltepunkte_ueberstehen_projekt_und_neustart(
+    qtbot, tmp_path: Path, hauptfenster_bauen, weg: str  # noqa: ANN001
+) -> None:
+    fenster = hauptfenster_bauen()
+    main = _projekt(
+        fenster, tmp_path / "projekt", "a = 1\nb = 2\nc = 3\nd = 4\n"
+    )
+    natter = main.parent / "t.natter"
+    editor = fenster.datei_oeffnen(main)
+    editor.breakpoint_umschalten(2)
+    editor.bedingung_setzen(4, "d > 0")
+
+    if weg == "projekt_schliessen":
+        fenster._tab_schliessen(fenster.editor_tabs.indexOf(editor))
+        assert fenster.projekt_schliessen()
+        assert fenster._offene_breakpoints() == {}
+    else:
+        fenster.close()
+        fenster = hauptfenster_bauen()
+    fenster.projekt_oeffnen(natter)
+    wieder = fenster.datei_oeffnen(main)
+
+    assert wieder.breakpoints == {2, 4}
+    assert wieder.bedingungen == {4: "d > 0"}
+
+
+def test_kopie_des_projektordners_hat_keine_haltepunkte(
+    qtbot, tmp_path: Path, hauptfenster  # noqa: ANN001
+) -> None:
+    main = _projekt(hauptfenster, tmp_path / "lehrkraft", "a = 1\nb = 2\n")
+    editor = hauptfenster.datei_oeffnen(main)
+    editor.breakpoint_umschalten(2)
+    assert hauptfenster.projekt_schliessen()
+    kopie = tmp_path / "klasse"
+    shutil.copytree(main.parent, kopie)
+
+    hauptfenster.projekt_oeffnen(kopie / "t.natter")
+    assert hauptfenster._offene_breakpoints() == {}
+    assert hauptfenster.datei_oeffnen(kopie / "main.py").breakpoints == set()
+
+    # Das Original hat seine Haltepunkte behalten.
+    hauptfenster.projekt_oeffnen(main.parent / "t.natter")
+    assert hauptfenster._offene_breakpoints() == {main: [2]}

@@ -112,6 +112,7 @@ from ide.pfade import (
     beispielkopien_ordner,
     daten_ordner,
     dialog_startordner,
+    einheitlicher_pfad,
     natter_ordner,
     vorlaeufig_entpackt,
 )
@@ -135,6 +136,10 @@ from ide.schema import (
 )
 from ide.shell import abmeldegrund
 from ide.shell.explorer import PFAD_ROLLE, ProjektExplorer
+from ide.shell.haltepunkte_ablage import (
+    haltepunkte_laden,
+    haltepunkte_speichern,
+)
 from ide.shell.hintergrund import (
     ZEILEN_GRENZE,
     AusgabeLeser,
@@ -482,6 +487,16 @@ def _ist_projekt_in(projekt: Projekt | None, pfad: Path) -> bool:
         return False
     ordner = pfad if pfad.suffix.lower() != ".natter" else pfad.parent
     return projekt.ordner.resolve() == Path(ordner).resolve()
+
+
+def _projektdatei_zu(pfad: Path) -> Path:
+    """Die `.natter`-Datei zu `pfad`, der wie bei `Projekt.laden` auch
+    der Projektordner sein darf."""
+    if pfad.is_dir():
+        kandidaten = sorted(pfad.glob("*.natter"))
+        if kandidaten:
+            return kandidaten[0]
+    return pfad
 
 
 def _beispiel_projektordner(pfad: Path) -> Path | None:
@@ -1014,10 +1029,15 @@ class HauptFenster(QMainWindow):
         #: Haltepunkte und Bedingungen von Dateien, deren Reiter
         #: geschlossen wurde, je Pfad (Punkt 419). Sie gelten beim
         #: Start weiter und kommen beim Öffnen zurück in den Editor.
-        #: Beim Wechsel oder Schließen des Projekts wird geleert.
+        #: Beim Wechsel oder Schließen des Projekts und beim Beenden
+        #: gehen sie mit denen der offenen Reiter in die Einstellungen
+        #: (`_haltepunkte_ablegen`), beim Öffnen kommen sie von dort.
         self._gemerkte_haltepunkte: dict[
             str, tuple[set[int], dict[int, str]]
         ] = {}
+        #: Die `.natter`-Datei des offenen Projekts. Unter ihrem Pfad
+        #: stehen die Haltepunkte in den Einstellungen.
+        self._projekt_datei: Path | None = None
         self.editor_tabs.currentChanged.connect(self._bei_tab_wechsel)
         self.editor_tabs.tabCloseRequested.connect(self._tab_schliessen)
 
@@ -3823,6 +3843,7 @@ class HauptFenster(QMainWindow):
             sperre.freigeben(self.projekt.ordner)
         if not dasselbe:
             self._sicherung_eigen = False
+            self._haltepunkte_ablegen()
             self._gemerkte_haltepunkte.clear()
         anderes_fenster = sperre.anderer_besitzer(neu.ordner)
         # Die Sperre eines anderen Fensters bleibt stehen; die
@@ -3830,6 +3851,11 @@ class HauptFenster(QMainWindow):
         if anderes_fenster is None and not ist_beispiel_original(neu.ordner):
             sperre.sperren(neu.ordner)
         self.projekt = neu
+        self._projekt_datei = _projektdatei_zu(Path(pfad))
+        if not dasselbe:
+            self._gemerkte_haltepunkte = haltepunkte_laden(
+                self._design_einstellungen, self._projekt_datei, neu.ordner
+            )
         # Gibt die Datenbankdatei des alten Projekts frei; ein
         # Dateiname ohne Pfad gilt ab jetzt im neuen Projektordner
         # (Punkt 244).
@@ -3870,7 +3896,9 @@ class HauptFenster(QMainWindow):
         name = self.projekt.name
         self.kindprozesse_beenden()
         sperre.freigeben(self.projekt.ordner)
+        self._haltepunkte_ablegen()
         self.projekt = None
+        self._projekt_datei = None
         self._sicherung_eigen = False
         self._gemerkte_haltepunkte.clear()
         self.datenbank_panel.projektordner_setzen(None)
@@ -4962,7 +4990,7 @@ class HauptFenster(QMainWindow):
             return None
         editor.setPlainText(inhalt)
         editor.setProperty(_PFAD_EIGENSCHAFT, str(pfad))
-        gemerkt = self._gemerkte_haltepunkte.pop(str(pfad), None)
+        gemerkt = self._gemerkte_haltepunkte_nehmen(pfad)
         if gemerkt is not None:
             editor.haltepunkte_setzen(*gemerkt)
         _stand_merken(editor)
@@ -5908,7 +5936,9 @@ class HauptFenster(QMainWindow):
         geschlossen = geschlossen or self.editor_tabs.count() != vorher
         if self.projekt is not None and im_beispiel(self.projekt.ordner):
             sperre.freigeben(self.projekt.ordner)
+            self._haltepunkte_ablegen()
             self.projekt = None
+            self._projekt_datei = None
             self._gemerkte_haltepunkte.clear()
             self.explorer.leeren()
             self._zuruecksetzen_pruefen()
@@ -6094,6 +6124,7 @@ class HauptFenster(QMainWindow):
             fenster.close()
         if self.projekt is not None:
             sperre.freigeben(self.projekt.ordner)
+        self._haltepunkte_ablegen()
         self._design_einstellungen.setValue("fenster/layout", self.saveState())
         self._design_einstellungen.setValue(
             "fenster/geometrie", self.saveGeometry()
@@ -6923,6 +6954,54 @@ class HauptFenster(QMainWindow):
             )
         else:
             self._gemerkte_haltepunkte.pop(str(pfad), None)
+
+    def _gemerkte_haltepunkte_nehmen(
+        self, pfad: Path
+    ) -> tuple[set[int], dict[int, str]] | None:
+        """Nimmt die gemerkten Haltepunkte von `pfad` heraus. Ein Pfad
+        aus den Einstellungen kann anders geschrieben sein als der, mit
+        dem die Datei jetzt geöffnet wird, etwa mit einem Laufwerk statt
+        des Netzpfads; verglichen wird deshalb auch aufgelöst."""
+        gemerkt = self._gemerkte_haltepunkte.pop(str(pfad), None)
+        if gemerkt is not None:
+            return gemerkt
+        ziel = einheitlicher_pfad(pfad)
+        for schluessel in list(self._gemerkte_haltepunkte):
+            if einheitlicher_pfad(schluessel) == ziel:
+                return self._gemerkte_haltepunkte.pop(schluessel)
+        return None
+
+    def _haltepunkte_ablegen(self) -> None:
+        """Schreibt die Haltepunkte des offenen Projekts in die
+        Einstellungen (Punkt 419): die geschlossener Reiter und die der
+        offenen, die dem gemerkten Stand derselben Datei vorgehen.
+
+        Bis 0.4.2 gingen sie mit dem Projekt verloren. Sie stehen je
+        Benutzer in den Einstellungen und nicht im Projektordner, weil
+        der zwischen Lehrkraft und Klasse kopiert wird."""
+        if self.projekt is None or self._projekt_datei is None:
+            return
+        stand = dict(self._gemerkte_haltepunkte)
+        for index in range(self.editor_tabs.count()):
+            editor = self.editor_tabs.widget(index)
+            if not isinstance(editor, QuelltextEditor):
+                continue
+            pfad = editor.property(_PFAD_EIGENSCHAFT)
+            if pfad:
+                stand[str(pfad)] = (
+                    set(editor.breakpoints), dict(editor.bedingungen)
+                )
+        try:
+            haltepunkte_speichern(
+                self._design_einstellungen,
+                self._projekt_datei,
+                self.projekt.ordner,
+                stand,
+            )
+        except OSError:
+            # Ein nicht mehr erreichbarer Pfad soll weder das Schließen
+            # noch das Beenden aufhalten.
+            pass
 
     def _reiter_freigeben(self, seite: QWidget, inhalt: QWidget) -> None:
         """Gibt die Seite eines geschlossenen Reiters frei (Punkt 376).
