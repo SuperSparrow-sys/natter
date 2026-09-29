@@ -390,6 +390,12 @@ Designer offen ist oder ein GUI-Projekt geöffnet wird. Über das Menü
 das Projekt und meldet Fehler in verständlichem Deutsch, mit Datei und
 Zeile. Ein Klick auf die Meldung springt an die Stelle.
 
+Es läuft immer nur ein Programm. Solange eines läuft, mit oder ohne
+Debugger, startet weder `F5` noch `Strg+F5` ein zweites; beendet wird
+es über **Start → Stopp**. Wird Natter geschlossen, während das
+Programm noch läuft, fragt Natter vorher, ob es mit beendet werden
+soll.
+
 Im Debugger lässt sich Zeile für Zeile durchgehen (`F11` hinein,
 `F10` darüber hinweg), und im Panel **Variablen** ist zu sehen, was
 gerade in welcher Variablen steht.
@@ -835,6 +841,11 @@ Für die Aufsicht heißt das in solchen Räumen:
 Alles geht auch über die Menüs. In Natter selbst steht die vollständige
 Liste unter **Hilfe → Tastenkürzel-Übersicht**; sie wird aus dem
 Programm erzeugt und ist damit immer aktuell.
+
+Die Menüs öffnen sich auch mit `Alt` und dem unterstrichenen
+Buchstaben im Menütitel: `Alt+D` für **Datei**, `Alt+B` für
+**Bearbeiten**, `Alt+T` für **Start**, `Alt+H` für **Hilfe**. Im
+Diagramm-Editor gilt dasselbe für seine eigenen Menüs.
 
 ### Datei und Bearbeiten
 

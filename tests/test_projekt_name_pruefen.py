@@ -141,6 +141,38 @@ def test_dialog_bleibt_ohne_ordner_offen(qtbot) -> None:
     assert dialog.focusWidget() is dialog.ordner_eingabe
 
 
+@pytest.mark.parametrize(
+    ("datei", "erwartet"),
+    [
+        ("Ampel.natter", "Ein Projekt „Ampel“ gibt es in diesem Ordner schon."),
+        ("notizen.txt", "schon etwas mit dem Namen „Ampel“"),
+    ],
+)
+def test_dialog_bleibt_bei_vorhandenem_ordner_offen(
+    qtbot, tmp_path: Path, datei: str, erwartet: str
+) -> None:
+    """Punkt 432: bis 0.4.2 schloss sich der Dialog, und die Meldung
+    stand nur in der Statusleiste. Jetzt steht sie im Dialog, und der
+    Name ist zum Überschreiben markiert."""
+    (tmp_path / "Ampel").mkdir()
+    (tmp_path / "Ampel" / datei).write_text("x", encoding="utf-8")
+    dialog = NeuesProjektDialog()
+    qtbot.addWidget(dialog)
+    dialog.show()
+    qtbot.waitExposed(dialog)
+    dialog.name_eingabe.setText("Ampel")
+    dialog.ordner_eingabe.setText(str(tmp_path))
+
+    dialog.knopfleiste.button(QDialogButtonBox.StandardButton.Ok).click()
+
+    assert dialog.isVisible()
+    assert dialog.result() != QDialog.DialogCode.Accepted
+    assert dialog.hinweis.isVisible()
+    assert erwartet in dialog.hinweis.text()
+    assert dialog.focusWidget() is dialog.name_eingabe
+    assert dialog.name_eingabe.selectedText() == "Ampel"
+
+
 def test_vorlagen_maskieren_den_namen() -> None:
     name = 'a"b\\c'
     natter = _vorlagendatei_rendern(

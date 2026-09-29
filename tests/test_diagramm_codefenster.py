@@ -36,7 +36,7 @@ def klassenfenster(tmp_path: Path) -> DiagrammFenster:
 
 
 def test_klassendiagramm_hat_das_quelltextmenue(klassenfenster: DiagrammFenster) -> None:
-    menues = [a.text() for a in klassenfenster.menuBar().actions()]
+    menues = [a.text().replace("&", "") for a in klassenfenster.menuBar().actions()]
 
     assert "Quelltext" in menues
     assert menues[-1] == "Hilfe"  # Hilfe bleibt am Ende
@@ -47,7 +47,7 @@ def test_struktogramm_hat_es_auch(tmp_path: Path) -> None:
         diagramm_erzeugen("struktogramm", tmp_path / "s.pdiag", "ampel_zeichnen")
     )
 
-    assert "Quelltext" in [a.text() for a in fenster.menuBar().actions()]
+    assert "Quelltext" in [a.text().replace("&", "") for a in fenster.menuBar().actions()]
 
 
 def test_entscheidungstabelle_hat_keines(tmp_path: Path) -> None:
@@ -57,7 +57,7 @@ def test_entscheidungstabelle_hat_keines(tmp_path: Path) -> None:
         diagramm_erzeugen("entscheidungstabelle", tmp_path / "t.pdiag", "t")
     )
 
-    assert "Quelltext" not in [a.text() for a in fenster.menuBar().actions()]
+    assert "Quelltext" not in [a.text().replace("&", "") for a in fenster.menuBar().actions()]
 
 
 # -- Ausgabe -------------------------------------------------------------

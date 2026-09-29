@@ -19,7 +19,8 @@ from pathlib import Path
 
 import pytest
 
-from ide.shell.hauptfenster import HauptFenster
+from ide.diagramm.fenster import MENUE_ZUGRIFF as DIAGRAMM_MENUE_ZUGRIFF
+from ide.shell.hauptfenster import MENUE_ZUGRIFF, HauptFenster
 from ide.shell.tastenkuerzel import DESIGNERTASTEN, EDITORTASTEN, deutsche_taste
 
 WURZEL = Path(__file__).resolve().parent.parent
@@ -128,6 +129,11 @@ def erlaubt(qapp) -> set[str]:
             menge.add(aktion.tastenkuerzel)
             menge.add(deutsche_taste(aktion.tastenkuerzel))
     fenster.close()
+    # Die Zugriffstasten der Menütitel (Punkt 439), etwa Alt+D für
+    # „Datei“.
+    for titel in (*MENUE_ZUGRIFF.values(), *DIAGRAMM_MENUE_ZUGRIFF.values()):
+        buchstabe = titel[titel.index("&") + 1]
+        menge.add(f"Alt+{buchstabe.upper()}")
     return menge
 
 

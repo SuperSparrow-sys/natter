@@ -42,7 +42,7 @@ def test_alle_menues_aus_dem_konzept_sind_vorhanden(tmp_path: Path) -> None:
     fenster = _fenster(tmp_path)
 
     for erwartet in ("Datei", "Bearbeiten", "Ansicht", "Anordnen", "Format", "Hilfe"):
-        assert fenster.menue(erwartet).title() == erwartet
+        assert fenster.menue(erwartet).title().replace("&", "") == erwartet
 
 
 def test_noch_nicht_umgesetzte_eintraege_sind_ausgegraut(tmp_path: Path) -> None:

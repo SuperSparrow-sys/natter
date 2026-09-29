@@ -34,6 +34,37 @@ _VORLAGEN_ANZEIGE = {
 }
 
 
+def _vorhanden_hinweis(projektordner: Path, name: str) -> str | None:
+    """Der Hinweis, wenn es `projektordner` schon gibt und er nicht
+    leer ist, sonst `None`.
+
+    `projekt_erzeugen` legt nur in einem leeren oder neuen Ordner an.
+    Bis 0.4.2 stellte es das erst fest, nachdem der Dialog zu war; die
+    Meldung stand dann in der Statusleiste, und Vorlage und Name
+    mussten noch einmal eingegeben werden (Punkt 432). Aufgabennamen
+    wie „Aufgabe1“ wiederholen sich im Unterricht oft."""
+    try:
+        if not projektordner.exists():
+            return None
+        belegt = not projektordner.is_dir() or any(projektordner.iterdir())
+    except OSError:
+        # Was sich nicht lesen lässt, meldet `projekt_erzeugen` mit
+        # seinem eigenen Grund.
+        return None
+    if not belegt:
+        return None
+    if projektordner.is_dir() and any(projektordner.glob("*.natter")):
+        return (
+            f"Ein Projekt „{name}“ gibt es in diesem Ordner schon. "
+            "Einen anderen Namen wählen oder das vorhandene über "
+            "„Projekt → Projekt öffnen …“ laden."
+        )
+    return (
+        f"In diesem Ordner gibt es schon etwas mit dem Namen „{name}“. "
+        "Einen anderen Namen wählen."
+    )
+
+
 class NeuesProjektDialog(QDialog):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -91,7 +122,8 @@ class NeuesProjektDialog(QDialog):
 
         Ein leeres Feld bekommt denselben Hinweis im Dialog wie ein
         ungültiger Name. Bis 0.3.x schloss sich der Dialog, und die
-        Meldung stand danach nur noch in der Statusleiste."""
+        Meldung stand danach nur noch in der Statusleiste. Ebenso ein
+        Name, unter dem es im Ordner schon etwas gibt."""
         name = self.name_eingabe.text().strip()
         ordner = self.ordner_eingabe.text().strip()
         if not name:
@@ -111,12 +143,18 @@ class NeuesProjektDialog(QDialog):
                 self.ordner_eingabe,
             )
             return
+        hinweis = _vorhanden_hinweis(Path(ordner) / name, name)
+        if hinweis is not None:
+            self._hinweis_zeigen(hinweis, self.name_eingabe)
+            return
         super().accept()
 
     def _hinweis_zeigen(self, text: str, feld: QLineEdit) -> None:
         self.hinweis.setText(text)
         self.hinweis.show()
         feld.setFocus()
+        # Markiert, damit der nächste Tastendruck den Inhalt ersetzt.
+        feld.selectAll()
 
     def _ordner_waehlen(self) -> None:
         ordner = QFileDialog.getExistingDirectory(
