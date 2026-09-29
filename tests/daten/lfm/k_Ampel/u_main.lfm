@@ -1,0 +1,83 @@
+object Form1: TForm1
+  Left = 955
+  Height = 736
+  Top = 107
+  Width = 620
+  Caption = 'Form1'
+  ClientHeight = 736
+  ClientWidth = 620
+  OnCreate = FormCreate
+  LCLVersion = '3.4.0.0'
+  object b_einschalten: TButton
+    Left = 392
+    Height = 25
+    Top = 184
+    Width = 75
+    Caption = 'Einschalten'
+    TabOrder = 0
+    OnClick = b_einschaltenClick
+  end
+  object b_wechseln: TButton
+    Left = 400
+    Height = 25
+    Top = 223
+    Width = 75
+    Caption = 'Wechseln'
+    TabOrder = 1
+    OnClick = b_wechselnClick
+  end
+  object b_Auschalten: TButton
+    Left = 413
+    Height = 25
+    Top = 262
+    Width = 75
+    Caption = 'Auschalten'
+    TabOrder = 2
+    OnClick = b_AuschaltenClick
+  end
+  object Label1: TLabel
+    Left = 128
+    Height = 32
+    Top = 67
+    Width = 192
+    Caption = 'Ampel Simulator'
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -24
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object Shape1: TShape
+    Left = 135
+    Height = 330
+    Top = 160
+    Width = 169
+    Brush.Color = clGray
+  end
+  object s_rot: TShape
+    Left = 170
+    Height = 89
+    Top = 176
+    Width = 96
+    Brush.Color = clBlack
+    OnChangeBounds = s_rotChangeBounds
+    Shape = stCircle
+  end
+  object s_gelb: TShape
+    Left = 169
+    Height = 89
+    Top = 272
+    Width = 97
+    Brush.Color = clBlack
+    Shape = stCircle
+  end
+  object s_gruen: TShape
+    Left = 176
+    Height = 80
+    Top = 376
+    Width = 90
+    Brush.Color = clBlack
+    Shape = stCircle
+  end
+end

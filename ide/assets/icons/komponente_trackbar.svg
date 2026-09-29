@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- TrackBar: runder Griff auf einer Rille, darunter drei Teilstriche.
+       Zwei Fassungen scheiterten in der Sichtprüfung: mit dünner Rille
+       und fünf feinen Teilstrichen blieb bei 16 px nur ein Fleck übrig,
+       mit einem hochkanten Griff in der Mitte sah das Symbol aus wie ein
+       Pluszeichen. Der runde Griff aus der Mitte heraus liest sich auch
+       bei 16 px als Schieber. Die Rille bekommt keine Kontur - bei
+       4,4 Einheiten Höhe liefe sie zu. -->
+  <rect x="2.8" y="10" width="18.4" height="4.4" rx="2.2" fill="#90a4ae"/>
+  <rect x="2.8" y="10" width="11" height="4.4" rx="2.2" fill="#0067c0"/>
+  <circle cx="13.6" cy="12.2" r="4.2" fill="#0067c0" stroke="#004c8c" stroke-width="1.2"/>
+  <path d="M5 19.2v1.2M12 19.2v1.2M19 19.2v1.2"
+        stroke="#7b8f9a" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

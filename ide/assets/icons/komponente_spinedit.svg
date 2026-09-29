@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- SpinEdit: Zahlenfeld mit Auf-/Ab-Knopf. Die beiden Pfeile sind
+       Flächen, kein Winkelstrich - wie beim Aufklapppfeil der ComboBox
+       bliebe davon bei 16 px sonst nur ein Fleck übrig. -->
+  <rect x="2.9" y="7.4" width="18.2" height="9.2" rx="1.5" fill="#f7f9fa"/>
+  <path d="M15.8 7.4h3.8a1.5 1.5 0 0 1 1.5 1.5v6.2a1.5 1.5 0 0 1-1.5 1.5h-3.8z" fill="#0067c0"/>
+  <path d="M16.5 10.9 18.5 8.7 20.5 10.9z" fill="#ffffff"/>
+  <path d="M16.5 13.1 18.5 15.3 20.5 13.1z" fill="#ffffff"/>
+  <path d="M5.9 12h6.6" stroke="#7b8f9a" stroke-width="1" stroke-linecap="round"/>
+  <rect x="2.9" y="7.4" width="18.2" height="9.2" rx="1.5" fill="none" stroke="#37474f" stroke-width="1.2"/>
+</svg>

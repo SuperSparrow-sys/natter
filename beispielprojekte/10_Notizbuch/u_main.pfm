@@ -1,0 +1,102 @@
+{
+  "format": "pfm/1",
+  "class": "Form1",
+  "type": "Form",
+  "properties": {
+    "caption": "Notizbuch",
+    "width": 520,
+    "height": 400
+  },
+  "events": {
+    "on_create": "form_create",
+    "on_close": "form_close"
+  },
+  "children": [
+    {
+      "name": "mm_haupt",
+      "type": "MainMenu",
+      "properties": {
+        "left": 470,
+        "top": 8,
+        "entries": [
+          {
+            "caption": "&Datei",
+            "children": [
+              {
+                "name": "mi_neu",
+                "caption": "&Neu",
+                "shortcut": "Strg+N",
+                "on_click": "mi_neu_click"
+              },
+              {
+                "name": "mi_oeffnen",
+                "caption": "Ö&ffnen …",
+                "shortcut": "Strg+O",
+                "on_click": "mi_oeffnen_click"
+              },
+              {
+                "name": "mi_speichern",
+                "caption": "&Speichern",
+                "shortcut": "Strg+S",
+                "on_click": "mi_speichern_click"
+              },
+              {
+                "name": "mi_speichern_unter",
+                "caption": "Speichern &unter …",
+                "on_click": "mi_speichern_unter_click"
+              },
+              {
+                "separator": true
+              },
+              {
+                "name": "mi_beenden",
+                "caption": "&Beenden",
+                "on_click": "mi_beenden_click"
+              }
+            ]
+          },
+          {
+            "caption": "&Hilfe",
+            "children": [
+              {
+                "name": "mi_info",
+                "caption": "&Info …",
+                "on_click": "mi_info_click"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "m_text",
+      "type": "Memo",
+      "properties": {
+        "left": 8,
+        "top": 8,
+        "width": 504,
+        "height": 356,
+        "anchors_right": true,
+        "anchors_bottom": true
+      },
+      "events": {
+        "on_change": "m_text_change"
+      }
+    },
+    {
+      "name": "l_status",
+      "type": "Label",
+      "properties": {
+        "left": 8,
+        "top": 372,
+        "width": 504,
+        "height": 20,
+        "caption": "Neue Notiz",
+        "word_wrap": false,
+        "anchors_top": false,
+        "anchors_right": true,
+        "anchors_bottom": true
+      }
+    }
+  ]
+}

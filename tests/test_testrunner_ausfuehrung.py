@@ -1,0 +1,210 @@
+"""Tests für ide/testrunner/ausfuehrung.py: Tests als eigener Prozess
+ausführen, strukturiertes Ergebnis statt Textausgabe (Abschnitt 8.6).
+Siehe Arbeitspaket M4, Schritt 7.
+"""
+
+from __future__ import annotations
+
+import ctypes
+import os
+import sys
+import time
+from pathlib import Path
+
+import pytest
+
+from ide.testrunner import tests_ausfuehren as ausfuehren
+
+_TESTDATEI_INHALT = '''\
+import unittest
+
+
+class TestBeispiel(unittest.TestCase):
+    def test_bestehend(self):
+        self.assertEqual(2 + 2, 4)
+
+    def test_fehlschlagend(self):
+        self.assertEqual(45, 50)
+
+    def test_wirft_fehler(self):
+        raise RuntimeError("kaputt")
+'''
+
+
+def _projekt_mit_testdatei(tmp_path: Path) -> Path:
+    (tmp_path / "test_beispiel.py").write_text(_TESTDATEI_INHALT, encoding="utf-8")
+    return tmp_path
+
+
+def test_entdeckt_und_fuehrt_alle_tests_aus(tmp_path: Path) -> None:
+    projekt = _projekt_mit_testdatei(tmp_path)
+    ergebnisse = ausfuehren(projekt)
+
+    namen = {e.id.rsplit(".", 1)[-1]: e for e in ergebnisse}
+    assert set(namen) == {"test_bestehend", "test_fehlschlagend", "test_wirft_fehler"}
+    assert namen["test_bestehend"].status == "bestanden"
+    assert namen["test_fehlschlagend"].status == "fehlgeschlagen"
+    assert namen["test_wirft_fehler"].status == "fehler"
+
+
+def test_soll_ist_werden_bei_assertequal_fehlschlag_extrahiert(tmp_path: Path) -> None:
+    projekt = _projekt_mit_testdatei(tmp_path)
+    ergebnisse = ausfuehren(projekt)
+
+    fehlschlag = next(e for e in ergebnisse if e.id.endswith("test_fehlschlagend"))
+    assert fehlschlag.soll == "50"
+    assert fehlschlag.ist == "45"
+
+
+def test_fehler_hat_keine_soll_ist_werte(tmp_path: Path) -> None:
+    projekt = _projekt_mit_testdatei(tmp_path)
+    ergebnisse = ausfuehren(projekt)
+
+    fehler = next(e for e in ergebnisse if e.id.endswith("test_wirft_fehler"))
+    assert fehler.soll is None
+    assert fehler.ist is None
+    assert fehler.nachricht == "kaputt"
+
+
+def test_jeder_test_hat_eine_dauer_ab_0(tmp_path: Path) -> None:
+    projekt = _projekt_mit_testdatei(tmp_path)
+    ergebnisse = ausfuehren(projekt)
+
+    assert all(e.dauer >= 0 for e in ergebnisse)
+
+
+def test_ziel_beschraenkt_auf_eine_einzelne_methode(tmp_path: Path) -> None:
+    projekt = _projekt_mit_testdatei(tmp_path)
+    ergebnisse = ausfuehren(projekt, ziel="test_beispiel.TestBeispiel.test_bestehend")
+
+    assert len(ergebnisse) == 1
+    assert ergebnisse[0].id.endswith("test_bestehend")
+
+
+def test_leerer_projektordner_liefert_keine_ergebnisse(tmp_path: Path) -> None:
+    assert ausfuehren(tmp_path) == []
+
+
+def test_print_im_geprueften_code_stoert_den_testlauf_nicht(
+    tmp_path: Path,
+) -> None:
+    """Punkt 142: die Ausgabe des geprüften Codes stand vor dem JSON,
+    und der ganze Lauf scheiterte mit einem JSONDecodeError."""
+    (tmp_path / "u_rechnen.py").write_text(
+        "def doppelt(x):\n"
+        "    print('rechne', x)\n"
+        "    return 2 * x\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "test_rechnen.py").write_text(
+        "import unittest\n"
+        "from u_rechnen import doppelt\n"
+        "\n"
+        "print('beim Import')\n"
+        "\n"
+        "class TestRechnen(unittest.TestCase):\n"
+        "    def test_doppelt(self):\n"
+        "        print('Größe', doppelt(3))\n"
+        "        self.assertEqual(doppelt(3), 6)\n",
+        encoding="utf-8",
+    )
+
+    ergebnisse = ausfuehren(tmp_path)
+
+    assert [(e.id, e.status) for e in ergebnisse] == [
+        ("test_rechnen.TestRechnen.test_doppelt", "bestanden")
+    ]
+
+
+def _prozess_lebt(pid: int) -> bool:
+    """Unter Windows über `OpenProcess`/`GetExitCodeProcess`, sonst
+    über `os.kill(pid, 0)`."""
+    if sys.platform != "win32":
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            return False
+        return True
+    kernel32 = ctypes.windll.kernel32
+    griff = kernel32.OpenProcess(0x1000, False, pid)
+    if not griff:
+        return False
+    try:
+        code = ctypes.c_ulong()
+        kernel32.GetExitCodeProcess(griff, ctypes.byref(code))
+        return code.value == 259  # STILL_ACTIVE
+    finally:
+        kernel32.CloseHandle(griff)
+
+
+def test_zeitgrenze_beendet_auch_einen_gestarteten_prozess(
+    tmp_path: Path,
+) -> None:
+    """Punkt 247: ein Test startet einen langen Prozess und hängt dann.
+    Das Ergebnis kam erst, als der gestartete Prozess endete, und
+    bei einem Prozess ohne Ende kam es nie."""
+    (tmp_path / "test_haengt.py").write_text(
+        "import subprocess, sys, unittest\n"
+        "\n"
+        "class TestHaengt(unittest.TestCase):\n"
+        "    def test_startet_und_haengt(self):\n"
+        "        kind = subprocess.Popen(\n"
+        "            [sys.executable, '-c', 'import time; time.sleep(40)']\n"
+        "        )\n"
+        "        with open('kind.pid', 'w') as datei:\n"
+        "            datei.write(str(kind.pid))\n"
+        "        while True:\n"
+        "            pass\n",
+        encoding="utf-8",
+    )
+
+    beginn = time.monotonic()
+    ergebnisse = ausfuehren(tmp_path, zeitlimit=4)
+    dauer = time.monotonic() - beginn
+
+    assert dauer < 15
+    assert [e.status for e in ergebnisse] == ["fehler"]
+    assert "Nach 4 Sekunden abgebrochen" in ergebnisse[0].nachricht
+    kind_pid = int((tmp_path / "kind.pid").read_text())
+    assert not _prozess_lebt(kind_pid)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="prüft Windows-Prozesse")
+def test_ein_vom_test_gestarteter_prozess_endet_mit_dem_lauf(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Punkt 281: ein Test startet einen Prozess und endet sofort.
+    Der Harness läuft in einem Auftragsobjekt; mit seinem Ende endet
+    auch, was der Test hinterlassen hat.
+
+    Gestartet wird der Interpreter hinter dem der virtuellen
+    Umgebung. Deren `python.exe` ist unter uv ein Starter mit eigenem
+    Auftragsobjekt, das beim Ende des Starters schon alles beendet,
+    und dann bewiese der Test nichts."""
+    monkeypatch.setattr(
+        sys, "executable", getattr(sys, "_base_executable", sys.executable)
+    )
+    (tmp_path / "test_startet.py").write_text(
+        "import subprocess, sys, unittest\n"
+        "\n"
+        "class TestStartet(unittest.TestCase):\n"
+        "    def test_startet_und_endet(self):\n"
+        "        kind = subprocess.Popen(\n"
+        "            [sys.executable, '-c', 'import time; time.sleep(40)']\n"
+        "        )\n"
+        "        with open('kind.pid', 'w') as datei:\n"
+        "            datei.write(str(kind.pid))\n",
+        encoding="utf-8",
+    )
+    kind_pid: int | None = None
+    try:
+        ergebnisse = ausfuehren(tmp_path, zeitlimit=30)
+        assert [e.status for e in ergebnisse] == ["bestanden"]
+        kind_pid = int((tmp_path / "kind.pid").read_text())
+        ende = time.monotonic() + 10
+        while _prozess_lebt(kind_pid) and time.monotonic() < ende:
+            time.sleep(0.1)
+        assert not _prozess_lebt(kind_pid), "Der gestartete Prozess läuft noch."
+    finally:
+        if kind_pid is not None and _prozess_lebt(kind_pid):
+            os.kill(kind_pid, 9)

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Akteur mit Lebenslinie: Strichmaennchen, darunter die gestrichelte Linie. -->
+  <circle cx="12" cy="5.4" r="2.8" fill="#0067c0" stroke="#004c8c" stroke-width="1.2"/>
+  <path d="M12 8.6v3.6M9 10h6M12 12.2 9.8 14.6M12 12.2 14.2 14.6"
+        fill="none" stroke="#37474f" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M12 15.8v5" fill="none" stroke="#37474f" stroke-width="1.5"
+        stroke-linecap="round" stroke-dasharray="2 2.4"/>
+</svg>

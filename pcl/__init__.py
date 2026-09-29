@@ -1,0 +1,124 @@
+"""Python Component Library (pcl) – Laufzeit der Natter-Komponenten.
+
+Wird von Schülerprogrammen und der exportierten .exe verwendet, läuft ohne IDE.
+Siehe README.md, Abschnitt 5. Beispiel (Abschnitt 4.3):
+
+    from pcl import Application, Button, Form, Shape
+"""
+
+from pcl import analyse
+from pcl.analyse import Regressionsergebnis, regression
+from pcl.application import Application
+from pcl.components.additional import (
+    FloatSpinEdit,
+    Image,
+    ProgressBar,
+    Shape,
+    SpinEdit,
+    StringGrid,
+    TrackBar,
+)
+from pcl.components.chart import Chart
+from pcl.components.data_access import (
+    DataSource,
+    SQLite3Connection,
+    SQLQuery,
+)
+from pcl.components.data_controls import DBComboBox, DBEdit, DBGrid, DBNavigator, DBText
+from pcl.components.eingaben import Calendar, DateEdit, MaskEdit, TimeEdit
+from pcl.components.graphics import Brush, Canvas, PaintBox, Pen
+from pcl.components.medien import HtmlViewer, Sound
+from pcl.components.menus import MainMenu, PopupMenu
+from pcl.components.standard import (
+    Button,
+    CheckBox,
+    ComboBox,
+    Edit,
+    GroupBox,
+    Label,
+    ListBox,
+    Memo,
+    Panel,
+    RadioButton,
+    RadioGroup,
+    ScrollBar,
+)
+from pcl.components.system import Timer
+from pcl.control import Control
+from pcl.dialogs import (
+    ask_yes_no,
+    color_dialog,
+    input_box,
+    input_number,
+    open_dialog,
+    save_dialog,
+    show_message,
+)
+from pcl.files import open_url
+from pcl.form import Form
+from pcl.properties import Event, Prop
+from pcl.strings import Strings
+from pcl.zahlen import text, zahl
+
+__all__ = [
+    "Application",
+    "Brush",
+    "Button",
+    "Calendar",
+    "Canvas",
+    "Chart",
+    "CheckBox",
+    "ComboBox",
+    "Control",
+    "DateEdit",
+    "DBComboBox",
+    "DBEdit",
+    "DBGrid",
+    "DBNavigator",
+    "DBText",
+    "DataSource",
+    "Edit",
+    "Event",
+    "FloatSpinEdit",
+    "Form",
+    "GroupBox",
+    "HtmlViewer",
+    "Image",
+    "Label",
+    "ListBox",
+    "MaskEdit",
+    "Memo",
+    "PaintBox",
+    "Panel",
+    "Pen",
+    "ProgressBar",
+    "Prop",
+    "RadioButton",
+    "RadioGroup",
+    "Regressionsergebnis",
+    "SQLQuery",
+    "SQLite3Connection",
+    "ScrollBar",
+    "Shape",
+    "Sound",
+    "MainMenu",
+    "PopupMenu",
+    "SpinEdit",
+    "StringGrid",
+    "Strings",
+    "TimeEdit",
+    "Timer",
+    "TrackBar",
+    "analyse",
+    "ask_yes_no",
+    "color_dialog",
+    "input_box",
+    "input_number",
+    "open_dialog",
+    "open_url",
+    "regression",
+    "save_dialog",
+    "show_message",
+    "text",
+    "zahl",
+]

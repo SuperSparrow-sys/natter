@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Fussgesteuerte Schleife: Band unten und links, gelb - die Bedingung steht nach dem Rumpf. -->
+  <rect x="3.1" y="4.6" width="17.8" height="14.8" fill="#f7f9fa"/>
+  <path d="M3.1 19.4h17.8V15H7.3V4.6H3.1Z" fill="#f2b134"/>
+  <path d="M9.6 17.2h8.4" stroke="#37474f" stroke-width="1" stroke-linecap="round"/>
+  <path d="M9.6 8.4h8.4M9.6 11.2h5.6" stroke="#7b8f9a" stroke-width="1"
+        stroke-linecap="round"/>
+  <rect x="3.1" y="4.6" width="17.8" height="14.8" fill="none" stroke="#37474f" stroke-width="1.2"/>
+</svg>

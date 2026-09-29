@@ -1,0 +1,392 @@
+Natter {VERSION} - Installation auf einem Schulrechner
+==================================================
+
+In diesem Paket:
+
+  Natter-Setup.exe        das Installationsprogramm
+  natter-codesign.cer     das Zertifikat, mit dem Natter signiert ist
+  Zertifikat-eintragen.cmd   traegt das Zertifikat ein
+  Zertifikat-entfernen.cmd   nimmt es wieder zurueck
+  Natter-pruefen.cmd      sieht nach, warum Natter nicht startet
+  Handbuch.html           das Handbuch, im Browser zu oeffnen
+  Handbuch.md             dasselbe als Textdatei
+  Lizenzen\               die Lizenzen der mitgelieferten Bibliotheken
+
+Zu jedem .cmd liegt ein .ps1 mit demselben Namen daneben. Das .cmd
+wird doppelgeklickt, im .ps1 steht, was geschieht. Der Umweg ist
+noetig, weil Windows das Ausfuehren von PowerShell-Skripten per
+Doppelklick auf einem frisch aufgesetzten Rechner verweigert und
+Dateien aus einem entpackten ZIP zusaetzlich als "aus dem Internet"
+markiert sind.
+
+Wurde die ZIP aus dem Internet geladen, erspart ein Handgriff vor dem
+Entpacken die meisten Rueckfragen: Rechtsklick auf die ZIP ->
+Eigenschaften -> unten "Zulassen" anhaken -> OK, danach entpacken.
+Steht dort kein "Zulassen", ist nichts zu tun.
+
+
+Zuerst: laeuft auf diesem Rechner "Smart App Control"?
+------------------------------------------------------
+
+Davon haengt alles Weitere ab. Nachzusehen unter
+
+  Einstellungen -> Datenschutz und Sicherheit -> Windows-Sicherheit
+  -> App- und Browsersteuerung -> Intelligente App-Steuerung
+
+Ist dort "Aus" eingestellt oder fehlt der Punkt ganz, laeuft Natter.
+Das ist der Normalfall auf zentral verwalteten Schulrechnern (Intune,
+Domaene) und auf allem, was von Windows 10 heraufgestuft wurde.
+
+Steht dort "Ein", startet Natter auf diesem Rechner nicht. Das laesst
+sich durch kein Zertifikat aendern, und die Gruende stehen weiter
+unten. Der einzige Weg ist, die intelligente App-Steuerung
+auszuschalten - was Microsoft nur in eine Richtung zulaesst: einmal
+aus, bleibt sie aus, bis Windows neu aufgesetzt wird. Wer das nicht
+will, nimmt einen anderen Rechner.
+
+
+Schritt 1: Zertifikat eintragen
+-------------------------------
+
+Doppelklick auf Zertifikat-eintragen.cmd, bei der Rueckfrage von
+Windows "Ja" waehlen. Der Eintrag gilt fuer alle Benutzerkonten und
+braucht deshalb Administratorrechte.
+
+Meldet Windows davor "Der Computer wurde durch Windows geschuetzt",
+auf "Weitere Informationen" und dann auf "Trotzdem ausfuehren"
+klicken - die Datei ist neu und hat deshalb noch keinen Ruf im Netz.
+
+Das erspart die SmartScreen-Warnung beim Installieren und zeigt in
+den Eigenschaften der Datei, woher sie stammt. Ohne den Eintrag laesst
+sich Natter auch installieren - dann meldet Windows beim Start des
+Installationsprogramms einen unbekannten Herausgeber.
+
+Weil mit dem Eintrag Vertrauen vergeben wird, zaehlt nicht die
+Geheimhaltung, sondern die Unverfaelschtheit: wer unterwegs eine
+andere .cer unterschiebt, bekommt seinen eigenen Vertrauensanker auf
+den Rechner. Zertifikat-eintragen.cmd vergleicht deshalb vor dem
+Eintragen den Fingerabdruck mit dem von Natter und traegt bei einer
+Abweichung nichts ein:
+
+  DFE4686F B0E8442F D5CAC3C8 A76D58A8 EB27A8E8
+
+Wer das Zertifikat von Hand eintraegt (siehe unten), vergleicht ihn
+vorher selbst; stimmt er nicht ueberein, nicht eintragen und
+nachfragen.
+
+Die Datei natter-codesign.cer enthaelt nur den oeffentlichen Teil.
+Mit ihr laesst sich nichts signieren, nur pruefen - der private
+Schluessel liegt beim Entwickler und wird nicht weitergegeben.
+
+Von Hand geht es genauso, in einer PowerShell als Administrator:
+
+  Import-Certificate -FilePath natter-codesign.cer `
+      -CertStoreLocation Cert:\LocalMachine\Root
+  Import-Certificate -FilePath natter-codesign.cer `
+      -CertStoreLocation Cert:\LocalMachine\TrustedPublisher
+
+Fuer viele Rechner auf einmal ist eine Gruppenrichtlinie der richtige
+Weg:
+
+  Computerkonfiguration -> Richtlinien -> Windows-Einstellungen ->
+  Sicherheitseinstellungen -> Richtlinien fuer oeffentliche Schluessel
+
+Dort einmal unter "Vertrauenswuerdige Stammzertifizierungsstellen"
+und einmal unter "Vertrauenswuerdige Herausgeber" die Datei
+natter-codesign.cer importieren, danach gpupdate.
+
+
+Schritt 2: Natter installieren
+------------------------------
+
+Das Setup fragt zuerst nach der Installationsart:
+
+  Nur fuer das angemeldete Konto (Voreinstellung)
+    Ort:     %LOCALAPPDATA%\Programs\Natter, im Profil des Kontos
+    Rechte:  keine besonderen
+    Sichtbar nur in diesem Konto. "Pakete -> Paket installieren ..."
+    funktioniert.
+
+  Fuer alle Benutzer
+    Ort:     C:\Program Files\Natter
+    Rechte:  Administratorrechte
+    Sichtbar in jedem Konto des Rechners. "Pakete -> Paket
+    installieren ..." geht nur mit Administratorrechten, fuer
+    Schuelerkonten also nicht; gebrauchte Pakete installiert die
+    Systembetreuung einmal selbst.
+
+Auf einem einzelnen Rechner genuegt ein Doppelklick auf
+Natter-Setup.exe und die Voreinstellung.
+
+Fuer einen Computerraum, unbeaufsichtigt und fuer alle Benutzer, mit
+Administratorrechten oder aus der Softwareverteilung:
+
+  Natter-Setup.exe /ALLUSERS /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+
+Ohne /ALLUSERS installiert das Setup nur fuer das Konto, unter dem es
+laeuft, auch mit Administratorrechten. Laeuft es ohne /ALLUSERS unter
+dem Systemkonto, wie bei den meisten Softwareverteilungen, bricht es
+mit einem Rueckgabewert ungleich 0 ab, statt Natter unsichtbar im
+Profil des Systemkontos abzulegen. Den Grund nennt das Protokoll, das
+mit /LOG=C:\Pfad\setup.log entsteht.
+
+Desktop-Symbol und .natter-Verknuepfung legt eine stille Installation
+immer an. Abwaehlen laesst sich das mit /MERGETASKS:
+
+  /MERGETASKS="!desktopicon"                       ohne Desktop-Symbol
+  /MERGETASKS="!desktopicon,!natterverknuepfung"   ohne beides
+
+Ein Update laeuft genauso, mit denselben Schaltern ueber die alte
+Installation.
+
+Fuer die Erkennungsregel einer Softwareverteilung (Intune, baramundi,
+opsi) taugt der Deinstallationseintrag
+
+  HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{961DA420-CA63-4436-9023-9CA411B620DA}_is1
+
+Sein Wert DisplayVersion traegt die installierte Fassung, bei diesem
+Paket {VERSION}; verglichen wird als Versionsnummer, nicht als Text.
+Bei einer Installation nur fuer ein Konto steht derselbe Schluessel
+unter HKEY_CURRENT_USER. Ausserdem traegt
+C:\Program Files\Natter\Natter.exe die Fassung als Dateiversion
+({VERSION}.0 unter Eigenschaften -> Details).
+
+
+Von Installationen je Konto auf eine fuer alle Benutzer umstellen
+-----------------------------------------------------------------
+
+Wurde Natter frueher in jedem Schuelerkonto einzeln installiert, liegt
+in jedem dieser Konten eine eigene Fassung unter
+%LOCALAPPDATA%\Programs\Natter. Die Installation mit /ALLUSERS
+entfernt sie nicht, und im jeweiligen Konto hat die alte Fassung
+Vorrang: ein Doppelklick auf eine .natter-Datei startet sie, unter
+AppLocker also eine gesperrte Exe, und im Startmenue steht Natter
+zweimal. Updates ueber die Softwareverteilung erreichen sie nie, und
+je Konto bleiben rund 1,2 GB belegt.
+
+Die alten Fassungen werden deshalb beim Umstieg in jedem Konto
+entfernt. Das geht nur im Konto selbst, dafuer ohne
+Administratorrechte, am einfachsten als Anmeldeskript
+(Gruppenrichtlinie, Benutzerkonfiguration -> Richtlinien ->
+Windows-Einstellungen -> Skripts -> Anmelden):
+
+  if exist "%LOCALAPPDATA%\Programs\Natter\unins000.exe" "%LOCALAPPDATA%\Programs\Natter\unins000.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+
+Projekte und Einstellungen bleiben dabei erhalten. Sobald sich jedes
+Konto einmal angemeldet hat, kann das Skript wieder weg. Ob in einem
+Konto noch eine alte Fassung liegt, zeigt Natter-pruefen.cmd: der
+Bericht nennt dann beide Installationen.
+
+
+Rechner mit AppLocker oder Softwareeinschraenkung
+-------------------------------------------------
+
+Lassen die Regeln nur Programme aus C:\Windows und C:\Program Files
+starten, wie die Standardregeln von AppLocker, startet eine
+Installation unter %LOCALAPPDATA%\Programs\Natter nicht. Die
+Installation mit /ALLUSERS liegt unter C:\Program Files\Natter und
+braucht keine weitere Ausnahme.
+
+Eine Regel, die einzelne Programme freigibt, braucht diese:
+
+  Natter.exe                   Start von Natter
+  python\pythonw.exe           Oberflaeche von Natter und "Pakete"
+  python\python.exe            Schuelerprogramme, Debugger, Exe-Export
+  python\Scripts\ruff.exe      Pruefung vor dem Start
+  unins000.exe                 Entfernen
+  powershell.exe (Windows)     Signieren beim Exe-Export
+  taskkill.exe (Windows)       Beenden eines Schuelerprogramms
+
+Die ersten fuenf liegen im Programmordner von Natter. Ist
+powershell.exe gesperrt, entsteht beim Export eine Exe ohne Signatur.
+
+Werden auch DLL-Regeln durchgesetzt: Natter laedt Bibliotheken nur aus
+seinem Programmordner, aus starter\ (fuer Natter.exe) und aus python\
+samt python\DLLs\.
+
+Natter.exe laeuft nur zusammen mit starter\ und python\ daneben.
+Fehlt starter\ (Natter.exe allein kopiert, Softwareverteilung mit
+einzelnen Dateien, Virenscanner), meldet Windows beim Start auf
+Englisch "Failed to load Python DLL" mit einem Pfad zu python313.dll.
+Auf dem Desktop gehoert eine Verknuepfung, keine Kopie.
+
+Eine mit "Projekt -> Als Exe exportieren" gebaute Exe liegt im Projekt
+unter Dokumente, im Unterordner dist. Sie startet unter diesen Regeln
+nur mit einer eigenen Regel fuer diesen Ordner.
+
+
+Was Natter auf dem Rechner ablegt
+---------------------------------
+
+  Das Programm       %LOCALAPPDATA%\Programs\Natter  (rund 1,2 GB)
+                     oder bei /ALLUSERS C:\Program Files\Natter
+  Die Einstellungen  %APPDATA%\Natter
+  Pruefungsmodus     %LOCALAPPDATA%\Natter und
+                     HKEY_CURRENT_USER\Software\Natter\Pruefungsmodus
+  Die Projekte       Dokumente\Natter
+  Die Beispiele      Dokumente\Natter\Beispielprojekte
+
+Programm und Projekte sind getrennt: ein Update oder eine
+Deinstallation ruehrt die Projekte der Schuelerinnen und Schueler
+nicht an. Wo der Dokumente-Ordner liegt, erfragt Natter beim System -
+ist er auf OneDrive oder ein Netzlaufwerk umgeleitet, folgt Natter
+dorthin.
+
+Ein Projektordner oeffnet ueberall, wo er liegt, auch nach einem
+Kopieren oder einem Umzug der Heimatlaufwerke; wem der Ordner laut
+Windows gehoert, spielt keine Rolle. Nur ohne Schreibrecht bietet
+Natter eine eigene Kopie unter Dokumente\Natter an. Aufgaben fuer
+eine Klasse gehoeren deshalb in einen Ordner, in dem die Klasse nur
+lesen darf; in einem Ordner mit Schreibrecht fuer alle arbeiten alle
+im selben Original. Mehr im Handbuch, Abschnitt 3.6.
+
+Es wird nichts weiter gebraucht: Python, die Oberflaechenbibliothek
+und die Bibliotheken fuer Tabellen, Diagramme und Datenbanken bringt
+Natter mit. Eine vorhandene Python-Installation bleibt unberuehrt.
+
+
+Natter wieder entfernen
+-----------------------
+
+Still, bei einer Installation nur fuer das angemeldete Konto, in
+diesem Konto:
+
+  "%LOCALAPPDATA%\Programs\Natter\unins000.exe" /VERYSILENT
+
+Bei einer Installation fuer alle Benutzer, mit Administratorrechten:
+
+  "C:\Program Files\Natter\unins000.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+
+In jedem Konto, das Natter benutzt hat, bleiben die Projekte, die
+Einstellungen, der Vermerk des Pruefungsmodus und das Zertifikat aus
+dem Exe-Export stehen (siehe unten und Handbuch, Abschnitt 1.5).
+
+
+Pruefen, ob es geklappt hat
+---------------------------
+
+Nach der Installation steht Natter im Startmenue. Beim Start
+erscheint kurz ein Ladebild mit der Versionsnummer {VERSION}.
+
+Der erste Start nach der Installation oder einem Update dauert
+deutlich laenger als alle folgenden, gemessen 13 bis 18 Sekunden
+statt 2 bis 3. In den ersten 8 Sekunden ist dabei noch gar nichts zu
+sehen, auch kein Ladebild. Das liegt nicht an Natter: der Virenschutz
+prueft jede neu geschriebene Datei beim ersten Oeffnen, und Natter
+bringt rund 30 000 davon mit. Ab dem zweiten Start sind sie
+geprueft. Also nach dem ersten Doppelklick abwarten, statt ein
+zweites Mal zu klicken.
+
+Auf vielen Rechnern hilft es, Natter nach der Installation einmal zu
+starten und wieder zu schliessen, bevor die Klasse kommt - etwa
+gleich auf der letzten Seite des Installationsprogramms ueber
+"Natter starten".
+
+Bleibt der Start aus, hilft ein Blick in die Ereignisanzeige unter
+
+  Anwendungs- und Dienstprotokolle -> Microsoft -> Windows ->
+  CodeIntegrity -> Operational
+
+Steht dort "did not meet the Enterprise signing level requirements",
+hat die intelligente App-Steuerung zugeschlagen. Dann hilft nur, sie
+auszuschalten.
+
+Natter-pruefen.cmd startet die installierte Fassung ueber ihre eigene
+Python, faengt ab, woran sie scheitert, und legt einen Bericht auf den
+Schreibtisch.
+
+
+Warum das Zertifikat die App-Steuerung nicht ueberzeugt
+-------------------------------------------------------
+
+Natter ist mit einem selbst ausgestellten Zertifikat signiert. Ein von
+Microsoft anerkanntes kostet mehrere hundert Euro im Jahr und setzt
+eine Firma mit Handelsregistereintrag voraus; fuer ein Schulprojekt
+ist das nicht vorgesehen.
+
+Die intelligente App-Steuerung prueft nicht das Zertifikat, sondern
+fragt fuer jede einzelne Datei bei Microsoft nach, ob sie dort bekannt
+und unbedenklich ist. Ein selbst ausgestelltes Zertifikat zaehlt dabei
+nicht mit: Windows fuehrt eine so signierte Datei im Protokoll als
+unsigniert, auch wenn sie ordnungsgemaess signiert und das Zertifikat
+eingetragen ist. Nachgemessen: dieselbe Programmbibliothek lief vor
+dem Nachsignieren und war danach gesperrt - gleiches Zertifikat,
+gleicher Rechner.
+
+Ein Programm wie Natter besteht aus ueber achthundert solcher
+Dateien. Es genuegt, dass eine davon abgewiesen wird.
+
+
+Vertrauen wieder zuruecknehmen
+------------------------------
+
+Zertifikat-entfernen.cmd nimmt den Eintrag aus beiden Speichern
+wieder heraus - nach dem Schuljahr, beim Ausmustern eines Geraets
+oder wenn der Verdacht besteht, dass der Schluessel des Entwicklers
+abhandengekommen ist.
+
+Mit dem Schalter -Exportzertifikate nimmt es stattdessen die
+Zertifikate "Natter Programme dieses Rechners" heraus, die der
+Exe-Export im angemeldeten Konto angelegt hat (siehe unten).
+
+
+Eigene Programme aus Natter
+---------------------------
+
+"Projekt -> Als Exe exportieren" baut aus einem Schuelerprojekt eine
+einzelne Exe. Natter signiert sie mit einem Zertifikat, das auf dem
+Rechner liegt - entweder mit einem, das dort schon eingerichtet ist,
+oder mit einem, das Natter beim ersten Export im Konto anlegt und das
+den Rechner nie verlaesst. Damit nennt die Exe einen Herausgeber,
+statt als unbekannt zu gelten, und eine nachtraegliche Veraenderung
+faellt auf.
+
+Das angelegte Zertifikat heisst "Natter Programme dieses Rechners"
+und gilt nur fuer das angemeldete Konto. Beim Eintragen fragt Windows
+mit einer Sicherheitswarnung, ob das Stammzertifikat installiert
+werden soll. Mit "Ja" wird signiert, und die Frage kommt in diesem
+Konto nicht wieder. Natter kuendigt die Warnung vorher in einem
+eigenen Fenster an. Mit "Nein" entsteht die Exe ohne Signatur, Natter
+nimmt das Zertifikat gleich wieder heraus und fragt bei den folgenden
+Exporten nicht mehr. Einen neuen Versuch erlaubt der Eintrag "Beim
+naechsten Export wieder nach dem Zertifikat fragen", der nach einem
+solchen Export im Panel "Meldungen" steht. Dasselbe bewirkt das
+Loeschen der Datei %LOCALAPPDATA%\Natter\zertifikat_abgelehnt.txt.
+
+Mit Waechterkarte oder Profilen, die beim Abmelden zurueckgesetzt
+werden, sind Zertifikat und Vermerk danach weg. Die Warnung kommt
+dann beim ersten Export nach jeder Anmeldung wieder, bei jeder
+Schuelerin und jedem Schueler.
+
+Beim Deinstallieren bleibt das Zertifikat im Konto stehen. Im
+jeweiligen Konto, ohne Administratorrechte, entfernt es
+
+  Zertifikat-entfernen.cmd -Exportzertifikate
+
+Auch hier gilt: gegen eine eingeschaltete intelligente App-Steuerung
+hilft das nicht, weder auf dem eigenen noch auf einem fremden
+Rechner.
+
+Natters eigener Schluessel liegt ausdruecklich nicht in der
+Installation. Laege er dort, koennte jeder mit einer Natter-Kopie
+beliebige Programme signieren, denen alle Rechner mit eingetragenem
+Zertifikat dann vertrauen wuerden.
+
+
+Pruefungsmodus und zurueckgesetzte Profile
+------------------------------------------
+
+Der Pruefungsmodus steht nur im Profil des angemeldeten Kontos und
+braucht dafuer keine Administratorrechte. Mit Waechterkarte, mit
+verbindlichen oder temporaeren Profilen oder mit einem Zuruecksetzen
+bei jeder Abmeldung endet er deshalb beim Abmelden und beim Neustart
+des Rechners. Eingeschaltet wird er in jedem Konto einzeln.
+
+In solchen Raeumen schaltet die Aufsicht ihn nach der Anmeldung an
+jedem Rechner ein, achtet auf die rote Anzeige unten rechts (fehlt
+sie, laeuft der Modus nicht) und schaltet ihn nach einer Abmeldung
+oder einem Neustart erneut ein. Mehr im Handbuch, Abschnitt 4.
+
+
+Mehr dazu steht im Handbuch: Einrichtung, Pruefungsmodus, Tasten und
+was zu tun ist, wenn etwas nicht stimmt.

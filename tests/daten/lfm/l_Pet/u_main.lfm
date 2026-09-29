@@ -1,0 +1,190 @@
+object Form1: TForm1
+  Left = 1193
+  Height = 745
+  Top = 129
+  Width = 651
+  Caption = 'Form1'
+  ClientHeight = 745
+  ClientWidth = 651
+  Color = 8421631
+  OnCreate = FormCreate
+  LCLVersion = '3.4.0.0'
+  object b_streicheln: TButton
+    Left = 77
+    Height = 25
+    Top = 464
+    Width = 99
+    Caption = 'Streicheln'
+    TabOrder = 0
+    OnClick = b_streichelnClick
+  end
+  object b_aergern: TButton
+    Left = 77
+    Height = 25
+    Top = 503
+    Width = 99
+    Caption = 'Ärgern'
+    TabOrder = 1
+    OnClick = b_aergernClick
+  end
+  object Label1: TLabel
+    Left = 77
+    Height = 22
+    Top = 428
+    Width = 102
+    Caption = 'Aktionen'
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -19
+    Font.Name = 'Stencil'
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object Image1: TImage
+    Left = 176
+    Height = 304
+    Top = 88
+    Width = 248
+    Align = alCustom
+    Picture.Data = {
+      1754506F727461626C654E6574776F726B477261706869634F00000089504E47
+      0D0A1A0A0000000D4948445200000008000000080806000000C40FBE8B000000
+      1649444154789C637CBEA3E43F031EC0844F72F82800002C560322AC14036F00
+      00000049454E44AE426082
+    }
+    Proportional = True
+    Stretch = True
+  end
+  object l_name: TLabel
+    Left = 272
+    Height = 15
+    Top = 464
+    Width = 32
+    Caption = 'Name'
+  end
+  object l_art: TLabel
+    Left = 288
+    Height = 15
+    Top = 496
+    Width = 16
+    Caption = 'Art'
+  end
+  object l_liebe: TLabel
+    Left = 276
+    Height = 15
+    Top = 528
+    Width = 28
+    Caption = 'Liebe'
+  end
+  object Label6: TLabel
+    Left = 272
+    Height = 22
+    Top = 428
+    Width = 142
+    Caption = 'Statuswerte'
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -19
+    Font.Name = 'Stencil'
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object l_hunger: TLabel
+    Left = 264
+    Height = 15
+    Top = 560
+    Width = 40
+    Caption = 'Hunger'
+  end
+  object l_tod: TLabel
+    Left = 40
+    Height = 25
+    Top = 40
+    Width = 33
+    Caption = 'Tod'
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -19
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object s_liebe: TShape
+    Left = 392
+    Height = 17
+    Top = 528
+    Width = 200
+    Brush.Color = clMoneyGreen
+  end
+  object s_hunger: TShape
+    Left = 392
+    Height = 17
+    Top = 558
+    Width = 200
+    Brush.Color = clMoneyGreen
+  end
+  object b_name: TButton
+    Left = 81
+    Height = 25
+    Top = 632
+    Width = 95
+    Caption = 'Name ändern'
+    TabOrder = 2
+    OnClick = b_nameClick
+  end
+  object e_name: TEdit
+    Left = 200
+    Height = 23
+    Top = 632
+    Width = 128
+    TabOrder = 3
+  end
+  object l_muede: TLabel
+    Left = 270
+    Height = 15
+    Top = 598
+    Width = 34
+    Caption = 'Müde:'
+  end
+  object s_muede: TShape
+    Left = 392
+    Height = 17
+    Top = 598
+    Width = 200
+    Brush.Color = clMoneyGreen
+  end
+  object b_fuettern: TButton
+    Left = 77
+    Height = 25
+    Top = 552
+    Width = 102
+    Caption = 'Füttern'
+    TabOrder = 4
+    OnClick = b_fuetternClick
+  end
+  object b_schlafen: TButton
+    Left = 80
+    Height = 25
+    Top = 590
+    Width = 99
+    Caption = 'Schlafen'
+    TabOrder = 5
+    OnClick = b_schlafenClick
+  end
+  object b_neuStarten: TButton
+    Left = 216
+    Height = 41
+    Top = 680
+    Width = 204
+    Caption = 'neu Starten'
+    TabOrder = 6
+    OnClick = b_neuStartenClick
+  end
+  object t_hunger: TTimer
+    OnTimer = t_hungerTimer
+    Left = 48
+    Top = 672
+  end
+end

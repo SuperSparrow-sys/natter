@@ -1,0 +1,93 @@
+object Form1: TForm1
+  Left = 771
+  Height = 402
+  Top = 196
+  Width = 550
+  Caption = 'Form1'
+  ClientHeight = 402
+  ClientWidth = 550
+  LCLVersion = '3.4.0.0'
+  object Shape1: TShape
+    Left = 192
+    Height = 57
+    Top = 160
+    Width = 97
+    Brush.Color = 33023
+    OnChangeBounds = Shape1ChangeBounds
+    Shape = stRoundSquare
+  end
+  object Shape2: TShape
+    Left = 200
+    Height = 89
+    Top = 200
+    Width = 81
+    Shape = stCircle
+  end
+  object Shape3: TShape
+    Left = 184
+    Height = 136
+    Top = 248
+    Width = 115
+    Shape = stCircle
+  end
+  object Shape4: TShape
+    Left = 224
+    Height = 8
+    Top = 192
+    Width = 36
+    Brush.Color = 64
+  end
+  object Shape5: TShape
+    Left = 224
+    Height = 14
+    Top = 168
+    Width = 9
+    Brush.Color = clBlack
+  end
+  object Shape6: TShape
+    Left = 251
+    Height = 14
+    Top = 168
+    Width = 9
+    Brush.Color = clBlack
+  end
+  object Shape7: TShape
+    Left = 192
+    Height = 17
+    Top = 152
+    Width = 97
+    Brush.Color = clGray
+    Brush.Style = bsPattern
+  end
+  object Shape8: TShape
+    Left = 208
+    Height = 37
+    Top = 120
+    Width = 65
+    Brush.Color = clGray
+  end
+  object Shape9: TShape
+    Left = 232
+    Height = 23
+    Top = 224
+    Width = 17
+    Brush.Color = clBlack
+    Shape = stCircle
+  end
+  object Shape10: TShape
+    Left = 232
+    Height = 23
+    Top = 272
+    Width = 17
+    Brush.Color = clBlack
+    Shape = stCircle
+  end
+  object Shape11: TShape
+    Left = 232
+    Height = 23
+    Top = 320
+    Width = 17
+    Brush.Color = clBlack
+    Shape = stCircle
+  end
+end

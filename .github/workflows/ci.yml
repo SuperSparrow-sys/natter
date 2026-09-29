@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    # Natter ist ein reines Windows-Programm, und die Tests prüfen
+    # Windows: Schriften aus C:\Windows\Fonts, PowerShell,
+    # Zertifikatspeicher, Pfade mit Laufwerksbuchstaben. Auf Linux
+    # scheiterte der Lauf seit dem ersten Tag schon beim Einsammeln der
+    # Tests, weil PySide6.QtMultimedia dort libpulse erwartet - 200 rote
+    # Läufe hintereinander, die über Natter nichts aussagten.
+    runs-on: windows-latest
+    timeout-minutes: 60
+    # Zwei Hälften nebeneinander (Punkt 223): die schnelle und die
+    # mittlere Stufe in der einen, Unterprozesse, Debugger und der
+    # Eigenschaften-Rundlauf in der anderen. Zusammen ist das die volle
+    # Suite; die Marker vergibt tests/conftest.py. Das `not drucker`
+    # steht dabei, weil ein `-m` auf der Befehlszeile das aus
+    # pyproject.toml ersetzt.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - teil: schnell und mittel
+            auswahl: "not drucker and not prozess and not debugger and not rundlauf"
+          - teil: Prozesse, Debugger, Rundlauf
+            auswahl: "not drucker and (prozess or debugger or rundlauf)"
+    name: test (${{ matrix.teil }})
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: uv installieren
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "latest"
+
+      - name: Python 3.13 einrichten
+        # Ohne Angabe liest uv .python-version - dieselbe Fassung, die der
+        # Auslieferungsbau herunterlädt (Punkt 33).
+        run: uv python install
+
+      - name: Abhängigkeiten installieren
+        run: uv sync --group dev
+
+      - name: Ruff
+        run: uv run ruff check .
+
+      - name: pytest
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: uv run pytest -q -rs --durations=30 -n auto --dist loadfile -m "${{ matrix.auswahl }}"

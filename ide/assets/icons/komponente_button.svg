@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Button: gefüllter Knopf mit heller Beschriftung. Gefüllt, damit er
+       sich bei 16 px vom leeren Eingabefeld (komponente_edit)
+       unterscheidet (Sichtprüfung M11). -->
+  <rect x="2.9" y="7.4" width="18.2" height="9.2" rx="2" fill="#0067c0" stroke="#004c8c" stroke-width="1.2"/>
+  <path d="M7.6 12h8.8" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

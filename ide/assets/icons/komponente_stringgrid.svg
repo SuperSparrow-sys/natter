@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- StringGrid: Tabelle mit Kopfzeile -->
+  <rect x="2.9" y="3.4" width="18.2" height="17.2" rx="1.5" fill="#f7f9fa"/>
+  <path d="M2.9 4.9a1.5 1.5 0 0 1 1.5-1.5h15.2a1.5 1.5 0 0 1 1.5 1.5v3.1H2.9z" fill="#0067c0"/>
+  <path d="M2.9 14.3h18.2M9 8v12.6M15 8v12.6" stroke="#7b8f9a" stroke-width="1"/>
+  <rect x="2.9" y="3.4" width="18.2" height="17.2" rx="1.5" fill="none" stroke="#37474f" stroke-width="1.2"/>
+</svg>

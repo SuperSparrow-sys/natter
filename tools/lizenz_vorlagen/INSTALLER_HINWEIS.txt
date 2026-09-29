@@ -1,0 +1,35 @@
+﻿Vor der Installation
+====================
+
+Natter bringt alles mit, was der Unterricht braucht: eine eigene
+Python-Installation, die Oberflächenbibliothek Qt sowie die
+Bibliotheken für Tabellen, Diagramme und Datenbanken.
+
+Es muss nichts weiter installiert werden, und eine bereits vorhandene
+Python-Installation auf dem Rechner bleibt unberührt.
+
+
+Platzbedarf
+-----------
+
+Auf der Festplatte werden rund 1,2 GB belegt.
+
+
+Ohne Administratorrechte
+------------------------
+
+Voreingestellt wird Natter nur für das angemeldete Benutzerkonto
+installiert. Auf einem Schulrechner ist das meist der einzige Weg, der
+ohne Rückfrage funktioniert.
+
+Für eine Installation für alle Benutzer werden Administratorrechte
+gebraucht – und später ebenfalls, sobald über das Menü „Pakete"
+zusätzliche Python-Pakete nachinstalliert werden sollen.
+
+
+Nach der Installation
+---------------------
+
+Ein Doppelklick auf eine .natter-Datei öffnet das Projekt direkt in
+Natter, sofern die Verknüpfung bei den zusätzlichen Aufgaben
+ausgewählt bleibt.

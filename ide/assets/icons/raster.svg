@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Raster: Gitternetz auf dem Blatt, eine Zelle hervorgehoben. -->
+  <rect x="2.9" y="2.9" width="18.2" height="18.2" rx="1.5" fill="#f7f9fa"/>
+  <rect x="8.9" y="8.9" width="6.2" height="6.2" fill="#0067c0"/>
+  <path d="M8.9 2.9v18.2M15.1 2.9v18.2M2.9 8.9h18.2M2.9 15.1h18.2"
+        stroke="#7b8f9a" stroke-width="1"/>
+  <rect x="2.9" y="2.9" width="18.2" height="18.2" rx="1.5" fill="none"
+        stroke="#37474f" stroke-width="1.2"/>
+</svg>

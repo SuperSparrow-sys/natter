@@ -1,0 +1,14 @@
+# Hier steht der eigene Code.
+#
+# Ein Konsolenprogramm verständigt sich über das schwarze Fenster:
+#   print(...)  schreibt eine Zeile hinein
+#   input(...)  wartet auf eine Eingabe und die Eingabetaste
+#
+# Das Programm steht in main() und läuft dort von oben nach unten.
+# Eigene Funktionen kommen darüber. Ein Test (Datei → Neue Test-Unit)
+# kann sie mit "from u_main import ..." prüfen, ohne dass dabei das
+# ganze Programm startet: main() ruft erst main.py auf.
+
+
+def main():
+    print("Hallo, {{name}}!")

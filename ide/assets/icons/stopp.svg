@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Stopp: das uebliche Quadrat, in derselben Familie wie das
+       Abspieldreieck daneben. Ohne Kontur, weil die Palette kein
+       dunkles Rot kennt und eine Farbe dafuer aufzunehmen mehr
+       waere als das Symbol braucht. -->
+  <rect x="5.4" y="5.4" width="13.2" height="13.2" rx="1.6" fill="#c42b1c"/>
+</svg>

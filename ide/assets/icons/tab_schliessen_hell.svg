@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <!-- Reiter schließen, Fassung für das helle Theme. Sonderfall des
+       Rasters wie tab_schliessen.svg: 16x16 statt 24x24, weil
+       ide/shell/theme.py diese Datei als `image: url(...)` direkt ins
+       QSS einbindet - dort bestimmt die Eigengröße der Datei die Größe
+       des Knopfes, und ein Reiter-Kreuz ist 16 px groß. Am Umfärben aus
+       symbole.py kommt das QSS vorbei; deshalb steht hier der Wert von
+       `tinte_hell` fürs helle Theme fest im Quelltext. -->
+  <path d="M4.4 4.4 11.6 11.6M11.6 4.4 4.4 11.6" fill="none"
+        stroke="#7b8f9a" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

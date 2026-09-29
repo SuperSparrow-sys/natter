@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Ablaufende: Kreis mit Kreuz - nur dieser Zweig endet. -->
+  <circle cx="12" cy="12" r="8" fill="#f7f9fa" stroke="#37474f" stroke-width="1.2"/>
+  <path d="M7.9 6.6 17.4 16.1 16.1 17.4 6.6 7.9ZM16.1 6.6 17.4 7.9 7.9 17.4 6.6 16.1Z"
+        fill="#c42b1c"/>
+</svg>

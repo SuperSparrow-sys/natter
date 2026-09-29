@@ -1,0 +1,46 @@
+# Hier steht der eigene Code. Alles, was programmiert wird, kommt in
+# diese Datei.
+#
+#
+# EINE KOMPONENTE ANSPRECHEN
+#
+# Jede Komponente auf dem Formular hat im Objektinspektor einen Namen
+# (die erste Zeile, "name"). Unter genau diesem Namen ist sie hier
+# erreichbar - mit self. davor:
+#
+#     self.l_titel.caption = "Hallo"
+#     self.e_name.text = ""
+#     self.b_ok.enabled = False
+#
+# Die Eigenschaften heißen genauso wie im Objektinspektor. Was sich
+# dort einstellen lässt, lässt sich auch hier setzen - und umgekehrt.
+#
+#
+# AUF EINEN KLICK REAGIEREN
+#
+# Doppelklick auf den Knopf im Designer. Natter legt dann hier eine
+# Methode an:
+#
+#     def b_ok_click(self, sender):
+#         self.l_titel.caption = "Geklickt!"
+#
+# Die Zeile self.b_ok.on_click = self.b_ok_click, die den Knopf mit
+# dieser Methode verbindet, steht in u_main_design.py und wird aus dem
+# Designer geschrieben. Deshalb stehen hier nur die Methoden - das
+# Verbinden ist schon erledigt.
+#
+# sender ist die Komponente, die das Ereignis ausgelöst hat. Hängen
+# mehrere Knöpfe an derselben Methode, lässt sich daran erkennen,
+# welcher gedrückt wurde.
+#
+#
+# ETWAS BEIM START TUN
+#
+# Ein Doppelklick auf die freie Fläche des Formulars legt form_create
+# an - das läuft einmal, bevor das Fenster erscheint.
+
+from u_main_design import Form1Design
+
+
+class Form1(Form1Design):
+    pass

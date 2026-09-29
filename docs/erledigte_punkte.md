@@ -1,0 +1,11646 @@
+# Erledigte Punkte
+
+Was aus [`offene_punkte.md`](offene_punkte.md) erledigt, geklärt oder
+behoben ist - vollständig, mit dem, was beobachtet wurde, was die
+Ursache war und was geändert wurde. Gestrichen wird hier nichts; bei
+einem ähnlichen Fehler lässt sich so nachlesen, was schon geprüft wurde.
+
+Wie die früheren Punkte umgesetzt wurden, steht in
+`umsetzungsplan.md` (Git-Historie).
+
+---
+
+## 1. Stylesheets kaskadieren auf Kinder — auch auf Dialoge ~~(erledigt)~~
+
+**Beobachtet:** Im Diagramm-Editor öffnet das Feld „Füllung" den
+Farbauswahl-Dialog. Dort hat jede Beschriftung und jeder Knopf einen
+grauen Rahmen, die Texte wirken ausgegraut, und der Dialog sieht aus,
+als wäre er abgeschaltet. Beim Feld „Linie" genauso — es ist dieselbe
+Klasse.
+
+**Ursache — nachgewiesen und nachgestellt.**
+`ide/diagramm/eigenschaften.py`, Zeile 56:
+
+```python
+gewaehlt = QColorDialog.getColor(QColor(self.farbe or "#ffffff"), self)
+```
+
+Als Elternteil wird `self` übergeben, also der Farbknopf. Auf dem steht
+vier Zeilen darüber:
+
+```python
+self.setStyleSheet(f"background-color: {farbe}; border: 1px solid #808080;")
+```
+
+Das sind **Anweisungen ohne Selektor**. Qt wendet sie auf das Widget
+*und auf jedes Kind* an, und ein Dialog gilt als Kind seines
+Elternteils. Jedes Label und jeder Knopf im Dialog bekommt dadurch
+`border: 1px solid #808080` und den weißen Hintergrund.
+
+Nachgestellt mit einem `QLabel`, das dieselbe Zeile trägt, und einem
+`QColorDialog` darunter: das Ergebnis deckt sich mit dem
+Bildschirmfoto.
+
+**Die allgemeine Regel dahinter:** eine Regel *mit* Selektor
+(`QToolButton { … }`) trifft nur passende Widgets und ist ungefährlich.
+Eine Regel *ohne* Selektor (`background-color: …;`) trifft alles
+darunter. `pcl/components/standard.py` kennt das bereits und schreibt
+beim `Panel` ausdrücklich `QFrame#… { … }` mit der Begründung im
+Kommentar — nur an den übrigen Stellen ist es nicht angewandt.
+
+**Naheliegende Behebung:** als Elternteil `self.window()` übergeben.
+Dann hängt der Dialog am Fenster und erbt nur dessen Stylesheet.
+
+**Noch zu prüfen:**
+
+- Ob die Farbe danach weiterhin richtig übernommen wird, und ob der
+  Dialog mittig auf dem richtigen Bildschirm erscheint.
+- Ob die `border`-Zeile auf dem Farbknopf überhaupt nötig ist, oder ob
+  ein Rahmen über `setFrameShape` dasselbe ohne Stylesheet leistet —
+  dann verschwindet die Ursache statt nur ihre Wirkung.
+- Ob ein Test das festhalten kann: etwa, dass kein `setStyleSheet` ohne
+  Selektor auf einem Widget steht, das einen Dialog öffnet.
+
+
+---
+
+## 2. Welche Stellen geprüft sind und welche nicht ~~(erledigt)~~
+
+**Geprüft und in Ordnung** — diese Stylesheets tragen einen Selektor
+und kaskadieren deshalb nicht schädlich:
+
+| Datei | Zeile | Warum unbedenklich |
+|---|---|---|
+| `ide/shell/explorer.py` | 179 | `QToolButton { … }`, trifft kein Menü darunter |
+| `pcl/components/standard.py` | 486 | `Panel` schreibt `QFrame#… { … }` |
+| `ide/shell/hauptfenster.py` | 295, 2023 | gilt fürs ganze Fenster, so gewollt |
+| `ide/diagramm/fenster.py` | 199 | dasselbe fürs Diagrammfenster |
+
+**Ohne Selektor, aber ohne Kinder** — heute harmlos, beim nächsten
+Umbau nicht mehr:
+
+| Datei | Zeile | Widget |
+|---|---|---|
+| `ide/shell/hauptfenster.py` | 609 | Prüfungsmodus-Anzeige |
+| `ide/ladeanzeige.py` | 86 | Standzeile im Startbild |
+| `ide/shell/startbild.py` | 181, 194, 236, 242 | Überschriften und Einträge |
+| `ide/designer/canvas.py` | 529, 572 | Auswahlrahmen und Anfasser |
+| `pcl/components/standard.py` | 116, 156 | `Label` und `Edit` |
+
+**Noch nicht angesehen** — acht Dialoge, die ein Widget als Elternteil
+bekommen. Beim Hauptfenster ist das gewollt; die übrigen sind
+ungeprüft:
+
+| Datei | Zeile | Dialog |
+|---|---|---|
+| `ide/database/panel.py` | 143, 209, 253, 272 | Datei wählen, CSV und SQL exportieren |
+| `ide/project/neu_dialog.py` | 74 | Übergeordneter Ordner |
+| `ide/inspector/eigenschaften_tabelle.py` | 282, 296 | Zeileneditor und Menü-Editor |
+| `ide/diagramm/canvas.py` | 786, 828 | Formeditor und Klassendialog |
+
+**Geprüft — und die Antwort ist einfacher als erwartet.** Keine
+dieser vier Klassen setzt überhaupt ein Stylesheet: weder
+`ide/database/panel.py` noch `ide/project/neu_dialog.py`,
+`ide/inspector/eigenschaften_tabelle.py` oder
+`ide/diagramm/canvas.py`. Ihre Dialoge erben damit nur das Thema des
+Fensters, also genau das, was sie sollen. Der Fall aus Punkt 1 war
+ein anderer: dort hing der Dialog an einem Knopf, der für sich selbst
+eine Farbe und einen Rahmen gesetzt hatte.
+
+**Gehalten von** vier Tests in `tests/test_stylesheet_kaskade.py`:
+einer je Datei, dass sie sich nicht selbst gestaltet, dazu einer,
+dass die Liste dieser Dateien nicht veraltet ist, und einer, dass in
+ihnen überhaupt noch Dialoge aufgehen - sonst wäre die Prüfung eine
+Sammlung harmloser Dateien.
+
+
+---
+
+## 3. Die Druckvorschau zeigt das Diagramm winzig und mit zerlaufener Schrift ~~(erledigt)~~
+
+**Beobachtet:** „Datei → Drucken …" im Diagramm-Editor zeigt eine
+Vorschau, in der fast nichts zu sehen ist: eine große graue Fläche, die
+Zoomanzeige steht auf „0,0 %", und vom Diagramm ist nur ein Fleck
+übrig.
+
+**Nachgestellt** mit `konto_klassen.pdiag` und einem
+`QPrintPreviewWidget`. Es sind **zwei** Fehler, die zusammenfallen.
+
+### 3a. Das Diagramm wird 3,7 cm breit gedruckt statt 20 cm
+
+`ide/diagramm/export.py`, Zeile 312:
+
+```python
+faktor = min(1.0, breite / bereich.width(), hoehe / bereich.height())
+```
+
+Die `1.0` bedeutet „verkleinert nur, vergrößert nie". Das ist für den
+Bildschirm gedacht, wo ein Punkt ein Punkt ist. Ein Drucker rechnet
+aber in 600 dpi:
+
+| | |
+|---|---|
+| Inhalt des Diagramms | 884 × 456 Punkte |
+| Druckseite | 4818 × 6876 Punkte bei 600 dpi |
+| Faktor mit der Grenze | **1,00** → 18 % der Seitenbreite, **3,7 cm** |
+| Faktor ohne die Grenze | 5,45 → 100 % der Seitenbreite, **20,4 cm** |
+
+Streicht man die Grenze, füllt das Diagramm die Seite — nachgestellt
+und angesehen.
+
+### 3b. Die Schrift skaliert nicht mit
+
+Auch mit richtiger Geometrie bleibt der Text unbrauchbar: Namen laufen
+aus ihren Kästen, Zeilen überlagern sich, von einer Notiz ist nur das
+erste Wort zu sehen.
+
+Der Grund: die Schriften werden in **Punkt** angelegt
+(`QFont(_SCHRIFT, groesse)` in `zeichnen.py`, `struktogramm.py`,
+`tabelle.py`). Qt rechnet Punkt über die Auflösung des Ausgabegeräts in
+Gerätepunkte um — bei 600 dpi also 6,25-mal so groß wie bei den 96 dpi
+des Bildschirms. Der Maßstab des Malers vergrößert danach noch einmal.
+Die Kästen wachsen mit dem einen Faktor, die Schrift mit beiden.
+
+**Der Vergleich, der es zeigt:** der PDF-Export hat dasselbe Problem
+nicht, und zwar weil `als_pdf` in `export.py` ausdrücklich auf 96 dpi
+stellt — mit dem Kommentar „dann entspricht eine PDF-Einheit genau
+einem Pixel der Zeichenfläche". Beim Drucken fehlt dieser Schritt.
+
+**Richtung für die Behebung:** beim Drucken denselben Weg gehen wie
+beim PDF — das Koordinatensystem vor dem Zeichnen auf 96 dpi bringen
+(`maler.scale(96 / drucker.resolution(), …)`) und erst darauf den
+Anpassungsfaktor rechnen. Dann skalieren Geometrie und Schrift
+gemeinsam, und die Auflösung des Druckers bleibt trotzdem erhalten.
+
+**Noch zu prüfen:**
+
+- Ob die Vorschau danach auch einen sinnvollen Zoomwert anzeigt; „0,0 %"
+  ist noch nicht erklärt und könnte ein dritter, eigener Punkt sein.
+- Struktogramm und Entscheidungstabelle gehen durch dieselbe Funktion
+  und sind noch nicht gedruckt worden.
+- Querformat, denn dort greift der Faktor über die andere Kante.
+- Ob ein Test das festhalten kann, etwa: auf eine Seite gezeichnet muss
+  der belegte Bereich mindestens die halbe Seitenbreite einnehmen.
+- Die PNG- und SVG-Exporte sehen richtig aus (in dieser Sitzung
+  angesehen), das PDF wurde nur auf seine Dateigröße geprüft — einmal
+  öffnen und ansehen.
+
+
+---
+
+## 5. Die Ordner im Projektstamm sind die Arbeit des Nutzers ~~(geklärt)~~
+
+**Geklärt am 20. September, 17:38.** Es war nie ein Test und nie ein
+Fehler im Programm.
+
+`beispiel_kopieren` legt die Arbeitskopie eines Beispiels im Ordner
+„Dokumente/Natter“ an. Auf **diesem** Rechner liegt das Repository
+selbst genau dort, und Windows unterscheidet keine Groß- und
+Kleinschreibung. Jede Arbeitskopie landet damit im Projektstamm.
+
+Der Nachweis: um 17:38 lief Natter, und es entstanden
+`06_Kontoverwaltung` (eine frische Arbeitskopie) und
+`06_Kontoverwaltung 2` mit `u_konto_klassen.py` darin — der Datei,
+die der Nutzer im selben Augenblick aus dem Klassendiagramm erzeugt
+hat.
+
+**Was daraus folgt:**
+
+- Die Fixture in `tests/conftest.py` bleibt trotzdem richtig: kein
+  Test hat im echten Heimverzeichnis etwas zu suchen.
+- `.gitignore` deckt jetzt auch die durchnummerierten Kopien ab
+  (`... 2`, `... 3`). Sie sind echte Arbeit und dürfen weder
+  eingecheckt noch weggeräumt werden. Beinahe wäre genau das
+  passiert.
+- **Für die Entwicklung heißt das:** auf diesem Rechner nie
+  `git add -A` blind ausführen und nie Ordner im Stamm löschen, die
+  nach einem Beispiel aussehen — es kann die laufende Arbeit sein.
+
+**Offen bleibt eine Kleinigkeit:** `06_Kontoverwaltung 2` enthält nur
+`u_konto_klassen.py` und sonst nichts. Die erzeugte Klassendatei ist
+also nicht in das offene Projekt gewandert, sondern in einen eigenen,
+sonst leeren Ordner. Das gehört zu Punkt 10 und ist dort noch zu
+prüfen.
+
+
+---
+
+## 8. Der Prüfungsmodus — alle Bedingungen an einer Stelle ~~(erledigt)~~
+
+Der Modus wird über „Werkzeuge → Prüfungsmodus starten …" eingeschaltet
+und läuft vier Stunden. Hier steht, was er leisten muss, was davon
+nachgewiesen ist und was noch fehlt.
+
+### Gilt bereits, nachgemessen
+
+- **Er übersteht das Schließen von Natter.** Vom Nutzer ausdrücklich
+  verlangt. Geprüft mit zwei getrennten Prozessen, so wie Schließen und
+  Wiederöffnen: der zweite meldet `läuft: True` und eine Restzeit von
+  3:59:58. Gespeichert wird nicht, *dass* der Modus an ist, sondern
+  *wann er vorbei ist* — ein Schalter im Speicher wäre mit einem
+  Neustart ausgehebelt.
+- **Er lässt sich in der Oberfläche nicht abschalten.** `beenden()` in
+  `pcl/pruefungsmodus.py` wird von der IDE nirgends aufgerufen; nur
+  `starten`, `laeuft` und `restzeit_text` sind angeschlossen. Die
+  Zusage im Dialog stimmt also.
+- **Er läuft von selbst aus.** Niemand muss daran denken, ihn wieder
+  abzuschalten, und kein Rechner bleibt über den Schultag hinaus
+  eingeschränkt.
+- **Keine Lösungsvorschläge.** Die Fehlermeldung sagt weiterhin, *was*
+  falsch ist, aber nicht mehr, woran es liegen könnte.
+- **Kein Quelltext aus Klassendiagramm und Struktogramm.**
+- **Vervollständigung ohne die deutschen Erklärungen.** Die Liste
+  bleibt — sie ist Schreibhilfe; „Wird beim Klicken ausgelöst" neben
+  `on_click` wäre dagegen nah an der Antwort.
+
+### Fehlt noch
+
+- **Keine zuletzt geöffneten Dateien** auf dem Startbild
+  (`ide/shell/startbild.py`).
+- **Keine Beispielprojekte** im Untermenü „Datei →
+  Beispielprojekte" (`ide/shell/hauptfenster.py`).
+
+Beides ist ein Weg an fremden Code. Die Liste „Zuletzt geöffnet" führt
+zu dem, was in der Stunde davor bearbeitet wurde — in einer Klausur
+möglicherweise zur Lösung der Aufgabe, die gerade gestellt ist. Die
+Beispielprojekte enthalten ausformulierte Lösungen zu genau den
+Themen, die geprüft werden.
+
+### Noch zu prüfen
+
+- Was geschehen soll, wenn der Modus **während** einer laufenden
+  Sitzung startet: das Startbild müsste sich dann neu aufbauen, sonst
+  bleibt die Liste stehen, bis jemand das Fenster wechselt.
+- Ob der Menüeintrag ganz verschwinden oder nur gesperrt sein soll.
+  Gesperrt erklärt sich besser — wer ihn sucht, sieht, dass es ihn
+  gibt und dass er gerade nicht geht.
+- Ob auch der Projekt-Explorer betroffen ist, wenn ein fremdes Projekt
+  noch offen war, als der Modus begann.
+- **Wie weit der Schutz reicht, und das ehrlich benannt.** Der
+  Zeitpunkt steht in einer gewöhnlichen Ini-Datei im Benutzerprofil.
+  Wer sie bearbeiten kann, kann den Modus beenden. Für den
+  Unterrichtsgebrauch genügt das; eine Prüfungsumgebung im Sinne einer
+  gesicherten Abnahme ist es nicht, und das sollte irgendwo stehen,
+  damit niemand sich darauf verlässt.
+
+---
+
+## 9. Im Diagramm-Editor überdecken sich die Bereiche ~~(erledigt)~~
+
+**Beobachtet:** Nach einem Neustart steht die Übersichtskarte
+(`ide/diagramm/minimap.py`) an der falschen Stelle. Ein leeres weißes
+Feld liegt über dem Lineal, und von den Einträgen links ist nur die
+halbe Beschriftung zu sehen („…endiagramm“, „…rbeiten“,
+„…ndungen“).
+
+**Ursache — nachgewiesen. Es waren drei, nicht eine.**
+
+1. Die Minimap hing am `QScrollArea`, wurde aber nach den Maßen
+   seines Viewports verschoben. Ein `move()` gilt im
+   Koordinatensystem des Elternteils, und die beiden unterscheiden
+   sich um die Rahmenbreite.
+2. `_minimap_einpassen()` lief nur beim Rollen und beim Zoomen, nicht
+   beim Ändern der Fenstergröße. Nach einem Neustart mit anderer
+   Größe saß die Karte dort, wo sie beim letzten Mal gerechnet worden
+   war.
+3. Bei einem schmalen Fenster wurde die berechnete Ecke negativ
+   (`Breite − 160 − 12`), und die Karte ragte links über den Rand
+   hinaus — genau der weiße Kasten über dem Lineal.
+
+Die abgeschnittenen Beschriftungen haben eine eigene Ursache: Qt
+verteilt die Breite der Seitenbereiche nach dem Platzbedarf ihres
+Inhalts, und keiner der beiden hatte eine Untergrenze. Gemessen war
+der Eigenschaften-Bereich 106 Pixel breit, während sein Titel 86
+Pixel braucht — nach Abzug der Knöpfe blieben 63 Pixel Textfeld, und
+aus „Eigenschaften“ wurde „Eigen…“. Wird der Trenner nach außen
+gezogen, trifft es umgekehrt die Palette.
+
+**Geändert.** Die Minimap hängt jetzt am Viewport, ein Ereignisfilter
+führt sie bei jeder Größenänderung nach, und passt sie nicht mehr
+hin, verschwindet sie, statt herauszuragen. Jeder Seitenbereich hat
+eine Mindestbreite, die mit der Systemschrift mitwächst
+(`DOCK_MINDESTBREITE`).
+
+**Gehalten von** `tests/test_diagramm_minimap_lage.py` (sechs Tests)
+und vier weiteren in `tests/test_diagramm_fenster.py`. Der Platz für
+den Titeltext wird dort nicht geschätzt, sondern beim Stil erfragt
+(`SE_DockWidgetTitleBarText`); `minimumSizeHint()` taugt dafür nicht,
+weil der das Kürzen bereits einplant.
+
+**Nicht gemacht:** Das Diagrammfenster merkt sich sein Layout weiter
+nicht (kein `saveState()`). Die Bereiche haben zwar einen
+`objectName`, aber ein gespeicherter Zustand würde eine einmal
+verschobene Aufteilung auch dann wiederherstellen, wenn sie nicht
+mehr passt — und die Mindestbreite löst das Beobachtete bereits.
+
+
+---
+
+## 10. Der erzeugte Quelltext landet nicht im großen Editor ~~(erledigt)~~
+
+**Beobachtet:** „Quelltext erzeugen“ im Diagramm-Editor zeigt das
+Ergebnis in einem eigenen Fenster mit den Knöpfen „Kopieren“,
+„Speichern unter …“ und „Schließen“.
+
+**Was fehlt:** Wer „Speichern unter …“ wählt, schreibt die Datei —
+und danach passiert nichts. `speichern_unter()` in
+`ide/diagramm/codefenster.py` gibt den Pfad zurück, aber niemand
+öffnet ihn. Die Schülerin muss die eben geschriebene Datei von Hand
+im Projekt-Explorer suchen.
+
+**Gewünscht:** Das Schreiben muss **immer** funktionieren, und die
+geschriebene Datei muss **immer** anschließend im großen Editor
+erscheinen.
+
+**Wie es gelöst werden soll.** Drei Teile, und der erste ist schon da.
+
+**1. Der Ort.** `_vorschlag_fuer_unit()` in `ide/diagramm/fenster.py`
+rechnet den richtigen Ordner bereits aus: eine Ebene über
+`diagramme/`, also der Projektordner. Dort sucht `Projekt.units` mit
+`ordner.glob("*.py")` — eine Datei, die dort liegt, ist damit
+automatisch eine Unit. Im Kommentar steht sogar, warum: ein früherer
+Vorschlag `units/` landete an einer Stelle, die das Projekt nie
+ansieht, und die Klasse war nirgends wiederzufinden.
+
+Nur der Dialog hinter „Speichern unter …" benutzt das nicht. Er
+beginnt in gar keinem Ordner — und genau so ist die erzeugte Klasse am
+20. September in einem eigenen, sonst leeren Ordner gelandet. Er muss
+in diesem Ordner beginnen.
+
+**2. Die Nachricht ans Hauptfenster.** Der Diagramm-Editor ist ein
+eigenes Fenster und kennt das Hauptfenster nicht. Er soll es auch
+nicht kennen müssen — stattdessen ein Signal:
+
+    datei_geschrieben = Signal(Path)
+
+`hauptfenster.diagramm_oeffnen()` hält beim Öffnen ohnehin schon eine
+Verbindung zum Fenster (`_offene_diagramme`) und kann es dort
+anschließen. Das ist das Muster, das im Projekt überall gilt: der
+Projekt-Explorer meldet `umbenennen_angefordert` und
+`loeschen_angefordert` genauso, statt selbst zu handeln.
+
+**3. Was das Hauptfenster dann tut.** Zwei Aufrufe, beide gibt es
+schon:
+
+    self.explorer.projekt_anzeigen(self.projekt)   # Liste neu aufbauen
+    self.datei_oeffnen(pfad)                       # Reiter im Editor
+
+`projekt_anzeigen` wird an sechs anderen Stellen genauso gerufen, etwa
+nach „Neues Diagramm". Der Explorer liest seine Liste bei jedem Aufruf
+frisch von der Platte; es braucht dafür nichts Neues.
+
+**Warum kein `QFileSystemWatcher` auf den Projektordner.** Das wäre
+die allgemeinere Lösung und fänge auch Dateien ab, die von außen
+dazukommen. Es wäre aber auch die aufwendigere: ein Beobachter, der
+bei jedem Speichern anschlägt, während der Editor selbst schreibt, und
+eine Liste, die sich unter der Hand neu aufbaut. Das Signal löst das
+vorliegende Problem vollständig und lässt sich prüfen. Ein Beobachter
+kann später dazukommen, wenn er gebraucht wird.
+
+**Noch zu prüfen:**
+
+- Ob der Weg über `in_datei_schreiben()` gehen soll, das es im selben
+  Modul schon gibt: es fragt nach, statt eine vorhandene Datei
+  stillschweigend zu überschreiben — wer eine Klasse zweimal erzeugt,
+  soll seine ausformulierten Methodenrümpfe nicht verlieren.
+- Wohin die Datei standardmäßig gehört. Der Dialog beginnt heute in
+  keinem bestimmten Ordner; der Projektordner wäre die naheliegende
+  Vorgabe.
+- Wie das Diagrammfenster an das Hauptfenster meldet, dass es eine
+  Datei gibt. Es ist ein eigenes Fenster und kennt das Hauptfenster
+  nicht — ein Signal wäre der Weg, wie es der Projekt-Explorer schon
+  macht.
+- Was geschehen soll, wenn die Datei außerhalb des offenen Projekts
+  liegt: dann gehört sie in einen Reiter, aber nicht in den
+  Projekt-Explorer.
+- Ob das Schreiben auch dann funktioniert, wenn der Ordner
+  schreibgeschützt ist — auf einem Schulrechner keine Seltenheit. Die
+  Meldung muss dann sagen, was los ist.
+
+
+---
+
+## 11. Alle sichtbaren Texte durchgehen ~~(erledigt)~~
+
+**Vorgabe des Nutzers:** Die Texte sollen überall überprüft werden —
+nicht nur dort, wo gerade etwas auffiel.
+
+**Der Anlass** war der Obst-Sortierer: „Die 100 Bäume haben
+abgestimmt", „Der Wald antwortet trotzdem", „Worauf der Wald achtet"
+und „Das im Blick zu behalten ist der wichtigste Teil". Mit „Wald"
+ist nichts anzufangen, und abstimmen kann er auch nicht.
+
+**Durchgegangen wurden** die sichtbaren Texte aller neun
+Beispielprojekte samt ihrer Kopfkommentare, die statischen
+Beschriftungen aus den `.pfm`-Dateien, die Projektvorlagen, die
+Hilfeseiten, der Fehlerkatalog und die Texte des Installers.
+
+**Gefunden und geändert:**
+
+- Der Obst-Sortierer nennt jetzt die Sache: „So haben die 100
+  Entscheidungsbäume entschieden: Apfel 59, Banane 0, Orange 41."
+  Die Anzahl statt des Prozentsatzes, weil sie sagt, wie die Antwort
+  zustande kommt. Der Wald ist überall weg, „Random Forest" als Name
+  des Verfahrens geblieben.
+- Im Zahlenraten stand ein Satz, der beim Entfernen der Anrede
+  zerbrochen war: „Natter denkt sich eine Zahl aus, geraten wird, und
+  antwortet …". Er war weder richtig noch verständlich, und ein
+  Programm denkt sich auch nichts aus.
+- **Im allerersten Beispielprogramm stand die falsche Taste.**
+  „Drücke F9, um das Programm zu starten" — gestartet wird mit F5, F9
+  ist in Natter nicht belegt. Das trifft die Schülerin in der ersten
+  Minute der ersten Stunde.
+- `erste_schritte.md` schickte zu den Beispielprojekten „vom
+  Startbild". Die stehen seit dem Umbau unter „Datei →
+  Beispielprojekte"; der Modulkommentar von `startbild.py` versprach
+  sie ebenfalls noch und sprach von zehn statt neun.
+- Der Fehlerkatalog erklärte Einrückung mit „Python nutzt Einrückung
+  statt begin…end". Wer Pascal nicht kennt, lernt daraus nichts.
+- Ein Kommentar im Menü-Editor schrieb dem Editor einen Willen zu
+  („der Editor will jedes Feld vorfinden").
+- Der Installer sprach von einer „Zusatzaufgabe", wo die zusätzlichen
+  Aufgaben des Setups gemeint sind.
+
+**Dabei aufgefallen, über die Textprüfung hinaus:** Die
+Tastenübersicht unter „Hilfe" kannte die Tasten des Designers nicht —
+weder die Pfeiltasten noch `Strg+D`, `Entf` oder `F2`. Sie stehen
+weder in einem Menü noch in der Liste der Editortasten, und
+`docs/fuer_lehrkraefte.md` beschrieb sie, während die Übersicht
+daneben schwieg. Sie sind jetzt als `DESIGNERTASTEN` aufgeschrieben
+und stehen in der Übersicht.
+
+**Gehalten von** `tests/test_tastenkuerzel_in_texten.py`: jedes
+Kürzel, das in einem gelesenen Text steht, muss es im
+Aktionsregister, im Diagramm-Editor oder in den Editor- und
+Designertasten wirklich geben. Der Rest der Textprüfung lässt sich
+nicht in einen Test gießen — eine Prüfung, die Bilder erkennen soll,
+meldet falsche Treffer. Dafür halten `tests/test_textstil.py` die
+Anrede, die Umlaute und die Markdown-Reste fest, und
+`tests/test_designertasten.py` hält jede aufgeschriebene
+Designertaste gegen den Designer.
+
+
+---
+
+## 12. Ein langer Text im Label wird abgeschnitten ~~(erledigt)~~
+
+**Beobachtet:** Im Obst-Sortierer endet die unterste Zeile mitten im
+Satz: „Der Wald antwortet trotzdem, und zwar mit der" — der Rest fehlt
+spurlos.
+
+**Ursache — nachgewiesen.** `Label` in `pcl/components/standard.py`
+ruft nirgends `setWordWrap(True)`; im ganzen `pcl` kommt der Aufruf
+nicht vor. Ein `QLabel` bricht ohne ihn nicht um: was breiter ist als
+das Label, wird abgeschnitten. Das betroffene Label ist 864 Punkte
+breit, der Text hat rund 370 Zeichen.
+
+**Warum das mehr ist als ein Schönheitsfehler:** Es trifft jeden, der
+einen längeren Text in ein Label schreibt — also genau das, was eine
+Schülerin tut, wenn sie ihr Programm erklären will. Der Text
+verschwindet ohne Meldung, und im Designer sieht alles richtig aus,
+solange die Beschriftung dort kurz ist.
+
+**Noch zu prüfen:**
+
+- Ob `setWordWrap(True)` der richtige Standard ist. Dafür spricht, dass
+  ein abgeschnittener Text immer falsch ist. Dagegen, dass ein Label
+  dann seine Höhe sprengt statt seine Breite — auch das fällt auf, ist
+  aber sichtbar statt unsichtbar.
+- Ob es eine eigene Eigenschaft `word_wrap` geben soll, wie sie andere
+  Umgebungen kennen. Dann bliebe die Entscheidung bei der Schülerin,
+  und der Objektinspektor zeigt sie an.
+- Ob `Memo` und `StringGrid` dasselbe Problem haben.
+- Ob der Design-Prüfer das melden kann: ein Text, der breiter ist als
+  sein Label, ist maschinell erkennbar — `QFontMetrics` liefert die
+  Breite. Das wäre eine Regel, die den Fehler findet, bevor jemand
+  das Programm startet.
+
+
+---
+
+## 13. Die Maus-Ereignisse lassen sich im Objektinspektor nicht verknüpfen ~~(erledigt)~~
+
+**Beobachtet:** Im Reiter „Ereignisse" stehen bei einem `Image` fünf
+Zeilen: `on_click`, `on_double_click`, `on_mouse_down`,
+`on_mouse_move`, `on_mouse_up`. Für die drei Maus-Ereignisse bleibt
+das Auswahlfeld immer auf „(kein)" — auch dann, wenn die passende
+Methode längst geschrieben ist.
+
+**Ursache — nachgewiesen.** `passende_methoden()` in
+`ide/inspector/ereignisse_tabelle.py` lässt nur Methoden durch, die
+**genau einen** Parameter neben `self` haben:
+
+    parameter = [p for p in signatur.parameters if p != "self"]
+    if len(parameter) == 1:
+        namen.append(name)
+
+Die Maus-Ereignisse übergeben aber `x` und `y`
+(`EREIGNIS_PARAMETER` in `pcl/control.py`), die Methode heißt also
+`(self, sender, x, y)` und hat zwei. Dasselbe trifft `on_select_cell`
+(`spalte`, `zeile`) und `on_edit_cell` (`spalte`, `zeile`, `text`) beim
+`StringGrid`.
+
+Gegengeprüft mit vier geschriebenen Methoden: angeboten werden zwei.
+
+Der Filter stammt aus der Zeit, als alle Ereignisse `(self, sender)`
+hießen — der Modulkopf sagt das auch so. Mit den Maus-Ereignissen aus
+M15 und den Zellen-Ereignissen des `StringGrid` stimmt er nicht mehr.
+
+**Behebung:** Der Filter muss die erwartete Parameterzahl vom Ereignis
+ablesen statt sie zu raten. `EREIGNIS_PARAMETER` weiß sie:
+`1 + len(EREIGNIS_PARAMETER.get(ereignis_name, ()))`. Damit ist die
+Liste je Zeile eine andere — was richtig ist, denn eine Methode für
+`on_click` passt nicht auf `on_mouse_down`.
+
+**Noch zu prüfen:**
+
+**Der Reiter soll Methoden auch anlegen können.** So vom Nutzer
+entschieden — und zwar „nur das, was möglich ist": angeboten wird
+ausschließlich, was die Komponente wirklich hat und was sich auch
+verknüpfen lässt. Ein Eintrag, der nach dem Anlegen doch nicht wirkt,
+wäre schlimmer als keiner.
+
+Das Werkzeug dafür gibt es längst: `handler_methode_einfuegen()` in
+`ide/codegen/ereignis.py`, das der Doppelklick im Designer benutzt. Es
+schreibt die Methode mit der richtigen Signatur, denn es bekommt die
+Parameter übergeben. Es ist nur nicht an den Objektinspektor
+angeschlossen.
+
+Der Name folgt derselben Regel wie beim Doppelklick:
+`<komponente>_<ereignis ohne on_>`, also `i_keks_mouse_down`.
+
+**Noch zu prüfen:**
+
+- Wie das Anlegen ausgelöst wird. Ein Doppelklick auf die Zeile wäre
+  das Naheliegende — er legt im Designer schon die Standardmethode an.
+  Ein zusätzlicher Eintrag „(neue Methode)" ganz oben im Auswahlfeld
+  wäre der zweite Weg und erklärt sich von selbst.
+- Was geschieht, wenn es die Methode schon gibt: dann nicht noch einmal
+  anlegen, sondern hinspringen. So macht es der Doppelklick im
+  Designer auch.
+- Ob die Unit dafür offen sein muss. Der Designer braucht `unit_pfad`;
+  ohne Datei passiert dort schlicht nichts, und das sollte hier eine
+  Meldung sein statt Stillschweigen.
+- Ob im Auswahlfeld sichtbar werden soll, welche Signatur erwartet
+  wird. Wer nicht weiß, dass `on_mouse_down` zwei Zahlen mitbringt,
+  schreibt die Methode falsch und findet sie dann nicht in der Liste —
+  ohne jede Meldung, woran es liegt.
+- Ob der `DBNavigator` betroffen ist: er hat mehrere Ereignisse und
+  kein Standardereignis, für ihn legt der Doppelklick also gar nichts
+  an.
+
+
+---
+
+## 14. Das Formular selbst kennt die Maus nicht ~~(erledigt)~~
+
+**Vorgabe des Nutzers:** Das Formular soll die Position des
+Mauszeigers verfolgen können.
+
+**Stand heute:** `Form` hat genau ein Ereignis, `on_create`. Es erbt
+von `Komponente` und nicht von `Control`, und damit fehlen ihm
+`on_click`, `on_double_click` und die drei Maus-Ereignisse, die jede
+sichtbare Komponente seit M15 hat. Nachgesehen mit
+`ereignisse(Form)` — die Liste hat einen Eintrag, die eines `Button`
+fünf.
+
+**Was das im Unterricht bedeutet:** Wer ein Zeichenprogramm oder ein
+kleines Spiel bauen will, braucht den Ort des Klicks auf der Fläche —
+nicht auf einem Knopf. Heute geht das nur über einen Umweg: eine
+`PaintBox` oder ein `Panel` über das ganze Formular legen und dessen
+Maus-Ereignisse benutzen. Das muss man wissen, und es steht nirgends.
+
+**Noch zu prüfen:**
+
+- Welche Ereignisse das Formular bekommen soll. `on_mouse_move` ist
+  das, was „verfolgen" meint; `on_mouse_down`/`on_mouse_up` gehören
+  dazu, `on_click` und `on_double_click` vermutlich auch.
+- Ob `Form` dafür von `Control` erben kann oder ob die Ereignisse
+  einzeln hinzukommen. `Form` ist kein Kind eines anderen Fensters und
+  hat weder `left`/`top` im selben Sinn noch einen `parent` — ein
+  Wechsel der Basisklasse ist also nicht nur eine Zeile.
+- Ob die Koordinaten vom Arbeitsbereich aus zählen und nicht vom
+  Fensterrahmen. `Top = 0` ist in Natter der obere Rand des
+  Arbeitsbereichs (siehe `pcl/form.py`); die Maus-Koordinaten müssen
+  demselben Maß folgen, sonst stimmt die Stelle nicht, an der etwas
+  gezeichnet wird.
+- Ob `on_mouse_move` ohne gedrückte Taste zu viele Ereignisse
+  auslöst. Qt liefert sie nur bei gedrückter Taste, solange
+  `setMouseTracking` aus ist — für ein Zeichenprogramm ist genau das
+  richtig, für eine Positionsanzeige nicht.
+- Ob der Objektinspektor das Formular überhaupt anzeigt: die neuen
+  Zeilen müssen im Reiter „Ereignisse" erscheinen, wenn das Formular
+  selbst ausgewählt ist.
+
+**Geändert.** `Form` hat jetzt `on_click`, `on_double_click`,
+`on_mouse_down`, `on_mouse_move` und `on_mouse_up`. Die Ereignisse
+kommen einzeln dazu und nicht über einen Wechsel der Basisklasse:
+`Control` bringt `left`, `top` und `parent` mit, und nichts davon
+hat für ein Fenster dieselbe Bedeutung. Der Ereignisfilter aus
+`pcl/control.py` war ohnehin allgemein gehalten - er braucht nur
+`_maus_melden` und `_ereignis_ausloesen`, und die sind dafür von
+`Control` nach `Komponente` gewandert.
+
+Drei Fragen aus der Liste sind damit beantwortet:
+
+- `setMouseTracking(True)`: eine Bewegung wird auch ohne gedrückte
+  Taste gemeldet. Eine Positionsanzeige braucht das; wer nur beim
+  Ziehen zeichnen will, merkt sich in `on_mouse_down` ein eigenes
+  Kennzeichen.
+- Die Koordinaten zählen ab dem Arbeitsbereich. Eine Menüleiste
+  liegt im selben Widget und schiebt jede platzierte Komponente um
+  ihre Höhe nach unten; `Form._maus_melden()` zieht dieselbe Höhe
+  wieder ab, sonst zeichnete ein Programm um die Höhe der Leiste
+  daneben.
+- Der Objektinspektor zeigt alle sechs Ereignisse mit der richtigen
+  Parameterzahl an (nachgesehen, nicht vermutet).
+
+**Gehalten von** `tests/test_form_maus.py`, elf Tests - darunter der
+Fall, dass ein Klick auf einen Knopf nicht als Klick auf das
+Formular durchgeht.
+
+
+---
+
+## 15. Nachweisen, dass die Panels wirklich etwas anzeigen ~~(erledigt)~~
+
+**Vorgabe des Nutzers:** Es soll geprüft werden, ob in den Panels auch
+tatsächlich Werte ankommen — beim Reiter „Variablen" und bei den
+übrigen genauso.
+
+**Warum das nicht selbstverständlich ist:** Ein leeres Panel sieht
+genauso aus, ob es nichts zu zeigen gibt oder ob die Verbindung
+dahinter nie angeschlossen wurde. Der Reiter „Ausgabe" trug bis
+September 2026 den Kurzhinweis „Was das laufende Programm ausgibt
+(print)" und zeigte in Wirklichkeit nur Start- und Endzeilen — die
+Ausgabe des Programms lief in ein Konsolenfenster daneben. Aufgefallen
+ist das erst, als die Konsole verschwinden sollte.
+
+**Woran die fünf Panels hängen:**
+
+| Panel | Gefüllt von | In dieser Sitzung gesehen |
+|---|---|---|
+| Meldungen | Prüfung vor dem Start, Design-Prüfer, Importbericht, Exe-Export | ja |
+| Ausgabe | Start- und Endzeilen; seit Neuestem auch `AusgabeLeser` mit dem, was das Programm schreibt | nur die Start- und Endzeilen |
+| Variablen | Debugger, beim Halt an einem Haltepunkt (`hauptfenster.py`, Zeile 3246) | nein |
+| Aufrufstapel | Debugger, derselbe Halt | nein |
+| Tests | Testlauf über „Projekt → Alle Tests ausführen" | ja |
+
+**Was zu tun ist:** Ein Durchgang mit einem echten Programm, bei dem
+jedes Panel einmal etwas zeigen muss:
+
+- ein Haltepunkt setzen, starten, und nachsehen, ob im Reiter
+  „Variablen" die Variablen mit ihren Werten stehen und im
+  „Aufrufstapel" die Aufrufkette,
+- ein GUI-Programm mit `print()` starten und nachsehen, ob die Zeilen
+  im Reiter „Ausgabe" ankommen. Das ist neu und bisher nur in Tests
+  geprüft, nie mit einem laufenden Schülerprogramm,
+- ein Programm mit einem Fehler starten und nachsehen, ob die
+  Fehlermeldung ebenfalls in „Ausgabe" landet — `stderr` läuft seit
+  der Umstellung in dasselbe Rohr,
+- eine Zeile im Panel anklicken und prüfen, ob sie an die richtige
+  Stelle im Quelltext führt.
+
+**Dabei gleich mit zu erledigen:** Der Variablenbaum trägt die
+Spaltenüberschriften **„Eigenschaft | Wert"**. Das ist die Beschriftung
+des Objektinspektors; hier stehen keine Eigenschaften, sondern
+Variablen. Gefüllt wird die erste Spalte auch aus `variable["name"]`.
+Richtig wäre „Variable | Wert".
+
+**Noch zu prüfen:**
+
+- Ob ein Panel sagen soll, warum es leer ist. „Hier stehen die
+  Variablen, sobald das Programm an einem Haltepunkt hält" ist eine
+  Auskunft; eine leere Fläche ist keine.
+
+**Nachgewiesen, mit laufenden Programmen statt mit Attrappen.** Der
+Durchgang steht als `tests/test_panels_zeigen_werte.py` und startet
+echtes Python:
+
+- **Variablen:** `zahl` steht mit `7` da, `name` mit `'Anna'`, eine
+  Liste mit ihrem Inhalt. Nicht nur Namen, sondern Werte.
+- **Aufrufstapel:** bei einem Halt in `innen()`, aufgerufen aus
+  `aussen()`, stehen beide in der Kette.
+- **Ausgabe:** `print`-Zeilen eines GUI-Programms kommen an, ebenso
+  was nach `stderr` geht, und eine unbehandelte Ausnahme ist mit
+  ihrem `IndexError` zu lesen.
+
+**Der Nebenbefund, der beinahe für einen Fehler gehalten wurde:** Bei
+einem **Konsolen**projekt bleibt die Ausgabe im eigenen Fenster des
+Programms und steht nicht im Panel. Das ist Absicht - ein
+Konsolenprogramm braucht `input()`, und eine Eingabe nimmt eine Liste
+im Panel nicht entgegen. Der Kurzhinweis am Reiter versprach es
+trotzdem für jedes Programm und sagt jetzt „Start und Ende - bei
+einem Programm mit Oberfläche auch, was es ausgibt".
+
+**Erledigt:** Die Spalte im Variablenbaum heißt „Variable" statt
+„Eigenschaft".
+
+**Nicht gemacht:** Der Hinweistext in einem leeren Panel. Qt hat für
+`QListWidget` und `QTreeWidget` keinen Platzhaltertext, und ein
+eingefügter Eintrag wäre ein Datensatz, der keiner ist - jeder Test,
+der auf `count() == 0` prüft, fiele darauf herein. Ein Label über der
+Liste wäre der Weg; die Kurzhinweise an den Reitern leisten bis
+dahin, was sie können.
+- Ob die Panels beim Beenden des Programms geleert werden oder den
+  letzten Stand behalten. Beides ist vertretbar, aber es sollte
+  entschieden sein.
+
+
+---
+
+## 16. Den Quelltext als PDF herunterladen können ~~(erledigt)~~
+
+**Vorgabe des Nutzers:** Es soll die Möglichkeit geben, den Code als
+formatiertes PDF zu speichern.
+
+**Wofür das gebraucht wird:** Eine Abgabe. Wer sein Programm abgibt,
+gibt heute entweder den ganzen Ordner ab oder druckt aus dem Editor —
+und ein `.py` im Anhang lässt sich weder anstreichen noch mit einer
+Note versehen. Ein PDF ist das Format, das eine Lehrkraft erwartet,
+und es zeigt den Code so, wie der Schüler ihn vor sich hatte.
+
+**Was dafür schon da ist — beide Hälften:**
+
+- Die Hervorhebung: `PythonHervorhebung` in
+  `ide/shell/python_hervorhebung.py`, ein `QSyntaxHighlighter`, der im
+  Editor ohnehin läuft.
+- Die PDF-Ausgabe: `QPdfWriter`, benutzt in `ide/diagramm/export.py`
+  für Diagramme. Dort steht auch der Kniff mit den 96 dpi, damit eine
+  PDF-Einheit einem Bildschirmpunkt entspricht.
+
+Ein `QTextDocument` trägt seine Formatierung mit und kann über
+`print_()` direkt in einen `QPdfWriter` schreiben. Die Hervorhebung
+lässt sich auf ein solches Dokument anwenden, ohne dass dafür ein
+Editor sichtbar sein muss.
+
+**Entschieden (vom Nutzer):**
+
+- **Das ganze Projekt**, nicht nur die offene Datei — mit einer
+  Überschrift je Datei und einem Seitenumbruch dazwischen.
+- **Nur die `u_*`-Dateien.** `main.py` bleibt draußen: sie ist der
+  Starter, den Natter schreibt, und enthält keinen Schülercode. Die
+  erzeugten `u_*_design.py` bleiben ebenfalls draußen. `Projekt.units`
+  liefert genau diese Auswahl schon heute.
+- **Immer das helle Thema**, unabhängig davon, was in der IDE
+  eingestellt ist. Das gilt für jeden Export: die Hervorhebung des
+  dunklen Themas ist auf weißem Papier unlesbar.
+- **Mit Zeilennummern.** Ohne sie lässt sich in der Besprechung nicht
+  auf eine Stelle zeigen.
+
+**Noch zu prüfen:**
+
+- **Umbruch langer Zeilen:** ein Blatt ist schmaler als ein Bildschirm.
+  Abschneiden ist keine Möglichkeit — siehe Punkt 12. Entweder
+  umbrechen mit einer Kennzeichnung am Zeilenanfang, oder die Schrift
+  so wählen, dass die übliche Zeilenlänge passt. Die Prüfung vor dem
+  Start kennt eine Höchstlänge; daran ließe sich die Schriftgröße
+  ausrichten.
+- **Kopfzeile:** Projektname, Dateiname und Datum. Bei einer
+  eingesammelten Abgabe ist sonst nicht erkennbar, wessen Datei das
+  ist.
+- **Wo der Eintrag hingehört:** „Projekt → Quelltext als PDF
+  exportieren …", weil es das ganze Projekt betrifft.
+- Ob der Prüfungsmodus etwas daran ändert. Vermutlich nicht — der
+  Schüler exportiert seinen eigenen Code.
+- Ob leere Dateien mit in das PDF gehören. Eine Überschrift über
+  nichts ist unschön, ihr Fehlen aber auch verwirrend.
+
+**Gebaut** als `ide/export/quelltext_pdf.py`, erreichbar über
+„Projekt → Quelltext als PDF …". Eine Datei je Seite, Zeilennummern
+in Grau, die Hervorhebung aus dem Editor, in der Kopfzeile
+Projektname, Dateiname und Datum.
+
+Zum Drucken eingerichtet: A4, 20 mm Rand ringsum, Consolas in 8
+Punkt. Nachgemessen passen damit 99 Zeichen Code neben die
+Nummernspalte - knapp die Zeilenlänge, auf die `pyproject.toml` den
+Quelltext begrenzt. Bei 9 Punkt wären es 85 gewesen, und der
+Ausdruck stünde voller Fortsetzungszeilen.
+
+Was länger ist, bricht um und verschwindet nicht (Punkt 12). Eine
+hängende Einrückung für den Rest war zuerst drin und ist wieder
+heraus: sie kostete rund fünf Zeichen Breite in jeder Zeile, und
+dann brachen erst recht Zeilen um, die sonst gepasst hätten. Als
+Fortsetzung ist der Rest ohnehin zu erkennen - ihm fehlt die
+Zeilennummer.
+
+**Gehalten von** `tests/test_quelltext_pdf.py`, 22 Tests. Der eine,
+der die Zeilenlänge misst, überspringt sich selbst, wenn in der
+Umgebung keine echte Consolas liegt: unter `offscreen` setzt Qt eine
+Ersatzschrift mit fast doppelt so breiten Zeichen ein, und die
+Messung sagte dann nichts über das Papier.
+
+
+---
+
+## 17. Hilfeseiten und Markdown-Ansicht sind ungestaltet ~~(erledigt)~~
+
+**Vorgabe des Nutzers:** Zeilenabstand und Schriftart sollen besser
+werden, die Schrift unter anderem kräftiger.
+
+**Beobachtet:** Ein längeres Dokument läuft über die ganze
+Fensterbreite, die Zeilen stehen dicht übereinander, und in den
+Tabellen kleben die Einträge an den Rahmen. Betroffen sind beide Wege,
+denn sie benutzen dieselbe Klasse: die Hilfeseiten unter „Hilfe" und
+jede `.md`, die jemand öffnet.
+
+**Stand heute:** `HilfeAnsicht` in `ide/viewers/hilfe_ansicht.py` ist
+ein `QTextBrowser` mit `setMarkdown()`. Eingestellt wird daran genau
+eines: für Code-Stellen wird die Gattungsfamilie „monospace" durch
+eine ersetzt, die es unter Windows wirklich gibt. Zeilenabstand,
+Fließtextschrift, Schriftstärke, Ränder, Zeilenbreite und alles an den
+Tabellen sind Qts Vorgaben.
+
+### Der Weg dorthin — ausprobiert und nachgemessen
+
+`document().setDefaultStyleSheet()` wirkt nur beim Einlesen von HTML;
+`setMarkdown()` geht daran vorbei. Das steht schon im Modul und war
+der Grund, warum die Code-Schrift von Hand über die Textblöcke gesetzt
+wird.
+
+Der Ausweg ist ein Zwischenschritt über HTML:
+
+    zwischen = QTextDocument()
+    zwischen.setMarkdown(markdown)
+    self.document().setDefaultStyleSheet(vorlage)
+    self.setHtml(zwischen.toHtml())
+
+Damit greift die Vorlage. Gegenübergestellt und angesehen: mit
+`setMarkdown` bleibt alles bei Qts Vorgaben, über den Umweg stehen
+Zellenabstand, Rahmen, Ränder und ein Zeilenabstand von 160 %
+tatsächlich im Bild.
+
+**Die Schriftstärke lässt sich so setzen**, und zwar feiner als nur
+fett. Gemessen, welche Angaben Qt annimmt:
+
+| Angabe | Ergebnis |
+|---|---|
+| ohne Angabe | 400 (normal) |
+| `font-weight: 500` | 500 |
+| `font-weight: 600` | 600 |
+| `font-weight: bold` | 700 |
+
+`body { font-weight: 500; }` vererbt sich dabei auf die Absätze. Für
+das dunkle Thema ist das der richtige Hebel: helle Schrift auf dunklem
+Grund wirkt dünner als dieselbe Schrift umgekehrt, und 500 gleicht das
+aus, ohne fett zu wirken.
+
+### Was in die Vorlage gehört
+
+- **Schriftstärke** 500 im dunklen Thema, 400 im hellen.
+- **Zeilenabstand** etwa 160 %.
+- **Höchstbreite** von 70 bis 90 Zeichen je Zeile; der Rest des
+  Fensters bleibt Rand. Darüber verliert das Auge beim Zeilenwechsel
+  den Anschluss.
+- **Tabellen:** `border-collapse`, ein Rahmen statt zweier, und
+  Innenabstand in den Zellen. Heute kleben die Einträge am Strich.
+- **Codeblöcke absetzen.** Heute stehen sie ohne Hintergrund und ohne
+  Rahmen mitten im Fließtext. In der Komponenten-Referenz steht unter
+  „Vorlage pro Komponente" eine Markdown-Tabelle **absichtlich** als
+  Text — sie ist die Vorlage zum Abschreiben. Ohne Absetzung sieht das
+  aus wie eine Tabelle, deren Formatierung fehlt, und nicht wie ein
+  Beispiel. Ausprobiert: `pre { background-color: …; padding: 10px; }`
+  greift über den HTML-Umweg und setzt den Block sichtbar ab.
+- **Abstand** zwischen Absätzen und über Überschriften.
+- **Die Fließtextschrift** festlegen statt zu nehmen, was Qt gerade
+  greift.
+
+### Noch zu prüfen
+
+- **Die Schriftstärke gehört am echten Bildschirm entschieden, nicht
+  hier.** 500 ist ein Anhaltspunkt, keine Festlegung: der Eindruck
+  „zu dünn" entsteht durch helle Schrift auf dunklem Grund, und
+  zwischen 400 und 600 liegt der Unterschied zwischen kraftlos und
+  klobig. Beide Themen nebeneinander ansehen und dann entscheiden.
+  Die Bilder aus einem Offscreen-Lauf taugen dafür nicht — dort
+  greift eine Ersatzschrift mit fehlerhaften Glyphen (siehe
+  AGENTS.md, Abschnitt „Tests").
+- Ob die Vorlage zum Thema passen muss. Die Farben kommen heute vom
+  Widget; eine Vorlage, die Farben festschreibt, würde im dunklen
+  Thema falsch aussehen. Vermutlich also nur Maße und Stärke in der
+  Vorlage, Farben weiter vom Thema.
+- Ob `_code_schrift_setzen()` danach noch gebraucht wird. Über HTML
+  ließe sich `code { font-family: Consolas; }` in die Vorlage
+  schreiben — dann fiele der Umweg über die Textblöcke weg.
+- Ob die Breite mitwandert, wenn jemand die Schrift über
+  `Strg+Mausrad` vergrößert.
+- Ob `toHtml()` alles überträgt, was `setMarkdown` erzeugt hat:
+  Tabellen, Listen, Verweise, Code-Blöcke. Ein Verlust dabei wäre
+  schlimmer als das heutige Aussehen.
+
+**Gebaut.** `stilvorlage()` in `ide/viewers/hilfe_ansicht.py`, gesetzt
+über den Umweg HTML. Drin stehen Zeilenabstand 160 %, Abstände über
+Überschriften und zwischen Absätzen, Tabellen mit einem Rahmen und
+Innenabstand, abgesetzte Codeblöcke und die Schriftstärke 500 im
+dunklen Thema gegen 400 im hellen.
+
+Die Textbreite ist auf 720 Punkte begrenzt, der Rest des Fensters
+bleibt Rand. Nicht über `max-width` - Qts Rich-Text kennt die Angabe
+nicht -, sondern über die Ränder des Sichtbereichs. Dabei lauerte
+eine Falle: `setViewportMargins()` löst selbst ein `resizeEvent` aus,
+und die erste Fassung lief sich im Kreis, bis der Stapel überlief.
+Gerechnet wird deshalb mit der Breite des Widgets, die sich dadurch
+nicht ändert.
+
+**Die offenen Fragen, beantwortet:**
+
+- `toHtml()` überträgt alles: Überschriften, Tabellen, Zellen,
+  Listen, Verweise und Codeblöcke sind danach noch da (nachgesehen,
+  nicht vermutet).
+- Farben bleiben draußen, bis auf die Fläche hinter Codeblöcken. Die
+  Schrift- und Hintergrundfarbe kommt weiter vom Thema der IDE.
+- **`_code_schrift_setzen()` fällt nicht weg.** Das war die
+  Erwartung, und sie war falsch. Ohne den Nachbesserer bleiben trotz
+  `code { font-family: … }` in der Vorlage 673 Stellen in
+  `komponenten.md` auf „monospace" stehen, 61 in
+  `fuer_lehrkraefte.md` und 25 in `erste_schritte.md`: Qt schreibt
+  die Familie beim Umwandeln als Inline-Angabe ins Zeichenformat,
+  und die gewinnt gegen die Vorlage.
+
+**Nicht entschieden:** Ob 500 im dunklen Thema die richtige Stärke
+ist. Am Offscreen-Bild sieht sie stimmig aus, aber dort greift eine
+Ersatzschrift - das gehört am echten Bildschirm angesehen.
+
+**Gehalten von** `tests/test_hilfe_gestaltung.py`, 16 Tests. Zwei
+davon messen im fertigen Dokument und nicht in der Vorlage: dass
+eine Zeile im Stylesheet steht, heißt nicht, dass Qt sie annimmt.
+
+
+---
+
+## 18. Die Kopfzeile bietet an, was gerade nicht geht ~~(erledigt)~~
+
+**Beobachtet:** In der Werkzeugleiste steht ganz rechts ein blauer
+Pfeil nach unten. Er sieht aus wie ein Knopf zum Herunterladen; er
+meint „Einzelschritt".
+
+**Nachgemessen — und der Knopf ist nicht das Hauptproblem.** Ohne
+offenes Projekt und ohne laufendes Programm sind *alle* Aktionen im
+Menü „Start" anklickbar: Starten, Starten ohne Debugger, Pause,
+Fortsetzen, Stopp, Einzelschritt, Prozedurschritt, Ausführen bis
+Rücksprung. Von ihnen tun drei beim Anklicken nachweislich gar
+nichts:
+
+```python
+def _debugger_einzelschritt_aktion(self) -> None:
+    if self.debug_sitzung is not None and self._aktueller_thread_id is not None:
+        self.debug_sitzung.einzelschritt(self._aktueller_thread_id)
+```
+
+Kein `else`, keine Meldung, keine Statuszeile. Wer darauf klickt,
+erfährt nicht, dass er zuerst starten und anhalten muss — der Knopf
+sieht aus, als wäre er kaputt. „Stopp" macht es besser und sagt „Es
+läuft gerade nichts, was sich stoppen ließe."
+
+**Zu tun:**
+
+- Jede Aktion der Kopfzeile einmal auslösen und nachsehen, was
+  geschieht — Menüleiste und Werkzeugleiste, vor allem „Start".
+- Was ohne laufendes Programm nichts tun kann, gehört ausgegraut.
+  Ausgegraut ist eine Auskunft: „geht jetzt nicht", statt „geht
+  nicht".
+- Was auch ausgegraut niemandem nützt, gehört aus der Werkzeugleiste
+  heraus. Einzelschritt ist der erste Kandidat: er ist nur während
+  einer Debug-Sitzung sinnvoll, und dann liegt die Hand auf F11.
+- Das Symbol für den Einzelschritt neu zeichnen, falls er bleibt.
+
+**Geändert.** Fünf Einträge unter „Start" sind jetzt ausgegraut,
+solange das Programm nicht an einem Haltepunkt steht: Pause,
+Fortsetzen, Einzelschritt, Prozedurschritt, Ausführen bis Rücksprung.
+„Starten", „Starten ohne Debugger" und „Stopp" bleiben anklickbar -
+sie sagen, was stattdessen zu tun ist („Kein Projekt offen. Zuerst
+über „Projekt → Öffnen …" eines laden"), und ein Satz hilft weiter
+als ein graues Symbol.
+
+Dieselbe Regel gilt jetzt unter „Bearbeiten": auch dort waren alle
+sechs Einträge anklickbar, ohne dass ein Reiter offen war. Rückgängig
+und Wiederholen hängen an der Zeichenfläche des Designers mit, weil
+sie dort ebenfalls wirken.
+
+In der Werkzeugleiste steht jetzt „Stopp" mit einem eigenen Symbol.
+Der Einzelschritt hat ein neues bekommen: ein Pfeil, der aus der
+Zeile in die nächste abbiegt, statt eines geraden Pfeils auf eine
+Grundlinie - das ist anderswo das Zeichen fürs Herunterladen und
+wurde auch so gelesen.
+
+Die übrigen Menüs wurden mitgeprüft: „Suchen" und „Ansicht" sagen
+bereits sauber, woran es fehlt.
+
+**Gehalten von** `tests/test_kopfzeile_und_fusszeile.py`.
+
+
+---
+
+## 19. Der Prüfungsmodus ist in der Fußzeile nicht zu erkennen ~~(erledigt)~~
+
+**Vorgabe des Nutzers:** In der Fußzeile soll der Prüfungsmodus rot
+markiert sein.
+
+**Warum das mehr ist als Geschmack:** Der Prüfungsmodus ändert, was
+Natter zulässt — keine fremden Dateien, keine Beispielprojekte, keine
+Lösungshinweise in den Fehlermeldungen. Wer nicht auf den ersten Blick
+sieht, dass er läuft, sucht den Fehler bei sich. Und wer ihn aus
+Versehen anlässt, merkt es erst in der nächsten Stunde.
+
+**Noch zu prüfen:**
+
+- Ob die Anzeige auch im dunklen Thema lesbar bleibt. Rot auf Dunkel
+  braucht einen helleren Ton als Rot auf Hell.
+- Ob die Farbe allein genügt oder ob das Wort daneben stehen muss.
+  Rot-Grün-Sehschwäche ist in einer Klasse die Regel, nicht die
+  Ausnahme.
+- Wie sich die Restzeit einfügt, die dort schon steht.
+
+**Geändert.** Die Anzeige steht rot hinterlegt mit weißer Schrift
+rechts in der Statusleiste. Weiß auf diesem Rot trägt in beiden
+Themen - ein Rot, das zum hellen Thema passt, verschwindet im
+dunklen. Das Wort „Prüfungsmodus" steht weiter daneben, samt
+Restzeit: auf die Farbe allein ist in einer Klasse kein Verlass.
+
+
+---
+
+## 20. Die Beispielkopien landen im falschen Ordner ~~(erledigt)~~
+
+**Beobachtet:** Beim Öffnen eines Beispiels entstehen Ordner wie
+`04_CookieKlicker`, `05_Bildergalerie` und `07_CsvAuswertung` mitten
+im Entwicklungsverzeichnis von Natter, zwischen `ide`, `pcl`, `docs`
+und `dist`.
+
+**Ursache — nachgewiesen.** `ide/shell/startbild.py`:
+
+```python
+KOPIEN_ORDNER = Path("Documents") / "Natter"
+...
+wurzel = Path(ziel_wurzel) if ziel_wurzel else Path.home() / KOPIEN_ORDNER
+```
+
+Auf diesem Rechner liegt das Entwicklungsverzeichnis unter
+`C:\Users\…\Documents\natter`. Windows unterscheidet bei Dateinamen
+nicht zwischen Groß- und Kleinschreibung, „Natter" und „natter" sind
+also derselbe Ordner — die Arbeitskopien landen im Projektstamm.
+
+**Der schwerere Fehler steckt daneben:** `Path.home() / "Documents"`
+ist geraten, nicht ermittelt. Ist der Dokumente-Ordner umgeleitet —
+auf OneDrive oder auf ein Netzlaufwerk, und beides ist auf
+Schulrechnern die Regel und nicht die Ausnahme —, dann zeigt dieser
+Pfad ins Leere, und Natter legt einen zweiten, leeren
+Dokumente-Ordner an, den im Explorer niemand findet. Den richtigen
+Pfad kennt Windows selbst (`SHGetKnownFolderPath`, `FOLDERID_Documents`).
+
+**Zu tun:**
+
+- Den Dokumente-Ordner bei Windows erfragen statt ihn zu raten, mit
+  Rückfall auf den bisherigen Pfad, falls die Abfrage nichts liefert.
+- Die Kopien in einen eigenen Unterordner legen, damit sie nicht
+  zwischen den eigenen Projekten liegen.
+- Als Alternative vorgeschlagen: „Datei → Original wiederherstellen",
+  das ein verändertes Beispiel auf den Auslieferungsstand zurücksetzt.
+
+**Noch zu prüfen:**
+
+- Ob derselbe geratene Pfad noch an anderen Stellen steht — beim
+  Anlegen neuer Projekte, beim Exportieren, im Installer.
+- Was mit den Kopien geschieht, die bereits am falschen Ort liegen.
+  Sie sind die Arbeit des Nutzers und dürfen nicht verschwinden
+  (siehe Punkt 5).
+
+**Geändert.** `ide/pfade.py` fragt jetzt Windows nach dem
+Dokumente-Ordner (`SHGetKnownFolderPath`, über `ctypes` aus der
+Standardbibliothek) und fällt nur dann auf den alten Pfad zurück,
+wenn die Abfrage nichts liefert oder das Programm nicht unter Windows
+läuft. Auf dem Rechner, auf dem es auffiel, ist der Unterschied
+`C:\Users\…\OneDrive\Dokumente` gegen `C:\Users\…\Documents`.
+
+Im selben Zug schlägt „Neues Projekt …" diesen Ordner jetzt vor,
+statt das Feld leer zu lassen - sonst sucht sich jede Schülerin beim
+ersten Projekt einen eigenen Ort, und die Projekte einer Klasse
+liegen danach an zehn verschiedenen Stellen.
+
+**Nicht gemacht:** Die Kopien, die bereits im alten Ordner liegen,
+bleiben unberührt. Sie sind die Arbeit des Nutzers (Punkt 5); Natter
+verschiebt sie nicht von sich aus.
+
+**Gehalten von** `tests/test_pfade.py`, samt der Gegenprobe, dass der
+Zielordner nicht im Entwicklungsbaum liegt.
+
+
+---
+
+## 22. Jedes Öffnen eines Beispiels legt eine neue Kopie an ~~(erledigt)~~
+
+**Beobachtet:** Im Entwicklungsverzeichnis stehen `04_CookieKlicker`,
+`05_Bildergalerie` und `07_CsvAuswertung`. In „Zuletzt geöffnet"
+erscheinen dieselben Beispiele mehrfach, einmal mit „(Natter)" und
+einmal mit „(beispielprojekte)" dahinter.
+
+**Ursache — nachgewiesen.** Drei Dinge, die zusammen so aussahen, als
+entstünden laufend neue Ordner:
+
+- Die drei Ordner im Entwicklungsverzeichnis stammen vom 20.09.
+  zwischen 17:45 und 17:52, knapp drei Stunden vor der Korrektur aus
+  Punkt 20. Neu angelegt wird dort seitdem nichts. Die Liste „Zuletzt
+  geöffnet" führte aber weiter hinein, und in `04_CookieKlicker` wurde
+  noch am 25.09. gearbeitet.
+- `beispiel_kopieren()` legte bei jedem Öffnen eine weitere Kopie an,
+  sobald es schon eine gab („08_Regression 2", „… 3"). Gedacht war
+  das als Schutz der Arbeit von gestern. Überschrieben wurde sie
+  tatsächlich nicht, aber geöffnet wurde eine frische Kopie, und die
+  Arbeit lag unbemerkt im Ordner daneben.
+- In der Liste standen auch die Originale unter `beispielprojekte`.
+  Ein Klick darauf öffnete das Beispiel selbst, an Ort und Stelle.
+
+**Geändert:**
+
+- Eine vorhandene Kopie wird weiterbenutzt. Erkannt wird sie an ihrer
+  Projektdatei, nicht am Ordnernamen - ein eigenes Projekt, das
+  zufällig „04_CookieKlicker" heißt, bleibt unangetastet und die Kopie
+  bekommt dann eine Nummer.
+- Ein Original aus „Zuletzt geöffnet" oder über „Öffnen …" wird als
+  Kopie geöffnet, auf demselben Weg wie über das Menü.
+- **Datei → Beispielprojekte → Auf Original zurücksetzen …** ersetzt
+  den Inhalt der Kopie durch das Original. Der Ordner bleibt derselbe,
+  es entsteht kein neuer. Ohne diesen Eintrag gäbe es seit der
+  Wiederverwendung keinen Weg mehr zurück zum Ausgangszustand.
+
+- Die Kopien liegen in einem eigenen Unterordner,
+  `Dokumente\Natter\Beispielprojekte`, und nicht mehr zwischen den
+  eigenen Projekten. Eine Kopie am alten Platz direkt unter `Natter`
+  zieht beim nächsten Öffnen mit ihrem Inhalt dorthin um.
+- Liegt das Entwicklungsverzeichnis selbst unter `Dokumente\Natter`,
+  wäre der Unterordner der Ordner der Originale. Dann bricht das
+  Kopieren ab, statt das Original als seine eigene Kopie zu öffnen.
+
+Die drei alten Kopien im Entwicklungsverzeichnis sind auf Wunsch
+gelöscht.
+
+Tests: `tests/test_beispiel_und_thema.py`.
+
+
+---
+
+## 23. Nach dem Umschalten auf Hell bleibt der Designer dunkel ~~(erledigt)~~
+
+**Beobachtet:** Nach dem Wechsel von Dunkel auf Hell unter
+„Ansicht → Design" blieben das Formular im Designer und das daraus
+gestartete Programm dunkel.
+
+**Ursache — nachgewiesen.** Zwei Stellen:
+
+- Ein Formular steht auf `theme = "system"`, und `theme_aufloesen()`
+  fragte dafür Windows. Natter auf Hell und Windows auf Dunkel ergab
+  ein dunkles Formular in einer hellen Natter, im Designer wie im
+  gestarteten Programm.
+- Ein `Form` legt sein Stylesheet beim Erzeugen fest.
+  `_design_wechseln()` frischte Editor-Tabs und Symbole auf, offene
+  Designer-Formulare aber nicht; sie behielten das alte Design, bis
+  der Tab neu geöffnet wurde.
+
+**Geändert:**
+
+- Natter setzt beim Start und bei jedem Umschalten die
+  Umgebungsvariable `NATTER_THEMA` auf `light` oder `dark`.
+  `theme_aufloesen("system")` richtet sich zuerst danach. Das Formular
+  im Designer liest sie im Prozess von Natter, das gestartete Programm
+  erbt sie.
+- Steht Natter selbst auf „System", wird die Variable entfernt, und
+  alles folgt Windows.
+- Außerhalb von Natter, mit `python main.py` oder als exportierte Exe,
+  fehlt die Variable, und es gilt wie bisher Windows.
+- `_design_wechseln()` frischt offene Designer-Formulare auf.
+
+**Was bleibt:** Ein Programm, das beim Umschalten schon läuft,
+behält sein Design bis zum nächsten Start. Es ist ein eigener Prozess,
+und Natter greift nicht in ihn hinein.
+
+Tests: `tests/test_beispiel_und_thema.py`.
+
+---
+
+## 25. Die Vervollständigung war nicht zu sehen ~~(erledigt)~~
+
+**Gemeldet:** 25. September 2026, vom Nutzer: jedi habe er noch nie
+gefunden. Bei `pri` solle schon `print(` kommen, bei `bank_ab` die
+eigene Funktion `bank_abheben_konto` mit ihren Parametern, und beim
+Tippen in die Klammern hinein sollen Parameter und Datentypen zu sehen
+sein. Im Prüfungsmodus soll nichts davon gehen.
+
+**Ursache — nachgewiesen.** Die Vervollständigung selbst arbeitete, im
+Entwicklungsbaum wie in der gebauten Python. Nicht zu sehen war sie aus
+mehreren Gründen:
+
+- In den Einstellungen des Nutzers stand `vervollstaendigung=false`,
+  also „Ansicht → Vervollständigung" ausgeschaltet. Wieder
+  eingeschaltet.
+- Die Parameterhilfe erschien nie. Beim Tippen von `(` schließt der
+  Editor die Klammer selbst und beendete den Tastendruck damit; die
+  Parameterhilfe hing an genau diesem Tastendruck.
+- Beim Übernehmen aus der Liste kam nur der Name, ohne Klammern.
+- Neben eingebauten Funktionen stand jedis englischer Hilfetext
+  („Prints the values to a stream, or to sys.stdout by default.").
+- Der erste Vorschlag brauchte 1,5 Sekunden, weil jedi seine Daten
+  erst beim ersten Tastendruck einlas.
+- Im Prüfungsmodus blieb die Liste an, nur ohne Erklärung. Das war
+  eine Entscheidung aus M11; der Nutzer hat sie umgekehrt.
+
+**Geändert:**
+
+- Die Liste zeigt eigene Funktionen mit Parametern, Typen,
+  Rückgabetyp und der ersten Zeile des eigenen Docstrings:
+  `bank_abheben_konto(konto: str, betrag: float) -> bool – Hebt einen
+  Betrag vom Konto ab.`
+- Übernehmen setzt bei Funktionen die Klammern mit, die Schreibmarke
+  steht dazwischen, und die Parameterhilfe geht auf. Steht schon eine
+  Klammer da, bleibt es beim Namen.
+- Die Parameterhilfe erscheint bei `(` und nach jedem Komma. Der
+  gerade einzugebende Parameter ist fett und unterstrichen, dahinter
+  steht der Rückgabetyp, darunter die Erklärung. Typen stehen nur da,
+  wo sie im Quelltext angegeben sind; erfunden wird keiner.
+- Erklärungen kommen aus dem eigenen Code oder aus einer deutschen
+  Liste für die eingebauten Funktionen (`PYTHON_HILFE`). Englische
+  Hilfetexte aus Python und Bibliotheken werden nicht mehr gezeigt.
+- jedi wird beim Start von Natter im Hintergrund aufgewärmt. Der erste
+  Vorschlag kommt nach 107 ms statt nach 1,5 Sekunden.
+- Im Prüfungsmodus gibt es weder Liste noch Parameterhilfe, und der
+  Menüeintrag heißt „Vervollständigung (im Prüfungsmodus aus)".
+
+Tests: `tests/test_vervollstaendigung_eingabe.py`,
+`tests/test_pruefungsmodus.py`.
+
+---
+
+## 6. Prozesszeiten sind auf diesem Rechner nicht messbar ~~(überholt)~~
+
+**Beobachtet:** Weder `Get-Process | Select CPU` noch die
+WMI-Zähler `UserModeTime`/`KernelModeTime` liefern etwas anderes als
+null — auch nicht für Prozesse, die nachweislich rechnen. Beim
+erfolgreichen Auslieferungsbau standen sie genauso auf null wie beim
+hängenden Testlauf.
+
+**Folge:** „Null CPU-Zuwachs" taugt hier nicht als Beleg für einen
+Stillstand. Zweimal führte das fast zu einer Fehldiagnose: einmal
+wurde ein gesunder Lauf für hängend gehalten, einmal wäre ein echter
+Hänger beinahe mit der falschen Begründung erklärt worden.
+
+**Was stattdessen trägt:** ob das Protokoll fortschreitet, und der
+Vergleich mit der bekannten Normaldauer (Testlauf 3:30–4:00,
+Auslieferungsbau rund 10 Minuten).
+
+**Noch zu prüfen:** Ob es an der Sandbox liegt oder an
+Windows-Berechtigungen. Ein verlässlicher Zähler wäre nützlich, weil
+die Laufzeit-Angaben sonst nur aus Erfahrung stammen.
+
+**Überholt (25. September 2026).** Die Frage, ob ein Lauf hängt oder
+arbeitet, stellt sich seit 0.3.2 nicht mehr über Prozesszeiten.
+`tools/auslieferung_bauen.py` zeigt für jeden Schritt einen Balken mit
+der gemessenen Dauer früherer Läufe, und pytest wie pip schreiben jede
+Zeile sofort ins Protokoll. Steht die Anzeige, steht der Lauf. Ein
+eigener CPU-Zähler wird dafür nicht mehr gebraucht.
+
+---
+
+## 27. Die Integritätsprüfung entfällt still, wenn `manifest.json` fehlt oder unlesbar ist ~~(erledigt)~~
+
+**Gemeldet:** 25. September 2026, Schülerweg 0.3.3, Teil 1,
+Schritt 11, an der installierten Fassung.
+
+**Beobachtet:** Mit veränderter `pcl\crt.py` erscheint beim Start
+„Natter wurde verändert" mit der Datei und „Trotzdem starten?" - wie
+vorgesehen. Wird zusätzlich `manifest.json` gelöscht, startet Natter
+ohne jede Meldung. Dasselbe, wenn `manifest.json` nur unlesbar ist
+(`{ kein json`). `installation_pruefen()` liefert in beiden Fällen
+`None`, für die schnelle wie für die vollständige Prüfung. „Werkzeuge
+→ Umgebung prüfen" meldet dann „Keine Prüfung möglich: Natter läuft
+nicht aus einer gebauten Installation" - in einer gebauten
+Installation.
+
+**Ursache:** nachgewiesen. `programmordner()` in
+`ide/integritaet/start_pruefung.py` erkennt die Installation am
+Vorhandensein von `manifest.json`; fehlt die Datei, gilt der Ordner
+als Entwicklungsbaum. `installation_pruefen()` fängt `ManifestFehler`
+ab und gibt ebenfalls `None` zurück, also auch bei unlesbarer Datei
+oder unbekanntem Format. Der Docstring nennt ein fehlendes Manifest
+ausdrücklich „keinen Manipulationsverdacht". Wer eine Datei im
+Programmordner verändert, kann die Prüfung damit durch Löschen einer
+zweiten Datei abschalten.
+
+**Zu tun:** Die Installation an etwas erkennen, das sich nicht mit
+dem Manifest zusammen entfernen lässt, etwa am Ort
+(`python\pythonw.exe` neben `Natter.exe`) oder an einer Marke im
+Starter. In einer erkannten Installation sind fehlendes, unlesbares
+und unbekanntes Manifest Abweichungen mit eigener Meldung. Erledigt,
+wenn die drei Fälle aus der Auswertung (Kerndatei verändert, Manifest
+entfernt, Manifest unlesbar) je eine Warnung zeigen und der
+Entwicklungsbaum weiter ohne Warnung startet.
+
+**Behoben (26. September 2026).** `programmordner()` in `ide/integritaet/start_pruefung.py` erkennt die Installation jetzt an ihrem Aufbau (`Natter.exe` neben `python\pythonw.exe`), nicht mehr am Manifest. Ein fehlendes, unlesbares oder unbekanntes `manifest.json` ist selbst ein Befund (`PruefErgebnis.manifest_fehler`), mit der Meldung „Natter wurde nach der Erstellung verändert: manifest.json fehlt in …“ beim Start und in „Umgebung prüfen“. Die Meldungen von `ManifestFehler` sind dabei deutsch geworden (vorher hing die englische Meldung von `json` daran). Tests in `tests/test_integritaet_manifest.py`, darunter der Weg aus der Auswertung (Kerndatei verändern und Manifest löschen); vier von ihnen schlagen gegen den alten Code an.
+
+
+---
+
+## 29. `Zertifikat-eintragen` lässt den verlangten Vergleich des Fingerabdrucks nicht zu ~~(erledigt)~~
+
+**Gemeldet:** 25. September 2026, Schülerweg 0.3.3, Teil 1, Schritt 5
+(gelesen, nicht ausgeführt).
+
+**Beobachtet:** `ZUERST-LESEN.txt` verlangt: „Vor dem Eintragen
+deshalb den Fingerabdruck vergleichen, den das Skript anzeigt …
+Stimmt er nicht ueberein, nicht eintragen und nachfragen."
+`Zertifikat-eintragen.ps1` zeigt Aussteller, Gültigkeit und
+Fingerabdruck an und trägt unmittelbar danach in beide Speicher ein,
+ohne anzuhalten. Den Vergleich kann eine Lehrkraft erst anstellen,
+wenn das Zertifikat schon eingetragen ist.
+
+**Ursache:** nachgewiesen, `tools/paket/Zertifikat-eintragen.ps1`:
+zwischen der Ausgabe des Fingerabdrucks und `Import-Certificate` steht
+keine Rückfrage.
+
+**Zu tun:** Nach der Anzeige nachfragen („Stimmt der Fingerabdruck mit
+dem in ZUERST-LESEN.txt überein? (J/N)") und bei Nein ohne Eintrag
+beenden; alternativ den erwarteten Fingerabdruck im Skript
+hinterlegen und bei Abweichung abbrechen. Erledigt, wenn ein
+untergeschobenes anderes `.cer` nicht mehr eingetragen wird, ohne dass
+jemand es bestätigt.
+
+**Behoben (26. September 2026).** `Zertifikat-eintragen.ps1` kennt den erwarteten Fingerabdruck und trägt bei einer Abweichung nichts ein, sondern nennt beide Werte. `ZUERST-LESEN.txt` beschreibt das; von Hand verglichen wird nur noch beim Eintragen ohne Skript. `tests/test_paket.py` hält Skript, Text und die mitgelieferte `natter-codesign.cer` zusammen und prüft, dass der Vergleich vor `Import-Certificate` steht.
+
+
+---
+
+## 30. Der Installer spricht mit „Sie" an ~~(erledigt)~~
+
+**Gemeldet:** 25. September 2026, Schülerweg 0.3.3, Teil 1, Schritte 8
+und 13.
+
+**Beobachtet:** Die Seiten des Setup-Assistenten enthalten 19 Stellen
+mit „Sie" oder „Ihr": „Wählen Sie die Sprache aus", „auf Ihrem
+Computer installieren", „Sie sollten alle anderen Anwendungen
+beenden", „Lesen Sie bitte …", „Klicken Sie auf ‚Weiter'". AGENTS.md
+schließt die Textseiten des Installers ausdrücklich in die Regel ein,
+niemanden anzusprechen. Vor der Willkommensseite fragt das Setup
+außerdem nach der Sprache (Deutsch oder Englisch).
+
+**Ursache:** nachgewiesen. Die Texte sind die Standardmeldungen von
+Inno Setup aus `compiler:Languages\German.isl`; `tools/natter.iss`
+überschreibt keine davon. `tests/test_textstil.py` prüft die eigenen
+Textseiten unter `tools/lizenz_vorlagen/` und `natter.iss` selbst
+(auf Verweise auf fremde Werkzeuge), aber nicht die Meldungen, die
+Inno Setup aus `German.isl` mitbringt. Die Sprachauswahl
+erscheint, weil zwei Sprachen eingetragen sind und
+`ShowLanguageDialog` nicht gesetzt ist.
+
+**Zu tun:** Die angezeigten Meldungen in einem `[Messages]`-Abschnitt
+(oder einer eigenen `.isl`) unpersönlich fassen, etwa „Natter 0.3.3
+wird jetzt installiert." und „Zum Fortfahren auf ‚Weiter' klicken.";
+die Sprachauswahl abschalten oder nur Deutsch eintragen. Ein Test,
+der die überschriebenen Meldungen mit derselben Regel prüft wie die
+übrigen Texte. Erledigt, wenn ein Durchlauf aller Seiten ohne „Sie"
+und „Ihr" auskommt.
+
+**Behoben (26. September 2026).** `tools/installer_texte.isl` überschreibt alle 64 Meldungen aus `German.isl`, die mit „Sie“ oder „Ihr“ ansprechen; `tools/natter.iss` lädt sie hinter `German.isl` und hat nur noch Deutsch, die Frage nach der Setup-Sprache entfällt. `tests/test_installer_update.py` prüft, dass jede Anrede aus `German.isl` ein Gegenstück hat und keines selbst anspricht. Nachgesehen an einem ohne Programmdateien übersetzten Setup (Schalter `OhneProgramm`): keine Sprachauswahl, alle Seiten unpersönlich (`build\auswertung\ergebnisse\setup_seiten_probe_034_ueber_033.json`).
+
+
+---
+
+## 31. `Natter-pruefen` meldet eine fehlende Installation als „unvollständig" ~~(erledigt)~~
+
+**Gemeldet:** 25. September 2026, Schülerweg 0.3.3, Teil 1, Schritt 5.
+
+**Beobachtet:** Ohne installierte Natter schreibt der Bericht
+„Programmordner vorhanden: False" und darunter „Die Installation ist
+unvollstaendig - python\python.exe fehlt. Natter neu installieren."
+Eine Installation gibt es aber gar nicht. Gesucht wird außerdem nur
+unter `%LOCALAPPDATA%\Programs\Natter`; eine Installation für alle
+Benutzer unter `C:\Program Files\Natter` würde genauso gemeldet.
+
+**Ursache:** nachgewiesen, `tools/paket/Natter-pruefen.ps1`: der Pfad
+ist fest eingetragen, und die beiden Fälle „Ordner fehlt" und „Ordner
+da, Python fehlt" teilen sich eine Meldung.
+
+**Zu tun:** Den Installationsort aus dem Deinstallationseintrag lesen
+(`…\Uninstall\{961DA420-CA63-4436-9023-9CA411B620DA}_is1`,
+`InstallLocation`, unter HKCU und HKLM) und die Fälle trennen: „Natter
+ist für dieses Konto nicht installiert" gegenüber „Die Installation
+ist unvollständig". Erledigt, wenn beide Fälle ihre eigene Meldung
+bekommen und eine systemweite Installation gefunden wird.
+
+**Behoben (26. September 2026).** `Natter-pruefen.ps1` liest den Installationsort aus dem Deinstallationseintrag (HKCU, dann HKLM) und meldet „Natter ist für dieses Konto nicht installiert“ getrennt von „Die Installation ist unvollständig“. Der Bericht nennt die installierte Fassung. Nachgesehen an der installierten 0.3.3; Test in `tests/test_paket.py`.
+
+
+---
+
+## 32. Der Auslieferungsbau prüft mit ruff auch nicht eingecheckte Ordner ~~(erledigt)~~
+
+**Gemeldet:** 25. September 2026, Schülerweg 0.3.3, Teil 1, Schritt 3.
+
+**Beobachtet:** Der erste Bauversuch brach in Schritt 3 ab. `ruff
+check .` hatte eine Sicherungskopie von Schülerprojekten unter
+`build\auswertung\sicherung\` mitgeprüft und dort `I001` gemeldet -
+dieselbe Regel, die für `beispielprojekte/**` ausdrücklich
+abgeschaltet ist. Schritt 1 meldet `build/` zugleich als nicht
+eingecheckt.
+
+**Ursache:** nachgewiesen. `_ruff_pruefen()` in
+`tools/auslieferung_bauen.py` ruft `ruff check .` auf. Die Ordner, die
+der Bau selbst unter `build\` anlegt (`bau-cache`, `python-download`),
+tragen je eine eigene `.gitignore` mit `*` und sind damit für git und
+ruff ausgenommen. `build/` als Ganzes steht aber weder in der
+`.gitignore` des Repositorys noch in einer `exclude`-Liste von ruff;
+jeder andere Ordner dort wird mitgeprüft.
+
+**Zu tun:** `build/` in die `.gitignore` des Repositorys aufnehmen
+(ruff beachtet sie) oder `extend-exclude = ["build"]` in
+`pyproject.toml`. Erledigt, wenn ein Ordner mit fehlerhaften `.py`
+unter `build\` den Bau nicht mehr aufhält und Schritt 1 ihn nicht mehr
+meldet.
+
+**Behoben (26. September 2026).** `/build/` steht in der `.gitignore` des Repositorys und `extend-exclude = ["build"]` in `pyproject.toml`. `tests/test_auslieferung_bauen.py::test_ruff_prueft_nichts_unter_build` lässt sich von ruff die geprüften Dateien nennen; ohne die Änderung schlägt er an.
+
+
+---
+
+## 33. Kleinere Befunde aus dem Schülerweg 0.3.3, Teil 1 ~~(erledigt)~~
+
+**Gemeldet:** 25. September 2026, Schülerweg 0.3.3, Teil 1.
+
+**Beobachtet:**
+
+- Das Ladebild zeigt bei jedem Start „Projekt wird geöffnet …", auch
+  wenn kein Projekt übergeben wurde (`ide/main.py`, `starten()`: die
+  Meldung steht vor `_projekt_aus_argv_oeffnen`, ohne Prüfung).
+- `ZUERST-LESEN.txt` nennt die Setup-Datei fest mit „(275 MB)",
+  tatsächlich sind es 276,4 MB, und schreibt „die Datei kommt von
+  einem Stick", obwohl die ZIP über GitHub verteilt wird.
+- „Werkzeuge → Umgebung prüfen" läuft im GUI-Thread; das Fenster
+  reagiert für die Dauer der Prüfung (2,4 s) nicht.
+- Ausgeliefert wird Python 3.13.15, getestet wird im Entwicklungsbaum
+  mit 3.13.14. `uv.lock` legt die Patch-Version von Python nicht fest;
+  die Rauchprobe in Schritt 6 fängt grobe Folgen ab.
+
+**Ursache:** jeweils wie oben angegeben.
+
+**Zu tun:** Die Meldung im Ladebild nur zeigen, wenn ein `.natter`
+übergeben wurde; die Größe in `ZUERST-LESEN.txt` beim Bau einsetzen
+oder weglassen und den Satz zum Stick allgemein fassen; die
+vollständige Prüfung in einen Hintergrund-Thread legen; die
+Python-Version für Bau und Entwicklungsbaum aus derselben Quelle
+nehmen. Erledigt, wenn die vier Stellen behoben oder einzeln
+begründet zurückgestellt sind.
+
+**Behoben (26. September 2026).**
+
+- Das Ladebild zeigt „Projekt wird geöffnet …“ nur noch, wenn eine `.natter`-Datei übergeben wurde (`ide/main.py`; Test in `tests/test_hauptfenster_start.py`).
+- `ZUERST-LESEN.txt` nennt keine feste Größe mehr und schreibt „die Datei ist neu und hat deshalb noch keinen Ruf im Netz“.
+- „Werkzeuge → Umgebung prüfen“ läuft über `_hintergrund_starten` in einem eigenen Faden; der Menüaufruf kehrt sofort zurück (Test mit einer Prüfung, die eine Sekunde dauert).
+- `.python-version` legt 3.13.15 fest, dieselbe Fassung wie `PYTHON_FASSUNG` des Baus; die CI installiert Python ohne Versionsangabe und liest die Datei. Ein Test hält beide gleich.
+
+
+---
+
+## 40. „Umgebung prüfen" meldet nach einer Paketinstallation über Natter eine Veränderung ~~(erledigt)~~
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 23.
+
+**Beobachtet:** Nach „Pakete → Paket installieren …“ mit `cowsay`
+meldet „Werkzeuge → Umgebung prüfen“: „Natter wurde nach der
+Erstellung verändert: python/Scripts/cowsay.exe (zusätzlich). … Natter
+neu installieren und dabei den alten Programmordner ersetzen; bleibt
+die Meldung, hilft die Systembetreuung der Schule weiter.“ Der Rat
+würde das eben installierte Paket wieder entfernen.
+
+**Ursache:** nachgewiesen. Das Manifest nimmt die Fremdpakete in
+`site-packages` aus, damit pip dort nachinstallieren darf; pip legt
+aber zusätzlich Startdateien in `python\Scripts` an.
+
+**Zu tun:** `python/Scripts/` wie `site-packages` behandeln (zusätzliche
+Dateien dort sind kein Befund), veränderte oder fehlende Dateien von
+Natter selbst weiter melden. Erledigt, wenn nach einer Installation
+über die Paketverwaltung „Umgebung prüfen“ „unverändert“ meldet.
+
+**Behoben (26. September 2026).** `ist_nachinstalliert` in `ide/integritaet/manifest.py` behandelt `python/Scripts/` wie die Fremdpakete in `site-packages`: dort legt pip die Startdateien ab, auch beim Anheben von pip selbst. Eine neue Datei unmittelbar in `python/` fällt weiter auf. Tests in `tests/test_integritaet_manifest.py`; der für `cowsay.exe` schlägt gegen den alten Code an.
+
+---
+
+## 36. Die Design-Prüfung meldet in neuen Projekten jede Komponente als außerhalb des Formulars ~~(erledigt)~~
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 15.
+
+**Beobachtet:** Neues GUI-Projekt, Label bei 32/32, Edit bei 32/80,
+Button bei 32/128 im Formular 480 × 360. Die Design-Prüfung meldet
+sofort „9 Funde“, darunter „label liegt teilweise außerhalb des
+Formulars. Ins Formular hineinschieben oder das Formular größer
+machen - sonst fehlt sie im laufenden Programm.“
+
+**Ursache:** nachgewiesen. `_geometrie_pruefen` in
+`ide/lint/regeln.py` liest Breite und Höhe des Formulars mit dem
+Ersatzwert 0. Eine neu angelegte `.pfm` enthält keine Größe, das
+Formular gilt dann stillschweigend als 480 × 360.
+
+**Zu tun:** Denselben Standard wie das Formular verwenden (480 × 360)
+statt 0. Erledigt, wenn ein neues Projekt mit drei Komponenten im
+Formular keinen Geometrie-Fund mehr meldet und ein Test das festhält.
+
+**Behoben (26. September 2026).** `_geometrie_pruefen` in `ide/lint/regeln.py` rechnet ohne Größenangabe in der `.pfm` mit der Standardgröße des Formulars, gelesen aus `pcl.Form` (`_formulargroesse`). Dasselbe gilt jetzt für Kinder: `_rechteck` nimmt die Standardgröße des jeweiligen Typs statt pauschal 75 × 25, ein `Chart` ohne Angabe ist also 320 × 240 groß. Dazu kam die Regel `lesbarkeit.text_abgeschnitten` für den Befund aus Punkt 45: eine Beschriftung auf Button, CheckBox oder RadioButton, die geschätzt nicht in die Breite passt („Verdoppeln“ im 75 Pixel breiten Knopf), ist eine Warnung mit der nötigen Breite. Tests in `tests/test_design_pruefer.py` (neues Formular ohne Größe, Chart in Standardgröße, lange Beschriftung); die ersten beiden schlagen gegen den alten Code an.
+
+
+---
+
+## 37. Doppelklick auf eine Komponente springt nicht zur Methode ~~(erledigt)~~
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 15.
+
+**Beobachtet:** Ein Doppelklick auf den Button im Designer legt
+`button_click` in `u_main.py` an und verknüpft sie, die Unit öffnet
+sich aber nicht, und der Cursor steht nicht in der Methode. Ist die
+Methode schon da, passiert sichtbar gar nichts. `docs/handbuch.md`
+sagt: „Ein Doppelklick auf eine Komponente legt die zugehörige Methode
+im Quelltext an und springt dorthin“, die Tastenübersicht:
+„Doppelklick | Ereignis-Methode anlegen und hinspringen“.
+
+**Ursache:** nachgewiesen. `ereignis_handler_erzeugen` in
+`ide/designer/canvas.py` schreibt die Methode und liefert ihren Namen;
+niemand öffnet danach die Unit.
+
+**Zu tun:** Nach dem Doppelklick die Unit im Editor öffnen (bzw. den
+Reiter aktivieren) und den Cursor in die erste Zeile des
+Methodenrumpfs setzen, auch wenn die Methode schon bestand. Erledigt,
+wenn nach dem Doppelklick der Editor mit dem Cursor in der Methode
+vorn ist.
+
+**Behoben (26. September 2026).** Der Designer meldet jede angelegte oder schon vorhandene Methode über `methode_beobachten`; das Hauptfenster öffnet daraufhin die Unit (`_zur_methode_springen`), setzt den Cursor in den Rumpf der Methode und markiert ein dort stehendes `pass`. Ist die Unit schon offen und ungespeichert verändert, kommt die neue Methode in den Editortext statt nur in die Datei, damit beim Speichern keine der beiden Änderungen verloren geht. `tests/test_designer_sprung_zur_methode.py` stellt den Weg aus der Auswertung nach (neues Projekt, Button, Doppelklick) und prüft auch den zweiten Doppelklick und die ungespeicherte Unit; alle drei schlagen gegen den alten Code an.
+
+
+---
+
+## 38. Der Reiter „Ereignisse" bietet selbst geschriebene Methoden nicht an ~~(erledigt)~~
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 21.
+
+**Beobachtet:** `u_main.py` enthält `form_create`, `button_click` und
+`button2_click` mit `(self, sender)`. Im Objektinspektor, Reiter
+„Ereignisse“, bietet die Auswahlliste bei `on_click` und `on_create`
+nur „(kein)“. `docs/erste_schritte.md` sagt, dort lasse sich „auch
+eine schon vorhandene Methode auswählen“.
+
+**Ursache:** nachgewiesen. `formular_fuer_designer_laden` in
+`ide/designer/laden.py` baut die Formularklasse nur aus der `.pfm` und
+legt Platzhalter für bereits verknüpfte Methoden an; `passende_methoden`
+sucht in genau dieser Klasse. Methoden, die nur in der Unit stehen,
+kennt sie nicht.
+
+**Zu tun:** Die Methodennamen zusätzlich aus der Unit lesen (libcst ist
+schon da) und in die Auswahl aufnehmen. Erledigt, wenn eine von Hand
+geschriebene Methode mit passender Signatur in der Liste erscheint und
+sich verknüpfen lässt.
+
+**Behoben (26. September 2026).** `formular_fuer_designer_laden` in `ide/designer/laden.py` liest die Methoden der Formularklasse aus der Unit (`unit_methoden`, mit `ast`) und legt für jede einen Platzhalter mit ihrer echten Signatur an; `passende_methoden` filtert danach wie bisher nach der Zahl der Parameter. Gelesen wird bei jedem Anzeigen des Reiters neu, eine im Editor dazugeschriebene und gespeicherte Methode erscheint also ohne neues Öffnen des Designers. Eine Unit mit Syntaxfehler liefert keine Methoden statt eines Fehlers. `tests/test_ereignisse_unit_methoden.py`: die handgeschriebene `button_click(self, sender)` steht in der Auswahl für `on_click` und lässt sich verknüpfen, `maus_runter(self, sender, x, y)` nur bei `on_mouse_down`, private Methoden nie.
+
+
+---
+
+## 43. Klammern schließen und Parameterhilfe hängen an der Tastatur ~~(erledigt)~~
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritte
+17 und 19.
+
+**Beobachtet:**
+
+- Das automatische Schließen von Klammern und Anführungszeichen greift
+  nur, wenn beim Tastendruck keine Zusatztaste gedrückt ist. Auf einer
+  deutschen Tastatur brauchen `(`, `)`, `"`, `'` die Umschalttaste und
+  `[ ] { }` AltGr: Umschalt+8, Umschalt+2 ergibt `print("` ohne
+  Ergänzung.
+- Die Parameterhilfe erscheint nach `(` (auch mit Umschalttaste), aber
+  nicht, nachdem ein Vorschlag mit der Eingabetaste übernommen wurde
+  (`konto_abheben()` wird eingefügt, die Hilfe ist nicht zu sehen).
+
+**Ursache:** nachgewiesen für den ersten Teil:
+`if not event.modifiers() and self._klammer_schliessen(event)` in
+`ide/shell/quelltexteditor.py`. Für den zweiten vermutlich: das
+Schließen der Vorschlagsliste blendet den gerade gezeigten Tooltip
+wieder aus.
+
+**Zu tun:** Statt auf „keine Zusatztaste“ auf das erzeugte Zeichen
+(`event.text()`) prüfen und nur Strg/Alt ohne AltGr ausschließen. Die
+Parameterhilfe nach dem Schließen der Liste zeigen. Erledigt, wenn
+beides mit einer deutschen Tastatur funktioniert und ein Test mit
+Umschalt-Tastendruck das festhält.
+
+**Behoben (26. September 2026).** Klammern und Anführungszeichen werden geschlossen, wenn der Tastendruck ein Zeichen erzeugt und kein Kürzel ist (`_zeichen_ohne_kuerzel` in `ide/shell/quelltexteditor.py`): Umschalt ist erlaubt, AltGr (Strg und Alt zugleich) ebenso, Strg oder Alt allein nicht. Die Parameterhilfe nach dem Übernehmen eines Vorschlags wurde angezeigt, aber gleich wieder ausgeblendet: ruhte die Maus über dem Editor, schickte Qt ein Tooltip-Ereignis, als die Vorschlagsliste unter ihr verschwand, und der Editor blendete an einer Stelle ohne Fund jeden Kurzhinweis aus. Jetzt bleibt die Parameterhilfe dabei stehen; ein Fund-Hinweis verschwindet wie bisher. Die Ursache ist mit einem nachgestellten Tooltip-Ereignis belegt, nicht mit echter Maus und Tastatur; beim nächsten Schülerweg ist das mit zu prüfen. Tests in `tests/test_editor_deutsche_tastatur.py` (Umschalt, AltGr, Strg allein, Parameterhilfe nach Eingabetaste); drei davon schlagen gegen den alten Code an.
+
+
+---
+
+## 44. Palettenkacheln und Menüsymbol sind für UIA namenlos ~~(erledigt)~~
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 15.
+
+**Beobachtet:** Die 14 Kacheln der Komponentenpalette erscheinen in
+UI Automation als `ListItem` ohne Namen; das Symbol eines `MainMenu`
+auf der Zeichenfläche erscheint gar nicht. Ein Bildschirmleser liest
+nichts vor, und ein automatischer Test muss über Reihenfolge und
+Koordinaten gehen.
+
+**Ursache:** nachgewiesen für die Palette: `ide/palette/palette.py`
+setzt nur Symbol und Tooltip, keinen Text und keinen zugänglichen
+Namen.
+
+**Zu tun:** Den Komponentennamen als zugänglichen Namen setzen (Text
+der Kachel oder `Qt.AccessibleTextRole`), ebenso für die Symbole
+nicht sichtbarer Komponenten. Erledigt, wenn UIA „Button“, „Label“ …
+liefert.
+
+**Behoben (26. September 2026).** Die Kacheln der Komponentenpalette tragen den Komponentennamen als `Qt.AccessibleTextRole`, die Symbole von `MainMenu`, `PopupMenu` und `Timer` im Designer einen zugänglichen Namen. Mit pywinauto gegen die laufende Palette geprüft: UIA liefert „Button“, „Label“, „Edit“ … „PopupMenu“ für alle 14 Kacheln und „MainMenu“ für das Symbol auf dem Formular. `tests/test_designer_zugaenglichkeit.py` prüft dasselbe über `QAccessible` und dazu den F2-Befund aus Punkt 45.
+
+---
+
+## 39. Das Hauptmenü eines Schülerprogramms ist nur über „···" erreichbar ~~(erledigt)~~
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 16.
+
+**Beobachtet:** Ein `MainMenu` mit „Datei → Beenden“. Im laufenden
+Programm (aus Natter und ohne Natter) ist die Menüleiste leer; oben
+rechts steht nur ein Knopf „···“, der „Datei“ aufklappt. Ein Klick auf
+die Stelle, an der UIA „Datei“ meldet (links oben), öffnet nichts.
+
+**Ursache:** noch offen (`pcl/components/menus.py`, Aufbau der
+`QMenuBar` im Formular).
+
+**Zu tun:** Die Einträge direkt in der Menüleiste zeigen. Erledigt,
+wenn „Datei“ im laufenden Programm links oben sichtbar ist und sich
+mit einem Klick öffnet.
+
+**Behoben (26. September 2026).** Die Menüleiste war fest 26 Pixel hoch, ein Eintrag unter Windows 11 aber 32. Qt schob deshalb jeden Eintrag in den Überlaufknopf „···“. `Form._menueleiste_aufbauen` in `pcl/form.py` baut jetzt erst die Einträge und misst dann die Höhe (mindestens 26 Pixel); der Arbeitsbereich rutscht um die gemessene Höhe nach unten, Mausereignisse rechnen mit ihr, und die Leiste wächst bei einer Größenänderung zur Laufzeit mit. Die Koordinaten aus der `.pfm` bleiben unberührt, sie zählen ab dem Arbeitsbereich. Mit pywinauto an einem laufenden Formular geprüft: „Datei“ steht links oben, ein Klick darauf öffnet das Menü mit „Beenden“. `tests/test_components_menus.py` stellt hohe Einträge mit einem größeren Innenabstand nach und schlägt gegen den alten Code an.
+
+
+---
+
+## 41. `input()` im GUI-Programm endet mit englischem Traceback ~~(erledigt)~~
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 18.
+
+**Beobachtet:** `input("Name? ")` in einer Ereignismethode. Das
+Fehlerfenster sagt „Zu diesem Fehler gibt es noch keine deutsche
+Erklärung. Die Originalmeldung von Python steht darunter.“ und zeigt
+den Traceback mit `EOFError: EOF when reading a line`. Nach diesem und
+nach einem `AttributeError` steht im Panel „Programm beendet (Code
+0)“, obwohl das Fehlerfenster „Das Programm wurde mit einem Fehler
+beendet“ sagt.
+
+**Ursache:** noch offen. Der Fehlerkatalog hat keinen Eintrag für
+`EOFError`; ein GUI-Programm läuft ohne Konsole, `input()` bekommt
+keine Eingabe. Der Rückgabewert 0 kommt vermutlich aus dem normalen
+Ende der Qt-Ereignisschleife nach dem Fehlerfenster.
+
+**Zu tun:** Eintrag im Fehlerkatalog: was los ist (in einem Programm
+mit Fenster gibt es keine Konsole für `input()`) und was zu prüfen ist
+(Eingaben über ein Eingabefeld). Nach einem Laufzeitfehler mit einem
+Rückgabewert ungleich 0 enden. Erledigt, wenn der Fall eine deutsche
+Meldung mit Wo/Was/Prüfe zeigt und das Panel einen Fehler meldet.
+
+**Behoben (26. September 2026).** Der Fehlerkatalog hat einen Eintrag für `EOFError` (`_eof_error` in `pcl/fehlerkatalog.py`, `eof_error` in `docs/fehlerkatalog.yaml`): im Programm mit Fenster sagt er, dass es keine Konsole für `input()` gibt, und fragt nach einem Eingabefeld. Nach dem Fehlerfenster endet ein GUI-Programm jetzt tatsächlich, wie die Überschrift „Das Programm wurde mit einem Fehler beendet“ sagt, und zwar mit Rückgabewert 1 (`QApplication.exit(1)` in `pcl/fehleranzeige.py`, `sys.exit` in `Application.run`, weil `main.py` den Rückgabewert von `app.run` nicht weitergibt). `exit` wird nur aus einer laufenden Ereignisschleife gerufen; ohne sie merkte sich Qt das Ende und beendete die nächste Schleife sofort, was vier Tests der IDE scheitern ließ. `tests/test_fehleranzeige_im_programm.py` startet ein echtes GUI-Programm mit `input()` in einer Ereignismethode als Unterprozess: deutsche Meldung, Code 1. Gegen den alten Code läuft es in die Zeitgrenze, weil das Programm nach dem Fehler weiterlief.
+
+
+---
+
+## 42. `StringGrid.load_dataframe` zeigt Zahlen mit Dezimalpunkt ~~(erledigt)~~
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 22.
+
+**Beobachtet:** Ein mit `pd.read_csv(…, decimal=",")` gelesener
+DataFrame, per `load_dataframe` ins StringGrid: die Temperaturen
+erscheinen als „2.4“, „2.8“, „5.1“. Im selben Programm steht der
+Mittelwert, von Hand formatiert, als „9,7 °C“.
+
+**Ursache:** noch offen (`pcl/dataframe.py`, Umwandlung der Zellwerte
+in Text).
+
+**Zu tun:** Zahlen beim Übertragen ins Grid mit Dezimalkomma
+darstellen. Erledigt, wenn dasselbe Beispiel „2,4“ zeigt.
+
+**Behoben (26. September 2026).** `load_dataframe` in `pcl/dataframe.py` schreibt Kommazahlen mit Dezimalkomma. Dabei fiel ein zweiter Fehler auf: `iterrows` gibt jeder Zeile einen gemeinsamen Typ, neben einer Kommazahl wurde aus der ganzen Zahl 1 deshalb „1.0“. Jetzt läuft es über `itertuples`, das die Typen je Spalte behält. `docs/komponenten.md` beschreibt das Format. `tests/test_dataframe.py` liest das Beispiel aus der Auswertung als CSV mit `decimal=","` und erwartet „2,4“, „2,8“, „5,1“ und „1“.
+
+---
+
+## 35. Der Quelltext aus dem Klassendiagramm übernimmt keine Vererbung und prüft keine Namen ~~(erledigt)~~
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 24.
+
+**Beobachtet:** Klassendiagramm mit „Konto“ und „Sparkonto“ und einer
+Vererbung von Sparkonto nach Konto (in der `.pdiag` als
+`{"kind": "inheritance", "from": "s2", "to": "s1"}`, im Export als
+Pfeil sichtbar). „Quelltext → Erzeugen …“ schreibt `class Sparkonto:`
+statt `class Sparkonto(Konto):`. Ein Attribut, bei dem „stand: float“
+im Feld „Name“ steht, wird zu `self.__stand: float = stand: float` -
+ein Syntaxfehler in `u_bank.py`, der danach jeden Start des Projekts
+über die Prüfung vor dem Start blockiert.
+
+**Ursache:** noch offen (Generator unter `ide/diagramm/`).
+
+**Zu tun:** Vererbungen (und Realisierungen) aus `connectors` in die
+Klassenköpfe übernehmen; Namen von Klassen, Attributen und
+Operationen im Eigenschaften-Dialog als Python-Bezeichner prüfen
+(oder beim Erzeugen mit einer deutschen Meldung ablehnen). Erledigt,
+wenn das Beispiel oben `class Sparkonto(Konto):` erzeugt und ein
+ungültiger Name nicht mehr in den Code gelangt.
+
+**Behoben (26. September 2026).** Die Palette des Klassendiagramms legt eine Vererbung als `"kind": "inheritance"` an, der Erzeuger in `ide/diagramm/klassen_code.py` kannte aber nur `generalization`, `realization` und `implements`. `inheritance` steht jetzt in `VERERBUNGSARTEN`; das Beispiel ergibt `class Sparkonto(Konto):`, Konto steht davor. Namen prüft `ungueltige_namen` vor dem Erzeugen (Klassen, Attribute, Operationen, Parameter; `str.isidentifier` und keine Schlüsselwörter). „Quelltext → Erzeugen …“ schreibt bei einem Fund nichts und nennt die Namen, im Dialog als Meldungsfenster, sonst in der Statuszeile. Eine Prüfung schon im Eigenschaften-Dialog gibt es nicht; die Unit bleibt aber sauber, und die Meldung sagt, wo sich der Name ändern lässt. Tests in `tests/test_diagramm_klassen_code.py`; alle drei neuen schlagen gegen den alten Code an.
+
+---
+
+## 21. Nach dem Deinstallieren bleibt ein Ordner zurück ~~(erledigt)~~
+
+**Beobachtet:** Beim Durchgang zu 0.3.0 entfernte der Uninstaller
+30.375 Dateien und ließ acht liegen — einen `.ruff_cache` im
+Programmordner, und damit den Ordner selbst.
+
+**Ursache — nachgewiesen.** Den Cache legt die Prüfung vor dem Start
+an, also während des Unterrichts und lange nach der Installation.
+Inno Setup entfernt beim Deinstallieren, was es selbst geschrieben
+hat; alles andere bleibt. Derselbe Fall wie beim Uninstaller im
+Manifest (siehe Arbeitspaket M13), nur andersherum.
+
+**Was das bedeutet:** Wer Natter entfernt, findet unter
+`%LOCALAPPDATA%\Programs\Natter` weiterhin einen Ordner. Auf einem
+Schulrechner, der zwischen zwei Halbjahren aufgeräumt wird, sieht das
+nach einer halben Deinstallation aus.
+
+**Woher der Cache kommt — nachgewiesen (25. September 2026).**
+`projekt_pruefen()` in `ide/run/pruefung.py` ruft `ruff check`
+ohne Arbeitsordner und ohne `--no-cache` auf. ruff legt seinen Cache
+dann im Arbeitsordner von Natter an, und das ist der Programmordner.
+Der Cache bringt der Prüfung nichts: sie läuft über ein kleines
+Schülerprojekt und ist ohnehin schnell.
+
+**Zu tun:**
+
+- Die Ursache: `--no-cache` in `projekt_pruefen()`. Dann entsteht kein
+  `.ruff_cache` mehr, weder im Programmordner noch sonst wo.
+- Als Netz dahinter eine `[UninstallDelete]`-Regel für
+  `{app}\.ruff_cache` in `tools/natter.iss`. Nicht für `{app}` selbst:
+  wählt jemand beim Installieren einen Ordner wie `Dokumente`, würde
+  eine solche Regel ihn beim Entfernen leeren.
+- Nachsehen, was die IDE sonst noch neben sich schreibt: `__pycache__`
+  in `site-packages` entsteht beim ersten Import und dürfte dasselbe
+  Problem haben. Beim Bau von 0.2.0 waren es über achtzig `.pyc`.
+- Prüfen, ob eine solche Regel etwas löscht, das ein Schüler dort
+  abgelegt hat. Im Programmordner hat er nichts zu suchen, aber
+  „nichts zu suchen" ist kein Beweis.
+
+**Stand 25. September 2026 (Schülerweg 0.3.3, Teil 1):** `--no-cache`
+und die `[UninstallDelete]`-Regel sind in Commit `d1db77a`. Der
+Uninstaller von 0.3.0 ließ erwartungsgemäß `.ruff_cache` mit fünf
+Dateien und damit den Ordner stehen. Eine frisch installierte 0.3.3
+ließ sich restlos entfernen, allerdings ohne dass vorher die Prüfung
+vor dem Start gelaufen war. Der eigentliche Nachweis, also
+Deinstallation nach Benutzung, folgt in Teil 2 (Schritt N).
+
+**Nachgewiesen 26. September 2026 (Schülerweg 0.3.3, Teil 2, Schritt
+28):** Nach ausgiebiger Benutzung mit vielen Prüfungen vor dem Start
+entstand kein `.ruff_cache`; die stille Deinstallation entfernte den
+Programmordner vollständig, auch `python\` mit einem über „Pakete“
+nachinstallierten Paket. Das Kriterium ist erfüllt; der Punkt kann
+nach `erledigte_punkte.md`.
+
+**Erledigt (26. September 2026).** Nachweis siehe den Stand vom selben Tag oben: nach Benutzung mit vielen Prüfungen vor dem Start kein `.ruff_cache`, der Programmordner verschwindet beim Deinstallieren vollständig.
+
+
+---
+
+## 45. Kleinere Befunde aus dem Schülerweg 0.3.3, Teil 2 ~~(erledigt)~~
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2.
+
+**Beobachtet:**
+
+- Der Komponentenbaum zeigt neu platzierte Komponenten erst nach
+  erneutem Öffnen des Formulars (Schritte 15, 21).
+- F2 öffnet den Menü-Editor nicht, wenn das Menüsymbol zuvor
+  angeklickt wurde; der Tastaturfokus bleibt außerhalb der
+  Zeichenfläche. Doppelklick und `entries` wirken (Schritt 15).
+- Ein Button-Text, der nicht in die Standardbreite passt
+  („Verdoppeln“), wird im Designer und im Programm abgeschnitten, ohne
+  Fund der Design-Prüfung (Schritt 16).
+- Bei falscher Einrückung fragt der Hinweis nach Doppelpunkt, Klammer
+  oder Anführungszeichen, nicht nach der Einrückung (Schritt 18).
+- Die Variablentabelle beginnt mit „special variables“ (englisch, aus
+  debugpy); das Panel zeigt in der Grundaufteilung nur eine Zeile
+  (Schritt 20).
+- Eine Projektvorlage „gui_db“ gibt es nicht, `docs/bericht.md`,
+  Abschnitt 2.1, nennt sie (Schritt 21).
+- „Ansicht → Datenbank“ öffnet ein schwebendes Fenster, links
+  abgeschnitten, „Nicht verbunden“ (Schritt 21).
+- Im Konsolenprojekt erscheint ein importiertes Formular nicht im
+  Projekt-Explorer (Schritt 25).
+- Der Prüfungsmodus lässt sich in der Oberfläche nicht vorzeitig
+  beenden; die Rückfrage sagt das, das Handbuch nicht ausdrücklich
+  (Schritt 26).
+- Der Diagramm-Editor speichert „Minimap“ und „Lineale“ über
+  `QSettings("Natter", "Diagramm")` in der Registry
+  (`HKCU\Software\Natter\Diagramm`); nach dem Deinstallieren bleibt der
+  Schlüssel, ebenso ein leerer `…\Natter-IDE` (Schritt 28).
+- `beispielprojekte/01_Begruessung/u_main.py`: „# Drücke F5, um das
+  Programm zu starten.“ spricht mit „du“ an (Schritt 14).
+
+**Ursache:** jeweils wie angegeben.
+
+**Zu tun:** Jede Stelle beheben oder begründet zurückstellen; die
+Diagramm-Einstellungen in dieselbe INI legen wie den Rest. Erledigt,
+wenn alle Stellen abgearbeitet sind.
+
+**Stand 26. September 2026, Paket „Designer und Editor“.** Erledigt: Der Komponentenbaum baut sich nach jeder Änderung im Designer neu auf und markiert die im Designer gewählte Komponente (`Komponentenbaum.auffrischen`, `tests/test_komponentenbaum_live.py`). Die Symbole von Menü und Zeitgeber nehmen nach einem Klick den Tastaturfokus an, F2 öffnet danach den Menü-Editor (`tests/test_designer_zugaenglichkeit.py`). Ein abgeschnittener Button-Text ist ein Fund der Design-Prüfung (siehe Punkt 36). Einrückungsfehler haben vor dem Start eigene Meldungen, die nach der Einrückung fragen (`_SYNTAX_GENAUER` in `ide/run/pruefung.py`, `tests/test_vorstart_einrueckung.py` mit dem echten Ruff). Die übrigen Stellen folgen mit Laufzeit, Diagramm und Dokumenten.
+
+**Stand 26. September 2026, Paket „Laufzeit“.** Erledigt: Die Variablentabelle lässt die Gruppenzeilen von debugpy weg („special variables“, „function variables“ …), und das Panel wird beim Anhalten hoch genug für bis zu acht Variablen (`_debugger_variablen_bereit` in `ide/shell/hauptfenster.py`, Test gegen den echten debugpy in `tests/test_hauptfenster_debugger.py`).
+
+**Stand 26. September 2026, Paket „Diagramm“.** Erledigt: Lineale und Minimap des Diagramm-Editors stehen in der INI der IDE unter `diagramm/ansicht/…` statt über `QSettings("Natter", "Diagramm")` in der Registry (`_ansicht_einstellungen` in `ide/diagramm/fenster.py`, Test in `tests/test_diagramm_ansicht_lineale.py`). Der Uninstaller entfernt die Reste älterer Fassungen, `HKCU\Software\Natter\Diagramm` ganz und `…\Natter-IDE` und `…\Natter`, wenn sie leer sind; angelegt wird dort nichts (`dontcreatekey` in `tools/natter.iss`, Test in `tests/test_installer_update.py`). Woher der leere Schlüssel `Natter-IDE` stammt, ließ sich im heutigen Code nicht finden: jeder Zugriff auf diesen Namen geht über die INI. Er stammt vermutlich aus einer Fassung vor der Umstellung auf die INI. Das Deinstallieren selbst ist am nächsten Bau nachzusehen.
+
+**Erledigt (26. September 2026).** Die Stellen aus den Paketen „Designer und Editor“, „Laufzeit“ und „Diagramm“ stehen in den Stand-Absätzen oben. Die übrigen: `docs/bericht.md` nennt keine Vorlage „gui_db“ mehr (es gibt nur `gui` und `console`). „Ansicht → Datenbank“ und die anderen Dock-Einträge im Menü „Ansicht“ holen ein Dock an seinen Platz im Fenster zurück; das schwebende Fenster kam aus dem gemerkten Layout in `%APPDATA%\Natter\Natter-IDE.ini`, in dem das Dock schwebend gespeichert war (Test in `tests/test_schulrechner_layout.py`). „Nicht verbunden“ bleibt: das Panel verbindet sich erst, wenn eine Datenbankdatei gewählt ist, und eine automatische Verbindung zur Datenbank des Projekts wäre neue Infrastruktur für einen seltenen Fall. Ein importiertes Formular erscheint sofort im Projekt-Explorer, auch im Konsolenprojekt (`_formular_importieren_aktion`, Test in `tests/test_hauptfenster_formular_import.py`). `docs/handbuch.md`, Abschnitt 4, sagt ausdrücklich, dass sich der Prüfungsmodus in Natter nicht vorzeitig beenden lässt. Der Kommentar in `beispielprojekte/01_Begruessung/u_main.py` lautet „Gestartet wird das Programm mit F5.“
+
+---
+
+## 24. Die Auslieferung enthält GPL-Module, und Lizenztexte fehlen ~~(erledigt)~~
+
+**Gemeldet:** 25. September 2026, beim Zusammenfassen der
+Planungsunterlagen in `docs/bericht.md`, Fassung 0.3.2.
+
+**Beobachtet:** AGENTS.md und `docs/bericht.md`, Abschnitt 5, verlangen
+nur Abhängigkeiten mit freizügiger Lizenz oder LGPL, kein PyQt und
+keine GPL-only-Module von Qt wie Qt Charts. Geplant war dafür ein Test,
+der die Pakete der Auslieferung mit ihrer Lizenz auflistet und bei GPL
+fehlschlägt. Diesen Test gibt es nicht; kein Test im Repository nennt
+„GPL".
+
+**Ursache:** nachgewiesen - der Test stand nur im Plan (früher
+`entwicklung.md`, Abschnitte 17.7 und 19) und wurde nie geschrieben.
+`_lizenzen_sammeln()` in `tools/ide_paketieren.py` sammelt die
+Lizenztexte und warnt bei fehlender Angabe, prüft aber nicht, welche
+Lizenz es ist.
+
+**Nachgemessen in `dist\Natter` (Fassung 0.3.2):**
+
+- **Qt Charts, Qt Data Visualization und Qt Graphs werden
+  ausgeliefert.** In `site-packages\PySide6` liegen `Qt6Charts.dll`,
+  `Qt6ChartsQml.dll`, `Qt6DataVisualization.dll`,
+  `Qt6DataVisualizationQml.dll`, `Qt6Graphs.dll`,
+  `Qt6GraphsWidgets.dll` und die passenden `.pyd`/`.pyi`. Sie kommen
+  mit `PySide6_Addons` und stehen nur unter GPL-3.0 oder einer
+  kaufbaren Lizenz, nicht unter LGPL. Natter benutzt sie nicht; die
+  frühere Planung sagte, sie würden aus dem Paket entfernt - das ist
+  nie umgesetzt worden.
+- **32 von rund 50 mitgelieferten Paketen haben keinen Lizenztext in
+  `Lizenzen\`**, darunter PyInstaller, jedi, cryptography, Pillow,
+  fontTools, contourpy, attrs, packaging und setuptools. MIT, BSD und
+  Apache verlangen, dass der Lizenztext bei der Weitergabe dabei ist.
+  Ursache: `_LAUFZEIT_PAKETE` in `tools/ide_paketieren.py` ist eine
+  von Hand gepflegte Liste; laut ihrem Kommentar steckt PyInstaller
+  „nicht in der gebauten Exe", was seit M13 nicht mehr stimmt.
+- **PyInstaller steht unter GPL-2.0** mit einer Ausnahme für die
+  erzeugten Programme. Natter braucht es für „Als Exe exportieren".
+  Die Regel in AGENTS.md („nur freizügige Lizenzen oder LGPL") deckt
+  das nicht ab; die Lizenzseite des Installers nennt es bereits.
+
+**Zu tun:**
+
+- Die Qt-Module Charts, DataVisualization und Graphs nach dem
+  Auspacken entfernen, wie Tcl/Tk (`_tcl_tk_entfernen()`), und in der
+  Rauchprobe (Schritt 6) prüfen, dass sie fehlen.
+- Lizenztexte für **jedes** Paket der mitgelieferten Python sammeln,
+  aus den Metadaten der installierten Pakete statt aus einer Liste.
+- Ein Test, der für jedes Laufzeitpaket die Lizenz liest und bei GPL,
+  AGPL oder unbekannter Lizenz fehlschlägt. Erlaubt: LGPL, die
+  Doppellizenzen von PySide6/shiboken6 („LGPL-3.0 OR GPL"), und
+  PyInstaller als ausdrücklich genannte Ausnahme - sofern das so
+  entschieden wird.
+- Erledigt, wenn die drei Module in `dist\Natter` fehlen, jedes Paket
+  einen Lizenztext in `Lizenzen\` hat und der Test bei einem
+  absichtlich eingetragenen GPL-Paket rot wird.
+
+**Umgesetzt in Commit `9a83164`, nachgeprüft am Bau 0.3.3 (25. September
+2026, Schülerweg Teil 1):** Der Bau meldet „35 Qt-Einträge unter GPL
+entfernt", `Lizenzen\` hat 51 Einträge (0.3.2: 28), in einer frischen
+Installation scheitert `import PySide6.QtCharts`. Der Test wird bei
+einem eingetragenen GPL-Paket rot
+(`tests/test_lizenzen_auslieferung.py`). Offen bleibt der Weg über
+ein Update: wer 0.3.2 auf 0.3.3 aktualisiert, behält die Module
+(Punkt 28). Bis Punkt 28 erledigt ist, bleibt dieser Punkt offen.
+
+**Erledigt (26. September 2026).** Offen war nur noch der Weg über ein Update (Punkt 28). Nach dem Update 0.3.3 → 0.3.4 fehlen die GPL-Module von Qt auch in einer aktualisierten Installation; `python\` wird vollständig ersetzt.
+
+
+---
+
+## 26. Ein Update erkennt die vorhandene Fassung nicht sichtbar ~~(erledigt)~~
+
+**Gemeldet:** 25. September 2026, vom Nutzer: „Wenn bereits ein
+Natter-Programm installiert ist, soll die Exe das erkennen und sagen:
+Update auf Version … Dabei sollen die veränderten Daten entweder
+komplett gelöscht oder ersetzt werden."
+
+**Stand heute (`tools/natter.iss`):** Die Grundlage ist da. Die feste
+`AppId` lässt Inno Setup eine vorhandene Installation erkennen und
+deren Ordner wieder vorschlagen, und `[InstallDelete]` leert vor dem
+Kopieren die sieben Ordner, die Natter selbst in `site-packages`
+mitbringt (`ide`, `pcl`, `docs` …). Es fehlt:
+
+- Kein Hinweis auf das Update. Der Assistent sieht genauso aus wie
+  bei einer Erstinstallation; die installierte Fassung wird nirgends
+  genannt.
+- Zielordner und Startmenü-Ordner werden bei einem Update erneut
+  abgefragt (`DisableDirPage=no`, `DisableProgramGroupPage=no`).
+- Kein Schutz gegen eine ältere Fassung über einer neueren.
+- Die mitgelieferte Python wird nur überschrieben. Bringt eine neue
+  Fassung etwa ein neueres numpy mit, bleiben Dateien der alten
+  Paketversion liegen, die es in der neuen nicht mehr gibt - ein
+  gemischter Stand, der erst beim Import auffällt. Dieselbe Sorte
+  Befund wie beim Update auf 0.2.0 (`docs/bericht.md`, Abschnitt 8).
+
+**Wie es in der Praxis gelöst wird** (Inno-Setup-Installer wie VS
+Code, Git für Windows, Notepad++):
+
+- Dieselbe `AppId` für alle Fassungen; Inno übernimmt dann Ordner,
+  Startmenü und Zusatzaufgaben der vorhandenen Installation.
+- `DisableDirPage=auto` und `DisableProgramGroupPage=auto`: bei einem
+  Update entfallen die Seiten, bei einer Erstinstallation erscheinen
+  sie.
+- Die installierte Fassung aus der Registrierung lesen
+  (`…\Uninstall\{AppId}_is1`, Wert `DisplayVersion`, unter HKCU oder
+  HKLM) und im `[Code]`-Abschnitt auf der Willkommensseite nennen:
+  „Natter 0.3.2 ist installiert und wird auf 0.3.3 aktualisiert. Die
+  Projekte bleiben erhalten." Ist die installierte Fassung neuer,
+  nachfragen oder abbrechen.
+- Den Programmordner vollständig ersetzen, weil alles, was einem
+  Benutzer gehört, woanders liegt: Projekte unter `Dokumente\Natter`,
+  Einstellungen unter `%APPDATA%\Natter`. Zwei übliche Wege: den
+  Anwendungsordner vor dem Kopieren leeren (`[InstallDelete]` mit
+  `filesandordirs` für `{app}\python`), oder die alte Fassung vorher
+  still über ihren eigenen Uninstaller entfernen. Der erste Weg ist
+  der schlichtere und behält die Startmenü-Einträge.
+- Eine laufende Natter vorher schließen (`CloseApplications`, Inno
+  nutzt dafür den Neustart-Manager von Windows).
+
+**Zu klären:** Über das Menü „Pakete" nachinstallierte Pakete liegen
+in `{app}\python` und gingen beim vollständigen Ersetzen verloren. Die
+Update-Meldung muss das sagen, oder die Liste der nachinstallierten
+Pakete wird vorher gesichert und danach wieder eingespielt.
+
+**Zu tun:** Hinweis auf der Willkommensseite mit alter und neuer
+Nummer, Ordner-Seiten bei einem Update überspringen, Schutz gegen
+eine ältere Fassung, `{app}\python` vor dem Kopieren vollständig
+leeren, laufende Natter schließen. Erledigt, wenn ein Update von
+0.3.2 auf die neue Fassung den Hinweis zeigt, danach keine Datei der
+alten Fassung mehr im Programmordner liegt und Projekte und
+Einstellungen unberührt sind.
+
+**Nachgeprüft an 0.3.3 (25. September 2026, Schülerweg Teil 1,
+Schritt 8):** Das Setup von 0.3.2 über einer installierten 0.3.0 und
+das von 0.3.3 über 0.3.2 zeigen dieselben acht Seiten wie bei einer
+Erstinstallation: Sprachauswahl, Willkommen („wird jetzt Natter
+Version 0.3.3 … installieren"), Lizenz, Hinweis, Zielordner,
+Startmenü, Zusatzaufgaben, Bereit. Die vorhandene Fassung wird
+nirgends genannt; Zielordner und Startmenü sind aus der vorhandenen
+Installation vorbelegt. Dass beim Update auch Dateien liegen bleiben,
+steht als eigener Punkt 28. Belege: `docs/auswertung/schuelerweg_0.3.3.md`.
+
+**Umgesetzt am 26. September 2026, Nachweis am nächsten Bau offen.** `tools/natter.iss` liest die installierte Fassung aus dem Deinstallationseintrag, nennt sie auf der Willkommensseite („Natter 0.3.3 ist installiert und wird auf 0.3.4 aktualisiert.“), überspringt bei einem Update Zielordner und Startmenü (`DisableDirPage=auto`, `DisableProgramGroupPage=auto`), lehnt eine ältere Fassung über einer neueren ab und schließt eine laufende Natter (`CloseApplications`). Nachgesehen an einem ohne Programmdateien übersetzten Setup (`/DOhneProgramm`) bis zur Seite „Bereit“: Hinweis und fünf statt acht Seiten; mit Nummer 0.3.2 über 0.3.3 die Ablehnung. Nachinstallierte Pakete: `tools/installer_pakete_merken.py` schreibt sie vor dem Kopieren mit der alten Python auf, nach dem Kopieren installiert das Setup sie per pip wieder; ohne Netz bleibt die Liste in `%APPDATA%\Natter\pakete_vor_update.txt`, und eine Meldung sagt, welche fehlen. Offen: ein echtes Update 0.3.2 → 0.3.4 mit einem nachinstallierten Paket, einmal mit und einmal ohne Netz.
+
+**Nachgewiesen und erledigt (26. September 2026, Update 0.3.3 → 0.3.4 auf dem Baurechner).** Die Willkommensseite nannte „Natter 0.3.3 ist installiert und wird auf 0.3.4 aktualisiert.“ samt dem Hinweis auf nachinstallierte Pakete und die nötige Internetverbindung. Der Assistent zeigte fünf Seiten: Willkommen, Lizenz, Information, Zusatzaufgaben, Bereit; Sprachauswahl, Zielordner und Startmenü entfielen. Die Installation lief in 3:39 Minuten ohne Meldung durch. Danach steht im Deinstallationseintrag 0.3.4. Bildschirmfotos unter `build\auswertung\bilder\update_034\`, Protokoll in `docs/bericht.md`, Abschnitt 8. Nicht durchgespielt wurde das Update ohne Netz; dafür gibt es die Meldung mit der gesicherten Liste.
+
+
+---
+
+## 28. Ein Update lässt Dateien der alten Fassung in `site-packages` liegen ~~(erledigt)~~
+
+**Gemeldet:** 25. September 2026, Schülerweg 0.3.3, Teil 1, Schritt 8.
+
+**Beobachtet:** 0.3.2 installiert, 0.3.3 still darüber installiert.
+Danach liegen 30 223 Dateien im Programmordner, bei einer frischen
+0.3.3 sind es 30 075. Die 148 zusätzlichen Dateien:
+
+- 141 Dateien der Qt-Module Charts, Data Visualization und Graphs
+  (`Qt6Charts.dll`, `QtCharts.pyd`, `qml\QtCharts\…` und so weiter).
+  `import PySide6.QtCharts` gelingt nach dem Update wieder. Genau diese
+  Module entfernt der Bau seit 0.3.3, weil sie nur unter GPL stehen
+  (Punkt 24); wer aktualisiert statt neu installiert, behält sie.
+- 7 Dateien `natter-0.3.2.dist-info` neben `natter-0.3.3.dist-info`.
+  `importlib.metadata.version("natter")` und `pip list` melden danach
+  0.3.2. Natter selbst zeigt 0.3.3, weil es die Nummer aus
+  `ide/main.py` liest.
+
+Die vollständige Prüfung unter „Werkzeuge → Umgebung prüfen" meldet
+trotzdem „alle Programmdateien unverändert".
+
+**Ursache:** nachgewiesen. `[InstallDelete]` in `tools/natter.iss`
+leert nur die sieben Ordner, die Natter selbst in `site-packages`
+mitbringt, nicht die Fremdpakete und nicht die `dist-info` von Natter.
+Das Manifest lässt Fremdpakete in `site-packages` bewusst aus, damit
+pip dort nachinstallieren darf; Altdateien fallen deshalb nicht als
+„fremd" auf.
+
+**Zu tun:** Beim Update `{app}\python` vollständig ersetzen (siehe
+Punkt 26, dort auch die Frage nach Paketen, die über „Pakete"
+nachinstalliert wurden), mindestens aber die entfernten Qt-Module und
+alte `natter-*.dist-info` per `[InstallDelete]` löschen. Erledigt,
+wenn nach einem Update von 0.3.2 die Dateiliste der einer frischen
+Installation entspricht (bis auf die Uninstaller-Dateien) und
+`import PySide6.QtCharts` scheitert.
+
+**Umgesetzt am 26. September 2026, Nachweis am nächsten Bau offen.** `[InstallDelete]` leert `{app}\python` vollständig (Pakete siehe Punkt 26). Test in `tests/test_installer_update.py`. Offen: nach einem echten Update von 0.3.2 die Dateiliste gegen die frische Installation vergleichen; `import PySide6.QtCharts` muss scheitern und `pip list` die neue Fassung melden.
+
+**Nachgewiesen und erledigt (26. September 2026).** Vor dem Update lag in der installierten 0.3.3 ein über pip nachinstalliertes `cowsay` 6.1. Nach dem Update auf 0.3.4: nur noch `natter-0.3.4.dist-info` in `site-packages`, `cowsay` 6.1 wieder installiert, die Merkliste `%APPDATA%\Natter\pakete_vor_update.txt` gelöscht, `import PySide6.QtCharts` findet nichts, „Werkzeuge → Umgebung prüfen“ meldet „alle Programmdateien unverändert“.
+
+---
+
+## 34. Exportierte Exe lassen sich nicht signieren, weil der Bau die PyInstaller-Vorlagen signiert ~~(erledigt)~~
+
+**Gemeldet:** 26. September 2026, Schülerweg 0.3.3, Teil 2, Schritt 27.
+
+**Beobachtet:** „Projekt → Als Exe exportieren …“ baut die Exe (GUI
+55 s, 54,9 MB; Konsole 9,7 s, 8,0 MB), die Statuszeile endet aber mit
+„Exe erstellt: … - Nicht signiert: UnknownError“.
+`Get-AuthenticodeSignature` meldet `NotSigned`. Von Hand mit demselben
+Zertifikat und Aufruf signiert: „%1 ist keine zulässige
+Win32-Anwendung“. Eine Kopie von `Natter.exe` lässt sich dagegen
+einwandfrei signieren. Die exportierte Exe trägt mitten in der Datei
+eine Zertifikatstabelle (Offset 311 808, 7 160 Byte).
+
+**Ursache:** nachgewiesen. Der Auslieferungsbau signiert jede
+Binärdatei der Installation, auch
+`python\Lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\run.exe`,
+`runw.exe`, `run_d.exe`, `runw_d.exe` („Natter Codesignatur“, im
+Entwicklungsbaum unsigniert). PyInstaller hängt beim Export das
+Programmarchiv hinter diese Vorlage; die vorhandene Signatur steht
+danach nicht mehr am Ende, und Windows lehnt die Datei beim Signieren
+ab. Betroffen ist jede Fassung, seit der Bau alle Binärdateien
+signiert (0.3.1).
+
+**Zu tun:** Die Bootloader-Vorlagen von PyInstaller beim Signieren
+auslassen (Ausnahmeliste in `tools/signieren/alles_signieren.ps1` und
+`_signieren_mit_zwischenspeicher`, Schritt 10 entsprechend), oder
+beim Export vor dem Signieren eine vorhandene Signatur entfernen. Die
+Meldung „UnknownError“ durch einen deutschen Satz mit Grund ersetzen.
+Ein Test in der Rauchprobe: aus der gebauten Python eine kleine Exe
+exportieren und signieren. Erledigt, wenn eine in der installierten
+Fassung exportierte Exe `Valid` signiert ist.
+
+**Umgesetzt am 26. September 2026, Nachweis am nächsten Bau offen.** Die Vorlagen unter `PyInstaller\bootloader\` sind vom Signieren ausgenommen, an allen drei Stellen gleich (`ausgenommen_vom_signieren`/`NICHT_SIGNIERT` in `tools/ide_paketieren.py`, `$AUSGENOMMEN` in `tools/signieren/alles_signieren.ps1`, Schritt 10); Schritt 10 bricht jetzt umgekehrt ab, wenn eine Vorlage signiert ist (Test mit echtem PowerShell und einer von Microsoft signierten Datei). Nachgewiesen am Entwicklungsbaum: eine mit dem unsignierten Bootloader gebaute Exe lässt sich signieren (`Valid`). Die Statuszeile nennt statt „UnknownError“ einen deutschen Grund mit der Meldung von Windows. Offen: in der nächsten gebauten Installation eine Schüler-Exe exportieren; sie muss `Valid` signiert sein.
+
+**Nachgewiesen und erledigt (26. September 2026).** In der installierten 0.3.4 ein GUI-Projekt über „Projekt → Als Exe exportieren …“ exportiert: nach 3:29 Minuten „Exe erstellt“, `Test034.exe` 57,6 MB, `Get-AuthenticodeSignature` meldet `Valid`, Unterzeichner „CN=Natter Codesignatur“. Die Exe startet in 7 Sekunden und zeigt Menü und Knopf. Bildschirmfotos `build\auswertung\bilder\T034e_*.png`. Im CI läuft der zugehörige Test von Schritt 10 noch nicht (Punkt 46).
+
+---
+
+## 4. Die Lizenzseite des Installers ist nie angesehen worden ~~(erledigt)~~
+
+**Beobachtet:** Die Textdateien `tools/lizenz_vorlagen/*.txt` sind
+geprüft — Umlaute, Byte-Order-Mark, Inhalt. Wie sie im Installer
+**aussehen**, ist nie jemand nachgegangen.
+
+**Warum nicht:** Die Abnahme läuft über eine stille Installation
+(`/VERYSILENT`), bei der keine Seite erscheint. Ein Bildschirmfoto des
+Assistenten braucht eine angemeldete, interaktive Sitzung; die stand
+bei den bisherigen Durchgängen nicht zur Verfügung.
+
+**Noch zu prüfen:** Den Installer einmal von Hand durchklicken und
+nachsehen, ob Lizenz- und Hinweisseite vollständig, mit richtigen
+Umlauten und ohne abgeschnittene Zeilen erscheinen. **Das bleibt
+offen** - dafür braucht es einen Menschen vor dem Bildschirm, und
+eine stille Installation zeigt keine Seite.
+
+**Was sich ohne das festhalten ließ** (zwei Tests in
+`tests/test_textstil.py`):
+
+- Beide Seiten sind in `tools/natter.iss` überhaupt eingebunden
+  (`LicenseFile`, `InfoBeforeFile`). Eine Seite, die niemand
+  einbindet, kann noch so schön sein.
+- Keine Zeile ist länger als 80 Zeichen. Inno Setup zeigt beide
+  Seiten in einem Feld fester Breite; was länger ist, bricht um und
+  sieht nach einem Fehler aus. Gemessen liegt die längste Zeile bei
+  74 Zeichen.
+
+Umlaute und Byte-Order-Mark prüfen bereits
+`test_der_installer_liest_seine_texte_als_utf8` und die
+Umlaut-Tests.
+
+**Nachgewiesen ohne Durchklicken (25. September 2026):** Die
+Lizenzseite sagt „Die vollständige Lizenz steht nach der Installation
+in der Datei LICENSE im Installationsordner." Dort liegt keine: der
+Installationsordner enthält nur `Natter.exe`, `python\`, `Lizenzen\`
+und `manifest.json`; Natters `LICENSE` steckt nur in
+`python\Lib\site-packages\natter-<Version>.dist-info\licenses\`.
+Entweder die Datei beim Paketieren nach `{app}\LICENSE` kopieren oder
+den Satz ändern. Das lässt sich ohne Durchklicken beheben; das
+Durchklicken selbst bleibt.
+
+**Behoben ab 0.3.3:** `paketieren()` kopiert `LICENSE` in den
+Programmordner, und die Rauchprobe (Schritt 6) bricht ab, wenn sie
+fehlt. Offen bleibt nur das Durchklicken.
+
+**Nachgewiesen am 27. September 2026 (Schülerweg 0.3.5, Teil 1):** Das
+Setup aus dem Release v0.3.5 sichtbar gestartet, Lizenz- und
+Hinweisseite mit „Bild ab“ bis ans Ende geblättert und jede Stellung
+fotografiert (7 und 3 Bilder, `build\auswertung\035\bilder\04_*.png`),
+danach abgebrochen. Der über UI Automation gelesene Text stimmt Zeile
+für Zeile mit `INSTALLER_LIZENZ.txt` (54 Zeilen) und
+`INSTALLER_HINWEIS.txt` (23 Zeilen) überein, Umlaute, „ß“ und
+Anführungszeichen erscheinen richtig, keine Zeile ist abgeschnitten
+oder umbrochen. Das Kriterium ist erfüllt; der Punkt kann nach
+`erledigte_punkte.md`.
+
+**Erledigt (27. September 2026).** Nachweis wie oben unter „Nachgewiesen am 27. September 2026“: Lizenz- und Hinweisseite des Setups aus dem Release v0.3.5 vollständig durchgeblättert, Text über UI Automation mit den Vorlagen verglichen, keine Abweichung.
+
+
+---
+
+## 47. Getippte Anführungszeichen werden verdoppelt ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Schülerweg 0.3.5, Teil 2, Schritte B
+und E.
+
+**Beobachtet:** Im Editor ergibt `x = "a"`, Zeichen für Zeichen
+getippt, `x = "a"""`. Mit Umschalt+2 wie auf einer deutschen Tastatur
+dasselbe. In Schritt B wurde aus der getippten Zeile
+`self.label.caption = f"{wert * 2:.2f}".replace(".", ",")` die Zeile
+`…replace(".", ",")"""")""""""")`; das Programm startete danach nicht
+(„2 Funde vor dem Start“). Klammern sind nicht betroffen: `(1)` bleibt
+`(1)`.
+
+**Ursache:** nachgewiesen für das Verhalten, nicht für die Codezeile.
+Mit dem Code von 0.3.3 (Worktree auf `684c98b`) tritt derselbe Fehler
+auf, wenn ohne Zusatztaste getippt wird; das schließende
+Anführungszeichen wird nicht übersprungen, sondern öffnet ein neues
+Paar (`_klammer_schliessen` in `ide/shell/quelltexteditor.py`). Bis
+0.3.3 schloss der Editor nur ohne Zusatztaste, auf einer deutschen
+Tastatur also nie, und der Fehler blieb verborgen. Seit Punkt 43 (0.3.4)
+greift das Schließen auch mit Umschalt; damit trifft der Fehler jede
+Schülerin, die einen Text in Anführungszeichen tippt.
+
+**Zu tun:** Ein schließendes Anführungszeichen, das rechts vom Cursor
+schon steht, überspringen statt ein neues Paar einzufügen; bei
+Anführungszeichen unterscheiden, ob gerade ein Text beginnt oder
+endet. Erledigt, wenn `x = "a"`, `print("Hallo")` und die f-String-Zeile
+aus Schritt B Zeichen für Zeichen getippt unverändert im Editor stehen
+und ein Test das mit Umschalt-Tastendrücken festhält.
+
+**Behoben (27. September 2026, ab der nächsten Fassung).** `_klammer_schliessen` in `ide/shell/quelltexteditor.py` prüft jetzt zuerst, ob rechts vom Cursor schon dasselbe schließende Zeichen steht, und springt dann nur darüber; erst danach wird ein neues Paar geöffnet. Vorher stand die Prüfung aufs Überspringen hinter dem Öffnen, und bei Anführungszeichen, die öffnen und schließen zugleich, kam sie nie an die Reihe. Test: `tests/test_editor_deutsche_tastatur.py` tippt fünf Zeilen Zeichen für Zeichen, jeweils mit und ohne Umschalt, darunter `x = "a"`, `print("Hallo")` und die f-String-Zeile aus Schritt B; ohne die Änderung sind 10 der Fälle rot. Die Zeile mit „ö“ ist im Test als `'Joerg'` geschrieben, weil QTest Umlaute nicht zuverlässig als Tastendruck erzeugt. An der echten Oberfläche nachgeprüft (Entwicklungsbaum, UI Automation, Anführungszeichen als Umschalt+2 wie auf einer deutschen Tastatur): getippt `x = "a"` und `y = "Hallo"`, gespeichert steht genau das in der Datei (`build\auswertung\0356\ui_pruefung.py`, Ergebnis und Bilder daneben).
+
+
+---
+
+## 48. Der erste Start nach der Installation dauert 15 bis 18 Sekunden ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Schülerweg 0.3.5, Teil 1, Schritt 9,
+und Teil 2, Schritt A.
+
+**Beobachtet:** Der erste Start nach einer frischen Installation
+brauchte 15,15 s und nach einer zweiten Installation 18,49 s bis zum
+Hauptfenster, die folgenden Starts 2,4 bis 2,6 s. Das Beispiel
+09_ObstSortierer erschien beim ersten Start aus Natter nicht innerhalb
+von 40 s; ohne Natter brauchte es beim ersten Mal 68,4 s, beim zweiten
+3,3 s. Auch die Installationen dauerten mit 251 bis 278 s fast doppelt
+so lange wie am 25.09. (148,9 s).
+
+**Ursache:** noch offen, 0.3.5 als Ursache ausgeschlossen: 0.3.3 aus
+dem Setup vom 25.09. brauchte heute beim ersten Start ebenfalls 15,36 s
+und danach 2,3 s. Naheliegend ist die Prüfung frisch geschriebener
+Dateien durch den Virenscanner beim ersten Laden; nachgewiesen ist das
+nicht.
+
+**Zu tun:** Die Ursache messen (Start mit und ohne Echtzeitschutz auf
+einem Testrechner, Prozessmonitor). Je nach Ergebnis das Ladebild so
+lange stehen lassen, bis das Fenster da ist, und in `ZUERST-LESEN.txt`
+sowie im Handbuch sagen, dass der erste Start nach der Installation
+länger dauert. Erledigt, wenn die Ursache belegt ist und der erste Start
+entweder schneller ist oder angekündigt wird.
+
+**Ursache nachgewiesen, erster Start angekündigt (27. September 2026).**
+
+Gemessen ohne Eingriff in Windows (Echtzeitschutz nicht abgeschaltet): der installierte Programmordner (30 075 Dateien, 1,2 GB) wurde mehrmals mit `robocopy` an einen neuen Ort kopiert und von dort gestartet. Einstellungen unter `%APPDATA%` und die `.pyc`-Dateien (8 267 vor und nach jedem Start) waren dabei immer dieselben; unterschiedlich war nur, ob die Dateien frisch geschrieben waren. Skripte und Rohwerte unter `build\auswertung\048\`.
+
+| Kopie | vorher | erster Start | folgende Starts |
+|---|---|---|---|
+| A | nichts | 9,35 s bis zum ersten Fenster | 0,83 s, 1,14 s |
+| B | alle Dateien einmal gelesen (727 s) | 2,18 s | 1,28 s |
+| C | nichts | 10,01 s | – |
+| E | nichts | Ladebild nach 8,09 s, Hauptfenster nach 13,05 s | 2,04 s, 1,85 s |
+
+Damit liegt die Zeit am ersten Öffnen jeder frisch geschriebenen Datei und nicht an etwas, das Natter beim ersten Start erledigt. Dass es der Virenschutz ist, folgt aus dem Vorlesen: 1,2 GB, die gerade geschrieben und damit im Dateicache waren, brauchten 727 s, und der lesende Prozess verbrauchte dabei nur 72 s Rechenzeit, wartete also den Rest. Auf diesem Rechner läuft Windows Defender. Beim ersten Start einer frischen Installation ist 8 s lang nichts zu sehen, weil das Ladebild erst erscheint, wenn Python und Qt geladen sind.
+
+Schneller machen ließe sich das nur, indem das Setup alle Dateien vorab liest; das dauert mit 12 Minuten länger als die ganze Installation und wurde deshalb nicht eingebaut. Angekündigt ist der lange erste Start an drei Stellen: auf der letzten Seite des Installers (`FinishedLabel`, `FinishedLabelNoIcons` in `tools/installer_texte.isl`), in `tools/paket/ZUERST-LESEN.txt` unter „Pruefen, ob es geklappt hat“ und im Handbuch, Abschnitt 1.4 „Der erste Start dauert länger“. Test: `test_die_letzte_seite_kuendigt_den_langen_ersten_start_an` in `tests/test_installer_update.py`. Die langen Installationszeiten vom 27.09. (251 bis 278 s gegenüber 148,9 s am 25.09.) passen zur selben Ursache, sind aber nicht eigens gemessen.
+
+
+---
+
+## 49. Der Installer schreibt „Registriere Natter mit der .natter-Dateierweiterung“ ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Schülerweg 0.3.5, Teil 1, Schritte 8
+und 13.
+
+**Beobachtet:** Auf den Seiten „Zusätzliche Aufgaben“ und „Bereit zur
+Installation“ steht „Registriere Natter mit der
+.natter-Dateierweiterung“, eine Befehlsform, die die Person vor dem
+Bildschirm anspricht. Alle übrigen Texte des Assistenten sind
+unpersönlich.
+
+**Ursache:** nachgewiesen. Der Text ist `AssocFileExtension` aus
+`[CustomMessages]` in `German.isl` von Inno Setup; `tools/natter.iss`
+benutzt ihn in `[Tasks]` über `{cm:AssocFileExtension,…}`.
+`tools/installer_texte.isl` überschreibt nur `[Messages]`.
+
+**Zu tun:** `AssocFileExtension` in `tools/installer_texte.isl` unter
+`[CustomMessages]` überschreiben, etwa „.natter-Dateien mit %1
+öffnen“, und den Test in `tests/test_installer_update.py` auf
+`[CustomMessages]` ausweiten. Erledigt, wenn die Aufgabenseite keine
+Anrede und keine Befehlsform mehr zeigt.
+
+**Behoben (27. September 2026, ab der nächsten Fassung).** `tools/installer_texte.isl` hat jetzt einen Abschnitt `[CustomMessages]` und überschreibt dort `AssocFileExtension` mit „%2-Dateien mit %1 &öffnen“. Nachgewiesen an einem Probe-Setup (`ISCC /DOhneProgramm`, `build\probe_setup_49`): die Seite „Bereit zur Installation“ zeigt „.natter-Dateien mit Natter öffnen“. Test: `test_benutzte_custom_messages_sind_unpersoenlich` in `tests/test_installer_update.py` prüft jede in `natter.iss` über `{cm:…}` benutzte Meldung auf Befehlsform und Anrede, ob sie aus `installer_texte.isl` oder aus `German.isl` kommt.
+
+
+---
+
+## 50. Ein Klick zum Platzieren in ein StringGrid legt nichts an ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Schülerweg 0.3.5, Teil 2, Schritt H.
+
+**Beobachtet:** Kachel „Chart“ gewählt, dann in die Fläche eines schon
+platzierten StringGrid geklickt: es entsteht keine Komponente, und der
+Platzierungsmodus bleibt ohne Hinweis aktiv; erst ein Klick auf eine
+freie Stelle legt das Chart an. Nachgestellt mit der installierten
+Python: `DesignerCanvas`, `platzierungsmodus_setzen(Chart)`, Klick in
+`stringgrid._qwidget.viewport()` → Komponentenzahl unverändert,
+`_platzierungs_typ` weiter `Chart`.
+
+**Ursache:** vermutet: der Klick landet im Viewport der Tabelle, einem
+Kind-Widget ohne Ereignisfilter des Designers; `eventFilter` in
+`ide/designer/canvas.py` sieht ihn nicht. Dasselbe dürfte für Memo,
+ListBox und andere Komponenten mit Bildlaufbereich gelten.
+
+**Zu tun:** Auch die Kind-Widgets der Komponenten beobachten (oder
+Mausereignisse im Designer an die Komponente weiterreichen) und den
+Klick wie bei einer einfachen Komponente behandeln. Erledigt, wenn ein
+Platzierungsklick auf ein StringGrid eine Komponente anlegt und ein
+Test das festhält.
+
+**Behoben (27. September 2026, ab der nächsten Fassung).** Ursache bestätigt: der Klick ging an den Viewport des StringGrid, ein Kind-Widget ohne Ereignisfilter. `DesignerCanvas` installiert den Filter jetzt auch auf den Kind-Widgets jeder Komponente (`_innere_widgets`) und reicht Mausereignisse von dort mit umgerechneter Position an die Komponente weiter (`_an_komponente_weiterreichen` in `ide/designer/canvas.py`). Damit gilt ein Klick in Memo, ListBox oder StringGrid wie ein Klick auf die Komponente selbst: im Platzierungsmodus entsteht die neue Komponente, sonst wird die angeklickte ausgewählt. Test: `tests/test_designer_innere_widgets.py` (Platzieren in den Viewport, Auswählen per Klick, ein frisch platziertes Grid); die ersten beiden sind ohne die Änderung rot. Alle 879 Designer-Tests grün. An der echten Oberfläche nachgeprüft: in `06_Kontoverwaltung` (Kopie) Kachel „Label“ gewählt und mit der Maus mitten in `sg_konten` geklickt; die `.pfm` hat danach 15 statt 14 Komponenten, die neue ist ein Label, und die Design-Prüfung meldet die Überlappung mit dem Grid (`build\auswertung\0356\ui_pruefung.py`, Ergebnis und Bilder daneben).
+
+
+---
+
+## 51. Der Hinweis zu Einrückungsfehlern gibt eine Anweisung statt einer Frage ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Schülerweg 0.3.5, Teil 2, Schritt D.
+
+**Beobachtet:** Bei einem fehlenden Block nach `if …:` meldet die
+Prüfung vor dem Start: „Nach dem Doppelpunkt in der Zeile darüber fehlt
+ein eingerückter Block. Die Zeile um eine Ebene einrücken (Tab-Taste,
+vier Leerzeichen).“ Der zweite Satz ist ein konkreter Lösungsschritt.
+Der Fehlerkatalog sieht im Teil „Prüfe“ eine Leitfrage vor, und der
+Schülerweg verlangt ausdrücklich „kein Lösungsvorschlag“.
+
+**Ursache:** nachgewiesen. `_SYNTAX_GENAUER` in `ide/run/pruefung.py`
+(eingeführt in 0.3.4 für Punkt 45) formuliert „Prüfe“ als Anweisung,
+ebenso „Die Zeile so weit ausrücken wie die Zeile davor“ und „Die Zeile
+genauso weit einrücken …“.
+
+**Zu tun:** Die drei Texte als Leitfragen fassen („Soll die Zeile zum
+Block darüber gehören?“) und den Test `tests/test_meldungen_mit_loesung.py`
+auf die Vorstart-Meldungen ausweiten. Erledigt, wenn kein „Prüfe“ der
+Vorstart-Prüfung eine Anweisung ist.
+
+**Behoben (27. September 2026, ab der nächsten Fassung).** In `ide/run/pruefung.py` sind alle Texte im Teil „Prüfe“ jetzt Fragen: die drei Einrückungsmeldungen aus `_SYNTAX_GENAUER`, dazu die Meldungen zu F401 („Wird der Import noch gebraucht, oder ist er von einem früheren Versuch übrig geblieben?“), F841 und die für unbekannte Funde. Test: `test_jedes_pruefe_vor_dem_start_ist_eine_frage` in `tests/test_meldungen_mit_loesung.py` verlangt, dass jeder Satz in diesem Teil mit einem Fragezeichen endet.
+
+
+---
+
+## 52. Kleinere Befunde aus dem Schülerweg 0.3.5 ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Schülerweg 0.3.5.
+
+**Beobachtet:**
+
+- Ohne offenes Projekt zeigt der Projekt-Explorer die leeren
+  Überschriften „Formulare“, „Units“ und „Diagramme“ (Schritt 12;
+  ebenso in 0.3.3 auf dem Bild `12_hauptfenster_hell.png`).
+- Die Beschriftung „Speichern“ ist im 75 Pixel breiten Knopf sichtbar
+  abgeschnitten, ohne Fund der Design-Prüfung: die Schätzung
+  `9 × 7 + 12` ergibt genau 75, gemeldet wird erst darüber (Schritt G).
+- Wird eine `.pdiag` außerhalb von Natter geändert, zeigt „Datei →
+  Öffnen …“ im noch offenen Diagrammfenster weiter den alten Stand, und
+  „Quelltext → Erzeugen …“ arbeitet damit (Schritt J; nur bei Änderung
+  von außen).
+- Entwicklungsumgebung: `.venv` war mit einem Python aus einem inzwischen
+  geräumten Zwischenordner angelegt; `import ctypes.wintypes`
+  scheiterte, `uv run` lief nicht mehr (beim Schülerweg für eine Probe
+  bemerkt, betrifft nicht die Auslieferung).
+
+**Ursache:** jeweils wie angegeben.
+
+**Zu tun:** Die leeren Überschriften ohne Projekt ausblenden; die
+Schätzung für Beschriftungen mit etwas Spielraum rechnen; beim Öffnen
+einer Diagrammdatei prüfen, ob sie sich auf der Platte geändert hat;
+`.venv` neu anlegen und die Python-Fassung aus einem festen Ort nehmen.
+Erledigt, wenn alle Stellen abgearbeitet sind.
+
+**Behoben (27. September 2026, ab der nächsten Fassung).**
+
+- Explorer: die drei Gruppen sind beim Anlegen ausgeblendet und werden in `projekt_anzeigen` nur eingeblendet, wenn sie Einträge haben (`ide/shell/explorer.py`). Test: `tests/test_explorer_leere_gruppen.py`. An der echten Oberfläche ohne Projekt: der Explorer zeigt keinen Eintrag (`build\auswertung\0356\ui_pruefung.py`, Ergebnis und Bilder daneben).
+- Beschriftung: der Rand in der Schätzung der Design-Prüfung ist von 12 auf 16 Pixel gewachsen (`_KNOPFRAND` in `ide/lint/regeln.py`). „Speichern“ im 75 Pixel breiten Knopf wird jetzt gemeldet, „Ändern“ und „Button“ nicht. Test: `test_eine_beschriftung_genau_an_der_grenze_wird_gemeldet` in `tests/test_design_pruefer.py`.
+- Diagramm: `diagramm_oeffnen` in `ide/shell/hauptfenster.py` lädt die Datei neu, wenn sie sich geändert hat und das offene Fenster keine ungespeicherte Arbeit enthält. Mit ungespeicherter Arbeit oder bei einer gerade unlesbaren Datei bleibt das Fenster, wie es ist. Test: `tests/test_diagramm_neu_laden.py` (geänderte Datei wird geladen, unveränderte holt nur das Fenster nach vorn, ungespeicherte Arbeit bleibt).
+- Entwicklungsumgebung: `.venv` neu angelegt mit einer von uv verwalteten Python 3.13.15 (`%APPDATA%\uv\python`); `pyproject.toml` setzt `python-preference = "only-managed"`, damit uv keine Python aus einem beliebigen Ordner mehr nimmt. Test: `test_entwicklungs_python_kommt_aus_uvs_verwaltung` in `tests/test_auslieferung_bauen.py`.
+
+---
+
+## 53. Eine Mehrfachauswahl im Struktogramm bleibt bei zwei Fällen ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Frage nach einer dreifachen Auswahl
+im Struktogramm-Editor (Entwicklungsstand nach `fd1f1cf`).
+
+**Beobachtet:** Ein Block „Auswahl“ erscheint mit „Fall 1“ und „Fall
+2“. Einen dritten Fall anzulegen oder einen zu entfernen, bietet die
+Oberfläche nirgends an: kein Menüeintrag, kein Kontextmenü, keine
+Taste. Die Beschriftungen „Fall 1“ und „Fall 2“ lassen sich ebenfalls
+nicht ändern; Doppelklick und F2 öffnen „Block beschriften“, und das
+ändert nur den Text des Blocks.
+
+**Ursache:** nachgewiesen. `StruktogrammCanvas.fall_hinzufuegen` und
+`fall_entfernen` in `ide/diagramm/struktogramm_canvas.py` (ab Zeile
+365) samt Rückgängig über `_FallKommando` gibt es, aufgerufen werden
+sie nur aus Tests. Für die Beschriftung eines Falls (`cases[i].label`)
+gibt es keine Methode.
+
+**Zu tun:** Bei ausgewählter Auswahl „Fall hinzufügen“ und „Fall
+entfernen“ anbieten (Menü „Bearbeiten“ des Diagrammfensters und
+Kontextmenü), und ein Doppelklick auf die Kopfzelle eines Falls
+beschriftet diesen Fall. Erledigt, wenn sich an der Oberfläche eine
+Auswahl mit drei Fällen „x < 0“, „x = 0“, „x > 0“ anlegen lässt, der
+erzeugte Code alle drei Fälle enthält und ein Test das festhält.
+
+**Behoben (27. September 2026, ab der nächsten Fassung).**
+
+- Fälle bedienen: Menü „Block“ im Diagrammfenster des Struktogramms (`Beschriften …`, `Fall hinzufügen`, `Fall entfernen`, `Fall beschriften …`), Kontextmenü der rechten Maustaste (`kontextmenue_fuer` in `ide/diagramm/struktogramm_canvas.py`), Tasten `+` und `-` auf der Zeichenfläche und Doppelklick auf die Beschriftung eines Falls (`fall_bei`, `fall_bearbeiten`). Die Befehle wirken auch, wenn ein Block in einer Spalte ausgewählt ist (`mehrfachblock`). Ein neuer Fall kommt vor „sonst“ (`fall_hinzufuegen` in `ide/diagramm/bloecke.py`); entfernt wird der angeklickte Fall oder der letzte vor „sonst“, und mindestens ein Fall außer „sonst“ bleibt stehen.
+- Nebenbei gefunden: `_FallKommando` entschied bei jedem Tun neu, ob hinzugefügt wird. Nach „Rückgängig“ entfernte „Wiederholen“ deshalb einen Fall, statt ihn wieder anzulegen. Das Kommando merkt sich jetzt Art, Fall und Stelle.
+- Neuer Block „Fallauswahl“ (case of, `case_of`, Schema `schemas/pdiag.schema.json`): Ausdruck im Kopf, je Wert eine Spalte, zuletzt „sonst“. Gezeichnet mit der schrägen Linie von links oben zum Fuß der Sonst-Spalte; der Kopf wächst je Wert um eine Zeile, damit die Linie über den Beschriftungen bleibt. Symbol `ide/assets/icons/block_case_of.svg`, Eintrag in der Gruppe „Auswahl“ der Blockpalette. Die Formatkennung bleibt `pdiag/1`: der neue Wert erweitert die Aufzählung der Blockarten, jede bisherige Datei bleibt gültig.
+- Code: aus der Fallauswahl wird `match`/`case` mit `case _` für „sonst“, ersatzweise `if`/`elif` mit `==`. Die Mehrfachauswahl übernimmt eine Bedingung als Beschriftung unverändert (`x < 0`), macht aus `x = 0` die Bedingung `x == 0` und hängt „< 0“ an den Ausdruck im Kopf. Bis dahin entstand aus „x < 0“ unter dem Kopf „x“ die Zeile `if x == x < 0:`.
+- Handbuch Abschnitt 3.4 beschreibt beide Blöcke und die Bedienung.
+
+Tests: `tests/test_struktogramm_faelle.py` (14 Tests: Datenmodell, Plus und Minus, Wiederholen, Entfernen mit Rückgängig, Doppelklick, Kontextmenü, Menü „Block“, Code mit drei Bedingungen „x < 0“, „x = 0“, „x > 0“ und `match`), `test_blockpalette_zeigt_zu_jedem_eintrag_ein_symbol` zählt jetzt gegen die Liste der Blockarten statt gegen die Zahl 11.
+
+An der echten Oberfläche nachgeprüft (`build\auswertung\0356\ui_fall.py`, Bilder `53_*.png` daneben): im Diagrammfenster des Entwicklungsbaums Fallauswahl angeklickt, `+` gedrückt (vier Spalten), Beschriftung des ersten Falls doppelgeklickt, im Dialog „Fall beschriften“ `7` eingegeben, Kontextmenü und Menü „Block“ geöffnet, gespeichert: die Datei enthält `case_of` mit den Fällen `7`, `2`, `3`, `sonst`. Der Doppelklick wurde dabei wie im Schülerweg als Fensternachricht geschickt, weil über SendInput erzeugte Doppelklicks auf diesem Rechner nicht als Doppelklick ankommen.
+
+---
+
+## 54. Tastatur-Ereignisse und `visible` fehlen ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** Komponenten und Formular haben kein Ereignis für Tastendrücke, keine Eigenschaft `visible` und das Formular kein `on_close`. Spiele mit Pfeiltasten, „Enter bestätigt die Eingabe“ und Ein- oder Ausblenden gehen weder im Designer noch im Code.
+
+**Ursache:** nachgewiesen: im ganzen Ordner `pcl/` kommt weder `visible` noch `keyPress` noch `closeEvent` vor; `Control` (`pcl/control.py`) hat nur Lage, Größe, `enabled` und Mausereignisse.
+
+**Zu tun:** `visible` als `Prop`, `on_key_press(sender, taste)` an Formular und Komponenten mit deutschen Tastennamen („Links“, „Eingabe“, „Leertaste“, „A“), `on_close` am Formular; Inspektor, `.pfm`, Codegen und Komponenten-Referenz nachziehen. Erledigt, wenn ein Beispiel mit Pfeiltasten eine Komponente bewegt und Tests das festhalten.
+
+**Behoben (27. September 2026, ab 0.3.6).** `Control.visible` ist eine Eigenschaft; im Designer bleibt eine ausgeblendete Komponente sichtbar (`Form._entwurfsansicht`). Neues Ereignis `on_key_press(sender, taste)` an Formular und Komponenten mit deutschen Tastennamen („Links“, „Eingabe“, „Leertaste“, „A“, „F1“ …): das Formular hört jede Taste in seinem Fenster, eine Komponente nur, solange sie den Fokus hat; das Formular zuerst. Neu `Form.on_close`; `Form.standard_ereignis = "on_create"` hält den Doppelklick im Designer bei `form_create`. Der Doppelklick legt die Methode mit dem Parameter `taste` an. `Form.visible` gibt es nicht: das Hauptformular zeigt `Application.run`, die Eigenschaft hätte keine Wirkung. Test: `tests/test_tastatur_und_visible.py` (Pfeiltasten bewegen eine Shape).
+
+
+---
+
+## 55. Memo gibt Getipptes nicht an `lines` zurück ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** Was in ein Memo getippt wird, kommt in `self.memo.lines` nie an; `lines.save_to_file` speichert den alten Stand.
+
+**Ursache:** nachgewiesen: `Memo` in `pcl/components/standard.py` schreibt `lines` nur ins Widget, ohne `textChanged`; `docs/komponenten.md` räumt das ein.
+
+**Zu tun:** Änderungen im Widget nach `lines` zurückschreiben und ein Ereignis `on_change` anbieten. Erledigt, wenn getippter Text in `lines` steht und ein Test das festhält.
+
+**Behoben (27. September 2026, ab 0.3.6).** `Memo` verbindet jetzt `textChanged`: Getipptes kommt in `lines` an, ohne Rückkopplung (Sperrflag und `Strings.still_uebernehmen`), dazu das Ereignis `on_change`. Test: `tests/test_memo_lines_rueckweg.py`.
+
+
+---
+
+## 56. „Pause“ ist bei einer Endlosschleife ausgegraut ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** Pausieren geht nur, wenn das Programm schon einmal an einem Haltepunkt stand. Läuft ein Programm frei in einer Endlosschleife, ist „Pause“ grau.
+
+**Ursache:** nachgewiesen: `_startaktionen_pruefen` in `ide/shell/hauptfenster.py` schaltet Pause nur mit `_aktueller_thread_id` frei, und die kommt nur aus einem `stopped`-Ereignis; `DapClient.thread_id_abwarten` ruft nur ein Test auf.
+
+**Zu tun:** Pause freigeben, sobald eine Debug-Sitzung läuft, und die Kennung des Fadens vorher abfragen; nach „Fortsetzen“ die Schrittbefehle wieder ausgrauen. Erledigt, wenn eine laufende Endlosschleife sich anhalten lässt und ein Test das festhält.
+
+**Behoben (27. September 2026, ab 0.3.6).** Ursache bestätigt: `_startaktionen_pruefen` gab „Pause“ nur mit `_aktueller_thread_id` frei, und die kam nur aus einem Halt. `DebugSitzung` meldet jetzt die Kennung des Programmfadens über das neue Signal `faden_bekannt`, sobald debugpy das Ereignis `thread` schickt; das Hauptfenster merkt sie sich in `_faden_id`. „Pause“ gilt, solange das Programm läuft und nicht hält, die Schrittbefehle gelten nur im Halt. Nebenbei behoben: nach „Fortsetzen“ und nach jedem Schritt blieben die Schrittbefehle freigegeben, obwohl das Programm lief (`_weiterlaufen`). Test: `test_pause_haelt_eine_endlosschleife_an` in `tests/test_debugger_pause_und_cursor.py` gegen echtes debugpy mit `while True`.
+
+
+---
+
+## 57. Bild aus dem Designer ist nach dem Speichern weg ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** Ein per Ziehen in `Image` gelegtes Bild erscheint im Designer, fehlt aber nach dem Speichern und im laufenden Programm. Der Objektinspektor bietet für `picture` keine Dateiauswahl.
+
+**Ursache:** nachgewiesen: `picture` steht weder in `ide/designer/pfm_schreiben.py` noch in `ide/codegen/design.py` noch im Schema `pfm`.
+
+**Zu tun:** Bilddatei als Pfad relativ zum Projekt in `.pfm` und Design-Code aufnehmen, im Inspektor über eine Dateiauswahl setzen. Erledigt, wenn ein im Designer gesetztes Bild im gestarteten Programm erscheint.
+
+**Behoben (27. September 2026, ab 0.3.6).** `picture` steht in der `.pfm` als Pfad relativ zum Projektordner; das Programm sucht es auch neben dem Hauptskript, ein Start aus einem anderen Ordner findet es also. Der `.pfm`-Schreiber macht absolute Pfade relativ, der Objektinspektor hat eine Dateiauswahl „…“, die nach `assets/` kopiert; eine fehlende Datei wird abgelehnt. Abgelehnte Eingaben im Inspektor erscheinen als deutsche Meldung unter der Tabelle (`Objektinspektor.meldung`), bis dahin verschwanden sie still. Der Formular-Import trägt Bilder aus `Picture.Data` jetzt ebenfalls als `picture` in die `.pfm` ein, statt eine Ladezeile in die Unit zu schreiben; die Hinweise, die `picture` „noch nicht“ in der `.pfm` sahen, sind berichtigt. Das Format bleibt `pfm/1`: die Änderung ist nur eine Ergänzung. Tests: `tests/test_bild_im_designer_gespeichert.py` (auch mit Start aus einem anderen Ordner), `test_import_schreibt_bilder_aus_picture_data_nach_assets`.
+
+
+---
+
+## 58. Kein zweites Formular anlegbar ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** Ein Projekt kann mehrere Formulare haben, „Neu“ legt aber nur Units an. Ein zweites Formular kommt nur über den Import einer `.lfm`.
+
+**Ursache:** nachgewiesen: `Projekt.formulare()` sucht alle `*.pfm`; `hauptfenster.py` bietet nur „Neue Unit“.
+
+**Zu tun:** „Datei → Neues Formular …“: `.pfm`, Unit und Design-Datei anlegen, im Explorer zeigen, im Designer öffnen; im Handbuch zeigen, wie das zweite Formular geöffnet wird. Erledigt, wenn ein zweites Formular aus dem ersten heraus geöffnet werden kann.
+
+**Behoben (27. September 2026, ab 0.3.6).** „Datei → Neues Formular …“ fragt nach dem Namen der Unit (Vorschlag `u_form2`, `u_form3` …) und legt über `HauptFenster.formular_erzeugen` `.pfm`, Unit und Design-Datei an; die Klasse bekommt die nächste freie Nummer (`Form2`). Das Formular erscheint im Explorer und öffnet sich im Designer. Oben in der neuen Unit steht, wie ein anderes Formular es öffnet und warum dafür `self.form2 = Form2()` nötig ist statt einer einfachen Variablen. In einem Konsolenprojekt gibt es statt eines Formulars eine Erklärung. Handbuch Abschnitt 3.1 zeigt das Öffnen aus einem Knopf. Tests: `tests/test_neues_formular.py`, darunter ein Lauf in eigener Python, der das neue Formular erzeugt und anzeigt.
+
+
+---
+
+## 59. Farben, Auswahlwerte und Schriften im Inspektor nur als Freitext ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** Farben, Aufzählungen wie `Shape.shape` oder `Chart.kind` und Schriftnamen lassen sich nur eintippen. Ein falscher Wert wird nicht gemeldet; `shape = "kreis"` zeichnet stillschweigend ein Rechteck.
+
+**Ursache:** nachgewiesen: `ide/inspector/eigenschaften_tabelle.py` kennt nur Häkchen, Zeilendialog und Textzelle.
+
+**Zu tun:** Farbwähler für Farben, Auswahlliste für Aufzählungen, Schriftauswahl für Schriftnamen; ungültige Werte zurückweisen. Erledigt, wenn jede Eigenschaft dieser Arten ihren Editor hat.
+
+**Behoben (27. September 2026, ab 0.3.6).** `Prop` kennt `werte=` und `art=`; der Objektinspektor zeigt eine Auswahlliste für `shape`, `kind` und `theme`, einen Farbwähler für alle sieben Farbeigenschaften einschließlich `brush_color` und eine Schriftauswahl für `font_name`. Ungültige Farben und Auswahlwerte werden auf Deutsch abgelehnt, Auswahlwerte auch im Code; `Chart.kind` und `Shape.shape` fallen nicht mehr still auf einen Standard zurück. Nicht geprüft werden Schriftnamen, weil einem CI-Rechner Schriften fehlen. Test: `tests/test_inspektor_editoren.py`.
+
+
+---
+
+## 60. DB-Komponenten fehlen in der Palette ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** `DBGrid`, `DBText`, `DBEdit`, `DBComboBox` und `DBNavigator` gibt es in `pcl`, und `docs/komponenten.md` sagt, sie ließen sich im Designer platzieren. In der Palette stehen sie nicht.
+
+**Ursache:** nachgewiesen: kein Eintrag in `ide/palette/palette.py`, keine Symbole.
+
+**Zu tun:** Reiter „Datenbank“ mit Symbolen, Inspektor-Einträgen und Codegen; oder die Doku berichtigen, falls sich das Platzieren als nicht tragfähig erweist. Erledigt, wenn ein DBGrid platziert und gestartet werden kann.
+
+**Behoben (27. September 2026, ab 0.3.6).** Neuer Palettenreiter „Datenbank“ mit `DBGrid`, `DBText`, `DBEdit`, `DBComboBox` und `DBNavigator` (`DATENBANK_KOMPONENTEN` in `ide/palette/palette.py`), eigene Symbole `komponente_db*.svg` mit einer gelben Walze für die Datenbank, Anfangsgrößen in `_STANDARDGROESSEN` von `ide/designer/canvas.py`. Die Datenquelle wird wie bisher im Code zugewiesen; ohne sie bleibt die Anzeige leer, deshalb ließen sich die Steuerelemente schon vorher platzieren, nur fehlte der Weg in der Palette. Tests: `tests/test_datenbank_palette.py` (alle fünf in der Palette; ein Formular mit allen fünf entsteht im gestarteten Programm, und ein DBGrid zeigt nach dem Zuweisen der Datenquelle beide Zeilen), dazu die bestehenden Rundläufe über alle Palettenkomponenten. Nebenbei: der CI-Lauf zu Punkt 56 schlug fehl, weil `tests/test_kopfzeile_und_fusszeile.py` „Pause“ auch im Halt erwartete; der Test prüft jetzt beides getrennt (Schritte im Halt, Pause im freien Lauf).
+
+
+---
+
+## 61. Tab-Reihenfolge nicht änderbar ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** Die Design-Prüfung meldet eine ungünstige Tab-Reihenfolge und rät, die Komponenten in anderer Reihenfolge anzulegen. Umordnen lassen sie sich nicht.
+
+**Ursache:** nachgewiesen: kein Befehl in `ide/designer/canvas.py` oder `ide/inspector/komponentenbaum.py` ändert die Reihenfolge der Kinder.
+
+**Zu tun:** „Nach vorne / nach hinten“ bzw. „Früher / später in der Tab-Reihenfolge“ im Kontextmenü und im Komponentenbaum. Erledigt, wenn sich die Reihenfolge ändern lässt und in der `.pfm` bleibt.
+
+**Behoben (27. September 2026, ab 0.3.6).** Die Tab-Reihenfolge ist die Reihenfolge, in der die Komponenten als Attribute am Formular stehen (`kind_komponenten`); daraus entstehen `.pfm` und Design-Code. Das Kontextmenü einer Komponente im Designer hat jetzt „Früher in der Tab-Reihenfolge“, „Später in der Tab-Reihenfolge“ und „Tab-Reihenfolge nach Lage ordnen“ (`tab_reihenfolge_verschieben`, `tab_reihenfolge_nach_lage` in `ide/designer/canvas.py`, rückgängig machbar über `_ReihenfolgeKommando`). Das Ordnen nach Lage benutzt dieselbe Regel wie die Design-Prüfung (`lesereihenfolge` in `ide/lint/regeln.py`), deren Hinweis jetzt auf den Menüeintrag verweist. Nebenbei behoben: `_UmbenennenKommando` löschte das Attribut und setzte es neu, eine umbenannte Komponente rückte dadurch ans Ende der Tab-Reihenfolge. Tests: `tests/test_designer_tab_reihenfolge.py`, darunter: nach dem Ordnen meldet die Design-Prüfung nichts mehr, und die `.pfm` steht in der neuen Reihenfolge.
+
+
+---
+
+## 62. Ja/Nein der Verzweigung nicht beschriftbar ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** Die Zweige einer Verzweigung im Struktogramm heißen immer „ja“ und „nein“. Das Format kennt eigene Beschriftungen, bearbeiten lassen sie sich nicht.
+
+**Ursache:** nachgewiesen: `labels` wird nur in `ide/diagramm/struktogramm.py` gelesen.
+
+**Zu tun:** Doppelklick auf die Zweigbeschriftung und Kontextmenü „Zweig beschriften …“, rückgängig machbar. Erledigt, wenn sich beide Beschriftungen ändern lassen.
+
+**Behoben (27. September 2026, ab 0.3.6).** Ursache bestätigt: `labels` las nur `ide/diagramm/struktogramm.py`, nichts schrieb es. Doppelklick auf die Ecke mit der Zweigbeschriftung (das äußere Viertel des Bedingungskopfes; die Mitte bearbeitet weiter die Bedingung), Kontextmenü „Zweig „…“ beschriften …“ und im Menü „Block“ „Linken/Rechten Zweig beschriften …“. Leerer Text oder „ja“/„nein“ entfernt den Eintrag wieder. Nebenbei gefunden: `_TextKommando` schrieb beim Rückgängigmachen `"labels": null`, was das Schema beim Speichern ablehnt; ein vorher fehlender Schlüssel wird jetzt wieder entfernt. Test: `tests/test_struktogramm_zweige.py`.
+
+
+---
+
+## 63. Parallelabschnitt fest auf zwei Stränge ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** Ein Parallelabschnitt hat immer zwei Stränge; das Format erlaubt beliebig viele.
+
+**Ursache:** nachgewiesen: `neuer_block` legt zwei an, nichts fügt weitere hinzu.
+
+**Zu tun:** „Strang hinzufügen/entfernen“ wie bei den Fällen. Erledigt, wenn drei Stränge angelegt und wieder entfernt werden können.
+
+**Behoben (27. September 2026, ab 0.3.6).** Neues `_StrangKommando`, „Strang hinzufügen/entfernen“ im Kontextmenü und im Menü „Block“, dazu `+`/`-`; die Tasten wirken auf den innersten Block mit Spalten (Mehrfach-, Fallauswahl oder Parallelabschnitt). Zwei Stränge bleiben immer stehen. Handbuch Abschnitt 3.4. Test: `tests/test_struktogramm_straenge.py`.
+
+
+---
+
+## 64. Diagrammname nicht änderbar ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** Der Name eines Diagramms steht als Kopfzeile über dem Struktogramm und als Funktionsname im erzeugten Code, lässt sich nach dem Anlegen aber nicht ändern.
+
+**Ursache:** nachgewiesen: `daten["name"]` wird nur beim Anlegen geschrieben.
+
+**Zu tun:** Doppelklick auf die Kopfzeile und „Bearbeiten → Diagramm umbenennen …“. Erledigt, wenn der neue Name in Kopfzeile, Datei und Code erscheint.
+
+**Behoben (27. September 2026, ab 0.3.6).** „Bearbeiten → Diagramm umbenennen …“ für alle sieben Diagrammarten über `diagramm_umbenennen()` jeder Zeichenfläche, rückgängig machbar; im Struktogramm zusätzlich per Doppelklick auf die Kopfzeile und im Kontextmenü. Der neue Name steht in Kopfzeile, Datei und erzeugter Funktion; der Dateiname bleibt. Test: `tests/test_diagramm_umbenennen.py`.
+
+
+---
+
+## 65. Kein Kontextmenü in den übrigen Diagrammen ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** Die rechte Maustaste tut im Klassen-, Use-Case-, Aktivitäts-, Zustands- und Sequenzdiagramm sowie in der Entscheidungstabelle nichts.
+
+**Ursache:** nachgewiesen: `contextMenuEvent` gibt es nur in `StruktogrammCanvas`.
+
+**Zu tun:** Kontextmenü mit den Befehlen, die für das Angeklickte gelten (Eigenschaften, Löschen, Knickpunkt, Anordnen, Zeile/Regel …). Erledigt, wenn jede Zeichenfläche eins hat.
+
+**Behoben (27. September 2026, ab 0.3.6).** `kontextmenue_fuer(x, y)` in `ide/diagramm/canvas.py` und `tabelle_canvas.py`: an einer Form Eigenschaften/Beschriften, Ausschneiden, Kopieren, Duplizieren, Löschen, nach vorn/hinten, bei mehreren auch Ausrichten und Gruppieren; an einer Verbindung Knickpunkt hinzufügen/entfernen, Art, Löschen; auf freier Fläche Einfügen und Alles auswählen; in der Entscheidungstabelle Zeile beschriften, Bedingung/Aktion hinzufügen, Zeile entfernen und Regel unter dem Mauszeiger hinzufügen, entfernen, verschieben. Die Beschriftungen fürs Ausrichten stehen an einer Stelle (`AUSRICHTUNGS_EINTRAEGE`). Test: `tests/test_diagramm_kontextmenue.py`.
+
+
+---
+
+## 66. Verbindungen lassen sich nicht umhängen und nicht umwandeln ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** Art (etwa Assoziation zu Komposition) und Endpunkte einer Verbindung sind fest. Ändern geht nur durch Löschen und neu Zeichnen; Beschriftungen und Knickpunkte gehen dabei verloren.
+
+**Ursache:** nachgewiesen: `from`, `to`, `kind` schreibt nur `verbindung_erstellen`; das Eigenschaften-Panel zeigt die Art nur an.
+
+**Zu tun:** Art im Eigenschaften-Panel wählbar, Endpunkt per Ziehen an eine andere Form hängen. Erledigt, wenn beides geht und rückgängig machbar ist.
+
+**Behoben (27. September 2026, ab 0.3.6).** Das Eigenschaften-Panel hat für eine Verbindung eine Auswahl „Art“ mit den Arten, die zur Diagrammart passen, und zeigt den deutschen Namen der Art. Eine ausgewählte Verbindung trägt an beiden Enden Anfasser; auf eine andere Form gezogen, hängt das Ende dorthin um, mit gestrichelter Vorschau. Beschriftungen, Knickpunkte und die Höhe einer Nachricht bleiben erhalten, beides ist rückgängig machbar. Test: `tests/test_diagramm_verbindung_umhaengen.py`.
+
+
+---
+
+## 67. Seitenformat und Ausrichtung fest ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** Diagramme sind fest auf das beim Anlegen gewählte Format; A4 zu A3 oder hoch zu quer geht nicht.
+
+**Ursache:** nachgewiesen: `page` wird nur in `ide/diagramm/neu.py` geschrieben.
+
+**Zu tun:** „Datei → Seite einrichten …“ mit Größe und Ausrichtung. Erledigt, wenn Export und Druck das neue Format nutzen.
+
+**Behoben (27. September 2026, ab 0.3.6).** Neuer Dialog `ide/diagramm/seitendialog.py` (A3, A4, A5; hoch/quer) unter „Datei → Seite einrichten …“, rückgängig machbar. Seitenrand, Layout-Hinweis, PDF-Export und Druck nutzen das Format. Nebenbei gefunden: `_drucker_vorbereiten` setzte nur die Ausrichtung und nicht die Papiergröße; der Drucker bekommt jetzt beides. Handbuch Abschnitt 3.4. Test: `tests/test_diagramm_seite_einrichten.py`.
+
+
+---
+
+## 68. Entscheidungstabelle: „Regel entfernen“ nimmt immer die letzte ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** „Regel entfernen“ löscht die letzte Spalte, auch wenn eine andere ausgewählt ist; neue Regeln kommen immer ans Ende.
+
+**Ursache:** nachgewiesen: das Menü ruft `regel_entfernen()` und `regel_hinzufuegen()` ohne Index auf.
+
+**Zu tun:** Die ausgewählte Regel entfernen, neue Regeln hinter der ausgewählten einfügen. Erledigt, wenn ein Test das festhält.
+
+**Behoben (27. September 2026, ab 0.3.6).** „Regel entfernen“ entfernt die ausgewählte Regel, „Regel hinzufügen“ fügt hinter der ausgewählten ein; ohne Auswahl bleibt es bei der letzten bzw. am Ende. Test: `tests/test_diagramm_tabelle_regeln.py`.
+
+
+---
+
+## 69. Hilfslinien nicht verschieb- oder löschbar, kein Einrasten ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** Hilfslinien lassen sich nur anlegen. Verschieben oder Löschen geht nicht; Formen rasten nicht an ihnen ein, obwohl `lineale.py` das verspricht. Im Struktogramm und in der Tabelle legt das Lineal unsichtbare Linien an.
+
+**Ursache:** nachgewiesen: `_einrasten` in `ide/diagramm/canvas.py` liest `guides` nie.
+
+**Zu tun:** Ziehen verschiebt, Ziehen aufs Lineal löscht, Einrasten an Hilfslinien; Lineal-Hilfslinien nur, wo sie gezeichnet werden. Erledigt, wenn ein Test das festhält.
+
+**Behoben (27. September 2026, ab 0.3.6).** Der vermutete Fehler bestätigte sich: das obere Lineal meldete seine x-Lage, und `fenster.py` legte daraus eine waagerechte Linie bei y = x an. Das Lineal meldet jetzt, wo die Maus losgelassen wurde, das Fenster rechnet das in Zeichenflächen-Koordinaten um; ein bloßer Klick aufs Lineal legt keine Linie mehr an. Formen rasten mit Kanten und Mitte an sichtbaren Hilfslinien ein (`_einrasten`), Hilfslinien lassen sich ziehen und durch Ziehen aufs Lineal löschen, jeweils ein Rückgängig-Schritt. Im Struktogramm und in der Entscheidungstabelle entstehen keine Hilfslinien mehr, „Ansicht → Hilfslinien“ ist dort grau. Test: `tests/test_diagramm_hilfslinien.py`.
+
+
+---
+
+## 70. Optionen im Klassendialog ohne Wirkung ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** Stereotyp, „Kommentar anzeigen“, „Dokumentation anzeigen“ und der Umbruch lassen sich einstellen, ändern an der Zeichnung aber nichts.
+
+**Ursache:** nachgewiesen: `stereotype`, `comments_visible`, `show_documentation`, `wrap_after_comments` liest nur der Dialog selbst.
+
+**Zu tun:** Stereotyp als «…» über dem Namen, Kommentar und Dokumentation im Kasten einzeichnen. Erledigt, wenn jede Option die Zeichnung ändert.
+
+**Behoben (27. September 2026, ab 0.3.6).** Das Stereotyp einer Klasse steht als «…» über dem Namen (bei einer Schnittstelle mit eigenem Stereotyp «interface, x»), das einer Operation vor der Zeile. Der Kommentar der Klasse steht kursiv unter dem Namen, umbrochen nach der eingestellten Länge; „Dokumentationsauszeichnung anzeigen“ zeigt ihn als {documentation = …} und schaltet ihn dafür mit ein. Höhe, Breite und Bereiche der Klasse rechnen diese Zeilen mit. Nicht umgesetzt: Kommentare einzelner Attribute und Operationen, weil sie die Zeilenzählung für Unterstreichen und Kursivschrift verschöben. Test: `tests/test_diagramm_klassenoptionen.py`.
+
+
+---
+
+## 71. Eigene Farbe und verschobene Beschriftung nicht zurücksetzbar ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** Eine eigene Füll- oder Linienfarbe und eine verschobene Beschriftung lassen sich nicht auf die Stilvorlage bzw. die berechnete Lage zurücksetzen.
+
+**Ursache:** nachgewiesen: `ide/diagramm/eigenschaften.py` bietet keinen Weg zurück.
+
+**Zu tun:** „Zurücksetzen“ im Eigenschaften-Panel. Erledigt, wenn beides zurückgesetzt werden kann.
+
+**Behoben (27. September 2026, ab 0.3.6).** Im Eigenschaften-Panel „Auf Stilvorlage zurücksetzen“ (Füllung, Linie, Schriftgröße) und „Beschriftungen zurück an ihren Platz“, jeweils ein Rückgängig-Schritt. Die Anzeige „eigen“ prüft jetzt den Wert statt nur den Schlüssel. Wichtigster Nebenbefund: `WerteKommando` schrieb beim Rückgängigmachen `null` für Schlüssel, die es vorher nicht gab; nach dem Zurücknehmen der ersten eigenen Farbe, des ersten Knickpunkts oder der ersten Hilfslinie scheiterte `speichern()` an der Schemaprüfung. `None` heißt jetzt „Schlüssel entfernen“. Test: `tests/test_diagramm_zuruecksetzen.py`.
+
+
+---
+
+## 72. Komponente nicht nachträglich in einen Behälter ziehbar ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** Eine platzierte Komponente lässt sich nicht in ein Panel oder eine GroupBox ziehen und nicht wieder heraus.
+
+**Ursache:** nachgewiesen: `_ziehen_beenden` in `ide/designer/canvas.py` ändert nur `left` und `top`.
+
+**Zu tun:** Beim Loslassen den Behälter unter der Maus bestimmen und die Komponente umhängen. Erledigt, wenn beides geht und in der `.pfm` bleibt.
+
+**Behoben (27. September 2026, ab 0.3.6).** Nach dem Verschieben bestimmt `_behaelter_fuer` den innersten Behälter unter der Mitte der Komponente, ohne die Komponente selbst und alles in ihr; ist es ein anderer als bisher, hängt `_UmhaengenKommando` sie dorthin um und rechnet `left`/`top` auf die Ecke des neuen Behälters um (am Raster). Rückgängig hängt sie zurück an die alte Stelle. Ein Behälter fällt nicht in sich selbst. Tests: `tests/test_designer_in_behaelter_ziehen.py` (in ein Panel, von dort in eine GroupBox darin, heraus aufs Formular, Rückgängig/Wiederholen, `.pfm` mit der neuen Verschachtelung).
+
+
+---
+
+## 73. Designer ohne Mehrfachauswahl und Kopieren/Einfügen ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** Im Designer ist immer nur eine Komponente ausgewählt; Ausschneiden, Kopieren und Einfügen sind grau.
+
+**Ursache:** nachgewiesen: `ausgewaehlte_komponente` ist eine einzelne Komponente.
+
+**Zu tun:** Mehrfachauswahl mit Umschalt/Strg und Rahmen, gemeinsames Verschieben und Löschen, Kopieren/Einfügen auch zwischen Formularen. Erledigt, wenn das geht und rückgängig machbar ist.
+
+**Behoben (27. September 2026, ab 0.3.6).** Der Designer kennt eine Mehrfachauswahl (`_mehrfach`, `ausgewaehlte_komponenten` in `ide/designer/canvas.py`): Strg- oder Umschalt-Klick nimmt eine Komponente dazu oder heraus, Ziehen auf der freien Fläche zieht einen Rahmen auf (`QRubberBand`), Strg+A wählt alle Komponenten auf dem Formular. Die zuletzt gewählte trägt Rahmen und Anfasser und steht im Objektinspektor, die übrigen einen gestrichelten Rahmen. Pfeiltasten, Entf und Ziehen wirken auf die ganze Auswahl in einem Schritt (`_GruppenKommando`); was in einem mit ausgewählten Behälter liegt, wandert mit ihm und wird nicht doppelt bewegt. Kopieren legt die Komponenten im Format der `.pfm`-Einträge in die Zwischenablage (`application/x-natter-komponenten`), ohne Ereignisse, weil deren Methoden in der Unit des Formulars stehen. Einfügen baut sie über dieselbe Codeerzeugung wie das Laden einer `.pfm` auf (Listen, Schriften und Unterkomponenten kommen mit), auch in einem anderen Formular; belegte Namen bekommen „_kopie“, und eine Kopie, die genau auf ihrem Vorbild läge, rückt zwei Rasterschritte weiter. In einen einzeln ausgewählten Behälter wird hineingefügt, außer er wurde selbst kopiert. „Bearbeiten → Ausschneiden/Kopieren/Einfügen/Alles auswählen“ wirken jetzt auch im Designer. Handbuch Abschnitt 5 nennt die Handgriffe. Tests: `tests/test_designer_mehrfachauswahl.py` (9 Tests, mit echten Mausklicks über QTest für die Auswahl).
+
+
+---
+
+## 74. Klappmenü lässt sich keiner Komponente zuordnen ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** `PopupMenu` lässt sich platzieren, aber keiner Komponente zuweisen; das geht nur mit einer Codezeile.
+
+**Ursache:** nachgewiesen: `popup_menu` ist eine Python-Property und fehlt in Inspektor, `.pfm` und Codegen.
+
+**Zu tun:** `popup_menu` im Inspektor als Auswahl der Klappmenüs des Formulars, in `.pfm` und Codegen. Erledigt, wenn das Menü im gestarteten Programm erscheint.
+
+**Behoben (27. September 2026, ab 0.3.6).** `popup_menu` ist im Objektinspektor eine Auswahl der Klappmenüs des Formulars, steht mit Namen in der `.pfm` und wird am Ende des erzeugten Codes zugewiesen; andere Werte werden abgelehnt. Nebenbefund bestätigt: jede Zuweisung verband `customContextMenuRequested` noch einmal, das Menü ging doppelt auf. Test: `tests/test_klappmenue_zuordnen.py`.
+
+
+---
+
+## 75. Menü-Editor legt keine Methode an und meldet Tippfehler nicht ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** Im Menü-Editor ist „Beim Anklicken“ ein freies Textfeld; es entsteht keine Methode, und ein falscher Name bleibt ohne Meldung.
+
+**Ursache:** nachgewiesen: `ide/inspector/menue_editor.py` und `_handler_suchen` in `pcl/components/menus.py`.
+
+**Zu tun:** Methode anlegen wie auf dem Reiter Ereignisse, fehlenden Namen beim Start melden. Erledigt, wenn ein Test das festhält.
+
+**Behoben (27. September 2026, ab 0.3.6).** Der Menü-Editor hat einen Knopf „Methode anlegen“, auf allen drei Wegen zum Editor. Ein Methodenname, den die Unit nicht kennt, hält den Programmstart mit einer deutschen Meldung an (`NatterUnbekannteEigenschaftError`, nicht im Designer); der Fehlerkatalog reicht diese Meldung durch (`pcl/fehlerkatalog.py`, `docs/fehlerkatalog.yaml`). Test: `tests/test_menue_methode_anlegen.py`.
+
+
+---
+
+## 76. Kein „Alles aufklappen/zuklappen“ im Editor ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** Gefaltete Blöcke lassen sich nur einzeln öffnen; `alles_entfalten` ruft niemand auf, Zuklappen fehlt ganz.
+
+**Ursache:** nachgewiesen: `alles_entfalten` in `ide/shell/quelltexteditor.py` wird nur in Tests benutzt.
+
+**Zu tun:** „Ansicht → Alles aufklappen/zuklappen“. Erledigt, wenn beides geht.
+
+**Behoben (27. September 2026, ab 0.3.6).** `QuelltextEditor.alles_falten` klappt jede Klasse und Funktion zu; „Quelltext → Alles zuklappen“ und „Alles aufklappen“ rufen es bzw. das bisher ungenutzte `alles_entfalten` im aktiven Editor auf. Beides steht auch im neuen Kontextmenü (Punkt 77). Tests: `test_alles_zuklappen_und_aufklappen`, `test_menue_quelltext_klappt_im_aktiven_editor` in `tests/test_editor_kontextmenue_und_falten.py`.
+
+
+---
+
+## 77. Kein Kontextmenü im Quelltexteditor ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** „Zur Definition“, „Zeile duplizieren“ und „Zeile verschieben“ gibt es nur als Tastenkürzel.
+
+**Ursache:** nachgewiesen: der Editor hat kein eigenes `contextMenuEvent`.
+
+**Zu tun:** Kontextmenü mit Standardbefehlen und diesen Einträgen. Erledigt, wenn es erscheint und die Einträge wirken.
+
+**Behoben (27. September 2026, ab 0.3.6).** Die rechte Maustaste im Quelltexteditor zeigt Qts Standardmenü (Rückgängig, Ausschneiden, Kopieren, Einfügen, Alles markieren), darunter „Zur Definition springen“, „Zeile duplizieren“, „Zeile nach oben/unten“, „Kommentar umschalten“ und „Alles zu-/aufklappen“, jeweils mit dem Tastenkürzel daneben (`QuelltextEditor.kontextmenue`). In einer schreibgeschützten Datei sind die Einträge grau, die den Text ändern. „Kommentar umschalten“ läuft über das neue Signal `kommentar_gewuenscht` zum Hauptfenster, wo die Logik liegt. Handbuch Abschnitt 5 nennt das Menü. Tests: `test_kontextmenue_hat_die_befehle_der_tastenkuerzel`, `test_schreibgeschuetzt_sind_die_aendernden_befehle_grau`.
+
+
+---
+
+## 78. Debugger ohne „Ausführen bis Cursor“ ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** Das Programm lässt sich nicht bis zur Zeile laufen lassen, in der der Cursor steht.
+
+**Ursache:** nachgewiesen: `DapClient.bis_cursor_ausfuehren` wird nur in Tests benutzt.
+
+**Zu tun:** Menü „Start → Ausführen bis Cursor“ mit Tastenkürzel. Erledigt, wenn ein Test das festhält.
+
+**Behoben (27. September 2026, ab 0.3.6).** „Start → Ausführen bis Cursor“ mit F4. Im Halt setzt `DebugSitzung.bis_cursor` einen vorübergehenden Haltepunkt und setzt fort; beim nächsten Halt wird er wieder entfernt, aus dem dann gültigen Stand der Datei, damit inzwischen gesetzte Haltepunkte bleiben. `DapClient.bis_cursor_ausfuehren` wird dafür nicht benutzt: es wartet blockierend auf den Halt und hätte im Worker auch „Stopp“ aufgehalten. Läuft noch kein Programm, startet F4 es mit dem Debugger und dem vorübergehenden Haltepunkt (`halten_bei`). `_projekt_mit_debugger_starten_aktion` bleibt dabei ohne Parameter, weil `QAction.triggered` sonst sein `checked`-Flag hineinreicht. Handbuch Abschnitt 5 nennt F4. Tests: `test_ausfuehren_bis_cursor_startet_und_haelt_einmal` und `test_ausfuehren_bis_cursor_aus_einem_halt`.
+
+
+---
+
+## 79. Objektinspektor nicht nach Kategorie gruppierbar ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** Jede Eigenschaft hat eine Kategorie, der Inspektor sortiert aber nur alphabetisch („Kategorie folgt später“).
+
+**Ursache:** nachgewiesen: nichts in `ide/inspector` liest `kategorie`.
+
+**Zu tun:** Umschalter „alphabetisch / nach Kategorie“. Erledigt, wenn beide Ansichten gehen.
+
+**Behoben (27. September 2026, ab 0.3.6).** Knöpfe „A–Z“ und „Kategorie“ über der Eigenschaftstabelle; nach Kategorie stehen Überschriftenzeilen zwischen den Gruppen. Die Wahl wird in den Einstellungen gemerkt (`inspektor/nach_kategorie`). Test: `tests/test_inspektor_nach_kategorie.py`.
+
+
+---
+
+## 80. Komponenten-Referenz veraltet ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** Die Referenz im Hilfe-Menü nennt `PaintBox`, `Calendar`, `Sound` und andere „folgt später“, obwohl es sie gibt; `Edit.read_only`, `Form.color`, `open_dialog` und `open_url` fehlen; interne Abschnitte wie „Offene Punkte“ stehen darin.
+
+**Ursache:** nachgewiesen: `docs/komponenten.md`.
+
+**Zu tun:** Referenz an den Code angleichen, interne Abschnitte heraus, ein Test vergleicht Props mit der Referenz. Erledigt, wenn der Test grün ist.
+
+**Behoben (27. September 2026, ab 0.3.6).** `docs/komponenten.md` neu gefasst: interne Abschnitte, „folgt später“, Verweise auf Arbeitspakete und Vergleiche mit anderen Werkzeugen entfernt, alle fehlenden Eigenschaften und Ereignisse und die neuen Möglichkeiten dieser Fassung ergänzt, dazu je ein Abschnitt für die fünf Datensteuerelemente. `tests/test_komponenten_referenz.py` prüft jede Eigenschaft und jedes Ereignis jeder Palettenkomponente, `pcl.__all__` und die Funktionen aus `pcl.crt` gegen die Seite.
+
+
+---
+
+## 81. `pcl.crt` undokumentiert, Farben im Konsolenfenster fraglich ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** `goto_xy`, `text_color`, `clr_scr` und die übrigen Funktionen aus `pcl.crt` stehen in keiner Hilfe. Ob Farben und Cursorsprünge im Konsolenfenster ankommen, ist nicht geprüft; `crt.py` schaltet die Steuerzeichen der Konsole nicht ein.
+
+**Ursache:** nachgewiesen für die Doku; für die Konsole noch offen.
+
+**Zu tun:** Konsolenmodus einschalten, am echten Konsolenfenster prüfen, dokumentieren. Erledigt, wenn ein Konsolenprogramm farbig ausgibt.
+
+**Behoben (27. September 2026, ab 0.3.6).** `pcl.crt` schaltet vor der ersten Ausgabe einmal `ENABLE_VIRTUAL_TERMINAL_PROCESSING` ein und tut nichts, wenn es keine Konsole gibt; die Funktionen stehen in der Komponenten-Referenz. Test: `tests/test_crt_konsole.py` mit nachgebildetem `kernel32` und einer echten verborgenen Konsole, deren Zeichen „X“ danach rot ist; ohne die Änderung erscheinen die Steuerzeichen als Text. Ein sichtbares Konsolenfenster wird bei der Prüfung der gebauten Fassung angesehen.
+
+
+---
+
+## 82. README und Handbuch stimmen nicht mehr ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** Das README sagt, aus Diagrammen werde kein Code erzeugt, und verspricht eine Befehlspalette; README und Handbuch nennen drei von sieben Diagrammarten.
+
+**Ursache:** nachgewiesen: `README.md` Abschnitte 7 und 13, `docs/handbuch.md` Abschnitt 3.4.
+
+**Zu tun:** Texte angleichen; die Befehlspalette entweder bauen oder den Verweis streichen. Erledigt, wenn die Aussagen stimmen.
+
+**Behoben (27. September 2026, ab 0.3.6).** Die Befehlspalette, auf die README Abschnitt 7, das Aktionsregister und Kommentare verwiesen, gibt es jetzt: „Hilfe → Befehl suchen …“ mit Strg+Umschalt+P (`ide/shell/befehlspalette.py`). Sie listet jeden freigegebenen Befehl aus dem Aktionsregister als „Menü → Befehl“ mit deutschem Tastenkürzel, filtert nach allen getippten Wörtern in beliebiger Reihenfolge und führt den gewählten Befehl mit Eingabe aus. README Abschnitt 13 nennt alle sieben Diagrammarten und die Codeerzeugung aus Klassendiagramm und Struktogramm statt „erzeugt keinen Code aus Diagrammen“; Handbuch Abschnitt 3.4 nennt ebenfalls alle sieben und „Datei → Neues Diagramm …“. Tests: `tests/test_befehlspalette.py`.
+
+
+---
+
+## 83. Reste gestrichener Funktionen ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Durchsicht nach Funktionen, die es im Code gibt, die sich in der Oberfläche aber nicht erreichen oder nicht bearbeiten lassen (Entwicklungsstand nach `6470407`).
+
+**Beobachtet:** `gui_db` und der MySQL-Treiber stehen noch im Projekt-Schema, obwohl beides gestrichen ist; `as_integer`/`as_float` sind undokumentiert und melden Fehler auf Englisch.
+
+**Ursache:** nachgewiesen: `schemas/project.schema.json`, `pcl/components/data_access.py`.
+
+**Zu tun:** Reste entfernen, deutsche Meldung, Doku. Erledigt, wenn nichts mehr darauf verweist.
+
+**Behoben (27. September 2026, ab 0.3.6).** `gui_db`, `mysql` und `connection_ref` sind aus Schema, Exporter und `ide/project/neu.py` entfernt; ältere Projektdateien werden beim Laden angepasst (`Projekt.laden`), das Format bleibt `natter-project/1`. `as_integer` und `as_float` melden einen deutschen `NatterDatenError`, `as_float` nimmt ein Dezimalkomma an. Test: `tests/test_reste_gestrichen.py`.
+
+
+---
+
+## 84. Beim Beenden gehen ungespeicherte Änderungen ohne Nachfrage verloren ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht nach fehlenden Funktionen.
+
+**Beobachtet:** Wird ein einzelner Reiter mit geändertem Text geschlossen, fragt Natter, ob gespeichert werden soll. Wird das ganze Fenster geschlossen, gehen alle ungespeicherten Änderungen ohne ein Wort verloren.
+
+**Ursache:** nachgewiesen: `HauptFenster.closeEvent` in `ide/shell/hauptfenster.py` speichert nur die Lage der Docks und beendet laufende Programme; nach geänderten Editoren fragt nur `_tab_schliessen`.
+
+**Zu tun:** Beim Schließen die geänderten Dateien nennen und „Speichern / Verwerfen / Abbrechen“ anbieten. Erledigt, wenn Abbrechen das Fenster offen lässt, Speichern alles schreibt und ein Test das festhält.
+
+**Behoben (27. September 2026, ab 0.3.6).** `HauptFenster.closeEvent` fragt jetzt nach, wenn Editoren geänderten Text haben, nennt die Dateien und bietet Speichern, Verwerfen und Abbrechen an (`_vor_dem_schliessen_fragen`). Abbrechen lässt das Fenster offen, Speichern schreibt alle über `alle_speichern`; lässt sich eine Datei nicht schreiben, bleibt das Fenster ebenfalls offen. In den Tests beantwortet eine Einstellung in `tests/conftest.py` die Frage mit „Verwerfen“, weil viele Tests Fenster mit geändertem Text schließen; die Tests zu diesem Punkt geben die Antwort selbst vor. Tests: `tests/test_beenden_und_alle_speichern.py` (Abbrechen, Speichern, keine Frage ohne Änderungen).
+
+
+---
+
+## 85. „Alle speichern“, „Beenden“ und „Weitersuchen“ fehlen ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht nach fehlenden Funktionen.
+
+**Beobachtet:** Im Menü Datei fehlen „Alle speichern“ und „Beenden“, im Menü Suchen „Weitersuchen“ mit F3. Wer mehrere Units geändert hat, muss jede einzeln speichern; wer weitersuchen will, öffnet den Suchdialog erneut.
+
+**Ursache:** nachgewiesen: keine dieser Aktionen ist im Aktionsregister angemeldet.
+
+**Zu tun:** „Datei → Alle speichern“ (Strg+Umschalt+S), „Datei → Beenden“ als letzter Eintrag, „Suchen → Weitersuchen“ (F3). Erledigt, wenn alle drei wirken und Tests das festhalten.
+
+**Behoben (27. September 2026, ab 0.3.6).** Neu im Aktionsregister: „Datei → Alle speichern“ mit Strg+Umschalt+S, „Datei → Beenden“ als letzter Eintrag des Menüs nach den Beispielprojekten, „Suchen → Weitersuchen“ mit F3, das den zuletzt gesuchten Text im vorderen Editor weitersucht und ohne vorherige Suche den Suchdialog öffnet (`SuchenErsetzenDialog.editor_setzen`). Handbuch Abschnitt 5 nennt die Tasten. Tests: `test_alle_speichern`, `test_beenden_steht_als_letztes_im_menue_datei`, `test_f3_sucht_weiter`.
+
+
+---
+
+## 86. Starten und Tests speichern die offenen Dateien nicht ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht der Bedienung und der Möglichkeiten (Entwicklungsstand nach `dc0d6e4`).
+
+**Beobachtet:** F5, Strg+F5 und „Alle Tests ausführen“ starten den Stand auf der Platte. Eine Änderung im Editor ohne Strg+S hat keine Wirkung, und nichts sagt das.
+
+**Ursache:** nachgewiesen: `_projekt_starten_aktion` und `_mit_debugger_starten` in `ide/shell/hauptfenster.py` prüfen und starten, ohne zu speichern.
+
+**Zu tun:** Vor dem Start und vor einem Testlauf alle geänderten Dateien speichern. Erledigt, wenn ein Test zeigt, dass eine ungespeicherte Änderung im gestarteten Programm wirkt.
+
+**Behoben (27. September 2026, ab 0.3.6).** `_vorstart_pruefung_blockiert` in `ide/shell/hauptfenster.py` speichert vor jedem Start (F5 und Strg+F5) alle geänderten Dateien über `alle_speichern`; lässt sich eine nicht schreiben, unterbleibt der Start. Dasselbe vor „Alle Tests ausführen“ und vor dem Exe-Export. Test: `test_starten_speichert_vorher` in `tests/test_starten_konsole_editor.py`.
+
+
+---
+
+## 87. Konsolenprogramm mit dem Debugger: keine Ausgabe, kein `input()` ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht der Bedienung und der Möglichkeiten (Entwicklungsstand nach `dc0d6e4`).
+
+**Beobachtet:** Ein Konsolenprogramm mit F5 zeigt kein Fenster; `print` verschwindet, `input()` scheitert.
+
+**Ursache:** nachgewiesen: `DapClient.starten` startet debugpy mit `ohne_konsole`, `DebugSitzung` verwirft `output`-Ereignisse.
+
+**Zu tun:** Konsolenprogramme unter dem Debugger in einem eigenen Konsolenfenster starten, wie ohne Debugger. Erledigt, wenn `print` und `input()` mit F5 funktionieren.
+
+**Behoben (27. September 2026, ab 0.3.6).** Ein Konsolenprogramm läuft unter dem Debugger in einem eigenen Konsolenfenster (`debugpy_aufruf` in `ide/debugger/dap_client.py`, `CREATE_NEW_CONSOLE`), mit Fenstertitel wie ohne Debugger; `print` erscheint dort, `input()` liest dort. Die Hülle dafür (`_DEBUG_KONSOLEN_HUELLE`) fängt anders als die für den Start ohne Debugger keinen Fehler ab, damit ein unbehandelter Fehler den Debugger an der Fehlerzeile anhalten lässt; am Ende wartet sie auf die Eingabetaste. In automatischen Läufen überspringt die Umgebungsvariable `NATTER_KONSOLE_NICHT_OFFEN_HALTEN` dieses Warten, `tests/conftest.py` setzt sie. Ein GUI-Programm läuft wie bisher ohne Fenster. Tests: `test_konsolenprogramm_bekommt_unter_dem_debugger_ein_fenster`, `test_konsolenprogramm_haelt_unter_dem_debugger` (Halt an Zeile 2 von `main.py`, Aufrufstapel stimmt).
+
+
+---
+
+## 88. Tab ersetzt markierte Zeilen, Umschalt+Tab fehlt ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht der Bedienung und der Möglichkeiten (Entwicklungsstand nach `dc0d6e4`).
+
+**Beobachtet:** Sind mehrere Zeilen markiert, ersetzt Tab sie durch vier Leerzeichen. Einen Block ein- oder ausrücken geht nicht.
+
+**Ursache:** nachgewiesen: `keyPressEvent` in `ide/shell/quelltexteditor.py` fügt bei Tab immer `_EINZUG` ein; `Key_Backtab` wird nicht behandelt.
+
+**Zu tun:** Tab rückt markierte Zeilen ein, Umschalt+Tab rückt aus (auch ohne Markierung die aktuelle Zeile). Erledigt, wenn ein Test das festhält.
+
+**Behoben (27. September 2026, ab 0.3.6).** `QuelltextEditor.einruecken`: Tab rückt markierte Zeilen um vier Leerzeichen ein (leere Zeilen bleiben leer), Umschalt+Tab rückt die markierten Zeilen oder ohne Markierung die Zeile des Cursors um bis zu vier Leerzeichen aus. Eine Markierung, die am Anfang einer Zeile endet, schließt diese Zeile nicht ein. Ein Schritt für Rückgängig. Tab ohne mehrzeilige Markierung fügt wie bisher vier Leerzeichen ein. Tastenkürzel-Übersicht und Handbuch nennen Umschalt+Tab. Tests: vier Tests in `tests/test_starten_konsole_editor.py`.
+
+
+---
+
+## 89. Keine Zeile und Spalte in der Statusleiste ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht der Bedienung und der Möglichkeiten (Entwicklungsstand nach `dc0d6e4`).
+
+**Beobachtet:** Meldungen nennen Zeilennummern, die aktuelle Position des Cursors steht nirgends.
+
+**Ursache:** nachgewiesen: keine dauerhafte Anzeige in der Statusleiste.
+
+**Zu tun:** „Zeile 17, Spalte 5“ rechts in der Statusleiste, solange ein Editor vorn ist. Erledigt, wenn sie beim Bewegen mitläuft.
+
+**Behoben (27. September 2026, ab 0.3.6).** Rechts in der Statusleiste steht „Zeile 17, Spalte 5“, nachgeführt bei jeder Bewegung des Cursors und beim Wechsel des Reiters; ohne Editor vorn bleibt das Feld leer (`_cursor_anzeige_aktualisieren`). Test: `test_zeile_und_spalte_in_der_statusleiste`.
+
+
+---
+
+## 90. Dialoge fehlen: Ja/Nein, Speichern, Farbe, Zahl ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht der Bedienung und der Möglichkeiten (Entwicklungsstand nach `dc0d6e4`).
+
+**Beobachtet:** `pcl` bietet nur `show_message`, `input_box` und `open_dialog`. Es fehlen eine Ja/Nein-Frage, ein Speichern-Dialog, ein Farbdialog und eine Zahleneingabe mit Bereich.
+
+**Ursache:** nachgewiesen: `pcl/dialogs.py` nennt sie „zurückgestellt“.
+
+**Zu tun:** `ask_yes_no`, `save_dialog`, `color_dialog`, `input_number` mit deutschen Texten, dokumentiert. Erledigt, wenn Tests sie abdecken.
+
+**Behoben (28. September 2026, ab 0.3.6).** `pcl.dialogs` hat `ask_yes_no`, `save_dialog`, `color_dialog` und `input_number` mit deutschen Texten und deutscher Zahlendarstellung; alle laufen über `pcl.dialogs._zeigen`, das Tests ersetzen können, ohne dass ein Dialog auf einen Klick wartet. Test: `tests/test_dialogs_weitere.py`.
+
+
+---
+
+## 91. Keine Hilfe für das Dezimalkomma ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht der Bedienung und der Möglichkeiten (Entwicklungsstand nach `dc0d6e4`).
+
+**Beobachtet:** Zahlen mit Komma lesen und mit Komma ausgeben muss jedes Projekt selbst schreiben; das Taschenrechner-Beispiel hat dafür eigene Funktionen.
+
+**Ursache:** nachgewiesen: nur das private `_zahl` in `pcl/analyse.py`.
+
+**Zu tun:** `zahl(text)` und `text(zahl, stellen=…)` in `pcl`, deutsche Fehlermeldung bei ungültiger Eingabe; das Beispiel nutzt sie. Erledigt, wenn Tests sie abdecken.
+
+**Behoben (28. September 2026, ab 0.3.6).** `pcl.zahl(text)` liest Zahlen mit Dezimalkomma (auch mit Punkt), `pcl.text(zahl, stellen=…)` gibt sie mit Komma aus (`pcl/zahlen.py`); eine ungültige Eingabe meldet `NatterZahlError` mit eigenem Eintrag im Fehlerkatalog. Das Beispiel `03_Taschenrechner` benutzt sie statt eigener Hilfsfunktionen. Test: `tests/test_zahlen.py`.
+
+
+---
+
+## 92. Formular: modal öffnen, Position, Symbol ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht der Bedienung und der Möglichkeiten (Entwicklungsstand nach `dc0d6e4`).
+
+**Beobachtet:** Ein Formular lässt sich nicht modal öffnen, nicht auf dem Bildschirm zentrieren oder setzen und bekommt kein eigenes Fenstersymbol.
+
+**Ursache:** nachgewiesen: `pcl/form.py` kennt nur `show()` und `close()`.
+
+**Zu tun:** `show_modal()`, `position` (Bildschirmmitte / wie gesetzt), `left`/`top`, `icon`. Erledigt, wenn ein zweites Formular modal geöffnet werden kann.
+
+**Behoben (28. September 2026, ab 0.3.6).** `Form.show_modal()` (eigene Ereignisschleife bis zum Schließen), `position` (`screen_center` oder `designed`), `left`/`top` und `icon`. Test: `tests/test_form_modal_position.py`.
+
+
+---
+
+## 93. Keine Schriftfarbe ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht der Bedienung und der Möglichkeiten (Entwicklungsstand nach `dc0d6e4`).
+
+**Beobachtet:** Text lässt sich nicht einfärben; rote Schrift bei einer falschen Antwort geht nicht.
+
+**Ursache:** nachgewiesen: `pcl/font.py` kennt nur Name, Größe, fett, kursiv.
+
+**Zu tun:** `font_color` bzw. `font.color` für alle Komponenten mit Text, im Inspektor mit Farbwähler. Erledigt, wenn ein Test das festhält.
+
+**Behoben (28. September 2026, ab 0.3.6).** `font.color` (im Inspektor `font_color` mit Farbwähler und Prüfung) für alle Komponenten mit Text. Tests: `tests/test_schriftfarbe.py` und ein Rundlauf über `.pfm` und Codeerzeugung.
+
+
+---
+
+## 94. Label ohne Ausrichtung ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht der Bedienung und der Möglichkeiten (Entwicklungsstand nach `dc0d6e4`).
+
+**Beobachtet:** Beschriftungen stehen immer links; eine Rechneranzeige braucht rechtsbündig.
+
+**Ursache:** nachgewiesen: kein `alignment` in `pcl/components/standard.py`.
+
+**Zu tun:** `alignment` (links, mitte, rechts) für Label, Edit, Panel. Erledigt, wenn Designer und Programm es zeigen.
+
+**Behoben (28. September 2026, ab 0.3.6).** `alignment` (`left`, `center`, `right`) für Label, Edit und Panel, im Designer wie im Programm. Test: `tests/test_ausrichtung.py`, auch am gezeichneten Bild.
+
+
+---
+
+## 95. Edit ohne Passwort, Maximallänge, Nur-Zahlen; kein Standardknopf ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht der Bedienung und der Möglichkeiten (Entwicklungsstand nach `dc0d6e4`).
+
+**Beobachtet:** Ein Eingabefeld kann Text nicht verbergen, begrenzen oder auf Zahlen beschränken. Kein Knopf reagiert auf Eingabe.
+
+**Ursache:** nachgewiesen: kein `EchoMode`, `setMaxLength`, Validator, `setDefault` in `pcl`.
+
+**Zu tun:** `password`, `max_length`, `nur_zahlen`-artige Eigenschaft (Name nach Projektstil), `Button.default`. Erledigt, wenn Tests das festhalten.
+
+**Behoben (28. September 2026, ab 0.3.6).** `Edit.password`, `Edit.max_length`, `Edit.numbers_only` und `Button.default`. Weil Qt Standardknöpfe nur in Dialogen kennt, leitet der Tastenfilter die Eingabetaste an den Standardknopf des Formulars weiter; in Memo und StringGrid nicht, und ein Knopf mit Fokus klickt sich selbst. Test: `tests/test_edit_optionen_standardknopf.py`.
+
+
+---
+
+## 96. Kein Fokus setzen, kein Tooltip ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht der Bedienung und der Möglichkeiten (Entwicklungsstand nach `dc0d6e4`).
+
+**Beobachtet:** Nach „Neu raten“ lässt sich der Cursor nicht ins Eingabefeld setzen; Komponenten haben keinen Hinweistext.
+
+**Ursache:** nachgewiesen: weder `setFocus` noch `setToolTip` in `pcl`.
+
+**Zu tun:** `set_focus()` und `hint` an jeder Komponente. Erledigt, wenn Tests das festhalten.
+
+**Behoben (28. September 2026, ab 0.3.6).** `Control.set_focus()` und `hint` (Hinweis beim Überfahren) an jeder Komponente; bei Komponenten, die nur im Designer zu sehen sind, ohne `hint`. Test: `tests/test_fokus_und_hinweis.py`.
+
+
+---
+
+## 97. ListBox und StringGrid zu schlicht ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht der Bedienung und der Möglichkeiten (Entwicklungsstand nach `dc0d6e4`).
+
+**Beobachtet:** ListBox ohne Mehrfachauswahl und Sortierung; StringGrid ohne Spaltenköpfe, Spaltenbreiten und Schreibschutz.
+
+**Ursache:** nachgewiesen: `pcl/components/standard.py`, `additional.py`.
+
+**Zu tun:** ListBox `multi_select`, `selected`, `sorted`; StringGrid Spaltenköpfe, Spaltenbreiten, `read_only`. Erledigt, wenn Tests das festhalten.
+
+**Behoben (28. September 2026, ab 0.3.6).** ListBox: `multi_select` (Strg und Umschalt wie unter Windows üblich), `selected` im Code, `sorted`. StringGrid: `col_titles` als neue Sammlung, `col_widths[i]` im Code, `default_col_width`, `read_only`. Test: `tests/test_listbox_stringgrid_ausbau.py`.
+
+
+---
+
+## 98. Ausgabe-Panel wird nie geleert ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht der Bedienung und der Möglichkeiten (Entwicklungsstand nach `dc0d6e4`).
+
+**Beobachtet:** Die Ausgaben aller Läufe stapeln sich; „Leeren“ und „Kopieren“ fehlen.
+
+**Ursache:** nachgewiesen: `ausgabe_liste.clear()` kommt nicht vor.
+
+**Zu tun:** Vor jedem Start leeren (abschaltbar), Kontextmenü mit Leeren und Kopieren. Erledigt, wenn ein Test das festhält.
+
+**Behoben (27. September 2026, ab 0.3.6).** Vor jedem Start ohne Debugger wird das Panel „Ausgabe“ geleert; abschaltbar unter „Werkzeuge → Einstellungen …“ (`ausgabe/vor_start_leeren`). Die rechte Maustaste im Panel bietet „Markierte Zeilen kopieren“, „Alles kopieren“ (jeweils ohne die Uhrzeit vor jeder Zeile) und „Leeren“; die Liste erlaubt dafür eine Mehrfachauswahl (`ausgabe_kontextmenue`). Tests: `tests/test_ausgabe_und_einstellungen.py`.
+
+
+---
+
+## 99. Variablen-Panel flach und nur lokal ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht der Bedienung und der Möglichkeiten (Entwicklungsstand nach `dc0d6e4`).
+
+**Beobachtet:** Listen und Objekte lassen sich im Variablen-Panel nicht aufklappen; globale Variablen fehlen.
+
+**Ursache:** nachgewiesen: `_debugger_variablen_bereit` legt flache Einträge an und liest nur „Locals“.
+
+**Zu tun:** Aufklappen über `variablesReference`, Globale als eigener Zweig. Erledigt, wenn ein Test eine Liste aufklappt.
+
+**Behoben (27. September 2026, ab 0.3.6).** Einträge im Panel „Variablen“ mit Inhalt (Listen, Wörterbücher, Objekte) tragen einen Pfeil; beim Aufklappen fragt Natter die Kinder beim Debugger nach (`_variable_aufgeklappt`, Signal `antwort` der Debug-Sitzung mit Zweck `kind:…`). Hält das Programm in einer Funktion, stehen die globalen Variablen als eigener Zweig „Globale Variablen“ darunter, ohne Module, Funktionen und Klassen. Test: `test_liste_aufklappen_globale_und_bedingter_haltepunkt` in `tests/test_debugger_variablen_ueberwachen.py` (gegen echtes debugpy: `zahlen` aufgeklappt zeigt 3, 1, 4).
+
+
+---
+
+## 100. Debugger: keine überwachten Ausdrücke, bedingten Haltepunkte, Werte-Tooltips ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht der Bedienung und der Möglichkeiten (Entwicklungsstand nach `dc0d6e4`).
+
+**Beobachtet:** Ein Ausdruck lässt sich nicht beobachten, ein Haltepunkt keine Bedingung tragen, und beim Überfahren einer Variablen im Halt erscheint kein Wert.
+
+**Ursache:** nachgewiesen: kein Reiter dafür, `breakpoints_setzen` schickt nur Zeilen.
+
+**Zu tun:** Reiter „Überwachen“, Bedingung per Rechtsklick auf den Haltepunkt, Tooltip mit dem Wert im Halt. Erledigt, wenn Tests das festhalten.
+
+**Behoben (27. September 2026, ab 0.3.6).** Neuer Reiter „Überwachen“: Ausdrücke eintragen, bei jedem Halt werden sie neu ausgerechnet; was sich nicht ausrechnen lässt, steht als „(lässt sich hier nicht ausrechnen)“ da. Die rechte Maustaste im Zeilenrand bietet „Haltepunkt setzen/entfernen“, „Bedingung festlegen …“ und „Bedingung entfernen“; ein bedingter Haltepunkt ist orange, die Bedingung geht als `condition` an debugpy, auch beim Start und während des Laufs, und wandert mit ihrer Zeile. Im Halt zeigt der Hinweis über einem Namen im Editor dessen Wert (`wert_gefragt` im Editor, `auswerten_fuer` in der Debug-Sitzung). Tests: `tests/test_debugger_variablen_ueberwachen.py` (Halt erst bei `i == 2`, überwachter Ausdruck `ergebnis * 10` ergibt 40, Hinweis zu `ergebnis` ergibt 4; Bedingung wandert; Menü im Rand).
+
+
+---
+
+## 101. Kein Einstellungsdialog, Schriftgröße nicht dauerhaft ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht der Bedienung und der Möglichkeiten (Entwicklungsstand nach `dc0d6e4`).
+
+**Beobachtet:** Die Schriftgröße im Editor geht nur mit Strg+Mausrad und ist beim nächsten Start vergessen; Strg+Plus/Minus/0 fehlen.
+
+**Ursache:** nachgewiesen: kein Schlüssel für die Schriftgröße in den Einstellungen.
+
+**Zu tun:** Strg+Plus/Minus/0, Schriftgröße gemerkt, „Extras → Einstellungen …“ mit Schriftgröße und Leeren der Ausgabe. Erledigt, wenn die Größe einen Neustart übersteht.
+
+**Behoben (27. September 2026, ab 0.3.6).** „Ansicht → Schrift größer/kleiner/normal“ mit Strg+Plus, Strg+Minus und Strg+0; die Größe gilt für alle offenen Editoren, jeder neue Editor übernimmt sie, und sie bleibt über einen Neustart gemerkt (`editor/schriftgroesse`). Neu „Werkzeuge → Einstellungen …“ (`ide/shell/einstellungen_dialog.py`) mit Schriftgröße und dem Leeren der Ausgabe. Nebenbefund: Strg+Mausrad wirkte im Hauptfenster nie, weil das Stylesheet der IDE `QuelltextEditor` auf 11 pt festlegt und gegen `setFont` gewinnt; `schriftgroesse_setzen` setzt die Größe deshalb zusätzlich im eigenen Stylesheet des Editors. Die Tastenkürzel-Übersicht und das Handbuch nennen die Tasten. Tests: `tests/test_ausgabe_und_einstellungen.py`.
+
+
+---
+
+## 102. Suchen zu schwach ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht der Bedienung und der Möglichkeiten (Entwicklungsstand nach `dc0d6e4`).
+
+**Beobachtet:** Kein „In allen Dateien suchen“, keine Groß-/Kleinschreibung, kein ganzes Wort, der letzte Suchbegriff geht verloren, ein erfolgloses Weitersuchen meldet nichts.
+
+**Ursache:** nachgewiesen: `ide/shell/suchen_dialog.py`.
+
+**Zu tun:** Optionen, Vorbelegung mit der Markierung, Meldung ohne Treffer, „Suchen → In allen Dateien suchen …“ mit Trefferliste. Erledigt, wenn Tests das festhalten.
+
+**Behoben (27. September 2026, ab 0.3.6).** Der Suchdialog (`ide/shell/suchen_dialog.py`) hat Schalter für Groß- und Kleinschreibung und für ganze Wörter, einen Knopf „Zurück“, Eingabe sucht weiter, und eine Zeile im Dialog meldet „… kommt nicht vor“ und „N Stellen ersetzt“. Der Dialog bleibt zwischen zwei Aufrufen erhalten, Suchtext und Schalter bleiben stehen, eine Markierung innerhalb einer Zeile wird zum Suchtext. Neu: „Suchen → Zurücksuchen“ (Umschalt+F3) und „Suchen → In allen Dateien suchen …“ (Strg+Umschalt+F, `ide/shell/in_dateien_suchen.py`), das die Units des Projekts durchsucht, offene Editoren mit ihrem ungespeicherten Text, und bei Doppelklick die Datei an der Zeile öffnet. Handbuch Abschnitt 5 nennt die Tasten. Tests: `tests/test_suchen_erweitert.py`.
+
+
+---
+
+## 103. Keine Klammerpaar-Hervorhebung ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht der Bedienung und der Möglichkeiten (Entwicklungsstand nach `dc0d6e4`).
+
+**Beobachtet:** Zur Klammer am Cursor wird die Gegenklammer nicht hervorgehoben.
+
+**Ursache:** nachgewiesen: `_markierungen_setzen` kennt nur Funde und die aktuelle Zeile.
+
+**Zu tun:** Beide Klammern hervorheben. Erledigt, wenn ein Test das festhält.
+
+**Behoben (27. September 2026, ab 0.3.6).** Steht eine runde, eckige oder geschweifte Klammer direkt vor oder hinter dem Cursor, werden sie und ihre Gegenklammer farbig hinterlegt (`klammerpaar_am_cursor`, `_gegenklammer` in `ide/shell/quelltexteditor.py`). Klammern in Texten zwischen Anführungszeichen und in Kommentaren zählen nicht mit (`_code_maske`); gesucht wird bis 20 000 Zeichen weit. Tests: `tests/test_klammerpaar.py`.
+
+
+---
+
+## 104. Explorer zeigt keine Datendateien, kein Ordner öffnen, keine Abgabe als ZIP ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht der Bedienung und der Möglichkeiten (Entwicklungsstand nach `dc0d6e4`).
+
+**Beobachtet:** CSV-, TXT-, Datenbank- und Bilddateien des Projekts erscheinen nicht; der Projektordner lässt sich nicht im Windows-Explorer öffnen; ein Projekt lässt sich nicht als ZIP abgeben.
+
+**Ursache:** nachgewiesen: `Projekt` liest nur `*.py`, `*.pfm`, `*.pdiag`.
+
+**Zu tun:** Gruppe „Dateien“ mit den übrigen Dateien (öffnen in den vorhandenen Betrachtern), „Projekt → Ordner öffnen“, „Projekt → Als ZIP speichern …“. Erledigt, wenn Tests das festhalten.
+
+**Behoben (27. September 2026, ab 0.3.6).** Der Projekt-Explorer hat eine Gruppe „Dateien“ mit Daten, Texten, Bildern und Datenbanken des Projekts, auch aus Unterordnern wie `daten/` (`Projekt.weitere_dateien`); Python-Dateien, Formulare, Diagramme, die Projektdatei, `__pycache__`, `build` und `dist` bleiben draußen, erzeugte Dateien also weiterhin unsichtbar. Ein Doppelklick öffnet sie im passenden Betrachter. Neu: „Projekt → Projektordner öffnen“ (Windows-Explorer) und „Projekt → Als ZIP speichern …“, das vorher alles speichert und das Projekt ohne Zwischenablagen in eine ZIP schreibt (`projekt_als_zip`). Tests: `tests/test_explorer_dateien_und_zip.py`; `test_leerer_explorer_hat_alle_gruppen_ohne_kinder` kennt die vierte Gruppe.
+
+
+---
+
+## 105. Designer: Ausrichten, Verteilen, gleiche Größe, Raster ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht der Bedienung und der Möglichkeiten (Entwicklungsstand nach `dc0d6e4`).
+
+**Beobachtet:** Mehrere Komponenten lassen sich nicht ausrichten, verteilen oder auf gleiche Größe bringen; das Raster ist fest.
+
+**Ursache:** nachgewiesen: `RASTER = 8` fest, keine Ausrichtbefehle in `ide/designer`.
+
+**Zu tun:** Kontextmenü bei Mehrfachauswahl: links/rechts/oben/unten ausrichten, waagerecht/senkrecht verteilen, gleiche Breite/Höhe. Erledigt, wenn Tests das festhalten.
+
+**Behoben (27. September 2026, ab 0.3.6).** Kontextmenü „Ausrichten“ im Designer, grau unter zwei ausgewählten Komponenten: linke, rechte, obere oder untere Kanten an der zuletzt angeklickten Komponente ausrichten (in Formularkoordinaten, auch über Behälter hinweg), waagerecht oder senkrecht verteilen (ab drei), gleiche Breite, gleiche Höhe - jeweils ein Rückgängig-Schritt. Ein Rechtsklick in eine Mehrfachauswahl behält sie. Untermenü „Raster“ mit 4, 8 oder 16 Pixeln für Pfeiltasten, Einrasten und Punkte; die Wahl wird nicht gespeichert. Handbuch Abschnitt 5. Test: `tests/test_designer_ausrichten.py`; `tests/test_kontextmenues.py` kennt die neuen Einträge, `tests/test_ide_funktionspruefung.py` löst auch Untermenüs aus.
+
+
+---
+
+## 106. „Zuletzt geöffnet“ nicht im Menü, kein Strg+W, kein Zurück ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht der Bedienung und der Möglichkeiten (Entwicklungsstand nach `dc0d6e4`).
+
+**Beobachtet:** Die zuletzt geöffneten Projekte stehen nur auf der Startseite; Strg+W schließt keinen Reiter; nach F12 führt nichts zurück.
+
+**Ursache:** nachgewiesen: `zuletzt_merken` speist nur `startbild.py`.
+
+**Zu tun:** „Datei → Zuletzt geöffnet“, Strg+W, „Suchen → Zurück“ (Alt+Links). Erledigt, wenn Tests das festhalten.
+
+**Behoben (27. September 2026, ab 0.3.6).** „Datei → Zuletzt geöffnet“ zeigt dieselben Projekte wie die Startseite, neu aufgebaut bei jedem Aufklappen. „Fenster → Reiter schließen“ mit Strg+W schließt den vorderen Reiter mit derselben Nachfrage wie das „×“. „Suchen → Zurück zur vorigen Stelle“ mit Alt+Links führt an die Stelle vor dem letzten Sprung zurück; gemerkt wird vor F12 und vor dem Öffnen eines Treffers aus „In allen Dateien suchen“ (`sprung_merken`, bis 50 Stellen). Handbuch Abschnitt 5 nennt Strg+W und Alt+Links. Tests: `tests/test_navigation.py`.
+
+
+---
+
+## 107. Beispielprojekte ohne Zeichnen, Menü, zweites Fenster, Dateien ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht der Bedienung und der Möglichkeiten (Entwicklungsstand nach `dc0d6e4`).
+
+**Beobachtet:** Kein Beispiel zeigt PaintBox/Shape, ein Hauptmenü, ein zweites Formular oder Speichern in einer Textdatei.
+
+**Ursache:** nachgewiesen: die neun Beispiele unter `beispielprojekte/`.
+
+**Zu tun:** Ein Beispiel „Notizbuch“ (Menü, Memo, Speichern, zweites Formular) und eins „Malen“ (PaintBox, Farben). Erledigt, wenn beide mit `python main.py` laufen und im Menü stehen.
+
+**Behoben (28. September 2026, ab 0.3.6).** Zwei neue Beispielprojekte: `10_Notizbuch` (Hauptmenü, Memo mit Ankern, Öffnen und Speichern einer Textdatei über die neuen Dialoge, zweites Formular `u_info` mit `show_modal()`, Standardknopf) und `11_Malen` (PaintBox, Mausereignisse, Farbflächen, `color_dialog`, Strichbreite). Die Design-Dateien hat der Generator geschrieben; beide erscheinen unter „Datei → Beispielprojekte“, die übrigen Beispiele nennen „Stufe N von 11“. Test: `tests/test_beispiele_notizbuch_malen.py`, mit einem Lauf von `python main.py` für beide.
+
+
+---
+
+## 108. Keine Anker: Komponenten wachsen nicht mit dem Fenster ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, zweite Durchsicht der Bedienung und der Möglichkeiten (Entwicklungsstand nach `dc0d6e4`).
+
+**Beobachtet:** Wird ein Formular zur Laufzeit vergrößert, bleiben alle Komponenten stehen.
+
+**Ursache:** nachgewiesen: kein `anchors` in `pcl`.
+
+**Zu tun:** `anchors` (links, oben, rechts, unten) an Komponenten, im Inspektor als Häkchen. Erledigt, wenn ein Memo mit rechts/unten beim Vergrößern mitwächst.
+
+**Behoben (28. September 2026, ab 0.3.6).** `Control.anchors` mit vier Häkchen im Inspektor (`anchors_left`, `anchors_top`, `anchors_right`, `anchors_bottom`, Kategorie Layout): eine Komponente behält beim Vergrößern des Formulars oder Behälters den Abstand zu den verankerten Kanten, im Designer bewegt sich nichts. Nebenbei: `top` zählt auch nach dem Anzeigen ab der Unterkante einer Menüleiste. Test: `tests/test_anker.py` (ein Memo mit rechts und unten wächst mit).
+
+
+---
+
+## 109. Ein gelöschter Behälter hinterlässt die Namen seines Inhalts ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, beim Arbeiten an Punkt 73 aufgefallen.
+
+**Beobachtet:** Wird im Designer ein Panel samt Knopf `b_innen` gelöscht, bleibt `b_innen` als Attribut am Formular stehen. In der `.pfm` fehlt der Knopf richtig, aber ein neu platzierter Knopf bekommt nicht `b_innen`, sondern `b_innen2`, und ein Umbenennen in `b_innen` scheitert.
+
+**Ursache:** nachgewiesen: `_komponente_entfernen` in `ide/designer/canvas.py` entfernt nur das Attribut der gelöschten Komponente selbst, nicht die ihrer Kinder.
+
+**Zu tun:** Beim Löschen eines Behälters die Attribute aller darin liegenden Komponenten mit entfernen und beim Rückgängigmachen wiederherstellen. Erledigt, wenn ein Test das festhält.
+
+**Behoben (27. September 2026, ab 0.3.6).** `_LoeschenKommando` in `ide/designer/canvas.py` merkt sich beim Löschen eines Behälters seinen ganzen Inhalt (`_inhalt`, auch verschachtelt), entfernt dessen Attribute vom Formular und stellt sie beim Rückgängigmachen wieder her. Test: `test_geloeschter_behaelter_gibt_die_namen_frei` in `tests/test_designer_mehrfachauswahl.py` (nach dem Löschen ist `b_innen` wieder frei, Rückgängig legt den Knopf zurück ins Panel).
+
+
+---
+
+## 110. Beim ersten Start ist acht Sekunden lang nichts zu sehen ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, Messung zu Punkt 48.
+
+**Beobachtet:** Nach einer Installation erscheint das Ladebild erst nach rund 8 Sekunden, weil es aus Python kommt und Python und Qt beim ersten Mal vom Virenschutz geprüft werden. Wer in dieser Zeit ein zweites Mal klickt, startet Natter zweimal.
+
+**Ursache:** nachgewiesen: `Natter.exe` (`tools/launcher.py`) zeigt nichts, das Ladebild entsteht in `ide/ladeanzeige.py` nach dem Laden von Qt.
+
+**Zu tun:** Der Starter zeigt sofort ein schlichtes Fenster („Natter startet …“) mit Windows-Mitteln (ohne Qt) und schließt es, sobald das Ladebild da ist; ein zweiter Doppelklick während des Starts öffnet kein zweites Natter. Erledigt, wenn in der gebauten Fassung das Fenster innerhalb einer Sekunde erscheint.
+
+**Behoben (27. September 2026, ab 0.3.6; Nachweis an der gebauten Fassung siehe unten).** `Natter.exe` (`tools/launcher.py`) zeigt sofort ein schlichtes Fenster „Natter startet …“, gebaut nur mit Windows-Aufrufen über `ctypes`, und schließt es, sobald die gestartete `pythonw.exe` ein sichtbares Fenster hat (das Ladebild) oder nach 120 Sekunden. Eine benannte Sperre (`Local\NatterStartetGerade`) erkennt einen zweiten Klick aufs Symbol während des Ladens; der endet dann ohne zweites Natter. Mit einer Projektdatei als Argument bleibt ein zweiter Start möglich. Tests: `tests/test_launcher_startfenster.py` (Fenster erscheint und verschwindet, Sperre, Warten endet mit dem ersten Fenster des Kindprozesses).
+
+
+---
+
+## 111. Diagrammfenster schließt ohne Nachfrage, Änderungen gehen verloren ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** Ein geändertes Diagramm (Titel „*a.pdiag“) schließt über „Datei → Schließen“ und über das X sofort und ohne Frage; die `.pdiag` bleibt auf dem alten Stand. Beim Beenden der IDE fragt Natter nur nach geänderten Editor-Reitern, offene Diagramme zählen nicht mit. Probe: Klasse platzieren, `close()` gibt `True` zurück, in der Datei stehen 0 Formen.
+
+**Ursache:** nachgewiesen: `DiagrammFenster` in `ide/diagramm/fenster.py` hat kein `closeEvent` (`grep closeEvent ide/diagramm` findet nichts), `_bei_aenderung` (Zeile 553) setzt nur `_geaendert`. `HauptFenster._ungespeicherte_editoren` (`ide/shell/hauptfenster.py`, Zeile 2403) durchläuft nur `editor_tabs`, nicht `_offene_diagramme`. `DiagrammFenster.speichern` (Zeile 1127) fängt keinen `OSError`.
+
+**Zu tun:** Beim Schließen eines geänderten Diagramms „Speichern / Verwerfen / Abbrechen“ anbieten; Beenden und „Alle speichern“ schließen geänderte Diagramme ein; ein Fehler beim Speichern erscheint als Meldung. Erledigt, wenn `close()` nach „Abbrechen“ `False` liefert und Tests alle drei Wege abdecken.
+
+**Behoben (27. September 2026, ab 0.3.6).** `DiagrammFenster` hat ein `closeEvent`, das bei ungespeicherten Änderungen Speichern, Verwerfen und Abbrechen anbietet (`_vor_dem_schliessen_fragen`, in Tests über `tests/conftest.py` mit „Verwerfen“ beantwortet). `speichern()` liefert jetzt, ob es geklappt hat; `speichern()` und `speichern_unter()` fangen `OSError` ab und melden ihn, das Fenster bleibt dann offen und als geändert markiert. Im Hauptfenster nennt die Frage beim Beenden auch geänderte Diagramme, „Alle speichern“ speichert sie mit, und nach der Antwort schließen die Diagrammfenster, ohne selbst noch einmal zu fragen. Tests: `tests/test_diagramm_schliessen.py`, `test_beenden_nennt_und_speichert_geaenderte_diagramme`.
+
+
+---
+
+## 112. Reiter schließen mit „Speichern“ verwirft den Text, wenn das Speichern scheitert ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** Ein geänderter Reiter wird geschlossen, in der Nachfrage „Speichern“ gewählt, die Datei ist aber schreibgeschützt. Die Warnung „… konnte nicht gespeichert werden … Der Text steht noch im Editor.“ erscheint, danach geht der Reiter trotzdem zu, und der Text ist verloren. Probe: 1 Reiter vorher, 0 nachher, die Datei enthält die Änderung nicht.
+
+**Ursache:** nachgewiesen: `_tab_schliessen` in `ide/shell/hauptfenster.py` (Zeilen 3259-3272) ruft `_aktuelle_datei_speichern()` auf, wertet das Ergebnis nicht aus (die Methode liefert immer `None`, Zeilen 2381-2401) und entfernt den Reiter. `closeEvent` (Zeile 2882) prüft dagegen das Ergebnis von `alle_speichern`.
+
+**Zu tun:** `_aktuelle_datei_speichern` gibt zurück, ob gespeichert wurde; `_tab_schliessen` bricht sonst ab. Erledigt, wenn ein Test mit schreibgeschützter Datei zeigt, dass der Reiter offen und als geändert markiert bleibt.
+
+**Behoben (27. September 2026, ab 0.3.6).** `_aktuelle_datei_speichern` liefert jetzt, ob gespeichert wurde, und `_tab_schliessen` schließt den Reiter nur, wenn das Speichern gelungen ist; sonst bleibt er offen und als geändert markiert. Die Frage vor dem Schließen steht in einer eigenen Methode `_reiter_schliessen_fragen`. Test: `test_reiter_bleibt_offen_wenn_speichern_scheitert` in `tests/test_haltepunkte_und_reiter.py` mit einer schreibgeschützten Datei.
+
+
+---
+
+## 113. Umbenennen auf den Namen einer Formular-Eigenschaft lässt die Komponente verschwinden ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** Im Objektinspektor wird eine Komponente `e_x` in `caption` (oder `width`, `color` …) umbenannt. Das Widget bleibt sichtbar, am Formular fehlt aber das Attribut; die nächste Änderung schreibt die `.pfm` ohne diese Komponente. Die Ausnahme landet in der allgemeinen Fehlermeldung. Probe: `komponente_umbenennen(f.e_x, "caption")` wirft `TypeError … erwartet ein Text (str)`, danach ist `"e_x" in vars(f)` falsch, und nach dem Verschieben eines anderen Knopfs steht in der `.pfm` nur noch `b_ok`.
+
+**Ursache:** nachgewiesen: `ide/designer/canvas.py`, Zeile 1758 prüft nur `vars(self.formular)` und nicht die Props der Klasse. `_UmbenennenKommando._umhaengen` (Zeilen 471-474) führt erst `delattr` und dann `setattr` aus; das `setattr` scheitert mit `NatterPropertyError` (Unterklasse von `TypeError`), das alte Attribut ist dann schon weg. `ide/inspector/eigenschaften_tabelle.py`, Zeile 312 fängt nur `ValueError`.
+
+**Zu tun:** Namen ablehnen, die an der Formularklasse schon belegt sind, mit einer Meldung im Inspektor; `_umhaengen` so umbauen, dass ein Fehler nichts verändert. Erledigt, wenn Umbenennen in `caption` eine Meldung zeigt und `e_x` in der `.pfm` bleibt.
+
+**Behoben (27. September 2026, ab 0.3.6).** Ursache bestätigt: `komponente_umbenennen` prüfte nur die Attribute des Formulars, nicht die Namen der Formularklasse (Eigenschaften wie `caption`, Methoden wie `show`), und `_UmbenennenKommando._umhaengen` entfernte den alten Namen, bevor der neue gesetzt war. Solche Namen werden jetzt mit einer Meldung abgelehnt, der neue Name wird zuerst gesetzt und der alte danach entfernt, `_eindeutigen_namen_finden` überspringt Namen der Formularklasse, und der Objektinspektor fängt auch `TypeError` ab. Test: `tests/test_designer_umbenennen_namen.py`.
+
+
+---
+
+## 114. Umbenennen bei offener Unit: Speichern stellt den alten Methodennamen wieder her ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** Die Unit steht im Editor offen, eine Ereignismethode `button_click` existiert, dann wird der Knopf in `b_los` umbenannt. Der Designer schreibt `b_los_click` in die Datei auf der Platte, der Editor zeigt weiter `button_click`. Nach dem Speichern steht auf der Platte wieder `button_click`, die `.pfm` verweist auf `b_los_click`; das Programm scheitert beim Start mit `AttributeError`.
+
+**Ursache:** nachgewiesen: `_UmbenennenKommando._methoden_umbenennen` (`ide/designer/canvas.py`, Zeilen 445-465) schreibt mit `write_text` direkt auf die Platte, auch beim Rückgängigmachen. Nur das Anlegen einer Methode gleicht einen offenen Editor ab (`HauptFenster._zur_methode_springen`, ab Zeile 3023). Eine Dateiüberwachung gibt es nicht (`QFileSystemWatcher` kommt in `ide/shell` nicht vor).
+
+**Zu tun:** Umbenennen und Rückgängig ändern eine offene Unit im Editor statt auf der Platte, auf demselben Weg wie `_zur_methode_springen`. Erledigt, wenn ein Test nach Umbenennen und Speichern gleiche Namen in Unit und `.pfm` findet.
+
+**Behoben (27. September 2026, ab 0.3.6).** `_methoden_umbenennen` benennt die Ereignismethode jetzt auch in jedem offenen Editor der Unit um, als ein Rückgängig-Schritt und ohne den Zustand „geändert“ anzufassen; Rückgängig im Designer nimmt es im Editor mit zurück. Test: `tests/test_designer_umbenennen_editor.py` mit dem echten Hauptfenster (Projekt anlegen, Methode erzeugen, umbenennen, speichern: Unit und `.pfm` tragen denselben Namen, mit und ohne ungespeicherte Änderungen).
+
+
+---
+
+## 115. Formular lässt sich nicht öffnen, wenn einer Komponente in einem Behälter die Methode fehlt ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** Ein Knopf in einem Panel hat `on_click = b_innen_click`. Fehlt die Methode in der Unit oder hat die Unit einen Syntaxfehler (etwa einen vergessenen Doppelpunkt), bricht das Öffnen des Designers mit „'Form1' object has no attribute 'b_innen_click'“ ab. Für Komponenten direkt auf dem Formular springen Platzhalter ein.
+
+**Ursache:** nachgewiesen: `_referenzierte_handler` in `ide/designer/laden.py` (Zeilen 24-27) sieht nur eine Ebene von `children` an. Der `AttributeError` wird beim Öffnen (`ide/shell/hauptfenster.py`, Zeilen 3647-3660 und 1337) nicht gefangen.
+
+**Zu tun:** `_referenzierte_handler` rekursiv über alle Kinder laufen lassen. Erledigt, wenn ein Test ein Formular mit fehlender Methode im Panel öffnet.
+
+**Behoben (27. September 2026, ab 0.3.6).** `_referenzierte_handler` in `ide/designer/laden.py` durchsucht jetzt alle verschachtelten `children`, nicht nur die erste Ebene; ein Formular mit einem Knopf in einem Panel, dessen Methode in der Unit fehlt, öffnet wieder. Test: `tests/test_designer_laden.py` (Methode fehlt; Unit mit Syntaxfehler).
+
+
+---
+
+## 116. Beispiel Kontoverwaltung bricht bei „nan“ und „²“ ab, „inf“ landet in der Datenbank ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** In `06_Kontoverwaltung` führt der Betrag `nan` beim Einzahlen zu `IntegrityError NOT NULL constraint failed: konto.stand` und zum Abbruch; der Betrag `inf` wird angenommen und bleibt als Kontostand in `konten.sqlite`. Die Kontonummer `²` bricht mit `ValueError` ab. Dieselbe Lücke hat `02_Zahlenraten`, dessen Kommentar verspricht, die Prüfung schütze vor dem Fehler in `int()`.
+
+**Ursache:** nachgewiesen: `u_main.py`, Zeilen 119-124 nimmt jeden Wert von `float()`, `u_konto.py`, Zeilen 37-40 prüft `betrag <= 0` (für `nan` falsch). `u_main.py`, Zeilen 103-106 und `02_Zahlenraten/u_main.py`, Zeilen 32-36 prüfen mit `isdigit()`, das für `²` wahr ist.
+
+**Zu tun:** Den Betrag mit `math.isfinite` prüfen, `isdecimal()` statt `isdigit()`, Kommentar in 02 anpassen. Erledigt, wenn alle drei Eingaben eine Meldung ergeben statt eines Abbruchs.
+
+**Behoben (28. September 2026, ab 0.3.6).** `06_Kontoverwaltung` (Formular und Klasse `Konto`) und `02_Zahlenraten` prüfen Eingaben mit `math.isfinite` bzw. `isdecimal()`; „nan“, „inf“ und „²“ führen zu einer Meldung statt zu einem Abbruch oder einem Eintrag in der Datenbank. Test: `tests/test_beispiel_eingaben_pruefen.py` auf einer Kopie.
+
+
+---
+
+## 117. Code aus dem Klassendiagramm hat Syntaxfehler, die Prüfung meldet nichts ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** „Quelltext → Erzeugen“ schreibt eine Unit, die sich nicht übersetzen lässt, wenn ein Attribut mit Startwert vor einem ohne steht (`def __init__(self, stand: float = 0, inhaber: str)`), wenn Parameter einer Operation so angeordnet sind (`def f(self, a = 1, b)`) oder wenn ein Typ kein Python ist (`stand: Liste von int`). `ungueltige_namen()` meldet in allen drei Fällen nichts; die Unit liegt danach im Projekt und verhindert den Programmstart.
+
+**Ursache:** nachgewiesen: `ide/diagramm/klassen_code.py`, `_init_zeilen` (Zeilen 103-117) und `_operation_zeilen` (Zeilen 191-196) übernehmen die Reihenfolge aus dem Diagramm; `ungueltige_namen` (ab Zeile 238) prüft nur Namen. `compile()` des Ergebnisses meldet „parameter without a default follows parameter with a default“ bzw. „invalid syntax“.
+
+**Zu tun:** Das Ergebnis vor dem Schreiben mit `compile()` prüfen und eine deutsche Meldung mit Klasse und Feld zeigen; Parameter mit Startwert im `__init__` hinter die ohne stellen. Erledigt, wenn ein Test die drei Fälle abdeckt.
+
+**Behoben (27. September 2026, ab 0.3.6).** In `ide/diagramm/klassen_code.py` stehen in `__init__` Parameter mit Startwert jetzt hinter denen ohne; die Zuweisungen behalten die Reihenfolge des Diagramms. `ungueltige_namen` prüft auch Typen, Start- und Vorgabewerte, Rückgabetypen und einen Parameter ohne Vorgabe hinter einem mit Vorgabe, mit Meldungen wie „Konto.stand: Der Typ „Liste von int“ ist kein gültiger Python-Ausdruck.“; zuletzt wird jede Klasse übersetzt und ein Fehler mit Zeile gemeldet. Die Warnung im Fenster sagt „Die Angaben …“. Tests: fünf neue in `tests/test_diagramm_klassen_code.py`.
+
+
+---
+
+## 118. Haltepunkte, die während des Debuggens gesetzt oder entfernt werden, wirken nicht ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** Steht das Programm an einem Haltepunkt und wird im Zeilenrand ein weiterer gesetzt oder einer entfernt, arbeitet der Debugger nach „Fortsetzen“ weiter mit den Haltepunkten vom Start. Ein neuer roter Punkt hält nicht, ein entfernter hält weiter.
+
+**Ursache:** nachgewiesen: das Signal `breakpoint_umgeschaltet` (`ide/shell/quelltexteditor.py`, Zeile 159) ist nur in `tests/test_quelltexteditor.py` verbunden; `DebugSitzung.breakpoints_setzen` (`ide/debugger/debug_sitzung.py`, Zeile 106) ruft in `ide/shell` niemand auf. Haltepunkte gehen nur beim Start über `_offene_breakpoints()` (`hauptfenster.py`, Zeile 3883) an debugpy.
+
+**Zu tun:** Das Signal beim Öffnen eines Editors verbinden und bei laufender Sitzung `breakpoints_setzen` aufrufen. Erledigt, wenn ein Debugger-Test an einem nachträglich gesetzten Haltepunkt hält.
+
+**Behoben (27. September 2026, ab 0.3.6).** Der Editor meldet jede Änderung seiner Haltepunkte über das neue Signal `breakpoints_geaendert`; das Hauptfenster gibt sie bei laufender Debug-Sitzung sofort an debugpy weiter (`_breakpoints_weitergeben`). Test: `test_haltepunkt_waehrend_des_debuggens_setzen` (gegen echtes debugpy: im Halt Zeile 1 entfernt, Zeile 4 gesetzt, nach „Fortsetzen“ Halt in Zeile 4).
+
+
+---
+
+## 119. Haltepunkte wandern beim Einfügen und Löschen von Zeilen nicht mit ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** Haltepunkt auf Zeile 3 (`c = 3`), darüber werden zwei Zeilen eingefügt. Der Haltepunkt steht weiter auf Zeile 3, dort steht jetzt `a = 1`. Das Programm hält an der falschen Anweisung, oder der Punkt liegt auf einer Leerzeile.
+
+**Ursache:** nachgewiesen: `QuelltextEditor.breakpoints` (`ide/shell/quelltexteditor.py`, Zeilen 229 und 249-260) ist eine Menge fester Zeilennummern; bei Textänderungen wird nur die Randbreite angepasst (Zeile 234).
+
+**Zu tun:** Haltepunkte an Textblöcke binden oder über `contentsChange` nachführen. Erledigt, wenn ein Test zeigt, dass der Haltepunkt nach dem Einfügen darüber bei `c = 3` bleibt.
+
+**Behoben (27. September 2026, ab 0.3.6).** `QuelltextEditor._breakpoints_nachfuehren` hängt an `contentsChange` und verschiebt die Haltepunkte um die Zahl eingefügter oder gelöschter Zeilen: eine Änderung am Zeilenanfang schiebt die Zeile selbst mit, eine mitten in der Zeile erst die folgenden; gelöschte Zeilen nehmen ihre Haltepunkte mit. Während des Debuggens gehen verschobene Haltepunkte ebenfalls sofort an debugpy (Punkt 118). Tests: fünf Fälle in `tests/test_haltepunkte_und_reiter.py`.
+
+
+---
+
+## 120. Designer nimmt Schlüsselwörter und Methodennamen des Formulars als Komponentennamen an ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** Eine Komponente lässt sich in `class` umbenennen; danach hat `u_main_design.py` einen Syntaxfehler in Zeile 7, und das Programm startet nicht. Die Namen `show` und `close` werden ebenfalls angenommen und verdecken die Methoden des Formulars (`f.show` ist danach ein Edit), sodass `form.show()` im Programm scheitert; dieser letzte Schritt ist aus dem Code geschlossen, nicht ausgeführt.
+
+**Ursache:** nachgewiesen: `ide/designer/canvas.py`, Zeile 1752 prüft nur `str.isidentifier()`, nicht `keyword.iskeyword` und nicht die Attribute der Formularklasse.
+
+**Zu tun:** Schlüsselwörter und alle Attribute der Formularklasse ablehnen (zusammen mit 113 lösbar). Erledigt, wenn `class`, `show` und `caption` mit einer Meldung abgelehnt werden.
+
+**Behoben (27. September 2026, ab 0.3.6).** Python-Schlüsselwörter werden als Komponentennamen abgelehnt (`keyword.iskeyword`); Methodennamen des Formulars wie `show` und `close` fallen unter die Prüfung aus Punkt 113. Test: `tests/test_designer_umbenennen_namen.py` (`class`, `show`, `caption` bringen je eine Meldung im Objektinspektor).
+
+
+---
+
+## 121. Duplizieren liefert eine unvollständige Kopie und legt sie aus dem Panel aufs Formular ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** Strg+D bzw. „Duplizieren“ im Kontextmenü verliert die Einträge einer ListBox, die Zeilen eines Memos, die Einträge eines Hauptmenüs und die Schrift; ein dupliziertes Panel ist leer. Die Kopie eines Knopfs aus einem Panel landet auf dem Formular, mit den Panel-Koordinaten als Formular-Koordinaten. Kopieren und Einfügen macht es richtig.
+
+**Ursache:** nachgewiesen: `_DuplizierenKommando` in `ide/designer/canvas.py`, Zeile 264 erzeugt die Kopie mit `type(urspruenglich)(canvas.formular)` ohne den Behälter, Zeile 265 übernimmt nur `eigenschaften()`, nicht Sammlungs-, Baum- und verschachtelte Eigenschaften und nicht die Kinder. In der `.pfm` steht die Kopie nur mit `left` und `top`.
+
+**Zu tun:** Duplizieren über denselben Weg wie Kopieren/Einfügen (`kind_als_dict`, Einfügen im selben Behälter). Erledigt, wenn die Kopie in der `.pfm` bis auf Name und Lage dem Original gleicht.
+
+**Behoben (27. September 2026, ab 0.3.6).** Duplizieren läuft jetzt über denselben Weg wie Kopieren und Einfügen (`kind_als_dict` und `_eintraege_einsetzen`) und setzt die Kopie in den Behälter des Originals: Listeneinträge, Zeilen eines Memos, Menüeinträge, Schrift und der Inhalt eines Panels kommen mit, Ereignisverknüpfungen bleiben, weil die Methoden in derselben Unit stehen. `_DuplizierenKommando` entfällt. Test: `tests/test_designer_duplizieren.py`.
+
+
+---
+
+## 122. Platzieren: Escape bricht nicht ab, Klick auf eine Komponente im Panel setzt an falscher Stelle ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** Ein Klick auf eine Palettenkachel schaltet das Platzieren ein; Escape beendet es nicht, obwohl der Docstring (`canvas.py`, Zeilen 1697-1705) Escape nennt. Wird im Platziermodus auf einen Knopf in einem Panel geklickt, entsteht die neue Komponente auf dem Formular bei (24, 24) statt an der Klickstelle (221, 61) im Panel.
+
+**Ursache:** nachgewiesen: `_tastatur_verarbeiten` (`ide/designer/canvas.py`, Zeilen 1179-1236) behandelt `Key_Escape` nicht (kommt in `ide/designer` nicht vor). `_platzierung_bei_klick_ausfuehren` (Zeilen 1718-1725) rechnet mit `komponente.left + x`, obwohl `left` relativ zum Panel ist.
+
+**Zu tun:** Escape beendet das Platzieren; die Klickstelle über `mapTo` auf das Formular umrechnen und den Behälter unter der Maus als Eltern nehmen. Erledigt, wenn ein Test beides festhält.
+
+**Behoben (27. September 2026, ab 0.3.6).** Während des Platzierens beendet Escape den Modus, auch wenn die Palette den Fokus hat (`_EscapeWache`, ein kleiner Filter an der Anwendung, dazu `_tastatur_verarbeiten`). Ein Platzierungsklick auf eine Komponente in einem Panel rechnet die Stelle jetzt mit `mapTo` in Formularkoordinaten um, der Behälter unter der Maus wird Elternteil. Test: drei neue Tests in `tests/test_designer_placzieren.py`.
+
+
+---
+
+## 123. Eingefügte und duplizierte Diagrammformen gehören zur Gruppe des Originals ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** Zwei Klassen gruppieren, kopieren und einfügen: die Kopien tragen dieselbe Gruppe `g1`. Ein Klick auf eine Kopie wählt alle vier Formen, Verschieben bewegt die Originale mit. Strg+D verhält sich genauso.
+
+**Ursache:** nachgewiesen: `einfuegen()` (`ide/diagramm/canvas.py`, ab Zeile 1402) und `duplizieren()` (Zeile 467) vergeben neue `id`s, übernehmen `group` aber unverändert; `_mit_gruppe()` (Zeile 583) zieht dann alle Formen der Gruppe in die Auswahl.
+
+**Zu tun:** Beim Einfügen jede kopierte Gruppe auf eine neue Kennung abbilden (`_naechste_gruppennummer`), beim Duplizieren einer einzelnen Form `group` leeren. Erledigt, wenn ein Test das festhält.
+
+**Behoben (27. September 2026, ab 0.3.6).** Beim Einfügen bekommt jede mitkopierte Gruppe eine neue Kennung (`_naechste_gruppennummer`), Duplizieren einer einzelnen Form lässt `group` weg; ein Klick auf eine eingefügte Kopie wählt nur die Kopien. Tests: drei neue in `tests/test_diagramm_anordnen.py`.
+
+
+---
+
+## 124. Entscheidungstabelle: zwei schnelle Klicks auf eine Zelle schalten nur einmal ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** Wer eine leere Bedingungszelle schnell zweimal anklickt, um auf „N“ zu kommen, landet bei „J“. Probe mit Drücken, Loslassen, Doppelklick, Loslassen: `['J']` statt `['N']`.
+
+**Ursache:** nachgewiesen: `mouseDoubleClickEvent` in `ide/diagramm/tabelle_canvas.py` behandelt nur die Textspalte (`spalte < 0`) und reicht das Ereignis nicht weiter; Qt meldet den zweiten Klick als Doppelklick statt als Mausdruck.
+
+**Zu tun:** Im Doppelklick bei Wertezellen ebenfalls `zelle_schalten` aufrufen. Erledigt, wenn die Probe `['N']` liefert.
+
+**Behoben (27. September 2026, ab 0.3.6).** `mouseDoubleClickEvent` in `ide/diagramm/tabelle_canvas.py` schaltet eine Wertzelle jetzt auch beim zweiten schnellen Klick (`zelle_schalten`). Test: `test_zwei_schnelle_klicks_schalten_zweimal`.
+
+
+---
+
+## 125. DBGrid: Klick auf eine Zeile bewegt den Datensatzzeiger nicht ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** Hängen DBGrid, DBText und DBEdit an derselben DataSource, zeigen DBText und DBEdit nach einem Klick auf eine andere Gitterzeile weiter den alten Datensatz; nur der DBNavigator bewegt den Zeiger. Zellen im Gitter lassen sich bearbeiten, die Änderung geht aber nirgends hin. Probe: nach `setCurrentCell(2, 0)` Gitterzeile 2, Datensatzzeiger 0, DBText „Anna“.
+
+**Ursache:** nachgewiesen: `DBGrid._qwidget_erzeugen` (`pcl/components/data_controls.py`, Zeilen 106-107) verbindet kein `currentCellChanged`.
+
+**Zu tun:** Beim Zeilenwechsel den Zeiger setzen und die DataSource benachrichtigen; Zellen schreibschützen oder an `set_field` weitergeben. Erledigt, wenn ein Test nach Klick auf die dritte Zeile deren Wert im DBText findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** Ein Zeilenwechsel im DBGrid setzt den Datensatzzeiger und meldet es der DataSource; die Zellen sind schreibgeschützt. Tests in `tests/test_data_controls.py`.
+
+
+---
+
+## 126. StringGrid verliert Werte außerhalb von `row_count`/`col_count` ohne Meldung ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** Bei `row_count = 3` bleibt `cells[1, 7] = "x"` ohne Wirkung, Lesen ergibt `""`; negative Indizes laufen ebenso still durch. Wer sich um eins verzählt, bekommt keinen Hinweis, sondern eine scheinbar leere Zelle.
+
+**Ursache:** nachgewiesen: `pcl/components/additional.py`, Zeilen 146-168 prüfen den Index nicht; Qt übergeht `setItem` außerhalb des Bereichs.
+
+**Zu tun:** Index prüfen und einen deutschen Fehler auslösen („Zeile 7 gibt es nicht, die Tabelle hat 3 Zeilen (0 bis 2)“), Eintrag in `pcl/fehlerkatalog.py` und `docs/fehlerkatalog.yaml`. Erledigt, wenn ein Test das festhält.
+
+**Behoben (28. September 2026, ab 0.3.6).** `Cells` prüft den Index und meldet `NatterZellenError`, etwa „Zeile 7 gibt es nicht, die Tabelle hat 3 Zeilen (0 bis 2).“, mit eigenem Eintrag im Fehlerkatalog. Test: `tests/test_stringgrid_zellen_pruefen.py`.
+
+
+---
+
+## 127. Chart: Achsen mit Dezimalpunkt, `add_regression` ohne Argumente scheitert ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** Die Achsen eines Charts zeigen `0.5, 1.0, 1.5`, die Legende desselben Diagramms `y = 1,86·x + 0,20` (etwa im Beispiel `08_Regression`). Außerdem legt `add_regression()` laut Docstring die Gerade „über die vorhandenen Punkte“; nach `add_scatter_series(x, y)` bricht der Aufruf ohne Argumente aber mit `NatterDatenError` ab.
+
+**Ursache:** nachgewiesen: `pcl/components/chart.py` setzt keinen Achsen-Formatter (`set_major_formatter` kommt in `pcl` nicht vor). `add_regression` (Zeilen 497-505) zählt nur Daten aus `load_*`.
+
+**Zu tun:** Formatter mit Dezimalkomma für beide Achsen, auch für Prozentangaben im Kreisdiagramm; `add_regression` nimmt die Punkte der letzten Serie, oder der Docstring wird berichtigt. Erledigt, wenn ein Test „0,5“ an der Achse findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** Achsen zeigen Dezimalkommas, wo matplotlibs Standardformat gilt; Kategorienachsen behalten ihre Beschriftungen. `add_regression()` ohne Argumente nimmt die letzte Punkt- oder Linienreihe. Test: `tests/test_chart_dezimalkomma.py`.
+
+
+---
+
+## 128. Struktogramm-Code: `break` in einem Anweisungsblock außerhalb einer Schleife ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** Steht `break` in einem gewöhnlichen Anweisungsblock außerhalb einer Schleife, entsteht `def test():` mit `break` im Rumpf und damit „'break' outside loop“; ebenso bei `await x`, `nonlocal x` und `global x` nach einer Zuweisung. Der Modul-Docstring sagt, der erzeugte Code sei immer gültiges Python.
+
+**Ursache:** nachgewiesen: `_ist_anweisung()` in `ide/diagramm/struktogramm_code.py` prüft mit `ast.parse` in einer künstlichen `while True:`-Hülle; `_anweisung()` gibt den Text dann auch außerhalb von Schleifen aus. Fehler, die erst beim Übersetzen auffallen, erkennt `ast.parse` nicht.
+
+**Zu tun:** `break`/`continue` in `_anweisung` wie in `_aussprung` abhängig von `in_schleife` behandeln und das Gesamtergebnis in `als_python` mit `compile()` prüfen. Erledigt, wenn ein Test die vier Fälle abdeckt.
+
+**Behoben (27. September 2026, ab 0.3.6).** `break` und `continue` in einem Anweisungsblock außerhalb einer Schleife werden wie ein Aussprung behandelt, `_ist_anweisung` prüft mit `compile()` und setzt eine Schleife nur dort voraus, wo wirklich eine ist; `await` und `nonlocal` werden zum Kommentar. `als_python` übersetzt das Ergebnis am Ende ganz (`uebersetzbar_machen`); eine Anweisung, die erst im Zusammenhang scheitert (`global x` nach einer Zuweisung), wird zum Kommentar mit `pass` und als nicht übernommen gezählt. Tests: fünf neue in `tests/test_struktogramm_code.py`.
+
+
+---
+
+## 129. „Ersetzen“ übergeht Treffer, die „Alle ersetzen“ ersetzt ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** Text `Zahl = 1` / `print(Zahl)`, Suchen `zahl`, Ersetzen durch `wert`: viermal „Ersetzen“ ändert nichts und springt nur von Treffer zu Treffer, „Alle ersetzen“ ersetzt beide Stellen.
+
+**Ursache:** nachgewiesen: `ide/shell/suchen_dialog.py`, Zeilen 75 und 104 suchen mit `find(text)` ohne Flags, also ohne Rücksicht auf Groß- und Kleinschreibung; `ersetzen` (Zeile 87) vergleicht streng mit `selectedText() == text`.
+
+**Zu tun:** Beide Knöpfe nach derselben Regel vergleichen (die Schalter dafür gehören zu Punkt 102). Erledigt, wenn ein Test zeigt, dass „Ersetzen“ und „Alle ersetzen“ dieselben Stellen treffen.
+
+**Behoben (27. September 2026, ab 0.3.6).** „Ersetzen“ prüft die Markierung jetzt nach derselben Regel, nach der gesucht wurde (`_passt`: ohne Rücksicht auf Groß- und Kleinschreibung, außer der Schalter ist gesetzt); „Weitersuchen“, „Ersetzen“ und „Alle ersetzen“ benutzen dieselben Suchflags. Test: `test_ersetzen_und_alle_ersetzen_treffen_dieselben_stellen`.
+
+
+---
+
+## 130. `SQLQuery.next()` läuft über das Ende hinaus ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** Bei drei Zeilen ergibt `last(); next(); next(); prior()` `eof = True` und Index 3; `prior()` kommt nicht auf den letzten Datensatz zurück.
+
+**Ursache:** nachgewiesen: `pcl/components/data_access.py`, Zeilen 269-278 zählen `_index` ohne Obergrenze hoch.
+
+**Zu tun:** `next()` bei `len(_zeilen)` anhalten. Erledigt, wenn ein Test `prior()` danach auf dem letzten Datensatz findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `SQLQuery.next()` bleibt am Ende der Zeilen stehen. Test: `tests/test_sqlquery_ende.py`.
+
+
+---
+
+## 131. SpinEdit: `minimum` über `maximum` lässt Eigenschaft und Anzeige auseinanderlaufen ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** Nach `minimum = 200` bei `maximum = 100` hat das Widget das Maximum 200, die Eigenschaft `maximum` und damit der Objektinspektor zeigen weiter 100.
+
+**Ursache:** nachgewiesen: `pcl/components/additional.py`, Zeilen 423-434 gleichen nur `value` ab; `FloatSpinEdit` (Zeilen 462-485) liest `minimum` und `maximum` zurück.
+
+**Zu tun:** Wie bei `FloatSpinEdit` zurücklesen; TrackBar, ScrollBar und ProgressBar ebenso prüfen. Erledigt, wenn ein Test das festhält.
+
+**Behoben (28. September 2026, ab 0.3.6).** SpinEdit, TrackBar, ScrollBar und ProgressBar lesen `minimum`, `maximum` und `value` nach einer Änderung aus dem Widget zurück, Eigenschaft und Anzeige laufen nicht mehr auseinander. Test: `tests/test_wertbereich_zuruecklesen.py`.
+
+
+---
+
+## 132. Strg+Y wirkt im Struktogramm und in der Entscheidungstabelle nicht ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** Das Handbuch (`docs/handbuch.md`, Zeile 319) nennt Strg+Y für Wiederholen, das Menü des Diagramm-Editors Strg+Umschalt+Z. In den Formen-Diagrammen geht Strg+Y, im Struktogramm und in der Entscheidungstabelle tut es nichts (Probe: nach Strg+Z bleibt die Zahl der Blöcke nach Strg+Y unverändert).
+
+**Ursache:** nachgewiesen: `ide/diagramm/fenster.py`, Zeile 612 setzt nur „Ctrl+Shift+Z“; nur `ide/diagramm/canvas.py` (Zeile 1108) fängt Strg+Y selbst ab.
+
+**Zu tun:** Der Aktion „Wiederholen“ beide Kürzel geben. Erledigt, wenn ein Test Strg+Y in allen drei Zeichenflächen festhält.
+
+**Behoben (27. September 2026, ab 0.3.6).** „Wiederholen“ im Diagrammfenster hat Strg+Y und Strg+Umschalt+Z. Test: `tests/test_diagramm_wiederholen.py` mit echtem Tastendruck in allen drei Zeichenflächenarten.
+
+
+---
+
+## 133. Palettenhinweise und Komponenten-Referenz nennen Planungsabschnitte und T-Klassennamen ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** Die Hinweise der Datenbank-Kacheln in der Palette enden auf „(Abschnitt 10.1)“, beim DBNavigator „(Abschnitt 10.1: Erster/ Zurück/…)“. Die Komponenten-Referenz in der Hilfe enthält `TPaintBox`, `TRadioGroup`, `TMaskEdit`, `TDateEdit` und `TTimeEdit` und verweist auf README-Abschnitte, die nicht mitgeliefert werden.
+
+**Ursache:** nachgewiesen: der Hinweis ist der erste Satz des Docstrings (`ide/palette/palette.py`, Zeilen 180-183), die Docstrings stehen in `pcl/components/data_controls.py`, Zeilen 153, 177, 210, 267. Die T-Namen stehen in `docs/komponenten.md`, Zeilen 389, 651, 867, 898, 922.
+
+**Zu tun:** Erste Docstring-Sätze ohne Abschnittsverweis, T-Namen und Verweise auf nicht ausgelieferte Abschnitte aus der Referenz entfernen (ergänzt Punkt 80). Erledigt, wenn kein Palettenhinweis „Abschnitt“ enthält und `docs/komponenten.md` keinen T-Namen mehr nennt.
+
+**Behoben (28. September 2026, ab 0.3.6).** Die ersten Sätze der Docstrings der Datensteuerelemente nennen keine Planungsabschnitte mehr (sie erscheinen als Hinweis in der Palette); ein Test in `tests/test_komponentenpalette.py` wacht über Hinweise und Referenz.
+
+
+---
+
+## 134. Zuschreibungs-Etiketten stehen noch im Code, `test_textstil.py` übersieht sie ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** `tests/test_textstil.py` ist grün, obwohl „Nutzer-Hinweis“ in `pcl/components/system.py` (Zeilen 10-11, dort mit zerbrochenem Satz) und `ide/palette/palette.py` (Zeile 127), „(Nutzer-Hinweis, M11)“ in `ide/shell/theme.py` (Zeile 69), „(Nutzer-Feedback September 2026: …)“ in Stylesheet-Kommentaren in `ide/shell/theme.py` (Zeilen 112 und 301) und Fettschrift im Docstring von `beispielprojekte/06_Kontoverwaltung/u_main.py` (Zeile 57) stehen.
+
+**Ursache:** nachgewiesen: das Muster in `tests/test_textstil.py` (Zeile 133) kennt „Hinweis“ nicht; der Test liest keine `/* */`-Kommentare in Stylesheet-Texten und nur `ide` und `pcl` (Zeile 89), nicht `beispielprojekte`.
+
+**Zu tun:** Die Stellen umformulieren, den Test um „Hinweis“, Stylesheet-Kommentare und die Python-Dateien unter `beispielprojekte` erweitern. Erledigt, wenn der erweiterte Test vor der Änderung rot und danach grün ist.
+
+**Behoben (28. September 2026, ab 0.3.6).** Zuschreibungs-Etiketten in `pcl/components/system.py`, `ide/palette/palette.py` und `ide/shell/theme.py` (dort auch in Stylesheet-Kommentaren) entfernt, Fettschrift im Beispiel 06. `tests/test_textstil.py` kennt „Hinweis“ als Etikett, liest `/* */`-Kommentare in Zeichenketten und durchsucht auch `beispielprojekte/*.py`.
+
+
+---
+
+## 135. AGENTS.md nennt zwei Stellen für die Versionsnummer, es sind drei ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, dritte Durchsicht (`/durchsicht`), Entwicklungsstand `cf07562`.
+
+**Beobachtet:** AGENTS.md sagt, die Version stehe in `pyproject.toml` und `tools/natter.iss`. Sie steht auch als `VERSION` in `ide/main.py` (Zeile 39, Startbild), und `tools/auslieferung_bauen.py` (Zeilen 22-23, 396) setzt sie dort. Das Beispiel nennt `--version 0.2.0`, aktuell ist 0.3.5.
+
+**Ursache:** nachgewiesen: Abschnitt „Auslieferung“ in `AGENTS.md`.
+
+**Zu tun:** AGENTS.md auf drei Dateien und ein aktuelles Beispiel bringen. Erledigt, wenn der Abschnitt zum Skript passt.
+
+**Behoben (28. September 2026, ab 0.3.6).** AGENTS.md nennt alle drei Stellen der Versionsnummer, das Beispiel lautet `--version 0.3.6`. Test in `tests/test_auslieferung_bauen.py`.
+
+
+---
+
+## 136. Gelegentlicher Abbruch „Fatal Python error: Aborted“ in Tests mit dem Hauptfenster ~~(erledigt)~~
+
+**Gemeldet:** 27. September 2026, beim Abarbeiten der Punkte 54 bis 83 (Testläufe mehrerer Hauptfenster-Tests hintereinander), ebenso auf dem Stand `817477e`.
+
+**Beobachtet:** Mehrere Testdateien mit `HauptFenster` hintereinander brachen gelegentlich mit „Fatal Python error: Aborted“ ab, während der Faden „jedi-aufwaermen“ lief, oder blieben hängen. Im vollen Lauf trat es nicht auf.
+
+**Ursache:** vermutet, nicht sicher nachstellbar: Pythons Speicherbereinigung läuft in dem Faden, der gerade Speicher anfordert. Im Hintergrundfaden des Aufwärmens (`ide/shell/vervollstaendigung.py`) räumte sie dann ein Fenster eines früheren Tests ab, das als Zyklus übrig war; ein Qt-Widget, das außerhalb des Hauptfadens zerstört wird, lässt Qt abbrechen. In Natter selbst ist dasselbe möglich, wenn beim Start ein geschlossenes Fenster als Zyklus übrig ist.
+
+**Zu tun:** Während des Aufwärmens die automatische Speicherbereinigung aussetzen; in den Tests nach jedem Test im Hauptfaden aufräumen. Erledigt, wenn zehn Läufe der betroffenen Testdateien hintereinander ohne Abbruch durchlaufen.
+
+**Behoben (28. September 2026, ab 0.3.6).** Das Aufwärmen von jedi setzt die automatische Speicherbereinigung für seine Dauer aus (`_aufwaermen_jetzt` in `ide/shell/vervollstaendigung.py`), und in den Tests räumt nach jedem Test der Hauptfaden die Zyklen ab (`_im_hauptfaden_aufraeumen` in `tests/conftest.py`). Nachweis: die zuvor betroffenen Testdateien (`test_objekt*`, `test_inspektor*`, `test_eigensch*`, `test_hauptfenster*`, 1294 Tests) zehnmal hintereinander ohne Abbruch.
+
+---
+
+## 137. Absturz nach dem Schließen eines zweiten Formulars ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, voller Testlauf vor 0.3.6 (Stand `edbdf0d`): „Windows fatal exception: code 0xc0000374“ in `tests/test_beispiele_notizbuch_malen.py`, bei jedem Lauf der Datei.
+
+**Beobachtet:** Ist ein Formular offen und wird ein zweites gezeigt, geschlossen und von Python aufgeräumt, bricht das Programm später beim nächsten Fenster ab (Heap-Beschädigung, manchmal Zugriffsverletzung). Im Notizbuch-Beispiel reicht es, das Info-Fenster zu öffnen und zu schließen. In 0.3.5 trat es nicht auf.
+
+**Ursache:** nachgewiesen mit `git bisect` über `pcl/`: Commit `472bfab` (Punkt 92). `Form._position_anwenden` (`pcl/form.py`) fragte `self._qwidget.screen()` eines Fensters ab, das noch nie gezeigt war. Mit `QGuiApplication.primaryScreen()` an derselben Stelle läuft das Nachstellskript durch.
+
+**Zu tun:** Die Bildschirmmitte aus `QGuiApplication.primaryScreen()` nehmen. Erledigt, wenn ein Test in einem eigenen Prozess zwei Formulare öffnet, eines schließt und aufräumt und danach 200 Fenster ohne Abbruch zeigt, und die Beispiel-Tests wieder durchlaufen.
+
+**Behoben (28. September 2026, ab 0.3.6).** `Form._position_anwenden` (`pcl/form.py`) nimmt die Bildschirmmitte aus `QGuiApplication.primaryScreen()` statt aus `QWidget.screen()` des noch verborgenen Fensters. Test: `test_ein_aufgeraeumtes_zweites_formular_beschaedigt_nichts` in `tests/test_form_modal_position.py`, in einem eigenen Prozess; ohne die Änderung bricht er ab.
+
+
+---
+
+## 138. CSV-Import in die Datenbank ersetzt eine gleichnamige Tabelle ohne Rückfrage ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** „Werkzeuge → CSV in Datenbank importieren …“ mit `konten.csv` in eine Datenbank, die schon eine Tabelle `konten` mit Daten hat: die Tabelle ist danach weg und durch den Inhalt der CSV ersetzt, ohne Nachfrage und ohne Meldung. Probe: vorher `konten(nr, inhaber, stand)` mit zwei Zeilen, nachher `konten(name, ort)` mit einer Zeile. Außerdem fliegen zwei Fehler ungefangen aus dem Menüeintrag heraus: ohne vorher „Verbinden“ `NatterDatenbankError: Keine offene Datenbankverbindung.`, und eine CSV-Zeile mit weniger Feldern als die Kopfzeile ergibt „SQL-Fehler: You did not supply a value for binding parameter :s2.“, englisch, nachdem die neue Tabelle schon angelegt ist.
+
+**Ursache:** nachgewiesen: `ide/database/panel.py`, `csv_importieren` (Zeilen 213-246) führt `DROP TABLE IF EXISTS` aus, ohne zu prüfen, ob es die Tabelle gibt; `_csv_importieren_dialog` (Zeilen 208-211) fängt keine Ausnahme ab; kurze oder lange Zeilen werden nicht angeglichen.
+
+**Zu tun:** Gibt es die Tabelle schon, nachfragen oder einen freien Namen wählen; ohne Verbindung eine Meldung zeigen statt eine Ausnahme; fehlende Felder mit leeren Werten auffüllen oder die Zeile mit Zeilennummer melden, bevor etwas angelegt wird. Erledigt, wenn ein Test mit vorhandener Tabelle diese nach dem Import unverändert findet (oder nur nach Zustimmung ersetzt).
+
+**Behoben (28. September 2026, ab 0.3.6).** `DatenbankPanel.csv_importieren` (`ide/database/panel.py`) löscht eine vorhandene Tabelle nur noch mit `ersetzen=True`; sonst bekommt die neue Tabelle einen freien Namen (`konten_2`). Der Menüeintrag und der Knopf im Panel fragen bei einer gleichnamigen Tabelle nach (`_tabelle_ersetzen_fragen`: Ja ersetzt, Nein legt `konten_2` an, Abbrechen tut nichts). Ohne Verbindung kommt statt der Ausnahme die Meldung „Es ist keine Datenbank verbunden …“. Zu kurze CSV-Zeilen werden mit leeren Werten aufgefüllt; hat eine Zeile mehr Felder als die Kopfzeile, wird sie mit Zeilennummer gemeldet, bevor etwas angelegt ist. Lese- und SQL-Fehler erscheinen als Meldung statt als Traceback. Tests in `tests/test_database_panel.py`: `test_csv_import_laesst_eine_gleichnamige_tabelle_stehen`, `test_csv_import_dialog_fragt_vor_dem_ersetzen`, `test_csv_import_ohne_verbindung_meldet_statt_zu_werfen`, `test_csv_import_fuellt_kurze_zeilen_auf_und_meldet_lange`.
+
+
+---
+
+## 139. Unit löschen bei offenem Designer: das Formular kommt ohne Unit zurück ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Ein zweites Formular `u_zweit` anlegen (der Designer geht dabei auf), dann im Projekt-Explorer „Löschen …“ auf `u_zweit.py`. Die drei Dateien sind weg, der Designer-Reiter „u_zweit (Designer)“ bleibt aber offen. Die nächste Änderung darin (Probe: einen Knopf platzieren) schreibt `u_zweit.pfm` und `u_zweit_design.py` wieder auf die Platte, `u_zweit.py` nicht. Im Explorer steht danach ein Formular ohne Unit.
+
+**Ursache:** nachgewiesen: `ide/shell/hauptfenster.py`, `_unit_loeschen` (Zeilen 2168-2175) schließt nur Reiter, deren Inhalt ein `QPlainTextEdit` ist; ein Designer-Reiter steckt in einem `QScrollArea` und trägt keinen Pfad. `DesignerCanvas._nach_aenderung` (`ide/designer/canvas.py`, Zeilen 2267-2278) schreibt bei jeder Änderung in `pfm_pfad`, ob es die Datei noch gibt oder nicht.
+
+**Zu tun:** Beim Löschen auch den Designer-Reiter der `.pfm` schließen, auf dem Weg von `_tabs_im_ordner_schliessen` (`_pfad_zu_formular`). Erledigt, wenn nach dem Löschen kein Reiter des Formulars mehr offen ist und keine der drei Dateien wiederkommt.
+
+**Behoben (28. September 2026, ab 0.3.6).** `_unit_loeschen` (`ide/shell/hauptfenster.py`) schließt jetzt alle Reiter der betroffenen Dateien, auch den Designer-Reiter der `.pfm`, über die neue Methode `_reiter_schliessen_wenn`, die auch `_tabs_im_ordner_schliessen` benutzt; die Datei hinter einem Reiter liefert `_reiter_pfad`. Außerdem setzt `_tab_schliessen` beim Schließen eines Designers `canvas.pfm_pfad = None`, damit ein geschlossener Designer nichts mehr auf die Platte schreibt. Test: `test_unit_loeschen_schliesst_auch_den_designer` in `tests/test_explorer_unit_umbenennen_loeschen.py` legt `u_zweit` an, löscht es und platziert danach noch einen Knopf im alten Designer; keine der drei Dateien kommt wieder.
+
+
+---
+
+## 140. Umbenennen einer Komponente erzeugt eine doppelte Methode, der ältere Code wird wirkungslos ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** `b_ja` bekommt `b_ja_click` mit eigenem Code, dann wird `b_ja` gelöscht (die Methode bleibt in der Unit stehen). `b_ok` bekommt `b_ok_click` und wird in `b_ja` umbenannt. Das wird ohne Rückfrage angenommen; in der Unit steht danach zweimal `def b_ja_click`, und Python benutzt nur die zweite. Der Code der ersten ist ohne jede Meldung tot. Probe: `['def b_ja_click(self, sender):', "self.caption = 'JA-CODE'", 'def b_ja_click(self, sender):', "self.caption = 'OK-CODE'"]`.
+
+**Ursache:** nachgewiesen: `ide/designer/canvas.py`, `komponente_umbenennen` (ab Zeile 2064) prüft Komponentennamen und Klassenattribute, aber nicht, ob der neue Methodenname schon in der Unit steht; `_MethodeUmbenennen.leave_FunctionDef` (`ide/codegen/ereignis.py`, Zeile 113) benennt ohne Prüfung um.
+
+**Zu tun:** Vor dem Umbenennen nachsehen, ob `<neu>_<ereignis>` schon in der Unit steht, und dann mit Meldung ablehnen oder die Methode nicht mitziehen. Erledigt, wenn ein Test den Fall oben durchspielt und danach jede Methode nur einmal in der Unit steht.
+
+**Behoben (28. September 2026, ab 0.3.6).** `DesignerCanvas.komponente_umbenennen` liest vor dem Umbenennen die Methoden der Formularklasse aus der Unit, von der Platte und aus jedem offenen Editor (`_unit_methodennamen`, dazu neu `methoden_im_quelltext` in `ide/designer/laden.py`). Steht die Methode, in die eine selbst erzeugte Ereignismethode umbenannt würde, dort schon, wird das Umbenennen mit der Meldung „In u_main.py steht schon eine Methode 'b_ja_click'. Solange es sie gibt, lässt sich die Komponente nicht in 'b_ja' umbenennen.“ abgelehnt, bevor etwas geändert ist. Test: `test_umbenennen_auf_eine_vorhandene_methode_wird_abgelehnt` in `tests/test_designer_umbenennen_unit.py` spielt den Fall aus dem Punkt durch und findet danach jede Methode einmal in der Unit.
+
+
+---
+
+## 141. Syntaxfehler in der Unit: Doppelklick und Umbenennen im Designer brechen ab und lassen einen halben Zustand zurück ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Die Unit ist mit einem Syntaxfehler gespeichert, was beim Arbeiten ständig vorkommt. Ein Doppelklick auf einen Knopf und das Umbenennen im Objektinspektor enden mit `libcst ParserSyntaxError` in der allgemeinen Fehlermeldung. Beim Umbenennen ist die Komponente im Speicher trotzdem schon umbenannt, der Schritt liegt aber nicht auf dem Rückgängig-Stapel und die `.pfm` ist nicht geschrieben. Die nächste Änderung schreibt die Komponente unter dem neuen Namen mit dem alten Handler (`('b_weiter', {'on_click': 'b_ok_click'})`); Strg+Z holt den alten Namen nicht zurück, sondern nimmt frühere Schritte zurück.
+
+**Ursache:** nachgewiesen: `ide/designer/canvas.py`, `_UmbenennenKommando.tun` (Zeile 547) hängt die Komponente um, bevor `_methoden_umbenennen` die Unit parst; `ereignis_handler_erzeugen` (Zeile 2175) liest und parst ohne Fehlerbehandlung. `ide/kommando.py` legt ein Kommando erst nach erfolgreichem `tun()` auf den Stapel. Der Objektinspektor fängt nur `ValueError` und `TypeError`.
+
+**Zu tun:** Die Unit vorher parsen und bei einem Syntaxfehler mit deutscher Meldung abbrechen („u_main.py hat in Zeile … einen Syntaxfehler“), bevor irgendetwas geändert ist. Erledigt, wenn ein Test mit fehlerhafter Unit eine Meldung bekommt und Formular, `.pfm` und Rückgängig-Stapel unverändert findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** Neu ist `syntaxfehler_zeile` in `ide/codegen/ereignis.py`; es prüft mit dem Python-Übersetzer und mit `libcst`. `komponente_umbenennen` prüft die Unit vor dem Umbenennen, sobald Methoden mitgezogen werden müssen, und bricht mit `ValueError` ab („u_main.py hat in Zeile 6 einen Syntaxfehler. Die Komponente lässt sich erst umbenennen, wenn er behoben ist.“). Der Objektinspektor zeigt das wie jede andere Namensmeldung. Formular, `.pfm` und Rückgängig-Stapel bleiben unverändert. `ereignis_handler_erzeugen` prüft vor dem Schreiben, zeigt die Meldung in einem Hinweisfenster (`_meldung_zeigen`) und gibt `None` zurück; das gilt für den Doppelklick, das Kontextmenü und den Reiter „Ereignisse“. Wird die Unit erst nach dem Umbenennen fehlerhaft, lassen Rückgängig und Wiederholen sie unangetastet, und die Verweise bleiben beim Namen, der in der Unit steht. Tests: `test_umbenennen_bei_syntaxfehler_aendert_nichts`, `test_methode_anlegen_bei_syntaxfehler_meldet_und_aendert_nichts`, `test_rueckgaengig_bei_inzwischen_kaputter_unit_bleibt_stimmig`.
+
+
+---
+
+## 142. Ein `print()` im getesteten Code lässt den ganzen Testlauf scheitern ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** „Projekt → Alle Tests ausführen“ mit einer Unit, deren Funktion `print("rechne", x)` enthält, und einem passenden Test: statt „1 Test gelaufen“ kommt „Testlauf fehlgeschlagen“ mit `JSONDecodeError: Expecting value: line 1 column 1 (char 0)`. Ohne das `print()` besteht derselbe Test. Ein `print()` zum Nachsehen ist im Anfangsunterricht die Regel.
+
+**Ursache:** nachgewiesen: `ide/testrunner/harness.py` schreibt das Ergebnis als JSON auf dieselbe Standardausgabe, auf die auch die Tests schreiben (Zeile 112), und `ide/testrunner/ausfuehrung.py` (Zeile 59) liest die ganze Ausgabe als JSON.
+
+**Zu tun:** Die Standardausgabe während der Tests umlenken (und sie dem Ergebnis des Tests mitgeben) oder das JSON in eine Datei beziehungsweise hinter eine eindeutige Markierung schreiben. Erledigt, wenn ein Test mit `print()` im geprüften Code als bestanden erscheint.
+
+**Behoben (28. September 2026, ab 0.3.6).** `ide/testrunner/harness.py` lenkt `sys.stdout` während Laden und Lauf der Tests auf die Fehlerausgabe um und schreibt das JSON-Ergebnis hinter die Marke `@@natter-testergebnis@@`. `ide/testrunner/ausfuehrung.py` liest nur, was hinter der letzten Marke steht, und dekodiert die Ausgabe mit `errors="replace"`. Test: `test_print_im_geprueften_code_stoert_den_testlauf_nicht` in `tests/test_testrunner_ausfuehrung.py` mit `print()` beim Import, im Test und in der geprüften Funktion.
+
+
+---
+
+## 143. `Strings[i] = wert` prüft den Typ nicht ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** `self.m_text.lines.add(5)` wird mit deutscher Meldung abgelehnt, `self.m_text.lines[0] = 5` nicht. Beim Memo folgt die englische Meldung „sequence item 0: expected str instance, int found“; die 5 bleibt trotzdem in `lines` stehen (`Strings([5, 'a'])`), und jede weitere Änderung scheitert erneut. Bei der ListBox ergibt `items[0] = 5` gar keine Ausnahme, nur eine Shiboken-Meldung auf der Fehlerausgabe („Cannot copy-convert … (int) to C++“).
+
+**Ursache:** nachgewiesen: `pcl/strings.py`, `__setitem__` (Zeilen 88-90) fehlt die Prüfung, die `add` und `zuweisen` haben.
+
+**Zu tun:** In `__setitem__` dieselbe `NatterPropertyError`-Prüfung wie in `add`, bei Zuweisung an einen Ausschnitt für jedes Element. Erledigt, wenn `lines[0] = 5` eine deutsche Meldung bringt und `lines` unverändert bleibt.
+
+**Behoben (28. September 2026, ab 0.3.6).** Ursache bestätigt: `Strings.__setitem__` in `pcl/strings.py` prüfte den Typ nicht und schrieb die Zahl in die Sammlung, bevor die Anzeige an ihr scheiterte. Jetzt läuft vor der Änderung dieselbe `NatterPropertyError`-Prüfung wie bei `add` und `zuweisen` (gemeinsame Hilfsfunktion `_zeile_pruefen`), bei einer Zuweisung an einen Ausschnitt für jedes Element. `lines[0] = 5` meldet sich deutsch, und `lines` bleibt unverändert. Tests: `test_zuweisen_an_eine_zeile_lehnt_eine_zahl_ab`, `test_zuweisen_an_einen_ausschnitt_prueft_jedes_element` und `test_listbox_lehnt_eine_zahl_als_eintrag_ab` in `tests/test_pcl_auswahl_und_fenster.py`.
+
+
+---
+
+## 144. `show_message(42)` bricht mit einer englischen Qt-Meldung ab ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** `show_message(ergebnis)` mit einer Zahl liegt nahe, `print()` nimmt Zahlen ja auch. Es endet in „'PySide6.QtWidgets.QMessageBox.setText' called with wrong argument types … Supported signatures …“; die Fehleranzeige kann nur diesen Text wiedergeben.
+
+**Ursache:** nachgewiesen: `pcl/dialogs.py`, Zeile 59 reicht den Wert ungeprüft an `setText` weiter.
+
+**Zu tun:** Zahlen annehmen und mit `pcl.text()` ausgeben, andere Typen mit deutscher Meldung ablehnen; dasselbe für die übrigen Dialogfunktionen prüfen (`input_box`, `ask_yes_no` …). Erledigt, wenn `show_message(2.5)` „2,5“ zeigt.
+
+**Behoben (28. September 2026, ab 0.3.6).** `pcl/dialogs.py` hat die Hilfsfunktion `_als_text`: ein Text bleibt, wie er ist, eine Zahl wird mit `pcl.text()` geschrieben, alles andere wird mit „… erwartet einen Text oder eine Zahl, erhalten wurde …“ abgelehnt. Sie gilt für die Texte aller Dialogfunktionen (`show_message`, `input_box`, `ask_yes_no`, `open_dialog`, `save_dialog`, `color_dialog`, `input_number`); `input_number` prüft zusätzlich, dass `standard`, `minimum` und `maximum` Zahlen sind und `stellen` eine ganze Zahl ab 0. `show_message` zeigt über `_zeigen` wie die übrigen Dialoge. `show_message(2.5)` zeigt „2,5“. Tests: `test_show_message_zeigt_eine_zahl_mit_komma`, `test_show_message_lehnt_anderes_deutsch_ab`, `test_ask_yes_no_nimmt_eine_zahl_als_frage` und `test_input_number_lehnt_einen_text_als_grenze_ab` in `tests/test_pcl_auswahl_und_fenster.py`.
+
+
+---
+
+## 145. „Datei → Zuletzt geöffnet“ umgeht den Prüfungsmodus und stürzt bei einer beschädigten Projektdatei ab ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Die Rückfrage beim Einschalten des Prüfungsmodus sagt „Die zuletzt geöffneten Projekte und die Beispielprojekte sind in dieser Zeit nicht erreichbar.“ Auf der Startseite fehlt die Liste dann auch, das Menü „Datei → Zuletzt geöffnet“ bleibt aber bedienbar und öffnet die Projekte (Probe: Prüfungsmodus läuft, Menü an, Eintrag „Garten“). Zweitens: ist die `.natter`-Datei eines Eintrags beschädigt, fliegt `JSONDecodeError` ungefangen aus dem Menü heraus, statt der Meldung „… ist beschädigt und lässt sich nicht lesen“, die derselbe Fall über „Projekt öffnen …“ bekommt.
+
+**Ursache:** nachgewiesen: `ide/shell/hauptfenster.py`, `_zuletzt_menue_aufbauen` (Zeilen 2934-2942) fragt `pruefungsmodus_laeuft()` nicht ab und ruft `projekt_oeffnen` statt `projekt_oeffnen_gemeldet`, obwohl dessen Docstring „einen Eintrag unter ‚Zuletzt geöffnet‘“ als Anwendungsfall nennt. Damit fehlt dort auch der Schutz, ein mitgeliefertes Original nur als Kopie zu öffnen. Erst mit Punkt 106 hinzugekommen.
+
+**Zu tun:** Das Menü im Prüfungsmodus sperren wie „Beispielprojekte“ und die Einträge über `projekt_oeffnen_gemeldet` öffnen. Erledigt, wenn ein Test das gesperrte Menü im Prüfungsmodus und die Meldung bei einer beschädigten Datei findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `_zuletzt_menue_aufbauen` (`ide/shell/hauptfenster.py`) leert und sperrt das Menü im Prüfungsmodus und benennt es „Zuletzt geöffnet (im Prüfungsmodus gesperrt)“, wie die Beispielprojekte. Die Einträge gehen über `_zuletzt_geoeffnetes_oeffnen`, das den Prüfungsmodus noch einmal abfragt und dann `projekt_oeffnen_gemeldet` ruft; eine beschädigte Projektdatei ergibt damit die Meldung „… ist beschädigt und lässt sich nicht lesen“, und ein mitgeliefertes Original geht nur als Kopie auf. Tests in `tests/test_pruefungsmodus_ablauf.py`: `test_zuletzt_geoeffnet_ist_im_pruefungsmodus_gesperrt`, `test_zuletzt_geoeffnet_meldet_eine_beschaedigte_projektdatei`.
+
+
+---
+
+## 146. Maus-Ereignisse kommen bei zehn Komponenten nie an ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** `on_click`, `on_double_click`, `on_mouse_down`, `on_mouse_move` und `on_mouse_up` lösen bei ListBox, Memo, StringGrid, DBGrid, HtmlViewer, Calendar, SpinEdit, FloatSpinEdit, DateEdit und TimeEdit nie aus. Der Objektinspektor bietet sie trotzdem an, und `docs/komponenten.md` sagt im Abschnitt „Die Maus“: „Jede sichtbare Komponente hat diese fünf Ereignisse.“ Der häufigste Fall im Unterricht, der Doppelklick auf einen Eintrag einer ListBox, tut damit nichts. Probe: ein Klick in die Mitte jeder Komponente, auf das Widget, das dort tatsächlich liegt, ergibt bei Label, Panel, TrackBar und anderen `['d', 'c']`, bei den zehn genannten `[]`.
+
+**Ursache:** nachgewiesen: `pcl/control.py`, Zeile 395 hängt `_MausFilter` nur an das äußere Widget. Bei Listen, Textfeldern und Tabellen kommt die Maus am `viewport()` an, bei Spinboxen, Datumsfeldern und dem Kalender an inneren Kind-Widgets, die das Ereignis selbst annehmen.
+
+**Zu tun:** Den Filter auch an `viewport()` und an die inneren Widgets hängen, dort, wo die Maus ankommt. Erledigt, wenn ein Test über alle sichtbaren Komponenten einen Klick auf das Widget unter der Mitte als `on_click` meldet.
+
+**Behoben (28. September 2026, ab 0.3.6).** Ursache bestätigt. `Control._filter_anhaengen` in `pcl/control.py` hängt den Ereignisfilter an das äußere Widget und an alle inneren Widgets, die zur Komponente gehören (Anzeigebereich von Listen, Textfeldern und Tabellen, Eingabefeld von Spinboxen und Datumsfeldern, Monatstabelle des Kalenders); ausgelassen sind Bildlaufleisten und alles in einem eigenen Aufklappfenster. Weil Qt ein nicht angenommenes Ereignis an die Eltern weiterreicht, erkennt `_MausFilter._schon_gemeldet` es am äußeren Widget wieder (Art, Zeitstempel, Bildschirmstelle) und meldet es nicht doppelt. Die Koordinaten werden auf die Komponente umgerechnet; `_maus_melden` bekommt dafür statt des Ereignisses den Punkt. Tests: `test_klick_auf_das_widget_unter_der_mitte_ist_on_click` über alle sichtbaren Komponenten, dazu Doppelklick auf einen Listeneintrag, Koordinaten im SpinEdit und einfache Meldung, in `tests/test_maus_innere_widgets.py`.
+
+
+---
+
+## 147. Umbenennen einer Komponente bricht andere Komponenten, die dieselbe Methode benutzen ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** `b_ok` und `b_abbrechen` hängen beide an `b_ok_click`, wie es `docs/erste_schritte.md` für mehrere Knöpfe mit derselben Methode beschreibt. Nach dem Umbenennen von `b_ok` in `b_ja` heißt die Methode in der Unit `b_ja_click`, `b_abbrechen` zeigt in `.pfm` und `u_main_design.py` aber weiter auf `self.b_ok_click`. Das Programm startet danach nicht mehr: `AttributeError: 'Form1' object has no attribute 'b_ok_click'`.
+
+**Ursache:** nachgewiesen: `ide/designer/canvas.py`, `_selbst_erzeugte_methoden` (Zeile 465) sieht nur die Handler der umbenannten Komponente; `_methoden_umbenennen` (Zeile 479) benennt die Methode in der Unit um, hängt aber nur diese eine Komponente neu an.
+
+**Zu tun:** Beim Umbenennen alle Komponenten des Formulars (auch das Formular selbst und Menüeinträge), deren Handler den alten Namen trägt, auf den neuen umhängen, oder die Methode nicht umbenennen, solange sie noch jemand anderes benutzt. Erledigt, wenn der Fall oben als Test durchläuft und das Programm danach startet.
+
+**Behoben (28. September 2026, ab 0.3.6).** Nach dem Umbenennen einer Methode in der Unit hängt `DesignerCanvas._handler_umhaengen` jeden Verweis auf den alten Namen um: an allen Komponenten, am Formular selbst und in den Einträgen von MainMenu und PopupMenu. Rückgängig geht denselben Weg zurück. Tests: `test_andere_nutzer_der_methode_ziehen_mit` (zwei Knöpfe an `b_ok_click`; danach stehen `.pfm` und `u_main_design.py` auf `b_ja_click`, das Programm wird importiert, gestartet und der zweite Knopf ruft die Methode) und `test_menueeintraege_ziehen_mit` in `tests/test_designer_umbenennen_unit.py`.
+
+
+---
+
+## 148. Code aus dem Klassendiagramm bricht bei Selbst- und Vorwärtsbezügen in Typen mit `NameError` ab ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Eine Klasse `Knoten` mit dem Attribut `naechster: Knoten` (verkettete Liste) oder `Kunde` mit `konto: Konto`, wobei `Konto` in der Datei erst danach steht. Der erzeugte Code lässt sich übersetzen und besteht die Prüfung, bricht aber beim Import mit `NameError: name 'Knoten' is not defined` beziehungsweise `'Konto'` ab. `ungueltige_namen()` meldet nichts. Beides sind Standardbeispiele im Unterricht.
+
+**Ursache:** nachgewiesen: `ide/diagramm/klassen_code.py`, Zeile 126 schreibt die Typen als Annotationen in `def __init__(…)` und `-> Typ`; Python 3.13 wertet sie beim Ausführen des `def` aus. `kopfzeilen()` (Zeile 400) setzt kein `from __future__ import annotations`, und `_nach_vererbung_sortiert` ordnet nur nach Vererbung.
+
+**Zu tun:** In `kopfzeilen()` `from __future__ import annotations` voranstellen. Erledigt, wenn ein Test den Code mit Selbst- und Vorwärtsbezug mit `exec` ausführt, ohne dass ein Fehler kommt.
+
+**Behoben (28. September 2026, ab 0.3.6).** `kopfzeilen()` in `ide/diagramm/klassen_code.py` setzt jetzt `from __future__ import annotations` an den Anfang jeder erzeugten Datei, auch bei „Nur die Auswahl“. Die Typangaben werden damit nicht mehr beim Ausführen des `def` ausgewertet, und ein Selbstbezug wie `naechster: Knoten` oder ein Typ, dessen Klasse erst weiter unten steht, bricht den Import nicht mehr ab. Test: `test_selbst_und_vorwaertsbezug_im_typ` in `tests/test_diagramm_klassen_code.py` führt den Code für `Knoten`, `Kunde` und `Konto` mit `exec` aus und legt Objekte an.
+
+
+---
+
+## 149. Code aus dem Klassendiagramm: die Unterklasse ruft `super().__init__` nicht auf ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** `Tier` mit Attribut `name`, `Hund` mit Attribut `rasse` und einer Vererbung von `Hund` nach `Tier`. `Hund.__init__` bekommt nur `rasse`; `Hund("Dackel").name` ergibt `AttributeError`, und `Hund("Bello", "Dackel")` scheitert mit `TypeError … takes 2 positional arguments but 3 were given`. Es gibt keinen Weg, `name` zu übergeben, ohne den erzeugten Code umzubauen.
+
+**Ursache:** nachgewiesen: `ide/diagramm/klassen_code.py`, `_init_zeilen` (Zeilen 87-130) sieht nur die eigenen Attribute und kennt die Basisklassen (`_basisklassen`) nicht. Punkt 35 hat die Vererbung in den Klassenkopf gebracht, nicht in den Konstruktor.
+
+**Zu tun:** Steht die Basisklasse im Diagramm, deren Parameter vorn übernehmen und `super().__init__(…)` erzeugen; sonst wenigstens `super().__init__()` mit einem Kommentar. Erledigt, wenn ein Test `Hund("Bello", "Dackel").name == "Bello"` findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `_init_zeilen` in `ide/diagramm/klassen_code.py` kennt jetzt die erste Basisklasse. Steht sie im Diagramm, kommen ihre Konstruktorparameter vorn in die Signatur der Unterklasse und werden mit `super().__init__(…)` weitergereicht; das gilt über mehrere Stufen und auch für eine Basisklasse mit selbst modelliertem `__init__`. Parameter mit Standardwert stehen weiter am Ende, ein gleichnamiges Attribut ergibt keinen doppelten Parameter. Steht die Basisklasse nicht im Diagramm, entsteht `super().__init__()` mit einem Kommentar, dass ihre Werte dort einzutragen sind. Hat die Unterklasse keine eigenen Attribute, entsteht wie bisher kein `__init__`, und der Konstruktor der Basisklasse gilt. `ungueltige_namen` übersetzt die Klassen erst, wenn alle Einzelprüfungen bestanden sind, damit ein falscher Name in der Basisklasse nicht zusätzlich als Übersetzungsfehler der Unterklasse erscheint. Tests: `test_unterklasse_ruft_den_konstruktor_der_basisklasse` (`Hund("Bello", "Dackel").name == "Bello"`), `test_parameter_mit_startwert_der_basisklasse_stehen_hinten` und `test_basisklasse_ausserhalb_des_diagramms` in `tests/test_diagramm_klassen_code.py`.
+
+
+---
+
+## 150. Der Reiter „Ereignisse“ bietet Methoden an, die es in der Unit nicht mehr gibt ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Nach dem Umbenennen von `b_ok` in `b_ja` steht in der Unit nur noch `b_ja_click`. Die Auswahl für `on_click` eines anderen Knopfs zeigt trotzdem `['b_ja_click', 'b_ok_click']`. Wer `b_ok_click` wählt, bekommt `self.button.on_click = self.b_ok_click` in den erzeugten Code, und das Programm bricht beim Start mit `AttributeError` ab. Dasselbe gilt für jede Methode, die in der Unit gelöscht oder von Hand umbenannt wurde.
+
+**Ursache:** nachgewiesen: `ide/designer/laden.py`, `unit_methoden_ergaenzen` (Zeile 96) fügt der Vorschauklasse Platzhalter nur hinzu und entfernt nie welche; `passende_methoden` in `ide/inspector/ereignisse_tabelle.py` liest `dir(type(formular))`.
+
+**Zu tun:** Beim Nachladen Platzhalter entfernen, die nicht mehr in der Unit stehen, oder die Auswahl nur aus `unit_methoden()` bilden. Erledigt, wenn eine aus der Unit entfernte Methode nicht mehr in der Auswahl erscheint.
+
+**Behoben (28. September 2026, ab 0.3.6).** `unit_methoden_ergaenzen` in `ide/designer/laden.py` nimmt beim Nachladen jeden Platzhalter aus der Vorschauklasse, dessen Methode nicht mehr in der Unit steht. Bei einem Syntaxfehler bleibt die Auswahl, wie sie war. Beim Laden läuft der Abgleich erst nach dem Bau des Formulars, damit ein Verweis auf eine fehlende Methode das Öffnen weiter nicht verhindert (Punkt 115). Tests: `test_die_auswahl_kennt_nur_methoden_der_unit` (nach dem Umbenennen und nach dem Löschen einer Methode von Hand) und `test_eine_fehlende_methode_laesst_das_formular_trotzdem_oeffnen`.
+
+
+---
+
+## 151. Der Prüfungsmodus endet, aber Natter zeigt ihn bis zum Neustart weiter an ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Die rote Anzeige „Prüfungsmodus – noch 4:00 h“ zählt nicht herunter; sie zeigt den Stand beim Einschalten oder beim Start von Natter. Läuft der Modus bei offenem Fenster ab, bleiben Anzeige, „Beispielprojekte (im Prüfungsmodus gesperrt)“ und „Vervollständigung (im Prüfungsmodus aus)“ ausgegraut stehen, bis Natter neu gestartet wird. Probe mit einer Dauer von drei Sekunden: nach 4,5 Sekunden meldet `pruefungsmodus.laeuft()` `False`, Anzeige und beide Menüeinträge sind unverändert. Wer nach der Klausur weiterarbeitet, sieht einen Modus, der gar nicht mehr gilt.
+
+**Ursache:** nachgewiesen: `ide/shell/hauptfenster.py` ruft `_statusleiste_pruefung_aktualisieren`, `_beispielmenue_pruefen` und `_vervollstaendigung_pruefen` nur beim Aufbau (Zeilen 752, 1338, 1356) und beim Einschalten (Zeilen 3090-3095) auf; es gibt keinen Zeitgeber dafür.
+
+**Zu tun:** Die drei Aufrufe mit einem Zeitgeber (etwa einmal je Minute) wiederholen. Erledigt, wenn ein Test mit kurzer Dauer nach Ablauf Anzeige und Menüs wieder im Normalzustand findet und die Restzeit sich zwischendurch ändert.
+
+**Behoben (28. September 2026, ab 0.3.6).** Das Hauptfenster hat einen Zeitgeber `_pruefungsuhr` (alle 30 Sekunden), der `_pruefungsmodus_nachfuehren` aufruft: Restzeit in der Statusleiste, Beispielmenü, „Zuletzt geöffnet“ und Vervollständigung werden nachgeführt, die Startseite wird neu aufgebaut, wenn der Modus an- oder ausgegangen ist. `_pruefungsmodus_aktion` benutzt dieselbe Methode. Handbuch Abschnitt 4 sagt, dass die Anzeige nach dem Ablauf verschwindet und die Sperren ohne Neustart enden. Test: `test_restzeit_zaehlt_und_nach_dem_ablauf_ist_alles_wieder_frei` in `tests/test_pruefungsmodus_ablauf.py` prüft eine geänderte Restzeit und den Normalzustand nach dem Ablauf.
+
+
+---
+
+## 152. Nach dem Wechsel des Projekts bleiben die Reiter des alten offen ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** `02_Zahlenraten` öffnen, `u_main.py` ändern, dann `03_Taschenrechner` öffnen (über „Projekt öffnen …“, ein Beispiel oder „Neues Projekt …“). Der geänderte Reiter des alten Projekts bleibt stehen; öffnet man die `u_main.py` des neuen, stehen zwei Reiter „u_main.py ●“ und „u_main.py“ nebeneinander, ohne Hinweis, welcher zu welchem Projekt gehört. F5 startet das neue Projekt; wer im alten Reiter weiterschreibt, sieht seine Änderung im Programm nie.
+
+**Ursache:** nachgewiesen: `projekt_oeffnen` (`ide/shell/hauptfenster.py`, Zeilen 2327-2336) und `_neues_projekt_dialog` (Zeilen 1411-1436) setzen nur `self.projekt` und den Explorer neu; Reiter, Designer und Diagrammfenster des vorigen Projekts bleiben.
+
+**Zu tun:** Beim Wechsel die Reiter und Fenster des vorigen Projekts schließen, bei ungespeicherten Änderungen mit derselben Nachfrage wie beim Beenden. Erledigt, wenn nach dem Wechsel nur noch Reiter des neuen Projekts offen sind und ungespeicherte Änderungen vorher abgefragt wurden.
+
+**Behoben (28. September 2026, ab 0.3.6).** Neue Methode `_vorheriges_projekt_schliessen` in `ide/shell/hauptfenster.py`: sie fragt bei ungespeicherten Dateien oder Diagrammen des offenen Projekts mit `_vor_dem_schliessen_fragen` nach, derselben Nachfrage wie beim Beenden (deren letzte Zeile heißt jetzt „Vor dem Schließen speichern?“), speichert oder verwirft und schließt dann alle Reiter und Diagrammfenster aus dem Projektordner. Dateien außerhalb des Projekts und Hilfeseiten bleiben offen, dasselbe Projekt erneut zu öffnen fragt nicht. `projekt_oeffnen` lädt das neue Projekt zuerst (eine beschädigte Datei schließt also nichts) und ruft dann diese Methode; bei „Abbrechen“ bleibt das alte Projekt offen. `_neues_projekt_dialog` fragt vor dem Anlegen, `beispiel_oeffnen` meldet nach einem Abbruch nichts als geöffnet. Tests in `tests/test_hauptfenster_projektwechsel.py`: Abbrechen, Verwerfen, Speichern, dasselbe Projekt, fremde Dateien, neues Projekt mit ungespeicherten Änderungen.
+
+
+---
+
+## 153. Ein neu angelegtes Projekt erscheint nicht unter „Zuletzt geöffnet“ ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Nach „Projekt → Neues Projekt …“ ist die Liste „Zuletzt geöffnet“ leer, im Menü wie auf der Startseite. Wer sein Projekt in der ersten Stunde anlegt und in der nächsten Stunde dort sucht, findet es nicht und muss den Ordner kennen. Probe: nach `_neues_projekt_dialog()` liefert `zuletzt_geoeffnet()` `[]`.
+
+**Ursache:** nachgewiesen: `ide/shell/hauptfenster.py`, `_neues_projekt_dialog` (Zeilen 1432-1436) setzt `self.projekt` selbst, statt über `projekt_oeffnen` zu gehen; damit fehlen `zuletzt_merken`, `startbild.aufbauen()` und `_zuruecksetzen_pruefen()`.
+
+**Zu tun:** Das angelegte Projekt über `projekt_oeffnen` laden. Erledigt, wenn ein Test das neue Projekt danach an erster Stelle der Liste findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `_neues_projekt_dialog` (`ide/shell/hauptfenster.py`) lädt das angelegte Projekt über `projekt_oeffnen`; damit kommen `zuletzt_merken`, der Neuaufbau der Startseite und `_zuruecksetzen_pruefen` dazu. Test: `test_neues_projekt_steht_unter_zuletzt_geoeffnet` in `tests/test_hauptfenster_projektwechsel.py` findet das Projekt an erster Stelle von `zuletzt_geoeffnet()` und im Menü.
+
+
+---
+
+## 154. „Unit umbenennen“ prüft den Namen nicht und führt die Importe nicht nach ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Im Beispiel Kontoverwaltung nimmt „⋮ → Umbenennen …“ auf `u_konto.py` jeden Namen an. „mein konto“ wird zu `mein konto.py`, das sich mit `import` gar nicht laden lässt. „u_konto_design“ wird angenommen, und die Datei verschwindet danach aus dem Explorer, weil Dateien auf `_design.py` als erzeugt gelten; zurückholen lässt sie sich in Natter nicht mehr. In jedem Fall bleibt `from u_konto import Konto, NichtGenugGeld, euro` in `u_main.py` stehen, und das Programm startet nicht mehr, ohne dass beim Umbenennen etwas darauf hinweist. „Neues Formular …“ lehnt solche Namen dagegen ab.
+
+**Ursache:** nachgewiesen: `ide/shell/hauptfenster.py`, `_unit_umbenennen` (Zeilen 2090-2120) prüft nur, ob die Zieldatei existiert; eine Namensprüfung wie in `formular_erzeugen` (Zeilen 1570-1578) fehlt, und Importe in anderen Units werden nicht angesehen.
+
+**Zu tun:** Nur gültige Modulnamen annehmen, die nicht auf `_design` enden; Units, die den alten Namen importieren, anpassen oder beim Umbenennen nennen. Erledigt, wenn ein Test die beiden Namen oben abgelehnt findet und nach dem Umbenennen von `u_konto` das Beispiel weiter startet oder eine Meldung die betroffene Datei nennt.
+
+**Behoben (28. September 2026, ab 0.3.6).** `_unit_umbenennen` (`ide/shell/hauptfenster.py`) nimmt nur Namen an, die ein gültiger Python-Bezeichner und kein Schlüsselwort sind und nicht auf `_design` enden, und meldet sonst den Grund. Nach dem Umbenennen führt `_importe_nachfuehren` die Importe in den anderen Dateien des Projekts nach: `from u_konto import …` wird zu `from u_konten import …`, `import u_konto` zu `import u_konten as u_konto`. Eine offene Datei wird im Editor geändert und nur dann gespeichert, wenn sie vorher gespeichert war; die Statusleiste nennt die angepassten Dateien. Tests in `tests/test_explorer_unit_umbenennen_loeschen.py`: `test_unit_umbenennen_lehnt_ungueltige_namen_ab` („mein konto“, „u_konto_design“, „2konto“, „class“) und `test_unit_umbenennen_fuehrt_die_importe_nach`, der danach `u_main` in einem eigenen Prozess importiert.
+
+
+---
+
+## 155. „Quelltext als PDF“ gibt den gespeicherten Stand aus, nicht den im Editor ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Starten, Tests, Exe-Export und „Als ZIP speichern …“ speichern seit Punkt 86 und 104 vorher alle geänderten Dateien. „Projekt → Quelltext als PDF …“ tut das nicht: wer vor der Abgabe noch etwas ändert und Strg+S vergisst, gibt ein PDF mit dem alten Stand ab, und nichts weist darauf hin. Nebenbei: `docs/handbuch.md` (Abschnitt 3.6) sagt, ausgegeben würden nur die `u_*`-Dateien; `Projekt.units()` liefert jede `.py` außer Startdatei und `_design.py`, also auch `test_neu1.py`. Eine Datei, die nicht in UTF-8 gespeichert ist, ergibt einen ungefangenen `UnicodeDecodeError`.
+
+**Ursache:** nachgewiesen: `ide/shell/hauptfenster.py`, `_quelltext_als_pdf_aktion` (Zeilen 1715-1756) ruft `alle_speichern` nicht auf und fängt nur `OSError`; `ide/export/quelltext_pdf.py`, `dokument_erzeugen` (Zeile 196) liest die Dateien von der Platte.
+
+**Zu tun:** Vorher `alle_speichern()` wie beim Exe-Export; das Handbuch an die tatsächliche Auswahl anpassen oder die Auswahl an das Handbuch; einen Lesefehler als Meldung zeigen. Erledigt, wenn ein Test eine ungespeicherte Änderung im erzeugten Dokument findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `_quelltext_als_pdf_aktion` (`ide/shell/hauptfenster.py`) ruft vorher `alle_speichern()` wie Start, Tests und Exe-Export. `dokument_erzeugen` (`ide/export/quelltext_pdf.py`) meldet eine Datei, die nicht als UTF-8 gespeichert ist, als `ValueError` mit Dateinamen, und das Hauptfenster zeigt sie als Meldung. Das Handbuch (Abschnitt 3.6) nennt jetzt die tatsächliche Auswahl: alle Dateien unter „Units“, auch Testdateien, ohne Startdatei und erzeugte Dateien. Tests in `tests/test_quelltext_pdf.py`: `test_eine_ungespeicherte_aenderung_steht_im_pdf`, `test_eine_datei_in_anderer_kodierung_ergibt_eine_meldung`.
+
+
+---
+
+## 156. Struktogramm: die vorgegebenen Beschriftungen führen zu Code, der nie oder falsch läuft ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Neue Blöcke tragen „Bedingung?“, „solange Bedingung“ und „wiederhole bis Bedingung“. Wer dem Muster folgt und `x > 0?`, `solange x < 10` und `wiederhole bis x >= 20` schreibt, bekommt `if False:`, `while False:` und in der Fußschleife `if True: break`. Die Verzweigung und die Kopfschleife laufen also nie, die Fußschleife genau einmal; die ursprünglichen Zeilen stehen nur als Kommentar darüber und in der Zählung „nicht übernommen“.
+
+**Ursache:** nachgewiesen: die Vorgabetexte in `ide/diagramm/bloecke.py` (Zeilen 34, 40, 41) und `bedingung()` in `ide/diagramm/struktogramm_code.py` (Zeile 226), das nur reine Python-Ausdrücke annimmt und weder ein `?` am Ende noch „solange“, „bis“ oder „wiederhole bis“ am Anfang abschneidet.
+
+**Zu tun:** Diese Zusätze vor der Prüfung entfernen, oder die Vorgabetexte so wählen, dass sie nicht dazu anleiten. Erledigt, wenn die drei Beispiele als Test `if x > 0:`, `while x < 10:` und `if x >= 20: break` ergeben.
+
+**Behoben (28. September 2026, ab 0.3.6).** Die Vorgabetexte in `ide/diagramm/bloecke.py` bleiben. Die neue Funktion `_bedingungstext` in `ide/diagramm/struktogramm_code.py` schneidet vor der Prüfung ein „?“ am Ende ab, in Schleifen außerdem „solange“, „wiederhole bis“ und „bis“ am Anfang. Passt das Wort nicht zur Art der Bedingung („bis“ im Kopf, „solange“ am Fuß), wird die Bedingung verneint, etwa `while not (x >= 3):`. Bleibt nach dem Abschneiden nur das Wort „Bedingung“ aus dem Vorgabetext stehen, gilt der Block weiter als nicht ausgefüllt und bekommt den Platzhalter, statt beim Ausführen mit `NameError` abzubrechen. Tests: `test_zusaetze_aus_den_vorgabetexten_fallen_weg` (ergibt `if x > 0:`, `while x < 10:` und `if x >= 20: break`) und `test_nur_bis_und_verneinte_zusaetze` in `tests/test_struktogramm_code.py`.
+
+
+---
+
+## 157. Struktogramm: „weiter“ in einer Fußschleife springt an der Abbruchbedingung vorbei ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Eine Fußschleife „bis i >= 3“ mit einem Aussprung „weiter“ im Rumpf wird zu `while True:`, dem Rumpf mit `continue` und danach `if i >= 3: break`. Das `continue` überspringt die Bedingung, die Schleife endet nie; im Struktogramm prüft die Fußschleife dagegen nach jedem Durchlauf.
+
+**Ursache:** nachgewiesen: `ide/diagramm/struktogramm_code.py`, Zeilen 328-338 setzen den Rumpf vor das `if …: break` und übernehmen `continue` unverändert.
+
+**Zu tun:** Die Fußschleife so übersetzen, dass ein `continue` die Bedingung nicht überspringt (etwa `while True:` mit dem Rumpf in einer inneren Einmalschleife, oder mit Merker), oder „weiter“ darin als nicht übernommen melden. Erledigt, wenn der erzeugte Code für das Beispiel als Test endet.
+
+**Behoben (28. September 2026, ab 0.3.6).** Ein „weiter“, das zu einer Fußschleife gehört, wird in `ide/diagramm/struktogramm_code.py` jetzt zu derselben Abbruchprüfung wie am Fuß und erst danach zu `continue` (`_springen`). Die Fußschleife gibt ihre Bedingung dafür über `in_einer_schleife(fussbedingung=…)` an ihren Rumpf weiter; eine innere Schleife setzt sie wieder zurück, sodass ein „weiter“ dort unverändert bleibt. Die Übersetzung bleibt bei `while True:` mit `if …: break` und braucht keine Hilfsvariable. Test: `test_weiter_in_der_fussschleife_prueft_die_bedingung` in `tests/test_struktogramm_code.py` führt den erzeugten Code für „bis i >= 3“ in einem eigenen Prozess mit Zeitgrenze aus und erwartet die Ausgabe 3.
+
+
+---
+
+## 158. Entscheidungstabelle: ein Rechtsklick schaltet den Wert der Zelle um ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Ein Rechtsklick auf eine Regelzelle, um das Kontextmenü zu öffnen (Regel entfernen oder verschieben), ändert den Wert der Zelle, etwa von leer auf „J“, und legt einen Rückgängig-Schritt an. Probe: `Rechtsklick auf Zelle: vorher '' nachher 'J'`.
+
+**Ursache:** nachgewiesen: `ide/diagramm/tabelle_canvas.py`, `mousePressEvent` (Zeilen 414-419) fragt die Taste nicht ab und ruft bei jeder `zelle_schalten` auf. Dieselbe Abfrage fehlt in `StruktogrammCanvas.mousePressEvent` (Einfügemodus, Ziehbeginn) und `DiagrammCanvas.mousePressEvent` (Platzieren).
+
+**Zu tun:** Nur bei der linken Taste schalten, einfügen oder platzieren. Erledigt, wenn ein Test nach einem Rechtsklick die Zelle unverändert findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `TabellenCanvas.mousePressEvent` in `ide/diagramm/tabelle_canvas.py` wählt die Zelle bei jeder Taste aus, schaltet ihren Wert aber nur mit der linken. `StruktogrammCanvas.mousePressEvent` fügt nur mit der linken Taste ein und beginnt nur mit ihr ein Ziehen; ein Rechtsklick wählt den Block für das Kontextmenü aus und lässt den Einfügemodus stehen. `DiagrammCanvas.mousePressEvent` platziert und verbindet nur mit der linken Taste. Tests: `test_rechtsklick_laesst_den_wert_stehen` in `tests/test_diagramm_tabelle.py` (Wert unverändert, kein Rückgängig-Schritt), `test_rechtsklick_im_einfuegemodus_setzt_nichts` in `tests/test_diagramm_struktogramm.py` und `test_rechtsklick_platziert_keine_form` in `tests/test_diagramm_canvas.py`.
+
+
+---
+
+## 159. Export als PNG, SVG und in die Zwischenablage schneidet Verbindungen mit Knickpunkten ab ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Zwei Klassen bei x = 40 bis 160 und eine Assoziation mit Knickpunkten bei x = 500: der Inhaltsbereich ist 24 bis 176, das Bild 152 × 312 Pixel groß. Der Umweg der Linie fehlt im Bild, die Verbindung sieht abgerissen aus. Das Bild ist das, was auf ein Arbeitsblatt oder in eine Abgabe kommt.
+
+**Ursache:** nachgewiesen: `ide/diagramm/export.py`, `inhaltsbereich()` (Zeilen 57-85) vereinigt nur die Rechtecke der Formen und lässt Knickpunkte (`waypoints`) und verschobene Beschriftungen aus.
+
+**Zu tun:** Knickpunkte und Beschriftungsrechtecke in den Bereich aufnehmen. Erledigt, wenn ein Test den Knickpunkt innerhalb des exportierten Bildes findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `inhaltsbereich()` in `ide/diagramm/export.py` nimmt jetzt alle Stützpunkte jeder Verbindung (`verbindungs_punkte`, also auch die Knickpunkte) und die Rechtecke ihrer Beschriftungen (`beschriftungs_rechtecke`, samt Verschiebung) in den Bereich auf. Das gilt für PNG, SVG und die Zwischenablage, die alle diesen Bereich verwenden. Test: `test_knickpunkt_liegt_im_exportierten_bild` in `tests/test_diagramm_export.py` setzt einen Knickpunkt 300 Pixel unter die Formen, findet ihn im Bereich und an seiner Stelle im PNG gezeichnete Pixel.
+
+
+---
+
+## 160. Code aus dem Klassendiagramm: eine Vorlageklasse ergibt `Generic[T]` ohne `T` ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Eine Vorlageklasse `Stapel` mit Parameter `T` wird zu `from typing import Generic` und `class Stapel(Generic[T]):`; beim Import folgt `NameError: name 'T' is not defined`. `ungueltige_namen` meldet nichts.
+
+**Ursache:** nachgewiesen: `ide/diagramm/klassen_code.py`, Zeile 242 und `kopfzeilen()` (Zeilen 400-413) importieren `Generic`, legen aber kein `TypeVar` an.
+
+**Zu tun:** `T = TypeVar("T")` erzeugen oder die Schreibweise `class Stapel[T]:` von Python 3.12 an verwenden. Erledigt, wenn ein Test den erzeugten Code mit `exec` ausführt.
+
+**Behoben (28. September 2026, ab 0.3.6).** Eine Vorlageklasse wird in `ide/diagramm/klassen_code.py` jetzt in der Schreibweise von Python 3.12 an erzeugt: `class Stapel[T]:`, mit Basisklassen `class Stapel[T](Basis):`. Der Import von `Generic` entfällt, ein `TypeVar` ist nicht nötig. Test: `test_vorlageklasse_wird_generisch` in `tests/test_diagramm_klassen_code.py` führt den erzeugten Code mit `exec` aus und findet `T` in `__type_params__`.
+
+
+---
+
+## 161. Code aus dem Klassendiagramm: ein Startwert `[]` wird zur gemeinsamen Liste aller Objekte ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Das Attribut `schueler: list = []` wird zu `def __init__(self, schueler: list = [])`. Alle Objekte teilen sich dann dieselbe Liste: nach `a.schueler.append("Anna")` gilt `b.schueler == ['Anna']`. Ein Fehler, den Anfänger kaum selbst finden, und hier steckt er im vorgegebenen Gerüst.
+
+**Ursache:** nachgewiesen: `ide/diagramm/klassen_code.py`, Zeilen 111-112 übernehmen den Startwert unverändert als Vorgabe des Parameters.
+
+**Zu tun:** Bei veränderlichen Startwerten (`[]`, `{}`, `set()`, `list()`, `dict()`) die Vorgabe `None` setzen und im Rumpf `self.x = [] if x is None else x` schreiben, oder das Attribut nicht zum Parameter machen. Erledigt, wenn ein Test zwei Objekte mit getrennten Listen findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** Ein Attribut mit veränderlichem Startwert (`[]`, `{}`, eine Menge, eine Liste aus einer Comprehension oder `list()`, `dict()`, `set()`, `bytearray()`) wird in `ide/diagramm/klassen_code.py` (`_eigene_parameter`, `_ist_veraenderlich`) kein Parameter mehr; der Konstruktor schreibt stattdessen `self.schueler = []`. Das ist die Schreibweise aus dem Unterricht und kommt ohne `None`-Vorgabe aus. Test: `test_leere_liste_als_startwert_gehoert_jedem_objekt_allein` in `tests/test_diagramm_klassen_code.py` legt zwei Objekte an und findet getrennte Listen und Dicts.
+
+
+---
+
+## 162. `on_click` löst bei Rechtsklick aus und auch, wenn neben der Komponente losgelassen wird ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Ein Rechtsklick auf ein Label löst `on_click` aus; an einer Komponente mit `popup_menu` kommen damit Klappmenü und Klick zugleich. Auf dem Label drücken und weit daneben loslassen löst `on_click` ebenfalls aus. `docs/komponenten.md` verspricht „gedrückt und losgelassen, beides auf der Komponente“, und der Kommentar in `pcl/control.py` (Zeilen 171-173) sagt dasselbe. Probe: `rechtsklick label: ['label click']`, `gedrueckt, weit daneben losgelassen: ['label click']`.
+
+**Ursache:** nachgewiesen: `pcl/control.py`, Zeilen 169-176 prüfen weder die Taste noch, ob die Stelle des Loslassens im Widget liegt; Qt schickt das Loslassen immer an das Widget, auf dem gedrückt wurde.
+
+**Zu tun:** `on_click` nur für die linke Taste und nur bei `widget.rect().contains(position)` auslösen. Erledigt, wenn beide Fälle der Probe als Test kein `on_click` mehr ergeben.
+
+**Behoben (28. September 2026, ab 0.3.6).** Ursache bestätigt. `_MausFilter` in `pcl/control.py` löst `on_click` nur noch aus, wenn mit der linken Taste gedrückt und losgelassen wurde und die Stelle des Loslassens in der Komponente liegt. `on_mouse_down` und `on_mouse_up` kommen weiter bei jeder Taste. `docs/komponenten.md` („Die Maus“) nennt die Regel. Tests: `test_rechtsklick_ist_kein_on_click` und `test_daneben_losgelassen_ist_kein_on_click` in `tests/test_maus_innere_widgets.py`.
+
+
+---
+
+## 163. Nach einem Klick in eine RadioGroup kommt keine Taste mehr an ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Nach einem Klick auf eine Option einer RadioGroup hat der innere Optionsknopf den Fokus. Danach melden weder `Form.on_key_press` noch `on_key_press` der RadioGroup einen Tastendruck. Ein Spiel mit Pfeiltasten und einer Schwierigkeitswahl per RadioGroup reagiert nach der Wahl nicht mehr. Der Docstring von `on_key_press` in `pcl/form.py` sagt: „Das Formular hört jede Taste in seinem Fenster.“ Probe: Fokus in einem Edit ergibt `[('form', 'A')]`, Fokus in der RadioGroup `[]`.
+
+**Ursache:** nachgewiesen: `pcl/components/standard.py`, Zeile 780 erzeugt die Optionen ohne Ereignisfilter; der Filter aus `pcl/control.py` hängt nur an der äußeren `QGroupBox`.
+
+**Zu tun:** Den Filter auch an jede Option hängen. Erledigt, wenn ein Test nach einem Klick auf eine Option den Tastendruck beim Formular findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** Ursache bestätigt. `RadioGroup._optionen_neu_aufbauen` in `pcl/components/standard.py` hängt den Filter an jede neu erzeugte Option (`_filter_anhaengen`). Nach einem Klick auf eine Option kommen Tasten beim Formular und bei der RadioGroup an, und ein Klick auf eine Option ist auch ein `on_click` der RadioGroup. Test: `test_nach_klick_auf_eine_option_hoert_das_formular_tasten` in `tests/test_maus_innere_widgets.py`.
+
+
+---
+
+## 164. `Form.width`, `height`, `left` und `top` bleiben auf dem Entwurfsstand stehen ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Zieht der Benutzer das Fenster größer oder maximiert es, liefern `self.width` und `self.height` weiter die Werte aus dem Designer; nach dem Verschieben gilt dasselbe für `left` und `top`. Setzt das Programm danach `self.height = 500`, springt die Breite auf den alten Wert zurück. Probe: Fenster 800 × 600, `Form.width/height` 480 × 360; nach `f.height = 500` ist das Fenster 480 × 500. Ein Ereignis für die Größenänderung gibt es nicht.
+
+**Ursache:** nachgewiesen: `pcl/form.py`, `_groesse_anwenden` (Zeilen 243-254) nimmt Breite und Höhe aus den Eigenschaften, die nie aus dem Fenster zurückgelesen werden; der `_FensterFilter` behandelt weder Resize noch Move.
+
+**Zu tun:** Bei Resize und Move die Eigenschaften still nachführen (Höhe ohne Menüleiste). Erledigt, wenn ein Test nach `resize()` des Fensters die neuen Werte in `width`/`height` findet und `self.height = …` die Breite behält.
+
+**Behoben (28. September 2026, ab 0.3.6).** `_FensterFilter` in `pcl/form.py` ruft bei `Resize` und `Move` die neue Methode `Form._fensterlage_uebernehmen`, die `width`, `height` (ohne Menüleiste), `left` und `top` still aus dem Fenster nachführt, solange es zu sehen ist und nicht im Designer steht. `self.height = 500` behält danach die Breite, die das Fenster inzwischen hat. Ein eigenes Ereignis für die Größenänderung ist nicht dazugekommen, das Kriterium verlangt keins. Test: `test_width_und_height_folgen_dem_fenster` in `tests/test_pcl_auswahl_und_fenster.py`.
+
+
+---
+
+## 165. `items.add()` wirft die Auswahl von ComboBox und ListBox weg ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** In einer ComboBox ist „gruen“ (Index 1) gewählt; nach `items.add("gelb")` steht sie auf „rot“, und `on_change` kommt zweimal, mit `(-1, '')` und `(0, 'rot')`. Bei der ListBox ist nach `add` `item_index` −1, und `on_change` löst aus. Dasselbe bei `del items[i]` und `items[i] = …`.
+
+**Ursache:** nachgewiesen: `pcl/components/standard.py`, Zeilen 448-454 (ListBox) und 502-504 (ComboBox) leeren das Widget bei jeder Änderung und füllen es neu.
+
+**Zu tun:** Die Auswahl über den Neuaufbau erhalten, Signale dabei blockieren, `on_change` nur bei tatsächlich geänderter Auswahl. Erledigt, wenn ein Test nach `add` die alte Auswahl und kein `on_change` findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `ListBox._items_geaendert` und `ComboBox._items_geaendert` in `pcl/components/standard.py` bauen das Widget mit blockierten Signalen neu auf und setzen danach die alte Auswahl wieder; eine sortierte ListBox behält den gewählten Eintrag, auch wenn er an eine andere Stelle rückt, und bei `multi_select` bleiben die gewählten Nummern. `on_change` kommt nur, wenn die gewählte Nummer weggefallen ist. `docs/komponenten.md` beschreibt das bei ListBox und ComboBox. Das Beispielprojekt `08_Regression` verließ sich darauf, dass ein erneutes `items = ARTEN` in `form_create` `on_change` auslöst; es ruft `cb_art_change` jetzt selbst auf. Tests: `test_combobox_behaelt_die_auswahl_bei_add`, `test_listbox_behaelt_die_auswahl_bei_add`, `test_listbox_meldet_eine_weggefallene_auswahl` und `test_sortierte_listbox_behaelt_den_gewaehlten_eintrag` in `tests/test_pcl_auswahl_und_fenster.py`.
+
+
+---
+
+## 166. `ListBox.item_index` behält Nummern, die es nicht gibt ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** `lb.item_index = 5` bei zwei Einträgen: `item_index` bleibt 5, sichtbar gewählt ist nichts. Dasselbe, wenn `item_index = 1` vor den `items` gesetzt wird, etwa in `on_create`. Ein späteres `items[self.lb.item_index]` endet mit `IndexError`. RadioGroup und ComboBox setzen in beiden Fällen richtig auf −1.
+
+**Ursache:** nachgewiesen: `pcl/components/standard.py`, Zeilen 461-464 lesen nach `setCurrentRow` nicht zurück.
+
+**Zu tun:** Nach `setCurrentRow` den tatsächlichen Wert übernehmen oder einen ungültigen Index mit deutscher Meldung ablehnen. Erledigt, wenn beide Fälle als Test −1 ergeben (oder eine Meldung).
+
+**Behoben (28. September 2026, ab 0.3.6).** `ListBox._bei_prop_aenderung` in `pcl/components/standard.py` liest nach `setCurrentRow` die tatsächliche Zeile zurück; eine Nummer ohne Eintrag ergibt -1, wie bei RadioGroup und ComboBox. Tests: `test_listbox_item_index_ueber_das_ende_ergibt_minus_eins` und `test_listbox_item_index_vor_den_items_ergibt_minus_eins` in `tests/test_pcl_auswahl_und_fenster.py`.
+
+
+---
+
+## 167. `lines.add` und `items.add` in einer Schleife werden quadratisch langsam ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** 1000-mal `lines.add` in ein Memo dauert 0,45 s, 4000-mal 30 s (mit 4000 Aufrufen von `on_change`); 4000-mal `items.add` in eine ListBox 13,8 s. Solange steht das Programm. Eine Datei zeilenweise oder die Primzahlen bis 10 000 in ein Memo zu schreiben ist eine typische Aufgabe.
+
+**Ursache:** nachgewiesen: jedes `add` schreibt den ganzen Inhalt neu ins Widget, beim Memo mit `setPlainText("\n".join(...))` (`pcl/components/standard.py`, Zeilen 342-348), bei der ListBox mit `clear()` und `addItems()` (Zeilen 448-454).
+
+**Zu tun:** `add` nur die neue Zeile ans Widget geben (`appendPlainText`, `addItem`), den vollständigen Neuaufbau nur bei `zuweisen`, `__setitem__` und `del`. Erledigt, wenn 4000-mal `add` in beiden Komponenten unter einer Sekunde bleibt.
+
+**Behoben (28. September 2026, ab 0.3.6).** `Strings` in `pcl/strings.py` nimmt einen zweiten Rückruf `bei_anhaengen`, den `add` mit nur der neuen Zeile aufruft. Das Memo hängt die Zeile mit `appendPlainText` an (ein leeres Feld bekommt den ganzen Text), ListBox und ComboBox mit `addItem`; eine sortierte ListBox baut weiter neu auf. `zuweisen`, `__setitem__` und `del` bauen wie bisher vollständig neu auf. 4000-mal `add` dauert in Memo, ListBox und ComboBox jetzt deutlich unter einer Sekunde (vorher 30 s beim Memo). Tests: `test_viertausend_mal_add_bleibt_unter_einer_sekunde`, `test_memo_add_ergibt_denselben_text` und `test_listbox_add_zeigt_den_neuen_eintrag` in `tests/test_pcl_auswahl_und_fenster.py`.
+
+
+---
+
+## 168. Eine gemeinsam auf ein Panel gezogene Auswahl landet nicht darin, sondern darunter ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Ein einzelner Knopf, auf ein Panel gezogen, wird dessen Kind (Punkt 72). Zwei gemeinsam ausgewählte Knöpfe, gemeinsam auf das Panel gezogen, bleiben Kinder des Formulars und stehen in der `.pfm` vor dem Panel; das Panel wird später erzeugt und liegt obenauf. Im Designer wie im laufenden Programm sind die Knöpfe verdeckt und lassen sich nicht mehr anklicken (Probe: an der Mitte des Knopfs liegt im Programm das Panel). `docs/handbuch.md` (Abschnitt 5, „Nur im Formular-Designer“) sagt, Ziehen wirke auf die ganze Auswahl und eine auf ein Panel gezogene Komponente liege danach darin.
+
+**Ursache:** nachgewiesen: `ide/designer/canvas.py`, `_ziehen_beenden` (Zeile 1279, Zweig `if gruppe:`) setzt nur `left`/`top` über `EigenschaftKommando` und ruft weder `_behaelter_fuer` noch `_UmhaengenKommando` auf.
+
+**Zu tun:** Auch beim Ziehen einer Auswahl je Komponente den Behälter bestimmen und umhängen, in einem Rückgängig-Schritt. Erledigt, wenn ein Test zwei gemeinsam gezogene Knöpfe als Kinder des Panels in der `.pfm` findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `_ziehen_beenden` bestimmt beim Ziehen einer Auswahl für jede Komponente den Behälter unter ihrer Mitte und hängt sie mit `_UmhaengenKommando` um; alles zusammen ist ein Rückgängig-Schritt (`_GruppenKommando`). Mitgezogene Behälter nehmen keine andere Komponente der Auswahl auf (`_behaelter_fuer`, neuer Parameter `mitgezogen`). Test: `test_gemeinsam_auf_ein_panel_gezogen_liegen_beide_darin` in `tests/test_designer_auswahl_bearbeiten.py` findet beide Knöpfe als Kinder des Panels in der `.pfm`, und Rückgängig und Wiederholen stellen beide Stände wieder her. Handbuch Abschnitt 5 nennt das.
+
+
+---
+
+## 169. Ausschneiden und Einfügen im selben Formular verliert die Ereignisse ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** `b_ok` mit `on_click: b_ok_click` ausschneiden und in ein Panel desselben Formulars einfügen, der naheliegende Weg, einen Knopf umzusetzen: der Knopf heißt wieder `b_ok`, hat aber keine Ereignisse mehr und tut im Programm nichts, obwohl die Methode in der Unit steht. Probe: vorher `('b_ok', {'on_click': 'b_ok_click'})`, nachher `('b_ok', None)` im Panel.
+
+**Ursache:** nachgewiesen: `ide/designer/canvas.py`, `kopieren` (Zeile 1580) und `einfuegen` (Zeile 1619) entfernen die Ereignisse immer (`_ereignisse_entfernen`). Punkt 73 hat das mit Blick auf ein anderes Formular so festgelegt; für dasselbe Formular trifft die Begründung nicht zu.
+
+**Zu tun:** Beim Einfügen in dasselbe Formular (oder wenn die Unit des Ziels die Methode kennt) die Ereignisse behalten, wie beim Duplizieren. Erledigt, wenn ein Test nach Ausschneiden und Einfügen im selben Formular `on_click` in der `.pfm` findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `kopieren` legt die Ereignisse mit in die Zwischenablage; `einfuegen` verknüpft sie wie `duplizieren`, sofern es die Methode im Zielformular gibt (`_eintraege_bauen`, vorher mit `_methoden_nachladen` gegen die Unit abgeglichen). Im selben Formular ist das immer der Fall; in einem anderen fällt die Verknüpfung weg, wenn die Methode dort fehlt. Tests: `test_ausschneiden_und_einfuegen_behaelt_die_ereignisse` findet `on_click` nach Ausschneiden und Einfügen in ein Panel in der `.pfm`, `test_in_einem_anderen_formular_fehlt_die_methode`. Handbuch Abschnitt 5 nennt das.
+
+
+---
+
+## 170. Löschen und Rückgängig ändert die Tab-Reihenfolge ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Bei `b_1`, `b_2`, `b_3` wird `b_1` gelöscht und mit Strg+Z zurückgeholt. In der `.pfm` steht danach `b_2, b_3, b_1`, und damit ist die Tab-Reihenfolge im Programm eine andere als vorher. Dasselbe beim Rückgängigmachen einer Mehrfachlöschung.
+
+**Ursache:** nachgewiesen: `ide/designer/canvas.py`, `_komponente_wiederherstellen` (Zeilen 2209, 2217) hängt die Komponente mit `setattr` ans Ende von `vars(formular)`. Beim Umbenennen löst `attribute_ordnen` dasselbe Problem, beim Löschen nicht.
+
+**Zu tun:** `_LoeschenKommando` merkt sich die Reihenfolge und stellt sie mit `attribute_ordnen` wieder her. Erledigt, wenn ein Test nach Löschen und Rückgängig dieselbe Reihenfolge in der `.pfm` findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `_LoeschenKommando` merkt sich beim Löschen die Reihenfolge der Attribute des Formulars und stellt sie beim Rückgängigmachen mit `attribute_ordnen` wieder her, auch für den Inhalt eines gelöschten Behälters und bei einer Mehrfachlöschung. Test: `test_loeschen_und_rueckgaengig_behaelt_die_reihenfolge` in `tests/test_designer_auswahl_bearbeiten.py`.
+
+
+---
+
+## 171. `text(wert, stellen)` rundet anders als in der Schule ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** `text(2.5, 0)` ergibt „2“, `text(0.5, 0)` „0“, `text(0.125, 2)` „0,12“; erwartet sind „3“, „1“ und „0,13“, wie im Mathematikunterricht gerundet wird. `text(2.5, -1)` bricht mit dem englischen „Format specifier missing precision“ ab.
+
+**Ursache:** nachgewiesen: `pcl/zahlen.py`, Zeile 82 benutzt `f"{wert:.{stellen}f}"`, das zur geraden Ziffer rundet und mit den Binärwerten von `float` arbeitet; `stellen` wird nicht geprüft.
+
+**Zu tun:** Kaufmännisch runden (`decimal.Decimal(repr(wert)).quantize(…, ROUND_HALF_UP)`), `stellen` auf eine ganze Zahl ab 0 prüfen und sonst deutsch melden. Erledigt, wenn die drei Beispiele in `tests/test_zahlen.py` die erwarteten Texte ergeben.
+
+**Behoben (28. September 2026, ab 0.3.6).** `text()` in `pcl/zahlen.py` rundet mit `stellen` über `decimal.Decimal(repr(wert)).quantize(…, ROUND_HALF_UP)`, mit einem Kontext, der auch für große Zahlen genug Stellen hat. `stellen` muss eine ganze Zahl ab 0 sein, sonst kommt „text() erwartet bei den Nachkommastellen eine ganze Zahl ab 0 …“ als `NatterPropertyError`. `text(2.5, 0)` ergibt „3“, `text(0.5, 0)` „1“, `text(0.125, 2)` „0,13“. Tests: `test_text_rundet_wie_in_der_schule` und `test_text_lehnt_unsinnige_stellen_deutsch_ab` in `tests/test_zahlen.py`.
+
+
+---
+
+## 172. Duplizieren, Kopieren und Einfügen verlieren das zugeordnete Klappmenü ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Ein Knopf mit `popup_menu = popupmenu` wird verdoppelt; die Kopie hat `popup_menu = None`. Dasselbe beim Kopieren und Einfügen.
+
+**Ursache:** nachgewiesen: `ide/designer/canvas.py`, `duplizieren` (Zeile 1849) und `kopieren` (Zeile 1578) rufen `kind_als_dict(name, k)` ohne `namen` auf; `_eigenschaften_werte` in `pfm_schreiben` lässt den Verweis dann fallen, obwohl `kind_als_dict` dafür eigens `namen` vorsieht.
+
+**Zu tun:** `namen` übergeben; beim Einfügen in ein anderes Formular den Verweis nur behalten, wenn es das Menü dort gibt. Erledigt, wenn ein Test das Klappmenü an der Kopie findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `kopieren` und `duplizieren` rufen `kind_als_dict` mit den Namen der Komponenten auf, sodass `popup_menu` im Eintrag steht. `_eintraege_bauen` nimmt Verweise auf Komponenten, die nicht mitkopiert wurden, vor dem Zwischenbau heraus und löst sie danach gegen das Zielformular auf; gibt es dort kein Klappmenü dieses Namens, bleibt der Verweis leer. Wird das Menü mitkopiert, zeigt die Kopie des Knopfs auf die Kopie des Menüs. Tests: `test_duplizieren_behaelt_das_klappmenue`, `test_kopieren_und_einfuegen_behaelt_das_klappmenue`, `test_klappmenue_im_anderen_formular_nur_wenn_es_dort_eins_gibt`, `test_klappmenue_und_knopf_zusammen_kopiert`.
+
+
+---
+
+## 173. Eine Komponente darf wie eine später geschriebene Methode der Unit heißen ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Bei offenem Designer wird in der Unit `def berechnen(self)` geschrieben; danach wird ein Knopf in `berechnen` umbenannt, und das wird angenommen. Der erzeugte Code enthält `self.berechnen = Button(self)`, das die Methode verdeckt; `self.berechnen()` scheitert im Programm. Punkt 120 schließt das nur für Methoden aus, die beim Öffnen des Designers schon da waren.
+
+**Ursache:** nachgewiesen: `ide/designer/canvas.py`, Zeile 2092 prüft `hasattr(type(self.formular), …)`; die Klasse kennt nur die Methoden vom Zeitpunkt des Ladens, `unit_methoden_ergaenzen` läuft vor der Prüfung nicht erneut.
+
+**Zu tun:** Vor der Namensprüfung die Methoden der Unit frisch lesen. Erledigt, wenn ein Test das Umbenennen in eine danach geschriebene Methode abgelehnt findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `komponente_umbenennen` liest vor der Namensprüfung die Methoden der Unit frisch, von der Platte und aus offenen Editoren, und lehnt einen Namen ab, der dort als Methode steht („'berechnen' ist bereits eine Methode in u_main.py.“). Test: `test_umbenennen_in_eine_spaeter_geschriebene_methode_wird_abgelehnt` in `tests/test_designer_umbenennen_unit.py`.
+
+
+---
+
+## 174. `Strings.load_from_file` behält die Byte-Order-Markierung und scheitert an ANSI-Dateien ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Aus einer UTF-8-Datei mit BOM (Excel „CSV UTF-8“) beginnt die erste Zeile mit `\ufeff`; `items[0] == "Name"` ist falsch, obwohl die Anzeige gleich aussieht. Eine in Windows-1252 gespeicherte Datei mit Umlauten bricht mit `UnicodeDecodeError` ab.
+
+**Ursache:** nachgewiesen: `pcl/strings.py`, Zeilen 72-73 lesen mit `encoding="utf-8"`.
+
+**Zu tun:** Standardmäßig `utf-8-sig`; bei einem Dekodierfehler auf `cp1252` ausweichen oder deutsch mit Hinweis auf die Kodierung melden. Erledigt, wenn ein Test beide Dateien richtig liest.
+
+**Behoben (28. September 2026, ab 0.3.6).** `Strings.load_from_file` in `pcl/strings.py` liest ohne angegebene Kodierung mit `utf-8-sig` und weicht bei einem Dekodierfehler auf `cp1252` aus; mit `encoding=…` gilt genau die angegebene. `docs/komponenten.md` („items / lines“) beschreibt das. Tests: `test_load_from_file_ueberspringt_die_bom` und `test_load_from_file_liest_eine_ansi_datei` in `tests/test_pcl_auswahl_und_fenster.py`.
+
+
+---
+
+## 175. `ComboBox.text` mit einem Text, der nicht in der Liste steht: Eigenschaft und Anzeige laufen auseinander ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Bei `items = ["rot", "gruen"]` liefert nach `cb.text = "blau"` `cb.text` den Wert „blau“, angezeigt wird weiter „rot“, `item_index` bleibt 0.
+
+**Ursache:** nachgewiesen: `pcl/components/standard.py`, Zeilen 528-529; eine nicht editierbare `QComboBox` ignoriert `setCurrentText` mit unbekanntem Text, und der Wert wird nicht zurückgelesen.
+
+**Zu tun:** Nach dem Setzen den tatsächlichen Text übernehmen oder mit deutscher Meldung ablehnen. Erledigt, wenn `cb.text` und Anzeige im Test übereinstimmen.
+
+**Behoben (28. September 2026, ab 0.3.6).** `ComboBox._bei_prop_aenderung` in `pcl/components/standard.py` liest nach `setCurrentText` den angezeigten Text zurück. Ein Text, der nicht in `items` steht, lässt die Auswahl unverändert, und `text` liefert danach den angezeigten Eintrag. Abgelehnt wird er nicht, weil ein Formular mit einem solchen Text aus dem Designer sonst schon beim Start abbräche. Test: `test_combobox_text_ausserhalb_der_liste` in `tests/test_pcl_auswahl_und_fenster.py`.
+
+
+---
+
+## 176. Canvas: `fill_rect` und `rectangle` zählen die Ecke verschieden, `pixels` außerhalb meldet einen Typfehler ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** `rectangle(10, 10, 20, 20)` färbt den Punkt (20, 20) mit, `fill_rect(50, 10, 60, 20)` lässt (60, 20) weiß und füllt nur bis (59, 19). Dieselben Ecken ergeben also verschieden große Flächen. `pixels[500, 5]` außerhalb der Fläche wirft `NatterPropertyError`, eine Unterklasse von `TypeError`; `except IndexError` fängt das nicht, anders als bei `StringGrid.cells` (`NatterZellenError`).
+
+**Ursache:** nachgewiesen: `pcl/components/graphics.py`, Zeile 277 (`fillRect` mit Breite `x2 - x1`) gegen Zeile 323 (`drawRect` mit Stift); Bereichsprüfung in Zeilen 157-161.
+
+**Zu tun:** Eine Regel für die Ecken festlegen, in beiden Docstrings nennen und umsetzen; für den Bereich `NatterZellenError` verwenden. Erledigt, wenn ein Test für dieselben Ecken dieselbe Fläche findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** Regel: beide Ecken gehören zum Rechteck. `Canvas.fill_rect` in `pcl/components/graphics.py` füllt jetzt eine Reihe weiter nach rechts und unten und deckt damit dieselbe Fläche wie `rectangle`; beide Docstrings und `docs/komponenten.md` nennen die Regel. `pixels[x, y]` außerhalb der Fläche wirft `NatterZellenError` (ein `IndexError`) statt `NatterPropertyError`. Tests: `test_fill_rect_und_rectangle_ergeben_dieselbe_flaeche` und `test_ein_punkt_ausserhalb_ist_ein_indexfehler` in `tests/test_components_graphics.py`; `test_ein_punkt_ausserhalb_der_flaeche_nennt_die_groesse` erwartet jetzt `NatterZellenError`.
+
+
+---
+
+## 177. Struktogramm: Fallbeschriftungen, die kein gültiges `case`-Muster sind, ergeben einen Syntaxfehler ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Fälle mit der Beschriftung `...` oder `a().b` werden zu `case ...:` und `case a().b:`, beides ein Syntaxfehler. Der Docstring von `struktogramm_code.py` sagt: „Der erzeugte Code ist dadurch immer gültiges Python“.
+
+**Ursache:** nachgewiesen: `ide/diagramm/struktogramm_code.py`, `_ist_einfacher_wert` (Zeile 539) lässt jede Konstante und jedes Attribut durch, auch `Ellipsis` und Attribute auf Aufrufen; `uebersetzbar_machen()` prüft nur übernommene Anweisungen, nicht die Kopfzeilen.
+
+**Zu tun:** Das fertige Muster mit `compile()` prüfen und sonst auf die Kette aus `if`/`elif` ausweichen. Erledigt, wenn ein Test mit beiden Beschriftungen übersetzbaren Code bekommt.
+
+**Behoben (28. September 2026, ab 0.3.6).** `_mehrfachauswahl` in `ide/diagramm/struktogramm_code.py` übersetzt jede Fallbeschriftung vor der Wahl von `match` probeweise als `case`-Muster (`_ist_muster`). Scheitert eine, entsteht die Kette aus `if`/`elif`. Test: `test_fallbeschriftungen_ohne_gueltiges_muster` in `tests/test_struktogramm_code.py` bekommt für `...` und `a().b` übersetzbaren Code mit `if x == ...:` und `elif x == a().b:`.
+
+
+---
+
+## 178. Code aus dem Klassendiagramm: Kommentare mit `"` am Ende oder mit `\` verhindern die Erzeugung ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Ein Kommentar einer Operation, der mit `"` endet, ergibt `""""`, und die Erzeugung bricht mit „Der erzeugte Code lässt sich nicht übersetzen, Zeile 5 …“ ab; der Hinweis dazu nennt Typ und Standardwert, nicht den Kommentar. Ein Klassenkommentar mit `C:\Users` ergibt einen Fehler im Escape `\U`.
+
+**Ursache:** nachgewiesen: `ide/diagramm/klassen_code.py`, `_docstring` (Zeilen 60-67) schreibt den Text ohne Maskierung.
+
+**Zu tun:** Backslash und `"""` maskieren oder einen Raw-String verwenden. Erledigt, wenn ein Test mit beiden Kommentaren übersetzbaren Code bekommt.
+
+**Behoben (28. September 2026, ab 0.3.6).** `_docstring` in `ide/diagramm/klassen_code.py` maskiert jetzt Backslashes, drei Anführungszeichen hintereinander und ein Anführungszeichen am Ende des Kommentars. Test: `test_kommentare_mit_anfuehrungszeichen_und_backslash` in `tests/test_diagramm_klassen_code.py` prüft einen Klassenkommentar mit `C:\Users\schule` und Operationskommentare mit `"Hallo"` am Ende und mit `"""` im Text; `ungueltige_namen` meldet nichts, und nach `exec` stimmen die Docstrings mit dem Kommentar überein.
+
+
+---
+
+## 179. „Quelltext → Nur die Auswahl“ macht aus einer Notiz oder einem Paket eine Klasse ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Ist eine Notiz „Konto“ oder ein Paket „Bank“ ausgewählt, entsteht `class Konto: ...` beziehungsweise `class Bank: ...`. Nebenbei bekommt die Notiz die Schlüssel `attributes` und `operations` in ihre Daten geschrieben, ohne Rückgängig-Schritt.
+
+**Ursache:** nachgewiesen: `ide/diagramm/fenster.py` (Zeilen 963-970) und `ide/diagramm/klassen_code.py` (Zeile 425) prüfen bei einer gewählten Form nicht `ist_klasse()`; `attribute()` und `operationen()` in `uml_modell.py` benutzen `setdefault` auch beim bloßen Lesen.
+
+**Zu tun:** Bei einer Auswahl ohne Klasse „Nichts zu erzeugen“ melden; beim Lesen `get(…, [])` statt `setdefault`. Erledigt, wenn ein Test mit gewählter Notiz keinen Code und unveränderte Daten findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `diagramm_als_python` und `ungueltige_namen` in `ide/diagramm/klassen_code.py` liefern für eine gewählte Form, die keine Klasse ist, nichts; das Diagrammfenster meldet dann wie bei jedem leeren Ergebnis „Nichts zu erzeugen.“. `attribute()` und `operationen()` in `ide/diagramm/uml_modell.py` lesen mit `get` statt `setdefault` und schreiben damit weder beim Zeichnen noch beim Erzeugen leere Listen in Notizen und Pakete. Der Klassendialog legt seine Listen weiter selbst auf seiner Kopie an. Test: `test_gewaehlte_notiz_ergibt_keinen_code` in `tests/test_diagramm_klassen_code.py` wählt eine Notiz „Konto“, findet keinen Code, keine Datei, die Meldung und unveränderte Daten. Zwei Tests in `tests/test_diagramm_klassendialog.py` erwarteten nach dem Rückgängigmachen den Schlüssel `attributes` und prüfen jetzt nur, dass keine Attribute da sind.
+
+
+---
+
+## 180. Umschalt+Pfeil und Strg+D wirken bei einer Mehrfachauswahl nur auf eine Komponente ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** Drei Knöpfe sind ausgewählt. Umschalt+Rechts ergibt die Breiten `[75, 75, 83]`, Strg+D legt nur `button3_kopie` an. `docs/handbuch.md` (Abschnitt 5) und Punkt 73 sagen, Pfeiltasten wirkten auf die ganze Auswahl.
+
+**Ursache:** nachgewiesen: `ide/designer/canvas.py`, `groesse_aendern` (Zeile 1701) und `duplizieren` (Zeile 1832) werten `_mehrfach` nicht aus; `verschieben` und `loeschen` tun es.
+
+**Zu tun:** Beide auf die ganze Auswahl erweitern, in einem Rückgängig-Schritt, oder das Handbuch genauer fassen. Erledigt, wenn ein Test nach Umschalt+Rechts alle drei Breiten geändert findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `groesse_aendern` und `duplizieren` werten ohne ausdrücklich genannte Komponente die Mehrfachauswahl aus: Umschalt+Pfeil ändert die Größe aller ausgewählten Komponenten, Strg+D verdoppelt jede, beides als ein Rückgängig-Schritt. Für das Verdoppeln ist das Einsetzen in `_eintraege_bauen` und `_gebaute_einsetzen` geteilt, damit Kopien in verschiedenen Behältern in einem Schritt entstehen. Das Kontextmenü verdoppelt weiter die angeklickte Komponente. Tests: `test_umschalt_rechts_aendert_alle_breiten` und `test_strg_d_verdoppelt_die_ganze_auswahl`. Handbuch Abschnitt 5 nennt beide Tasten.
+
+
+---
+
+## 181. Das Handbuch beschreibt Ziehen aus der Palette, das es nicht gibt ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** `docs/handbuch.md`, Abschnitt 3.1: „Ein Fenster entsteht, indem Komponenten aus der Palette am oberen Rand auf das Formular gezogen werden“. Eine Kachel lässt sich aber nicht ziehen; es geht nur Anklicken und dann ins Formular klicken, wie `docs/erste_schritte.md` und der Hinweis der Palette richtig sagen. Wer der Lehrkraft-Anleitung folgt, zieht und es passiert nichts.
+
+**Ursache:** nachgewiesen: `ide/palette/palette.py`, Zeile 227 setzt `Movement.Static`; ein Ziehen aus der Liste gibt es nirgends (`QDrag` kommt in `ide/` nicht vor), und der Designer nimmt beim Ablegen nur Bilddateien an (`ide/designer/canvas.py`, Zeilen 959-982).
+
+**Zu tun:** Entweder Ziehen aus der Palette einbauen oder Abschnitt 3.1 an „anklicken, dann ins Formular klicken“ anpassen. Erledigt, wenn Handbuch und Bedienung übereinstimmen.
+
+**Behoben (28. September 2026, ab 0.3.6).** `docs/handbuch.md`, Abschnitt 3.1 beschreibt die Bedienung, wie sie ist: Komponente in der Palette anklicken, dann an der gewünschten Stelle ins Formular klicken; ein Doppelklick setzt sie in die Mitte. Ziehen wurde nicht eingebaut. Test: `test_handbuch_beschreibt_die_palette_wie_sie_sich_bedienen_laesst` in `tests/test_hilfeseiten_abgleich.py`.
+
+
+---
+
+## 182. Kommentar in `klassen_code.py` verspricht Attribute aus Aggregation und Komposition ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:** `ide/diagramm/klassen_code.py`, Zeile 30: „Aggregation und Komposition werden dagegen zu Attributen“. Aus `Auto` ◆→ `Motor` entstehen zwei leere Klassen ohne Attribut; eine Stelle, die das umsetzt, gibt es im Code nicht.
+
+**Ursache:** nachgewiesen: die genannte Zeile gegen den Rest der Datei.
+
+**Zu tun:** Umsetzen (ein Attribut mit dem Typ der Zielklasse) oder den Kommentar berichtigen. Erledigt, wenn Kommentar und Ergebnis übereinstimmen.
+
+**Behoben (28. September 2026, ab 0.3.6).** Umgesetzt statt nur den Kommentar zu berichtigen: `_teilattribute` in `ide/diagramm/klassen_code.py` macht aus jeder Aggregation und Komposition, die vom Ganzen (der Seite mit der Raute) ausgeht, ein Attribut mit dem Typ des Teils. Aus `Auto` ◆→ `Motor` wird der Parameter `motor: Motor` mit `self.motor = motor`. Steht am Teil eine Vielfachheit über 1 (`*`, `0..*`, `4`), entsteht eine Liste, die leer beginnt, etwa `self.rad_liste = []`. Ein Rollenname an diesem Ende wird zum Attributnamen, und ein eigenes Attribut, das das Teil schon beschreibt (gleicher Name oder Typ mit dem Klassennamen), wird nicht verdoppelt. Der Kommentar an `VERERBUNGSARTEN` und die neue Konstante `TEILEARTEN` beschreiben das. Tests: `test_komposition_wird_zum_attribut` und `test_rollenname_und_vorhandenes_attribut_bei_komposition` in `tests/test_diagramm_klassen_code.py`, beide mit `exec`.
+
+
+---
+
+## 183. Kleinere Widersprüche in den Hilfeseiten ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vierte Durchsicht (`/durchsicht`), Entwicklungsstand `edbdf0d`.
+
+**Beobachtet:**
+
+- `docs/erste_schritte.md`, „Und wenn es nicht weitergeht?“, listet neun Beispielprojekte; das Menü, `docs/handbuch.md` (Abschnitt 7) und `README.md` (Abschnitt 12) nennen elf, dazu „Notizbuch“ und „Malen“.
+- `docs/handbuch.md`, Abschnitt 4: „Zwei Eigenschaften sind für die Aufsicht wichtig:“, darunter stehen drei.
+- `docs/handbuch.md`, Abschnitt 4, erwähnt nicht, dass im Prüfungsmodus auch die zuletzt geöffneten Projekte und die Beispielprojekte gesperrt sind; die Rückfrage beim Einschalten sagt es.
+- Die Statusmeldung ohne Testergebnisse verweist auf „Projekt → Tests ausführen“ (`ide/shell/hauptfenster.py`, Zeile 1700); der Eintrag heißt „Alle Tests ausführen“.
+
+**Ursache:** nachgewiesen: die genannten Stellen.
+
+**Zu tun:** Tabelle um 10 und 11 ergänzen, „Drei Eigenschaften“, die Sperren im Handbuch nennen, Menüname in der Meldung angleichen. Erledigt, wenn die Stellen übereinstimmen.
+
+**Behoben (28. September 2026, ab 0.3.6).** `docs/erste_schritte.md` führt in der Tabelle auch 10 „Notizbuch“ und 11 „Malen“; `docs/handbuch.md`, Abschnitt 4 sagt „Drei Eigenschaften“ und nennt die Sperre von „Zuletzt geöffnet“, Startseitenliste und Beispielprojekten; die Statusmeldung ohne Testergebnisse verweist auf „Projekt → Alle Tests ausführen“. Tests in `tests/test_hilfeseiten_abgleich.py`: die Tabelle gegen `beispielprojekte()`, die Zahl der Eigenschaften, die Sperren und die Meldung gegen den Text des Menüeintrags.
+
+
+---
+
+## 184. „Neues Formular …“ mit dem Namen `u_Main` überschreibt `u_main.py` und `u_main.pfm` ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, fünfte Durchsicht (`/durchsicht`), Entwicklungsstand `d6758d1`.
+
+**Beobachtet:** Im Taschenrechner-Beispiel (Kopie) „Datei → Neues Formular …“ mit dem Namen `u_Main`: das Formular wird ohne Einwand angelegt. Danach enthält `u_main.py` statt der 2378 Zeichen Schülercode nur noch die 576 Zeichen der Vorlage für ein weiteres Formular, und `u_main.pfm` beschreibt ein leeres `Form2`. Das Hauptformular samt Code ist verloren, der Papierkorb hat nichts davon. Zu erwarten wäre die Meldung „„u_Main“ gibt es schon“.
+
+**Ursache:** nachgewiesen: `ide/shell/hauptfenster.py`, `formular_erzeugen`, Zeile 1594 vergleicht den Namen mit einer Menge von Dateinamen, also mit Rücksicht auf Groß- und Kleinschreibung. Windows unterscheidet sie nicht; `pfm_pfad.write_text` (Zeile 1600) und das Schreiben der Unit (Zeile 1620) treffen die vorhandenen Dateien. `unit_erzeugen` und `_unit_umbenennen` prüfen mit `exists()` und sind davon nicht betroffen.
+
+**Zu tun:** Ohne Rücksicht auf Groß- und Kleinschreibung vergleichen (`casefold()`) oder vor dem Schreiben `exists()` für alle drei Dateien prüfen und nie eine vorhandene Datei überschreiben. Erledigt, wenn ein Test mit `u_Main` abgelehnt wird und `u_main.py` unverändert bleibt.
+
+**Behoben (28. September 2026, ab 0.3.6).** `HauptFenster.formular_erzeugen` (`ide/shell/hauptfenster.py`) vergleicht den Namen jetzt mit `casefold()` gegen die vorhandenen Dateinamen und prüft zusätzlich `exists()` für `.pfm`, `.py` und `_design.py`, bevor etwas geschrieben wird. `u_Main`, `u_MAIN` und `u_Main.py` werden mit „„…“ gibt es schon“ abgelehnt, keine Datei ändert sich. Test: `test_ein_name_in_anderer_schreibweise_ueberschreibt_nichts` in `tests/test_neues_formular.py`.
+
+
+---
+
+## 185. Doppelklick im Test-Explorer hält Natter bis zu einer Minute an und testet den ungespeicherten Stand nicht ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, fünfte Durchsicht (`/durchsicht`), Entwicklungsstand `d6758d1`.
+
+**Beobachtet:** Ein Doppelklick auf einen Test im Panel „Tests“ führt ihn erneut aus. Drei Mängel, in einer Probe mit `HauptFenster` nachgestellt:
+
+- Der Lauf geschieht im Faden der Oberfläche. Ein Test mit einer Endlosschleife hielt das Fenster 60 Sekunden lang an.
+- Danach endet der Aufruf mit einem unbehandelten `subprocess.TimeoutExpired` statt einer Meldung.
+- Vorher wird nicht gespeichert. Eine im Editor geänderte, nicht gespeicherte Testdatei mit `self.assertEqual(1, 2)` ergab weiter „bestanden“. „Alle Tests ausführen“ speichert vorher (Punkt 86) und läuft im Hintergrund.
+
+**Ursache:** nachgewiesen: `ide/shell/hauptfenster.py`, `_bei_test_doppelklick` (Zeilen 2066-2079) ruft `tests_ausfuehren` (Zeile 2074) direkt auf, ohne `alle_speichern()` und ohne `_hintergrund_starten`; `ide/testrunner/ausfuehrung.py`, Zeilen 51-60 lassen `TimeoutExpired` durch.
+
+**Zu tun:** Wie `_alle_tests_ausfuehren_aktion`: erst speichern, dann über `_hintergrund_starten` laufen lassen; eine Zeitüberschreitung als Testergebnis „fehler“ mit deutscher Nachricht melden. Erledigt, wenn ein Test mit Endlosschleife das Fenster bedienbar lässt und ein ungespeicherter Fehlschlag als „fehlgeschlagen“ erscheint.
+
+**Behoben (28. September 2026, ab 0.3.6).** `_bei_test_doppelklick` (`ide/shell/hauptfenster.py`) geht jetzt denselben Weg wie „Alle Tests ausführen“: `_hintergrund_frei`, `alle_speichern()`, dann `_hintergrund_starten`. Das Ergebnis trägt `_einzeltest_fertig` ein und sucht den Baumeintrag dafür über die Test-ID neu (`_test_eintrag_finden`), falls der Baum inzwischen neu aufgebaut wurde. `tests_ausfuehren` (`ide/testrunner/ausfuehrung.py`) fängt `subprocess.TimeoutExpired` ab und liefert ein Ergebnis „fehler“ mit „Nach … Sekunden abgebrochen - vermutlich eine Endlosschleife.“ Tests: `test_doppelklick_speichert_vorher_und_testet_den_neuen_stand` und `test_doppelklick_auf_eine_endlosschleife_haelt_das_fenster_nicht_an` in `tests/test_hauptfenster_testexplorer.py`; die beiden bestehenden Doppelklick-Tests warten jetzt auf den Hintergrundlauf.
+
+
+---
+
+## 186. `print()` mit Umlauten erscheint im Panel „Ausgabe“ als Ersatzzeichen ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, fünfte Durchsicht (`/durchsicht`), Entwicklungsstand `d6758d1`.
+
+**Beobachtet:** Ein GUI-Programm mit `print('Größe: 3 €')`, gestartet über `projekt_starten`, liefert im Rohr `'Gr��e: 3 �'`; im Panel „Ausgabe“ steht „Gr��e: 3 �“. Vermutet, nicht geprobt: dasselbe bei Fehlermeldungen des Programms, die über dasselbe Rohr kommen, sobald ein Pfad oder ein Text Umlaute enthält.
+
+**Ursache:** nachgewiesen: `ide/run/starter.py`, Zeilen 119-129 lesen die Ausgabe als UTF-8. Das Schülerprogramm schreibt in ein Rohr aber in der Kodierung des Systems (cp1252), weil weder `PYTHONIOENCODING` noch `-X utf8` gesetzt ist (`python_befehl()` in `ide/run/interpreter.py`, Zeile 60, und keine Stelle in `pcl` stellt `sys.stdout` um). In der gebauten Fassung vermutet gleich, dort ebenfalls ohne UTF-8-Modus.
+
+**Zu tun:** Dem Kindprozess `PYTHONIOENCODING=utf-8` in die Umgebung geben (oder `-X utf8`), passend zum Lesen als UTF-8. Erledigt, wenn ein Test mit `print("Größe")` im Panel „Größe“ findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `projekt_starten` (`ide/run/starter.py`) gibt dem GUI-Programm die Umgebung aus `umgebung_mit_utf8()` (`ide/run/interpreter.py`) mit `PYTHONIOENCODING=utf-8`; gelesen wird das Rohr schon als UTF-8. Für die gebaute Fassung, deren eingebetteter Python keine `PYTHON*`-Variablen liest, stellt `als_python_ausfuehren` hinter `--python` die Ströme nach `PYTHONIOENCODING` selbst um (`_stroeme_nach_umgebung_einstellen`). Die Kodierung, mit der das Schülerprogramm Dateien öffnet, bleibt unverändert. Tests: `test_umlaute_aus_print_kommen_im_panel_an` in `tests/test_ausgabe_und_einstellungen.py` und `test_hinter_der_python_flagge_gilt_utf8_auch_ohne_umgebung` in `tests/test_starter.py` (mit `python -E` als Nachbildung der Exe).
+
+
+---
+
+## 187. Prüfung vor dem Start: Pfade mit Umlauten kommen verstümmelt an, Wellenlinien fehlen ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, fünfte Durchsicht (`/durchsicht`), Entwicklungsstand `d6758d1`.
+
+**Beobachtet:** Liegt ein Projekt in einem Ordner wie `Übung Größe` (oder unter einem Windows-Benutzernamen mit Umlaut, dann jedes Projekt unter „Dokumente“), liefert `projekt_pruefen` Pfade wie `…\Ãœbung GrÃ¶ÃŸe\u_main.py`, die es nicht gibt. Folge in `HauptFenster`: der Start wird zwar verhindert, aber im offenen Editor erscheint keine Wellenlinie an der Fehlerzeile (`_funde_der_datei` liefert `{}`; im selben Projekt im Ordner `Uebung` `{32: …}`).
+
+**Ursache:** nachgewiesen: `ide/run/pruefung.py`, Zeile 205 liest die JSON-Ausgabe von Ruff mit `text=True` ohne `encoding`, also als cp1252; Ruff schreibt UTF-8. `ide/shell/hauptfenster.py`, Zeile 3277 vergleicht den verstümmelten Pfad mit dem echten.
+
+**Zu tun:** `encoding="utf-8"` beim Aufruf angeben. Erledigt, wenn ein Test mit einem Projektordner mit Umlaut die Wellenlinie an der richtigen Zeile findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `projekt_pruefen` (`ide/run/pruefung.py`) liest die JSON-Ausgabe von Ruff mit `encoding="utf-8"`. Zusätzlich vergleicht `_funde_der_datei` (`ide/shell/hauptfenster.py`) die Pfade über `_gleiche_datei` mit `os.path.normcase`, also ohne Rücksicht auf Groß- und Kleinschreibung und die Richtung der Schrägstriche. Test: `test_ein_projektordner_mit_umlaut_bekommt_seine_wellenlinie` in `tests/test_editor_funde.py` (Projekt im Ordner „Übung Größe“, echte Ruff-Prüfung, Wellenlinie in Zeile 4).
+
+
+---
+
+## 188. Prüfungsmodus: ein schon offenes Diagrammfenster erzeugt weiter Quelltext ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, fünfte Durchsicht (`/durchsicht`), Entwicklungsstand `d6758d1`.
+
+**Beobachtet:** Ist ein Struktogramm oder Klassendiagramm offen, während der Prüfungsmodus eingeschaltet wird, bleibt „Quelltext → Erzeugen …“ (Strg+Umschalt+E) in diesem Fenster bedienbar und liefert Code. Probe: `DiagrammFenster` öffnen, danach den Prüfungsmodus als laufend melden lassen: der Eintrag ist aktiv, `quelltext_erzeugen("fenster", "alles", …)` öffnet ein `CodeFenster` mit `def s(): …`. `docs/handbuch.md`, Abschnitt 4 und die Rückfrage beim Einschalten sagen, das sei gesperrt. Umgekehrt bleibt der Eintrag in einem während des Modus geöffneten Fenster nach dessen Ablauf gesperrt.
+
+**Ursache:** nachgewiesen: `ide/diagramm/fenster.py`, Zeile 948 prüft den Modus nur beim Aufbau des Menüs (Zeile 640); `quelltext_erzeugen` prüft nicht selbst. `_pruefungsmodus_nachfuehren` (`ide/shell/hauptfenster.py`, ab Zeile 3329) kennt `_offene_diagramme` nicht.
+
+**Zu tun:** Den Zustand in `quelltext_erzeugen` selbst prüfen und den Menüeintrag in `_pruefungsmodus_nachfuehren` für alle offenen Diagrammfenster nachziehen. Erledigt, wenn ein Test mit vorher geöffnetem Fenster keinen Code mehr bekommt und nach Ablauf wieder welchen.
+
+**Behoben (28. September 2026, ab 0.3.6).** `DiagrammFenster` (`ide/diagramm/fenster.py`) hat die Methode `pruefungsmodus_nachfuehren`, die „Quelltext → Erzeugen …“ je nach Modus sperrt oder freigibt; `quelltext_erzeugen` prüft den Modus selbst und liefert im Modus nichts. `HauptFenster._pruefungsmodus_nachfuehren` ruft die Methode für alle offenen Diagrammfenster auf, beim Einschalten und über die halbminütliche Uhr. Tests: `test_ein_vorher_geoeffnetes_diagramm_erzeugt_im_modus_keinen_code` und `test_ein_im_modus_geoeffnetes_diagramm_ist_danach_wieder_frei` in `tests/test_pruefungsmodus_ablauf.py`.
+
+
+---
+
+## 189. Ein Klick auf einen Fund der Prüfung vor dem Start führt nirgendwohin ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, fünfte Durchsicht (`/durchsicht`), Entwicklungsstand `d6758d1`.
+
+**Beobachtet:** Die Statuszeile sagt nach einem verhinderten Start: „Jeder Eintrag unten im Panel „Meldungen“ nennt Datei und Zeile; ein Klick führt dorthin.“ `docs/handbuch.md`, Abschnitt 3.3 (Zeile 201): „Ein Klick auf die Meldung springt an die Stelle.“ In der Probe (Beispiel 01 mit `print(zaehler)`, `_bei_meldung_geklickt` auf den Eintrag) bleibt der Reiter unverändert, es öffnet sich keine Datei, der Cursor springt nicht. Wer die Datei gerade nicht offen hat, muss sie selbst suchen.
+
+**Ursache:** nachgewiesen: `ide/shell/hauptfenster.py`, Zeile 4386 legt die Funde nur als Text in die Liste; `_bei_meldung_geklickt` (Zeilen 3902-3915) reagiert nur auf Einträge des Design-Prüfers und steigt bei Ruff-Funden laut eigenem Docstring aus.
+
+**Zu tun:** Datei und Zeile des Fundes am Eintrag ablegen und beim Klick die Datei öffnen und zur Zeile springen (wie `_zu_wo_springen` bei Laufzeitfehlern). Erledigt, wenn ein Test nach dem Klick die Datei im aktiven Reiter und den Cursor in der Fundzeile findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** Die Funde der Prüfung vor dem Start tragen in `meldungen_liste` jetzt Datei, Zeile und Spalte unter `_FUND_ROLLE` (`ide/shell/hauptfenster.py`). `_bei_meldung_geklickt` öffnet damit über `_zu_fund_springen` die Datei, auch wenn sie noch nicht offen war, und setzt den Cursor mit `zu_zeile_springen` an die Fundstelle; der Sprung wird wie bei „Gehe zu Definition“ gemerkt. Test: `test_ein_klick_auf_den_fund_oeffnet_die_datei_an_der_zeile` in `tests/test_editor_funde.py`.
+
+
+---
+
+## 190. StringGrid: welche Zelle gewählt ist, lässt sich nicht abfragen ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, fünfte Durchsicht (`/durchsicht`), Entwicklungsstand `d6758d1`.
+
+**Beobachtet:** Ein Knopf „Zeile löschen“ oder „Übernehmen“ braucht die gewählte Zeile. `StringGrid` hat dafür keine Eigenschaft; die Nummer steht nur als Parameter in `on_select_cell` und muss dort in einer eigenen Variable gemerkt werden. Ebenso fehlt, eine Zelle aus dem Programm zu wählen. `ListBox` und `ComboBox` haben dafür `item_index`.
+
+**Ursache:** nachgewiesen: `pcl/components/additional.py`, Zeilen 250-380; weder `currentRow`/`currentColumn` noch `setCurrentCell` werden herausgereicht (`grep currentRow` findet in der Datei nichts). `docs/komponenten.md`, Abschnitt „StringGrid“ nennt entsprechend nichts.
+
+**Zu tun:** Eigenschaften `col` und `row` (lesen und setzen, -1 = keine Auswahl), im Objektinspektor nicht nötig. Erledigt, wenn ein Test nach `sg.row = 2` die Auswahl in Zeile 2 findet und `komponenten.md` sie nennt.
+
+**Behoben (28. September 2026, ab 0.3.6).** `StringGrid` in `pcl/components/additional.py` hat die Eigenschaften `col` und `row` (nur im Code, nicht im Objektinspektor). Gelesen liefern sie die gewählte Zelle, -1 ohne Auswahl; zugewiesen wählen sie eine Zelle über `setCurrentCell` und lösen dabei `on_select_cell` aus. War noch nichts gewählt, gilt für die andere Angabe 0, und -1 hebt die Auswahl auf. Werte außerhalb von -1 bis `row_count - 1` bzw. `col_count - 1` und Nicht-Zahlen melden sich mit `NatterPropertyError`. `docs/komponenten.md`, Abschnitt „StringGrid“ nennt beide mit Beispiel. Tests: `test_stringgrid_row_waehlt_eine_zeile`, `test_stringgrid_minus_eins_hebt_die_auswahl_auf` und `test_stringgrid_row_ausserhalb_meldet_sich_deutsch` in `tests/test_auswahl_listen_zahlen.py`.
+
+
+---
+
+## 191. `items` und `lines` kennen kein `insert`, `remove`, `index` und `sort` ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, fünfte Durchsicht (`/durchsicht`), Entwicklungsstand `d6758d1`.
+
+**Beobachtet:** `self.lb.items.insert(0, "x")`, `items.remove("x")`, `items.index("x")`, `items.sort()` und `items.pop()` enden mit `AttributeError`. Im Unterricht wird `items` wie eine Liste behandelt; `add`, `clear`, `len`, Index und `del` gibt es, die übrigen üblichen Listenbefehle nicht.
+
+**Ursache:** nachgewiesen: `pcl/strings.py` definiert nur `add`, `clear`, `zuweisen`, `load_from_file`, `save_to_file` und die Zugriffe über Index; Probe mit `hasattr` ergibt für alle fünf `False`.
+
+**Zu tun:** `insert`, `remove`, `index`, `count`, `pop` und `sort` mit derselben Typprüfung wie `add` ergänzen, danach die Anzeige neu aufbauen; `docs/komponenten.md`, Abschnitt „items / lines“ nachziehen. Erledigt, wenn ein Test jede Methode an ListBox und Memo prüft.
+
+**Behoben (28. September 2026, ab 0.3.6).** `Strings` in `pcl/strings.py` kennt jetzt `insert`, `remove`, `index`, `count`, `pop` und `sort` (mit `key` und `reverse`). `insert`, `remove`, `index` und `count` prüfen den Text wie `add`; jede Änderung baut die Anzeige neu auf. `remove` und `index` melden einen fehlenden Text mit deutschem `ValueError`, `pop` eine leere Liste oder eine fehlende Zeile mit deutschem `IndexError`. `docs/komponenten.md`, Abschnitt „items / lines“ hat eine Tabelle der Befehle. Test: `test_items_und_lines_kennen_die_listenbefehle` in `tests/test_auswahl_listen_zahlen.py`, für ListBox und Memo, samt Abgleich mit der Anzeige.
+
+
+---
+
+## 192. `FloatSpinEdit` zeigt je nach Windows-Sprache einen Dezimalpunkt ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, fünfte Durchsicht (`/durchsicht`), Entwicklungsstand `d6758d1`.
+
+**Beobachtet:** Auf einem deutschen System zeigt `FloatSpinEdit` mit `value = 2.5` „2,50“. Mit englischer Systemsprache (in der Probe über `QLocale.setDefault`) steht dort „2.50“, und nur ein Punkt wird angenommen. `input_number`, `DateEdit` und `TimeEdit` bleiben dagegen immer deutsch.
+
+**Ursache:** nachgewiesen: `pcl/components/additional.py`, `FloatSpinEdit._qwidget_erzeugen` (ab Zeile 657) setzt keine Sprache; `pcl/dialogs.py`, Zeile 232 und `pcl/components/eingaben.py`, Zeile 34 setzen ausdrücklich `QLocale(German, Germany)`.
+
+**Zu tun:** Dem `QDoubleSpinBox` dieselbe deutsche Sprache geben. Erledigt, wenn ein Test unter englischer Vorgabesprache „2,50“ findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `FloatSpinEdit._qwidget_erzeugen` in `pcl/components/additional.py` gibt dem `QDoubleSpinBox` die Sprache `QLocale(German, Germany)`, wie `input_number` und `DateEdit`. Unter englischer Vorgabesprache zeigt das Feld „2,50“ und nimmt „3,25“ an. Hinweis in `docs/komponenten.md`, Abschnitt „FloatSpinEdit“. Test: `test_floatspinedit_zeigt_unter_englischer_sprache_ein_komma` in `tests/test_auswahl_listen_zahlen.py`.
+
+
+---
+
+## 193. `text()` schreibt kleine und große Zahlen in Exponentenschreibweise ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, fünfte Durchsicht (`/durchsicht`), Entwicklungsstand `d6758d1`.
+
+**Beobachtet:** `text(0.00001)` ergibt „1e-05“, `text(1e16)` „1e+16“. Das Modul soll Zahlen so schreiben, wie sie im Unterricht gelesen werden; eine Wahrscheinlichkeit von 0,00001 erscheint aber in der Programmierschreibweise mit „e“, die in der Mittelstufe niemand liest.
+
+**Ursache:** nachgewiesen: `pcl/zahlen.py`, Zeile 88 formatiert mit `".15g"`, das ab dem Exponenten -5 bzw. 16 auf Exponentenschreibweise wechselt.
+
+**Zu tun:** Ohne `stellen` festkommaartig ausgeben (etwa über `Decimal(repr(wert))` und `format(..., "f")`, danach nachlaufende Nullen weg) und erst bei wirklich großen Beträgen auf eine lesbare Form ausweichen; im Docstring festhalten, was gilt. Erledigt, wenn `text(0.00001)` „0,00001“ ergibt und ein Test die Grenze festhält.
+
+**Behoben (28. September 2026, ab 0.3.6).** `text()` in `pcl/zahlen.py` schreibt eine Kommazahl ohne `stellen` über die neue Hilfsfunktion `_ohne_exponent`: auf 15 Stellen gekürzt, dann als `Decimal` festkommaartig ausgegeben und nachlaufende Nullen entfernt. `text(0.00001)` ergibt „0,00001“, `text(1e16)` „10000000000000000“. Ab einem Betrag von 10^21 und unter 10^-10 erscheint eine Zehnerpotenz („2,5 · 10^21“); hochgestellte Ziffern wurden verworfen, weil die meisten davon in der Windows-Konsole (cp1252) fehlen und `print` in Konsolenprogrammen abbräche. Die Grenze steht im Docstring und in `docs/komponenten.md`, Abschnitt „Zahlen mit Dezimalkomma“. Test: `test_text_ohne_exponentenschreibweise` in `tests/test_auswahl_listen_zahlen.py`, mit Fällen auf beiden Seiten der Grenze.
+
+
+---
+
+## 194. Exportierte Exe: was ein Programm neben sich speichert, ist nach dem Beenden weg ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, sechste Durchsicht (`/durchsicht`), Entwicklungsstand `3926dfe`.
+
+**Beobachtet:** Die Beispiele legen ihre Dateien mit `Path(__file__).parent` ab: `06_Kontoverwaltung` die Datenbank `konten.sqlite`, `07_CsvAuswertung` die Datei `auswertung.csv`. Der Docstring des Exporters beschreibt denselben Weg für Bilder. Im Entwicklungsbaum und in Natter ist das der Projektordner. In der Exe aus „Projekt → Als Exe exportieren …“ zeigt `__file__` dagegen in den Ordner, in den PyInstaller die Exe bei jedem Start auspackt und den es beim Beenden wieder löscht. Jedes Konto, das in der exportierten Kontoverwaltung angelegt wird, ist beim nächsten Start verschwunden; die gespeicherte Auswertung liegt nie an einer Stelle, an der sie jemand findet. Zweitens nimmt der Export nur Unterordner mit: eine Datei, die direkt im Projektordner liegt (eine vorbereitete `konten.sqlite`, eine `noten.csv`), fehlt in der Exe ganz.
+
+**Ursache:** nachgewiesen am Code, nicht an einer gebauten Exe nachgemessen (Bauen war bei der Durchsicht ausgeschlossen): `ide/export/exporter.py` baut mit `--onefile` (Zeile 237 ff.) und gibt nur die Unterordner aus `_daten_ordner_des_projekts` (Zeile 140, 283) als `--add-data` mit. Dass `__file__` in einer `--onefile`-Exe auf den Auspackordner `sys._MEIPASS` zeigt und dieser beim Beenden gelöscht wird, ist das dokumentierte Verhalten von PyInstaller. Betroffen sind `beispielprojekte/06_Kontoverwaltung/u_main.py`, Zeile 24, und `beispielprojekte/07_CsvAuswertung/u_main.py`, Zeile 128.
+
+**Zu tun:** Für geschriebene Dateien einen Ort festlegen, der die Exe überlebt (etwa der Ordner der Exe über `sys.executable`, mit einer Hilfsfunktion in `pcl`, die im Projekt und in der Exe dasselbe liefert), die Beispiele darauf umstellen und Dateien im Projektstamm mit exportieren. Erledigt, wenn eine exportierte Kontoverwaltung nach Beenden und Neustart ihre Konten noch zeigt.
+
+**Behoben (28. September 2026, ab 0.3.6).** Die Exe bleibt eine einzelne Datei, bekommt aber einen PyInstaller-Laufzeithaken (`_ARBEITSORDNER_HOOK` in `ide/export/exporter.py`), der das Arbeitsverzeichnis beim Start auf den Ordner der Exe setzt. Dateien direkt im Projektordner wandern mit in die Exe (`_daten_dateien_des_projekts`; Quelltext und `.natter`/`.pfm`/`.pdiag` ausgenommen). `06_Kontoverwaltung` und `07_CsvAuswertung` schreiben mit relativem Pfad (`Path("konten.sqlite")`, `Path("auswertung.csv")`), in Natter also im Projektordner, in der Exe neben der Exe; README Abschnitt 16 beschreibt die Regel. `pcl` blieb unverändert, eine eigene Pfad-Hilfsfunktion war damit nicht nötig. Probe mit echtem PyInstaller-Lauf in `%TEMP%`: eine exportierte Exe, zweimal aus einem fremden Ordner gestartet, hängt zweimal an `zaehler.txt` neben der Exe an und liest dabei eine `noten.csv` aus dem Projektstamm. Tests in `tests/test_exporter.py`: `test_eine_datei_im_projektstamm_wandert_mit`, `test_die_exe_bekommt_den_arbeitsordner_haken`, `test_der_haken_setzt_den_arbeitsordner_auf_den_ordner_der_exe`, `test_die_beispiele_schreiben_nicht_in_den_auspackordner`.
+
+
+---
+
+## 195. „Neues Projekt …“ mit `?`, `:`, `"` oder `\` im Namen endet in der Absturzmeldung ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, sechste Durchsicht (`/durchsicht`), Entwicklungsstand `3926dfe`.
+
+**Beobachtet:** Der Dialog nimmt jeden Namen an. `projekt_erzeugen` mit „Ampel?“ oder „Ampel "neu"“ wirft `OSError: [WinError 123]`, mit „Zins: Rechner“ `NotADirectoryError`; das Hauptfenster fängt nur `ValueError` und `FileExistsError`, also erscheint „In Natter ist etwas schiefgegangen“. Mit „Klasse7\Ampel“ entsteht ein verschachtelter Ordner, danach scheitert das Schreiben mit `FileNotFoundError`, und ein leerer Ordner `Klasse7` bleibt liegen (Probe in `%TEMP%`). Der Name landet außerdem ungeschützt in der JSON-Vorlage (`"name": "{{name}}"`) und im Python-Code der Konsolenvorlage (`print("Hallo, {{name}}!")`), ein Anführungszeichen oder ein Rückstrich zerbräche beide.
+
+**Ursache:** nachgewiesen: `ide/project/neu_dialog.py`, `werte()` (Zeile 86) prüft nur auf leer; `ide/project/neu.py`, Zeile 51-69 legt Ordner und Dateien ohne Prüfung an; `ide/shell/hauptfenster.py`, Zeile 1451 fängt `OSError` nicht.
+
+**Zu tun:** Den Namen im Dialog prüfen (keine Zeichen, die Windows in Dateinamen verbietet, kein Pfadtrenner, kein Punkt oder Leerzeichen am Ende) und mit einem deutschen Hinweis ablehnen; `OSError` beim Anlegen melden; in den Vorlagen den Namen für JSON und Python maskiert einsetzen. Erledigt, wenn ein Test die vier Namen oben ablehnt, ohne dass ein Ordner zurückbleibt.
+
+**Behoben (28. September 2026, ab 0.3.6).** `name_pruefen` in `ide/project/neu.py` lehnt Namen mit einem der Zeichen `< > : " / \ | ? *`, mit Steuerzeichen, mit Punkt oder Leerzeichen am Ende und die reservierten Gerätenamen (`CON`, `NUL`, `COM1` …) mit einem deutschen Hinweis ab. Der Dialog zeigt den Hinweis unter den Feldern und bleibt offen; `projekt_erzeugen` prüft noch einmal und löscht einen selbst angelegten Ordner wieder, wenn das Schreiben mit `OSError` scheitert. Das Hauptfenster fängt `OSError` und meldet ihn in der Statuszeile statt in der Absturzmeldung. In den Vorlagen wird der Name mit JSON-Maskierung eingesetzt, die auch in einer Python-Zeichenkette gilt. Tests: `tests/test_projekt_name_pruefen.py`, darunter `test_projekt_erzeugen_lehnt_ab_ohne_ordner` mit den vier Namen aus der Meldung für beide Vorlagen.
+
+
+---
+
+## 196. Exe-Export: ein Projekt mit `to_dataframe()` bekommt pandas ohne numpy ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, sechste Durchsicht (`/durchsicht`), Entwicklungsstand `3926dfe`.
+
+**Beobachtet:** Eine Unit, die `df = self.sq_noten.to_dataframe()` und `self.sg_noten.load_dataframe(df)` enthält und pandas nicht selbst importiert, wird ohne numpy exportiert: `_ueberfluessige_pakete` liefert `numpy`, aber nicht `pandas` (Probe mit einem frisch angelegten Projekt). pandas setzt numpy voraus (`numpy>=1.26.0` in den Paketangaben), und `pcl/dataframe.py` importiert numpy in Zeile 45 selbst. Die fertige Exe bricht beim ersten Aufruf ab, obwohl das Programm in Natter lief.
+
+**Ursache:** nachgewiesen: `ide/export/exporter.py`, Zeile 75-76. Bei `pandas` steht das Stichwort `to_dataframe`, bei `numpy` nicht; dort steht nur `DataFrame`, und der Vergleich unterscheidet Groß- und Kleinschreibung.
+
+**Zu tun:** Die Abhängigkeit ausdrücklich machen: bleibt pandas drin, bleibt numpy drin. Erledigt, wenn ein Test für ein Projekt mit `to_dataframe` weder pandas noch numpy ausgeschlossen findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `ide/export/exporter.py` hat die Tabelle `_BRAUCHT`: bleibt pandas, matplotlib, scipy oder scikit-learn im Programm, bleiben auch die Pakete drin, die sie voraussetzen (numpy, bei matplotlib auch Pillow, bei scikit-learn scipy und joblib). `_ueberfluessige_pakete` bildet daraus die Hülle, bevor es ausschließt. Tests: `test_to_dataframe_behaelt_pandas_und_numpy` und `test_pyplot_behaelt_numpy` in `tests/test_exporter.py`.
+
+
+---
+
+## 197. Prüfungsmodus: „Projekt öffnen …“ öffnet die Beispielprojekte weiter ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, sechste Durchsicht (`/durchsicht`), Entwicklungsstand `3926dfe`.
+
+**Beobachtet:** Im Prüfungsmodus ist „Datei → Beispielprojekte“ gesperrt, weil die Beispiele ausgearbeitete Lösungen enthalten. „Projekt öffnen …“ mit der `.natter`-Datei eines mitgelieferten Beispiels öffnet aber eine Arbeitskopie davon, ohne Hinweis (Probe mit `pytest -p tests.conftest`: Prüfungsmodus gestartet, `_projekt_oeffnen_dialog` mit `01_Begruessung.natter`, danach ist das Beispiel offen). Die Arbeitskopien liegen außerdem in `Dokumente\Natter\Beispielprojekte`, also im selben Ordner, den der Dialog „Neues Projekt“ vorschlägt, und lassen sich von dort ebenso öffnen. Die Rückfrage beim Einschalten sagt, die Beispielprojekte seien in dieser Zeit nicht erreichbar.
+
+**Ursache:** nachgewiesen: `ide/shell/hauptfenster.py`, `projekt_oeffnen_gemeldet` (Zeile 2694) leitet ein Original an `beispiel_oeffnen` (Zeile 2499) weiter, und keine der beiden Methoden fragt `pruefungsmodus_laeuft()` ab. Eine Arbeitskopie erkennt `beispiel_original()` in `ide/shell/startbild.py`, geprüft wird das beim Öffnen aber nicht. Verwandt mit Punkt 145, der nur „Zuletzt geöffnet“ betrifft.
+
+**Zu tun:** Im Prüfungsmodus Originale und Arbeitskopien der Beispiele beim Öffnen ablehnen, mit dem Hinweis aus `GESPERRT_HINWEIS`. Erledigt, wenn ein Test beide Wege im Prüfungsmodus gesperrt findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `HauptFenster._beispiel_gesperrt` prüft im Prüfungsmodus, ob ein Pfad ein mitgeliefertes Beispiel (`ist_beispiel_original`) oder eine Arbeitskopie davon (`beispiel_original`) ist, und meldet dann `GESPERRT_HINWEIS`. `projekt_oeffnen_gemeldet` und `beispiel_oeffnen` fragen das vor dem Öffnen ab; damit sind „Projekt öffnen …“, die Kommandozeile und die Knöpfe der Startseite gleich behandelt. Ein eigenes Projekt öffnet weiter. Handbuch, Abschnitt 4, ergänzt. Test: `test_projekt_oeffnen_sperrt_beispiele_im_pruefungsmodus` in `tests/test_pruefungsmodus_ablauf.py` (Original, Kopie als Datei und als Ordner, `beispiel_oeffnen`, danach ein eigenes Projekt und die Kopie nach dem Ende des Modus).
+
+
+---
+
+## 198. Tests in einem Konsolenprojekt starten beim Import das ganze Programm ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, sechste Durchsicht (`/durchsicht`), Entwicklungsstand `3926dfe`.
+
+**Beobachtet:** In einem Konsolenprojekt steht der Code nach der Vorlage ohne Funktion oben in `u_main.py`. Ein Test aus „Neue Test-Unit“, der `from u_main import verdoppeln` schreibt, führt beim Import das Programm aus; das erste `input()` scheitert, weil der Testlauf keine Eingabe hat. Im Test-Explorer steht dann `unittest.loader._FailedTest.test_neu1` mit dem englischen Text „Failed to import test module“ und einem Traceback (Probe mit `tests_ausfuehren` in einem Projekt aus der Konsolenvorlage). Vermutet, nicht nachgemessen: läuft Natter mit einer Konsole als Eingabe, wartet der Test stattdessen bis zur Zeitgrenze von 60 Sekunden. Weder die Vorlage noch die Test-Vorlage sagen, dass testbarer Code in Funktionen und das Hauptprogramm unter `if __name__ == "__main__":` gehört; `main.py` startet es mit `import u_main`, was diese Trennung auch gar nicht zulässt.
+
+**Ursache:** nachgewiesen: `templates/console/main.py.template`, Zeile 7 startet das Programm über den Import; `ide/testrunner/ausfuehrung.py`, Zeile 47 ff. gibt dem Testlauf keine Eingabe und reicht Ladefehler von `unittest` unübersetzt durch.
+
+**Zu tun:** Die Konsolenvorlage so bauen, dass `u_main.py` ohne Nebenwirkung importierbar ist (etwa `def main():` in `u_main.py`, aufgerufen von `main.py`), dem Testlauf `stdin=DEVNULL` geben und einen Ladefehler auf Deutsch melden. Erledigt, wenn ein Test in einem frisch angelegten Konsolenprojekt eine Funktion aus `u_main` prüfen kann und besteht.
+
+**Behoben (28. September 2026, ab 0.3.6).** Die Konsolenvorlage legt das Programm in `def main():` in `u_main.py`; `main.py` ruft es mit `from u_main import main` und `main()` auf, der Kommentar in `u_main.py` erklärt, dass eigene Funktionen darüber stehen und sich aus Tests importieren lassen. Die mitgelieferten Beispiele 01 und 02 bleiben in ihrer Form. `tests_ausfuehren` startet den Testlauf mit `stdin=subprocess.DEVNULL`. `harness.py` meldet eine Testdatei, die sich nicht laden lässt, unter ihrem Namen statt als `unittest.loader._FailedTest` und auf Deutsch („Die Testdatei test_neu1.py lässt sich nicht laden.“), bei `EOFError` mit dem Hinweis auf `input()` und `main()`; das gilt auch für einen Einzeltest über `--ziel`, bei dem der Fehler vorher ohne Ergebnis endete. README und Handbuch (Abschnitt 3.7) ergänzt. Tests: `tests/test_konsolenprojekt_testen.py`, darunter `test_frisches_konsolenprojekt_laesst_funktion_testen`.
+
+
+---
+
+## 199. `ListBox` mit `sorted` und `multi_select`: nach `items.add()` sind andere Einträge gewählt ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, sechste Durchsicht (`/durchsicht`), Entwicklungsstand `3926dfe`.
+
+**Beobachtet:** `items = ["b", "c"]`, `selected = [1]` (also „c“), dann `items.add("a")`: die Liste lautet jetzt „a, b, c“, gewählt ist „b“. Der einfach gewählte Eintrag (`item_index`) wird in einer sortierten Liste über seinen Text wiedergefunden, die Mehrfachauswahl dagegen über ihre alten Nummern.
+
+**Ursache:** nachgewiesen: `pcl/components/standard.py`, `_items_geaendert`, Zeile 475 merkt sich `vorher_gewaehlt` als Nummern und wählt in Zeile 491-493 nach dem Umsortieren dieselben Nummern wieder.
+
+**Zu tun:** Bei `sorted` die gewählten Texte merken und nach dem Umsortieren wieder wählen. Erledigt, wenn ein Test das Beispiel oben mit „c“ als Auswahl beendet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `ListBox._items_geaendert` in `pcl/components/standard.py` merkt sich bei `multi_select` die gewählten Texte und wählt sie in einer sortierten Liste nach dem Umsortieren über die neue Hilfsfunktion `_zeilen_der_texte` wieder; ein doppelt vorhandener Text findet dabei auch zwei Zeilen. Ohne `sorted` bleibt es bei den Nummern. Test: `test_sortierte_mehrfachauswahl_behaelt_die_gewaehlten_texte` in `tests/test_pcl_rueckfrage_listen_adressen.py`; das Beispiel endet mit „c“ als Auswahl.
+
+
+---
+
+## 200. `StringGrid.load_dataframe` schreibt Kommazahlen mit Rundungsresten und „e“ ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, sechste Durchsicht (`/durchsicht`), Entwicklungsstand `3926dfe`.
+
+**Beobachtet:** Eine Spalte mit `0.1 + 0.2`, `1e-05` und `1.5e16` erscheint im Grid als „0,30000000000000004“, „1e-05“ und „1,5e+16“. `text()` aus `pcl` schreibt dieselben Werte seit Punkt 193 als „0,3“, „0,00001“ und „15000000000000000“. Punkt 42 hat das Dezimalkomma eingeführt, die Schreibweise aber bei `str()` belassen.
+
+**Ursache:** nachgewiesen: `pcl/dataframe.py`, `_zelltext`, Zeile 50: `str(wert).replace(".", ",")`.
+
+**Zu tun:** Kommazahlen über `pcl.zahlen.text` schreiben. Erledigt, wenn ein Test die drei Werte oben so findet, wie `text()` sie schreibt.
+
+**Behoben (28. September 2026, ab 0.3.6).** `_zelltext` in `pcl/dataframe.py` schreibt Kommazahlen über `pcl.zahlen.text`. 0.1 + 0.2, 1e-05 und 1.5e16 erscheinen im Grid als „0,3“, „0,00001“ und „15000000000000000“. `docs/komponenten.md`, Abschnitt „StringGrid“ nennt die Schreibweise. Test: `test_load_dataframe_schreibt_kommazahlen_wie_text` in `tests/test_pcl_rueckfrage_listen_adressen.py`.
+
+
+---
+
+## 201. `open_url("www.schule.de")` öffnet eine Datei statt der Webseite ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, sechste Durchsicht (`/durchsicht`), Entwicklungsstand `3926dfe`.
+
+**Beobachtet:** Eine Adresse ohne `https://`, so wie sie meist getippt wird, gilt als Dateipfad: `open_url("www.schule.de")` übergibt dem Browser `file:///…/www.schule.de` im Arbeitsordner, der Browser zeigt „Datei nicht gefunden“. Dasselbe bei `schule.de/stundenplan` (Probe mit ersetztem `webbrowser.open`).
+
+**Ursache:** nachgewiesen: `pcl/files.py`, Zeile 21-23; `_hat_schema` erkennt nur Texte mit Doppelpunkt.
+
+**Zu tun:** Einen Text, der mit `www.` beginnt oder dessen erster Teil wie ein Rechnername aussieht und der als Datei nicht existiert, als `https://` behandeln, oder mit einer deutschen Meldung ablehnen. Erledigt, wenn ein Test `open_url("www.schule.de")` als Webadresse weitergereicht findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `open_url` in `pcl/files.py` prüft über `_sieht_aus_wie_webadresse`, ob ein Text ohne Schema eine Webadresse ist: er beginnt mit `www.` oder sein Rechnerteil vor dem ersten `/` endet auf eine der üblichen Endungen (de, at, ch, com, org, net, info, eu, edu, io), und es gibt keine Datei dieses Namens. Dann wird `https://` vorangestellt. „bericht.html“ bleibt ein Dateiname, auch wenn die Datei fehlt. `docs/komponenten.md` nennt das bei `open_url`. Tests: `test_open_url_erkennt_eine_webadresse_ohne_schema` (für `www.schule.de` und `schule.de/stundenplan`) und `test_open_url_laesst_einen_dateinamen_eine_datei` in `tests/test_pcl_rueckfrage_listen_adressen.py`.
+
+
+---
+
+## 202. Programme der Schülerinnen zeigen die Standardtexte von Qt auf Englisch ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, sechste Durchsicht (`/durchsicht`), Entwicklungsstand `3926dfe`.
+
+**Beobachtet:** In einem laufenden `pcl`-Programm hat `input_box` die Knöpfe „OK“ und „Cancel“, das Kontextmenü eines `Edit` lautet „Undo, Redo, Cut, Copy, Paste, Delete, Select All“ (Probe mit `Application()` und `QLineEdit.createStandardContextMenu()`). Vermutet, nicht einzeln geprüft: dasselbe gilt für das Kontextmenü eines `Memo` und für den Farbdialog aus `color_dialog`, die dieselbe Übersetzung bräuchten. In der IDE selbst sind diese Texte deutsch.
+
+**Ursache:** nachgewiesen: `ide/deutsch.py` lädt `qtbase_de`/`qt_de` nur für die IDE; `pcl/application.py`, Zeile 22 legt die `QApplication` des Schülerprogramms ohne Übersetzung an. `input_number` umgeht das mit eigenen Knopftexten, `input_box` (`pcl/dialogs.py`, Zeile 102) nicht.
+
+**Zu tun:** Die deutsche Qt-Übersetzung in `Application.__init__` laden (ohne Abhängigkeit von `ide`), damit sie auch in einer exportierten Exe greift. Erledigt, wenn ein Test in einem `pcl`-Programm „Abbrechen“ in `input_box` und „Rückgängig“ im Kontextmenü eines `Edit` findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `Application.__init__` in `pcl/application.py` lädt über `_qt_deutsch_laden` `qtbase_de` und `qt_de`, ohne Abhängigkeit von `ide`. Gesucht wird im Übersetzungsordner, den `QLibraryInfo` nennt, und ersatzweise in `translations` neben PySide6; die Übersetzer stehen in `_UEBERSETZER`, damit sie nicht eingesammelt werden. Die gebaute Fassung enthält die Dateien schon (`dist/Natter/python/Lib/site-packages/PySide6/translations/qtbase_de.qm`); in einer mit PyInstaller gebauten Exe legt PyInstallers PySide6-Hook `qtbase_*.qm` von sich aus ab. Probe: eine `--onefile`-Exe eines kleinen pcl-Programms lud zwei Übersetzer und zeigte „Rückgängig … Alles auswählen“ mit „Strg+Z“. An `tools/ide_paketieren.py` und `ide/export/` war nichts zu ändern. Test: `test_ein_pcl_programm_zeigt_qts_texte_auf_deutsch` in `tests/test_pcl_rueckfrage_listen_adressen.py`, in einem eigenen Prozess, findet „Rückgängig“ im Kontextmenü eines Eingabefelds und „Abbrechen“ in `input_box`.
+
+
+---
+
+## 203. „Quelltext als PDF“: ab der zweiten Seite einer Datei steht nicht mehr darauf, wessen Datei es ist ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, sechste Durchsicht (`/durchsicht`), Entwicklungsstand `3926dfe`.
+
+**Beobachtet:** Das Handbuch (Abschnitt 3.6) sagt: „In der Kopfzeile jeder Seite stehen Projektname, Dateiname und Datum“. Tatsächlich steht die Zeile nur einmal über jeder Datei. Eine `u_main.py` mit 200 Zeilen ergibt drei Seiten, von denen die zweite und dritte weder Projekt noch Datei nennen und keine Seitenzahl tragen (Probe: `dokument_erzeugen` enthält die Kopfzeile einmal, das PDF hat drei Seiten). Beim Einsammeln von zwanzig Abgaben lassen sich lose Blätter so nicht zuordnen. Dazu kommt, dass eine Klasse meist dieselbe Aufgabe mit demselben Projektnamen bearbeitet; ein Name der Schülerin kommt im PDF nirgends vor.
+
+**Ursache:** nachgewiesen: `ide/export/quelltext_pdf.py`, Zeile 181 setzt die Überschrift als ersten Block jeder Datei in den Text, nicht als Kopfzeile der Seite; `QTextDocument.print_` kennt keine Kopfzeilen. Verwandt mit Punkt 16, der die Kopfzeile verlangt hatte.
+
+**Zu tun:** Seiten selbst zeichnen (Kopfzeile mit Projekt, Datei, Datum und „Seite n von m“ auf jeder Seite) und einen Namen abfragen oder aus der Windows-Anmeldung übernehmen; den Satz im Handbuch danach prüfen. Erledigt, wenn ein Test in einem dreiseitigen PDF auf jeder Seite Dateiname und Seitenzahl findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `quelltext_als_pdf` zeichnet die Seiten selbst: je Seite eine Kopfzeile mit Projekt, Datei, Name, Datum und „Seite n von m“ und darunter den Ausschnitt des Dokuments, über dasselbe Layout wie vorher, also mit Hervorhebung. Welche Datei auf welcher Seite steht, ermittelt `seitenkoepfe` aus dem Layout. Der Name kommt aus der Windows-Anmeldung (`GetUserNameExW` mit dem ausgeschriebenen Namen, sonst der Anmeldename); eine Abfrage beim Ausgeben wurde nicht eingebaut. Die Kopfzeile geht von der Fläche für den Code ab, der Rand von 20 mm bleibt. Handbuch, Abschnitt 3.6, angepasst. Tests: `tests/test_quelltext_pdf_kopfzeile.py`, darunter `test_jede_seite_hat_datei_name_und_seitenzahl` mit einer Unit von 200 Zeilen.
+
+
+---
+
+## 204. Design-Prüfer verlangt `cbo_` für ComboBoxen, die Beispiele benutzen `cb_` ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, sechste Durchsicht (`/durchsicht`), Entwicklungsstand `3926dfe`.
+
+**Beobachtet:** Die Prüfung der Namenskonvention meldet in `07_CsvAuswertung` „cb_ort (ComboBox) hat nicht das übliche Präfix 'cbo_'“ und in `08_Regression` dasselbe für `cb_art`. Der Kommentar über der Tabelle sagt, es seien „dieselben Präfixe, die im gesamten Projekt tatsächlich verwendet werden (siehe beispielprojekte/*)“. `cb_` ist in derselben Tabelle zugleich das Präfix der CheckBox. Komponenten in einem Panel oder einer GroupBox prüft die Regel gar nicht, und für SpinEdit, TrackBar, Panel, Timer und andere steht kein Präfix in der Liste, obwohl die Beispiele `se_`, `tb_`, `p_` und `t_` verwenden.
+
+**Ursache:** nachgewiesen: `ide/lint/regeln.py`, Zeile 41 (`"ComboBox": "cbo_"`) und `_namenskonvention_pruefen` (Zeile 512-514), die nur `pfm["children"]` durchgeht. Probe: `pruefen()` auf alle `.pfm` der Beispiele, nur lesend.
+
+**Zu tun:** Eine Präfixtabelle festlegen, die zu den Beispielen passt und eindeutig ist, sie um die fehlenden Typen ergänzen, verschachtelte Komponenten mitprüfen und Beispiele oder Tabelle angleichen. Erledigt, wenn die Prüfung auf keinem Beispielformular einen Präfix-Hinweis meldet.
+
+**Behoben (28. September 2026, ab 0.3.6).** Die Präfixtabelle in `ide/lint/regeln.py` richtet sich nach den Beispielen: `ComboBox` empfiehlt `cb_` und nimmt `cbo_` weiter an, `CheckBox` empfiehlt jetzt `chk_` und nimmt `cb_` weiter an, damit das empfohlene Präfix eindeutig ist. Neu in der Tabelle sind unter anderem `SpinEdit` (`se_`), `TrackBar` (`tb_`), `Panel` (`p_`), `Timer` (`t_`), `PaintBox` (`pb_`), `MainMenu` (`mm_`), `GroupBox` (`gb_`) und `RadioGroup` (`rg_`). Die Regel geht jetzt auch die Komponenten in Panels und GroupBoxen durch. Beispiele wurden nicht umbenannt. Tests in `tests/test_design_pruefer.py`: `test_namenskonvention_passt_zu_allen_beispielformularen` (alle `.pfm` der Beispiele und die Vorlage, nur lesend), `test_namenskonvention_prueft_komponenten_im_panel`, `test_namenskonvention_comboboxpraefix_eindeutig`.
+
+
+---
+
+## 205. Testprotokoll als HTML: Dauer mit Dezimalpunkt, Meldungen ohne Zeilenumbrüche ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, sechste Durchsicht (`/durchsicht`), Entwicklungsstand `3926dfe`.
+
+**Beobachtet:** Im Test-Explorer steht die Dauer als „0,013“, im exportierten HTML als „0.013“. Die Meldung eines fehlgeschlagenen Tests (Traceback, mehrere Zeilen) steht im HTML in einer gewöhnlichen Zelle, der Browser zieht sie zu einer Zeile zusammen (Probe: `ergebnisse_als_html` mit einer zweizeiligen Meldung enthält weder `<pre>` noch `white-space`).
+
+**Ursache:** nachgewiesen: `ide/testrunner/html_export.py`, Zeile 60 formatiert ohne `.replace(".", ",")`, anders als `ide/shell/hauptfenster.py`, Zeile 2170; die Meldung wird nur maskiert.
+
+**Zu tun:** Die Dauer mit Komma schreiben und Meldung, Soll und Ist mit erhaltenen Zeilenumbrüchen ausgeben. Erledigt, wenn ein Test im HTML „0,013“ und den Zeilenumbruch findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `ide/testrunner/html_export.py` schreibt die Dauer mit Dezimalkomma wie der Test-Explorer und setzt Soll, Ist und Meldung in Zellen mit `white-space: pre-wrap`, sodass ein Traceback seine Zeilenumbrüche behält. Test: `test_html_dauer_mit_komma_und_meldung_mit_umbruch` in `tests/test_testrunner_html_export.py`.
+
+
+---
+
+## 206. Projektdatei: die Export-Angaben im Schema wirken nicht, das Programmsymbol geht nur von Hand ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, sechste Durchsicht (`/durchsicht`), Entwicklungsstand `3926dfe`.
+
+**Beobachtet:** `schemas/project.schema.json` beschreibt unter `export` die Felder `product_name`, `version`, `include_data_dir` (Vorgabe `false`) und `target` (`folder` oder `zip`, Vorgabe `zip`). Der Export liest davon nur `icon`; er baut immer eine einzelne Exe und nimmt immer alle Unterordner mit, also das Gegenteil der beiden Vorgaben. `icon` lässt sich nirgends in der Oberfläche einstellen, nur durch Bearbeiten der `.natter`, die laut Meldung beim Öffnen „nicht von Hand bearbeitet werden“ soll. Das `icon` des Hauptformulars, das im Objektinspektor gesetzt wird, übernimmt der Export nicht; die Exe trägt das Standardsymbol von PyInstaller.
+
+**Ursache:** nachgewiesen: `grep` nach `product_name`, `include_data_dir` und `"target"` in `ide/` und `pcl/` findet nichts; `ide/export/exporter.py`, Zeile 291 liest nur `icon`.
+
+**Zu tun:** Die Felder, die nichts bewirken, aus dem Schema streichen oder umsetzen (Versionsnummer beachten, `natter-project/1`), und das Symbol der Exe aus `Form.icon` des Hauptformulars übernehmen. Erledigt, wenn Schema und Export dieselben Felder kennen und eine exportierte Exe das Symbol des Formulars trägt.
+
+**Behoben (28. September 2026, ab 0.3.6).** `product_name`, `version`, `include_data_dir` und `target` sind aus `schemas/project.schema.json` gestrichen, unter `export` steht nur noch `icon`. Das Format bleibt `natter-project/1`: `_alte_angaben_angleichen` in `ide/project/projekt.py` lässt die gestrichenen Angaben beim Laden fallen, ältere Dateien öffnen sich weiter. Die Exe trägt jetzt das `icon` des Hauptformulars aus dessen `.pfm` (`_symbol_des_projekts`); ein `export.icon` geht vor, ein fehlendes Bild wird übergangen, statt den Bau abzubrechen. Im echten PyInstaller-Lauf trug die Exe das PNG aus `Form.icon` als Symbol. Tests: `test_die_exe_traegt_das_symbol_des_hauptformulars`, `test_ein_fehlendes_symbol_bricht_den_bau_nicht_ab`, `test_schema_und_export_kennen_dieselben_felder` in `tests/test_exporter.py`, `test_gestrichene_export_angaben_hindern_das_laden_nicht` in `tests/test_projekt.py`.
+
+
+---
+
+## 207. `items.append()` und `Memo.text` gibt es nicht ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, sechste Durchsicht (`/durchsicht`), Entwicklungsstand `3926dfe`.
+
+**Beobachtet:** Mit Punkt 191 kamen `insert`, `remove`, `index`, `count`, `pop` und `sort` dazu, die Hilfe nennt sie „die übrigen Listenbefehle“. Der Befehl, den eine Schülerin aus dem Umgang mit Listen zuerst kennt, fehlt: `self.lb.items.append("x")` endet mit dem englischen `AttributeError: 'Strings' object has no attribute 'append'`, ebenso `extend`, `reverse` und `items += [...]` (Probe). `Memo` hat keine Eigenschaft für den ganzen Text: `self.m_notiz.text` lesen ergibt `AttributeError`, setzen „Memo besitzt keine Eigenschaft 'text'“. Den Inhalt als einen Text zu holen, geht nur über `"\n".join(self.m_notiz.lines)`.
+
+**Ursache:** nachgewiesen: `pcl/strings.py` definiert kein `append`, `extend`, `reverse`, `__iadd__`; `pcl/components/standard.py`, `Memo` (Zeile 303 ff.) hat außer `lines` und `read_only` keine Eigenschaft.
+
+**Zu tun:** `append` als gleichwertigen Namen zu `add`, dazu `extend` und `reverse` in `Strings`; `Memo.text` als Eigenschaft, die `lines` liest und schreibt; `docs/komponenten.md` nachziehen. Erledigt, wenn ein Test `items.append` an ListBox und Memo sowie `Memo.text` in beide Richtungen prüft.
+
+**Behoben (28. September 2026, ab 0.3.6).** `Strings` in `pcl/strings.py` kennt `append` (gleichwertig zu `add`), `extend`, `reverse` und `+=`; `extend` prüft jede Zeile wie `add`. Ein `items += [...]` weist die Sammlung sich selbst zu, `zuweisen` übergeht diesen Fall. `Memo` hat die Eigenschaft `text` (nur im Code): gelesen die Zeilen mit Zeilenumbruch verbunden, gesetzt an den Umbrüchen getrennt nach `lines`; ein Nicht-Text meldet sich mit `NatterPropertyError`. `docs/komponenten.md` nennt die neuen Befehle in „items / lines“ und `text` bei „Memo“. Tests: `test_append_haengt_an_listbox_und_memo_an`, `test_extend_reverse_und_plus_gleich` und `test_memo_text_liest_und_schreibt_den_ganzen_inhalt` in `tests/test_pcl_rueckfrage_listen_adressen.py`.
+
+
+---
+
+## 208. `on_close` kann das Schließen nicht verhindern ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, sechste Durchsicht (`/durchsicht`), Entwicklungsstand `3926dfe`.
+
+**Beobachtet:** Eine übliche Aufgabe ist die Rückfrage „Wirklich beenden? Nicht gespeicherte Einträge gehen verloren.“ In `form_close` lässt sich zwar `ask_yes_no` aufrufen, aber das Fenster geht bei „Nein“ trotzdem zu: das Ereignis hat keinen Weg, das Schließen abzubrechen, und die Referenz beschreibt keinen.
+
+**Ursache:** nachgewiesen: `pcl/form.py`, `_FensterFilter.eventFilter` (Zeile 34) löst `on_close` aus und reicht das `Close`-Ereignis danach unverändert weiter; `ereignis.ignore()` ist nicht erreichbar.
+
+**Zu tun:** Eine Möglichkeit schaffen, das Schließen abzulehnen (etwa ein Rückgabewert `False` von `on_close` oder eine Eigenschaft am Absender), und sie in `docs/komponenten.md` beschreiben. Erledigt, wenn ein Test ein Formular findet, das nach `close()` offen bleibt, weil `on_close` es abgelehnt hat.
+
+**Behoben (28. September 2026, ab 0.3.6).** Gibt `on_close` `False` zurück, bleibt das Fenster offen: `_FensterFilter.eventFilter` in `pcl/form.py` ruft dann `ereignis.ignore()` und behält das Ereignis. Dafür gibt `Komponente._ereignis_ausloesen` in `pcl/properties.py` die Rückgabe des Handlers weiter. Jede andere Rückgabe, auch keine, schließt wie bisher. `docs/komponenten.md`, Abschnitt „Form“ beschreibt das mit einer „Wirklich beenden?“-Rückfrage als Beispiel. Tests: `test_on_close_mit_false_laesst_das_fenster_offen` und `test_on_close_ohne_rueckgabe_schliesst` in `tests/test_pcl_rueckfrage_listen_adressen.py`.
+
+
+---
+
+## 209. Beispiel „Notizbuch“: beim Schließen geht die Notiz verloren, wenn der Speicherdialog abgebrochen wird ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, siebte Durchsicht (`/durchsicht`), Entwicklungsstand `67a8c40`.
+
+**Beobachtet:** Notiz tippen, Fenster schließen, die Frage „Die Notiz ist nicht gespeichert. Jetzt speichern?“ mit „Ja“ beantworten und im Speicherdialog „Abbrechen“ wählen: das Fenster geht trotzdem zu, und der Text ist weg. Zu erwarten wäre, dass das Fenster offen bleibt, wie es „Neu“ und „Öffnen“ im selben Beispiel schon tun. Probe mit `pytest -p tests.conftest` auf einer Kopie des Beispiels in `tmp_path`, `ask_yes_no` liefert `True`, `save_dialog` einen leeren Text: nach `close()` ist das Formular unsichtbar. Das Beispiel ist die Vorlage, nach der Schülerinnen ihr eigenes Speichern beim Beenden bauen.
+
+**Ursache:** nachgewiesen: `beispielprojekte/10_Notizbuch/u_main.py`, `form_close` (Zeile 111) ruft `vorher_sichern()` auf, verwirft aber dessen Rückgabe `False`. Seit dem Umbau zu Punkt 208 bleibt ein Fenster offen, wenn `on_close` `False` liefert (`pcl/form.py`, Zeile 38; beschrieben in `docs/komponenten.md`, Abschnitt zu `on_close`); das Beispiel nutzt das nicht. Die Rückfrage kennt außerdem nur „Ja“ und „Nein“, also keinen Weg, das Beenden ohne Speicherdialog abzubrechen.
+
+**Zu tun:** `form_close` gibt `False` zurück, wenn `vorher_sichern()` abgebrochen wurde, und der Kommentar über `mi_beenden_click` erklärt das. Erledigt, wenn `tests/test_beispiele_notizbuch_malen.py` ein Formular findet, das nach abgebrochenem Speicherdialog offen bleibt und seinen Text noch hat.
+
+**Behoben (28. September 2026, ab 0.3.6).** Ursache bestätigt. `form_close` in `beispielprojekte/10_Notizbuch/u_main.py` gibt jetzt die Rückgabe von `vorher_sichern()` zurück; bei abgebrochenem Speicherdialog ist das `False`, und das Fenster bleibt offen (Punkt 208). Der Kommentar über `mi_beenden_click` sagt das. Test: `test_notizbuch_bleibt_offen_wenn_das_speichern_abgebrochen_wird` in `tests/test_beispiele_notizbuch_malen.py`, auf einer Kopie des Beispiels; ohne die Änderung ist das Fenster danach zu.
+
+
+---
+
+## 210. „Als ZIP speichern …“ packt den alten Stand ein, wenn sich eine Datei nicht speichern ließ ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, siebte Durchsicht (`/durchsicht`), Entwicklungsstand `67a8c40`.
+
+**Beobachtet:** Lässt sich beim Speichern vor dem ZIP eine geänderte Datei nicht schreiben (etwa weil OneDrive oder ein Virenscanner sie gerade sperrt), erscheint zwar die Meldung dazu, die ZIP entsteht aber trotzdem, mit dem Stand auf der Platte, und die Statuszeile meldet „N Dateien in … gespeichert.“ Abgegeben wird dann ein älterer Stand, als im Editor zu sehen ist. „Quelltext als PDF …“ bricht im selben Fall ab.
+
+**Ursache:** nachgewiesen: `ide/shell/hauptfenster.py`, `projekt_als_zip` (Zeile 4330) ruft `self.alle_speichern()` auf und wertet die Rückgabe nicht aus; `alle_speichern` (Zeile 2882) liefert `False`, wenn eine Datei nicht geschrieben wurde. `_quelltext_als_pdf_aktion` (Zeile 1792) prüft sie mit `if not self.alle_speichern(): return`.
+
+**Zu tun:** Wie beim PDF abbrechen, bevor die ZIP geschrieben wird, und keine Erfolgsmeldung zeigen. Erledigt, wenn ein Test mit einer schreibgeschützten, geänderten Unit keine ZIP vorfindet.
+
+**Behoben (28. September 2026, ab 0.3.6).** Ursache bestätigt. `projekt_als_zip` in `ide/shell/hauptfenster.py` wertet die Rückgabe von `alle_speichern()` aus und liefert `None`, ohne eine ZIP anzulegen, wenn eine Datei nicht gespeichert wurde; `_als_zip_aktion` meldet dann „Keine ZIP geschrieben: nicht alle Dateien ließen sich speichern.“ statt der Erfolgsmeldung. Test: `test_keine_zip_wenn_eine_datei_nicht_gespeichert_wurde` in `tests/test_explorer_dateien_und_zip.py` mit einer schreibgeschützten, geänderten Unit.
+
+
+---
+
+## 211. Prüfungsmodus: „Datei → Öffnen …“ zeigt die Lösungen der Beispielprojekte ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, siebte Durchsicht (`/durchsicht`), Entwicklungsstand `67a8c40`.
+
+**Beobachtet:** Im Prüfungsmodus sind „Datei → Beispielprojekte“, „Zuletzt geöffnet“ und das Öffnen eines Beispiels über „Projekt öffnen …“ gesperrt (Punkte 145, 197). Über „Datei → Öffnen …“ (Strg+O) lässt sich aber jede Datei eines Beispiels einzeln öffnen, im Original wie in der Arbeitskopie unter `Dokumente\Natter\Beispielprojekte`. Probe mit `pytest -p tests.conftest`: Prüfungsmodus gestartet, `fenster.oeffnen()` mit `03_Taschenrechner/u_main.py` aus `beispielprojekte/` und aus einer Arbeitskopie; beide Male steht die ausgearbeitete Lösung im Editor, ohne Hinweis. Eine `.pfm` eines Originals geht auf demselben Weg im Designer auf, der jede Änderung sofort zurückschreibt; ein Original wird damit auch außerhalb des Prüfungsmodus an Ort und Stelle bearbeitet, was `beispiel_oeffnen` sonst verhindert.
+
+**Ursache:** nachgewiesen: `ide/shell/hauptfenster.py`, `_datei_oeffnen_dialog` (Zeile 1419) und `oeffnen` (Zeile 4370) fragen weder `_beispiel_gesperrt` noch `ist_beispiel_original` ab; nur `beispiel_oeffnen` und `projekt_oeffnen_gemeldet` (Zeilen 2545, 2731) tun das.
+
+**Zu tun:** `oeffnen` prüft für jede Datei, ob sie in einem Beispiel-Original oder einer Arbeitskopie liegt: im Prüfungsmodus ablehnen mit `GESPERRT_HINWEIS`, sonst ein Original höchstens schreibgeschützt oder über die Arbeitskopie öffnen. Erledigt, wenn ein Test beide Pfade aus der Probe im Prüfungsmodus abgewiesen findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** Ursache bestätigt. Die neue Funktion `_beispiel_projektordner` in `ide/shell/hauptfenster.py` findet von einer beliebigen Datei aufwärts den Ordner eines Beispiels oder seiner Arbeitskopie; `_beispiel_gesperrt` benutzt sie und erkennt damit auch einzelne Dateien. `oeffnen` fragt die Sperre ab, bevor es irgendetwas öffnet, und weist im Prüfungsmodus jede Datei eines Beispiels mit `GESPERRT_HINWEIS` ab. Außerhalb des Prüfungsmodus öffnet `oeffnen` statt einer Datei im Original dieselbe Datei in der Arbeitskopie (`_in_der_arbeitskopie`, legt sie über `beispiel_kopieren` an). Tests: `test_datei_oeffnen_sperrt_die_dateien_der_beispiele` und `test_datei_oeffnen_nimmt_fuer_ein_original_die_arbeitskopie` in `tests/test_pruefungsmodus_ablauf.py`.
+
+
+---
+
+## 212. Struktogramm: „x = 0“ wird nur in der Mehrfachauswahl zur Bedingung, in Verzweigung und Schleife zu `False` ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, siebte Durchsicht (`/durchsicht`), Entwicklungsstand `67a8c40`.
+
+**Beobachtet:** Im Struktogramm wird Gleichheit üblicherweise mit einem Gleichheitszeichen geschrieben. Die Mehrfachauswahl macht aus der Beschriftung `x = 0` die Bedingung `x == 0` (Handbuch, Abschnitt 3.4). Dieselbe Schreibweise in einer Verzweigung (`x = 0?`), einer Kopfschleife (`solange x = 0`) oder einer Fußschleife (`bis eingabe = 'q'`) ergibt dagegen `if False:`, `while False:` und `if True: break`, die Zeile landet als Kommentar darüber, und die Meldung zählt sie als „nicht übernommen“. Probe mit `als_python()` auf den drei Blöcken; `x == 0?` ergibt dagegen `if x == 0:`.
+
+**Ursache:** nachgewiesen: `ide/diagramm/struktogramm_code.py`, `_bedingungstext` (Zeile 544), das `bedingung()` (Zeile 246) für Verzweigung und Schleifen benutzt, kennt die Umwandlung aus `_gleichheit` (Zeile 609) nicht; nur `_vergleich` (Zeile 491) in der Mehrfachauswahl ruft sie auf.
+
+**Zu tun:** `_bedingungstext` wendet `_gleichheit` an, auch nach dem Abschneiden von „?“, „solange“ und „bis“. Erledigt, wenn die drei Beispiele als Test `if x == 0:`, `while x == 0:` und `if eingabe == 'q': break` ergeben.
+
+**Behoben (28. September 2026, ab 0.3.6).** Ursache bestätigt. `_bedingungstext` in `ide/diagramm/struktogramm_code.py` prüft jede Stufe (ganzer Text, ohne „?“, ohne „solange“/„bis“) über die neue Hilfsfunktion `_als_ausdruck`, die bei einem einzelnen `=` auf `_gleichheit` zurückgreift wie die Mehrfachauswahl. `x = 0?` ergibt `if x == 0:`, `solange x = 0` ergibt `while x == 0:`, `bis eingabe = 'q'` am Fuß ergibt `if eingabe == 'q': break`, und nichts landet mehr unter „nicht übernommen“. Test: `test_einfaches_gleichheitszeichen_wird_zur_bedingung` in `tests/test_struktogramm_code.py`, fünf Fälle.
+
+
+---
+
+## 213. Strg+O öffnet eine Datei, nicht das Projekt; eine `.natter` erscheint dabei als roher Text ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, siebte Durchsicht (`/durchsicht`), Entwicklungsstand `67a8c40`.
+
+**Beobachtet:** `docs/handbuch.md` (Abschnitt 5, Zeile 339) nennt `Strg+O` für „Projekt öffnen“. Die Taste gehört aber zu „Datei → Öffnen …“, „Projekt öffnen …“ hat keine. Wer nach dem Handbuch mit Strg+O die `.natter`-Datei eines Projekts wählt, bekommt kein Projekt, sondern den JSON-Inhalt der Projektdatei in einem Editor-Reiter; Speichern darin schreibt die Projektdatei, die sonst nur Natter schreibt. Probe mit `pytest -p tests.conftest`: `fenster.oeffnen()` mit einer Arbeitskopie von `01_Begruessung.natter` - danach ist `fenster.projekt` `None`, und der Reiter „01_Begruessung.natter“ zeigt `"format": "natter-project/1"`.
+
+**Ursache:** nachgewiesen: `ide/shell/hauptfenster.py`, Aktion `datei.oeffnen` mit `tastenkuerzel="Ctrl+O"` (Zeile 782), Aktion `projekt.oeffnen` ohne Tastenkürzel (Zeile 1051); `oeffnen` (Zeile 4370) behandelt `.natter` nicht gesondert und reicht die Datei an `datei_oeffnen` weiter (Zeile 4421).
+
+**Zu tun:** `oeffnen` leitet eine `.natter` an `projekt_oeffnen_gemeldet` weiter, und Handbuch und Tastenbelegung passen zusammen (entweder Strg+O für „Projekt öffnen …“ oder das Handbuch nennt „Öffnen …“). Erledigt, wenn ein Test nach `oeffnen()` einer `.natter` ein geöffnetes Projekt findet und die Tabelle im Handbuch mit der erzeugten Tastenkürzel-Übersicht übereinstimmt.
+
+**Behoben (28. September 2026, ab 0.3.6).** Ursache bestätigt. Strg+O gehört jetzt zu „Projekt öffnen …“, wie das Handbuch es schon sagte; „Datei → Öffnen …“ hat kein Tastenkürzel mehr. `oeffnen` in `ide/shell/hauptfenster.py` leitet eine `.natter` an `projekt_oeffnen_gemeldet` weiter, statt sie als Text zu zeigen. Tests: `test_eine_projektdatei_oeffnet_das_projekt` in `tests/test_oeffnen_und_speichern.py`, `test_tastenkuerzel_im_handbuch_passen_zu_den_menues` in `tests/test_hilfeseiten_abgleich.py` (jede Zeile der Tabellen zu Datei, Suchen und Starten beginnt mit dem Befehl, den die Taste wirklich auslöst) und die angepasste Prüfung in `test_oeffnen_aktionen_stehen_in_den_richtigen_menues`.
+
+
+---
+
+## 214. Ein zweites Fenster in einer einfachen Variablen verschwindet zu einem zufälligen Zeitpunkt ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, achte Durchsicht (`/durchsicht`), Entwicklungsstand `d3ccab0`.
+
+**Beobachtet:** Ein Knopf öffnet ein weiteres Formular mit `spiel = FormSpiel()` und `spiel.show()`. Das Fenster erscheint, seine Knöpfe und sein Timer arbeiten, beim Ausprobieren wirkt alles richtig. Beim nächsten Lauf der Speicherbereinigung von Python ist es dann ohne Meldung weg, samt allem, was darin eingetragen war. Wann das passiert, hängt davon ab, wie viel das Programm sonst anlegt: manchmal nach einer Sekunde, manchmal erst nach Minuten. Probe mit `QT_QPA_PLATFORM=offscreen`: nach 300 ms sind „Spiel“ und „Form1“ sichtbar und der Timer hat viermal getickt; nach `gc.collect()` ist nur noch „Form1“ sichtbar und der Timer tickt nicht mehr. Hält das Programm nur das Qt-Fenster fest und nicht das Formular, bleibt das Fenster stehen, aber Klicks und Timer lösen nichts mehr aus.
+
+Die Vorlage für ein neues Formular sagt dazu, mit einer einfachen Variablen würde das Fenster „nach dem Ende der Methode gleich wieder verschwinden“. Das stimmt nicht: es verschwindet später und zu keinem vorhersehbaren Zeitpunkt, und eine Schülerin, die es ausprobiert, sieht zunächst ein funktionierendes Fenster.
+
+**Ursache:** nachgewiesen: `pcl/form.py`, `show` (Zeile 388) zeigt das Fenster, ohne dass irgendetwas das Formular-Objekt festhält. Formular, Widget und die verbundenen Methoden bilden einen Zyklus, den erst die zyklische Speicherbereinigung abräumt. Text der Vorlage: `ide/shell/hauptfenster.py`, `neues_formular_vorlage`, Zeile 333-335.
+
+**Zu tun:** `pcl` hält jedes gezeigte Formular fest, bis es geschlossen ist (etwa eine Menge offener Formulare in `Application`, aus der `close` bzw. das Schließen des Fensters es wieder entfernt). Den Satz in der Vorlage anpassen. Erledigt, wenn ein Test ein Formular nur über eine lokale Variable zeigt, `gc.collect()` aufruft und das Fenster danach sichtbar ist und auf Klicks reagiert, und nach dem Schließen das Formular aufgeräumt werden kann.
+
+**Behoben (28. September 2026, ab 0.3.6).** `Form.show()` (`pcl/form.py`) trägt das Formular in das Modul-Verzeichnis `_offene_formulare` ein; wird das Fenster geschlossen (Qt meldet es als verborgen und es ist nicht mehr sichtbar), nimmt `Form._geschlossen` es wieder heraus. Ein Formular, das nur in einer lokalen Variablen stand, bleibt so offen und bedienbar und lässt sich nach dem Schließen aufräumen. `_position_anwenden` ist unverändert, `test_ein_aufgeraeumtes_zweites_formular_beschaedigt_nichts` bleibt grün. Der Satz in der Vorlage für ein neues Formular (`ide/shell/hauptfenster.py`, `neues_formular_vorlage`) sagt jetzt, dass das Fenster offen bleibt, bis es geschlossen wird, und dass `self.` dazu dient, später darauf zuzugreifen; `docs/komponenten.md` beim Formular ebenso. Test: `test_ein_formular_in_einer_lokalen_variablen_bleibt_offen` in `tests/test_formular_offen_halten.py`; ohne die Änderung ist das Fenster nach `gc.collect()` fort.
+
+
+---
+
+## 215. Ein Timer läuft weiter, nachdem sein Fenster geschlossen ist ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, achte Durchsicht (`/durchsicht`), Entwicklungsstand `d3ccab0`.
+
+**Beobachtet:** Ein zweites Formular mit einem Timer (Countdown in einem Spiel) wird so geöffnet, wie Handbuch und Vorlage es zeigen: `self.spiel = FormSpiel()` und `self.spiel.show()`. Nach dem Schließen des Fensters ruft der Timer `on_timer` weiter auf. Steht darin `show_message("Die Zeit ist um!")`, erscheint die Meldung, obwohl das Spiel längst zu ist; wird das Fenster erneut geöffnet, laufen zwei Timer, und Punkte werden doppelt gezählt, bis das alte Formular irgendwann aufgeräumt wird. Probe: Formular mit Timer (50 ms) gezeigt, geschlossen, danach in 300 ms fünf weitere Aufrufe von `on_timer`.
+
+**Ursache:** nachgewiesen: `pcl/components/system.py`, `Timer.__init__` (Zeile 102) legt einen `QTimer` ohne Bezug zum Fenster an und startet ihn; `pcl/form.py`, `close` (Zeile 430) schließt nur das Qt-Fenster. Nichts hält die Timer eines geschlossenen Formulars an.
+
+**Zu tun:** Beim Schließen eines Formulars seine Timer anhalten und beim erneuten `show()` wieder so laufen lassen, wie `enabled` es sagt. In `docs/komponenten.md` beim Timer vermerken. Erledigt, wenn ein Test ein Formular mit Timer zeigt, schließt und danach keinen Aufruf von `on_timer` mehr zählt.
+
+**Behoben (28. September 2026, ab 0.3.6).** Ein `Timer` trägt sich beim Erzeugen in die Liste `_zeitgeber` seines Formulars ein; ein Timer ohne Eltern, der als Attribut am Formular hängt, wird ebenfalls erfasst. Beim Schließen hält `Form._zeitgeber_schalten` sie an, beim nächsten `show()` laufen die wieder, bei denen `enabled` wahr ist; `enabled` selbst bleibt unverändert. In `docs/komponenten.md` beim Timer vermerkt. Tests: `test_ein_timer_haelt_an_wenn_sein_fenster_geschlossen_wird` und `test_ein_abgeschalteter_timer_bleibt_beim_zeigen_aus` in `tests/test_formular_offen_halten.py`; ohne die Änderung zählte der erste 20 statt 0 weitere Aufrufe nach dem Schließen.
+
+
+---
+
+## 216. `StringGrid.to_dataframe()`: Zahlen kommen als Text zurück, `sum()` hängt sie aneinander ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, achte Durchsicht (`/durchsicht`), Entwicklungsstand `d3ccab0`.
+
+**Beobachtet:** Eine Tabelle mit den Spalten „Name“, „Note“, „Anzahl“ wird mit `load_dataframe` gefüllt und mit `to_dataframe()` zurückgelesen. Alle Spalten haben danach den Typ Text. `df["Anzahl"].sum()` ergibt bei den Werten 3 und 4 den Text „34“ statt 7, ohne Fehlermeldung; `df["Note"].mean()` bricht mit der englischen Meldung „Cannot perform reduction 'mean' with string dtype“ ab. Die Kommazahlen stehen als „2,5“ in den Zellen, `pd.to_numeric` lehnt sie ab, und wer von Hand umwandeln will, muss jede Spalte selbst mit `zahl()` durchgehen. Für eine Auswertung dessen, was im Grid eingetragen wurde, ist `to_dataframe()` damit kaum zu gebrauchen, und der falsche Summenwert fällt nicht auf.
+
+**Ursache:** nachgewiesen: `pcl/dataframe.py`, `to_dataframe` (Zeile 60) übergibt die Zelltexte unverändert an `pd.DataFrame`. `docs/komponenten.md` (Zeile 383) beschreibt das so („liest den Text so zurück, wie er in den Zellen steht“), sagt aber nicht, was daraus bei einer Rechnung folgt.
+
+**Zu tun:** Spalten, deren Zellen alle leer oder mit `zahl()` lesbar sind, als Zahlen zurückgeben (ganze Zahlen als `int`), übrige als Text; die Komponenten-Referenz entsprechend fassen. Erledigt, wenn ein Test nach `load_dataframe` und `to_dataframe` für eine Zahlenspalte die Summe 7 und für eine Kommaspalte den Mittelwert 1,75 erhält.
+
+**Behoben (28. September 2026, ab 0.3.6).** `to_dataframe` (`pcl/dataframe.py`) gibt eine Spalte, deren Zellen alle leer oder mit `zahl()` lesbar sind, als Zahlen zurück: ganze Zahlen als `int64` (mit leeren Zellen als `Int64`), sonst als `float64`, leere Zellen als fehlender Wert. Eine ganz leere Spalte und alle übrigen bleiben Text. Komponenten-Referenz beim StringGrid angepasst. Tests: `test_to_dataframe_liefert_zahlenspalten_zum_rechnen` (Summe 7, Mittelwert 1,75) und `test_to_dataframe_leere_zellen_sind_fehlende_werte` in `tests/test_dataframe.py`; zwei bestehende Tests, die Text erwarteten, erwarten jetzt Zahlen.
+
+
+---
+
+## 217. `crt.read_key()` liefert für Pfeiltasten und F-Tasten zwei rätselhafte Zeichen ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, achte Durchsicht (`/durchsicht`), Entwicklungsstand `d3ccab0`.
+
+**Beobachtet:** Für ein Konsolenspiel mit Pfeiltasten liegt `read_key()` nahe. Windows meldet eine Pfeil- oder F-Taste aber als zwei Bytes, und `read_key()` gibt sie einzeln weiter: „Pfeil hoch“ ergibt erst „Ó“ und beim nächsten Aufruf „H“, „Pfeil links“ „Ó“ und „K“, F1 „\x00“ und „;“. Das „H“ ist von einem getippten H nicht zu unterscheiden. Die Komponenten-Referenz sagt nur „wartet auf eine Taste und liefert sie“. In den Fenstern gibt es dafür die Namen „Links“, „Rechts“, „Oben“, „Unten“, in der Konsole nichts Entsprechendes. Probe mit nachgebildetem `msvcrt.getch` (Folge `b"\xe0"`, `b"H"`, `b"\x00"`, `b";"`): Ergebnis `['Ó', 'H', '\x00', ';']`.
+
+**Ursache:** nachgewiesen: `pcl/crt.py`, `read_key` (Zeile 142) liest ein einzelnes Byte mit `msvcrt.getch()` und dekodiert es als cp850; das Vorzeichen `0xE0` bzw. `0x00` wird nicht ausgewertet.
+
+**Zu tun:** Nach `0xE0` oder `0x00` das zweite Byte mitlesen und dieselben deutschen Namen liefern wie `on_key_press` („Oben“, „Unten“, „Links“, „Rechts“, „F1“ …); in `docs/komponenten.md` bei `read_key()` aufführen. Erledigt, wenn ein Test mit nachgebildetem `getch` für die Folge `0xE0`, `H` genau einen Aufruf mit „Oben“ erhält.
+
+**Behoben (28. September 2026, ab 0.3.6).** `crt.read_key()` liest nach dem Vorzeichen 0xE0 oder 0x00 das zweite Byte mit und liefert dieselben Namen wie `on_key_press`: „Oben“, „Unten“, „Links“, „Rechts“, „Pos1“, „Ende“, „Bild auf“, „Bild ab“, „Einfg“, „Entf“, „F1“ bis „F12“. Eine andere Sondertaste (etwa Strg mit Pfeil) ergibt einen leeren Text. In `docs/komponenten.md` bei `read_key()` aufgeführt. Tests: `test_read_key_liefert_pfeiltasten_mit_ihrem_namen` und `test_read_key_liefert_f_tasten_und_links` in `tests/test_crt.py`, mit nachgebildetem `getch`.
+
+
+---
+
+## 218. PaintBox: nach Verkleinern und Vergrößern des Fensters ist das Gemalte am Rand weg ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, achte Durchsicht (`/durchsicht`), Entwicklungsstand `d3ccab0`.
+
+**Beobachtet:** Im Beispiel „Malen“ wächst die Fläche mit dem Fenster, und der Kommentar in `u_main.py` sagt: „was schon gemalt ist, bleibt dabei stehen“. Wird das Fenster erst kleiner und dann wieder größer gezogen, ist alles, was rechts oder unten außerhalb der kleinen Größe lag, weiß. Probe: rotes Rechteck bei (250, 150) bis (290, 190) auf einer Fläche 300 × 200, Fläche auf 200 × 120 und zurück auf 300 × 200 gesetzt: `pixels[270, 170]` ist vorher `#ff0000`, danach `#ffffff`.
+
+**Ursache:** nachgewiesen: `pcl/components/graphics.py`, `Canvas._groesse_anpassen` (Zeile 343) legt bei jeder Größenänderung ein neues Bild in der neuen Größe an und kopiert das alte hinein; beim Verkleinern wird dabei abgeschnitten.
+
+**Zu tun:** Das Bild nie verkleinern, nur vergrößern, und `width`/`height` der Zeichenfläche weiter die sichtbare Größe melden lassen (oder das Bild in der größten bisher erreichten Größe behalten). Erledigt, wenn die Probe oben nach dem Zurückvergrößern `#ff0000` liefert.
+
+**Behoben (28. September 2026, ab 0.3.6).** `Canvas._groesse_anpassen` (`pcl/components/graphics.py`) vergrößert das Bild nur noch und verkleinert es nie; die sichtbare Größe steht getrennt in `_breite`/`_hoehe`, die `width`, `height` und die Bereichsprüfung von `pixels` verwenden. Nach Verkleinern und Zurückvergrößern ist das Gemalte am Rand wieder da; der Kommentar im Beispiel `11_Malen` stimmt damit. `docs/komponenten.md` bei der PaintBox ergänzt. Test: `test_verkleinern_und_vergroessern_behaelt_das_gemalte` in `tests/test_components_graphics.py`, die Probe aus dem Punkt.
+
+
+---
+
+## 219. `zahl("1.000")` ergibt 1, nicht tausend ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, achte Durchsicht (`/durchsicht`), Entwicklungsstand `d3ccab0`.
+
+**Beobachtet:** Im Deutschen ist „1.000“ tausend. `zahl("1.000")` liefert 1.0, ohne Fehler; „1.234.567“ lehnt `zahl()` dagegen als „keine Zahl“ ab, obwohl die Punkte dort nur Tausendertrennung sein können. Wer in ein Preis- oder Einwohnerfeld „1.000“ tippt, rechnet danach mit 1. Probe: `zahl("1.000")` → `1.0`, `zahl("1.234.567")` → `NatterZahlError`.
+
+**Ursache:** nachgewiesen: `pcl/zahlen.py`, `zahl`: ein Punkt gilt nur dann als Tausendertrennung, wenn zugleich ein Komma im Text steht; sonst wird er als Dezimalpunkt gelesen.
+
+**Zu tun:** Entscheiden und festhalten, wie ein einzelner Punkt gelesen wird. Mindestens mehrere Punkte in Dreiergruppen („1.234.567“) als Tausendertrennung annehmen; für einen einzelnen Punkt mit genau drei Ziffern dahinter („1.000“) entweder ebenso oder mit einer Meldung ablehnen, statt stillschweigend 1 zu liefern. Erledigt, wenn Tests für beide Fälle das festgelegte Ergebnis prüfen und der Docstring es nennt.
+
+**Behoben (28. September 2026, ab 0.3.6).** Festgelegt: ohne Komma gelten Punkte als Tausendertrennung, wenn sie Dreiergruppen abteilen und die Zahl vorn nicht mit 0 beginnt. `zahl("1.000")` ergibt 1000, `zahl("1.234.567")` 1234567; „2.5“, „3.14“, „0.500“ und „1.0005“ bleiben Dezimalzahlen, „1.234.5“ wird abgelehnt. Docstring von `zahl` (`pcl/zahlen.py`) und `docs/komponenten.md` („Zahlen mit Dezimalkomma“) nennen die Regel. Tests: `test_punkte_zwischen_dreiergruppen_sind_tausendertrennung` und `test_ein_punkt_ohne_dreiergruppe_bleibt_dezimalpunkt` in `tests/test_zahlen.py`.
+
+
+---
+
+## 220. Strg+# zweimal hintereinander kommentiert nur die letzte Zeile wieder ein ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, neunte Durchsicht (`/durchsicht`), Entwicklungsstand `ebe83b7`.
+
+**Beobachtet:** Mehrere Zeilen markieren und „Quelltext → Kommentar umschalten“ (Strg+#) wählen: alle markierten Zeilen bekommen `# `. Danach ist die Markierung weg, die Schreibmarke steht am Ende der letzten Zeile. Wer gleich noch einmal Strg+# drückt, um das Auskommentieren zurückzunehmen, nimmt nur die letzte Zeile zurück; die anderen bleiben auskommentiert. Probe (Hauptfenster, `QT_QPA_PLATFORM=offscreen`): Text „a = 1 / b = 2 / c = 3 / d = 4“, Zeilen 1 bis 3 markiert. Nach dem ersten Umschalten `'# a = 1\n# b = 2\n# c = 3\nd = 4\n'`, Markierung `selectionStart == selectionEnd == 23`; nach dem zweiten `'# a = 1\n# b = 2\nc = 3\nd = 4\n'`. Tab und Umschalt+Tab behalten die Markierung dagegen, dort geht dasselbe hin und zurück.
+
+**Ursache:** nachgewiesen: `ide/shell/hauptfenster.py`, `_kommentar_umschalten_aktion` (Zeile 3171 ff.) ersetzt die Zeilen über einen eigenen `QTextCursor` (Zeile 3196) und setzt danach keine Markierung. Der Cursor des Editors lag im ersetzten Bereich und fällt auf dessen Ende zusammen. `QuelltextEditor.einruecken` (`ide/shell/quelltexteditor.py`, Zeile 1041 ff.) markiert die Zeilen nach dem Ändern wieder.
+
+**Zu tun:** Nach dem Umschalten die betroffenen Zeilen wieder markieren, wie in `einruecken`; ohne vorherige Markierung die Schreibmarke in ihrer Zeile lassen. Die Änderung als ein Schritt für Rückgängig. Erledigt, wenn die Probe oben nach dem zweiten Strg+# wieder `'a = 1\nb = 2\nc = 3\nd = 4\n'` ergibt.
+
+**Behoben (28. September 2026, ab 0.3.6).** `_kommentar_umschalten_aktion` in `ide/shell/hauptfenster.py` ersetzt die Zeilen in einem einzigen Bearbeitungsschritt (`beginEditBlock`/`endEditBlock`) und markiert danach die betroffenen Zeilen wieder, wie `QuelltextEditor.einruecken` es tut. Ohne vorherige Markierung bleibt die Schreibmarke in ihrer Zeile und rückt um das eingefügte oder entfernte `# ` mit. Die Probe aus der Meldung ergibt nach dem zweiten Strg+# wieder `'a = 1\nb = 2\nc = 3\nd = 4\n'`, und ein Strg+Z nimmt ein Umschalten ganz zurück. Tests: `test_kommentar_umschalten_laesst_die_zeilen_markiert` und `test_kommentar_umschalten_ohne_markierung_laesst_die_marke_stehen` in `tests/test_hauptfenster_suchen_quelltext_fenster_hilfe.py`; ohne die Änderung scheitern beide.
+
+
+---
+
+## 221. Ein zweites Formular lässt sich in Natter weder löschen noch umbenennen, obwohl das README es verspricht ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, neunte Durchsicht (`/durchsicht`), Entwicklungsstand `ebe83b7`.
+
+**Beobachtet:** Über „Datei → Neues Formular …“ ist schnell ein Formular zu viel angelegt, oder es bekommt einen Namen, der nicht passt. Im Projekt-Explorer hat weder der Eintrag unter „Formulare“ noch die zugehörige Unit unter „Units“ einen „⋮“-Knopf, und die rechte Maustaste bietet dort kein Menü. In der Menüleiste gibt es keinen Befehl dafür. Das Formular bleibt, bis jemand im Windows-Explorer drei Dateien (`.pfm`, `.py`, `_design.py`) von Hand löscht. Für Diagramme gibt es ebenfalls kein Löschen. Das README sagt in der Übersicht (Zeile 238) zum Projekt-Explorer: „Units, Formulare, Diagramme; umbenennen und löschen über „⋮"“. Probe (Kopie von `06_Kontoverwaltung` in `tmp_path`, `formular_erzeugen("u_zweit")`, dann für jeden Eintrag `itemWidget(eintrag, 1)` und `kontextmenue_fuer`): nur `u_konto.py` hat Knopf und Menü; `u_zweit` (Formulare), `u_zweit.py` (Units) und alle drei Diagramme haben weder das eine noch das andere.
+
+**Ursache:** nachgewiesen: `ide/shell/explorer.py`, `projekt_anzeigen` (Zeilen 137 bis 143) gibt der Unit eines Formulars ausdrücklich kein Menü, damit Unit und `.pfm` nicht auseinandergerissen werden; Formulare und Diagramme (Zeile 146) werden ohnehin ohne Menü eingetragen. `_unit_loeschen` in `ide/shell/hauptfenster.py` kann die drei Dateien eines Formulars schon gemeinsam löschen (Punkt 139, `zusammengehoerige_dateien`), wird für ein Formular aber von keiner Stelle der Oberfläche aus aufgerufen; der Test zu Punkt 139 ruft die Methode direkt auf.
+
+**Zu tun:** Für Formulare außer dem Hauptformular „Löschen …“ anbieten (am Formular-Eintrag oder an seiner Unit), das `.pfm`, Unit und `_design.py` gemeinsam in den Papierkorb legt. Diagramme ebenso löschbar machen. Das Umbenennen eines Formulars entweder mit allen drei Dateien und den Importen umsetzen oder im README nicht mehr versprechen. Erledigt, wenn ein über „Neues Formular …“ angelegtes Formular sich über den Projekt-Explorer wieder entfernen lässt und README und Oberfläche dasselbe sagen.
+
+**Behoben (28. September 2026, ab 0.3.6).** `ProjektExplorer.projekt_anzeigen` (`ide/shell/explorer.py`) gibt jedem Formular, der Unit jedes Formulars und jedem Diagramm den „⋮“-Knopf und dasselbe Menü auf der rechten Maustaste; ausgenommen bleibt das Hauptformular, das `main.py` startet, samt seiner Unit. Im Hauptfenster leiten `_unit_umbenennen` und `_unit_loeschen` weiter: „Löschen …“ an Formular oder Unit legt `.pfm`, Unit und `_design.py` gemeinsam in den Papierkorb und schließt Designer- und Editor-Reiter (Punkt 139); das Hauptformular lehnt es auch bei direktem Aufruf ab. Das neue `_formular_umbenennen` prüft den Namen wie „Neues Formular …“ und „Unit umbenennen“ (Bezeichner, kein Schlüsselwort, Anfang `u_`, nicht auf `_design`, kein vorhandener Name ohne Rücksicht auf Groß- und Kleinschreibung), benennt `.pfm` und Unit um, erzeugt die `_design.py` unter dem neuen Namen neu, führt `from u_alt import …` und `from u_alt_design import …` in allen Units nach (auch die auskommentierte Zeile oben in der Unit), zieht einen offenen Editor-Reiter mit und öffnet einen offenen Designer unter dem neuen Namen wieder. Die Klasse behält ihren Namen. `_diagramm_umbenennen` und `_diagramm_loeschen` tun dasselbe für `.pdiag`-Dateien und schließen ein offenes Diagrammfenster. Das README (Zeile 238) stimmt damit; `docs/handbuch.md` hat einen Absatz dazu. Tests: `tests/test_explorer_formular_diagramm_loeschen.py` (17 Fälle, darunter ein Start von `u_main` und der umbenannten Unit in einem eigenen Prozess); ohne die Änderung scheitern 13 davon.
+
+---
+
+## 222. Eine kurz nach dem Start beendete Debug-Sitzung startet den Debugger neu, der dann ewig wartet ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Auswertung der Testsuite (Stand `fed6439`): nach Testläufen blieben dutzende `python.exe -m debugpy --listen … --wait-for-client` übrig, zusammen mit jedi-Hilfsprozessen über 100 Prozesse und mehrere GB Speicher.
+
+**Beobachtet:** Wird eine Debug-Sitzung beendet, während sie noch startet (F9 und gleich wieder Stopp, oder das Fenster wird geschlossen), läuft danach ein neuer Debugger-Prozess, der auf eine Verbindung wartet, die nie kommt, oder das Schülerprogramm läuft unsichtbar weiter.
+
+**Ursache:** nachgewiesen am Code: `DebugSitzung.beenden()` (`ide/debugger/debug_sitzung.py`) beendet nur einen schon gestarteten Prozess und setzt `_laeuft = False`; der Hintergrundfaden hängt noch in `DapClient.starten()` und setzt danach `_laeuft = True`. `DapClient.starten` (`ide/debugger/dap_client.py`) versucht bis zu dreimal neu zu starten, ohne nach einem Stopp zu fragen. `DapClient.beenden()` schickt kein `disconnect` und beendet den Prozess nach der Zeitgrenze nicht.
+
+**Zu tun:** Einen Stopp-Merker, den `starten` vor jedem Versuch und nach dem Start prüft; `_laeuft` nur setzen, wenn nicht gestoppt wurde; `beenden()` sendet `disconnect(terminateDebuggee=True)` und beendet den Prozessbaum nach der Zeitgrenze. Erledigt, wenn ein Test eine Sitzung während des Starts beendet und danach kein Debugger-Prozess mehr lebt.
+
+**Behoben (28. September 2026, ab 0.3.6).** Ursache bestätigt. `DapClient` (`ide/debugger/dap_client.py`) hat jetzt einen Stopp-Merker und die Methode `stoppen()`, die aus jedem Faden aufgerufen werden darf: sie setzt den Merker, weckt den startenden Faden per `shutdown` der Verbindung auf und beendet den Prozess samt Kindprozessen. `starten()` fragt vor jedem Startversuch (unter einer Sperre, damit zwischen Frage und `Popen` kein Stopp durchrutscht), in jeder Runde des Verbindungsaufbaus und nach dem Handshake nach dem Merker und endet dann mit `DapAbgebrochen`, ohne einen neuen Versuch zu starten. `DebugSitzung.beenden()` ruft `stoppen()`; der Hintergrundfaden setzt `_laeuft` nur, wenn nicht gestoppt wurde, und meldet nach einem Stopp weder `fehler` noch `beendet`. `DapClient.beenden()` schickt vorher `disconnect` mit `terminateDebuggee` und beendet den Prozessbaum, wenn das Programm nach der Zeitgrenze noch läuft; bis dahin löste sich debugpy nur vom Programm, und `wait()` gab nach 30 Sekunden mit einer Ausnahme auf. Prozessbäume beendet die neue Hilfsfunktion `prozessbaum_beenden` in `ide/prozess.py` mit `taskkill /T /F`, auch beim Aufräumen nach einem Fehlstart. Ein Schreib- oder Lesefehler auf der geschlossenen Leitung kommt als `DapFehler` statt als `OSError` an, damit der Hintergrundfaden nach einem Stopp nicht mit einer unbehandelten Ausnahme endet. Tests: `test_ein_stopp_waehrend_des_starts_laesst_nichts_zurueck` in `tests/test_debug_sitzung.py` beendet eine Sitzung sofort nach dem Start und einmal, sobald der debugpy-Prozess läuft, und prüft, dass der Faden endet und weder ein gestarteter Prozess noch eines seiner Kinder lebt; ohne die Änderung scheitern beide Fälle. `test_fehlerantwort_und_beenden_eines_laufenden_programms` in `tests/test_dap_client.py` prüft, dass `beenden()` ein laufendes Programm vor der Zeitgrenze beendet.
+
+
+---
+
+## 223. Die Testsuite ist zu groß und läuft in einem Stück nicht mehr durch ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Messung Datei für Datei (Stand `fed6439`).
+
+**Beobachtet:** 295 Dateien, 5 949 Tests, 57 000 Zeilen Testcode gegenüber 47 000 Zeilen Code. Einzeln gemessen brauchen alle Dateien zusammen 28 Minuten; in einem Prozess brauchte die Suite über 90 Minuten oder blieb hängen. `test_eigenschaften_rundlauf.py` allein: 1 410 Fälle, 529 Sekunden.
+
+**Ursache:** nachgewiesen: 39 Dateien schließen ihr `HauptFenster` nie (kein `qtbot.addWidget`), damit fehlt das Aufräumen von Kindprozessen und Uhren, und die Fenster sammeln sich an. Der Eigenschaften-Rundlauf ist je Komponente und Eigenschaft parametrisiert und baut für jeden Fall Designer, Inspektor, Codeerzeugung und Import neu auf; `test_objektinspektor_rundlauf.py` prüft zwei seiner Aussagen ein zweites Mal. Einige Hauptfenster- und Debugger-Tests prüfen dasselbe mehrfach. Die Rückfallebene für eine als Einzeldatei gebaute IDE (`sys.frozen`) wird getestet, aber nicht ausgeliefert.
+
+**Zu tun:** Doppeltes und Veraltetes streichen, den Rundlauf je Komponente zusammenfassen, Hauptfenster über eine gemeinsame Fixture schließen, die Einzeldatei-Rückfallebene samt Tests streichen, die Suite über Marker in Stufen teilen (schnell, mittel, voll) und `pytest-timeout` gegen hängende Tests einsetzen. Erledigt, wenn die volle Suite in einem Prozess ohne Hänger durchläuft und deutlich unter der bisherigen Dauer bleibt, ohne dass ein geprüftes Verhalten verloren geht.
+
+**Behoben (28. September 2026, ab 0.3.6).** Gemessen Datei für Datei, dann gekürzt: der Eigenschaften-Rundlauf prüft je Komponente in einem Durchgang (34 statt 1 410 Fälle, 125 statt 510 s, dieselben 622 Eigenschaftsprüfungen, strenger), doppelte Inspektor-, Maus-, Hauptfenster- und Debugger-Tests sind zusammengelegt oder gestrichen, die Einzeldatei-Rückfallebene der IDE samt Tests ist weg. Jedes Hauptfenster kommt aus der Fixture `hauptfenster`; nach jedem Test schließt `tests/conftest.py` die Fenster des Tests, hält alle pcl-Timer an und friert mit `gc.freeze()` ein, was überlebt hat - nach 500 Tests lebten vorher über 200 Fenster, und das Aufräumen wurde mit jedem Test teurer. Marker teilen die Suite in schnell, mittel und voll (AGENTS.md), `pytest-timeout` bricht einen hängenden Test nach 120 s mit Stapel ab, `pytest-xdist` verteilt die Suite auf 8 Prozesse, auch im Bau (Schritt 4) und im CI. Ergebnis: 4 396 statt 5 972 Tests; die volle Suite läuft in gut 4 Minuten statt über 90 Minuten oder gar nicht.
+
+
+---
+
+## 224. F5 kann dauerhaft hängen, wenn die Vervollständigung gerade aufwärmt ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, beim Verkleinern der Debugger-Tests (Punkt 222): drei Testläufe blieben ohne Ende stehen, in `test_f5_mit_ruff_fund_startet_nicht` und `test_haltepunkt_waehrend_des_debuggens_setzen`.
+
+**Beobachtet:** `projekt_pruefen` (`ide/run/pruefung.py`) wartet in `subprocess.run(..., capture_output=True)` darauf, dass die Rohre von ruff zugehen; ruff selbst ist schon beendet. Dasselbe kann in der IDE F5 und F9 einfrieren.
+
+**Ursache:** nachgewiesen: jedi startet seinen Hilfsprozess unter Windows mit `close_fds=False` (`jedi/inference/compiled/subprocess/__init__.py`, `_GeneralizedPopen`). Das Aufwärmen läuft in einem eigenen Faden; startet der Hilfsprozess, während die Rohre für ruff vererbbar sind, erbt er deren Schreibende und hält sie offen.
+
+**Zu tun:** Den Hilfsprozess mit `close_fds=True` starten, dann reicht Python unter Windows nur seine drei Standard-Handles weiter. Erledigt, wenn ein Test mit einem offenen vererbbaren Rohr den Hilfsprozess startet und das Rohr danach zugeht.
+
+**Behoben (28. September 2026, ab 0.3.6).** `_jedi()` in `ide/shell/vervollstaendigung.py` ersetzt jedis `_GeneralizedPopen` durch einen Start mit `close_fds=True`; unter Windows erbt der Hilfsprozess damit nur seine drei Standard-Handles. Alle Stellen, die jedi benutzen, gehen darüber. Test: `tests/test_jedi_erbt_keine_rohre.py` startet den Hilfsprozess, während ein vererbbares Rohr offen ist, und findet es danach geschlossen; ohne die Änderung bleibt es offen.
+
+
+---
+
+## 225. Unter dem Debugger zeigt der Aufrufstapel eines Konsolenprogramms eine Zeile „<string>“ ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, beim Verkleinern der Debugger-Tests (Punkt 222).
+
+**Beobachtet:** Hält ein Konsolenprogramm am Haltepunkt, steht im Aufrufstapel über dem Code der Schülerin eine Zeile für die Hülle, die das Konsolenfenster offen hält („<string>, Zeile …“).
+
+**Ursache:** nachgewiesen: `ist_eigener_code` (`pcl/eigener_code.py`) hält jeden Namen, der kein absoluter Pfad ist, für eigenen Code, auch `<string>`.
+
+**Zu tun:** Namen in spitzen Klammern nicht als eigenen Code werten. Erledigt, wenn ein Test `<string>` als fremd und `u_main.py` weiter als eigen findet.
+
+**Behoben (28. September 2026, ab 0.3.6).** `ist_eigener_code` (`pcl/eigener_code.py`) wertet Namen in spitzen Klammern (`<string>`, `<frozen runpy>`) nicht als eigenen Code. Test in `tests/test_eigener_code.py`.
+
+---
+
+## 226. Eine `.pfm` führt beim Öffnen im Designer beliebigen Code in Natter aus ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`b3007bc`.
+
+**Beobachtet:** Der Designer baut die Vorschau, indem er aus der `.pfm`
+Python-Quelltext erzeugt und diesen im Prozess der IDE ausführt. Namen
+von Ereignis-Methoden, Komponentennamen, Typen, der Klassenname und
+die Schlüssel unter `properties` gehen dabei ungeprüft in den
+Quelltext. Eine `.pfm`, in der an einer dieser Stellen mehr als ein
+Name steht, führt beim Doppelklick im Projekt-Explorer Code aus, ohne
+dass das Programm gestartet wurde. Probe in `%TEMP%`: ein Ereignis,
+dessen Methodenname eine zweite Anweisung enthält, legt beim Aufruf
+von `formular_fuer_designer_laden` eine Datei an. Wer ein Projekt von
+einer Mitschülerin, aus einer Abgabe oder aus dem Netz öffnet, rechnet
+damit, dass erst F5 etwas ausführt. Derselbe Weg besteht über den
+`.lfm`-Import (Ereignisnamen aus der `.lfm` werden nicht geprüft) und
+über „Einfügen“ im Designer, das den Inhalt der Zwischenablage auf
+dieselbe Weise übersetzt.
+
+Nebenbefund an derselben Stelle: Zeichenketten werden nur für `\` und
+`"` maskiert. Eine Beschriftung mit Zeilenumbruch in einer von Hand
+bearbeiteten `.pfm` ergibt `SyntaxError`; `oeffnen()` fängt nur
+`JSONDecodeError`, Schemafehler und `KeyError` ab.
+
+**Ursache:** nachgewiesen. `ide/designer/laden.py`, Zeile 161
+(`exec(compile(quelltext, …))`), und `ide/designer/canvas.py`, Zeile
+1790. Der Quelltext entsteht in `ide/codegen/design.py`: Zeile 206
+(`self.{handler}`), 174 (Eigenschaftsname), 255 und 274 (Klasse, Name,
+Typ), Maskierung in Zeile 56. `schemas/pfm.schema.json` verlangt für
+Namen und Methoden nur eine nichtleere Zeichenkette (Zeilen 19, 32,
+37). `ide/import_lfm/zuordnung.py`, Zeile 347, übernimmt Methodennamen
+aus der `.lfm` ohne Prüfung. Abfangliste in
+`ide/shell/hauptfenster.py`, Zeile 4755.
+
+**Zu tun:** Vor dem Erzeugen prüfen, dass Klasse, Komponentennamen,
+Eigenschaftsnamen und Methodennamen Bezeichner sind
+(`isidentifier()`, kein Schlüsselwort) und Typen zu den bekannten
+Komponentenklassen gehören; sonst eine deutsche Meldung „… ist
+beschädigt“ statt Ausführung. Zeichenketten mit `repr()` oder
+gleichwertig vollständig maskieren. Am besten zusätzlich das Schema
+mit `pattern` für Namen verschärfen (`pfm/1` bleibt gültig, weil
+Natter selbst nur Bezeichner schreibt). Erledigt, wenn Tests zeigen,
+dass eine `.pfm`, eine `.lfm` und ein Zwischenablage-Inhalt mit
+eingeschleuster Anweisung nichts ausführen und eine Meldung ergeben
+und eine Beschriftung mit Zeilenumbruch sich laden lässt.
+
+**Behoben (28. September 2026, ab 0.3.7).** `ide/codegen/design.py` prüft jede `.pfm` vor dem Erzeugen mit der neuen Funktion `pfm_pruefen`: Klasse, Komponentennamen, Eigenschaftsnamen, Ereignisse und Methodennamen müssen Bezeichner sein (`isidentifier()`, kein Schlüsselwort), die Typen Komponenten aus `pcl`. Sonst kommt `PfmBeschaedigt` mit einer deutschen Begründung, und nichts wird übersetzt oder ausgeführt. Zeichenketten werden in JSON-Schreibweise vollständig maskiert, eine Beschriftung mit Zeilenumbruch lässt sich laden. `oeffnen` meldet „… lässt sich nicht öffnen: die Datei ist beschädigt (…)“, der Formular-Import prüft vor dem Schreiben, `ide/import_lfm/zuordnung.py` übernimmt nur Methodennamen, die Bezeichner sind (sonst Hinweis im Importbericht), und „Einfügen“ im Designer lehnt einen solchen Inhalt der Zwischenablage mit einer Meldung ab. Das Schema blieb unverändert: ein `pattern` für Namen hätte die in Python erlaubten Umlaute ausgeschlossen. Tests: `tests/test_pfm_nur_daten.py` (präparierte `.pfm` an vier Stellen, `.lfm` im Hauptfenster, Zwischenablage an drei Stellen; jeweils entsteht keine Markierungsdatei, und eine Meldung kommt), ohne die Änderung scheitern sie.
+
+
+---
+
+## 227. Der Prüfungsmodus lässt sich ohne Verwaltungsrechte beenden ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`b3007bc`.
+
+**Beobachtet:** Das Handbuch (Abschnitt 4) sagt, der Modus lasse sich
+in Natter nicht vorzeitig beenden. In der Oberfläche stimmt das. Mit
+Bordmitteln eines gewöhnlichen Schülerkontos endet er aber sofort, auf
+drei Wegen:
+
+- Der Endzeitpunkt steht in `%APPDATA%\Natter\Natter-IDE.ini`, einer
+  Datei im eigenen Profil. Ein gelöschter oder unlesbarer Wert gilt
+  als „kein Prüfungsmodus“.
+- Jedes Programm, das die Schülerin in Natter startet, läuft unter
+  demselben Konto und kann `pcl.pruefungsmodus.beenden()` aufrufen
+  oder die Ini ändern.
+- Der Vergleich rechnet mit der lokalen Uhrzeit ohne Zeitzone. Die
+  Zeitzone darf unter Windows jedes Standardkonto ändern
+  (`SeTimeZonePrivilege`, hier mit `whoami /priv` nachgesehen);
+  zwölf Stunden weiter, und der Modus ist abgelaufen.
+
+Probe mit einer eigenen Ini in `%TEMP%`: nach `starten()` meldet
+`laeuft()` `True`; mit zwölf Stunden späterer Ortszeit, nach einem
+unlesbaren Wert und nach `beenden()` jeweils `False`.
+
+**Ursache:** nachgewiesen. `pcl/pruefungsmodus.py`: Zeile 63 liest den
+Wert aus der Ini des Nutzers, Zeile 67 wertet einen unlesbaren Wert
+als „aus“, Zeilen 75 und 96 rechnen mit `datetime.now()` ohne
+Zeitzone, `beenden()` (Zeile 101) ist öffentlich und aus jedem
+Schülerprogramm erreichbar.
+
+**Zu tun:** Endzeitpunkt in UTC speichern und vergleichen. Einen
+fehlenden oder unlesbaren Wert nicht still als „aus“ werten, solange
+ein zweiter Vermerk (etwa Beginn und Ende an einer zweiten Stelle oder
+mit einer Prüfsumme über Konto und Zeitpunkt) sagt, dass eine Prüfung
+begonnen hat; die Anzeige sollte dann melden, dass die Einstellung
+verändert wurde. `beenden()` aus `pcl` herausnehmen, damit die
+Laufzeit der Schülerprogramme es nicht mitbringt. Was sich ohne
+Verwaltungsrechte grundsätzlich nicht verhindern lässt (Löschen aller
+Vermerke), gehört als Grenze ins Handbuch, damit die Aufsicht weiß,
+worauf sie sich verlassen kann. Erledigt, wenn Tests zeigen, dass
+Zeitzonenwechsel und ein gelöschter Wert den Modus nicht beenden, und
+Handbuch Abschnitt 4 die verbleibende Grenze nennt.
+
+**Behoben (28. September 2026, ab 0.3.7).** `pcl/pruefungsmodus.py` speichert Beginn und Ende als Sekunden seit 1970 (UTC) mit einem HMAC-Prüfwert über Konto, Beginn und Ende, an drei Stellen im Benutzerprofil: in der Ini (`pruefung/ende`), in `%LOCALAPPDATA%\Natter\pruefungsmodus.txt` und unter `HKEY_CURRENT_USER\Software\Natter\Pruefungsmodus`. Verwaltungsrechte braucht keine davon. Der Modus läuft, solange eine gültige, nicht abgelaufene Stelle es sagt; eine fehlende oder veränderte Stelle wird wiederhergestellt, ein gefälschter Vermerk zählt nicht, ein Ende weiter als vier Stunden nach dem Beginn gilt nur bis vier Stunden nach dem Beginn, und ein Beginn mehr als fünf Minuten in der Zukunft zählt nicht. `beenden()` gibt es nicht mehr, weder in `pcl` noch in der IDE (dort gab es kein vorzeitiges Beenden), und `starten()` ändert einen laufenden Modus nicht. Handbuch Abschnitt 4 nennt die Ablagestellen und die Grenze: gegen Schülerinnen mit gewöhnlichem Konto hält er, gegen jemanden, der alle Stellen kennt und löscht, nicht. Tests in `tests/test_pruefungsmodus.py` (Zeitzone zwölf Stunden weiter, gelöschter Wert, eine einzige verbliebene Stelle, gefälschter Vermerk, Obergrenze, Beginn in der Zukunft, kein Beenden aus `pcl`, keine Löschstelle in `ide`/`pcl`); `tests/conftest.py` legt Datei und Registry im Test auf Speicherstellen um.
+
+
+---
+
+## 228. Prüfungsmodus: ein beim Einschalten offenes Beispielprojekt bleibt ganz bedienbar ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`b3007bc`.
+
+**Beobachtet:** Ist eine Arbeitskopie eines Beispiels offen, während
+der Prüfungsmodus eingeschaltet wird, bleibt sie offen. Die Rückfrage
+beim Einschalten sagt, die Beispielprojekte seien in dieser Zeit nicht
+erreichbar. Gesperrt ist nur der Doppelklick im Explorer; „Unit
+öffnen …“ (Strg+P), die Suche in allen Dateien und die schon offenen
+Reiter zeigen die Lösungen weiter, F5 startet sie. Probe mit `pytest
+-p tests.conftest`: Kopie von `03_Taschenrechner` geöffnet, Modus
+gestartet, `projekt_dateien()` und `datei_oeffnen()` auf `u_main.py`
+liefern den vollständigen Quelltext.
+
+**Ursache:** nachgewiesen. `HauptFenster._pruefungsmodus_aktion` und
+`_pruefungsmodus_nachfuehren` (`ide/shell/hauptfenster.py`, ab Zeile
+3738) sehen nicht nach dem offenen Projekt. `_unit_oeffnen_dialog`
+(Zeile 1548) und `_datei_an_zeile` (Zeile 3415) rufen `datei_oeffnen`
+direkt auf, ohne `_beispiel_gesperrt`.
+
+**Zu tun:** Beim Einschalten (und bei jedem Takt von
+`_pruefungsuhr`) ein offenes Beispiel oder eine Kopie davon schließen,
+mit dem Hinweis aus `GESPERRT_HINWEIS`; `_beispiel_gesperrt` in
+`datei_oeffnen` selbst prüfen statt nur in `oeffnen`. Erledigt, wenn
+ein Test das offene Beispiel nach dem Einschalten geschlossen und
+Strg+P sowie die Suche im Modus gesperrt findet.
+
+**Behoben (28. September 2026, ab 0.3.7).** `HauptFenster._beispiele_im_modus_schliessen` läuft beim Einschalten und bei jedem Takt von `_pruefungsuhr`: ein offenes Beispiel oder seine Arbeitskopie wird geschlossen, samt Reitern und Diagrammfenstern und einzeln geöffneten Dateien daraus; geänderte Dateien werden vorher gespeichert, der Projekt-Explorer geleert (`ProjektExplorer.leeren`), die Statuszeile nennt `GESPERRT_HINWEIS`. `datei_oeffnen` prüft `_beispiel_gesperrt` selbst, damit auch „Unit öffnen …“ und der Sprung aus der Suche gesperrt sind. Test: `test_ein_offenes_beispiel_geht_beim_einschalten_zu` in `tests/test_pruefungsmodus_ablauf.py` (Kopie von `03_Taschenrechner` in `tmp_path`).
+
+
+---
+
+## 229. Exe-Export: der Pfad der Exe steht ungeschützt in einem PowerShell-Befehl ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`b3007bc`.
+
+**Beobachtet:** Nach jedem Export signiert Natter die Exe über
+PowerShell und setzt den Pfad dafür in einfache Anführungszeichen in
+den Befehlstext. Zwei Folgen:
+
+- Ein Apostroph im Pfad bricht den Befehl. Der Neu-Dialog lässt ihn
+  im Projektnamen zu („Jana's Spiel“), und auch Ordner- und
+  Kontonamen können einen enthalten. Die Exe bleibt dann unsigniert,
+  die Statuszeile meldet „Nicht signiert: kein Grund gemeldet (Die
+  Zeichenfolge hat kein Abschlusszeichen …)“.
+- Ein Ordnername oder ein Projektname in der `.natter` (das Schema
+  prüft ihn nicht) kann zusätzliche PowerShell-Ausdrücke enthalten,
+  die beim Export ausgeführt werden. Der Export selbst startet das
+  Schülerprogramm nicht; wer ein fremdes Projekt exportiert, rechnet
+  nicht damit, dass dabei Code läuft.
+
+Probe in `%TEMP%` mit `exe_signieren()` und einem nicht vorhandenen
+Fingerabdruck: ein Ordner mit Apostroph ergibt den Parserfehler, ein
+Ordnername mit einem geklammerten Ausdruck (nur für Windows zulässige
+Zeichen) gibt dessen Ausgabe zurück. Erreicht wird die Stelle bei
+jedem Export, weil `exe_exportieren` beim ersten Mal selbst ein
+Zertifikat anlegt.
+
+**Ursache:** nachgewiesen. `ide/export/signatur.py`, Zeile 256
+(`-FilePath '{exe}'`); `exe_pfad` aus `ide/export/exporter.py`, Zeile
+425, Aufruf mit `anlegen=True` in Zeile 461. Der Docstring von
+`signieren_wenn_moeglich` sagt dagegen, das Anlegen sei nicht der
+Standard und gehöre gefragt.
+
+**Zu tun:** Den Pfad nicht in den Befehlstext setzen, sondern als
+Argument übergeben (`-File` mit Parametern oder `-Command` mit
+`$args`) oder mindestens mit verdoppelten Apostrophen maskieren;
+dasselbe für jede andere Stelle, die Werte in PowerShell-Text setzt.
+Die Aussage im Docstring und das Verhalten des Exports angleichen.
+Erledigt, wenn ein Test einen Pfad mit Apostroph signiert und ein
+Pfad mit geklammertem Ausdruck nichts ausführt.
+
+**Behoben (28. September 2026, ab 0.3.7).** `ide/export/signatur.py`: `exe_signieren` übergibt Pfad und Fingerabdruck als Umgebungsvariablen (`NATTER_SIGNIEREN_EXE`, `NATTER_SIGNIEREN_ZERTIFIKAT`) und liest sie im festen Befehlstext über `$env:`; signiert wird mit `-LiteralPath`. Vorher prüft der Befehl, ob die Datei da ist und ob das Zertifikat im Speicher liegt, und meldet beides deutsch. Andere Stellen in `ide` setzen keine Werte in PowerShell-Text. Der Docstring von `signieren_wenn_moeglich` beschreibt jetzt, dass der Export `anlegen=True` übergibt und Windows vor dem Eintrag in den Stammspeicher selbst fragt. Tests in `tests/test_export_signatur.py`: ein Pfad mit Apostroph kommt bei PowerShell an, drei Ordnernamen mit Ausdrücken führen nichts aus; ohne die Änderung scheitern sie. Signiert wird im Test nicht wirklich, dafür bräuchte es ein Zertifikat im Speicher des Rechners.
+
+
+---
+
+## 230. Die Integritätsprüfung lässt Startdateien von Python und Natters eigene Daten aus ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`b3007bc`.
+
+**Beobachtet:** `docs/bericht.md`, Abschnitt 7.5, sagt, Natter erkenne
+beim Start veränderte, fehlende oder fremde Dateien, und nimmt nur die
+Fremdbibliotheken in `site-packages` aus. Das Manifest lässt aber alles
+in `site-packages` aus, was nicht zu `ide`, `pcl`, `design`, `schemas`
+und `templates` gehört. Drei Folgen:
+
+- `.pth`-Dateien und `sitecustomize.py` in `site-packages` führt
+  Python bei jedem Start aus, vor der Prüfung und in jedem
+  Schülerprogramm. Die Voreinstellung des Installers ist die
+  Installation nur für das angemeldete Konto; dort darf jedes
+  Programm dieses Kontos in den Programmordner schreiben. Eine so
+  abgelegte Datei meldet weder die Startprüfung noch „Umgebung
+  prüfen“, und sie kann die Prüfung der überwachten Dateien selbst
+  aushebeln (die Signaturprüfung benutzt `cryptography` aus demselben
+  Ordner). Auf Schulrechnern mit einem gemeinsamen Schülerkonto
+  betrifft das auch die nächste Klasse.
+- `beispielprojekte` und `docs` liegen ebenfalls in `site-packages`
+  und sind Natters eigene Dateien, fallen aber mit heraus. Ein
+  verändertes Beispiel geht beim nächsten Öffnen als Kopie an alle,
+  die es öffnen.
+- Der Kommentar in `ide/integritaet/start_pruefung.py` (Zeile 4) und
+  in `manifest.py` (Zeile 143) sagt, beim ersten Start würden alle
+  Dateien geprüft. `integritaet_bestaetigen` in `ide/main.py` prüft
+  immer nur die Kerndateien; vollständig nur über das Menü.
+
+Nachweis mit `_erfasst()`/`ist_kerndatei()`: `site-packages/zz.pth`,
+`site-packages/sitecustomize.py`, `site-packages/cryptography/…`,
+`site-packages/beispielprojekte/…` und `site-packages/docs/…` sind
+nicht erfasst.
+
+**Ursache:** nachgewiesen. `ide/integritaet/manifest.py`, Zeile 57
+(`NATTER_EIGEN` ohne `beispielprojekte` und `docs`) und Zeile 130
+(alles Übrige in `site-packages` gilt als nachinstalliert).
+
+**Zu tun:** `beispielprojekte` und `docs` in `NATTER_EIGEN`
+aufnehmen. Dateien, die Python beim Start ausführt (`*.pth`,
+`sitecustomize.py`, `usercustomize.py` in `site-packages` und in
+`python\Lib`), in der Startprüfung auflisten und jede, die nicht im
+Manifest steht, melden. Für die mitgelieferten Bibliotheken, die
+Natter selbst lädt (PySide6, `cryptography`, `jsonschema`), wenigstens
+in „Umgebung prüfen“ die Prüfsummen vergleichen und eine
+Abweichung als Hinweis statt als Fehler melden, weil `pip` sie beim
+Nachinstallieren anheben darf. Die beiden Kommentare an das Verhalten
+anpassen. Erledigt, wenn Tests eine abgelegte `.pth` und ein
+verändertes Beispiel als Befund finden.
+
+**Behoben (28. September 2026, ab 0.3.7).** `ide/integritaet/manifest.py`: `NATTER_EIGEN` enthält `beispielprojekte` und `docs`. `.pth`-Dateien und `sitecustomize`/`usercustomize` in `site-packages` und `python/Lib` (`ist_startdatei`) stehen im Manifest und gehören zur schnellen Prüfung bei jedem Start; eine neu abgelegte Datei dieser Art ist ein Befund. Für PySide6, shiboken6, cryptography und jsonschema schreibt der Bau die Prüfsummen unter `bibliotheken` ins Manifest, und „Umgebung prüfen“ meldet eine Abweichung als Hinweis im Panel „Meldungen“, ohne `in_ordnung` zu ändern. Die Kommentare in `start_pruefung.py` und `ist_kerndatei` nennen den ersten Start nicht mehr. Tests in `tests/test_integritaet_manifest.py`: abgelegte `.pth`/`sitecustomize` (schnell und vollständig), veränderte mitgelieferte `.pth`, verändertes Beispiel und verändertes Handbuch, veränderte Bibliothek als Hinweis.
+
+
+---
+
+## 231. Die Auslieferung nimmt nicht eingecheckte Dateien aus `beispielprojekte/` mit ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`b3007bc`.
+
+**Beobachtet:** `dist\Natter\python\Lib\site-packages\beispielprojekte`
+enthält `06_Kontoverwaltung\konten.sqlite` (eine Tabelle `konto` mit
+einem Datensatz aus einem Probelauf) und in neun Beispielen
+`__pycache__` mit `.pyc`. Beides ist in `.gitignore` ausgeschlossen und
+liegt nur im Arbeitsbaum des Baurechners. Die Kopie eines Beispiels
+nimmt die Datenbank mit, eine Schülerin beginnt also mit einem fremden
+Kontostand. Schritt 1 des Baus meldet „Arbeitsbaum ist sauber“, weil
+`git status --porcelain` ignorierte Dateien nicht zeigt. Was sonst noch
+ungesehen in einem dieser Ordner liegt, geht ebenso mit.
+
+**Ursache:** nachgewiesen. `tools/ide_paketieren.py`, Zeile 369:
+`shutil.copytree(quelle, ziel)` ohne `ignore` für `design`, `schemas`,
+`templates` und `beispielprojekte`. `tools/auslieferung_bauen.py`,
+`_arbeitsbaum_ansehen` (Zeile 311), prüft nur nicht eingecheckte
+Änderungen.
+
+**Zu tun:** Diese Ordner aus der Git-Liste kopieren (`git ls-files`)
+oder mindestens `__pycache__`, `*.pyc`, `*.sqlite*` ausschließen, und
+Schritt 1 ignorierte Dateien in diesen Ordnern melden lassen. Erledigt,
+wenn ein Test den Kopierschritt mit einer abgelegten `konten.sqlite`
+und einem `__pycache__` laufen lässt und beides im Ergebnis fehlt.
+
+**Behoben (28. September 2026, ab 0.3.7).** `tools/ide_paketieren.py` kopiert `design`, `schemas`, `templates` und `beispielprojekte` über `eingecheckt_kopieren`: nur Dateien aus `git ls-files`, und zusätzlich nie `__pycache__`, `*.pyc`, `*.sqlite*`, `*.db` (`NIE_AUSLIEFERN`, auch als Ausschlussliste, wenn Git fehlt). Schritt 1 von `tools/auslieferung_bauen.py` meldet ignorierte Dateien in diesen Ordnern (`_ignorierte_datendateien_melden`). Tests in `tests/test_auslieferung_datenordner.py` mit einem eigenen Git-Repository in `tmp_path`: `konten.sqlite` und `__pycache__` fehlen im Ergebnis des Kopierschritts, mit und ohne Git.
+
+
+---
+
+## 232. „Neues Diagramm …“ prüft den Namen nicht ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`b3007bc`.
+
+**Beobachtet:** Der Name aus dem Dialog wird ungeprüft zum Dateinamen.
+Mit `..\..\` davor entsteht die `.pdiag` außerhalb des Projekts, im
+Explorer taucht sie nicht auf. Ein Doppelpunkt oder Fragezeichen ergibt
+`FileNotFoundError` bzw. `OSError` aus dem Menü heraus statt einer
+Meldung. „Umbenennen …“ am Diagramm prüft dieselben Fälle schon (Punkt
+221), das Anlegen nicht. Probe mit `diagramm_erzeugen` in `%TEMP%`:
+`..\..\ausserhalb` legt die Datei zwei Ordner über `diagramme` an.
+
+**Ursache:** nachgewiesen. `ide/shell/hauptfenster.py`, Zeile 4111
+(`diagramm_ordner / f"{name.strip()}.pdiag"`), ohne die Prüfung aus
+`_diagramm_umbenennen` (`_VERBOTENE_ZEICHEN`, `_RESERVIERTE_NAMEN`).
+
+**Zu tun:** Dieselbe Prüfung wie beim Umbenennen vor dem Anlegen, am
+besten als gemeinsame Funktion. Erledigt, wenn ein Test die drei Namen
+mit einer Meldung ablehnt und keine Datei entsteht.
+
+**Behoben (28. September 2026, ab 0.3.7).** Die Namensprüfung aus „Umbenennen …“ steht als `_dateiname_fehler` in `ide/shell/hauptfenster.py` und gilt jetzt auch für „Neues Diagramm …“; ein abgelehnter Name ergibt eine Meldung, und es entsteht keine Datei. Ein `OSError` beim Anlegen erscheint in der Statuszeile. Test: `test_neues_diagramm_lehnt_einen_unbrauchbaren_namen_ab` in `tests/test_hauptfenster_diagramm.py` mit `..\..\ausserhalb`, `ampel:neu` und `wozu?`.
+
+
+---
+
+## 233. Prüfungsmodus: Design-Prüfung und Diagrammhinweise zeigen weiter den Lösungsteil ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`b3007bc`.
+
+**Beobachtet:** `Befund.loesung` in `ide/lint/regeln.py` (Zeile 93) und
+`Hinweis.loesung` in `ide/diagramm/hinweise.py` sind laut Kommentar
+getrennt gehalten, damit der Prüfungsmodus den Teil „an einer einzigen
+Stelle wieder abschneiden kann“. Keine Stelle tut das: das Panel
+„Meldungen“ zeigt `befund.meldung` samt Lösungsteil, der Tooltip des
+Diagrammfensters `hinweis.meldung`, auch im Prüfungsmodus. Die
+Hinweise betreffen Anordnung und Benennung und verraten keine
+Programmlogik; die Kommentare versprechen trotzdem etwas, das nicht
+geschieht.
+
+**Ursache:** nachgewiesen. `ide/shell/hauptfenster.py`, Zeile 4348;
+`ide/diagramm/fenster.py`, Zeile 1236; weder dort noch in
+`regeln.py`/`hinweise.py` eine Abfrage von `pruefungsmodus_laeuft`.
+
+**Zu tun:** Entscheiden, ob diese Hinweise im Modus gekürzt werden.
+Wenn ja, an beiden Stellen im Modus nur den Teil ohne `loesung`
+zeigen; wenn nein, die beiden Kommentare berichtigen. Erledigt, wenn
+ein Test das gewählte Verhalten im Modus festhält.
+
+**Behoben (28. September 2026, ab 0.3.7).** Entschieden: die Hinweise werden im Prüfungsmodus gekürzt. `Befund.anzeige()` (`ide/lint/regeln.py`) und `Hinweis.anzeige()` (`ide/diagramm/hinweise.py`) liefern im Modus die Meldung ohne den Lösungsteil; das Panel „Meldungen“ der Design-Prüfung und der Tooltip der Statusleiste im Diagrammfenster benutzen sie. Handbuch Abschnitt 4 nennt es. Tests in `tests/test_pruefungsmodus.py`: `test_befund_und_hinweis_verlieren_im_modus_den_loesungsteil`, `test_die_design_pruefung_zeigt_im_modus_keinen_loesungsteil`, `test_der_tooltip_der_diagrammhinweise_zeigt_im_modus_keinen_loesungsteil`.
+
+
+---
+
+## 234. CSV-Import mit „Ersetzen“ löscht die alte Tabelle, bevor die neue steht ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`b3007bc`.
+
+**Beobachtet:** Im Datenbank-Panel eine CSV importieren, deren Name
+einer vorhandenen Tabelle entspricht, und in der Nachfrage „Ja“
+(ersetzen) wählen. Scheitert danach das Anlegen der neuen Tabelle, ist
+die alte trotzdem weg. Probe: Tabelle `noten` mit einer Zeile, CSV mit
+der Kopfzeile `fach;fach`; Meldung „SQL-Fehler: duplicate column
+name: fach“, danach enthält die Datenbank keine einzige Tabelle mehr.
+Dasselbe gilt für jeden Fehler während des Einfügens (Datei gesperrt,
+weil das eigene Programm gerade schreibt; voller Datenträger;
+Netzlaufwerk weg): die Tabelle bleibt halb gefüllt stehen. Außerdem ist
+der Import langsam, weil jede Zeile einzeln festgeschrieben wird: 5000
+Zeilen brauchten auf einer lokalen SSD 7,9 Sekunden, in denen die
+Oberfläche steht; auf einem Netzlaufwerk ist es ein Vielfaches.
+Punkt 138 hat die Nachfrage eingeführt, den Ablauf dahinter aber nicht
+geschützt.
+
+**Ursache:** nachgewiesen: `ide/database/panel.py`, `csv_importieren`
+(Zeilen 306-322). `DROP TABLE`, `CREATE TABLE` und jedes `INSERT`
+laufen über `SQLQuery.exec_sql()`, das nach jeder Anweisung
+`commit()` ruft (`pcl/components/data_access.py`, Zeile 287). Doppelte
+oder leere Spaltennamen werden vorher nicht geprüft.
+
+**Zu tun:** Den ganzen Import in einer Transaktion ausführen
+(Spaltennamen vorher auf Doppelte und Leere prüfen, dann `DROP`,
+`CREATE` und alle Zeilen, erst am Ende `commit`, bei jedem Fehler
+`rollback`) und die Zeilen gesammelt einfügen. Erledigt, wenn ein Test
+mit doppelter Spalte die alte Tabelle unverändert vorfindet und ein
+Import von 5000 Zeilen unter einer Sekunde bleibt.
+
+**Behoben (28. September 2026, ab 0.3.7).** `csv_importieren` in `ide/database/panel.py` prüft die Kopfzeile vorher auf leere und doppelte Spaltennamen (Groß- und Kleinschreibung zählt nicht) und führt den Import danach als eine Transaktion aus: `BEGIN`, neue Tabelle unter einem Hilfsnamen, alle Zeilen mit `executemany`, erst dann `DROP` der alten Tabelle und `ALTER TABLE … RENAME`, am Ende `commit`; bei jedem Fehler `rollback`. 5000 Zeilen brauchen damit auf der lokalen SSD deutlich unter einer Sekunde. Tests: `test_import_mit_doppelter_spalte_laesst_die_alte_tabelle_stehen`, `test_fehler_mitten_im_import_rollt_alles_zurueck` und `test_import_von_5000_zeilen_bleibt_unter_einer_sekunde` in `tests/test_database_panel_absicherung.py`.
+
+
+---
+
+## 235. Designer: eine schreibgeschützte `.pfm` führt bei jeder Änderung zur Absturzmeldung ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`b3007bc`.
+
+**Beobachtet:** Liegt ein Formular in einem Ordner ohne Schreibrecht
+(Projekt der Lehrkraft direkt vom Netzlaufwerk geöffnet, abgezogener
+USB-Stick, Datei gerade vom Virenscanner gesperrt), endet jedes
+Platzieren, Verschieben oder Ändern im Designer mit einem
+`PermissionError` aus dem Designer heraus, in der gebauten Fassung also
+mit „In Natter ist etwas schiefgegangen“. Die Änderung ist im Designer
+und im Rückgängig-Stapel trotzdem ausgeführt, auf der Platte aber
+nicht; Komponentenbaum und Prüfung werden nicht mehr benachrichtigt.
+Probe mit `pytest -p tests.conftest`: Kopie von `03_Taschenrechner`,
+`u_main.pfm` schreibgeschützt, `komponente_platzieren(Button, 10, 10)`
+wirft `PermissionError`, `kann_rueckgaengig` ist wahr, die `.pfm`
+unverändert.
+
+**Ursache:** nachgewiesen: `ide/designer/canvas.py`, `_nach_aenderung`
+(Zeilen 2570-2584) ruft `formular_als_pfm_speichern` und
+`design_datei_erzeugen` ohne Fehlerbehandlung. Das Hauptfenster hat
+dafür `datei_schreiben_gemeldet`, der Designer benutzt es nicht.
+
+**Zu tun:** Schreibfehler im Designer abfangen, einmal deutsch melden
+(wie `datei_schreiben_gemeldet`) und den Designer-Reiter als
+ungespeichert kennzeichnen, damit die Änderung nicht still verloren
+geht. Erledigt, wenn der Test oben eine Meldung statt einer Ausnahme
+ergibt und der Reiter die Änderung als ungespeichert führt.
+
+**Behoben (28. September 2026, ab 0.3.7).** Ursache bestätigt. `DesignerCanvas._nach_aenderung` (`ide/designer/canvas.py`) schreibt über die neue Methode `speichern()`: ein `OSError` beim Schreiben von `.pfm` oder `_design.py` wird abgefangen, einmal deutsch gemeldet („… konnte nicht gespeichert werden“, mit den häufigen Gründen) und setzt `ungespeichert`. Komponentenbaum und Prüfung werden trotzdem benachrichtigt. Das Hauptfenster kennzeichnet den Reiter dann mit „●“ wie einen geänderten Text-Reiter, Strg+S versucht das Schreiben erneut, und beim Schließen des Reiters wird nachgefragt. Klappt das Schreiben wieder, verschwindet die Kennzeichnung. Test: `test_schreibgeschuetzte_pfm_meldet_statt_abzustuerzen` in `tests/test_designer_schreibschutz.py`; ohne die Änderung bricht er mit `PermissionError` ab.
+
+
+---
+
+## 236. Projektdateien werden nicht atomar geschrieben ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`b3007bc`.
+
+**Beobachtet:** Alle Dateien, die Natter schreibt, werden an Ort und
+Stelle überschrieben: die Datei wird zuerst auf null Bytes gekürzt und
+dann neu gefüllt. Fällt in diesem Augenblick der Strom aus, bricht die
+Verbindung zum Netzlaufwerk ab oder wird der USB-Stick gezogen, bleibt
+eine leere oder abgeschnittene Datei zurück, und eine Vorfassung gibt
+es nicht. Am stärksten betroffen ist die `.pfm`: der Designer schreibt
+sie bei jeder einzelnen Änderung neu, zusammen mit der `_design.py`.
+Eine abgeschnittene `.pfm` öffnet danach nur noch mit „die Datei ist
+beschädigt“; das Formular ist verloren. Nicht nachgestellt wurde der
+Stromausfall selbst; der Ablauf ist am Code belegt.
+
+**Ursache:** nachgewiesen: `Path.write_text` ohne Zwischendatei in
+`ide/designer/pfm_schreiben.py` (Zeile 198), `ide/codegen/design.py`
+(Zeile 313), `ide/project/projekt.py` (Zeile 111),
+`ide/diagramm/datei.py` (Zeile 73), `ide/designer/canvas.py`
+(Zeilen 599 und 2416) und `HauptFenster.datei_schreiben_gemeldet`
+(`ide/shell/hauptfenster.py`, Zeile 3260). In `ide/` gibt es weder
+`os.replace` noch eine temporäre Datei noch eine Sicherungskopie.
+
+**Zu tun:** Eine gemeinsame Funktion, die in eine Nachbardatei im selben
+Ordner schreibt und sie dann mit `os.replace` an die Stelle der alten
+setzt; alle genannten Stellen darauf umstellen. Erledigt, wenn ein Test
+ein Scheitern mitten im Schreiben nachstellt (etwa über ein
+untergeschobenes `write`, das nach der Hälfte eine Ausnahme wirft) und
+danach die alte Datei unverändert vorfindet.
+
+**Behoben (28. September 2026, ab 0.3.7).** Neue Funktion `atomar_schreiben` in `ide/atomar.py`: sie schreibt in eine Nachbardatei im selben Ordner, bringt sie mit `flush` und `os.fsync` auf die Platte und setzt sie mit `os.replace` an die Stelle der alten. Scheitert das Schreiben, bleibt die alte Datei stehen und die Nachbardatei wird entfernt; eine schreibgeschützte Datei bleibt geschützt, und einen kurz vom Virenscanner gehaltenen Tausch versucht die Funktion einige Male. Umgestellt sind `formular_als_pfm_speichern`, `design_datei_erzeugen`, `Projekt.speichern`, `Diagramm.speichern`, die Unit-Schreibstellen im Designer und im Menü-Editor, `datei_schreiben_gemeldet` und die übrigen Schreibstellen im Hauptfenster (neue Unit, neues Formular, `_design.py`-Abgleich, Formular-Import), das Speichern aus dem Codefenster des Diagramm-Editors und das Anlegen eines neuen Projekts. Test: `test_abbruch_beim_schreiben_laesst_die_alte_datei_stehen` in `tests/test_atomar_schreiben.py` für `.pfm`, `_design.py`, `.natter`, `.pdiag` und eine Unit, mit einem untergeschobenen `write`, das nach der Hälfte abbricht; ohne die Änderung finden vier der fünf Fälle eine abgeschnittene Datei.
+
+
+---
+
+## 237. Datenbank-Panel: schreibende SQL-Anweisungen werden nie festgeschrieben und sperren die Datei ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`b3007bc`.
+
+**Beobachtet:** Im Datenbank-Panel ein `INSERT`, `UPDATE` oder
+`DELETE` eingeben und „Ausführen“ klicken. Im Panel steht weiter
+„Verbunden“, eine Rückmeldung gibt es nicht. Die Änderung ist nicht
+festgeschrieben: die Verbindung des Panels bleibt in einer offenen
+Transaktion und hält die Schreibsperre auf der Datei. Das laufende
+Schülerprogramm wartet danach bei jedem Schreiben fünf Sekunden und
+bricht dann mit „database is locked“ ab. Beim nächsten „Verbinden“ oder
+beim Beenden von Natter ist die Änderung aus dem Panel wieder weg.
+Probe: Tabelle mit einer Zeile, `INSERT` im Panel,
+`in_transaction` ist wahr; `SQLite3Connection(...).execute("INSERT
+...")` wirft nach 5,6 Sekunden `NatterDatenbankError: SQL-Fehler:
+database is locked`; nach erneutem Verbinden enthält die Tabelle nur
+die alte Zeile.
+
+**Ursache:** nachgewiesen: `ide/database/panel.py`, `_sql_ausfuehren`
+(Zeilen 184-196) führt jede Anweisung über `SQLQuery.open()` aus, das
+nicht festschreibt (`pcl/components/data_access.py`, Zeilen 274-279).
+Python öffnet vor einer schreibenden Anweisung selbst eine Transaktion.
+
+**Zu tun:** Nach der Ausführung festschreiben, wenn die Anweisung eine
+Transaktion geöffnet hat, und bei einer Anweisung ohne Ergebnisspalten
+„n Zeilen geändert“ anzeigen; bei einem Fehler zurückrollen. Erledigt,
+wenn ein Test nach einem `INSERT` im Panel die Zeile über eine zweite
+Verbindung sieht und diese sofort schreiben kann.
+
+**Behoben (28. September 2026, ab 0.3.7).** Das Panel führt Anweisungen jetzt unmittelbar auf der `sqlite3`-Verbindung aus und schreibt fest, sobald danach eine Transaktion offen ist; bei einem Fehler rollt es zurück. Eine Anweisung ohne Ergebnisspalten meldet „n Zeilen geändert.“, der Cursor wird nach dem Lesen geschlossen. Tests: `test_insert_im_panel_ist_festgeschrieben_und_sperrt_nicht` (eine zweite Verbindung mit `timeout=0` sieht die Zeile und schreibt sofort) und `test_gescheiterte_schreibende_anweisung_laesst_keine_transaktion_offen` in `tests/test_database_panel_absicherung.py`.
+
+
+---
+
+## 238. `pcl`: `query()` mit schreibender Anweisung und ein gescheitertes `execute()` lassen die Transaktion offen ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`b3007bc`.
+
+**Beobachtet:** Zwei Wege im Schülerprogramm hinterlassen eine offene
+Transaktion:
+
+- `db.query("INSERT ...")` statt `db.execute(...)`: kein Fehler, die
+  Zeile ist im Programm sichtbar, aber nicht festgeschrieben. Eine
+  zweite Verbindung sieht sie nicht, und beim Programmende ist sie
+  verloren. Probe: nach `query("INSERT INTO x VALUES (1)")` ist
+  `in_transaction` wahr, eine zweite Verbindung zählt 0 Zeilen.
+- Ein `execute()`, das an einer Bedingung scheitert (Probe: `UNIQUE
+  constraint failed`): danach ist `in_transaction` weiter wahr, und die
+  Schreibsperre bleibt bis zum nächsten erfolgreichen `execute()`
+  bestehen. Das Datenbank-Panel und ein zweites Programm können so
+  lange nicht schreiben.
+
+**Ursache:** nachgewiesen: `pcl/components/data_access.py`. `query`
+(Zeilen 100-120) schreibt nie fest; `execute` (Zeilen 133-145) ruft
+`commit()` nur nach Erfolg, `_ausfuehren` (Zeilen 159-165) rollt beim
+Fehler nicht zurück.
+
+**Zu tun:** In `_ausfuehren` bei einem Fehler `rollback()` rufen, wenn
+eine Transaktion offen ist, die nicht vorher ausdrücklich begonnen
+wurde. `query()` mit einer schreibenden Anweisung entweder festschreiben
+oder mit deutscher Meldung auf `execute()` verweisen. Erledigt, wenn
+Tests für beide Wege danach keine offene Transaktion finden.
+
+**Behoben (28. September 2026, ab 0.3.7).** Ursache bestätigt. `SQLite3Connection._ausfuehren` (`pcl/components/data_access.py`) merkt sich vor der Anweisung, ob schon eine Transaktion offen war, und rollt beim Fehler zurück, wenn erst diese Anweisung sie geöffnet hat. Eine vorher ausdrücklich begonnene Transaktion bleibt für `commit()` und `rollback()` stehen. `query()` schreibt fest, wenn die Anweisung eine Transaktion geöffnet hat, ein `INSERT` über `query()` wirkt also wie über `execute()`. Tests: `test_query_mit_insert_schreibt_fest`, `test_gescheitertes_execute_laesst_keine_transaktion_offen` und `test_gescheitertes_execute_laesst_eine_eigene_transaktion_stehen` in `tests/test_db_sqlite.py`; ohne die Änderung scheitern die ersten beiden.
+
+
+---
+
+## 239. Datenbank-Panel: eine Abfrage ohne Ende hält Natter an ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`b3007bc`.
+
+**Beobachtet:** Das Panel führt jede Abfrage im Faden der Oberfläche
+aus und liest das ganze Ergebnis ein, bevor es etwas anzeigt. Eine
+rekursive Abfrage ohne Abbruchbedingung (eine übliche Übung zu `WITH
+RECURSIVE`) oder ein Kreuzprodukt großer Tabellen kehrt nie zurück:
+Natter reagiert nicht mehr, der Speicher wächst, und ungespeicherte
+Arbeit in den Editoren ist nur noch über den Task-Manager zu beenden,
+also verloren. Mit Abbruchbedingung und 300 000 Zeilen dauerte es in
+der Probe 1,5 Sekunden; ohne Grenze gibt es kein Ende.
+
+**Ursache:** nachgewiesen am Code: `ide/database/panel.py`,
+`_sql_ausfuehren` (Zeilen 184-196) ruft `SQLQuery.open()`, das mit
+`fetchall()` alle Zeilen holt (`pcl/components/data_access.py`,
+Zeile 278); `_ergebnis_anzeigen` legt für jede Zelle ein
+`QTableWidgetItem` an. `set_progress_handler` oder `interrupt()` kommen
+in `ide/` und `pcl/` nicht vor.
+
+**Zu tun:** Höchstens eine feste Zahl von Zeilen holen und anzeigen
+(mit Hinweis „nur die ersten … Zeilen“), über `set_progress_handler`
+nach einer Zeitgrenze abbrechen und das deutsch melden. Erledigt, wenn
+ein Test mit einer rekursiven Abfrage ohne Grenze nach wenigen Sekunden
+eine Meldung findet und das Fenster weiter bedienbar ist.
+
+**Behoben (28. September 2026, ab 0.3.7).** Die Abfrage läuft unter `set_progress_handler`: der Handler lässt die Oberfläche alle 50 ms Ereignisse abarbeiten und bricht auf den neuen Knopf „Abbrechen“ hin oder nach 15 Sekunden (`ZEITGRENZE_SEKUNDEN`) ab, mit deutscher Meldung. Angezeigt werden höchstens 1.000 Zeilen (`fetchmany`), dazu der Hinweis „Nur die ersten 1.000 Zeilen werden angezeigt.“ Während der Abfrage sind die übrigen Knöpfe des Panels gesperrt; Trennen oder ein Projektwechsel bricht sie ab und schließt die Verbindung danach. Tests: `test_abfrage_ohne_ende_bricht_nach_der_zeitgrenze_ab`, `test_oberflaeche_bleibt_bedienbar_und_abbrechen_wirkt` und `test_endlose_zeilen_werden_nach_der_hoechstzahl_abgeschnitten` in `tests/test_database_panel_absicherung.py`; ohne die Änderung kehrt der erste nicht zurück.
+
+
+---
+
+## 240. Datenbank-Panel: Verbinden mit einer fremden Datei und Export in eine gesperrte Datei enden in der Absturzmeldung ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`b3007bc`.
+
+**Beobachtet:**
+
+- „Verbinden“ mit einer Datei, die keine SQLite-Datenbank ist (eine
+  umbenannte Textdatei, eine beschädigte `.sqlite`): Die Ausnahme
+  `NatterDatenbankError: SQL-Fehler: file is not a database` fliegt aus
+  dem Knopf heraus, in der gebauten Fassung also „In Natter ist etwas
+  schiefgegangen“. Die kaputte Verbindung bleibt danach als aktuelle
+  Verbindung stehen.
+- „CSV exportieren …“ und „SQL-Dump …“ in eine Datei, die gerade in
+  Excel offen ist oder in einem schreibgeschützten Ordner liegt: der
+  `PermissionError` wird nicht abgefangen.
+- Alle Fehler, die das Panel selbst anzeigt, stehen als englische
+  Rohmeldung in der Statuszeile („SQL-Fehler: no such table: x“). Das
+  Schülerprogramm bekommt für dieselben Fehler die deutsche Erklärung
+  aus dem Fehlerkatalog.
+
+**Ursache:** nachgewiesen: `ide/database/panel.py`. `_verbinden`
+(Zeilen 148-159) fängt nur das Öffnen ab; SQLite prüft die Datei aber
+erst bei der ersten Abfrage in `_tabellenbaum_aktualisieren`
+(Zeile 159). `_csv_exportieren_dialog` und `_sql_dump_exportieren_dialog`
+(Zeilen 326-352) haben keine Fehlerbehandlung. `_sql_ausfuehren`
+(Zeile 193) zeigt `str(fehler)` unverändert an.
+
+**Zu tun:** Beim Verbinden eine Probeabfrage ausführen und bei Fehler
+die Verbindung schließen und deutsch melden; beide Exporte wie der
+Import mit Meldung absichern; für die Statuszeile die Einträge aus
+`pcl/fehlerkatalog.py` (Abschnitt Datenbank) mitbenutzen. Erledigt,
+wenn Tests für die drei Fälle eine deutsche Meldung und keine Ausnahme
+finden.
+
+**Behoben (28. September 2026, ab 0.3.7).** `_verbinden` führt nach dem Öffnen eine Probeabfrage auf `sqlite_master` aus und schließt die Verbindung bei einem Fehler wieder. Beide Exporte fangen `OSError` und Datenbankfehler ab; eine gesperrte Datei meldet sich mit „… lässt sich nicht schreiben. Ist die Datei in einem anderen Programm geöffnet, etwa in Excel, oder fehlt im Ordner das Schreibrecht?“. Meldungen in der Statuszeile laufen über `_datenbankmeldung_eindeutschen` aus `pcl/fehlerkatalog.py`. Tests: `test_verbinden_mit_einer_fremden_datei_meldet_deutsch`, `test_export_in_gesperrte_datei_meldet_statt_zu_werfen` (CSV und SQL) und `test_sql_fehler_steht_deutsch_in_der_statuszeile` in `tests/test_database_panel_absicherung.py`.
+
+
+---
+
+## 241. Datenbank-Panel: Namen mit Anführungszeichen werden nicht maskiert ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`b3007bc`.
+
+**Beobachtet:** Tabellen- und Spaltennamen werden in doppelte
+Anführungszeichen gesetzt, ein Anführungszeichen im Namen selbst aber
+nicht verdoppelt. Folgen:
+
+- Eine Datenbank mit einer Tabelle `a"b` (aus einem anderen Programm
+  oder selbst angelegt) lässt sich nicht verbinden: der Tabellenbaum
+  wirft „near "b": syntax error“, als Absturzmeldung (siehe
+  Punkt 240). Export dieser Tabelle scheitert ebenso.
+- Eine CSV mit `"` in der Kopfzeile lässt sich nicht importieren
+  („unrecognized token“).
+- Weil der Name ungeprüft in den SQL-Text geht, bestimmt die Kopfzeile
+  einer CSV-Datei mit, welche Anweisung ausgeführt wird. Mehrere
+  Anweisungen lässt `sqlite3` nicht zu; eine veränderte `CREATE
+  TABLE`-Anweisung schon.
+
+**Ursache:** nachgewiesen: `ide/database/panel.py`, Zeilen 181, 306,
+309, 312, 318, 337, 356 und 358 bilden Namen mit `f'"{name}"'`.
+
+**Zu tun:** Eine Hilfsfunktion, die einen Bezeichner in doppelte
+Anführungszeichen setzt und darin jedes `"` verdoppelt, an allen
+genannten Stellen verwenden. Erledigt, wenn ein Test eine Tabelle
+`a"b` im Baum findet, exportiert und eine CSV mit `a"b` in der
+Kopfzeile importiert.
+
+**Behoben (28. September 2026, ab 0.3.7).** Die neue Hilfsfunktion `bezeichner()` in `ide/database/panel.py` setzt einen Namen in doppelte Anführungszeichen und verdoppelt jedes darin; sie steht an allen Stellen, die vorher `f'"{name}"'` bildeten. Test: `test_namen_mit_anfuehrungszeichen` in `tests/test_database_panel_absicherung.py` findet `a"b` im Baum, exportiert die Tabelle als CSV und als Dump, spielt den Dump wieder ein und importiert eine CSV mit `x"y` in der Kopfzeile.
+
+
+---
+
+## 242. SQL-Dump des Datenbank-Panels lässt sich nicht wieder einspielen ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`b3007bc`.
+
+**Beobachtet:** Der Kurzhinweis von „SQL-Dump …“ verspricht „CREATE
+TABLE und INSERTs, mit denen sie sich anderswo wieder anlegen lässt“.
+Die Datei enthält nur `INSERT`-Zeilen; in eine leere Datenbank
+eingespielt, scheitert sie mit „no such table“. Werte werden außerdem
+falsch geschrieben: Binärdaten als Text `'b"\x00\x01''x"'` statt als
+`X'…'`, eine unendliche Kommazahl als `inf`, das SQLite nicht kennt.
+Der CSV-Export schreibt Binärdaten ebenso als `b'…'`.
+
+**Ursache:** nachgewiesen: `ide/database/panel.py`,
+`tabelle_als_sql_dump_exportieren` (Zeilen 354-364) liest die
+Tabellendefinition nicht aus `sqlite_master`; `_sql_literal`
+(Zeilen 47-53) kennt nur `None`, Zahlen und Text.
+
+**Zu tun:** Vor die `INSERT`-Zeilen die `CREATE TABLE`-Anweisung aus
+`sqlite_master` schreiben, alles in `BEGIN`/`COMMIT` fassen, `bytes`
+als `X'…'` und nicht endliche Zahlen als `NULL` oder mit Meldung
+schreiben. Erledigt, wenn ein Test einen Dump mit Text, Zahl, `NULL`
+und Binärdaten in eine leere Datenbank einspielt und dieselben Werte
+zurückliest.
+
+**Behoben (28. September 2026, ab 0.3.7).** Der Dump beginnt mit `BEGIN TRANSACTION;` und der `CREATE TABLE`-Anweisung aus `sqlite_master` und endet mit `COMMIT;`. `_sql_literal` schreibt Binärdaten als `X'…'`, unendliche Zahlen als `1e999` bzw. `-1e999` (SQLite liest das wieder als unendlich), NaN als `NULL` und Kommazahlen mit `repr`, damit keine Stelle verloren geht. Der CSV-Export schreibt Binärdaten als Hexadezimaltext. Test: `test_dump_laesst_sich_in_eine_leere_datenbank_einspielen` in `tests/test_database_panel_absicherung.py`; `test_sql_dump_export_erzeugt_lauffaehige_insert_anweisungen` in `tests/test_database_panel.py` spielt den Dump jetzt in eine leere Datenbank ein.
+
+
+---
+
+## 243. CSV im Datenbank-Panel: die BOM landet im ersten Spaltennamen ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`b3007bc`.
+
+**Beobachtet:** Excel speichert „CSV UTF-8“ mit einer BOM am Anfang.
+Beim Import in die Datenbank wird sie Teil des ersten Spaltennamens:
+Probe mit `Name;Punkte`, die Spalte heißt danach `'\ufeffName'`, und
+`SELECT Name FROM …` scheitert mit „no such column: Name“, obwohl der
+Tabellenbaum „Name“ zeigt. Die CSV-Ansicht zeigt dieselbe Datei mit
+unsichtbarem Zeichen im Kopf. Umgekehrt schreibt „CSV exportieren …“
+UTF-8 ohne BOM; Excel liest eine solche Datei beim Doppelklick
+vermutlich als Windows-1252 und zeigt Umlaute falsch (nicht an Excel
+geprüft). `Strings.load_from_file` in `pcl` behandelt die BOM seit
+Punkt 174 richtig; die IDE nicht.
+
+**Ursache:** nachgewiesen: `ide/viewers/csv_ansicht.py`,
+`_ZEICHENSAETZE` (Zeile 25) versucht `utf-8` statt `utf-8-sig`;
+`ide/database/panel.py`, `tabelle_als_csv_exportieren` (Zeile 339)
+schreibt mit `encoding="utf-8"`.
+
+**Zu tun:** Beim Lesen `utf-8-sig` verwenden, beim CSV-Export mit BOM
+schreiben (der Kurzhinweis nennt Excel ausdrücklich). Erledigt, wenn
+ein Test eine CSV mit BOM importiert und `SELECT Name` die Werte
+liefert.
+
+**Behoben (28. September 2026, ab 0.3.7).** `csv_erkennen` in `ide/viewers/csv_ansicht.py` liest zuerst mit `utf-8-sig` und meldet `utf-8-sig` nur, wenn die Datei tatsächlich mit einer BOM beginnt, sonst wie bisher `utf-8`. Der CSV-Export schreibt mit BOM. Tests: `test_csv_mit_bom_wird_ohne_bom_im_spaltennamen_importiert` (`SELECT Name` liefert den Wert) und `test_csv_export_schreibt_eine_bom_fuer_excel` in `tests/test_database_panel_absicherung.py`.
+
+
+---
+
+## 244. Datenbank-Panel hält die Datei bis zum Beenden offen, und ein relativer Pfad führt in den Programmordner ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`b3007bc`.
+
+**Beobachtet:**
+
+- Das Panel hat keinen Knopf zum Trennen, und „Verbinden“ mit einer
+  anderen Datei schließt die vorige Verbindung nicht. Solange Natter
+  läuft, lässt sich die Datenbankdatei nicht löschen und der
+  Projektordner nicht umbenennen oder verschieben. Probe: nach
+  „Verbinden“ mit `proj/daten.sqlite` ergibt `os.rename("proj", …)`
+  „Zugriff verweigert“ und `os.remove` auf die Datei WinError 32.
+  Beim Wechsel des Projekts bleibt die Verbindung ebenfalls offen.
+- Ein Dateiname ohne Pfad, wie ihn das Schülerprogramm benutzt
+  (`konten.sqlite`), wird nicht im Projektordner gesucht, sondern im
+  Arbeitsordner von Natter, der in der installierten Fassung der
+  Installationsordner ist. Dort fehlt das Schreibrecht, oder es
+  entsteht still eine neue, leere Datenbank; ein Tippfehler im Namen
+  legt ebenfalls ohne Nachfrage eine leere Datei an und meldet
+  „Verbunden“.
+
+**Ursache:** nachgewiesen: `ide/database/panel.py`, `_verbinden`
+(Zeilen 148-159) ersetzt `self._verbindung` ohne `connected = False`
+und übergibt den eingegebenen Text unverändert; `tools/launcher.py`,
+Zeile 255 startet Natter mit `cwd=installationsordner()`.
+`HauptFenster` benutzt `datenbank_panel` sonst nur an den Zeilen 490,
+492 und 1172, ein Projektwechsel erreicht das Panel nicht.
+
+**Zu tun:** Vor jedem neuen Verbinden und beim Schließen oder Wechseln
+eines Projekts die alte Verbindung schließen; einen Knopf „Trennen“
+anbieten. Relative Pfade gegen den Projektordner auflösen und eine
+nicht vorhandene Datei nur nach Rückfrage anlegen. Erledigt, wenn ein
+Test nach dem Projektwechsel die Datei löschen kann und
+`konten.sqlite` im Projektordner gefunden wird.
+
+**Behoben (28. September 2026, ab 0.3.7).** Das Panel hat einen Knopf „Trennen“, und `_verbinden` schließt die vorige Verbindung, bevor es eine neue öffnet. `HauptFenster.projekt_oeffnen` ruft `projektordner_setzen`, das die Verbindung schließt; `closeEvent` trennt ebenfalls. Ein Dateiname ohne Pfad wird im Projektordner gesucht; eine nicht vorhandene Datei entsteht erst nach Rückfrage, ein fehlender Ordner wird gemeldet. Tests: `test_dateiname_ohne_pfad_gilt_im_projektordner`, `test_tippfehler_legt_nicht_still_eine_datei_an`, `test_neues_verbinden_schliesst_die_vorige_verbindung` und `test_projektwechsel_gibt_die_datenbankdatei_frei` (löscht die Datei und benennt den alten Projektordner um) in `tests/test_database_panel_absicherung.py`.
+
+
+---
+
+## 245. Datensteuerelemente melden sich nie bei ihrer `DataSource` ab ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`b3007bc`.
+
+**Beobachtet:** Jedes `DBEdit`, `DBText`, `DBGrid`, `DBNavigator` und
+`DBComboBox` trägt sich bei seiner `DataSource` ein und bleibt dort
+eingetragen, auch wenn sein Formular geschlossen ist. Ein Programm, das
+für jeden Datensatz ein Detailfenster öffnet, hält damit alle
+geschlossenen Fenster im Speicher, und jede Navigation aktualisiert sie
+alle mit. Probe: 50 Mal ein Formular mit einem `DBEdit` an derselben
+`DataSource` geöffnet und geschlossen, danach 50 Einträge in
+`_listener`. Wird `data_source` zweimal zugewiesen, steht dasselbe
+Steuerelement zweimal in der Liste und von der vorigen Quelle wird es
+nicht entfernt.
+
+**Ursache:** nachgewiesen: `pcl/components/data_access.py`,
+`DataSource._registrieren` (Zeilen 417-418) hat kein Gegenstück; der
+Setter `data_source` in `pcl/components/data_controls.py`
+(Zeilen 75-80) und `list_source` (Zeilen 275-280) melden bei der alten
+Quelle nicht ab.
+
+**Zu tun:** `DataSource` eine Abmeldung geben, die Setter bei der
+alten Quelle abmelden lassen, doppelte Einträge vermeiden und beim
+Zerstören des Widgets abmelden (`destroyed`) oder schwache Verweise
+halten. Erledigt, wenn der Test oben nach dem Schließen weniger als
+zwei Einträge findet.
+
+**Behoben (28. September 2026, ab 0.3.7).** `DataSource` hält die Aufrufe ihrer Data Controls nur noch über schwache Verweise (`weakref.WeakMethod`) und räumt verwaiste Einträge bei jeder Benachrichtigung ab; ein zweites Anmelden desselben Steuerelements wird übergangen, und `_abmelden` ist das Gegenstück zu `_registrieren`. Die Setter `data_source` und `list_source` (`pcl/components/data_controls.py`) melden bei der alten Quelle ab, und jedes Data Control meldet sich ab, wenn Qt sein Widget zerstört (`destroyed`, verbunden über einen schwachen Verweis). Tests: `test_geschlossene_formulare_bleiben_nicht_bei_der_quelle` (50 Detailfenster, danach kein Eintrag mehr), `test_neue_quelle_meldet_bei_der_alten_ab` und `test_ein_zerstoertes_widget_meldet_sich_ab` in `tests/test_data_controls.py`; ohne die Änderung scheitern alle drei.
+
+
+---
+
+## 246. Datensteuerelemente zeigen „None“, Dezimalpunkte und `b'…'` ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`b3007bc`.
+
+**Beobachtet:** `DBComboBox` zeigt für ein leeres Feld (`NULL`) den
+Eintrag „None“. `DBGrid`, `DBText` und `DBEdit` zeigen Kommazahlen mit
+Punkt (`1.5`), obwohl Natter überall sonst das Dezimalkomma verwendet;
+ein in `DBEdit` geändertes „1,5“ kommt als Text in den Puffer. Das
+Tabellenergebnis im Datenbank-Panel zeigt Kommazahlen ebenso mit
+Punkt. Binärdaten erscheinen als `b'\x89PNG'`. Probe mit einer Tabelle
+`(name TEXT, stand REAL, bild BLOB)` und den Zeilen `('A', 1.5, NULL)`
+und `(NULL, NULL, X'89504E47')`.
+
+**Ursache:** nachgewiesen: `pcl/components/data_controls.py`,
+`DBComboBox._aktualisieren` (Zeile 298) mit `str(zeile[...])` ohne
+`None`-Prüfung; `DBGrid` (Zeilen 160 und 192) und `_Feld.as_string`
+(`pcl/components/data_access.py`, Zeile 209) mit `str(wert)`;
+`ide/database/panel.py`, Zeile 206 ebenso.
+
+**Zu tun:** Eine gemeinsame Umwandlung für die Anzeige: `None` als
+leerer Text, Kommazahlen über `pcl.zahlen.text`, Binärdaten als
+Platzhalter wie „(Binärdaten, 4 Bytes)“. Erledigt, wenn ein Test für
+alle drei Steuerelemente und das Panel die erwarteten Texte findet.
+
+**Behoben (28. September 2026, ab 0.3.7).** Neue gemeinsame Umwandlung `anzeigetext` in `pcl/components/data_access.py`: `None` wird leer, eine Kommazahl erscheint über `pcl.zahlen.text` mit Dezimalkomma, Binärdaten als „(Binärdaten, 4 Bytes)“. `DBGrid` (mit und ohne Datenquelle), `DBComboBox` und `_Feld.as_string` und damit `DBText` und `DBEdit` benutzen sie. `DBEdit` liest eine Eingabe in einem Zahlenfeld als Zahl, mit Komma wie mit Punkt; ein geleertes Zahlenfeld wird `None`. Tests: `test_data_controls_zeigen_werte_deutsch_lesbar` und `test_dbedit_liest_eine_kommazahl_als_zahl` in `tests/test_data_controls.py`; ohne die Änderung scheitern beide. Das Datenbank-Panel zeigt sein Tabellenergebnis über dieselbe Funktion (`_anzeigetext` in `ide/database/panel.py`).
+
+
+---
+
+## 247. Testlauf: die Zeitgrenze greift nicht, wenn der Test einen Prozess startet ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`b3007bc`.
+
+**Beobachtet:** Ein Test, der ein Programm startet (etwa das eigene
+Hauptprogramm über `subprocess`) und danach hängt, wird nach der
+Zeitgrenze nicht beendet gemeldet. Der Testlauf wartet, bis der
+gestartete Prozess von selbst endet; endet er nie, bleibt „Tests
+ausführen“ für immer beschäftigt, und der Prozess läuft weiter. Probe:
+`tests_ausfuehren(..., zeitlimit=3)` mit einem Test, der einen
+Prozess mit 25 Sekunden Laufzeit startet und dann in eine
+Endlosschleife geht: das Ergebnis kommt nach 25,2 statt nach 3
+Sekunden.
+
+**Ursache:** nachgewiesen: `ide/testrunner/ausfuehrung.py`, Zeilen
+51-64 benutzen `subprocess.run(..., capture_output=True,
+timeout=...)`. Nach der Zeitgrenze beendet `run` nur den direkten
+Kindprozess und liest unter Windows danach ohne Zeitgrenze weiter aus
+den Rohren, die der Enkelprozess geerbt hat.
+
+**Zu tun:** Den Testlauf mit `Popen` starten, nach der Zeitgrenze mit
+`prozessbaum_beenden` (`ide/prozess.py`) den ganzen Baum beenden und
+die Ausgabe über eine Datei statt über geerbte Rohre lesen. Erledigt,
+wenn der Test oben nach höchstens der Zeitgrenze plus wenigen Sekunden
+fertig ist und kein Prozess übrig bleibt.
+
+**Behoben (28. September 2026, ab 0.3.7).** Ursache bestätigt. `tests_ausfuehren` (`ide/testrunner/ausfuehrung.py`) startet den Testlauf mit `Popen`, leitet die Ausgabe in eine temporäre Datei statt in ein Rohr und beendet nach der Zeitgrenze mit `prozessbaum_beenden` den ganzen Baum, auch Prozesse, die der Test selbst gestartet hat. Die Meldung nennt die Zeitgrenze mit Dezimalkomma. Test: `test_zeitgrenze_beendet_auch_einen_gestarteten_prozess` in `tests/test_testrunner_ausfuehrung.py` (Zeitgrenze 4 Sekunden, gestarteter Prozess mit 40 Sekunden Laufzeit): das Ergebnis kommt nach gut 4 Sekunden, der gestartete Prozess lebt danach nicht mehr; ohne die Änderung dauerte der Lauf 40,3 Sekunden.
+
+
+---
+
+## 248. Methode anlegen löscht den Rückgängig-Verlauf einer ungespeicherten Unit ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`b3007bc`.
+
+**Beobachtet:** Ist die Unit im Editor offen und hat ungespeicherte
+Änderungen, fügt ein Doppelklick im Designer die neue Methode in den
+Text des Editors ein. Danach lässt sich keine der vorherigen
+Änderungen mehr mit Strg+Z zurücknehmen, auch nicht die neue Methode.
+Probe: `isUndoAvailable()` ist vor dem Einfügen wahr, danach falsch.
+
+**Ursache:** nachgewiesen: `ide/shell/hauptfenster.py`,
+`_zur_methode_springen` (Zeilen 4031-4039) ersetzt den ganzen Text mit
+`setPlainText`, das den Rückgängig-Verlauf leert.
+
+**Zu tun:** Die Methode über einen `QTextCursor` an der richtigen
+Stelle einfügen (in einem Bearbeitungsschritt), wie
+`_editortext_ersetzen` in `ide/designer/canvas.py` es für das
+Umbenennen tut. Erledigt, wenn ein Test nach dem Einfügen mit einem
+Rückgängig die Methode entfernt und mit einem weiteren die eigene
+Änderung davor.
+
+**Behoben (28. September 2026, ab 0.3.7).** Ursache bestätigt. `_zur_methode_springen` (`ide/shell/hauptfenster.py`) ersetzt den Editortext nicht mehr mit `setPlainText`, sondern über `editortext_ersetzen` aus `ide/designer/canvas.py` (vorher `_editortext_ersetzen`). Die Funktion ersetzt nur den Abschnitt, in dem sich alter und neuer Text unterscheiden, in einem eigenen Bearbeitungsschritt, zählt Positionen wie Qt in UTF-16-Einheiten und lässt den Stand von „geändert“, wie er war. Das gilt für die ungespeicherte wie für die gespeicherte Unit. Test: `test_methode_anlegen_behaelt_den_rueckgaengig_verlauf` in `tests/test_designer_sprung_zur_methode.py`: das erste Rückgängig nimmt die Methode heraus, das zweite die eigene Änderung davor; ohne die Änderung ist danach nichts mehr zurückzunehmen.
+
+---
+
+## 249. Prüfungsmodus: der Prüfwert hängt an einer Umgebungsvariablen, die jedes Konto setzen darf ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`f8d4da6`.
+
+**Beobachtet:** Der Prüfwert jedes Vermerks ist ein HMAC über Konto,
+Beginn und Ende. Das Konto kommt aus `getpass.getuser()`, und das
+liest zuerst die Umgebungsvariablen `LOGNAME`, `USER`, `LNAME` und
+`USERNAME`. Eine Umgebungsvariable für das eigene Konto einzutragen,
+braucht unter Windows keine Verwaltungsrechte; der Starter reicht die
+Umgebung unverändert an Natter weiter (`tools/launcher.py`,
+`eigene_umgebung`). Mit einem anderen Wert passt der Prüfwert an
+keiner der drei Stellen mehr, und Natter zeigt keinen Prüfungsmodus:
+Lösungsvorschläge, Quelltexterzeugung, Vervollständigung und die
+Beispiele sind wieder frei. Die Vermerke selbst bleiben unverändert
+stehen; ohne die Variable ist der Modus danach wieder da. Dafür muss
+niemand wissen, wo die Einträge stehen, und genau gegen diesen Fall
+soll der Modus laut Handbuch, Abschnitt 4, halten.
+
+Probe mit eigener Ini und Datei in `%TEMP%`: nach `starten()` meldet
+`laeuft()` `True`, mit gesetztem `LOGNAME` `False`, danach wieder
+`True`; die Vermerke sind in allen drei Schritten dieselben.
+
+Dazu: Die Handbuchzeile „kein Programm, das in Natter gestartet
+wird, kann ihn über `pcl` abschalten“ stimmt nur wörtlich. Die
+Ablagen samt `schreiben()` liegen in `pcl.pruefungsmodus` und sind
+aus jedem Schülerprogramm erreichbar; mit ihnen lassen sich alle drei
+Stellen überschreiben, ohne sie zu kennen. Das fällt unter die im
+Handbuch genannte Grenze, nur ist dafür kein Wissen um die Stellen
+nötig.
+
+**Ursache:** nachgewiesen. `pcl/pruefungsmodus.py`, Zeile 206
+(`getpass.getuser()` in `_konto`), eingerechnet in `_pruefwert`
+(Zeile 211).
+
+**Zu tun:** Das Konto nicht aus der Umgebung nehmen, sondern von
+Windows erfragen (`GetUserNameW` oder besser die SID des angemeldeten
+Kontos), oder das Konto ganz aus dem Prüfwert nehmen. Die Ablagen und
+ihre Schreibmethoden aus dem Teil herausnehmen, den Schülerprogramme
+mitbringen, oder den Handbuchsatz so fassen, dass er zur Grenze
+passt. Erledigt, wenn ein Test zeigt, dass `laeuft()` mit gesetztem
+`LOGNAME`, `USER` und `USERNAME` weiter `True` liefert.
+
+**Behoben (28. September 2026, ab 0.3.7).** `_konto` in `pcl/pruefungsmodus.py` liest das Konto für den Prüfwert nicht mehr über `getpass.getuser()` aus `LOGNAME`, `USER`, `LNAME` oder `USERNAME`, sondern erfragt unter Windows die SID aus dem Zugriffstoken des Prozesses (`OpenProcessToken`, `GetTokenInformation`, `ConvertSidToStringSidW` über `ctypes`), anderswo die Benutzernummer des Prozesses. Beides lässt sich ohne Verwaltungsrechte nicht ändern. Ein Vermerk aus 0.3.6 zählt weiter, damit ein Update keinen laufenden Modus beendet, und `_aktiver_zeitraum` schreibt ihn beim ersten Nachsehen in der neuen Form an alle drei Stellen zurück; danach hängt nichts mehr an der Umgebung. Die Ablagen bleiben in `pcl`; das Handbuch, Abschnitt 4, sagt jetzt nur noch, dass `pcl` keine Funktion zum Beenden anbietet, und nennt bei der Grenze ausdrücklich ein Programm, das die drei Stellen überschreibt. Tests: `test_ein_anderer_kontoname_in_der_umgebung_beendet_ihn_nicht` und `test_ein_vermerk_aus_036_laeuft_weiter_und_wird_umgeschrieben` in `tests/test_pruefungsmodus.py`; ohne die Änderung liefert `laeuft()` nach dem Setzen der Variablen `False`.
+
+
+---
+
+## 250. Exe-Export: Projektname und Hauptdatei aus der `.natter` führen aus dem Projektordner hinaus ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`f8d4da6`.
+
+**Beobachtet:** Das Schema verlangt für `name` und `main` in der
+`.natter` nur eine nicht leere Zeichenkette. Der Exe-Export setzt den
+Namen ungeprüft in den Zielpfad `dist\<name>.exe` ein. Ein Name mit
+`..\` oder ein absoluter Pfad zeigt damit auf eine Datei außerhalb
+des Projekts: PyInstaller schreibt die Exe dorthin, Natter signiert
+sie dort, und scheitert der Bau, löscht Natter beim Aufräumen die
+Datei an dieser Stelle. Eine `main` mit `..\` oder absolutem Pfad
+lässt den Export ein Skript außerhalb des Projekts einpacken. Wer
+das Projekt einer anderen Person öffnet und exportiert, kann so eine
+eigene `.exe` an anderer Stelle verlieren.
+
+Probe in `%TEMP%`: ein Projekt mit einem Namen, der drei Ebenen nach
+oben führt, und einer fehlenden `main`; neben dem Projekt liegt eine
+`fremd.exe`. `exe_exportieren` meldet `erfolgreich: False`, und
+`fremd.exe` ist danach gelöscht.
+
+**Ursache:** nachgewiesen. `schemas/project.schema.json`, Zeilen 11
+und 16 (keine Einschränkung außer `minLength`); `ide/project/projekt.py`
+übernimmt beide Werte ungeprüft; `ide/export/exporter.py`, Zeilen 354,
+365, 395 und 429 (Zielpfad, `--name`, Hauptdatei, `unlink`).
+`main_form` geht ebenso ungeprüft in Pfade ein
+(`_symbol_des_projekts`, Zeile 231).
+
+**Zu tun:** Beim Laden prüfen, dass `name` ein zulässiger Dateiname
+ohne Pfadtrenner ist und `main` und `main_form` im Projektordner
+liegen; eine Datei, die das nicht erfüllt, mit einer Meldung
+ablehnen. Das Schema entsprechend einschränken (`pattern`). Im
+Exporter zusätzlich prüfen, dass die Exe im Zielordner liegt, bevor
+geschrieben, signiert oder gelöscht wird. Erledigt, wenn ein Test mit
+dem Projekt aus der Probe die Datei neben dem Projekt unverändert
+findet.
+
+**Behoben (28. September 2026, ab 0.3.7).** `Projekt.laden` und `Projekt.speichern` (`ide/project/projekt.py`) prüfen mit `ist_reiner_dateiname`, dass `name`, `main` und `main_form` einfache Dateinamen ohne Pfadtrenner, Laufwerk, `.`/`..`, Steuerzeichen oder Punkt bzw. Leerzeichen am Ende sind, und lehnen die Datei sonst mit `ProjektdateiUngueltig` und einer deutschen Meldung ab; `projekt_oeffnen_gemeldet` zeigt sie wie bei einer beschädigten Datei. `schemas/project.schema.json` hat dieselbe Regel als `pattern`, das Format bleibt `natter-project/1`. `exe_exportieren` prüft vorher zusätzlich, dass die Exe im Zielordner und die Startdatei im Projektordner liegt, und bricht sonst ab, bevor etwas geschrieben, signiert oder gelöscht wird; `_symbol_des_projekts` nimmt kein Hauptformular und kein Symbol von außerhalb. Tests: `test_ein_name_mit_pfad_wird_beim_laden_abgelehnt`, `test_das_schema_verlangt_reine_dateinamen`, `test_der_export_laesst_die_fremde_exe_unveraendert` und `test_der_export_nimmt_keine_startdatei_von_ausserhalb` in `tests/test_exporter.py`.
+
+
+---
+
+## 251. Prüfungsmodus: eine Kopie eines Beispiels mit umbenannter Projektdatei ist nicht gesperrt ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`f8d4da6`.
+
+**Beobachtet:** Das Handbuch, Abschnitt 4, sagt, im Prüfungsmodus
+lasse sich ein Beispielprojekt oder seine Kopie nicht öffnen, auch
+keine einzelne Datei daraus. Eine Kopie erkennt Natter aber nur am
+Namen ihrer `.natter`-Datei. Wird ein Beispielordner kopiert und die
+Projektdatei darin umbenannt, gilt der Ordner als eigenes Projekt und
+öffnet sich samt Lösungen. Umbenennen geht mit Bordmitteln, auch im
+Dateidialog von „Projekt öffnen …“ selbst. Probe: Kopie von
+`03_Taschenrechner` in `%TEMP%`, `beispiel_original()` erkennt sie;
+nach dem Umbenennen der `.natter` nicht mehr.
+
+Die Originale liegen außerdem lesbar im Programmordner und lassen
+sich mit jedem Editor öffnen. Ganz verhindern lässt sich der Zugriff
+aus Natter heraus also nicht.
+
+**Ursache:** nachgewiesen. `ide/shell/startbild.py`, Zeile 189
+(`beispiel_original` vergleicht nur Dateinamen), benutzt von
+`_beispiel_projektordner` in `ide/shell/hauptfenster.py`.
+
+**Zu tun:** Entscheiden, ob die Erkennung weiter gehen soll (etwa
+Prüfsummen der Units und Formulare mit denen der Originale
+vergleichen) oder ob das Handbuch die Grenze nennt: gesperrt sind die
+Wege in Natter, nicht die Dateien selbst. Erledigt, wenn entweder ein
+Test die umbenannte Kopie im Prüfungsmodus abgewiesen findet oder
+Abschnitt 4 die Grenze beschreibt.
+
+**Behoben (28. September 2026, ab 0.3.7).** Neben dem Namen der Projektdatei erkennt Natter eine Kopie jetzt am Inhalt: `beispiel_nach_inhalt` in `ide/shell/startbild.py` vergleicht Prüfsummen der Python-Dateien und Diagramme eines Projektordners (eine Ebene tief) oder einer einzelnen Datei mit denen der Units (`u_*.py` ohne `_design.py`) und `.pdiag` der mitgelieferten Beispiele, unabhängig von Zeilenenden und Leerzeichen am Zeilenende. `_beispiel_projektordner` in `ide/shell/hauptfenster.py` nutzt das für Projektordner und für die geöffnete Datei selbst, nicht für Ordner weiter oben. „Auf Original zurücksetzen“ bleibt bei der Erkennung am Namen, damit kein eigenes Projekt geleert wird. Eine Unit, die in einem Zeichen abweicht, fällt heraus; das Handbuch, Abschnitt 4, nennt das und dass die Originale im Programmordner lesbar bleiben. Test: `test_eine_kopie_mit_umbenannter_projektdatei_bleibt_gesperrt` in `tests/test_pruefungsmodus_ablauf.py`.
+
+
+---
+
+## 252. Verzeichnisverknüpfungen im Projektordner: ZIP und Explorer nehmen Dateien außerhalb des Projekts auf ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`f8d4da6`.
+
+**Beobachtet:** Eine Verzeichnisverknüpfung (Junction) lässt sich ohne
+Verwaltungsrechte anlegen. Liegt eine im Projektordner, folgen ihr
+„Als ZIP speichern …“ und die Liste der weiteren Dateien im
+Projekt-Explorer. Zeigt sie auf einen anderen Ordner, landen dessen
+Dateien in der ZIP, die abgegeben wird, und erscheinen im Explorer als
+Projektdateien; „Löschen …“ darauf löscht dann außerhalb des
+Projekts. Zeigt sie auf den Projektordner selbst, entsteht eine
+Schleife, die erst an der Grenze der Pfadlänge endet. Probe in
+`%TEMP%`: `Projekt.weitere_dateien()` liefert mit einer Verknüpfung
+auf einen fremden Ordner und einer auf den Projektordner 19 Einträge,
+darunter `daten\verweis\geheim.txt` aus dem fremden Ordner und
+dieselbe Datei unter `schleife\schleife\…`. Vermutet, nicht geprüft:
+der Exe-Export nimmt über `--add-data` denselben Inhalt mit.
+
+**Ursache:** nachgewiesen. `Path.rglob` folgt unter Windows
+Junctions. `ide/shell/hauptfenster.py`, Zeile 4836
+(`projekt_als_zip`), `ide/project/projekt.py`, Zeile 194
+(`weitere_dateien`).
+
+**Zu tun:** Beim Durchlaufen des Projektordners Verknüpfungen und
+Junctions nicht betreten (`os.walk` mit Prüfung auf `is_junction()`
+und `is_symlink()`) und in der ZIP höchstens als leeren Eintrag
+auslassen. Erledigt, wenn ein Test mit der Anordnung aus der Probe
+nur die Dateien des Projekts findet.
+
+**Behoben (28. September 2026, ab 0.3.7).** `dateien_im_ordner` in `ide/project/projekt.py` durchläuft einen Ordner mit `os.walk` und betritt keine Verknüpfung und keine Junction (`is_symlink()`, `is_junction()`), verknüpfte Dateien bleiben ebenfalls draußen. Das nutzen `Projekt.weitere_dateien` (Projekt-Explorer), `projekt_als_zip` und im Exe-Export `_ueberfluessige_pakete`; `_daten_ordner_des_projekts` und `_daten_dateien_des_projekts` lassen verknüpfte Einträge aus, und ein Datenordner mit einer Verknüpfung darin geht Datei für Datei statt als Ganzes an `--add-data`. Die Vermutung zum Exe-Export war richtig. Tests: `test_weitere_dateien_betreten_keine_verknuepfung` und `test_die_zip_nimmt_nichts_ueber_verknuepfungen_mit` in `tests/test_explorer_dateien_und_zip.py`, `test_der_export_folgt_keiner_verzeichnisverknuepfung` in `tests/test_exporter.py`, alle mit einer Junction auf einen fremden Ordner und einer auf das Projekt selbst.
+
+
+---
+
+## 253. Die Startprüfung übersieht Startdateien in `python\DLLs` und die Module, die Python vor ihr lädt ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`f8d4da6`.
+
+**Beobachtet:** Seit Punkt 230 prüft der Start `.pth`-Dateien und
+`sitecustomize`/`usercustomize` in `site-packages` und `python\Lib`,
+weil sie vor der Prüfung laufen und sie aushebeln könnten. Die
+mitgelieferte Python sucht Module aber zuerst in `python313.zip`,
+`python\DLLs` und `python\Lib`. Eine `sitecustomize.py` in
+`python\DLLs` wird bei jedem Start ausgeführt und fällt nicht unter
+die schnelle Prüfung; dasselbe gilt für eine veränderte `site.py`
+oder ein Modul aus `encodings`, die Python immer vor Natter lädt. Die
+vollständige Prüfung über „Werkzeuge → Umgebung prüfen“ findet sie,
+beim Start fehlen sie. In der Voreinstellung (Installation nur für das
+angemeldete Konto) kann jedes Programm dieses Kontos dorthin
+schreiben.
+
+Nachweis: `sys.path` der ausgelieferten Python beginnt mit
+`python313.zip`, `DLLs`, `Lib`; `ist_kerndatei()` liefert für
+`python/DLLs/sitecustomize.py`, `python/Lib/site.py` und
+`python/Lib/encodings/__init__.py` jeweils `False`.
+
+**Ursache:** nachgewiesen. `ide/integritaet/manifest.py`,
+`ist_kerndatei` (Zeile 182) und `_kandidaten` (Zeile 204) nehmen
+`python\DLLs` und die beim Start geladenen Module aus `python\Lib`
+nicht auf.
+
+**Zu tun:** `sitecustomize`/`usercustomize` in jedem Ordner aus
+`sys.path` der ausgelieferten Python als Startdatei behandeln und die
+Module, die Python vor Natter lädt (`site`, `os`, `encodings`,
+`codecs` und was `sys.modules` beim Start von `pythonw -m ide` sonst
+enthält), in die schnelle Prüfung aufnehmen. Erledigt, wenn ein Test
+eine abgelegte `python\DLLs\sitecustomize.py` und eine veränderte
+`site.py` in der schnellen Prüfung als Befund findet.
+
+**Behoben (28. September 2026, ab 0.3.7).** `ide/integritaet/manifest.py`: `ist_startdatei` sucht `sitecustomize` und `usercustomize` (als `.py`, `.pyc`, `.pyd` oder Paket) in allen Ordnern aus `sys.path` der mitgelieferten Python (`STARTORDNER`: `python`, `python/DLLs`, `python/Lib`, `site-packages`). Zur schnellen Prüfung gehören außerdem ganz `python/DLLs`, die Module aus `FRUEHE_MODULE` (`site`, `os`, `codecs`, `encodings`, `runpy`, `io` und weitere) und über `geladene_module` jede Datei der mitgelieferten Python außerhalb von `site-packages`, die beim Prüfen schon in `sys.modules` steht. Die Grenze steht in `docs/bericht.md`, Abschnitt 7.5: die Prüfung läuft im geprüften Prozess erst nach dem Laden von Qt und `cryptography`, sie meldet, verhindert aber nichts, und die Fremdbibliotheken in `site-packages` bleiben ungeprüft. Tests: `test_eine_startdatei_in_dlls_faellt_bei_jedem_start_auf`, `test_ein_veraendertes_fruehes_modul_faellt_bei_jedem_start_auf` und `test_ein_geladenes_modul_der_standardbibliothek_wird_mitgeprueft` in `tests/test_integritaet_manifest.py`; `test_schnelle_pruefung_sieht_nur_die_kerndateien` nimmt jetzt `json/decoder.py` statt `os.py` als Datei außerhalb der schnellen Prüfung.
+
+
+---
+
+## 254. Beenden während eines Testlaufs oder Exports: Absturz beim Beenden, der Testprozess läuft weiter ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`f8d4da6`.
+
+**Beobachtet:** Wird Natter geschlossen, während „Alle Tests
+ausführen“, der Exe-Export oder eine Paketinstallation im Hintergrund
+läuft, wartet das Hauptfenster weder auf den Faden noch bricht es ihn
+ab. Probe mit einem Test, der nie endet: das Fenster geht zu,
+`app.exec()` kehrt zurück, der Faden läuft noch, und der Prozess
+endet mit dem Code `0xC0000409` statt 0 (Qt bricht ab, weil ein
+laufender `QThread` zerstört wird). Der Prozess von `harness.py`
+bleibt danach ohne Elternteil stehen und rechnet mit voller Last
+weiter, bis sich jemand abmeldet oder ihn im Task-Manager beendet;
+die Zeitgrenze von 60 Sekunden gehörte zum Faden, der nicht mehr
+existiert. Beim Exe-Export bliebe ebenso ein halb gebautes Ergebnis
+und ein laufendes PyInstaller zurück (vermutet, nicht gemessen).
+
+**Ursache:** nachgewiesen: `ide/shell/hauptfenster.py`, `closeEvent`
+(Zeilen 3939-3970) beendet über `kindprozesse_beenden` nur
+Schülerprogramm und Debugger; `self._hintergrundarbeit`
+(`_hintergrund_starten`, Zeilen 2057-2077) kommt darin nicht vor. Der
+Prozess des Testlaufs ist eine lokale Variable in
+`tests_ausfuehren` (`ide/testrunner/ausfuehrung.py`, Zeilen 60-72) und
+für das Hauptfenster nicht erreichbar.
+
+**Zu tun:** Beim Schließen einen laufenden Hintergrundvorgang
+erkennen, nachfragen oder abbrechen, Kindprozesse des Vorgangs samt
+Baum beenden (`prozessbaum_beenden`) und auf den Faden warten, bevor
+das Fenster zugeht. Erledigt, wenn ein Test, der Natter während eines
+Testlaufs mit Endlosschleife schließt, einen Rückgabewert 0 und keinen
+übrig gebliebenen `harness.py`-Prozess findet.
+
+**Behoben (28. September 2026, ab 0.3.7).** `Hintergrundarbeit` (`ide/shell/hintergrund.py`) führt eine Liste der Prozesse, die ihre Arbeit gestartet hat (`prozess_melden`), und beendet sie mit `abbrechen()` samt Kindern über `prozessbaum_beenden`; kommt eine Meldung erst nach dem Abbruch an, endet der Prozess sofort. `tests_ausfuehren` (`ide/testrunner/ausfuehrung.py`) und `exe_exportieren` (`ide/export/exporter.py`) nehmen dafür den Parameter `prozess_gestartet` entgegen, das Hauptfenster reicht `_hintergrund_prozess_melden` durch. `closeEvent` ruft vor `kindprozesse_beenden` jetzt `_hintergrund_abbrechen`: Signale lösen, Prozesse beenden, Fenster verbergen, auf den Faden warten. Gefragt wird nicht, ein abgebrochener Testlauf oder Export lässt sich neu starten; ein abgebrochener Export räumt wie nach jedem Fehlschlag auf. Nicht abgebrochen wird eine Paketinstallation (`pip` über `subprocess.run`): das Beenden wartet dann bei unsichtbarem Fenster, bis `pip` fertig ist. Tests: `test_schliessen_bricht_den_testlauf_ab` und `test_natter_endet_beim_schliessen_ohne_fehlercode` (eigener Prozess, Rückgabewert 0, weder `harness.py` noch der vom Test gestartete Prozess bleibt übrig) in `tests/test_hauptfenster_beenden_hintergrund.py`; ohne die Änderung endet der Prozess mit `0xC0000409`.
+
+
+---
+
+## 255. Designer: eine schreibgeschützte Unit führt beim Anlegen oder Umbenennen einer Methode zur Absturzmeldung ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`f8d4da6`.
+
+**Beobachtet:** Seit Punkt 235 meldet der Designer eine
+schreibgeschützte `.pfm` ordentlich. Für die Unit daneben gilt das
+nicht. Probe mit einer Kopie von `03_Taschenrechner`, `u_main.py`
+schreibgeschützt:
+
+- Doppelklick auf eine Zeile im Reiter „Ereignisse“
+  (`ereignis_handler_erzeugen`) löst `PermissionError` aus; in Natter
+  erscheint „In Natter ist etwas schiefgegangen“.
+- Umbenennen von `b_plus` in `b_addieren` löst ebenfalls
+  `PermissionError` aus, aber erst nachdem die Komponente am Formular
+  schon umbenannt ist. Danach heißt sie im Designer `b_addieren`, in
+  der `.pfm` weiter `b_plus`, und Rückgängig ist nicht möglich
+  (`kann_rueckgaengig` ist falsch). Die nächste Änderung schreibt den
+  neuen Namen in die `.pfm`, ohne dass jemand ihn bestätigt hat.
+- „Methode anlegen“ im Menü-Editor geht denselben Weg.
+
+Eine schreibgeschützte Unit ist an einer Schule nicht selten:
+Material der Lehrkraft auf einem Netzlaufwerk ohne Schreibrecht, ein
+von CD oder aus einem ZIP-Anhang kopierter Ordner.
+
+**Ursache:** nachgewiesen: `ide/designer/canvas.py`, Zeile 2474
+(`ereignis_handler_erzeugen`) und Zeile 639 (`_methoden_umbenennen`,
+gerufen aus `_UmbenennenKommando.tun` nach `_umhaengen`, Zeilen
+666-668) schreiben die Unit über `atomar_schreiben` ohne
+`except OSError`; ebenso `menue_methode_anlegen` in
+`ide/inspector/menue_editor.py`, Zeile 104. Im Kommando ist das
+Formular zu diesem Zeitpunkt schon geändert.
+
+**Zu tun:** Vor jeder Änderung prüfen, ob die Unit beschreibbar ist,
+und wie in `speichern()` deutsch melden; im Umbenennen-Kommando erst
+die Unit schreiben und dann das Formular ändern, oder bei einem
+Fehler das Formular zurücksetzen. Erledigt, wenn ein Test mit
+schreibgeschützter Unit für alle drei Wege eine Meldung findet und
+Formular, `.pfm` und Rückgängig-Stapel danach übereinstimmen.
+
+**Behoben (28. September 2026, ab 0.3.7).** Der Designer prüft vor dem Anlegen einer Methode (`ereignis_handler_erzeugen`), vor dem Umbenennen einer Komponente mit eigenen Methoden (`komponente_umbenennen`) und in `menue_methode_anlegen` mit `DesignerCanvas._unit_nicht_beschreibbar`, ob die Unit schreibgeschützt ist, und meldet das deutsch, bevor irgendetwas geändert ist. Scheitert das Schreiben trotzdem (Netzlaufwerk ohne Schreibrecht, gesperrte Datei), fängt `_unit_schreiben` den `OSError` ab; `_UmbenennenKommando.tun` und `rueckgaengig` setzen den Namen am Formular dann zurück, und `Kommandostapel` (`ide/kommando.py`) legt ein gescheitertes Kommando auf seinen Stapel zurück. Rückgängig und Wiederholen melden den Fehler, der Schritt geht, sobald die Datei beschreibbar ist. Der Menü-Editor trägt den Methodennamen nur ein, wenn die Methode angelegt ist; `menue_methode_anlegen` prüft außerdem wie der Reiter „Ereignisse“ auf Syntaxfehler. Tests: fünf Fälle in `tests/test_designer_unit_schreibschutz.py` (Reiter „Ereignisse“, Umbenennen, Umbenennen mit verweigertem Schreiben, Rückgängig bei inzwischen schreibgeschützter Unit, Menü-Editor), die jeweils Formular, `.pfm`, Unit und Rückgängig-Stapel vergleichen.
+
+
+---
+
+## 256. Designer: eine Unit mit BOM gilt als Syntaxfehler, eine in ANSI führt zur Absturzmeldung ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`f8d4da6`.
+
+**Beobachtet:** Eine Unit, die mit Byte-Order-Markierung gespeichert
+ist (Editor von Windows mit „UTF-8 mit BOM“, manche Unterrichtsmaterialien),
+öffnet sich im Editor ohne sichtbaren Unterschied und läuft mit
+`python main.py`. Der Designer meldet beim Doppelklick auf ein
+Ereignis aber „u_main.py hat in Zeile 1 einen Syntaxfehler. Die
+Methode lässt sich erst anlegen, wenn er behoben ist.“ In Zeile 1
+ist nichts zu sehen. Der Reiter „Ereignisse“ bietet außerdem keine
+der vorhandenen Methoden an. Ist die Unit in Windows-1252 gespeichert
+und enthält einen Umlaut, endet derselbe Doppelklick mit
+`UnicodeDecodeError` in der Absturzmeldung; der Editor meldet dieselbe
+Datei ordentlich in der Statuszeile.
+
+**Ursache:** nachgewiesen: `ide/designer/canvas.py`, Zeile 2454 liest
+die Unit mit `read_text(encoding="utf-8")`, das die BOM als Zeichen
+U+FEFF stehen lässt und bei cp1252 mit `UnicodeDecodeError`
+abbricht, ohne `except`. `syntaxfehler_zeile`
+(`ide/codegen/ereignis.py`, Zeilen 143-148) und
+`methoden_im_quelltext` (`ide/designer/laden.py`, Zeilen 80-83) geben
+den Text an `ast.parse`, das „invalid non-printable character
+U+FEFF“ meldet. Python selbst liest Quelldateien mit BOM ohne Fehler.
+
+**Zu tun:** Units überall mit `utf-8-sig` lesen (Designer,
+`laden.py`, Editor) und die BOM beim Zurückschreiben beibehalten oder
+bewusst weglassen; eine nicht als UTF-8 lesbare Unit im Designer
+deutsch melden. Erledigt, wenn ein Test mit einer Unit mit BOM eine
+Methode anlegt und ein Test mit einer ANSI-Unit eine Meldung statt
+einer Ausnahme findet.
+
+**Behoben (28. September 2026, ab 0.3.7).** Die neue Funktion `unit_lesen` in `ide/designer/laden.py` liest mit `utf-8-sig`; sie gilt für `unit_methoden`, `unit_methoden_ergaenzen`, den Designer (`ereignis_handler_erzeugen`, `_unit_quelltexte`, Umbenennen) und `menue_methode_anlegen`. Der Editor (`datei_oeffnen`, `_aktueller_text_von`, Sprung zur Methode) und der Quelltext-Ausdruck lesen ebenfalls mit `utf-8-sig`. Zurückgeschrieben wird ohne BOM; Python und Natter brauchen sie nicht. Eine Unit, die sich nicht als UTF-8 lesen lässt, meldet der Designer („… ist nicht in UTF-8 gespeichert“ mit dem Hinweis auf „Speichern unter“ im Editor von Windows), statt sie als cp1252 zu lesen und als UTF-8 zurückzuschreiben. Das ist die einfachere Lösung: das Umdeuten änderte die Kodierung einer Datei stillschweigend, cp1252 lässt sich an den Bytes nicht sicher erkennen, und der Editor öffnet solche Dateien ebenfalls nicht. Tests: `test_unit_mit_bom_legt_eine_methode_an` und `test_ansi_unit_wird_gemeldet` in `tests/test_designer_unit_schreibschutz.py`.
+
+
+---
+
+## 257. Datenbank-Panel: die Grenze von 1.000 Zeilen begrenzt den Speicher nicht ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`f8d4da6`.
+
+**Beobachtet:** Seit Punkt 239 zeigt das Panel höchstens 1.000 Zeilen
+und bricht nach 15 Sekunden ab. Wie groß eine einzelne Zeile ist,
+begrenzt nichts. Eine Abfrage, die 40 Zeilen mit je einem großen
+Text- und einem großen Binärwert erzeugt (`zeroblob`, `printf` mit
+Breitenangabe), ließ den Speicherbedarf in der Probe in 1,1 Sekunden
+auf 3,8 GB steigen; die Zeitgrenze greift dabei nicht, weil die
+Abfrage schnell ist. Mit 1.000 Zeilen reicht der Speicher eines
+Schulrechners nicht, Natter wird unbedienbar oder endet mit
+`MemoryError`, der nicht abgefangen wird. Dasselbe geht mit einer
+Tabelle, in der wenige Zeilen sehr lange Texte enthalten.
+
+**Ursache:** nachgewiesen: `ide/database/panel.py`, `_abfrage`
+(Zeile 479) holt `HOECHSTZAHL_ZEILEN + 1` Zeilen vollständig in den
+Speicher, `_ergebnis_anzeigen` (Zeilen 553-558) legt für jeden Text
+in voller Länge ein `QTableWidgetItem` an. `_sql_ausfuehren`
+(Zeile 516) fängt nur `NatterDatenbankError` und `sqlite3.Error`.
+
+**Zu tun:** Die Gesamtgröße der geholten Werte zählen und beim
+Überschreiten einer Grenze abbrechen, lange Texte in der Anzeige
+kürzen und eine `MemoryError` deutsch melden. Erledigt, wenn ein Test
+mit der Abfrage aus der Probe eine Meldung findet und der
+Speicherbedarf dabei unter einer festen Grenze bleibt.
+
+**Behoben (28. September 2026, ab 0.3.7).** Ursache bestätigt. `ide/database/panel.py` setzt eine Abfrage, die sich als Unterabfrage einsetzen lässt, in eine äußere ein (`_kurze_abfrage`), die je Spalte nur den Typ, von einem Text die ersten 501 Zeichen und von Binärdaten nur die Größe liefert; der lange Wert liegt damit nur kurz in SQLite, nie im Panel. Die Anzeige kürzt nach `ZEICHEN_JE_ZELLE` (500) Zeichen mit „…“, die Statuszeile sagt es dazu. Neben der Zeilengrenze gilt eine Grenze für die Zeichen des ganzen Ergebnisses (`HOECHSTZAHL_ZEICHEN`), Zeilen werden einzeln geholt, und eine `MemoryError` kommt als deutsche Meldung. Anweisungen, die sich nicht einsetzen lassen (PRAGMA, INSERT … RETURNING), laufen wie bisher und werden in Python gekürzt. Probe mit 40 Zeilen zu je 5 MB Text und 5 MB Binärdaten: der Speicherbedarf wuchs vorher um 800 MB, jetzt um 35 MB. Tests: `test_grosse_werte_bleiben_unter_der_speichergrenze` (eigener Prozess, misst die Spitze), `test_kurze_werte_und_reihenfolge_bleiben_wie_sie_sind` und `test_viele_spalten_begrenzen_die_zeichen_insgesamt` in `tests/test_database_panel_grenzen.py`.
+
+
+---
+
+## 258. Datenbank-Panel: CSV-Import, CSV-Export und SQL-Dump halten Natter an und lassen sich nicht abbrechen ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`f8d4da6`.
+
+**Beobachtet:** Nur „Ausführen“ läuft unter Aufsicht und mit
+„Abbrechen“ (Punkt 239). Der Import einer 44 MB großen CSV-Datei mit
+2 Millionen Zeilen (Größenordnung offener Wetter- oder Verkehrsdaten)
+dauerte in der Probe 15 Sekunden, in denen die Oberfläche kein
+einziges Ereignis abarbeitete; ein Zeitgeber mit 100 ms Takt kam
+nicht ein Mal an. Einen Knopf zum Abbrechen gibt es nicht, und
+`laeuft` bleibt dabei falsch, sodass auch die Sperre der übrigen
+Knöpfe nicht greift. CSV-Export und SQL-Dump einer großen Tabelle
+lesen ebenso alles auf einmal ein (am Code belegt, nicht gemessen).
+
+**Ursache:** nachgewiesen: `ide/database/panel.py`, `csv_importieren`
+liest die ganze Datei mit `list(csv.reader(...))` (Zeilen 660-661) und
+schreibt sie mit einem `executemany` ohne Fortschrittsaufruf
+(Zeilen 687-690); `_tabelle_lesen` (Zeilen 758-764) holt für beide
+Exporte alle Zeilen mit `fetchall()`, der Dump baut die ganze Datei
+als Liste im Speicher (Zeilen 807-814).
+
+**Zu tun:** Import und Export zeilenweise und unter demselben
+Fortschrittsaufruf wie `_abfrage` laufen lassen, mit „Abbrechen“ und
+`_laufen_lassen(True)`; ein Abbruch beim Import rollt zurück, beim
+Export bleibt keine halbe Datei liegen. Erledigt, wenn ein Test
+während des Imports einer großen Datei Ereignisse abarbeitet und
+der Abbruch die Datenbank unverändert lässt.
+
+**Behoben (28. September 2026, ab 0.3.7).** Ursache bestätigt. Abfrage, CSV-Import, CSV-Export und SQL-Dump laufen jetzt im gemeinsamen Rahmen `DatenbankPanel._vorgang`: übrige Knöpfe gesperrt, „Abbrechen“ frei, `_fortschritt` als Fortschrittsaufruf von SQLite; die Zeitgrenze von 15 Sekunden gilt nur für Abfragen. Der Import liest die CSV-Datei zeilenweise und schreibt in Stapeln von 2.000 Zeilen, zwischen den Stapeln zeigt die Statuszeile den Stand und die Oberfläche arbeitet Ereignisse ab (`_zwischenstand`); ein Abbruch rollt die ganze Transaktion zurück. Beide Exporte holen die Zeilen stapelweise (`_zeilen_lesen`) und schreiben in eine Hilfsdatei, die erst am Ende die Zieldatei ersetzt (`_zieldatei`); nach Abbruch oder Fehler bleibt keine halbe Datei liegen. Tests: `test_import_laesst_die_oberflaeche_arbeiten`, `test_abbrechen_beim_import_laesst_die_datenbank_unveraendert` und `test_abbrechen_beim_export_laesst_keine_datei_liegen` (CSV und Dump) in `tests/test_database_panel_grenzen.py`.
+
+
+---
+
+## 259. `pcl`: `execute()` schreibt eine ausdrücklich begonnene Transaktion fest, `rollback()` bleibt wirkungslos ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`f8d4da6`.
+
+**Beobachtet:** Der Modulkopf von `data_access.py` und
+`docs/komponenten.md` verweisen auf `commit` und `rollback` an der
+Verbindung, wenn mehrere Anweisungen zusammengehören sollen, und
+Punkt 238 hält fest, dass eine vorher begonnene Transaktion für
+`commit()` und `rollback()` stehen bleibt. Das gilt nur für ein
+gescheitertes `execute()`. Probe: nach `BEGIN`, einem erfolgreichen
+`execute("UPDATE konto SET stand = stand - 50 WHERE nr = 1")` und
+`rollback()` steht der geänderte Stand in der Datenbank;
+`in_transaction` ist schon direkt nach dem `execute()` falsch. Die
+übliche Übung zur Überweisung (abbuchen, gutschreiben, bei einem
+Fehler beides zurücknehmen) lässt sich mit `execute()` also nicht
+schreiben: scheitert die Gutschrift, ist die Abbuchung schon
+festgeschrieben.
+
+**Ursache:** nachgewiesen: `pcl/components/data_access.py`,
+`execute` (Zeilen 164-176) und `SQLQuery.exec_sql` (Zeilen 324-330)
+rufen `commit()` ohne Rücksicht darauf, ob vor der Anweisung schon eine
+Transaktion offen war; `_ausfuehren` (Zeilen 190-206) kennt diese
+Unterscheidung bereits, gibt sie aber nicht weiter.
+
+**Zu tun:** In `execute()` und `exec_sql()` nur festschreiben, wenn
+erst diese Anweisung die Transaktion geöffnet hat, wie es `query()`
+schon tut; dazu einen kurzen Weg für zusammengehörende Anweisungen
+dokumentieren. Erledigt, wenn ein Test nach `BEGIN`, zwei
+`execute()` und `rollback()` den alten Stand findet.
+
+**Behoben (28. September 2026, ab 0.3.7).** Ursache bestätigt. `SQLite3Connection.execute`, `query` und `SQLQuery.exec_sql` schreiben über `_festschreiben_falls_eigen` nur noch fest, wenn erst die eben ausgeführte Anweisung die Transaktion geöffnet hat; ein ausdrückliches `BEGIN` oder `SAVEPOINT` bleibt offen, bis `commit()` oder `rollback()` kommt. Scheitert das Festschreiben selbst, wird zurückgerollt und deutsch gemeldet; `commit()` und `rollback()` melden sich ebenfalls als `NatterDatenbankError`. Der kurze Weg für zusammengehörende Anweisungen (Überweisung mit `execute("BEGIN")`, `commit()`, `rollback()`) steht im Modulkopf von `data_access.py` und in `docs/komponenten.md`. Tests: `test_rollback_nach_begin_nimmt_beide_anweisungen_zurueck` (über `execute` und `exec_sql`) und `test_commit_nach_begin_schreibt_beide_anweisungen_fest` in `tests/test_db_sqlite.py`.
+
+
+---
+
+## 260. `DBGrid` baut bei jedem Zeilenwechsel die ganze Tabelle neu auf ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`f8d4da6`.
+
+**Beobachtet:** Ein Klick auf eine Zeile im `DBGrid` oder ein Schritt
+mit dem `DBNavigator` dauert bei 20.000 Zeilen mit fünf Spalten rund
+0,23 Sekunden, bei jedem einzelnen Schritt. Die Zeit wächst mit der
+Zahl der Zeilen; wer mit gedrückter Pfeiltaste oder schnellen
+Klicks durch eine große Tabelle geht, arbeitet mit einem Programm,
+das hinterherhängt.
+
+**Ursache:** nachgewiesen: `pcl/components/data_controls.py`,
+`_bei_zeilenwechsel` (Zeilen 155-170) ruft `DataSource.aktualisieren`,
+und `DBGrid._neu_fuellen` (Zeilen 179-196) leert die Tabelle und legt
+für jede Zelle ein neues `QTableWidgetItem` an, obwohl sich nur der
+Datensatzzeiger bewegt hat.
+
+**Zu tun:** Bei einem bloßen Zeigerwechsel nur die Auswahl setzen und
+die Tabelle nur neu füllen, wenn sich die Daten geändert haben.
+Erledigt, wenn ein Test mit 20.000 Zeilen einen Zeilenwechsel in
+deutlich unter 50 ms findet.
+
+**Behoben (28. September 2026, ab 0.3.7).** Ursache bestätigt. `SQLQuery` zählt jede Änderung an den gepufferten Zeilen in `_stand` (`open`, `exec_sql`, `set_field`, `close`). `DBGrid._aktualisieren` merkt sich Abfrage und Stand der letzten Füllung und setzt bei unverändertem Stand nur die Auswahl; `DBComboBox` lässt ihre Einträge dann ebenso stehen. Bei 20.000 Zeilen dauert ein Schritt mit dem `DBNavigator` damit wenige Millisekunden; vorher lief der Test wegen der `DBComboBox` in die Zeitgrenze von 120 Sekunden. Tests: `test_zeilenwechsel_in_grosser_tabelle_baut_sie_nicht_neu_auf` und `test_geaenderte_daten_fuellen_die_tabelle_trotzdem_neu` in `tests/test_data_controls.py`.
+
+
+---
+
+## 261. CSV-Import mit „Ersetzen“ scheitert, wenn eine Ansicht auf die Tabelle verweist ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`f8d4da6`.
+
+**Beobachtet:** Gibt es in der Datenbank eine Ansicht (`CREATE VIEW
+reich AS SELECT * FROM konto WHERE …`), scheitert der Import einer
+`konto.csv` mit „Ja“ (ersetzen). Die Meldung lautet „SQL-Fehler: error
+in view reich: eine Tabelle namens „main.konto“ gibt es in der
+Datenbank nicht“. Die Datenbank bleibt unverändert (die Transaktion
+aus Punkt 234 wirkt), aber die Meldung sagt nicht, woran es liegt,
+und die Tabelle lässt sich über das Panel nicht ersetzen.
+
+**Ursache:** nachgewiesen: `ide/database/panel.py`, Zeilen 691-698:
+nach `DROP TABLE` prüft SQLite beim `ALTER TABLE … RENAME` das ganze
+Schema, und die Ansicht zeigt in diesem Moment auf eine Tabelle, die
+es nicht gibt.
+
+**Zu tun:** Beim Ersetzen die Daten in die vorhandene Tabelle
+umschreiben (`DELETE` und `INSERT … SELECT` aus der Hilfstabelle) oder
+`legacy_alter_table` für den Umbenennungsschritt einschalten, und
+eine verständliche Meldung geben, falls es trotzdem scheitert.
+Erledigt, wenn ein Test mit einer Ansicht auf die Tabelle den Import
+mit „Ersetzen“ findet und die Ansicht danach die neuen Zeilen zeigt.
+
+**Behoben (28. September 2026, ab 0.3.7).** Ursache bestätigt. `DatenbankPanel._csv_einlesen` schaltet für das Umbenennen der Hilfstabelle `PRAGMA legacy_alter_table` ein und danach wieder aus. SQLite prüft dabei nicht mehr alle Ansichten, und eine Ansicht auf die ersetzte Tabelle zeigt danach die neuen Zeilen. Scheitert eine Schemaänderung doch an einer Ansicht oder einem Trigger, übersetzt der Katalog in `pcl/fehlerkatalog.py` „error in view …“ und „error in trigger …“; `_datenbankmeldung_eindeutschen` ersetzt dafür jetzt alle bekannten Teile einer Meldung, nicht nur den ersten. Tests: `test_ersetzen_trotz_ansicht_auf_die_tabelle` und `test_ansicht_ohne_passende_spalte_meldet_sich_deutsch` in `tests/test_database_panel_grenzen.py`.
+
+
+---
+
+## 262. SQL-Dump: Tabellen mit berechneten Spalten und `sqlite_sequence` lassen sich nicht wieder einspielen ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`f8d4da6`.
+
+**Beobachtet:** Punkt 242 hat den Dump einspielbar gemacht, aber nicht
+für jede Tabelle. Zwei Proben:
+
+- Eine Tabelle mit berechneter Spalte (`c INTEGER GENERATED ALWAYS AS
+  (b*2)`): der Dump schreibt `c` in jede `INSERT`-Zeile, das
+  Einspielen scheitert mit „cannot INSERT into generated column "c"“.
+- Jede Tabelle mit `AUTOINCREMENT` legt `sqlite_sequence` an. Die
+  Tabelle erscheint im Baum des Panels, ihr Dump scheitert beim
+  Einspielen mit „object name reserved for internal use“.
+
+**Ursache:** nachgewiesen: `ide/database/panel.py`,
+`tabelle_als_sql_dump_exportieren` (Zeilen 797-814) nimmt die Spalten
+aus `SELECT *`, das berechnete Spalten mitliefert;
+`_tabellennamen` (Zeilen 412-416) filtert die internen Tabellen
+`sqlite_%` nicht heraus.
+
+**Zu tun:** Spalten für die `INSERT`-Zeilen aus `PRAGMA
+table_xinfo` nehmen und berechnete auslassen; `sqlite_%` im Baum
+ausblenden oder beim Dump ablehnen. Erledigt, wenn ein Test beide
+Fälle einspielt oder für `sqlite_sequence` eine deutsche Meldung
+findet.
+
+**Behoben (28. September 2026, ab 0.3.7).** Ursache bestätigt. `tabelle_als_sql_dump_exportieren` nimmt die Spalten aus `PRAGMA table_xinfo` und lässt berechnete aus (virtuell wie gespeichert); SQLite rechnet sie beim Einspielen selbst aus. `_tabellennamen` blendet die internen Tabellen `sqlite_%` aus dem Baum aus, und ein Dump von `sqlite_sequence` wird mit einer deutschen Meldung abgelehnt. Tests: `test_dump_mit_berechneter_spalte_laesst_sich_einspielen` und `test_dump_von_sqlite_sequence_meldet_sich_deutsch` in `tests/test_database_panel_grenzen.py`.
+
+
+---
+
+## 263. Datenbankfehler, die erst beim Lesen weiterer Zeilen oder beim Schreiben entstehen, kommen englisch an ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand
+`f8d4da6`.
+
+**Beobachtet:** Zwei Wege an der Übersetzung vorbei:
+
+- `db.query("SELECT json(x) FROM …")`, bei dem erst die zweite Zeile
+  ungültiges JSON enthält, löst im Schülerprogramm eine rohe
+  `sqlite3.OperationalError: malformed JSON` aus, keine
+  `NatterDatenbankError`. Dasselbe gilt für jeden Fehler, den SQLite
+  erst beim Holen weiterer Zeilen bemerkt (Überlauf in `sum()`,
+  abgebrochene Abfrage), auch in `SQLQuery.open()` und
+  `to_dataframe()`.
+- Eine schreibgeschützte Datenbankdatei (Material der Lehrkraft auf
+  einem Netzlaufwerk) lässt sich im Panel verbinden; ein `INSERT`
+  meldet dann „SQL-Fehler: attempt to write a readonly database“. Das
+  Schülerprogramm bekommt denselben englischen Text.
+
+**Ursache:** nachgewiesen: `pcl/components/data_access.py` ruft
+`fetchall()` außerhalb von `_ausfuehren` (Zeilen 141, 321 und 427),
+dessen `except` nur `cursor.execute` umschließt. Der Katalog
+`_DATENBANKMELDUNGEN` in `pcl/fehlerkatalog.py` (Zeilen 555-600)
+kennt „readonly database“, „interrupted“, „disk I/O error“ und
+„database disk image is malformed“ nicht.
+
+**Zu tun:** Das Holen der Zeilen in dieselbe Behandlung wie die
+Ausführung nehmen und die genannten Meldungen in den Katalog
+aufnehmen. Erledigt, wenn Tests für beide Proben eine deutsche
+`NatterDatenbankError` finden.
+
+**Behoben (28. September 2026, ab 0.3.7).** Ursache bestätigt. `SQLite3Connection._zeilen_holen` holt die Zeilen für `query`, `SQLQuery.open` und `to_dataframe` und macht aus einem Fehler beim Weiterlesen eine `NatterDatenbankError` (eine selbst geöffnete Transaktion wird dabei zurückgerollt). Der Katalog `_DATENBANKMELDUNGEN` kennt jetzt „attempt to write a readonly database“, „database disk image is malformed“, „disk I/O error“, „interrupted“, „malformed JSON“, „integer overflow“ und „string or blob too big“. Tests: `test_fehler_erst_in_der_zweiten_zeile_kommt_deutsch_an` (drei Wege), `test_schreiben_in_eine_schreibgeschuetzte_datei_kommt_deutsch_an` und `test_weitere_treibermeldungen_stehen_im_katalog` in `tests/test_db_sqlite.py`, `test_schreibgeschuetzte_datei_meldet_sich_deutsch` in `tests/test_database_panel_grenzen.py`.
+
+---
+
+## 264. Ohne Verbindung zum Zeitstempeldienst bleibt jede exportierte Exe unsigniert ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung (Bereiche 1, 2,
+5, 6, 7), Entwicklungsstand `9ea79e5`.
+
+**Beobachtet:** „Als Exe exportieren“ signiert die fertige Exe immer
+mit Zeitstempel von `http://timestamp.digicert.com`. Ist dieser
+Dienst nicht erreichbar, schlägt das Signieren ganz fehl, obwohl ein
+brauchbares Zertifikat da ist. Das betrifft einen Schulrechner mit
+abgeschaltetem Netz ebenso wie ein Schulnetz, in dem Verbindungen nur
+über einen Proxy nach außen gehen. Die Exe entsteht, trägt aber
+keinen Herausgeber, und im Protokoll steht „Nicht signiert: Windows
+hat die Datei zum Signieren abgelehnt (Unknown error (0x80072efd))“.
+Die Meldung führt auf die Datei statt auf das Netz. Beim ersten
+Export legt Natter vorher trotzdem ein Zertifikat an und lässt
+Windows nach dem Eintrag in den Stammspeicher fragen; danach nützt
+es für keinen Export etwas, solange das Netz fehlt.
+
+Nachgewiesen mit einer Probe in `%TEMP%`: eine Kopie von `where.exe`,
+signiert mit einem nur im Speicher erzeugten Zertifikat (kein Eintrag
+in einen Windows-Zertifikatspeicher). Ohne `-TimestampServer` meldet
+`Set-AuthenticodeSignature` „Valid“, mit einem nicht erreichbaren
+Zeitstempeldienst „UnknownError | Unknown error (0x80072efd)“.
+
+**Ursache:** nachgewiesen. `ide/export/signatur.py`, Zeile 63 und
+286: der Zeitstempeldienst steht fest im Befehl, und es gibt keinen
+zweiten Versuch ohne ihn. `_SIGNATUR_GRUENDE` übersetzt `UnknownError`
+als Ablehnung der Datei. Zudem ruft `exe_signieren` `_powershell` ohne
+`geduld` auf (Zeile 289): in einem Netz, das Verbindungen stumm
+verwirft, wartet der Export so lange, wie Windows für den
+Verbindungsversuch braucht.
+
+**Zu tun:** Scheitert das Signieren am Zeitstempel, ohne ihn erneut
+signieren. Die Signatur gilt dann bis zum Ablauf des Zertifikats, und
+das Protokoll sagt genau das („Signiert, ohne Zeitstempel: keine
+Verbindung zum Zeitstempeldienst“). Dem Aufruf eine Zeitgrenze geben.
+Erledigt, wenn ein Test mit einem nicht erreichbaren Zeitstempeldienst
+eine `Valid` signierte Exe und diese Meldung ergibt.
+
+**Behoben (28. September 2026, ab 0.3.7).** `exe_signieren` in `ide/export/signatur.py` signiert zuerst mit Zeitstempel und höchstens 45 s lang (`_ZEITSTEMPEL_GEDULD_SEKUNDEN`). Meldet Windows `UnknownError` oder läuft die Zeit ab, signiert es ein zweites Mal ohne `-TimestampServer` (Zeitgrenze 60 s). Gelingt das, steht im Protokoll „Signiert, ohne Zeitstempel: keine Verbindung zum Zeitstempeldienst. Die Signatur gilt bis zum Ablauf des Zertifikats.“; scheitert auch der zweite Versuch, lag es nicht am Netz, und gemeldet wird sein Grund. Fehlen Datei oder Zertifikat, gibt es keinen zweiten Versuch. Tests ohne echtes Zertifikat in `tests/test_export_signatur.py`: `test_ohne_zeitstempeldienst_wird_ohne_zeitstempel_signiert` (nicht erreichbarer Dienst `http://127.0.0.1:9`, Ergebnis `Valid` und die Meldung), `test_jeder_signierversuch_hat_eine_zeitgrenze`, `test_nach_einer_zeitueberschreitung_wird_ohne_zeitstempel_signiert` und `test_ohne_zertifikat_im_speicher_gibt_es_keinen_zweiten_versuch`. Nicht geprüft: ein echter Signierlauf mit einem Zertifikat im Speicher, weil dafür ein Zertifikat in einen Windows-Speicher eingetragen werden müsste.
+
+
+---
+
+## 265. `pcl`: Nach einem Fehler zwischen `BEGIN` und `commit()` bleibt die Transaktion bis zum Programmende offen ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Stand `9ea79e5`.
+
+**Beobachtet:** Das Überweisungsmuster aus `docs/komponenten.md`
+(`execute("BEGIN")`, `try`, zwei `UPDATE`, `commit()`, `except
+NatterDatenbankError: rollback()`) mit einer Eingabe dazwischen, etwa
+`int(self.e_betrag.text)`. Steht im Eingabefeld „abc“, endet der Klick
+mit `ValueError`. Den fängt das `except` nicht, `pcl` zeigt die
+Meldung, und das Programm läuft weiter, aber mit offener Transaktion:
+
+- Der nächste Klick scheitert an `execute("BEGIN")` mit „SQL-Fehler:
+  cannot start a transaction within a transaction“, und das bei jedem
+  weiteren Versuch.
+- Jedes spätere `execute()` im Programm läuft in dieser Transaktion
+  und wird nicht festgeschrieben. Beim Schließen des Programms ist
+  alles seit dem ersten Klick verloren, ohne Meldung.
+- Solange das Programm läuft, scheitern Schreibzugriffe anderer
+  Programme auf die Datei, auch das Datenbank-Panel, mit „database is
+  locked“.
+
+Nachgestellt mit einem Skript unter `%TEMP%`: nach dem Klick mit „abc“,
+einem Klick mit „50“ und einem weiteren `execute("INSERT …")` meldet
+`in_transaction` wahr, eine zweite Verbindung bekommt „database is
+locked“, und nach dem Schließen stehen nur die zwei Anfangszeilen in
+der Datei.
+
+**Ursache:** nachgewiesen. `SQLite3Connection._ausfuehren` und
+`_festschreiben_falls_eigen` (`pcl/components/data_access.py`, Zeilen
+224-242 und 262-278) lassen eine vorher ausdrücklich begonnene
+Transaktion absichtlich stehen (Punkt 259). Beendet wird sie nur durch
+`commit()` oder `rollback()` im Schülercode. Das dokumentierte Muster
+fängt nur `NatterDatenbankError`, und `pcl` rollt beim Fehler in einer
+Ereignismethode nichts zurück.
+
+**Zu tun:** Eine Transaktion darf einen Fehler in der Ereignismethode,
+in der sie begonnen wurde, nicht überleben: etwa rollt `pcl` beim
+Fehler in einer Ereignismethode offene, ausdrücklich begonnene
+Transaktionen aller Verbindungen zurück und sagt das in der Meldung,
+oder `SQLite3Connection` bietet einen `with`-Block für Transaktionen,
+der bei jeder Ausnahme zurückrollt, und die Dokumentation zeigt ihn
+statt des `try`-Musters. Zusätzlich die Meldungen „cannot start a
+transaction within a transaction“ und „cannot commit/rollback - no
+transaction is active“ in `_DATENBANKMELDUNGEN` eindeutschen. Erledigt,
+wenn ein Test mit dem Muster oben und einem `ValueError` danach keine
+offene Transaktion findet und ein späteres `execute()` festgeschrieben
+ist.
+
+**Behoben (28. September 2026, ab 0.3.7).** `SQLite3Connection` hat die Methode `transaction()` für einen `with`-Block (`pcl/components/data_access.py`): sie beginnt mit `BEGIN`, schreibt am Ende des Blocks fest und nimmt bei jeder Ausnahme, auch einem `ValueError` aus einer Eingabe, alles zurück. Die Komponenten-Referenz und der Modulkopf zeigen das Überweisungsbeispiel jetzt mit diesem Block statt mit dem `try`, das nur `NatterDatenbankError` fing. Zusätzlich nimmt das Schließen der Verbindung (`connected = False`) und das Programmende eine noch offene Transaktion zurück und schreibt einen deutschen Hinweis mit dem Dateinamen in die Fehlerausgabe (`weakref.finalize`, Funktion `_abschliessen`). Die Meldungen „cannot start a transaction within a transaction“ und „cannot commit/rollback - no transaction is active“ sind deutsch (siehe Punkt 268). Ein Rückrollen durch `pcl` bei jedem Fehler in einer Ereignismethode gibt es nicht; wer `BEGIN` von Hand schreibt, bleibt für `commit()`/`rollback()` selbst zuständig. Tests: `test_valueerror_im_transaktionsblock_laesst_nichts_offen`, `test_sql_fehler_im_transaktionsblock_nimmt_alles_zurueck`, `test_schliessen_nimmt_offene_transaktion_zurueck_und_meldet_es` und `test_schliessen_ohne_offene_transaktion_meldet_nichts` in `tests/test_datenbank_transaktionen.py`.
+
+
+---
+
+## 266. Datenbank-Panel: `BEGIN` wird sofort festgeschrieben, ein `ROLLBACK` danach nimmt nichts zurück ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Stand `9ea79e5`.
+
+**Beobachtet:** Wer im Datenbank-Panel eine Transaktion vorführt und
+nacheinander „BEGIN“, „DELETE FROM konto“ und „ROLLBACK“ ausführt,
+bekommt „Ausgeführt.“, „3 Zeilen geändert.“ und dann „SQL-Fehler:
+cannot rollback - no transaction is active“. Die Zeilen sind endgültig
+gelöscht (nachgestellt offscreen mit `DatenbankPanel` und einer
+Datei unter `%TEMP%`: danach `count(*) = 0`). Mehrere Anweisungen auf
+einmal lehnt das Panel ab („führt nur eine Anweisung auf einmal aus“),
+eine Transaktion lässt sich dort also gar nicht ausführen. Die
+Oberfläche sagt das aber nicht, und der Versuch löscht echte Daten.
+
+**Ursache:** nachgewiesen. `DatenbankPanel._abfrage`
+(`ide/database/panel.py`, Zeilen 661-662) schreibt nach jeder
+Anweisung fest, sobald eine Transaktion offen ist (Punkt 237). Das
+gilt auch für die Transaktion, die ein ausdrückliches `BEGIN` eben
+geöffnet hat.
+
+**Zu tun:** Entweder `BEGIN`, `COMMIT`, `ROLLBACK`, `SAVEPOINT`,
+`RELEASE` und `END` im Panel erkennen und mit einer deutschen Meldung
+ablehnen, die sagt, dass das Panel jede Anweisung sofort festschreibt,
+oder eine ausdrücklich begonnene Transaktion bis zu `COMMIT`/`ROLLBACK`
+offen halten und das in der Statuszeile anzeigen (mit Rückrollen beim
+Trennen und Schließen). Erledigt, wenn die Folge oben im Test keine
+Zeile verliert oder vor dem `DELETE` abgelehnt wird.
+
+**Behoben (28. September 2026, ab 0.3.7).** `DatenbankPanel._abfrage` (`ide/database/panel.py`) merkt sich, wenn `BEGIN` oder `SAVEPOINT` eine Transaktion geöffnet hat, und schreibt sie dann nicht nach jeder Anweisung fest; sie endet erst mit `COMMIT`, `ROLLBACK` oder `END`. Einzelne Anweisungen ohne `BEGIN` schreibt das Panel weiter sofort fest (Punkt 237). Solange die Transaktion offen ist, steht in der Statuszeile „Transaktion offen: erst COMMIT schreibt die Änderungen fest, ROLLBACK nimmt sie zurück.“; eine gescheiterte Anweisung darin lässt sie offen. „Trennen“, Projektwechsel und das Schließen von Natter (alle über `trennen()`) nehmen sie zurück und sagen das, ein CSV-Import wird bei offener Transaktion abgelehnt, weil er sie sonst mit festschriebe. Neue Eigenschaft `transaktion_offen`. Tests: `test_rollback_im_panel_nimmt_das_delete_zurueck` (die Folge BEGIN, DELETE, ROLLBACK verliert keine Zeile), `test_commit_im_panel_schreibt_fest`, `test_fehler_in_der_transaktion_haelt_sie_offen`, `test_trennen_nimmt_offene_transaktion_zurueck`, `test_ohne_begin_schreibt_das_panel_weiter_sofort_fest` und `test_import_bei_offener_transaktion_wird_abgelehnt` in `tests/test_datenbank_transaktionen.py`.
+
+
+---
+
+## 267. Viele `print()`-Zeilen eines Programms mit Fenster halten Natter minutenlang an ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Stand `9ea79e5`.
+
+**Beobachtet:** Die Ausgabe eines GUI-Programms landet Zeile für Zeile
+im Panel „Ausgabe“. Jede Zeile kostet dort mehr Zeit als die vorige:
+gemessen offscreen mit derselben `QListWidget`-Einstellung wie im
+Hauptfenster, `addItem` und `scrollToBottom` je Zeile, brauchen
+1.000 Zeilen 17 Sekunden, 2.000 Zeilen 67 Sekunden und 3.000 Zeilen
+151 Sekunden. Solange kommt der Oberflächenfaden nicht zu anderem:
+mit `AusgabeLeser` und einem Programm, das in einer Schleife
+`print()` aufruft, lief ein 100-ms-Timer in 40 Sekunden dreimal statt
+400-mal. Auch nach dem Beenden des Programms arbeitet Natter den Rückstau
+weiter ab. Eine Schleife wie `for i in range(5000): print(i)` in einer
+Klickmethode reicht dafür; eine Endlosschleife mit `print()` legt
+außerdem Zeilen ohne Grenze an.
+
+**Ursache:** nachgewiesen. `self.ausgabe_liste = QListWidget()`
+(`ide/shell/hauptfenster.py`, Zeile 597) ohne
+`setUniformItemSizes(True)`: `scrollToBottom()` in `ausgabe_zeile`
+(Zeile 5287) berechnet dann bei jeder Zeile die Höhen aller Einträge
+neu. Mit `setUniformItemSizes(True)` brauchten dieselben 3.000 Zeilen
+0,26 Sekunden. Eine Obergrenze für die Zahl der Zeilen gibt es nicht.
+
+**Zu tun:** Gleich hohe Zeilen einschalten, Zeilen aus `AusgabeLeser`
+gesammelt statt einzeln einfügen (etwa alle 50 ms) und die Zahl der
+Zeilen im Panel begrenzen (die ältesten fallen weg, mit einem Hinweis
+darauf). Erledigt, wenn ein Test 10.000 Zeilen in wenigen Sekunden
+anzeigt und ein Timer währenddessen weiterläuft.
+
+**Behoben (28. September 2026, ab 0.3.7).** Das Panel „Ausgabe“ hat `setUniformItemSizes(True)`. `AusgabeLeser` (`ide/shell/hintergrund.py`) schickt nicht mehr jede Zeile als Signal, sondern sammelt sie in einem begrenzten Zwischenspeicher (`abholen()`); das Hauptfenster holt sie alle 50 ms gebündelt ab (`_ausgabe_uhr`, `_ausgabe_abholen`) und hängt sie mit `addItems` an. Das Panel hält höchstens 5.000 Zeilen (`AUSGABE_GRENZE`); darüber fallen die ältesten weg, und die erste Zeile sagt „… N ältere Zeilen weggefallen - das Panel hält höchstens 5.000 Zeilen.“. Gescrollt wird nur, wenn die Liste schon unten stand. Meldungen von Natter selbst („Programm beendet …“) holen vorher die ausstehenden Zeilen ab, damit die Reihenfolge stimmt. Tests in `tests/test_ausgabe_viele_zeilen.py`: `test_zehntausend_zeilen_in_unter_einer_sekunde` (10.000 Zeilen in unter einer Sekunde, ein 20-ms-Timer steht dabei nie länger als 0,3 s still; ohne die Änderung läuft der Test in die Zeitgrenze von 120 Sekunden), `test_die_aeltesten_zeilen_fallen_mit_hinweis_weg` und `test_gescrollt_wird_nur_wenn_die_liste_unten_stand`.
+
+
+---
+
+## 268. Die häufigsten Datenbankfehler im Unterricht kommen englisch an ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Stand `9ea79e5`.
+
+**Beobachtet:** Mit `SQLite3Connection.execute` nachgestellt; die
+Meldung nach `_datenbankmeldung_eindeutschen`, also so, wie sie im
+Schülerprogramm und im Datenbank-Panel ankommt:
+
+- „SQL-Fehler: table konto already exists“ (ein `CREATE TABLE` ohne
+  `IF NOT EXISTS`, das beim zweiten Programmstart wieder läuft)
+- „SQL-Fehler: table konto has 3 columns but 2 values were supplied“
+- „SQL-Fehler: You did not supply a value for binding parameter
+  :wer.“
+- „SQL-Fehler: You can only execute one statement at a time.“ (im
+  Panel übersetzt, in `pcl` nicht)
+- „SQL-Fehler: no such function: lower2“
+- „SQL-Fehler: CHECK constraint failed: stand >= 0“
+- „SQL-Fehler: datatype mismatch“ (Text in `INTEGER PRIMARY KEY`)
+- „SQL-Fehler: ambiguous column name: nr“
+- „SQL-Fehler: Error binding parameter 1: type 'list' is not
+  supported“
+- „SQL-Fehler: Binding 1 has no name, but you supplied a dictionary
+  (which has only names).“ (ein `?` statt `:name`)
+
+Punkt 263 hat seltene Meldungen wie „malformed JSON“ ergänzt; die
+Fehler, die beim Lernen von SQL am häufigsten vorkommen, fehlen.
+
+**Ursache:** nachgewiesen. `_DATENBANKMELDUNGEN` in
+`pcl/fehlerkatalog.py` (ab Zeile 554) kennt diese Muster nicht; die
+„one statement“-Meldung übersetzt nur `_fehlertext` in
+`ide/database/panel.py`.
+
+**Zu tun:** Die Muster oben in `_DATENBANKMELDUNGEN` aufnehmen, dazu
+die beiden aus Punkt 265, und die „one statement“-Meldung dorthin
+verlegen, damit Panel und `pcl` dieselben Worte benutzen. Erledigt,
+wenn ein Test jede Anweisung der Liste ausführt und in keiner Meldung
+mehr ein englischer Treibertext steht.
+
+**Behoben (28. September 2026, ab 0.3.7).** `_DATENBANKMELDUNGEN` in `pcl/fehlerkatalog.py` kennt jetzt „table/view/index/trigger … already exists“ (mit dem Hinweis auf IF NOT EXISTS), „table … has n columns but m values were supplied“, „n values for m columns“, den fehlenden Wert für einen Platzhalter, „one statement at a time“, „no such function“, „CHECK constraint failed“, „datatype mismatch“, „ambiguous column name“, einen nicht speicherbaren Parametertyp, „?“ bei benannten Werten und die drei Transaktionsmeldungen aus Punkt 265. Die Sonderbehandlung von „one statement at a time“ in `_fehlertext` des Panels ist entfallen; Panel und Schülerprogramm zeigen dieselben Worte. Tests: `test_haeufige_sql_fehler_kommen_deutsch_an` (13 Fälle, geprüft über den Fehlerkatalog und `_fehlertext` des Panels) und `test_panel_und_pcl_nennen_mehrere_anweisungen_gleich` in `tests/test_datenbank_transaktionen.py`.
+
+
+---
+
+## 269. Datenbank-Panel: Bei einem JOIN heißen gleichnamige Spalten „id:1“ und „name:1“ ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Stand `9ea79e5`.
+
+**Beobachtet:** `SELECT * FROM a JOIN b ON b.a_id = a.id` zeigt im
+Panel die Spaltenköpfe „id, name, id:1, a_id, name:1“. SQLite selbst
+liefert für dieselbe Abfrage „id, name, id, a_id, name“. JOINs über
+Tabellen mit `id` und `name` sind im Unterricht der Normalfall, und
+„:1“ steht in keiner Tabelle der Datenbank.
+
+**Ursache:** nachgewiesen. `DatenbankPanel._ergebnisspalten`
+(`ide/database/panel.py`, Zeilen 669-687) holt die Spaltennamen aus
+`SELECT * FROM (…) LIMIT 0`. In einer Unterabfrage vergibt SQLite für
+doppelte Namen eindeutige Namen mit „:1“, „:2“.
+
+**Zu tun:** Die angehängte Nachsilbe „:n“ wieder entfernen, wenn es
+den Namen ohne sie weiter vorn im Ergebnis schon gibt (eine echte
+Spalte „x:1“ bleibt dann unberührt), oder die Köpfe aus
+`cursor.description` der ursprünglichen Anweisung nehmen. Erledigt, wenn der JOIN oben im Test die Köpfe „id, name, id, a_id,
+name“ zeigt.
+
+**Behoben (28. September 2026, ab 0.3.7).** `DatenbankPanel._ergebnisspalten` (`ide/database/panel.py`) gibt die Spaltennamen durch `_doppelnamen_zuruecknehmen`: eine Nachsilbe „:n“ fällt weg, wenn es den Namen ohne sie weiter vorn im Ergebnis schon gibt. Der JOIN aus dem Befund zeigt „id, name, id, a_id, name“ wie SQLite selbst; eine echte Spalte „x:1“ ohne „x“ davor bleibt stehen. Einen Tabellennamen als Vorsatz bei doppelten Namen gibt es nicht, weil `sqlite3` die Herkunftstabelle einer Ergebnisspalte nicht liefert. Tests: `test_join_zeigt_die_echten_spaltennamen` und `test_echte_spalte_mit_doppelpunkt_bleibt_stehen` in `tests/test_datenbank_transaktionen.py`.
+
+
+---
+
+## 270. Der erste Start eines Programms mit scikit-learn oder pandas dauert über 30 Sekunden ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vom Nutzer an der installierten 0.3.6: „09_ObstSortierer gestartet … der Start dauert fast 40 sec beim ersten mal, beim zweiten geht es schneller.“
+
+**Beobachtet:** Der erste Start eines Beispiels, das scikit-learn, pandas oder matplotlib lädt, dauert nach der Installation 30 bis 40 Sekunden, jeder weitere wenige Sekunden. Gemessen mit der installierten Python: `import pcl, sklearn.ensemble, pandas, matplotlib.pyplot` ohne Bytecode 33,2 s, mit Bytecode 2,6 s.
+
+**Ursache:** nachgewiesen: die Auslieferung enthält keine `.pyc`-Dateien (`tools/ide_paketieren.py` schließt `__pycache__` und `*.pyc` aus). Beim ersten Import übersetzt Python tausende Quelldateien und schreibt sie in den Programmordner, und Defender prüft jede neu geschriebene Datei. Bei einer Installation für alle Benutzer unter `Program Files` kann Python den Bytecode gar nicht schreiben; dann wäre jeder Start so langsam.
+
+**Zu tun:** Beim Bau den Bytecode der mitgelieferten Python erzeugen (`compileall`, am besten mit `--invalidation-mode unchecked-hash`, damit er von Zeitstempeln der installierten Dateien unabhängig ist), vor dem Signieren und dem Manifest. Erledigt, wenn in `dist\Natter` zu jeder `.py` unter `python\Lib` eine `.pyc` liegt und der erste Import aus der Installation annähernd so schnell ist wie der zweite; die Größe des Installers vorher und nachher im Bericht nennen.
+
+**Behoben (28. September 2026, ab 0.3.7).** Ursache bestätigt und genauer gefasst: `dist\Natter` enthielt schon `.pyc`, aber nur in `site-packages` (von pip, mit Zeitstempel); die Standardbibliothek war ohne. In der installierten 0.3.6 passten 598 von 1421 `.pyc` in pandas und 242 von 671 in scikit-learn nicht mehr zu ihrer `.py`, weil Inno Setup die Zeitstempel beim Installieren auf zwei Sekunden rundet. `tools/ide_paketieren.py` hat den neuen Teilschritt „Bytecode erzeugen“ zwischen „Lizenzen sammeln“ und „Signieren“: `python -B -m compileall -q -f -j 0 --invalidation-mode unchecked-hash -s <dist\Natter>` über `python\Lib` samt `site-packages`, ohne die Datenordner (`OHNE_BYTECODE`: Beispiele, Vorlagen, Hilfeseiten, `design`, `schemas`), mit Zeitgrenze von 900 s (`tools/fortschritt.ausfuehren` kennt dafür jetzt `zeitgrenze` und beendet den ganzen Prozessbaum). `-f` ersetzt den Bytecode von pip, `-s` nimmt den Pfad des Baurechners aus den Dateien. Was mit mehreren Prozessen an einer gesperrten `.pyc` scheitert (unter Windows jedes Mal ein, zwei Dateien wie `bz2` oder `concurrent.futures`), wird in einem zweiten Durchgang allein übersetzt; ein Fehler in `ide` oder `pcl` bricht den Bau ab, einer in einem fremden Paket ist eine Warnung. Danach meldet `bytecode_luecken`, wie viele `.py` ohne `.pyc` ohne Quellenprüfung geblieben sind. Das Manifest erfasst die mitgelieferten `.pyc` jetzt mit, weil Python sie ohne Blick auf die `.py` lädt; eine von Python selbst angelegte `.pyc` gilt nicht als zusätzlich (`ist_bytecode` in `ide/integritaet/manifest.py`), und die schnelle Prüfung nimmt zu den frühen und geladenen Modulen deren `.pyc` dazu. Gemessen an einer Kopie der Python aus 0.3.6 in `%TEMP%`: Übersetzen 23 bis 58 s, danach 0 Dateien ohne `.pyc`; `import pcl, sklearn.ensemble, pandas, matplotlib.pyplot` ohne Bytecode 21,0 s (zweiter Lauf 14,7 s), mit 2,3 s (zweiter Lauf 2,1 s), und kein Lauf schreibt danach noch eine `.pyc`. Setup-Datei geschätzt rund 1,2 MB größer (LZMA über alle `.pyc`: 31,3 MB vorher, 32,5 MB nachher); die Messung am echten Installer steht mit dem nächsten Bau aus. Tests: `tests/test_auslieferung_bytecode.py` (Nachbildung von `python\Lib` in `tmp_path`), `test_eine_veraenderte_mitgelieferte_pyc_faellt_auf`, `test_eine_fehlende_mitgelieferte_pyc_faellt_auf` und `test_neuer_bytecode_neben_dem_mitgelieferten_ist_nicht_zusaetzlich` in `tests/test_integritaet_manifest.py`, `test_ein_haengender_befehl_endet_an_der_zeitgrenze` in `tests/test_bau_fortschritt.py`. Begründung in `docs/bericht.md`, Abschnitt 7.4.
+
+
+---
+
+## 271. Beim Start eines Programms zeigt Natter nicht, dass es noch lädt ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, vom Nutzer an der installierten 0.3.6: „obst sortierer gestartet aber weder ein lade balken unten …“
+
+**Beobachtet:** Nach F5 oder Strg+F5 steht im Panel „Ausgabe“ und in der Statusleiste nur „… gestartet“, danach nichts, bis das Programmfenster erscheint. Bei einem Programm, das lange lädt, sieht das aus, als sei nichts passiert, und wer ungeduldig ist, startet es ein zweites Mal.
+
+**Ursache:** nachgewiesen am Code: der Starter meldet nur den Start des Prozesses; ob das Programm schon ein Fenster zeigt, verfolgt er nicht.
+
+**Zu tun:** Vom Start bis zum ersten sichtbaren Fenster des Programms (oder bis zur ersten Ausgabe eines Konsolenprogramms) eine Anzeige in der Statusleiste, etwa einen laufenden Balken mit „Programm wird geladen …“ und der vergangenen Zeit; ein zweites F5 in dieser Zeit startet nicht ein weiteres Mal, sondern holt den Hinweis nach vorn. Endet das Programm vorher, verschwindet die Anzeige. Erledigt, wenn ein Test mit einem absichtlich langsam startenden Programm die Anzeige findet und sie mit dem ersten Fenster verschwindet.
+
+**Behoben (28. September 2026, ab 0.3.7).** Nach F5 und Strg+F5 zeigt das Hauptfenster rechts in der Statusleiste einen laufenden Balken mit „Programm wird geladen … N s“ (`_ladeanzeige_starten`, Takt 250 ms über `_lade_uhr`). Sie endet, sobald das Programm oder einer seiner Kindprozesse ein sichtbares Fenster zeigt, das kein Konsolenfenster ist (`hat_sichtbares_fenster` im neuen Modul `ide/run/ladeanzeige.py`, über `EnumWindows` und eine Momentaufnahme der Prozessliste, weil der Interpreter einer virtuellen Umgebung das eigentliche Python als Kind startet). Bei einem Konsolenprogramm endet sie mit der ersten Ausgabe oder dem ersten `input()`: die Hüllen in `ide/run/starter.py` und `ide/debugger/dap_client.py` legen dann eine leere Markendatei an, deren Pfad in `NATTER_LADEMARKE` steht. Die Anzeige endet außerdem, wenn das Programm vorher endet, bei „Start → Stopp“, an einem Haltepunkt und nach 120 Sekunden ohne Fenster und Ausgabe (mit Hinweis). Ein weiterer Start während des Ladens startet nichts und meldet „… läuft bereits und wird noch geladen (N s) - ein zweiter Start ist nicht nötig.“. Der Hauptfaden wartet dabei nie. Tests in `tests/test_ladeanzeige_start.py` mit absichtlich langsam startenden Programmen: `test_die_anzeige_laeuft_bis_zum_ersten_fenster` (Strg+F5, zweiter Start abgelehnt, Anzeige weg mit dem Fenster, Programm läuft weiter), `test_mit_debugger_laeuft_die_anzeige_ebenso`, `test_ein_zweites_f5_startet_auch_den_debugger_nicht`, `test_endet_das_programm_vorher_verschwindet_die_anzeige` und `test_ein_konsolenprogramm_laedt_bis_zur_ersten_ausgabe`; ohne die Änderung scheitern alle fünf.
+
+---
+
+## 272. Eine Umgebungsvariable des eigenen Kontos lädt fremden Bytecode in die IDE, an Prüfungsmodus und Integritätsprüfung vorbei ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Stand `5b5ba82`.
+
+**Beobachtet:** `Natter.exe` startet die IDE mit der Umgebung des
+angemeldeten Kontos. Entfernt werden nur `PYTHONPATH`, `PYTHONHOME`,
+`PYTHONUSERBASE` und `VIRTUAL_ENV`. `PYTHONPYCACHEPREFIX` bleibt
+stehen, und eine Umgebungsvariable für das eigene Konto einzutragen
+braucht unter Windows keine Verwaltungsrechte. Ist sie gesetzt, sucht
+Python den Bytecode jedes Moduls nicht mehr im `__pycache__` neben der
+Quelle, sondern in einem Ordner unter diesem Präfix, also etwa im
+eigenen Profil. Eine dort abgelegte `.pyc` mit `unchecked-hash` lädt
+Python, ohne die Quelldatei anzusehen.
+
+Nachgestellt mit der gebauten Python aus `dist\Natter` (unverändert,
+nur gelesen): mit gesetzter Variable kam `pcl.pruefungsmodus` aus einer
+`.pyc` unter `%TEMP%`, und `laeuft()` lieferte den Wert aus dieser
+Datei statt aus `pcl\pruefungsmodus.py`; ohne die Variable wieder das
+Original. Mit `python -E` wird die Variable nicht gelesen, und es
+bleibt beim Original. Die Installation unter `Program Files` bleibt
+dabei unangetastet.
+
+Damit lässt sich der Prüfungsmodus ohne Verwaltungsrechte und ohne
+Kenntnis der drei Ablagestellen abschalten, und die Integritätsprüfung
+beim Start meldet nichts: `.py` und `.pyc` im Programmordner sind
+unverändert, und `geladene_module` sieht nur Dateien unter `python\`.
+Dasselbe gilt für jeden anderen Teil der IDE, auf einem Rechner mit
+geteiltem Schülerkonto also auch für die Natter aller anderen, die sich
+dort anmelden.
+
+**Ursache:** nachgewiesen. `tools/launcher.py`, Zeile 87
+(`eigene_umgebung` nimmt nur die vier Variablen aus `FREMDE_UMGEBUNG`
+heraus) und Zeile 248 (der Befehl `pythonw.exe -m ide` ohne `-E` oder
+`-I`). `ide/integritaet/manifest.py`, Zeile 231: ein `__cached__`
+außerhalb von `python\` wird übergangen.
+
+**Zu tun:** Die IDE so starten, dass Python keine `PYTHON*`-Variablen
+aus dem Konto liest (`-E`, oder `-I` mit Blick auf `sys.path`), und
+was davon gebraucht wird, ausdrücklich setzen. Zusätzlich beim Start
+prüfen, dass `sys.pycache_prefix` leer ist, und sonst wie bei einer
+veränderten Datei melden. Qt liest ebenfalls Variablen, die Plugins
+nachladen (`QT_PLUGIN_PATH`, `QT_QPA_PLATFORM_PLUGIN_PATH`), und
+Befehlszeilenschalter, die `Natter.exe` unverändert an
+`QApplication(sys.argv)` weitergibt; das mit ansehen (vermutet, nicht
+ausprobiert). Erledigt, wenn ein Test die IDE mit gesetztem
+`PYTHONPYCACHEPREFIX` und einer abweichenden `.pyc` darunter startet
+und `pcl.pruefungsmodus` trotzdem aus dem Programmordner kommt.
+
+**Behoben (28. September 2026, ab 0.3.7).** Ursache bestätigt. `tools/launcher.py` startet die mitgelieferte Python jetzt mit `-E -s` (`PYTHON_SCHALTER`, Befehl aus `startbefehl`), sodass `PYTHONPYCACHEPREFIX` und alle anderen `PYTHON*`-Variablen des Kontos in der IDE nicht mehr wirken. `eigene_umgebung` nimmt außerdem alle `PYTHON*`-Variablen und die Qt-Variablen `QT_PLUGIN_PATH`, `QT_QPA_PLATFORM_PLUGIN_PATH`, `QML_IMPORT_PATH` und `QML2_IMPORT_PATH` heraus, damit sie auch in gestarteten Programmen nicht wirken; `PYTHONNOUSERSITE=1` setzt sie weiter, und `PYTHONIOENCODING` setzt die IDE für Schülerprogramme selbst (`ide/run/interpreter.py`). `ide/main.py` gibt an `QApplication` nur noch `sys.argv[:1]`, sodass Schalter wie `-platformpluginpath` hinter `Natter.exe` nichts mehr nachladen (ausprobiert: Qt wertet nur die übergebene Liste aus). Die Startprüfung (`ide/integritaet/start_pruefung.py`, `bytecode_von_woanders`) meldet ein gesetztes `sys.pycache_prefix` wie eine veränderte Installation. Der Starter muss im nächsten Bau neu entstehen, erst dann wirkt die Änderung in `Natter.exe`. Tests in `tests/test_launcher_bytecode.py`: `test_ein_fremdes_pycache_praefix_ersetzt_den_pruefungsmodus_nicht` legt eine `.pyc` mit `unchecked-hash` unter ein gesetztes `PYTHONPYCACHEPREFIX` und startet Python mit Schaltern und Umgebung des Starters; `pcl.pruefungsmodus` kommt aus dem Quellordner. Ohne die Änderung liefert `laeuft()` den Wert aus der fremden `.pyc`. Dazu Tests für die Umgebung, die Startprüfung und die Qt-Argumente.
+
+
+---
+
+## 273. „Löschen …“ verspricht den Papierkorb und löscht auf einem Netzlaufwerk endgültig ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Stand `5b5ba82`.
+
+**Beobachtet:** „⋮ → Löschen …“ an einer Unit, einem Formular oder
+einem Diagramm fragt: „Die Datei landet im Papierkorb und lässt sich
+von dort zurückholen.“ Diese Zusage hängt nur davon ab, ob Natter unter
+Windows läuft. Liegt das Projekt auf einem Laufwerk ohne Papierkorb,
+etwa dem an vielen Schulen üblichen Heimatlaufwerk `H:` auf dem
+Server, auf einem USB-Stick, oder ist der Papierkorb per Richtlinie
+abgeschaltet oder die Datei größer als er, löscht Windows die Datei
+endgültig. Weil `FOF_NOCONFIRMATION` gesetzt ist und
+`FOF_WANTNUKEWARNING` fehlt, geschieht das ohne Rückfrage, und
+`SHFileOperationW` meldet trotzdem Erfolg. Die Statuszeile sagt
+„gelöscht“, die Arbeit ist weg.
+
+**Ursache:** am Code nachgewiesen, das Verhalten von Windows laut der
+Beschreibung von `FOF_WANTNUKEWARNING`; an einem echten Netzlaufwerk
+nicht ausprobiert. `ide/papierkorb.py`, Zeile 76 (Flags ohne
+`FOF_WANTNUKEWARNING`) und Zeile 82 (Rückgabe `True`, auch wenn nichts
+im Papierkorb gelandet ist); die Zusage in
+`ide/shell/hauptfenster.py`, Zeilen 2653 und 2798.
+
+**Zu tun:** Vor dem Löschen feststellen, ob das Laufwerk einen
+Papierkorb hat (`SHQueryRecycleBinW` für den Laufwerkspfad oder
+`IFileOperation` mit `FOFX_RECYCLEONDELETE`, das bei fehlendem
+Papierkorb scheitert statt zu löschen), und die Frage danach richten:
+ohne Papierkorb sagt sie, dass sich die Datei nicht zurückholen lässt.
+Erledigt, wenn ein Test mit einem Pfad ohne Papierkorb (etwa ein
+UNC-Pfad, bei dem die Abfrage fehlschlägt) die Warnung statt der
+Papierkorb-Zusage zeigt.
+
+**Behoben (28. September 2026, ab 0.3.7).** `papierkorb_verfuegbar(pfad)` in `ide/papierkorb.py` fragt jetzt für das Laufwerk des Pfads nach: nur ein festes Laufwerk (`GetDriveTypeW`), ohne die Richtlinie `NoRecycleFiles` und mit erfolgreichem `SHQueryRecycleBinW` gilt als Laufwerk mit Papierkorb. Ohne Papierkorb sagt die Nachfrage vor dem Löschen von Unit, Formular oder Diagramm „… wird endgültig gelöscht und lässt sich nicht zurückholen“, „Nein“ ist vorausgewählt, und nach „Ja“ wird endgültig gelöscht. Mit Papierkorb löscht Natter nicht mehr still endgültig, wenn der Papierkorb die Datei nicht annimmt, sondern meldet es und lässt die Datei stehen. `FOF_WANTNUKEWARNING` ist gesetzt, sodass Windows selbst nachfragt, falls es doch endgültig löschen würde, etwa bei einer Datei, die größer ist als der Papierkorb. Tests in `tests/test_papierkorb.py` mit nachgebildeten Windows-Aufrufen, darunter `test_ein_unc_pfad_ohne_papierkorb_wird_erkannt` und `test_ohne_papierkorb_warnt_die_nachfrage_statt_ihn_zu_versprechen`. An einem echten Netzlaufwerk nicht ausprobiert.
+
+
+---
+
+## 274. Der Bau veröffentlicht eine Auslieferung ohne Manifest oder mit unsigniertem Installer ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Stand `5b5ba82`.
+
+**Beobachtet:** Fehlt auf dem Baurechner
+`tools\signieren\manifest-privat.pem`, schreibt Schritt 5 kein
+`manifest.json`, Schritt 7 meldet „Warnung: nicht geprüft
+(manifest.json fehlt …)“, und der Bau läuft bis zur Veröffentlichung
+in Schritt 12 durch. Seit Punkt 27 gilt ein fehlendes Manifest in einer
+Installation zu Recht als Befund: jede so gebaute Natter zeigt bei
+jedem Start „Natter wurde nach der Erstellung verändert: manifest.json
+fehlt …“ und rät zur Neuinstallation, die nichts ändert. Nachgestellt
+mit `installation_pruefen` an einem Ordner mit `Natter.exe` und ohne
+Manifest.
+
+Ebenso endet ein Fehlschlag beim Signieren des Installers in Schritt 9
+nur in „Warnung: Signieren übersprungen“, und Schritt 10 gibt für
+`Natter.exe` und den Installer ebenfalls nur eine Warnung aus.
+`_alle_signaturen_pruefen` bricht zwar ab, sieht aber nur
+`dist\Natter`, nicht `Natter-Setup.exe`. Ein unsignierter Installer
+ginge also hinaus; Smart App Control und Regeln, die nach dem
+Herausgeber gehen, lassen ihn dann nicht zu.
+
+**Ursache:** nachgewiesen. `tools/ide_paketieren.py`, Zeile 938
+(Warnung statt Abbruch ohne Schlüssel); `tools/auslieferung_bauen.py`,
+Zeile 605 (Schritt 7), Zeile 700 (Schritt 9), Zeile 836 (Schritt 10)
+und Zeile 998 (Prüfung aller Signaturen nur über `dist\Natter`).
+
+**Zu tun:** Fehlender Manifest-Schlüssel, ein nicht geschriebenes oder
+nicht prüfbares Manifest und ein Installer ohne gültige Signatur
+brechen den Bau ab, spätestens vor Schritt 11. Wer ausdrücklich ohne
+Signatur probeweise baut, bekommt das nur mit einem eigenen Schalter,
+und dann ohne Veröffentlichung. Erledigt, wenn Tests für alle drei
+Fälle einen `BauFehler` erwarten.
+
+**Behoben (28. September 2026, ab 0.3.7).** `tools/auslieferung_bauen.py` bricht jetzt ab, wenn der Manifest-Schlüssel fehlt (schon in Schritt 1, außer mit `--nur-installer`), wenn das Manifest in Schritt 7 fehlt oder sich nicht lesen lässt, wenn das Signieren des Installers in Schritt 9 scheitert und wenn Schritt 10 für `Natter.exe` oder `Natter-Setup.exe` keinen Status `Valid` bekommt, auch wenn Windows zu einer Datei gar nichts meldet. `tools/ide_paketieren.py` bricht beim Schreiben des Manifests ohne Schlüssel ebenfalls ab, außer bei einem Bau ohne Signieren. Der neue Schalter `--ohne-signatur` macht aus allen drei Fällen Warnungen und schaltet das Veröffentlichen ab. Tests in `tests/test_auslieferung_bauen.py` ohne echten Bau: `test_ein_fehlender_manifest_schluessel_bricht_vor_dem_bau_ab`, `test_ein_fehlendes_manifest_bricht_den_bau_ab`, `test_ein_fehlschlag_beim_signieren_des_installers_bricht_ab`, `test_ein_unsignierter_installer_bricht_schritt_10_ab` und `test_ohne_signatur_wird_nichts_veroeffentlicht`. `docs/bericht.md`, Abschnitt 7.1, nennt den Schalter.
+
+
+---
+
+## 275. Eine einzige lange Ausgabezeile hält das Panel „Ausgabe“ und damit Natter sekundenlang an ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Stand `5b5ba82`.
+
+**Beobachtet:** Die Obergrenze aus Punkt 267 zählt Zeilen, nicht
+Zeichen. Ein Programm mit Fenster, das ohne Zeilenumbruch schreibt,
+legt deshalb eine einzige Zeile ohne Grenze an. Zwei Wege dahin, beide
+mit gewöhnlichem Schülercode:
+
+- `print(zahlen)` oder `print(*zahlen)` mit einer großen Liste. Eine
+  Zeile mit 6,9 Millionen Zeichen (die Zahlen 0 bis 999.999) braucht
+  offscreen mit derselben `QListWidget`-Einstellung wie im
+  Hauptfenster (`setUniformItemSizes(True)`) 6 Sekunden bis zur
+  Anzeige und danach 10 Sekunden für jedes weitere Neuzeichnen des
+  Panels. Solange die Zeile sichtbar ist, steht Natter bei jedem
+  Neuzeichnen still.
+- Eine Schleife mit `print(i, end=" ")`. `AusgabeLeser` liest mit
+  `for text in strom` und bekommt erst beim Zeilenende etwas zu
+  sehen. Gemessen mit `AusgabeLeser` und einem Kindprozess, der 20
+  Sekunden so schreibt: das Panel bleibt die ganze Zeit leer, der
+  Speicher von Natter wächst um rund 3 MB je Sekunde, und beim
+  Programmende kommt eine Zeile mit 84 Millionen Zeichen auf einmal
+  an. Eine Endlosschleife dieser Art, die erst nach Minuten über
+  „Stopp“ endet, füllt den Speicher und legt danach eine Zeile ins
+  Panel, deren Anzeige Minuten dauert.
+
+**Ursache:** nachgewiesen. `AusgabeLeser.run`
+(`ide/shell/hintergrund.py`, Zeilen 172-173) liest zeilenweise ohne
+Längengrenze; `_ausgabe_zeilen_anhaengen`
+(`ide/shell/hauptfenster.py`, Zeile 5306) übernimmt jede Zeile in
+voller Länge als Eintrag der Liste.
+
+**Zu tun:** Im Leser in Stücken fester Größe lesen statt zeilenweise
+und eine überlange Zeile nach einer festen Zeichenzahl (etwa 2.000)
+als eigene Zeile abgeben; im Panel jede Zeile auf eine feste Länge
+kürzen und das Kürzen sichtbar machen („…“). Erledigt, wenn ein Test
+mit einem Kindprozess, der 20 Sekunden ohne Zeilenumbruch schreibt,
+währenddessen Zeilen im Panel findet, der Zwischenspeicher begrenzt
+bleibt und ein Timer der Oberfläche dabei nie länger als 0,3 Sekunden
+stillsteht.
+
+**Behoben (28. September 2026, ab 0.3.7).** `AusgabeLeser` (`ide/shell/hintergrund.py`) liest nicht mehr zeilenweise, sondern mit `read1` auf dem Byte-Puffer des Rohrs in Stücken von höchstens 8 KB, sobald etwas ankommt, und dekodiert sie schrittweise (ein Umlaut darf auf zwei Stücke verteilt ankommen). Eine Zeile, auch eine ohne Zeilenende, geht nach `ZEILEN_GRENZE` = 2.000 Zeichen als eigene Zeile ab; `\r\n`, `\n` und `\r` gelten als Zeilenende. Der Zwischenspeicher hält damit höchstens 5.000 Zeilen zu je 2.000 Zeichen. Das Panel „Ausgabe“ kürzt jede Zeile, die auf anderem Weg ankommt, über `_ausgabe_kuerzen` (`ide/shell/hauptfenster.py`) auf dieselbe Länge und hängt „… (gekürzt, 1.000.000 Zeichen)“ an. Tests: `test_zwanzig_sekunden_ohne_zeilenende` in `tests/test_ausgabe_ohne_zeilenende.py` (Kindprozess mit `print(i, end=" ")` über 20 Sekunden: Zeilen im Panel während des Laufs, Zwischenspeicher begrenzt, 20-ms-Timer nie länger als 0,3 Sekunden still) sowie `test_eine_riesige_zeile_kommt_in_stuecken_an`, `test_zeilenenden_aller_art_und_leere_zeilen`, `test_ausgabe_ohne_zeilenende_erscheint_waehrend_das_rohr_offen_ist` und `test_das_panel_kuerzt_eine_ueberlange_zeile_sichtbar` in `tests/test_ausgabe_lange_zeilen.py`; ohne die Änderung scheitern alle fünf. Offen bleibt: ein Programm, das langsam und ohne Zeilenende schreibt (etwa eine Zahl je Sekunde), erscheint erst, wenn 2.000 Zeichen beisammen sind oder das Zeilenende kommt.
+
+
+---
+
+## 276. Eine im Datenbank-Panel offene Transaktion sperrt das gestartete Programm, und beim Beenden von Natter geht sie wortlos verloren ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Stand `5b5ba82`.
+
+**Beobachtet:** Seit Punkt 266 hält das Panel eine mit `BEGIN`
+begonnene Transaktion bis `COMMIT` oder `ROLLBACK` offen. Das zeigt
+nur die Statuszeile des Panels. Nachgestellt offscreen mit
+`DatenbankPanel`, einer Datei unter `%TEMP%` und einem zweiten
+Prozess mit `SQLite3Connection` aus `pcl`:
+
+- Nach „BEGIN“ und „INSERT …“ im Panel sieht das Programm die neue
+  Zeile nicht, und sein `execute("INSERT …")` wartet 5,6 Sekunden
+  und endet mit „SQL-Fehler: database is locked“, deutsch „die
+  Datenbank ist gerade von einem anderen Programm gesperrt“. Dasselbe
+  passiert schon nach „BEGIN“ und einem bloßen „SELECT“ (5,5
+  Sekunden). In einem Programm mit Fenster steht es in dieser Zeit
+  still, bei jedem Klick, der schreibt. Das andere Programm ist Natter
+  selbst; die Meldung führt also in die falsche Richtung.
+- F5 und der Start mit Debugger fragen nicht nach und weisen nicht
+  darauf hin (`transaktion_offen` wird außerhalb des Panels nirgends
+  gelesen).
+- Beim Schließen von Natter nimmt `closeEvent` die Transaktion über
+  `trennen()` zurück. Der Hinweis „Die offene Transaktion wurde
+  zurückgenommen.“ steht in der Statuszeile eines Fensters, das im
+  selben Augenblick zugeht. Die Nachfrage nach ungespeicherten
+  Änderungen kennt die offene Transaktion nicht; die Änderungen darin
+  sind ohne Rückfrage weg. `pcl` meldet denselben Fall beim
+  Programmende seit Punkt 265 ausdrücklich.
+
+**Ursache:** nachgewiesen. `DatenbankPanel._abfrage`
+(`ide/database/panel.py`, Zeilen 704-728) hält die Transaktion und
+mit ihr die Sperre auf der Datei; der Start in
+`ide/shell/hauptfenster.py` (ab Zeile 5167) und `closeEvent`
+(Zeile 4093) fragen `transaktion_offen` nicht ab. Die Wartezeit von
+5 Sekunden ist die Voreinstellung von `sqlite3.connect`
+(`pcl/components/data_access.py`, Zeile 349).
+
+**Zu tun:** Vor dem Start eines Programms bei offener Transaktion im
+Panel nachfragen (festschreiben, zurücknehmen oder abbrechen) oder
+wenigstens im Panel „Ausgabe“ darauf hinweisen. Beim Schließen von
+Natter und beim Projektwechsel die offene Transaktion in dieselbe
+Nachfrage aufnehmen wie ungespeicherte Dateien. Erledigt, wenn ein
+Test mit offener Transaktion im Panel beim Start und beim Schließen
+eine Nachfrage findet und nach „Festschreiben“ die Zeilen in der
+Datei stehen.
+
+**Behoben (28. September 2026, ab 0.3.7).** Vor dem Start mit und ohne Debugger fragt `_vorstart_pruefung_blockiert` über `_transaktion_vor_dem_start_klaeren` (`ide/shell/hauptfenster.py`) bei offener Transaktion im Datenbank-Panel nach: „Festschreiben“, „Zurücknehmen“ oder „Abbrechen“; bei „Abbrechen“ unterbleibt der Start mit einem Hinweis in der Statusleiste. Beim Schließen von Natter und beim Projektwechsel (auch beim erneuten Öffnen desselben Projekts, weil die Verbindung dabei zugeht) steht die Transaktion als Eintrag „Offene Transaktion im Datenbank-Panel“ in derselben Nachfrage wie ungespeicherte Dateien (`_vor_dem_schliessen_klaeren`): „Speichern“ schreibt sie fest, „Verwerfen“ nimmt sie zurück, „Abbrechen“ lässt alles offen. Scheitert das Festschreiben, meldet ein Fenster den Grund, und weder Start noch Schließen geht weiter. `DatenbankPanel` hat dafür `transaktion_festschreiben()` und `transaktion_zuruecknehmen()` (`ide/database/panel.py`). Tests in `tests/test_datenbank_transaktion_hauptfenster.py`: Start mit „Festschreiben“ (die Zeile steht danach in der Datei), „Zurücknehmen“ und „Abbrechen“ (auch mit Debugger), Schließen mit „Speichern“, „Verwerfen“ und „Abbrechen“ sowie Projektwechsel; ohne die Änderung scheitern alle bis auf den Fall ohne offene Transaktion.
+
+---
+
+## 277. Vervollständigung und F12 starten ein Programm, das eine Datei im Projekt- oder einem Elternordner nennt ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Stand `050ae09`.
+
+**Beobachtet:** Die Vorschlagsliste beim Tippen, die Parameterhilfe
+und „Zu Definition springen“ (F12) lassen jedi die Projekteinstellung
+aus einem Ordner `.jedi` suchen, und zwar im Ordner der offenen Datei
+und in jedem Ordner darüber bis zur Laufwerkswurzel. Steht dort eine
+`project.json` mit `environment_path`, startet jedi die `python.exe`
+aus diesem Ordner als Hilfsprozess, im Konto dessen, der gerade in
+Natter tippt. Es reicht, eine Datei zu öffnen und zu schreiben; das
+Programm muss nicht gestartet werden.
+
+An einer Schule ist das auf zwei Wegen zu erreichen:
+
+- Eine abgegebene Projektmappe bringt den Ordner `.jedi` mit, und die
+  Lehrkraft öffnet sie in Natter, um sie durchzusehen.
+- Unter der Laufwerkswurzel `C:\` darf nach den Voreinstellungen von
+  Windows jedes angemeldete Konto Ordner anlegen (`icacls C:\`:
+  „Authentifizierte Benutzer: (AD)“). Ein Ordner `C:\.jedi` gilt dann
+  für jedes Projekt auf diesem Laufwerk und für jedes Konto, das an
+  diesem Rechner Natter benutzt.
+
+Zu erwarten wäre, dass Natter für die Vervollständigung nur die eigene
+Python benutzt und keine Einstellung aus dem Dateisystem übernimmt.
+
+**Ursache:** nachgewiesen. `ide/shell/vervollstaendigung.py` ruft
+`jedi.Script(code=…, path=…)` ohne `project` auf (Zeilen 409, 437,
+463, 536). jedi sucht dann mit `get_default_project()`
+(`jedi/api/project.py`, Zeile 392) vom Ordner der Datei aufwärts nach
+`.jedi/project.json` und lädt sie mit `Project.load()`; ein
+`environment_path` darin wird mit `create_environment(…, safe=False)`
+ausgeführt (Zeile 245). Nachweis mit einer Probe unter `%TEMP%`: eine
+`project.json` drei Ordnerebenen über der Unit, deren
+`environment_path` auf einen Ordner mit einer umbenannten
+`whoami.exe` zeigt. `vorschlaege()` und `definition()` starteten diese
+Datei je einmal; mitgeschnitten über `subprocess.Popen`. Der
+Prüfungsmodus ändert daran nichts, weil F12 auch dann jedi fragt.
+
+**Zu tun:** Jeder Aufruf von `jedi.Script` bekommt ein von Natter
+gebautes `jedi.Project` (Projektordner als `path`, ohne
+`environment_path`, `load_unsafe_extensions=False`) und die Umgebung
+der laufenden Python, sodass `get_default_project()` nie aufgerufen
+wird. Erledigt, wenn ein Test mit einer `.jedi/project.json` im
+Projektordner und in einem Elternordner zeigt, dass Vorschläge,
+Parameterhilfe und F12 keinen Prozess aus dem dort genannten Ordner
+starten.
+
+**Behoben (28. September 2026, ab 0.3.7).** Ursache bestätigt. Alle Aufrufe von jedi in `ide/shell/vervollstaendigung.py` (Vorschläge, Parameterhilfe, F12 und das Aufwärmen) gehen über die neue Hilfsfunktion `_skript`. Sie baut das `jedi.Project` selbst: Projektordner als `path`, ohne Projekt der Ordner der Datei, `environment_path=None`, `load_unsafe_extensions=False`. Damit ruft jedi `get_default_project()` nicht mehr auf und liest keine `.jedi/project.json`. Als Umgebung gibt `_eigene_umgebung` die Python mit, in der Natter selbst läuft (`SameEnvironment`, eingebettet die `python.exe` neben der Laufzeit), einmal gebaut und danach wiederverwendet; `VIRTUAL_ENV` und `CONDA_PREFIX` werden nicht mehr gefragt. Die Absicherung des Hilfsprozesses aus Punkt 224 (`_jedi()`) bleibt. Test: `test_eine_jedi_einstellung_startet_kein_fremdes_programm` in `tests/test_vervollstaendigung.py`, mit einer `project.json` im Projektordner und in einem Elternordner; jeder Start über `subprocess.Popen` wird mitgeschnitten. Ohne die Änderung starteten beide Fälle die Probe, jetzt keiner, und Vorschläge, Parameterhilfe und F12 liefern weiter ihr Ergebnis.
+
+
+---
+
+## 278. „Stopp“ und das Beenden von Natter lassen stehen, was das Programm selbst gestartet hat ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Stand `050ae09`.
+
+**Beobachtet:** „Start → Stopp“ und das Schließen von Natter beenden
+nur den Python-Prozess des Programms. Was dieses Programm gestartet
+hat, etwa über `os.system(…)` oder `subprocess`, läuft weiter, ohne
+dass es in Natter noch einen Knopf dafür gibt. Hat der gestartete
+Prozess die Ausgabe des Programms geerbt (bei `os.system` immer),
+bleibt auch das Rohr zum Panel „Ausgabe“ offen, und der
+`AusgabeLeser` liest weiter. Nachgestellt unter `%TEMP%` mit
+`AusgabeLeser` und einem Programm, das `os.system("ping -n 15 …")`
+aufruft: nach `kill()` und `wait(1000)` läuft der Leser noch, er endet
+erst 11 Sekunden später mit dem verwaisten `ping`. Wird das Objekt,
+an dem der noch laufende Leser hängt, in dieser Zeit gelöscht, endet
+der Prozess mit `0xC0000409` („QThread: Destroyed while thread is
+still running“). Der Leser hängt am Hauptfenster; dass Natter beim
+Schließen in diesem Zustand genauso endet wie vor Punkt 254, ist
+vermutet, am Hauptfenster selbst nicht nachgestellt.
+
+**Ursache:** nachgewiesen. `_debugger_stoppen_aktion` und
+`kindprozesse_beenden` (`ide/shell/hauptfenster.py`, Zeilen 6308 und
+4282) rufen `self.laufender_prozess.kill()`, das unter Windows nur
+den einen Prozess trifft. Überall sonst (Debugger, Testlauf,
+Hintergrundarbeit) benutzt Natter seit Punkt 222 dafür
+`prozessbaum_beenden` aus `ide/prozess.py`. `_ausgabe_leser_beenden`
+(Zeile 5433) wartet eine Sekunde und gibt den Leser dann auf, auch
+wenn er noch läuft; `AusgabeLeser` wird in Zeile 5428 mit dem
+Hauptfenster als Eltern angelegt.
+
+**Zu tun:** Beim Stoppen und beim Schließen `prozessbaum_beenden`
+statt `kill()` verwenden. Einen Leser, der danach noch läuft, nicht
+mit dem Hauptfenster als Eltern stehen lassen, sondern vor dem Ende
+sicher auf ihn warten oder ihn vom Fenster lösen. Erledigt, wenn ein
+Test ein Programm mit einem über `os.system` gestarteten, lang
+laufenden Kindprozess stoppt und danach weder der Kindprozess noch
+der Leserfaden läuft, und Natter nach dem Schließen in diesem Zustand
+mit Rückgabewert 0 endet.
+
+**Behoben (28. September 2026, ab 0.3.7).** Ursache bestätigt. `_debugger_stoppen_aktion` und `kindprozesse_beenden` (`ide/shell/hauptfenster.py`) beenden das Programm mit `prozessbaum_beenden` aus `ide/prozess.py` samt allem, was es gestartet hat; „Stopp“ wartet danach kurz auf den Leser, damit die letzten Zeilen des Programms über der Zeile zum Stopp stehen. `AusgabeLeser` (`ide/shell/hintergrund.py`) ist kein `QThread` mehr, sondern ein Daemon-Faden aus `threading` ohne Eltern-Objekt: hält ein Prozess, der sein Programm überlebt hat, das Rohr noch offen, liest er weiter, hält aber weder das Schließen noch das Ende von Natter auf. Einen solchen Prozess, dessen Elternprozess schon zu Ende ist, erreicht `taskkill /T` nicht mehr; er läuft weiter, bis er von selbst endet. Tests: `test_stopp_und_schliessen_beenden_den_enkel` (Stopp und Schließen, Programm mit `os.system`) und `test_natter_endet_beim_schliessen_ohne_fehlercode` (eigener Prozess, Rückgabewert 0, einmal mit wartendem Programm, einmal mit schon beendetem Programm und verbliebenem Enkel) in `tests/test_stopp_prozessbaum.py`; ohne die Änderung scheitern alle vier, die beiden letzten mit `0xC0000409`.
+
+
+---
+
+## 279. Datenbank-Panel: „Verbinden“ nimmt eine offene Transaktion ohne Nachfrage zurück ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Stand `050ae09`.
+
+**Beobachtet:** Nach „BEGIN“ und zwei „INSERT …“ im Panel steht in
+der Statuszeile „Transaktion offen: erst COMMIT schreibt die
+Änderungen fest …“. Ein Klick auf „Verbinden“, etwa um den
+Tabellenbaum neu zu laden oder eine andere Datei zu wählen, nimmt die
+Transaktion zurück; die Statuszeile zeigt danach nur „Verbunden“, und
+`SELECT count(*)` liefert 0 statt 2. Nachgestellt offscreen mit
+`DatenbankPanel` und einer Datei unter `%TEMP%`. Für Start, Schließen
+und Projektwechsel fragt Natter seit Punkt 276 in genau diesem Fall
+nach; „Verbinden“ bleibt während der offenen Transaktion anklickbar
+und fragt nicht. „Trennen“ nimmt sie ebenfalls ohne Rückfrage zurück,
+sagt es aber wenigstens in der Statuszeile.
+
+**Ursache:** nachgewiesen. `_verbinden` (`ide/database/panel.py`,
+Zeile 456) ruft zuerst `trennen()`, das eine offene Transaktion
+zurücknimmt und den Hinweis darauf in die Statuszeile schreibt; der
+wird wenige Zeilen später von „Verbunden“ überschrieben.
+
+**Zu tun:** Vor „Verbinden“ und „Trennen“ bei offener Transaktion
+dieselbe Nachfrage wie vor dem Start (festschreiben, zurücknehmen,
+abbrechen), oder beide Knöpfe sperren, solange eine Transaktion offen
+ist, mit einem Kurzhinweis warum. Erledigt, wenn ein Test nach
+„BEGIN“ und „INSERT“ auf „Verbinden“ klickt und die Zeile danach
+entweder festgeschrieben oder nach ausdrücklichem „Zurücknehmen“
+verworfen ist.
+
+**Behoben (28. September 2026, ab 0.3.7).** Ursache bestätigt. `_verbinden` und der Knopf „Trennen“ (`_trennen_geklickt`) in `ide/database/panel.py` fragen bei offener Transaktion zuerst nach: „Festschreiben“, „Zurücknehmen“ oder „Abbrechen“. Nach „Abbrechen“ bleibt die Verbindung samt Transaktion bestehen, und die Statuszeile sagt es. Ohne offene Transaktion ändert sich nichts. `trennen()` selbst, das Natter beim Projektwechsel und beim Schließen ruft, fragt weiterhin nicht; dort klärt die Nachfrage aus Punkt 276 vorher alles. Das Fenster für die Nachfrage ist jetzt die Funktion `transaktion_nachfragen` in `ide/database/panel.py`, die auch die Nachfrage vor dem Start benutzt. Tests: `test_verbinden_fragt_und_schreibt_fest`, `test_verbinden_nimmt_nur_auf_ausdruecklichen_wunsch_zurueck`, `test_verbinden_abbrechen_laesst_die_transaktion_offen`, `test_trennen_fragt_bei_offener_transaktion` und `test_ohne_offene_transaktion_fragt_niemand` in `tests/test_datenbank_transaktionen.py`.
+
+
+---
+
+## 280. Projekt-, Formular- und Diagrammdateien mit BOM gelten als beschädigt ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Stand `050ae09`.
+
+**Beobachtet:** Eine `.natter` oder `.pfm`, die ein Editor als „UTF-8
+mit BOM“ gespeichert hat (der Editor von Windows 10 bis Version 1809
+schreibt UTF-8 immer so, ebenso manche Editoren auf Wunsch), lässt
+sich nicht mehr öffnen. Nachgestellt mit einer
+Kopie von `06_Kontoverwaltung` unter `%TEMP%`, drei Bytes BOM vor
+`06_Kontoverwaltung.natter` und `u_main.pfm`: `Projekt.laden` und
+`design_datei_erzeugen` enden mit „JSONDecodeError: Unexpected UTF-8
+BOM (decode using utf-8-sig)“. „Projekt → Öffnen …“ meldet die
+Datei deshalb als „beschädigt“ und zeigt den englischen Text dazu,
+obwohl der Inhalt unverändert ist. Für Units ist derselbe Fall seit
+Punkt 256 behoben, für CSV seit Punkt 243.
+
+**Ursache:** nachgewiesen. Gelesen wird mit
+`read_text(encoding="utf-8")`: `ide/project/projekt.py`, Zeile 216,
+`ide/codegen/design.py`, Zeile 421, `ide/designer/laden.py`, Zeile
+174, `ide/shell/hauptfenster.py`, Zeilen 1736 und 4553,
+`ide/diagramm/datei.py`, Zeile 59 (für `.pdiag` vermutet, nicht
+nachgestellt).
+
+**Zu tun:** Alle JSON-Dateien des Projekts mit `utf-8-sig` lesen;
+geschrieben wird weiter ohne BOM. Erledigt, wenn ein Test ein Projekt
+öffnet, dessen `.natter`, `.pfm` und `.pdiag` mit BOM beginnen, und
+dabei weder eine Meldung erscheint noch der Designer scheitert.
+
+**Behoben (28. September 2026, ab 0.3.7).** Ursache bestätigt. `json_datei_lesen` in `ide/schema.py` liest mit `utf-8-sig`; darüber laden jetzt `Projekt.laden`, `design_datei_erzeugen`, `formular_fuer_designer_laden`, `Diagramm.laden`, das Abgleichen der Design-Datei und die Klassensuche im Hauptfenster sowie die Symbolsuche beim Export. Der Formular-Import liest die `.lfm` ebenfalls mit `utf-8-sig`. Geschrieben wird weiter ohne BOM. Eine wirklich beschädigte Datei meldet ihren Grund über `fehler_beschreiben` auf Deutsch (Zeile und Spalte bei kaputtem JSON, der betroffene Eintrag bei einem Schemafehler, „nicht als UTF-8 gespeichert“); der englische Text von `json` und `jsonschema` erscheint in den Meldungen von „Projekt → Öffnen …“, beim Öffnen einer `.pfm`/`.pdiag`, beim Formular-Import und beim Einfügen aus der Zwischenablage nicht mehr. Eine Datei, die nicht UTF-8 ist, ergibt eine Meldung statt einer Ausnahme. Tests: `tests/test_dateien_mit_bom.py`, darunter `test_ein_projekt_mit_bom_oeffnet_ohne_meldung` (Kopie von `06_Kontoverwaltung`, `.natter`, `u_main.pfm` und `konto_klassen.pdiag` mit BOM, geöffnet über das Hauptfenster) und `test_ein_beschaedigtes_projekt_nennt_keinen_englischen_text`.
+
+---
+
+## 281. Ein Enkelprozess überlebt, wenn das Programm selbst schon beendet ist ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, beim Beheben von Punkt 278.
+
+**Beobachtet:** Startet ein Schülerprogramm selbst einen Prozess (etwa über `os.system`) und endet danach, läuft dieser Prozess nach „Stopp“ oder dem Schließen von Natter weiter, bis er von selbst endet. Natter schließt dabei sauber; es bleibt nur der fremde Prozess.
+
+**Ursache:** nachgewiesen: `prozessbaum_beenden` (`ide/prozess.py`) geht mit `taskkill /T` den Baum ab, solange der oberste Prozess lebt. Ist er schon beendet, gibt es keinen Baum mehr, über den Windows die Enkel findet.
+
+**Zu tun:** Das Programm in einem Windows-Auftragsobjekt (Job Object mit `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`) starten, sodass alles, was darin entsteht, mit dem Auftrag endet. Erledigt, wenn ein Test mit einem Programm, das einen Enkel startet und sofort endet, nach „Stopp“ keinen Enkel mehr findet.
+
+**Behoben (28. September 2026, ab 0.4.0).** `ide/prozess.py` legt über `ctypes` ein Windows-Auftragsobjekt mit `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` an (`auftrag_zuweisen`, Klasse `Auftrag`) und nimmt den Prozess gleich nach `Popen` darin auf: in `ide/run/starter.py` für Programme mit Fenster und Konsolenprogramme (das eigene Konsolenfenster bleibt), in `ide/debugger/dap_client.py` für das Programm unter debugpy samt Adapter und in `ide/testrunner/ausfuehrung.py` für den Testlauf. `prozessbaum_beenden` beendet zuerst den Auftrag und damit auch Enkel eines schon beendeten Programms; ohne Auftrag bleibt `taskkill /T` wie bisher. Läuft Natter selbst in einem Auftrag (etwa unter dem Starter von uv), wird der neue darin verschachtelt; klappt das nicht, liefert `auftrag_zuweisen` `None`, und es gilt der alte Weg. Das Hauptfenster hält den Auftrag des letzten Programms über dessen Ende hinaus (`_programm_auftrag`); „Stopp“ beendet, was darin noch läuft, ebenso der nächste Start und das Schließen. Der Debugger und der Testlauf beenden am Ende der Sitzung bzw. des Laufs, was das Programm hinterlassen hat. Tests: `test_stopp_und_schliessen_beenden_den_enkel[vorzeitig-…]`, `test_natter_endet_beim_schliessen_ohne_fehlercode[vorzeitig]` (prüft jetzt auch den Enkel) und `test_prozessbaum_beenden_erreicht_den_enkel_eines_beendeten_programms` (auch mit eigenem Konsolenfenster) in `tests/test_stopp_prozessbaum.py`, `test_ein_vom_test_gestarteter_prozess_endet_mit_dem_lauf` in `tests/test_testrunner_ausfuehrung.py` und `test_beenden_erreicht_den_enkel_eines_beendeten_programms` in `tests/test_dap_client.py`; ohne die Änderung schlagen alle sieben Fälle fehl.
+
+
+---
+
+## 282. Struktogramm: ein Fall mit mehreren Werten („1, 2“) landet im falschen Zweig oder ergibt Code mit Syntaxfehler ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Durchsicht (`/durchsicht`), Entwicklungsstand `20b9278`.
+
+**Beobachtet:** In einer Fallauswahl fasst eine Spalte mit der Beschriftung `1, 2` zwei Werte zusammen, wie im Unterricht üblich (Note 1 oder 2). Unter dem Kopf `x` mit den Fällen `1, 2`, `3` und `sonst` erzeugt „Als Python“ `case 1, 2:`. Das ist in Python ein Sequenzmuster und passt nur auf ein Tupel `(1, 2)`: für `x = 1` und `x = 2` läuft der Code in `case _` und gibt „sonst“ aus, ohne jede Meldung. Steht in derselben Fallauswahl außerdem ein Fall, der kein einfacher Wert ist (etwa `< 5` oder ein Name), entsteht stattdessen `if note == 1, 2:`. Das lässt sich nicht übersetzen, obwohl der Moduldocstring zusagt, der erzeugte Code sei immer gültiges Python. Probe mit `als_python()` auf beiden Diagrammen; die zweite Ausgabe scheitert bei `compile()` mit „invalid syntax“.
+
+**Ursache:** nachgewiesen: `_ist_einfacher_wert` in `ide/diagramm/struktogramm_code.py` (Zeile 652) lässt ein Tupel aus Konstanten als Muster zu, und `_match` schreibt es unverändert hinter `case`. In der Kette aus `if`/`elif` hängt `_vergleich` (Zeile 508) die Beschriftung ohne Klammern an `==`. `uebersetzbar_machen` (Zeile 168) repariert nur übernommene Anweisungen, keine Kopfzeilen, und gibt bei einem Fehler in einer Kopfzeile auf (Zeile 188).
+
+**Zu tun:** Eine Beschriftung mit mehreren durch Komma getrennten Werten als Alternativen übersetzen: im `match` als `case 1 | 2:`, in der Kette als `x in (1, 2)`. Erledigt, wenn ein Test für `x = 1` und `x = 2` den Zweig „1, 2“ trifft und die Kettenvariante sich übersetzen lässt.
+
+**Behoben (28. September 2026, ab 0.4.0).** `ide/diagramm/struktogramm_code.py` hat die Hilfsfunktion `_alternativen`: eine Beschriftung wie „1, 2“ ohne Klammern gilt als Aufzählung einzelner Werte. `_mehrfachauswahl` prüft jeden Wert einzeln als Muster, `_match` schreibt `case 1 | 2:`, und `_vergleich` erzeugt in der Kette aus `if`/`elif` `x in (1, 2)`. Eine Beschriftung in Klammern wie „(1, 2)“ bleibt ein Tupel. Test: `test_ein_fall_mit_mehreren_werten_trifft_jeden_davon` in `tests/test_struktogramm_code.py` führt beide Varianten mit `x = 1` und `x = 2` aus; ohne die Änderung scheitert er.
+
+
+---
+
+## 283. Klassendiagramm: ein selbst modellierter Konstruktor in einer Unterklasse ruft die Basisklasse nicht auf ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Durchsicht (`/durchsicht`), Entwicklungsstand `20b9278`.
+
+**Beobachtet:** `Tier` mit dem Attribut `name`, `Hund` mit dem Attribut `rasse` und der Operation `__init__(name: str, rasse: str)`, Vererbung von `Hund` nach `Tier`. Der erzeugte `Hund.__init__` enthält nur `self.rasse = rasse`; ein `super().__init__(name)` fehlt, und `name` wird nirgends verwendet. `Hund("Bello", "Dackel").name` bricht mit „AttributeError: 'Hund' object has no attribute 'name'“ ab. Ohne modellierten Konstruktor ist das seit Punkt 149 richtig; wer den Konstruktor ausdrücklich einträgt, bekommt den Fehler zurück. Probe mit `diagramm_als_python()` und `exec` des Ergebnisses.
+
+**Ursache:** nachgewiesen: `_init_zeilen` in `ide/diagramm/klassen_code.py` (Zeile 341) überlässt einen modellierten Konstruktor `_operation_zeilen`, und dessen Rumpf aus `_zuweisungen_fuer_init` (Zeile 391) weist nur Parameter zu, die zu einem eigenen Attribut passen. Die Basisklasse sieht dieser Weg nicht.
+
+**Zu tun:** Hat die Klasse eine Basisklasse, im modellierten `__init__` zuerst `super().__init__(…)` mit den Parametern erzeugen, die der Konstruktor der Basisklasse erwartet und die im modellierten Konstruktor vorkommen; sonst `super().__init__()` mit einem Kommentar wie bei Punkt 149. Erledigt, wenn ein Test mit modelliertem `Hund.__init__` `Hund("Bello", "Dackel").name == "Bello"` findet.
+
+**Behoben (28. September 2026, ab 0.4.0).** `ide/diagramm/klassen_code.py` hat die Hilfsfunktion `_basisaufruf_fuer_init`, die `_operation_zeilen` vor die Zuweisungen eines selbst modellierten `__init__` setzt. Steht die Basisklasse im Diagramm, entsteht `super().__init__(…)` mit den Parametern ihres Konstruktors, die auch im modellierten Konstruktor vorkommen; fehlt davor einer, gehen die folgenden mit Namen hinüber, und ein fehlender Pflichtwert steht als Kommentar über dem Aufruf. Steht die Basisklasse nicht im Diagramm, entsteht wie bei Punkt 149 `super().__init__()` mit Hinweis. Tests: `test_modellierter_konstruktor_der_unterklasse_ruft_die_basisklasse` (`Hund("Bello", "Dackel").name == "Bello"`), `test_modellierter_konstruktor_reicht_spaetere_werte_mit_namen` und `test_modellierter_konstruktor_bei_fremder_basisklasse` in `tests/test_diagramm_klassen_code.py`; ohne die Änderung scheitern alle drei.
+
+
+---
+
+## 284. Struktogramm: die Zählschleife läuft im erzeugten Code nie, wenn sie der eigenen Vorgabe folgt ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Durchsicht (`/durchsicht`), Entwicklungsstand `20b9278`.
+
+**Beobachtet:** Eine neue Zählschleife trägt „für i von 1 bis n“. Wer dem Muster folgt und „für i von 1 bis 10“ schreibt, bekommt `for _ in range(0):`; der Rumpf läuft nie, der Kopf steht nur als Kommentar darüber, und `print(i)` im Rumpf verweist auf einen Namen, den es nicht gibt. Dasselbe gilt für „für i in range(1, 11)“ und „for i in range(1, 11)“. Nur „i in range(1, 11)“ ohne Schlüsselwort wird übernommen. Probe mit `als_python()` auf den fünf Schreibweisen. Für Kopf- und Fußschleife ist die gleiche Lücke mit Punkt 156 geschlossen worden; die Zählschleife blieb außen vor.
+
+**Ursache:** nachgewiesen: `_zaehlschleife` in `ide/diagramm/struktogramm_code.py` (Zeile 362) setzt den Blocktext unverändert hinter `for` und fällt sonst auf `range(0)` zurück (Zeile 370). Der Vorgabetext steht in `ide/diagramm/bloecke.py`, Zeile 39.
+
+**Zu tun:** „für“ bzw. „for“ am Anfang abschneiden und die Form „<Name> von <a> bis <b>“ (optional „Schrittweite <s>“) in `for <Name> in range(<a>, <b> + 1):` übersetzen, wenn `a` und `b` Python-Ausdrücke sind; „bis n“ aus dem unveränderten Vorgabetext bleibt Platzhalter. Erledigt, wenn ein Test aus „für i von 1 bis 10“ `for i in range(1, 10 + 1):` (oder gleichwertig) erhält und „für i in range(1, 11)“ übernommen wird.
+
+**Behoben (28. September 2026, ab 0.4.0).** `_zaehlschleife` in `ide/diagramm/struktogramm_code.py` nimmt den Kopf jetzt aus `_zaehlkopf`: ein „für“, „fuer“ oder „for“ am Anfang fällt weg, und „i von a bis b“ (auch „i = a bis b“, wahlweise mit „Schrittweite s“) wird zu `i in range(a, b + 1)`, bei negativer Schrittweite zu `range(a, b - 1, s)`. „für i in range(1, 11)“ und „for i in range(1, 11)“ werden übernommen. Der unveränderte Vorgabetext „für i von 1 bis n“ bleibt wie bisher Platzhalter mit `range(0)`, weil `n` im Programm meist nicht existiert. Test: `test_zaehlschleife_in_ueblicher_schreibweise_laeuft` in `tests/test_struktogramm_code.py` führt neun Schreibweisen aus und prüft die Zählwerte; ohne die Änderung scheitern alle außer „i in range(1, 11)“.
+
+---
+
+## 285. Ein vom Programm geöffneter Browser wird mit „Stopp“ geschlossen ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, beim Beheben von Punkt 281 (am Code erkannt, nicht nachgestellt).
+
+**Beobachtet:** Seit Punkt 281 läuft ein Schülerprogramm in einem Windows-Auftragsobjekt, und „Stopp“, der nächste Start und das Schließen von Natter beenden alles darin. Öffnet das Programm mit `open_url`, `os.startfile` oder `webbrowser` eine Webseite oder Datei und war der Browser bzw. das zuständige Programm noch nicht offen, entsteht es als Kindprozess im Auftrag und wird mit dem Programm beendet - samt anderen Tabs oder Dokumenten, die jemand inzwischen darin geöffnet hat.
+
+**Ursache:** vermutet: `ShellExecute` startet das zuständige Programm als Kind des aufrufenden Prozesses; ohne `JOB_OBJECT_LIMIT_BREAKAWAY_OK` bzw. eigenen Start außerhalb des Auftrags bleibt es darin.
+
+**Zu tun:** Nachstellen; Programme, die über die Shell geöffnet werden, aus dem Auftrag herauslösen (etwa `BREAKAWAY_OK` und Start mit `CREATE_BREAKAWAY_FROM_JOB` in `pcl` für `open_url`/`startfile`, oder das Öffnen über einen Dienst außerhalb des Auftrags). Erledigt, wenn ein Test ein über `open_url` gestartetes Programm nach „Stopp“ noch laufend findet, während ein normaler Enkel beendet wird.
+
+**Behoben (28. September 2026, ab 0.4.0).** Nachgestellt: ein Programm im Auftragsobjekt öffnet mit `os.startfile` bzw. `open_url` eine Datei mit einer eigens angelegten Endung, deren zuständiges Programm ein kleines Python-Programm ist. Dieses entstand als Kind im Auftrag und endete mit `prozessbaum_beenden`. `open_url` (`pcl/files.py`) übergibt das Ziel jetzt an `explorer.exe`, sobald der eigene Prozess in einem Auftrag läuft (`IsProcessInJob`). Der neue Explorer reicht das Öffnen an den Explorer der Anmeldung weiter und endet; das zuständige Programm entsteht außerhalb des Auftrags. Scheitert der Start, öffnet `webbrowser.open` wie bisher. Der zuerst erwogene Weg über `JOB_OBJECT_LIMIT_BREAKAWAY_OK` ist verworfen: er hätte jedem Programm erlaubt, sich mit `CREATE_BREAKAWAY_FROM_JOB` selbst aus dem Auftrag zu lösen. Test: `test_ein_mit_open_url_geoeffnetes_programm_uebersteht_stopp` in `tests/test_stopp_prozessbaum.py` öffnet eine Verknüpfung auf ein kleines Programm und startet daneben einen gewöhnlichen Enkel; nach dem Ende des Auftrags lebt das geöffnete Programm, der Enkel nicht. Die Gegenprobe (`ohne`, Öffnen im eigenen Prozess) findet beide beendet. Nicht erfasst: ruft ein Schülerprogramm `os.startfile` oder `webbrowser.open` selbst auf, bleibt das geöffnete Programm im Auftrag und endet mit „Stopp“.
+
+
+---
+
+## 286. Zwei Natter-Fenster auf demselben Projekt überschreiben sich gegenseitig ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand `188eb55`.
+
+**Beobachtet:** Ein Doppelklick auf die `.natter` im Explorer startet ein weiteres Natter, auch wenn das Projekt schon offen ist; der Starter lässt einen zweiten Start mit Projektdatei ausdrücklich zu. Beide Fenster schreiben dann in dieselben Dateien, ohne voneinander zu wissen. Probe mit zwei Hauptfenstern auf einer Kopie von `01_Begruessung`: Fenster A hängt an `u_main.py` eine Zeile an und speichert, danach hängt Fenster B, das die Datei vorher geöffnet hatte, eine andere Zeile an und speichert. In der Datei steht nur noch die Zeile aus B, die aus A ist ohne Nachfrage weg. Dasselbe gilt für eine Datei, die außerhalb von Natter geändert wurde, während sie im Editor offen war (zweite Probe: Änderung von außen, danach Tippen und Speichern im Editor, die Änderung von außen ist verloren). Der Designer schreibt die `.pfm` bei jeder Änderung neu und nimmt dabei ebenso keine Rücksicht auf den Stand auf der Platte (vermutet, nicht eigens nachgestellt). Im Unterricht entsteht die Lage leicht: das Projekt ist schon offen, die Schülerin klickt es im Explorer noch einmal an und arbeitet mal im einen, mal im anderen Fenster weiter.
+
+**Ursache:** nachgewiesen: `ide/shell/hauptfenster.py`, `datei_oeffnen` (Zeile 3340) liest die Datei einmal, und `alle_speichern` (Zeilen 3443-3462) schreibt den Editorinhalt über `atomar_schreiben`, ohne zu prüfen, ob sich die Datei seit dem Öffnen geändert hat. Einen `QFileSystemWatcher` oder einen Vergleich von Änderungszeit oder Inhalt gibt es für Editoren nicht (nur für die HTML- und Markdown-Ansicht), und `ide/main.py` (Zeilen 173-175) kennt keine Sperre für ein schon geöffnetes Projekt.
+
+**Zu tun:** Beim Speichern prüfen, ob die Datei seit dem Öffnen oder dem letzten Speichern von außen geändert wurde, und dann nachfragen statt still zu überschreiben; eine geänderte Datei ohne eigene Änderungen im Editor neu laden. Zusätzlich beim Öffnen eines Projekts erkennen, dass es in einem anderen Natter schon offen ist (Sperrdatei im Projektordner oder benannte Sperre je Projektpfad), und darauf hinweisen. Erledigt, wenn die Probe mit zwei Fenstern die Änderung aus A nicht mehr ohne Rückfrage verliert und ein zweites Öffnen desselben Projekts einen Hinweis zeigt.
+
+**Behoben (28. September 2026, ab 0.4.0).** Jeder Editor merkt sich beim Öffnen, Speichern und Neuladen Änderungszeit und Größe seiner Datei (`ide/dateistand.py`, Qt-Eigenschaft `dateistand`). `_editor_speichern` in `ide/shell/hauptfenster.py`, das jetzt Strg+S, „Alle speichern“, das Speichern beim Schließen und beim Projektwechsel übernimmt, fragt bei einer seitdem geänderten Datei nach: „Überschreiben“, „Neu laden“ (als ein Schritt, den Strg+Z zurücknimmt) oder „Abbrechen“. Ein Editor ohne eigene Änderungen lädt die Datei neu, sobald das Fenster wieder in den Vordergrund kommt. Der Designer prüft die `.pfm` vor jedem Schreiben ebenso (`DesignerCanvas.speichern`); nach „Nein“ schreibt er bis zum nächsten Strg+S nicht mehr und fragt auch nicht bei jeder weiteren Änderung. Die `_design.py` entsteht aus der `.pfm` und braucht keine eigene Prüfung. Schreibt der Designer selbst in die Unit (neue Ereignismethode, Umbenennen), übernehmen die Editoren den neuen Stand, damit danach nicht grundlos gefragt wird. Beim Öffnen eines Projekts legt Natter die Sperrdatei `.natter-sperre` mit Prozessnummer und Startzeit in den Projektordner (`ide/project/sperre.py`) und entfernt sie beim Schließen; hält ein anderes, noch laufendes Natter das Projekt, erscheint ein Hinweis, und das Projekt geht trotzdem auf. Eine liegengebliebene Sperre nach einem Absturz zählt nicht, auch nicht, wenn Windows die Prozessnummer inzwischen neu vergeben hat. Tests: `tests/test_von_aussen_geaendert.py` (zwei Fenster mit allen drei Antworten, Neuladen ohne eigene Änderungen, keine Nachfrage nach einer Methode aus dem Designer, `.pfm` im Designer, Hinweis beim zweiten Öffnen) und `tests/test_projekt_sperre.py`; ohne die Änderung scheitern sieben der neun Fälle in der ersten Datei.
+
+
+---
+
+## 287. `pcl`: `SQLQuery.open()` mit schreibender Anweisung lässt die Transaktion offen ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand `188eb55`.
+
+**Beobachtet:** In der Ereignismethode eines `DBNavigator` liegt es nahe, `self.q.sql = "INSERT …"` zu setzen und `self.q.open()` statt `exec_sql()` zu rufen. Das geht ohne Fehler durch, die Zeile erscheint nach dem nächsten `open()` mit SELECT auch im `DBGrid`, sie ist aber nicht festgeschrieben. Probe unter `%TEMP%`: nach `open()` mit `INSERT` ist `in_transaction` wahr, eine zweite Verbindung sieht die Zeile nicht und bekommt beim Schreiben „database is locked“, und nach dem Schließen der Verbindung ist die Tabelle leer. Der Hinweis beim Programmende nennt nur `commit()` und `transaction()`, nicht die eigentliche Ursache. Punkt 238 hat dasselbe für `SQLite3Connection.query()` behoben; `SQLQuery.open()` und `SQLQuery.to_dataframe()` sind dabei geblieben.
+
+**Ursache:** nachgewiesen: `pcl/components/data_access.py`, `SQLQuery.open` (Zeilen 456-463) und `to_dataframe` (Zeilen 567-577) holen die Zeilen, rufen aber anders als `query()` (Zeile 196) und `exec_sql()` (Zeile 474) nicht `_festschreiben_falls_eigen`.
+
+**Zu tun:** In `open()` und `to_dataframe()` nach dem Holen der Zeilen `self.database._festschreiben_falls_eigen(self.sql, war_offen)` aufrufen, wie in `query()`. Erledigt, wenn ein Test nach `open()` mit `INSERT` keine offene Transaktion findet und eine zweite Verbindung die Zeile sieht.
+
+**Behoben (28. September 2026, ab 0.4.0).** `SQLQuery.open()` und `SQLQuery.to_dataframe()` (`pcl/components/data_access.py`) rufen nach dem Holen der Zeilen `_festschreiben_falls_eigen` wie `query()` und `exec_sql()`. Hat erst die Anweisung die Transaktion geöffnet, wird sie festgeschrieben; eine mit `BEGIN` begonnene bleibt offen, bis `commit()` oder `rollback()` kommt. Nach `open()` mit `INSERT` ist keine Transaktion mehr offen, und eine zweite Verbindung sieht die Zeile und kann schreiben. Tests: `test_sqlquery_mit_insert_schreibt_fest` und `test_sqlquery_laesst_eine_begonnene_transaktion_offen` in `tests/test_db_sqlite.py`, je für `open` und `to_dataframe`; ohne die Änderung scheitert der erste.
+
+
+---
+
+## 288. CSV-Import im Datenbank-Panel legt alle Spalten als Text an, Vergleiche und Sortierung von Zahlen gehen falsch ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Sicherheitsprüfung, Entwicklungsstand `188eb55`.
+
+**Beobachtet:** „CSV importieren …“ legt jede Spalte mit dem Typ `TEXT` an und speichert jeden Wert als Text. Abfragen, wie sie im Unterricht direkt nach dem Import geschrieben werden, liefern dann falsche Ergebnisse ohne Fehlermeldung. Probe mit `artikel.csv` (`name;preis;menge`, Zeilen `Apfel;0,5;10`, `Birne;12;9`, `Kiwi;3;100`): `SELECT name FROM artikel WHERE menge > 50` liefert „Birne“ statt „Kiwi“, `ORDER BY menge DESC` ergibt Birne, Kiwi, Apfel, `max(menge)` ist „9“, und `sum(preis)` ergibt 15, weil „0,5“ mit Dezimalkomma als 0 zählt. Wer eine Auswertung mit SQL übt, bekommt so falsche Lösungen, die nicht als Fehler auffallen.
+
+**Ursache:** nachgewiesen: `ide/database/panel.py`, `_csv_einlesen` (Zeile 1128) setzt für jede Spalte `TEXT`, und die Werte gehen unverändert als Text in `executemany` (Zeilen 1151-1161). Mit der Spaltenaffinität `TEXT` vergleicht SQLite auch mit einer Zahl im SQL als Text.
+
+**Zu tun:** Beim Import je Spalte erkennen, ob alle nicht leeren Werte ganze Zahlen oder Kommazahlen sind (Dezimalkomma wie Punkt, wie `pcl.zahlen.zahl` es liest), die Spalte dann als `INTEGER` bzw. `REAL` anlegen und die Werte als Zahl einfügen, leere Felder als `NULL`; alle übrigen Spalten bleiben `TEXT`. Erledigt, wenn die drei Abfragen aus der Probe nach dem Import „Kiwi“, die Reihenfolge Kiwi, Apfel, Birne, `max(menge) = 100` und `sum(preis) = 15,5` liefern.
+
+**Behoben (28. September 2026, ab 0.4.0).** Der CSV-Import des Datenbank-Panels (`ide/database/panel.py`) liest die Datei vorab einmal ganz und bestimmt je Spalte den Typ: INTEGER, wenn alle nicht leeren Felder ganze Zahlen sind, REAL, wenn Kommazahlen darunter sind (gelesen mit `pcl.zahlen.zahl`, also mit Dezimalkomma wie mit Dezimalpunkt), sonst TEXT. In Zahlenspalten werden die Werte als Zahl eingefügt und leere Felder als NULL; Textspalten bleiben unverändert. Werte mit führender Null wie Postleitzahlen und Ziffernfolgen über 64 Bit lassen die Spalte Text bleiben. Mit `artikel.csv` aus der Probe liefert `menge > 50` jetzt „Kiwi“, `ORDER BY menge DESC` Kiwi, Apfel, Birne, `max(menge)` 100 und `sum(preis)` 15,5. Tests: `test_csv_import_legt_zahlenspalten_als_zahlen_an` und `test_csv_import_erkennt_leere_und_gemischte_spalten` in `tests/test_database_panel.py`; ohne die Änderung scheitern beide. Zwei ältere Tests erwarteten Text und erwarten jetzt Zahlen.
+
+---
+
+## 289. Konsolenprogramm ohne `def main()`: erst läuft es, dann meldet es eine fehlende Unit ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Benutzbarkeitsprüfung (Blick der Siebtklässlerin), Entwicklungsstand `75a8e42`.
+
+**Beobachtet:** Neues Konsolenprojekt, in `u_main.py` wird `def main():` gelöscht und das Programm ohne Funktion hingeschrieben, wie es in vielen Anleitungen für Anfänger steht:
+
+```python
+name = input("Name? ")
+print("Hallo", name)
+```
+
+Die Prüfung vor dem Start findet nichts, das Programm startet (Status „Hallo gestartet“), fragt nach dem Namen, schreibt „Hallo Anna“ und endet dann mit:
+
+„Laufzeitfehler: Unit oder Paket nicht gefunden (ImportError) / Wo: main.py, Zeile 4, in <module> / from u_main import main / Was: Die Unit oder das Paket „u_main“ konnte nicht geladen werden. / Prüfe: Heißt die Unit wirklich so, mit derselben Groß- und Kleinschreibung, und liegt sie im Projektordner? …“
+
+Die Unit liegt da und wurde gerade ausgeführt. Die Meldung schickt auf die Suche nach einem Dateinamen, und „Wo“ zeigt auf `main.py`, in der laut Kopfkommentar „nichts zu ändern“ ist. Was fehlt, ist die Funktion `main`. Dasselbe, wenn `main` umbenannt oder falsch geschrieben wird (`def Main():`). Nachgestellt mit der Konsolen-Hülle aus `ide/run/starter.py` und im Hauptfenster.
+
+**Ursache:** nachgewiesen: Python meldet „cannot import name 'main' from 'u_main'“ als `ImportError` mit `name == "u_main"`. `pcl/fehlerkatalog.py`, `_import_error` (Zeilen 1045-1068) wertet nur `exc.name` aus und unterscheidet nicht zwischen „Modul fehlt“ und „Name im Modul fehlt“. Die Prüfung vor dem Start (`ide/run/pruefung.py`) prüft nicht, ob `u_main.py` die Funktion hat, die `main.py` importiert.
+
+**Zu tun:** Im Fehlerkatalog „cannot import name X from Y“ eigens behandeln: „In der Unit u_main gibt es keine Funktion oder Klasse main.“ mit einem Prüfe-Teil, der nach `def main():` fragt. Besser noch vor dem Start: fehlt in der Haupt-Unit eines Konsolenprojekts `def main`, nicht starten und das im Panel „Meldungen“ mit Datei und Zeile sagen. Erledigt, wenn ein Test mit der Unit ohne `def main` die neue Meldung findet und keine Ausgabe des Programms davor.
+
+**Behoben (28. September 2026, ab 0.4.0).** Beides umgesetzt. Vor dem Start prüft `ide/run/pruefung.py` (`_importe_pruefen`) jedes `from <unit> import <name>` gegen die Namen, die die Unit im Projektordner auf oberster Ebene festlegt; fehlt einer, startet das Programm nicht. Importiert die Startdatei den Namen, steht der Fund in der Unit („u_main.py, Zeile 1: In u_main.py gibt es keine Funktion oder Klasse main. main.py ruft sie beim Start auf.“), bei `def Main():` in deren Zeile mit dem Hinweis auf die Schreibweise; die Leitfrage fragt nach „def main():“. Zur Laufzeit erkennt `pcl/fehlerkatalog.py` „cannot import name 'main' from 'u_main'“ eigens: „In der Unit u_main gibt es keine Funktion, Klasse oder Variable main. Die Unit selbst wurde gefunden und geladen.“, und „Wo“ zeigt auf `u_main.py` statt auf `main.py`. Tests: `tests/test_vorstart_erste_schritte.py` (Prüfung), `test_ohne_def_main_startet_nichts_und_die_meldung_nennt_main` in `tests/test_hauptfenster_erste_schritte.py` (kein Prozess, also keine Ausgabe davor) und `test_fehlende_funktion_in_vorhandener_unit` in `tests/test_fehlerkatalog_erste_schritte.py`.
+
+
+---
+
+## 290. Strg+Z im Editor nimmt die angelegte Ereignismethode weg, danach startet das Programm nicht mehr ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Benutzbarkeitsprüfung (Blick der Siebtklässlerin), Entwicklungsstand `75a8e42`.
+
+**Beobachtet:** Neues GUI-Projekt, Knopf und Beschriftung platziert, Doppelklick auf den Knopf: `button_click` steht in `u_main.py`, der Cursor darin. Eine Zeile getippt, dann mehrfach Strg+Z, weil die Zeile nicht gefiel (in der Probe 30-mal). Danach fehlt auch die Methode selbst im Editor. `u_main_design.py` enthält weiter `self.button.on_click = self.button_click`. Die Prüfung vor dem Start findet nichts, das Programm bricht beim Öffnen des Fensters ab:
+
+„Laufzeitfehler: Unbekannte Eigenschaft (AttributeError) / Wo: u_main_design.py, Zeile 15, in create_components / self.button.on_click = self.button_click / Was: „button_click“ existiert bei diesem Objekt nicht. / Prüfe: Ist der Name richtig geschrieben? Ist es wirklich der erwartete Objekttyp?“
+
+„Wo“ zeigt in eine Datei, die im Projekt-Explorer nicht steht und nie von Hand geändert wird. Wie die Methode wiederkommt (erneuter Doppelklick auf den Knopf), sagt die Meldung nicht. Strg+Z mehrmals hintereinander ist im Unterricht alltäglich.
+
+**Ursache:** nachgewiesen: `ide/designer/canvas.py`, `ereignis_handler_erzeugen` (ab Zeile 2477) fügt die Methode als gewöhnliche Bearbeitung in den offenen Editor ein, sie liegt also auf dessen Rückgängig-Stapel. `ide/run/pruefung.py` prüft nur den Quelltext mit Ruff und vergleicht die Ereignisse der `.pfm` nicht mit den Methoden der Unit.
+
+**Zu tun:** Vor dem Start die in der `.pfm` verknüpften Methoden mit denen der Unit vergleichen und bei einer fehlenden im Panel „Meldungen“ sagen, welche Methode fehlt und dass ein Doppelklick auf die Komponente sie neu anlegt (oder anbieten, sie anzulegen). Zusätzlich die Laufzeitmeldung für diesen Fall in `pcl` so fassen, dass sie Komponente und Ereignis nennt statt auf `u_main_design.py` zu zeigen. Erledigt, wenn ein Test nach Rückgängig im Editor nicht startet und die Meldung die fehlende Methode nennt.
+
+**Behoben (28. September 2026, ab 0.4.0).** Vor dem Start vergleicht `_ereignisse_pruefen` in `ide/run/pruefung.py` die Verknüpfungen jeder `.pfm` mit den Methoden der Klasse, die sie nennt (nur wenn die Klasse allein von ihrer Design-Klasse erbt). Eine fehlende Methode verhindert den Start; die Meldung nennt Methode, Ereignis und Komponente und fragt, ob nur der Doppelklick fehlt, der sie neu anlegt. Damit der Doppelklick das auch tut, wenn die Methode nach Strg+Z und Speichern schon aus der Datei verschwunden ist, fügt `_zur_methode_springen` in `ide/shell/hauptfenster.py` sie in diesem Fall in den Editor ein; bis dahin sprang er nur ins Leere. Zur Laufzeit erkennt der Fehlerkatalog den `AttributeError` in der Verknüpfungszeile einer `*_design.py` und meldet „Das Ereignis on_click der Komponente button ist im Formular u_main.pfm mit der Methode button_click verknüpft, aber in u_main.py gibt es diese Methode nicht.“ mit „Wo“ in `u_main.py`, auch im Debugger. Tests: `test_nach_rueckgaengig_im_editor_startet_nichts_und_doppelklick_hilft` in `tests/test_hauptfenster_erste_schritte.py`, dazu `tests/test_vorstart_erste_schritte.py` und `tests/test_fehlerkatalog_erste_schritte.py`.
+
+
+---
+
+## 291. Syntaxfehler vor dem Start: falsche Zeile bei fehlender Klammer, dreifache Meldung bei `=` statt `==` ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Benutzbarkeitsprüfung (Blick der Siebtklässlerin), Entwicklungsstand `75a8e42`.
+
+**Beobachtet:** Im Hauptfenster getippt und mit Strg+F5 gestartet, Panel „Meldungen“:
+
+1. Fehlende schließende Klammer in Zeile 2 (`name = input("Name? "`): zwei Meldungen, beide „Python versteht diese Zeile nicht. Fehlt am Zeilenende ein Doppelpunkt, eine schließende Klammer oder ein Anführungszeichen?“, für Zeile 3 und Zeile 4. Zeile 2 ist nirgends genannt, die Wellenlinie steht unter Zeile 3, ein Klick auf die erste Meldung setzt den Cursor in Zeile 3. Dort ist alles richtig. Python selbst nennt Zeile 2 („'(' was never closed“).
+2. `if a = 3:` in Zeile 3: vier Meldungen, dreimal wörtlich gleich für Zeile 3 und einmal „Diese Zeile ist eingerückt, aber davor beginnt kein Block“ für Zeile 4, die richtig eingerückt ist. Keine sagt, dass zum Vergleichen `==` gehört. Das ist einer der häufigsten Fehler im ersten Jahr; Python meldet selbst „Maybe you meant '==' …“.
+3. Jede Meldung endet mit dem englischen Regelnamen, etwa „[invalid-syntax]“ oder „[F821]“. Einschätzung: für eine Siebtklässlerin ein unverständlicher Rest, der beim Lesen stört.
+
+Belegt mit Bildschirmfoto im Probeordner (Meldungen für Zeile 3 und 4, Zeile 2 ohne Markierung).
+
+**Ursache:** nachgewiesen für die Zeilen: Ruff meldet `invalid-syntax` dort, wo der Parser aufgibt, und ohne Folgefehler zu unterdrücken; `ide/run/pruefung.py` übernimmt jeden Fund einzeln. Die Übersetzung sucht in `_SYNTAX_GENAUER` nur nach Einrückungsfällen. `RuffFund.__str__` (Zeilen 178-185) hängt den Regelnamen an.
+
+**Zu tun:** Bei Syntaxfehlern nur den ersten Fund je Datei zeigen oder die Meldung von Pythons eigenem `compile()` übernehmen, das bei offenen Klammern die Zeile der öffnenden Klammer nennt; dafür eigene Fassungen für „nie geschlossene Klammer“ (mit Zeile der Klammer) und „`=` in einer Bedingung“ (Hinweis auf `==`) anlegen. Den Regelnamen aus der sichtbaren Zeile nehmen (im Tooltip darf er bleiben). Erledigt, wenn Tests für beide Beispiele genau eine Meldung mit der richtigen Zeile und dem passenden Hinweis finden.
+
+**Behoben (28. September 2026, ab 0.4.0).** `_syntaxfehler_zusammenfassen` in `ide/run/pruefung.py` behält je Datei nur einen Syntaxfehler und nimmt dafür Zeile und Text von Pythons eigenem `compile()`; Ruffs erster Fund bleibt nur, wenn Python den Quelltext annimmt. Neue Fassungen in `_SYNTAX_GENAUER`: „Die Klammer „(“ in dieser Zeile wird nie geschlossen.“ (Zeile der öffnenden Klammer) und für `=` in einer Bedingung „Mit = bekommt ein Name einen Wert; verglichen wird mit ==.“. `RuffFund.__str__` hängt den Regelnamen nicht mehr an; er steht als Tooltip am Eintrag im Panel „Meldungen“ (`RuffFund.regel`). Tests: `test_offene_klammer_ergibt_eine_meldung_fuer_ihre_zeile`, `test_gleichheitszeichen_in_der_bedingung_ergibt_eine_meldung` und `test_die_zeile_im_panel_nennt_keine_regel` in `tests/test_vorstart_erste_schritte.py`.
+
+
+---
+
+## 292. Die Design-Prüfung rügt nach jedem Platzieren die Namen, die der Designer selbst vergibt ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Benutzbarkeitsprüfung (Blick der Siebtklässlerin), Entwicklungsstand `75a8e42`.
+
+**Beobachtet:** Neues GUI-Projekt, zwei Knöpfe, ein Eingabefeld und eine Beschriftung platziert, sonst nichts. Das Panel „Meldungen“ zeigt zehn Einträge, die Statusleiste „Design-Prüfung: 10 Funde“. Acht davon betreffen die Namen, zwei je Komponente: „button (Button) hat nicht das übliche Präfix 'b_' …“ und „button sieht wie ein unveränderter Standardname aus …“. Die Namen `button`, `edit`, `label`, `button2` hat der Designer selbst vergeben. „Erste Schritte“ und der Kopfkommentar in `u_main.py` zeigen dagegen `b_ok`, `l_titel`, `b_start_click`, ohne zu sagen, dass die Namen erst umbenannt werden müssen. Dazu steht auf der Beschriftung „Label1“, obwohl sie `label` heißt.
+
+Einschätzung: Eine Anfängerin hat nach den ersten Klicks eine Liste von Beanstandungen vor sich, ohne einen Fehler gemacht zu haben, und gewöhnt sich daran, das Panel „Meldungen“ zu übergehen. Am Code nachgewiesen kommt dazu: `_design_pruefen` leert das Panel bei jeder Änderung im Designer (`ide/shell/hauptfenster.py`, Zeile 4770). Stehen dort gerade die Funde der Prüfung vor dem Start, verschwinden sie beim nächsten Verschieben eines Knopfs.
+
+**Ursache:** nachgewiesen: `ide/designer/canvas.py`, Zeile 763 bildet den Namen aus `typ.__name__.lower()`; `ide/lint/regeln.py`, `_namenskonvention_pruefen` (ab Zeile 555) meldet genau dieses Muster zweimal; die automatische Prüfung ist beim Start eingeschaltet (`ide/shell/hauptfenster.py`, Zeilen 1331-1348, 4763-4765). `Label.caption` hat den Vorgabewert „Label1“ (`pcl/components/standard.py`, Zeile 165).
+
+**Zu tun:** Der Designer vergibt Namen, die zur eigenen Konvention passen (etwa `b_button1`, `e_edit1`, `l_label1`, oder nur das Präfix mit Zahl), und die beiden Namenshinweise werden je Komponente zu einem zusammengefasst. Vorgabetext und Name der Beschriftung stimmen überein. Die automatische Design-Prüfung überschreibt keine Funde der Prüfung vor dem Start. Erledigt, wenn ein Test mit frisch platzierten Komponenten keinen Namenshinweis mehr findet und Funde der Vorstartprüfung nach einer Änderung im Designer noch im Panel stehen.
+
+**Behoben (28. September 2026, ab 0.4.0).** Gelöst zusammen mit Punkt 301. Die Design-Prüfung, die nach jeder Änderung im Designer läuft, lässt die Regeln `namenskonvention.standardname` und `namenskonvention.standardtext` aus (`_NACH_JEDER_AENDERUNG_STILL` in `ide/shell/hauptfenster.py`). Über „Werkzeuge → Design prüfen“ erscheinen sie weiterhin. Ein Standardname wie `button` bekommt dort nur noch einen Hinweis, der das Präfix mit vorschlägt (`_namenskonvention_pruefen` in `ide/lint/regeln.py`). `_design_pruefen` leert das Panel „Meldungen“ nicht mehr, sondern ersetzt nur die eigenen Einträge (Kennung `_DESIGN_ROLLE`); Funde der Prüfung vor dem Start bleiben stehen. Die Namen, die der Designer vergibt, und der Vorgabetext „Label1“ sind unverändert. Tests: `test_frisch_platzierte_komponenten_ohne_namenshinweis` und `test_design_pruefung_laesst_funde_vor_dem_start_stehen` in `tests/test_hauptfenster_design_pruefer.py`.
+
+
+---
+
+## 293. Leeres Eingabefeld beim Klick: „Der Text „“ lässt sich nicht als ganze Zahl lesen“ ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Benutzbarkeitsprüfung (Blick der Siebtklässlerin), Entwicklungsstand `75a8e42`.
+
+**Beobachtet:** Der häufigste Laufzeitfehler im ersten Fensterprogramm: auf „Verdoppeln“ geklickt, bevor etwas im Eingabefeld steht, in der Methode steht `int(self.edit.text)`. Die Meldung lautet „Was: Der Text „“ lässt sich nicht als ganze Zahl lesen. Prüfe: Steht in dem Text wirklich nur eine ganze Zahl – ohne Leerzeichen, Einheit oder Nachkommastelle?“ Einschätzung: zwei leere Anführungszeichen erkennt eine Siebtklässlerin nicht als „das Feld war leer“, und der Prüfe-Teil fragt nach Leerzeichen und Einheiten statt nach dem leeren Feld. Dasselbe gilt für `float()` und für `input()` mit bloßer Eingabetaste im Konsolenprogramm.
+
+**Ursache:** nachgewiesen: `pcl/fehlerkatalog.py`, Zeilen 353-364 kennen für `invalid literal for int()` und `could not convert string to float` keinen eigenen Fall für den leeren Text.
+
+**Zu tun:** Für den leeren Text (`''`) eine eigene Fassung: „Der Text ist leer - es wurde nichts eingegeben, bevor die Zahl gelesen wurde.“ mit einer Leitfrage danach, ob das Feld vorher geprüft wird. Erledigt, wenn ein Test für `int("")` und `float("")` die neue Meldung findet.
+
+**Behoben (28. September 2026, ab 0.4.0).** `_STANDARDMELDUNGEN` in `pcl/fehlerkatalog.py` hat vor den allgemeinen Fassungen je einen Eintrag für `int('')` und `float('')`: „Der Text ist leer – es wurde nichts eingegeben, bevor die ganze Zahl gelesen wurde.“ (bzw. „die Kommazahl“), mit der Leitfrage, ob im Eingabefeld schon etwas stand und der leere Fall vorher geprüft oder abgefangen wird. Eingetragen auch in `docs/fehlerkatalog.yaml` (`hinweis_leerer_text`). Test: `test_leerer_text_wird_als_leeres_feld_erklaert` in `tests/test_fehlerkatalog_erste_schritte.py`.
+
+
+---
+
+## 294. Eine Komponente, die im Code benutzt wird, lässt sich ohne Hinweis löschen ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Benutzbarkeitsprüfung (Blick der Oberstufenschülerin), Entwicklungsstand `75a8e42`.
+
+**Beobachtet:** In `u_main.py` steht `self.label.caption = 'x'`. Im Designer wird die Beschriftung `label` ausgewählt und gelöscht. Es gibt keine Nachfrage und keinen Hinweis; die Statusleiste meldet nur die Design-Prüfung. Die Prüfung vor dem Start findet nichts (Funde: leer). Beim Lauf endet das Programm mit „Was: „label“ existiert bei diesem Objekt nicht. Prüfe: Ist der Name richtig geschrieben? Ist es wirklich der erwartete Objekttyp?“. Dass eine Komponente auf dem Formular fehlt, kommt in der Meldung nicht vor. Strg+Z im Designer holt die Komponente zurück, aber nur, solange niemand weiß, dass es nötig ist.
+
+**Ursache:** nachgewiesen: `ide/designer/canvas.py`, `loeschen` (Zeilen 2082-2098) führt das Löschkommando ohne Blick in die Unit aus. Der Fall im Fehlerkatalog (`_attribute_error`, `pcl/fehlerkatalog.py` ab Zeile 852) unterscheidet nicht, ob das fehlende Attribut an einem Formular gesucht wurde.
+
+**Zu tun:** Beim Löschen prüfen, ob `self.<name>` in der Unit vorkommt, und dann nachfragen („label wird in u_main.py in Zeile 12 benutzt. Trotzdem löschen?“). Fehlt zur Laufzeit ein Attribut an einem `Form`, im Was-Teil sagen, dass auf dem Formular keine Komponente dieses Namens liegt. Erledigt, wenn Tests die Nachfrage beim Löschen und die angepasste Meldung finden.
+
+**Behoben (28. September 2026, ab 0.4.0).** `DesignerCanvas.loeschen` (`ide/designer/canvas.py`) sucht vor dem Löschen in der Unit nach `self.<name>`, auch für den Inhalt eines Behälters und bei Mehrfachauswahl, und fragt dann nach: „„label“ wird in u_main.py in Zeile 6 benutzt. Ohne die Komponente bricht das Programm an dieser Stelle ab. Trotzdem löschen?“. Gelesen wird der Text im offenen Editor vor dem auf der Platte. Tests: `tests/test_designer_loeschen_nachfrage.py`. Offen ist die Meldung zur Laufzeit: der Was-Teil in `pcl/fehlerkatalog.py` sagt noch nicht, dass auf dem Formular keine Komponente dieses Namens liegt. Laufzeitteil: Fehlt zur Laufzeit ein Attribut `self.<name>` an einem Formular, liest der Fehlerkatalog (`_komponente_fehlt` in `pcl/fehlerkatalog.py`) die `.pfm` neben der Unit. Nennt sie die Klasse, aber keine Komponente dieses Namens, lautet „Was“: „Auf dem Formular Form1 gibt es keine Komponente „label“, und die Klasse hat auch keine Methode oder Variable dieses Namens.“; die Leitfrage fragt, ob die Komponente im Designer gelöscht oder umbenannt wurde, und nennt Strg+Z im Designer. „Wo“ bleibt die Zeile im eigenen Code; gilt auch im Debugger. Tests: `test_geloeschte_komponente_wird_als_solche_gemeldet`, `test_geloeschte_komponente_auch_im_debugger` und `test_eine_vorhandene_komponente_bleibt_bei_der_alten_meldung` in `tests/test_fehlerkatalog_erste_schritte.py`. Die Nachfrage beim Löschen im Designer gehört zu einem anderen Strang.
+
+
+---
+
+## 295. Einzelschritt und Prozedurschritt sind vor dem Start grau, F11 tut dann nichts ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Benutzbarkeitsprüfung (Blick der Siebtklässlerin), Entwicklungsstand `75a8e42`.
+
+**Beobachtet:** Aufgabe „eine Schleife Schritt für Schritt verfolgen“: Konsolenprojekt mit `for`-Schleife geöffnet, F11 gedrückt. Nichts geschieht, die Statusleiste bleibt bei „Projekt Schleife geöffnet“. „Einzelschritt“ und „Prozedurschritt“ sind in Menü und Werkzeugleiste grau, der Tooltip sagt nur „Einzelschritt (F11)“. Dass erst ein Haltepunkt gesetzt und mit F5 gestartet werden muss, steht nirgends an der Stelle, an der gesucht wird. Mit Haltepunkt in der Schleife funktioniert der Rest gut: F10 geht zwischen Zeile 3 und 4 hin und her, das Panel „Variablen“ zeigt `i` und `summe` mit den richtigen Werten.
+
+Einschätzung: der erste Versuch mit dem Debugger endet damit ohne jede Rückmeldung, und eine Anfängerin schließt daraus, dass der Einzelschritt nicht geht.
+
+**Ursache:** nachgewiesen: die Aktionen `start.einzelschritt` und `start.prozedurschritt` (`ide/shell/hauptfenster.py`, ab Zeile 1431) sind ohne laufende Debug-Sitzung abgeschaltet; eine abgeschaltete Aktion nimmt auch ihr Tastenkürzel nicht an.
+
+**Zu tun:** F11 und F10 ohne laufendes Programm starten es mit dem Debugger und halten in der ersten Zeile der Haupt-Unit (bei einem Konsolenprojekt in `main()`, nicht in `main.py`). Mindestens aber die Aktionen aktiv lassen und in der Statusleiste sagen, wie der Einzelschritt beginnt. Erledigt, wenn ein Test nach F11 ohne laufendes Programm einen Halt in `u_main.py` findet.
+
+**Behoben (28. September 2026, ab 0.4.0).** Einzelschritt und Prozedurschritt sind ohne laufendes Programm anklickbar (`_startaktionen_pruefen` in `ide/shell/hauptfenster.py`); grau sind sie nur, solange das Programm frei läuft. Ohne Debug-Sitzung starten F11 und F10 das Programm mit dem Debugger und halten in der Zeile, die `erste_zeile_der_haupt_unit` (`ide/run/starter.py`) liefert: bei einem Konsolenprojekt die erste Anweisung in `main()` von `u_main.py`, sonst die erste Anweisung der Haupt-Unit. Die Statusleiste nennt Datei und Zeile. `docs/erste_schritte.md` beschreibt das. Tests: `test_schritt_ohne_laufendes_programm_haelt_in_u_main` (für beide Befehle, gegen echtes debugpy) in `tests/test_debugger_schritt_vor_dem_start.py`, dazu die angepassten Gruppen in `tests/test_kopfzeile_und_fusszeile.py`.
+
+
+---
+
+## 296. „Neues Projekt“ ohne Namen: der Dialog schließt sich, der Hinweis steht nur in der Statusleiste ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Benutzbarkeitsprüfung (Blick der Siebtklässlerin), Entwicklungsstand `75a8e42`.
+
+**Beobachtet:** Im Dialog „Neues Projekt“ ohne Namen auf „OK“ geklickt: der Dialog schließt sich, es entsteht kein Projekt, und unten in der Statusleiste steht „Name und Ordner werden benötigt - beide Felder im Dialog ausfüllen.“ Der Dialog, in dem das geschehen soll, ist dann schon zu. Ein ungültiger Name wie „rechner?“ oder „con“ bekommt dagegen einen roten Hinweis im Dialog, und der Dialog bleibt offen.
+
+**Ursache:** nachgewiesen: `ide/project/neu_dialog.py`, `accept` (Zeilen 88-98) prüft den Namen nur, wenn einer eingegeben ist (`name_pruefen(name) if name else None`), und schließt bei leerem Namen. Die Meldung kommt erst danach aus `ide/shell/hauptfenster.py`, `_neues_projekt_dialog` (Zeilen 1596-1600).
+
+**Zu tun:** Leeren Namen und leeren Ordner in `accept` wie einen ungültigen Namen behandeln: roter Hinweis im Dialog, Fokus ins leere Feld, Dialog bleibt offen. Erledigt, wenn ein Test nach „OK“ ohne Namen den Dialog offen und den Hinweis sichtbar findet.
+
+**Behoben (28. September 2026, ab 0.4.0).** `NeuesProjektDialog.accept` (`ide/project/neu_dialog.py`) behandelt einen leeren Namen und einen leeren Ordner wie einen ungültigen Namen: roter Hinweis im Dialog („Das Projekt braucht einen Namen.“ bzw. „… einen Ordner, in dem es angelegt wird.“), der Fokus geht ins leere Feld, und der Dialog bleibt offen. Tests: `test_dialog_bleibt_ohne_namen_offen` und `test_dialog_bleibt_ohne_ordner_offen` in `tests/test_projekt_name_pruefen.py`; ohne die Änderung schließt sich der Dialog.
+
+
+---
+
+## 297. Meldung „Button.caption erwartet ein Text (str)“ ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Benutzbarkeitsprüfung (Blick der Oberstufenschülerin), Entwicklungsstand `75a8e42`.
+
+**Beobachtet:** `self.button.caption = 5` endet mit „Was: Button.caption erwartet ein Text (str), erhalten wurde eine Zahl (int).“ Richtig wäre „erwartet einen Text“. Dasselbe bei jedem Wahrheitswert („erwartet ein Wahrheitswert“). Der Fehler steht in einer der häufigsten Meldungen eines Fensterprogramms (Zahl in eine Beschriftung geschrieben).
+
+**Ursache:** nachgewiesen: `pcl/properties.py`, `_TYPNAMEN` (Zeilen 17-24) führt nur den Artikel im Nominativ, `typ_beschreibung` wird in Zeile 138 aber auch nach „erwartet“ benutzt, wo der Akkusativ gebraucht wird.
+
+**Zu tun:** Für „erwartet“ den Akkusativ verwenden (etwa eine zweite Artikelspalte oder eine eigene Funktion). Erledigt, wenn ein Test für `caption = 5` „erwartet einen Text (str)“ findet.
+
+**Behoben (28. September 2026, ab 0.4.0).** `_TYPNAMEN` in `pcl/properties.py` führt den Artikel im Nominativ und im Akkusativ, `typ_beschreibung(typ, akkusativ=True)` liefert „einen Text (str)“ und „einen Wahrheitswert (bool)“. Alle Stellen, an denen die Beschreibung nach „erwartet“ steht (`Prop`, Schrift, Anker, `Strings`, `Memo`, `StringGrid`, `Shape`, `Image`, `Canvas`), benutzen ihn. Test: `test_nach_erwartet_steht_der_akkusativ` in `tests/test_properties.py`.
+
+
+---
+
+## 298. Fehlermeldungen sprechen mit „Prüfe:“ direkt an ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Benutzbarkeitsprüfung, Entwicklungsstand `75a8e42`.
+
+**Beobachtet:** Jede Laufzeitmeldung im Konsolenfenster, im Meldungsfenster eines Fensterprogramms und im Debugger hat die Zeilen „Wo:“, „Was:“ und „Prüfe:“. „Prüfe“ ist ein Imperativ in der Du-Form und spricht die Leserin direkt an, was `AGENTS.md` für sichtbare Texte ausschließt. Die Fragen dahinter sind unpersönlich formuliert, nur die Überschrift nicht. Einschätzung: fällt beim Lesen kaum auf, ist aber die meistgelesene Zeile der ganzen Oberfläche.
+
+**Ursache:** nachgewiesen: die Überschrift steht in `Fehlermeldung.als_text()` (`pcl/fehlerkatalog.py`) und ist als Aufbau „Wo, Was, Prüfe“ in `docs/bericht.md` (Zeile 151), `docs/fehlerkatalog.yaml` und `docs/erste_schritte.md` beschrieben. `tests/test_textstil.py` sucht nach „du“ und „Sie“, nicht nach Imperativen.
+
+**Zu tun:** Eine unpersönliche Überschrift wählen, etwa „Zu prüfen:“ oder „Hinweis:“, und die Dokumente anpassen. Erledigt, wenn keine Meldung mehr „Prüfe:“ enthält und die Beschreibungen in den Dokumenten dazu passen.
+
+**Behoben (28. September 2026, ab 0.4.0).** Die dritte Überschrift heißt „Zu prüfen:“ (`PRUEFE_UEBERSCHRIFT` in `pcl/fehlerkatalog.py`); der Aufbau „Wo, Was, Zu prüfen“ steht so in `docs/bericht.md`, `docs/fehlerkatalog.yaml`, `docs/erste_schritte.md`, in den Kommentaren von `pcl` und `ide` und in den Tests. `tests/test_textstil.py` sucht jetzt auch nach Befehlsformen in der Du-Form am Satzanfang, nach Doppelpunkt, Klammer oder Tabellenstrich, in den sichtbaren Zeichenketten von `ide` und `pcl` (f-Strings als Ganzes) und in den Texten für Lernende; der Test fand dabei noch „Gehe zu Zeile“, das jetzt „Zu Zeile springen“ heißt. Tests: `test_keine_meldung_beginnt_mit_pruefe` in `tests/test_fehlerkatalog_erste_schritte.py` und die neuen Tests zur Befehlsform in `tests/test_textstil.py`.
+
+
+---
+
+## 299. Natter öffnet sich jedes Mal in einem kleinen Fenster und merkt sich Größe und Lage nicht ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Benutzbarkeitsprüfung (Darstellung), Entwicklungsstand `75a8e42`.
+
+**Beobachtet:** Das Hauptfenster bekommt beim Start weder eine Größe noch den Zustand „maximiert“. Qt gibt einem solchen Fenster höchstens zwei Drittel der Bildschirmfläche. Probe offscreen auf einem Bildschirm von 800 × 800: das Fenster erscheint mit 533 × 560, die Startseite steht zwischen Projekt-Explorer und Objektinspektor eingeklemmt, „Willkommen“ ist abgeschnitten (Bildschirmfoto `start_default.png`, Probeordner inzwischen gelöscht). Auf einem Beamer mit 1280 × 800 ergibt das rechnerisch etwa 853 × 560. Maximiert oder vergrößert die Lehrkraft das Fenster, ist das beim nächsten Start wieder vergessen, denn gespeichert wird nur die Anordnung der Docks (`saveState`), nicht die Fenstergeometrie. Dazu kommt eine feste Mindesthöhe von 560 (gemessen: `minimumSizeHint` = 350 × 560). Bei 150 % Windows-Skalierung auf 1366 × 768 bleiben rund 910 × 480 nutzbar; das Fenster ragt dann unten über den Bildschirm, und Statuszeile und Panels liegen hinter der Taskleiste (Einschätzung aus den gemessenen Werten, nicht am echten Bildschirm nachgestellt).
+
+**Ursache:** nachgewiesen: `ide/main.py` ruft nur `fenster.show()` auf (Zeile 176); `saveGeometry`/`restoreGeometry` kommen in `ide/` nicht vor, `ide/shell/hauptfenster.py` speichert unter `fenster/layout` nur `saveState()` (Zeile 4251). Die Mindesthöhe ergibt sich aus der Summe der Dock-Mindesthöhen.
+
+**Zu tun:** Beim ersten Start maximiert öffnen; danach Größe, Lage und Maximiert-Zustand mit `saveGeometry` merken und beim Start mit `restoreGeometry` wiederherstellen, auf dem Bildschirm, der gerade da ist. Die Mindesthöhe so weit senken, dass das Fenster bei 150 % auf 1366 × 768 ganz sichtbar ist. Erledigt, wenn ein Test nach Maximieren, Schließen und Neubauen des Hauptfensters wieder ein maximiertes Fenster findet und `minimumSizeHint().height()` bei 150 % unter 480 liegt.
+
+**Behoben (28. September 2026, ab 0.4.0).** `HauptFenster.fensterlage_herstellen` (`ide/shell/hauptfenster.py`) stellt Größe, Lage und Maximiert-Zustand aus `fenster/geometrie` (`restoreGeometry`) wieder her; `closeEvent` speichert sie mit `saveGeometry`. Beim ersten Start und wenn die Titelleiste auf keinem angeschlossenen Bildschirm mehr liegt, öffnet das Fenster maximiert auf dem Hauptbildschirm, mit 90 % der freien Fläche als Größe nach „Verkleinern“. `ide/main.py` ruft das vor `show()` auf. Die Docks links, rechts und unten haben eine feste Mindesthöhe von 60 Pixeln (`_DOCK_MINDESTHOEHE`), `minimumSizeHint().height()` fällt damit von 527 auf 327, auch mit eingeblendeter Datenbank unter 480. Tests: `tests/test_hauptfenster_fensterlage.py` (maximiert nach Neustart, normale Größe nach Neustart, verschwundener Bildschirm, Mindesthöhe, Aufruf aus `starten()`).
+
+
+---
+
+## 300. Der Eigenschaften-Dialog einer Klasse ist höher als ein Bildschirm mit 768 oder 800 Pixeln ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Benutzbarkeitsprüfung (Aufgabe Klassendiagramm), Entwicklungsstand `75a8e42`.
+
+**Beobachtet:** Attribute und Methoden einer Klasse werden nur im Eigenschaften-Dialog eingetragen. Der Dialog lässt sich nicht kleiner als 539 × 726 machen (gemessen mit `minimumSizeHint`, bei 100 % wie bei 150 % Skalierung in logischen Pixeln). Den Ausschlag gibt der Reiter „Operationen“ mit 639 Pixeln Mindesthöhe; „Klasse“ braucht 310, „Attribute“ 410. Auf 1280 × 800 bleiben nach Taskleiste und Titelleiste etwa 720 Pixel, auf 1366 × 768 etwa 690, bei 125 % Skalierung auf 1366 × 768 etwa 575. Die Knöpfe „OK“, „Schließen“ und „Anwenden“ stehen am unteren Rand und liegen damit auf allen drei Bildschirmen teilweise oder ganz außerhalb (Einschätzung aus den Messwerten; Windows verschiebt einen zu hohen Dialog nicht von selbst). Im Unterricht mit Beamer oder auf kleinen Schul-Laptops lässt sich eine Klasse dann nicht fertig bearbeiten, und Enter zum Bestätigen weiß nicht jede Schülerin.
+
+**Ursache:** nachgewiesen: `ide/diagramm/klassendialog.py` setzt `resize(640, 520)` (Zeile 149), der Inhalt des Reiters „Operationen“ (Liste, Parameterliste und mehrere Kommentarfelder mit fester Höhe, Zeilen 299 und 326) erzwingt aber mehr.
+
+**Zu tun:** Die Reiter in einen `QScrollArea` legen oder die Operationen-Seite platzsparender aufteilen, sodass der Dialog auf 1366 × 768 bei 125 % ganz sichtbar ist. Erledigt, wenn ein Test `minimumSizeHint().height()` des Dialogs unter 560 findet.
+
+**Behoben (28. September 2026, ab 0.4.0).** Jeder Reiter des Klassendialogs liegt in einem `QScrollArea` (`_rollbar` in `ide/diagramm/klassendialog.py`), und die Startgröße 640 × 700 wird auf die verfügbare Fläche des Bildschirms begrenzt (`ide/diagramm/fenstergroesse.py`). `minimumSizeHint().height()` sinkt damit von 636 unter 560. Tests: `test_dialog_passt_auf_einen_kleinen_bildschirm` in `tests/test_diagramm_klassendialog.py` und `test_fenster_passen_auf_einen_kleinen_bildschirm` in `tests/test_diagramm_fenster_bildschirm.py`.
+
+
+---
+
+## 301. Jede neu platzierte Komponente bekommt sofort zwei Hinweise wegen ihres Namens ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Benutzbarkeitsprüfung (Aufgabe Datenbanktabelle im Formular), Entwicklungsstand `75a8e42`.
+
+**Beobachtet:** Ein `DBGrid` aus dem Reiter „Datenbank“ der Palette in ein neues Formular gesetzt. Der Designer nennt es `dbgrid`, speichert, und die Design-Prüfung (standardmäßig an) meldet sofort unter „Meldungen“: „[Namenskonvention] dbgrid (DBGrid) hat nicht das übliche Präfix 'dbg_'.“ und „[Namenskonvention] dbgrid sieht wie ein unveränderter Standardname aus.“ Die Statuszeile zeigt „Design-Prüfung: 2 Funde.“ Natter vergibt also selbst einen Namen, den seine eigene Prüfung beanstandet. Dasselbe Muster gilt nach der Regel für jede Komponente mit Präfix in der Tabelle, etwa einen Knopf. In der ersten Stunde, beim ersten Knopf, steht damit schon eine Liste von Beanstandungen unten, bevor die Schülerin etwas falsch gemacht hat (Einschätzung zur Wirkung).
+
+**Ursache:** nachgewiesen: `ide/lint/regeln.py`, `_namenskonvention_pruefen` (ab Zeile 557) prüft Präfix (`_PRAEFIXE`, Zeile 35) und Standardnamen; der Designer vergibt Namen nach dem Muster Typname plus Zahl. Beide Regeln treffen den frisch vergebenen Namen.
+
+**Zu tun:** Entweder neue Komponenten gleich mit dem empfohlenen Präfix benennen (`dbg_1`, `b_1` …) und den Hinweis „Standardname“ erst beim Speichern der Unit oder beim Start zeigen, oder den Präfix-Hinweis für einen noch nie umbenannten Standardnamen weglassen, sodass höchstens ein Hinweis mit einem klaren Vorschlag übrig bleibt. Erledigt, wenn nach dem Platzieren eines Knopfes höchstens ein Namenshinweis erscheint.
+
+**Behoben (28. September 2026, ab 0.4.0).** Gelöst zusammen mit Punkt 292. Ein noch nie umbenannter Standardname bekommt nur noch den Hinweis „sieht wie ein unveränderter Standardname aus“, ergänzt um das empfohlene Präfix; der Präfix-Hinweis entfällt dann. Nach dem Platzieren meldet die automatische Design-Prüfung keinen Namenshinweis. Tests: `test_standardname_des_designers_bekommt_nur_einen_hinweis` in `tests/test_design_pruefer.py` und `test_frisch_platzierte_komponenten_ohne_namenshinweis` in `tests/test_hauptfenster_design_pruefer.py`. Im gemeinsamen Testformular von `tests/test_m7_abnahme.py` trägt ein Knopf jetzt einen eigenen Namen ohne Präfix, damit die Präfix-Regel weiter ausgelöst wird.
+
+
+---
+
+## 302. Für die Vorführung am Beamer lässt sich nur die Schrift im Quelltexteditor vergrößern ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Benutzbarkeitsprüfung (Darstellung, Beamer), Entwicklungsstand `75a8e42`.
+
+**Beobachtet:** „Ansicht → Schrift größer“ (Strg++) und die Einstellung „Schriftgröße im Editor“ wirken nur auf offene Quelltexteditoren. Die Panels „Ausgabe“ und „Meldungen“, der Objektinspektor, der Projekt-Explorer und die Menüs bleiben bei 9 pt. Wer vorne ein Konsolenprogramm vorführt, zeigt die Ausgabe des Programms also in der kleinsten Schrift im Fenster. Der einzige Ausweg ist die Windows-Skalierung, und die stößt auf 1280 × 800 an die feste Mindesthöhe des Fensters (Punkt 299). Einen Vorführ- oder Präsentationsmodus gibt es nicht.
+
+**Ursache:** nachgewiesen: `ide/shell/hauptfenster.py`, `_editor_schriftgroesse_merken` (Zeile 5641) setzt die Größe nur für `QuelltextEditor`-Reiter; `ide/shell/einstellungen_dialog.py` bietet nur „Schriftgröße im Editor“.
+
+**Zu tun:** Die Schriftgröße mindestens auch für „Ausgabe“, „Meldungen“ und die Konsole übernehmen oder eine eigene Einstellung „Schriftgröße der Oberfläche“ anbieten, die die ganze IDE vergrößert. Erledigt, wenn Strg++ die Ausgabe eines laufenden Programms mitvergrößert.
+
+**Behoben (28. September 2026, ab 0.4.0).** Strg+Plus, Strg+Minus und Strg+0 wirken außer auf die Editoren auch auf die Panels „Ausgabe“ und „Meldungen“: beide stehen um so viele Punkte über der Schrift der Oberfläche, wie der Editor über seiner Grundgröße steht (`_panel_schrift_anpassen`). Neu unter „Werkzeuge → Einstellungen …“ ist „Schriftgröße der Oberfläche“ (`oberflaeche/schriftgroesse`, 8 bis 24 pt); sie geht als `basis_pt` in `ide_qss_erzeugen` (`ide/shell/theme.py`) ein und vergrößert Menüs, Docks, Panels und Dialoge. Der Diagramm-Editor bleibt davon unberührt. Tests: `test_strg_plus_vergroessert_ausgabe_und_meldungen`, `test_schriftgroesse_der_oberflaeche` und `test_einstellungen_dialog_zeigt_oberflaeche` in `tests/test_ausgabe_und_einstellungen.py`.
+
+
+---
+
+## 303. Das Datenbank-Panel ist auf 1280 × 800 zu eng: eine Ergebniszeile, abgeschnittene Tabellennamen ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Benutzbarkeitsprüfung (Aufgabe Datenbanktabelle anlegen), Entwicklungsstand `75a8e42`.
+
+**Beobachtet:** Neues GUI-Projekt, Designer offen, Fenster 1280 × 800, „Ansicht → Datenbank“. Das Panel erscheint unten links neben „Panels“ und ist 486 × 300 groß. Nach „schule.sqlite“, „Verbinden“, `CREATE TABLE schueler …`, zwei `INSERT` und `SELECT * FROM schueler` zeigt die Ergebnistabelle eine einzige Zeile, die zweite liegt schon unter dem Rand. Der Tabellenbaum ist so schmal, dass „Tabellen/…“, „schuel…“, „na…“ und „no…“ abgeschnitten sind. Der Designer schrumpft gleichzeitig auf etwa 730 × 290. Die Rückmeldung zur Abfrage („2 Zeilen.“) steht rechts in der Verbindungszeile neben „Trennen“, weit weg vom SQL-Feld (Bildschirmfoto `db_panel_gefuellt.png`, Probeordner inzwischen gelöscht).
+
+**Ursache:** noch offen; die Aufteilung kommt aus `resizeDocks` in `ide/shell/hauptfenster.py` (Zeile 844, je 200 Pixel für Datenbank und Panels) und den festen Aufteilungen in `ide/database/panel.py`.
+
+**Zu tun:** Das Datenbank-Panel als Reiter neben die übrigen Panels legen oder ihm beim Einblenden die volle Breite geben, den Tabellenbaum mit einer Mindestbreite versehen und die Rückmeldung zur Abfrage über oder unter die Ergebnistabelle setzen. Erledigt, wenn auf 1280 × 800 mindestens fünf Ergebniszeilen und die vollen Spaltennamen zu sehen sind.
+
+**Behoben (28. September 2026, ab 0.4.0).** Das Dock „Datenbank“ liegt als Reiter bei den Panels und hat damit die volle Fensterbreite; über „Ansicht → Datenbank“ kommt es nach vorn und bekommt bis zu 360 Pixel Höhe (`_datenbank_nach_vorn`). Im Panel (`ide/database/panel.py`) stehen „Ausführen“ und „Abbrechen“ neben dem SQL-Feld, die drei Ausfuhrknöpfe unter dem Tabellenbaum, die Rückmeldung zwischen SQL-Feld und Ergebnistabelle. Der Baum hat eine Mindestbreite, die Zeilen der Ergebnistabelle sind so hoch wie die Schrift plus 8 Pixel, und jede Spalte ist mindestens so breit wie ihr Name. Auf 1280 × 725 (1280 × 800 ohne Taskleiste und Titelleiste) sind sechs Zeilen zu sehen, fünf davon ganz. Tests: `tests/test_datenbank_panel_platz.py`.
+
+
+---
+
+## 304. Diagramm-Editor und Quelltext-Fenster öffnen in fester Größe, ohne Rücksicht auf den Bildschirm ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Benutzbarkeitsprüfung (Aufgaben Struktogramm und Klassendiagramm), Entwicklungsstand `75a8e42`.
+
+**Beobachtet:** Jedes Diagramm öffnet in einem eigenen Fenster mit 1100 × 750, das Fenster „Quelltext – …“ nach „Quelltext → Erzeugen …“ mit 760 × 620. Auf 1280 × 800 und 1366 × 768 ist 750 plus Titelleiste höher als die Arbeitsfläche; die Statuszeile des Diagramm-Editors liegt hinter der Taskleiste. Bei 125 % auf 1366 × 768 (etwa 1093 × 575 nutzbar) ragen beide Fenster unten heraus, beim Quelltext-Fenster samt den Knöpfen „Kopieren“, „Speichern unter …“ und „Schließen“ (Einschätzung aus den festen Werten).
+
+**Ursache:** nachgewiesen: `ide/diagramm/fenster.py`, `resize(1100, 750)` (Zeile 272); `ide/diagramm/codefenster.py`, `resize(760, 620)` (Zeile 138). Keiner der beiden liest `availableGeometry()` des Bildschirms.
+
+**Zu tun:** Die Startgröße auf die verfügbare Fläche des Bildschirms begrenzen, auf dem das Hauptfenster steht, und die zuletzt benutzte Größe merken. Erledigt, wenn beide Fenster bei einer verfügbaren Fläche von 1093 × 575 ganz darin liegen.
+
+**Behoben (28. September 2026, ab 0.4.0).** `fenstergroesse.einpassen` (`ide/diagramm/fenstergroesse.py`) begrenzt die Startgröße auf die verfügbare Fläche des Bildschirms, auf dem das Elternfenster steht, und legt das Fenster mittig hinein. Diagramm-Editor und Quelltext-Fenster merken sich ihre Größe beim Schließen (`diagramm/fenstergroesse`, `diagramm/quelltextfenstergroesse`). Tests in `tests/test_diagramm_fenster_bildschirm.py`: bei einer Fläche von 1093 × 575 liegen Diagramm-Editor, Quelltext-Fenster und Klassendialog ganz darin, und die gemerkte Größe kommt beim nächsten Öffnen zurück. `tests/test_diagramm_hilfslinien.py` setzt das Fenster auf die frühere Größe, weil der Bildschirm von `offscreen` kleiner ist.
+
+
+---
+
+## 305. Das Quelltext-Fenster eines Diagramms ist im dunklen Design kaum lesbar ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Benutzbarkeitsprüfung (Darstellung, dunkles Design), Entwicklungsstand `75a8e42`.
+
+**Beobachtet:** „Ansicht → Design → Dunkel“, Klassendiagramm mit einer Klasse, „Quelltext → Erzeugen …“ mit Ziel „In einem Fenster anzeigen“. Der Dialog ist dunkel, der Editor darin mischt beide Designs: die Zeilennummernleiste ist hell, der Textbereich dunkel, die Farben sind die des hellen Designs. `__future__` und `annotations` erscheinen dunkelgrau auf fast schwarz, `from` und `import` dunkelblau, und die aktuelle Zeile ist weiß hinterlegt (Bildschirmfoto `s1_codefenster_dunkel.png`, Probeordner inzwischen gelöscht).
+
+**Ursache:** nachgewiesen: `ide/diagramm/codefenster.py`, `CodeFenster.__init__` baut den Editor mit festem `thema="light"`, während das Stylesheet der IDE den Dialog dunkel färbt.
+
+**Zu tun:** Das Thema des Editors aus der Einstellung „design/thema“ übernehmen, wie es das Hauptfenster für seine Editor-Reiter tut. Erledigt, wenn das Quelltext-Fenster im dunklen Design dieselben Farben zeigt wie ein Editor-Reiter.
+
+**Behoben (28. September 2026, ab 0.4.0).** `CodeFenster` (`ide/diagramm/codefenster.py`) liest „design/thema“ und baut den Editor mit `theme_aufloesen(...)`, wie das Hauptfenster seine Editor-Reiter. Test: `test_quelltextfenster_uebernimmt_das_dunkle_design` in `tests/test_diagramm_fenster_bildschirm.py`.
+
+
+---
+
+## 306. Ein Projekt lässt sich nicht schließen ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Benutzbarkeitsprüfung (Aufgabe Projekt speichern, schließen, wieder öffnen), Entwicklungsstand `75a8e42`.
+
+**Beobachtet:** Weder „Datei“ noch „Projekt“ noch das Kontextmenü im Projekt-Explorer bieten „Projekt schließen“. Geschlossen wird ein Projekt nur, indem ein anderes geöffnet oder Natter beendet wird. „Ansicht → Startseite“ führt zwar zur Startseite, lässt das Projekt aber offen, und das Handbuch sagt ausdrücklich „ohne etwas zu schließen“. Im Unterricht fehlt das an zwei Stellen: am Stundenende, wenn die nächste Klasse an denselben Rechner kommt und das Projekt der Vorgängerin noch offen ist, und bei der Lehrkraft, die zwischen Beispielen hin und her wechselt und die offenen Reiter loswerden will. Wer das aus anderen Programmen kennt, sucht den Eintrag unter „Datei“ oder „Projekt“ (Einschätzung).
+
+**Ursache:** nachgewiesen: `ide/shell/hauptfenster.py` hat mit `_vorheriges_projekt_schliessen` (Zeile 3102) die Logik mit Nachfrage bei ungespeicherten Änderungen, aber keine Aktion, die sie aufruft, ohne gleich ein neues Projekt zu laden.
+
+**Zu tun:** „Projekt → Projekt schließen“ ergänzen: nachfragen wie beim Wechsel, alle Reiter und Diagrammfenster schließen, Explorer und Objektinspektor leeren und die Startseite zeigen. Im Handbuch unter „Zurück zur Startseite“ erwähnen. Erledigt, wenn ein Test nach „Projekt schließen“ `fenster.projekt is None` und die Startseite findet.
+
+**Behoben (28. September 2026, ab 0.4.0).** Neu „Projekt → Projekt schließen“ (`HauptFenster.projekt_schliessen`): fragt über `_vorheriges_projekt_schliessen` wie beim Wechsel, beendet ein laufendes Programm, gibt die Projektsperre und die Datenbankdatei frei, leert Projekt-Explorer und Objektinspektor (neu `Objektinspektor.leeren`) und zeigt die Startseite. Dateien außerhalb des Projekts und Hilfeseiten bleiben offen wie beim Projektwechsel. Das Handbuch erwähnt den Befehl unter „Zurück zur Startseite“. Tests: `tests/test_projekt_schliessen.py` und `test_handbuch_nennt_projekt_schliessen` in `tests/test_hilfeseiten_abgleich.py`.
+
+
+---
+
+## 307. Das Handbuch ist in Natter nicht zu finden und beschreibt weder Datenbank noch ZIP-Abgabe ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Benutzbarkeitsprüfung (Hilfe), Entwicklungsstand `75a8e42`.
+
+**Beobachtet:** Das Menü „Hilfe“ führt zu „Komponenten-Referenz“, „Erste Schritte“, „Befehl suchen …“, „Tastenkürzel-Übersicht“ und „Über Natter“. Das Handbuch (`docs/handbuch.md`) liegt nur als HTML im Paket für Lehrkräfte; wer vor der Klasse steht und nachsehen will, wie der Prüfungsmodus oder das Zurücksetzen eines Beispiels geht, findet es in Natter nicht. Inhaltlich fehlen zwei Aufgaben aus dem Unterricht: „Projekt → Als ZIP speichern …“ kommt im Handbuch nicht vor (Abschnitt 3.6 „Eine Abgabe einsammeln“ nennt nur das PDF), und zur Datenbank gibt es außer der Erwähnung des Beispiels 06 nichts, weder „Ansicht → Datenbank“ noch den Weg von einer Tabelle ins Formular. „Erste Schritte“ nennt beides ebenfalls nicht. Die Anleitung dazu steht nur in der Komponenten-Referenz unter „Datenbank“ und „Die Data Controls“, und dort nur als Code.
+
+**Ursache:** nachgewiesen: `ide/shell/hauptfenster.py` zeigt über `_hilfedatei_zeigen` nur `erste_schritte.md` und `komponenten.md` (Zeilen 3016 und 4303); `grep` nach „ZIP“ und „Datenbank“ in `docs/handbuch.md` findet nur die Aufzählung in Abschnitt 7.
+
+**Zu tun:** „Hilfe → Handbuch“ ergänzen, das `handbuch.md` in derselben Ansicht zeigt wie die anderen Hilfeseiten. Im Handbuch einen Abschnitt zur ZIP-Abgabe und einen zur Datenbank ergänzen (Datei anlegen im Panel, Tabelle mit SQL, Anzeige im Formular mit `DBGrid` oder `show_rows`). Erledigt, wenn der Menüeintrag das Handbuch öffnet und beide Abschnitte darin stehen.
+
+**Behoben (28. September 2026, ab 0.4.0).** Neu „Hilfe → Handbuch“ (`_handbuch_aktion`), das `docs/handbuch.md` in derselben Ansicht zeigt wie „Erste Schritte“; `tools/ide_paketieren.py` nimmt die Seite in die Auslieferung mit (`_HILFESEITEN`). Im Handbuch neu: Abschnitt 3.6 beschreibt „Projekt → Als ZIP speichern …“, Abschnitt 3.8 „Mit einer Datenbank arbeiten“ (Panel über „Ansicht → Datenbank“, Datei anlegen mit „Verbinden“, Tabelle mit SQL, Anzeige mit `DBGrid` und `show_rows`, Verweis auf die Komponenten-Referenz). Dazu Hinweise zu „Projekt schließen“, zur Schrift am Beamer und zu Strg+0 im Diagramm-Editor. Tests: `test_hilfe_handbuch_oeffnet_das_handbuch` und `test_handbuch_beschreibt_zip_abgabe_und_datenbank` in `tests/test_hilfeseiten_abgleich.py`, angepasst `tests/test_bundle_datendateien.py`.
+
+
+---
+
+## 308. „Hilfe → Über den Diagramm-Editor“ tut nichts ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Benutzbarkeitsprüfung (Hilfe), Entwicklungsstand `75a8e42`.
+
+**Beobachtet:** Im Diagramm-Editor ist „Hilfe → Über den Diagramm-Editor“ der einzige Eintrag im Menü „Hilfe“. Er ist aktiv, beim Auslösen erscheint aber kein Dialog, und die Statuszeile ändert sich nicht (Probe: Aktion ausgelöst, `QMessageBox` und `QDialog.exec` abgefangen, kein Aufruf). Wer im Diagramm-Editor Hilfe sucht, etwa wie ein Block ins Struktogramm kommt oder wo Attribute einer Klasse eingetragen werden, bekommt keine Antwort und auch keinen Verweis auf „Erste Schritte“.
+
+**Ursache:** nachgewiesen: `ide/diagramm/fenster.py` legt den Eintrag über `_MENUES` an (Zeile 151), verbindet ihn aber mit keiner Methode.
+
+**Zu tun:** Den Eintrag mit einer kurzen Hilfe verbinden (Blöcke einfügen, Doppelklick zum Beschriften, Eigenschaften-Dialog der Klasse, „Quelltext → Erzeugen …“) oder ihn durch einen Verweis auf den Abschnitt „Diagramme“ in „Erste Schritte“ ersetzen. Erledigt, wenn jeder aktive Eintrag im Menü „Hilfe“ des Diagramm-Editors eine sichtbare Wirkung hat.
+
+**Behoben (28. September 2026, ab 0.4.0).** „Hilfe → Über den Diagramm-Editor“ öffnet eine Kurzhilfe (`DiagrammFenster.hilfe_zeigen` in `ide/diagramm/fenster.py`): Einfügen aus der Palette, Beschriften per Doppelklick, beim Klassendiagramm der Eigenschaften-Dialog, bei Klassendiagramm und Struktogramm „Quelltext → Erzeugen …“ und am Ende der Verweis auf „Hilfe → Erste Schritte“, Abschnitt „Diagramme“. Test: `test_hilfe_im_diagramm_editor_zeigt_etwas` in `tests/test_diagramm_fenster_bildschirm.py`, für alle sieben Diagrammarten.
+
+
+---
+
+## 309. Der Eigenschaften-Dialog einer Klasse hat zwei gleich beschriftete Felder und „Schließen“ statt „Abbrechen“ ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Benutzbarkeitsprüfung (Aufgabe Klassendiagramm), Entwicklungsstand `75a8e42`.
+
+**Beobachtet:** Im Reiter „Klasse“ stehen untereinander zwei Zahlenfelder mit derselben Beschriftung „Umbruch nach dieser Länge:“ (Werte 40 und 17). Welches für Attribute und welches für Operationen gilt, ist nur zu raten. Daneben steht „Dokumentationsauszeichnung anzeigen“, ein Begriff, den im Unterricht niemand kennt (Einschätzung). Die Knöpfe lauten „OK“, „Schließen“, „Anwenden“; die übrigen Dialoge von Natter verwenden „OK“ und „Abbrechen“, und ob „Schließen“ die Änderungen verwirft, sagt der Dialog nicht.
+
+**Ursache:** noch offen; Beschriftungen in `ide/diagramm/klassendialog.py`.
+
+**Zu tun:** Die Felder eindeutig beschriften („Attribute umbrechen nach … Zeichen“, „Operationen umbrechen nach … Zeichen“), den Dokumentations-Schalter verständlich benennen oder ausblenden und die Knöpfe „OK“, „Abbrechen“, „Anwenden“ nennen wie in den anderen Dialogen. Erledigt, wenn keine zwei Felder im Dialog dieselbe Beschriftung haben.
+
+**Behoben (28. September 2026, ab 0.4.0).** Die beiden Zahlenfelder heißen „Operationen umbrechen nach (Zeichen):“ und „Kommentar umbrechen nach (Zeichen):“; das zweite gilt für den Kommentar der Klasse (`wrap_after_comments`), nicht für die Attribute. Der Schalter heißt „Kommentar als {documentation = …} anzeigen“, die Knöpfe „OK“, „Abbrechen“, „Anwenden“ (`ide/diagramm/klassendialog.py`). Tests: `test_keine_zwei_felder_mit_derselben_beschriftung` und `test_dialog_hat_abbrechen_anwenden_und_ok` in `tests/test_diagramm_klassendialog.py`.
+
+
+---
+
+## 310. Menüwege, Begriffe und Tasten stimmen zwischen Meldungen, Menüs und Diagramm-Editor nicht überein ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Benutzbarkeitsprüfung (Einheitlichkeit), Entwicklungsstand `75a8e42`.
+
+**Beobachtet:** Vier Stellen, an denen dieselbe Sache verschieden heißt oder sich verschieden verhält:
+
+- 13 Meldungen in der Statuszeile sagen „Kein Projekt offen. Zuerst über „Projekt → Öffnen …“ eines laden oder ein neues anlegen.“ Der Menüeintrag heißt „Projekt → Projekt öffnen …“. Wer den Weg wörtlich sucht, findet unter „Datei“ ein „Öffnen …“, das aber einzelne Dateien öffnet.
+- Das Menü „Fenster“ hat „Reiter schließen“, direkt darunter „Nächster Tab“ und „Vorheriger Tab“.
+- Die Statuszeile des Diagramm-Editors zeigt „Stil: modern-light“, das Menü „Format → Stilvorlage …“ nennt denselben Stil „Modern hell“.
+- Strg+0 heißt im Hauptfenster „Normale Schriftgröße“, im Diagramm-Editor „Alles anzeigen“; die normale Größe (100 %) liegt dort auf Strg+1.
+
+**Ursache:** nachgewiesen: Meldungstext in `ide/shell/hauptfenster.py` (unter anderem Zeilen 1718, 4495, 5102, 5143), Menüeinträge im Aktionsregister; `ide/diagramm/fenster.py` Zeile 1228 gibt `self.diagramm.stil` statt `BESCHRIFTUNGEN[...]` aus; Tastenkürzel in `ide/diagramm/fenster.py` Zeilen 677-680.
+
+**Zu tun:** Die Meldung auf „Projekt → Projekt öffnen …“ ändern (am besten aus der Beschriftung der Aktion erzeugen), „Tab“ und „Reiter“ auf einen Begriff bringen, in der Statuszeile die Beschriftung des Stils zeigen und Strg+0 in beiden Fenstern für dieselbe Art Befehl verwenden. Erledigt, wenn die vier Stellen übereinstimmen.
+
+**Behoben (28. September 2026, ab 0.4.0).** Die dreizehn Meldungen „Kein Projekt offen …“ kommen aus `_kein_projekt_text`, das den Menüweg aus der Beschriftung von `projekt.oeffnen` bildet („Projekt → Projekt öffnen …“). Im Menü „Fenster“ heißen die Einträge „Nächster Reiter“ und „Vorheriger Reiter“, die Meldung „Kein Editor-Tab aktiv.“ heißt „Kein Quelltext-Reiter vorn.“. Die Statuszeile des Diagramm-Editors zeigt den Stil mit der Beschriftung aus `BESCHRIFTUNGEN` („Stil: Modern hell“). Strg+0 stellt im Diagramm-Editor wie im Hauptfenster die normale Größe her („Zoom 100 %“), „Alles anzeigen“ liegt jetzt auf Strg+1. Tests: `tests/test_begriffe_einheitlich.py`, angepasst `test_gewaehlte_vorlage_steht_in_der_statusleiste` und die Prüfungen der Meldung in fünf Hauptfenster-Tests.
+
+---
+
+## 311. CSV-Ansicht: bei 100.000 Zeilen steht Natter beim Filtern und Sortieren eine halbe Minute ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Leistungsprüfung, Entwicklungsbaum
+auf Commit `1b05e2b` (Stand nach 0.3.6). Rechner mit 20 logischen
+Kernen, SSD, Qt offscreen; ein Schulrechner ist langsamer.
+
+**Beobachtet:** Eine CSV-Datei mit fünf Spalten, per Doppelklick im
+Explorer geöffnet (`datei_ansicht_oeffnen` mit `CsvAnsicht`):
+
+| Zeilen  | Öffnen  | Speicher | 1. Taste im Filter | 2. Taste | Sortieren nach Spalte |
+|---------|---------|----------|--------------------|----------|-----------------------|
+| 10.000  | 0,13 s  | +38 MB   | 0,04 s             | 0,09 s   | 0,09 s                |
+| 100.000 | 1,2 s   | +339 MB  | 4,0 s              | 26,6 s   | 35,7 s                |
+
+Während dieser Zeit reagiert das ganze Fenster nicht. Offene Daten
+im Unterricht (Wetterdaten im Zehn-Minuten-Takt, Verkehrszählungen)
+erreichen 100.000 Zeilen schnell. Eine Datei mit einer Million Zeilen
+wurde nicht mehr gemessen; nach dem Verlauf wären es mehrere
+Gigabyte Speicher.
+
+**Ursache:** nachgewiesen: `ide/viewers/csv_ansicht.py`, `_laden`
+(ab Zeile 104) liest die ganze Datei zweimal ein (als Text für die
+Rohansicht und als Liste) und legt für jede Zelle ein eigenes
+`QTableWidgetItem` an. `_filtern` (ab Zeile 127) läuft bei jedem
+Tastendruck im Hauptfaden über alle Zeilen und Zellen und ruft für
+jede Zeile `setRowHidden`. Sortiert wird über
+`QTableWidget.setSortingEnabled` auf denselben Einzelobjekten.
+
+**Zu tun:** Die Ansicht auf ein Modell umstellen, das die Zeilen
+einmal im Speicher hält (etwa `QAbstractTableModel` mit
+`QSortFilterProxyModel`), und den Filter erst nach einer kurzen
+Tipp-Pause anwenden; alternativ nur die ersten Zeilen zeigen und das
+sagen, wie das Datenbank-Panel mit `HOECHSTZAHL_ZEILEN`. Erledigt,
+wenn mit 100.000 Zeilen Öffnen unter 3 s, ein Tastendruck im Filter
+und das Sortieren je unter 1 s bleiben und ein Timer im Hauptfenster
+dabei nie länger als 1 s aussetzt, belegt durch einen Test.
+
+**Behoben (28. September 2026, ab 0.4.0).** Ursache bestätigt. `CsvAnsicht` in `ide/viewers/csv_ansicht.py` zeigt die Datei jetzt über ein eigenes `QAbstractTableModel` (`_CsvModell`) in einer `QTableView`. Die Zeilen liegen einmal als Listen von Texten im Speicher, dazu je Zeile ein kleingeschriebener Suchtext; ein Objekt je Zelle entsteht nicht mehr. Sortieren und Filtern ordnen nur eine Liste von Zeilennummern neu und setzen das Modell zurück. Der Filter wird erst 200 ms nach dem letzten Tastendruck angewandt (Einzelschuss-`QTimer`, `FILTER_PAUSE_MS`). Die Datei wird nur noch einmal gelesen; die Rohansicht erhält ihren Text erst beim ersten Umschalten. Die Tabelle beginnt wie bisher in der Reihenfolge der Datei, links steht die Nummer der Datenzeile. Gemessen mit 100.000 Zeilen und fünf Spalten, Qt offscreen: Öffnen 0,10 s statt 1,5 s, Sortieren 0,04 s statt 1,1 s, jeder Tastendruck im Filter bis zum Ergebnis 0,24 s einschließlich der Pause statt 8,7 s und 21,8 s, längste Pause einer 20-ms-Uhr 0,09 s statt 30,7 s. Test: `test_csvansicht_bleibt_mit_100000_zeilen_bedienbar` in `tests/test_viewer_csv.py` prüft die Grenzen aus dem Kriterium (Öffnen unter 3 s, Sortieren und Tastendruck unter 1 s, Uhr nie länger als 1 s angehalten); gegen den alten Stand scheitert er. Die übrigen Tests der Datei fragen jetzt das Modell ab und warten beim Filter die Pause ab.
+
+
+---
+
+## 312. Designer: jede Änderung schreibt, prüft und baut alles neu, mit 200 Komponenten eine Sekunde pro Pfeiltaste ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Leistungsprüfung, Entwicklungsbaum
+auf Commit `1b05e2b`. Rechner wie in Punkt 311.
+
+**Beobachtet:** Formular mit Label, Edit und Button im Wechsel, im
+Designer geöffnet; Medianwerte aus zwei Durchgängen mit je zehn
+Schritten, gemessen um den Aufruf herum:
+
+| Komponenten | Öffnen | Auswahl | Verschieben (Pfeiltaste) | Größe ändern | 21 × Rückgängig |
+|-------------|--------|---------|--------------------------|--------------|-----------------|
+| 5           | 0,04 s | 0,01 s  | 0,03 s                   | 0,03 s       | 0,6 s           |
+| 50          | 0,5 s  | 0,05 s  | 0,32 s                   | 0,31 s       | 6,8 s           |
+| 200         | 1,5 s  | 0,05 s  | 1,05 s                   | 1,05 s       | 22,4 s          |
+
+Die Zeit wächst mit der Zahl der Komponenten, rund 5 ms pro
+Komponente und Schritt. Wer mit gedrückter Pfeiltaste eine
+Komponente verschiebt, sieht sie bei 50 Komponenten ruckeln und bei
+200 hinterherlaufen; zwanzig Schritte zurücknehmen dauert 7 bzw. 22
+Sekunden, in denen das Fenster nicht reagiert. Auf einem UNC-Pfad
+(`\\localhost\C$\…`, also ohne echtes Netz) kostet eine einzige
+Verschiebung im Taschenrechner-Beispiel (zwölf Komponenten) 0,45 s
+statt 0,09 s lokal; das Schreiben geht dort bei jedem Schritt über
+das Netz.
+
+**Ursache:** nachgewiesen per Profil (100 Komponenten, drei
+Verschiebungen): `DesignerCanvas._nach_aenderung`
+(`ide/designer/canvas.py`, Zeile 2816) ruft bei jedem einzelnen
+Schritt im Hauptfaden `speichern()` auf. Das schreibt `.pfm` und
+`_design.py` (Codegen über `ide/codegen/design.py:419`) und prüft die
+`.pfm` gegen das Schema; `ide/schema.py:27` ruft `jsonschema.validate`,
+das bei jedem Aufruf auch das Schema selbst prüft. Danach laufen die
+Beobachter aus `ide/shell/hauptfenster.py` (Zeilen 4613 bis 4615):
+die Design-Prüfung, deren `_geometrie_pruefen`
+(`ide/lint/regeln.py:192`) jede Komponente mit jeder vergleicht
+(53.000 Aufrufe von `_rechteck` für drei Schritte), und
+`Komponentenbaum.formular_anzeigen` (`ide/inspector/komponentenbaum.py:89`),
+das den Baum jedes Mal ganz neu aufbaut. Anteile je Schritt bei 100
+Komponenten: Schema-Prüfung rund 80 ms, Komponentenbaum rund 70 ms,
+Geometrieprüfung rund 80 ms, Codegen rund 45 ms.
+
+**Zu tun:** Speichern, Prüfung und Komponentenbaum nach einer
+Änderung zusammenfassen und kurz verzögert einmal ausführen statt
+bei jedem Schritt; den Schema-Validator einmal bauen und
+wiederverwenden; die Geometrieprüfung nicht quadratisch rechnen
+lassen. Erledigt, wenn mit 200 Komponenten ein Schritt mit der
+Pfeiltaste unter 0,1 s und 20 × Rückgängig zusammen unter 2 s
+bleiben, belegt durch einen Test, und die `.pfm` danach trotzdem den
+letzten Stand enthält.
+
+**Behoben (28. September 2026, ab 0.4.0).** Ursache bestätigt. `DesignerCanvas._nach_aenderung` (`ide/designer/canvas.py`) zieht nach einer Änderung nur noch Rahmen, Anfasser und Objektinspektor sofort nach. Schreiben von `.pfm` und `_design.py`, Design-Prüfung und Komponentenbaum laufen über einen Einzelschuss-`QTimer` 400 ms nach der letzten Änderung einer Folge (`SCHREIB_VERZOEGERUNG_MS`), einmal für alle zusammen; eine gehaltene Pfeiltaste schreibt am Ende einmal. Die neue Methode `jetzt_schreiben()` schreibt eine wartende Änderung sofort. Das Hauptfenster ruft sie über `designer_nachschreiben()` vor `alle_speichern` (und damit vor Start, Debugger, Tests, Export und ZIP), beim Schließen eines Reiters, beim Schließen des Fensters, beim Wechsel des Projekts und bei Strg+S auf; so geht keine Änderung verloren. Umbenennen und eine neue Ereignis-Methode, die im selben Zug die Unit schreiben, sowie Rückgängig und Wiederholen eines Umbenennens schreiben die `.pfm` weiter ohne Wartezeit, damit beide Dateien zueinander passen. Wird das Formular-Widget gelöscht, hält die Uhr an. Dazu: `ide/schema.py` baut den Prüfer je Schema einmal und prüft das Schema nicht mehr bei jedem Aufruf gegen das Metaschema. In `ide/lint/regeln.py` ist `_standardwert` zwischengespeichert; Überlappung und fast bündige Kanten werden nach der linken Kante sortiert gesucht statt für jedes Paar, die Reihen der Abstandsregel vergleichen nur mit der jüngsten Reihe, und die Label-Maße werden vor den Vergleichen einmal bestimmt. Befunde und ihre Reihenfolge sind gleich geblieben (Vergleich mit dem alten Stand an 400 Zufallsformularen). `Komponentenbaum.auffrischen` (`ide/inspector/komponentenbaum.py`) baut nur neu auf, wenn sich Komponenten, Namen, Typen oder Verschachtelung geändert haben, ordnet die Kinder in einem Durchgang zu statt `kind_komponenten` je Komponente aufzurufen und löst das Design für die Symbole einmal je Aufbau auf. Gemessen mit 200 Komponenten im Hauptfenster, Qt offscreen: Pfeiltaste 0,006 s statt 1,0 s (Median), 20 × Rückgängig 0,10 s statt 20,6 s, das einmalige Schreiben danach samt Prüfung und Baum 0,06 s. Tests in `tests/test_designer_viele_komponenten.py`: `test_pfeiltaste_und_rueckgaengig_mit_200_komponenten` prüft die Grenzen aus dem Kriterium (Pfeiltaste unter 0,1 s, 20 × Rückgängig unter 2 s) und dass `.pfm` und `_design.py` danach den letzten Stand enthalten; `test_eine_folge_von_aenderungen_wird_einmal_geschrieben`, `test_eine_wartende_aenderung_geht_nicht_verloren` (Alle speichern, Reiter schließen, Fenster schließen), `test_das_schema_selbst_wird_nur_einmal_geprueft`, `test_die_geometriepruefung_vergleicht_nicht_jede_mit_jeder` und `test_der_komponentenbaum_baut_nur_bei_neuer_gliederung_neu`. Jeder scheitert gegen den alten Stand des jeweiligen Teils. Tests, die nach einer Änderung im Designer Dateien, Baum oder Prüfung ansehen, rufen vorher `jetzt_schreiben()` auf; `docs/bericht.md` Abschnitt 9 nennt das.
+
+
+---
+
+## 313. Vervollständigung rechnet bei jedem Tastendruck im Hauptfaden, lange Units tippen sich zäh ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Leistungsprüfung, Entwicklungsbaum
+auf Commit `1b05e2b`. Rechner wie in Punkt 311.
+
+**Beobachtet:** Tippen am Ende einer Unit (Klasse `Form1` mit
+Methoden), gemessen je Tastendruck über `QTest.keyClick`, drei Runden
+mit je 34 Zeichen:
+
+| Zeilen | Wort tippen (Median / Max) | nach `self.` (Median / Max) | ohne Vervollständigung |
+|--------|----------------------------|-----------------------------|------------------------|
+| 50     | 19 ms / 402 ms             | 3 ms / 100 ms               | 2 ms                   |
+| 500    | 107 ms / 242 ms            | 29 ms / 160 ms              | 3 ms                   |
+| 5.000  | 310 ms / 1.495 ms          | 162 ms / 1.127 ms           | 20 ms                  |
+
+`self.l_ausgabe.cap` (18 Zeichen) zu tippen dauerte in der Unit mit
+5.000 Zeilen 3,0 bis 5,1 Sekunden. Schon bei 500 Zeilen braucht
+jeder Buchstabe auf diesem Rechner ein Zehntel einer Sekunde; auf
+einem Schulrechner mit langsameren Kernen kommt die Anzeige beim
+normalen Tipptempo nicht mehr mit, und die Buchstaben erscheinen
+schubweise.
+
+**Ursache:** nachgewiesen: `QuelltextEditor._nach_der_eingabe`
+(`ide/shell/quelltexteditor.py`, Zeilen 553 bis 568) ruft nach jedem
+Buchstaben, Punkt oder Unterstrich `vorschlaege_anzeigen()` auf, das
+in Zeile 735 `vorschlaege()` aus `ide/shell/vervollstaendigung.py`
+(Zeile 464) mit dem ganzen Text des Editors aufruft. jedi parst dabei
+im Hauptfaden die Datei; im Profil entfallen bei 5.000 Zeilen rund
+drei Viertel der Zeit auf `parso`. Eine Pause zwischen den Tasten
+wird nicht abgewartet, und eine ältere Anfrage wird nicht verworfen,
+wenn schon die nächste Taste da ist.
+
+**Zu tun:** Die Vorschläge erst nach einer kurzen Tipp-Pause (etwa
+150 ms) berechnen und die Berechnung aus dem Hauptfaden nehmen;
+veraltete Ergebnisse verwerfen. Erledigt, wenn ein Tastendruck in
+einer Unit mit 5.000 Zeilen im Median unter 30 ms und höchstens
+100 ms dauert, belegt durch einen Test, und die Liste nach der
+Pause weiterhin erscheint.
+
+**Behoben (28. September 2026, ab 0.4.0).** Der Quelltexteditor (`ide/shell/quelltexteditor.py`) rechnet die Vorschläge nicht mehr bei jedem Tastendruck. Ein Buchstabe, Punkt oder Unterstrich startet einen Einzelschuss-Timer von 150 ms (`_VORSCHLAG_PAUSE_MS`); erst nach dieser Tipp-Pause ruft `_vorschlaege_anfordern` jedi auf, und zwar in einem Nebenfaden (`im_hintergrund` in `ide/shell/vervollstaendigung.py`). Das Ergebnis kommt über ein Signal eines Boten, eines Kindobjekts des Editors, in den Hauptfaden zurück und wird verworfen, wenn seitdem getippt, die Schreibmarke bewegt oder die Liste geschlossen wurde (Anfragenummer und `document().revision()`). Es rechnet höchstens ein Nebenfaden je Editor; eine Anfrage während einer laufenden Rechnung folgt direkt danach. Steht die Liste schon, engt Weitertippen desselben Worts sie sofort ein. Strg+Leertaste rechnet weiterhin sofort im Hauptfaden, ebenso Parameterhilfe und F12. Solange jedi im Hintergrund rechnet, ist die automatische Speicherbereinigung aus (wie bisher beim Aufwärmen, Punkt 136) und die Umschaltzeit des Interpreters auf 0,5 ms gesenkt (`_nebenfaden_rechnet`); mit den üblichen 5 ms kam ein Tastendruck während der Rechnung auf bis zu 90 ms. Dazu prüft `_faltungen_pruefen` die Faltungen nur noch, wenn etwas gefaltet ist; vorher ging es bei jeder Änderung die ganze Datei durch, bei 5.000 Zeilen rund 15 ms je Tastendruck. Gemessen mit `self.l_ausgabe.cap`, nach jedem vierten Zeichen 250 ms Pause, drei Runden: 500 Zeilen vorher 118 ms Median / 973 ms Höchstwert, nachher 1,2 ms / 13 ms; 5.000 Zeilen vorher 489 ms / 3.316 ms, nachher 3,5 ms / 16 ms. Die Liste steht nach der Pause bei 5.000 Zeilen nach rund 0,5 s. Test: `tests/test_vervollstaendigung_tempo.py` (Median unter 30 ms, Höchstwert unter 100 ms, danach erscheint die Liste mit `caption` oben); ohne die Änderung scheitert er mit 476 ms Median. `test_ein_ueberholtes_ergebnis_verfaellt` in `tests/test_vervollstaendigung_eingabe.py` prüft das Verwerfen. Die Tests, die nach dem Tippen sofort die Liste erwarteten, warten jetzt die Pause in einer echten Ereignisschleife ab; `QTest.qWait` gibt die Sperre des Interpreters nicht ab, und der Nebenfaden käme darin kaum voran.
+
+
+---
+
+## 314. Die Markendateien der Ladeanzeige bleiben in %TEMP% liegen ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Leistungsprüfung (Runde 4 von `/freigabe`): in `%TEMP%` lagen 19 Dateien `natter-geladen-*`, einige älter als die laufende Sitzung.
+
+**Beobachtet:** Für jeden Start eines Konsolenprogramms legt Natter eine Markendatei an, über die die Starthülle die erste Ausgabe meldet (Punkt 271). Nicht jede wird danach wieder entfernt; auf einem Schulrechner sammeln sie sich über Wochen an.
+
+**Ursache:** vermutet: `ide/run/ladeanzeige.py` bzw. der Starter löscht die Datei nur auf dem gewöhnlichen Weg (erste Ausgabe erkannt), nicht bei Stopp, Programmende ohne Ausgabe, Zeitgrenze oder Absturz.
+
+**Zu tun:** Die Markendatei auf jedem Weg entfernen, auf dem die Ladeanzeige endet, und beim Start von Natter alte Markendateien (älter als ein Tag) aufräumen. Erledigt, wenn ein Test Start mit Stopp, Start ohne Ausgabe und Zeitgrenze durchspielt und danach keine Markendatei übrig ist.
+
+**Behoben (28. September 2026, ab 0.4.0).** Ursache war nicht das Ende der Ladeanzeige selbst, sondern was danach kam: `_ladeanzeige_beenden` (`ide/shell/hauptfenster.py`) entfernte die Marke und vergaß zugleich ihren Pfad. Endete die Anzeige über die Zeitgrenze, an einem Haltepunkt oder weil ein Fenster erschien, legte die Hülle im Programm die Datei bei der ersten Ausgabe trotzdem noch an, und niemand entfernte sie mehr. Dasselbe galt für die Pause „Eingabetaste zum Schließen“ eines Programms, das bis zur Zeitgrenze nichts ausgegeben hatte. Jetzt behält das Hauptfenster den Pfad, bis das Programm endet oder das nächste startet; Programmende, Debugger-Ende, „Start → Stopp“ (jetzt nach dem Beenden des Prozesses) und das Schließen von Natter entfernen die Datei jeweils nach dem Ende. Beim Start entfernt `alte_lademarken_entfernen` (`ide/run/ladeanzeige.py`, aufgerufen in `ide/main.py` nach dem Anzeigen des Fensters) Markendateien, die älter als ein Tag sind; jüngere können einem zweiten laufenden Natter gehören. Der Ordner der Marken kommt aus `lademarken_ordner()` und lässt sich in Tests umlenken. Tests: `tests/test_lademarke_aufraeumen.py` mit echten Konsolenprogrammen: Zeitgrenze und Stopp, Zeitgrenze und Programmende, Ende ohne Ausgabe, Stopp beim Laden; danach liegt keine Markendatei im Ordner. Ohne die Änderung in `hauptfenster.py` scheitern die beiden Fälle mit Zeitgrenze. Dazu `test_beim_start_verschwinden_nur_alte_marken`. Die 19 Dateien auf dem Prüfrechner entfernt der nächste Start von Natter.
+
+---
+
+## 315. Die stille Installation aus der Anleitung erreicht die Schülerkonten nicht ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Betriebsprüfung, Commit `2b3d553`,
+Natter 0.3.6. Geprüft am Installer-Skript und an der Dokumentation von
+Inno Setup 6 (`ISetup.chm`, Seiten zu `PrivilegesRequired`,
+`PrivilegesRequiredOverridesAllowed` und „Non Administrative Install
+Mode“); installiert wurde dafür nichts.
+
+**Beobachtet:** Für einen Computerraum empfehlen
+`tools/paket/ZUERST-LESEN.txt` (Zeile 110-112) und `docs/handbuch.md`
+(Abschnitt 1.4, Zeile 83-90)
+`Natter-Setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART`. Dieser
+Aufruf installiert nur für das Konto, unter dem er läuft:
+
+- Aus einer Softwareverteilung (Intune, baramundi, opsi, Skript per
+  Gruppenrichtlinie) läuft das Setup als lokales Systemkonto. Natter
+  landet dann unter
+  `C:\Windows\System32\config\systemprofile\AppData\Local\Programs\Natter`,
+  Startmenü-Eintrag, `.natter`-Verknüpfung und Deinstallationseintrag
+  stehen im Profil des Systemkontos. Die Verteilung meldet Erfolg
+  (Rückgabewert 0), und kein Schülerkonto sieht Natter.
+- Führt die IT-Beauftragte den Befehl an jedem Rechner unter ihrem
+  eigenen Konto aus, hat nur dieses Konto Natter. Jedes Schülerkonto
+  müsste Natter selbst installieren, mit rund 1,2 GB je Profil, und
+  jedes Update ebenso.
+
+Die Installation für alle Benutzer gibt es (`/ALLUSERS`, danach unter
+`C:\Program Files\Natter`), sie steht aber in keinem der drei
+Dokumente für die Schule (`ZUERST-LESEN.txt`, `handbuch.md`,
+`tools/paket/README.md`; Suche nach `ALLUSERS` ohne Treffer). Die
+Schülerweg-Auswertungen führen die Frage seit 0.3.3 als ungeprüft
+(`docs/auswertung/schuelerweg_0.3.3.md:262`,
+`schuelerweg_0.3.5.md:208`).
+
+**Ursache:** nachgewiesen. `tools/natter.iss:95-96`:
+`PrivilegesRequired=lowest` mit `PrivilegesRequiredOverridesAllowed=dialog`.
+Laut Inno-Dokumentation läuft das Setup damit „always in non
+administrative install mode“, auch wenn es mit Administratorrechten
+gestartet wird; `{autopf}` (Zeile 34) wird zu
+`{localappdata}\Programs`, `{group}` und `HKA` zum aktuellen Konto.
+Den Dialog zur Wahl der Installationsart unterdrückt `/VERYSILENT`,
+es gilt die Voreinstellung „Nur für das angemeldete Konto“. Nur
+`/ALLUSERS` auf der Befehlszeile schaltet um.
+
+**Zu tun:** In `ZUERST-LESEN.txt` und im Handbuch für den
+Computerraum den Aufruf mit `/ALLUSERS` nennen, samt der Folge, dass
+„Pakete → Paket installieren …“ dann ohne Administratorrechte nicht
+geht (`ide/env/pakete.py:30-43`). Zusätzlich im Setup verhindern,
+dass eine stille Installation still im Systemkonto verschwindet:
+läuft `[Code]` als Systemkonto und nicht im Verwaltungsmodus
+(`IsAdminInstallMode`), mit einer Meldung im Protokoll und einem
+Rückgabewert ungleich 0 abbrechen. Erledigt, wenn die Anleitung für
+viele Rechner `/ALLUSERS` enthält und ein Test an einem mit
+`/DOhneProgramm` übersetzten Setup zeigt, dass es unter dem
+Systemkonto ohne `/ALLUSERS` abbricht.
+
+**Behoben (28. September 2026, ab 0.4.0).** Ursache bestätigt. `tools/paket/ZUERST-LESEN.txt` (Schritt 2) und `docs/handbuch.md` (Abschnitt 1.4) nennen für den Computerraum jetzt `Natter-Setup.exe /ALLUSERS /VERYSILENT /SUPPRESSMSGBOXES /NORESTART`, dazu, dass ohne `/ALLUSERS` auch mit Administratorrechten nur für das laufende Konto installiert wird, und dass „Pakete → Paket installieren …“ bei der Installation für alle Benutzer nur mit Administratorrechten geht. In `tools/natter.iss` prüft `InitializeSetup` über die neue Funktion `LaeuftAlsDienstkonto` (Benutzername `SYSTEM` oder ein Profil unter `systemprofile`/`ServiceProfiles`), ob das Setup unter einem Dienstkonto läuft; ist das so und `IsAdminInstallMode` falsch, schreibt es eine Zeile ins Protokoll, zeigt eine unterdrückbare Meldung und gibt `False` zurück, bevor etwas kopiert wird. Die Voreinstellung „Nur für das angemeldete Konto“ bleibt. Kriterium angepasst: ein mit `/DOhneProgramm` übersetztes Setup unter dem Systemkonto laufen zu lassen, hieße bauen und als SYSTEM ausführen; das war für diese Runde ausgeschlossen. Geprüft wird deshalb der Text des Skripts: `test_unter_dem_systemkonto_ohne_allusers_bricht_das_setup_ab` in `tests/test_installer_update.py` verlangt Prüfung, Protokollzeile und Abbruch vor dem Lesen der alten Fassung, `test_die_anleitung_nennt_die_installation_fuer_alle_benutzer` in `tests/test_paket.py` den Aufruf mit `/ALLUSERS` in beiden Dateien. Beide scheitern gegen den alten Stand. Ob Inno Setup den Abbruch mit Rückgabewert 1 meldet, ist beim nächsten Bau an einem Rechner mit Softwareverteilung nachzusehen.
+
+
+---
+
+## 316. Unter AppLocker startet die Voreinstellung von Natter nicht, und dazu steht nichts in der Anleitung ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Betriebsprüfung, Commit `2b3d553`,
+Natter 0.3.6. Nicht an einem Rechner mit AppLocker nachgestellt
+(dafür müsste eine Richtlinie gesetzt werden); belegt aus dem Code und
+den Standardregeln von AppLocker.
+
+**Beobachtet:** Viele Schulträger sperren auf Schülerrechnern alles,
+was nicht unter `%WINDIR%` oder `%PROGRAMFILES%` liegt (AppLocker
+oder Richtlinien für Softwareeinschränkung). Die Standardregeln von
+AppLocker für ausführbare Dateien lassen für „Jeder“ genau diese
+beiden Ordner zu. Natter legt sich in der Voreinstellung unter
+`%LOCALAPPDATA%\Programs\Natter` ab (`tools/natter.iss:34` mit
+Zeile 95). Von dort startet `Natter.exe` die mitgelieferte
+`python\pythonw.exe` (`tools/launcher.py:75-77`, Zeile 297), die IDE
+startet `python.exe`, `ruff.exe` und PyInstaller aus demselben Ordner,
+und „Als Exe exportieren“ legt die fertige Exe in
+`<Projekt>\dist` unter `Dokumente` ab (`ide/export/exporter.py:407`).
+Unter diesen Regeln startet schon `Natter.exe` nicht, und eine
+exportierte Exe ebenso wenig.
+
+In `ZUERST-LESEN.txt`, `docs/handbuch.md` und `tools/paket/README.md`
+kommt weder AppLocker noch eine Richtlinie für Softwareeinschränkung
+vor. Beschrieben ist nur die intelligente App-Steuerung. Wer die
+Ausnahmen einrichten muss, erfährt nicht, welche Programme Natter
+startet (`Natter.exe`, `python\pythonw.exe`, `python\python.exe`,
+`python\Scripts\ruff.exe`, `powershell.exe` zum Signieren beim
+Export) und dass die Installation für alle Benutzer die Regeln für
+`%PROGRAMFILES%` bereits erfüllt.
+
+**Ursache:** nachgewiesen, Dokumentationslücke; die Voreinstellung
+der Installation ist zusammen mit Punkt 315 zu sehen.
+
+**Zu tun:** Im Handbuch (Abschnitt 1) einen Absatz für Rechner mit
+AppLocker oder Softwareeinschränkung: Installation mit `/ALLUSERS`,
+Liste der Programme, die Natter startet, und Hinweis, dass
+exportierte Exes aus `Dokumente` nur mit einer eigenen Regel laufen.
+Dasselbe kurz in `ZUERST-LESEN.txt`. Erledigt, wenn beide Dateien
+das Stichwort AppLocker enthalten und die Liste der gestarteten
+Programme mit dem Code übereinstimmt.
+
+**Behoben (28. September 2026, ab 0.4.0).** Handbuch Abschnitt 1.4 hat den Absatz „Rechner mit AppLocker oder Softwareeinschränkung“, `ZUERST-LESEN.txt` einen gleichnamigen Abschnitt: Installation mit `/ALLUSERS` nach `C:\Program Files\Natter` erfüllt die Standardregeln, die Liste der gestarteten Programme (`Natter.exe`, `python\pythonw.exe` für Oberfläche und „Pakete“, `python\python.exe` für Schülerprogramme, Debugger und PyInstaller, `python\Scripts\ruff.exe`, `unins000.exe`, `powershell.exe` zum Signieren, `taskkill.exe` zum Beenden) und der Hinweis, dass eine exportierte Exe im Projektordner unter `Dokumente` eine eigene Regel braucht. Gegenüber der Meldung ergänzt: `pip` läuft über `pythonw.exe` (`ide/env/pakete.py` nimmt `sys.executable`), und `taskkill.exe` kommt aus `ide/prozess.py`. Test: `test_die_anleitung_nennt_applocker_und_die_gestarteten_programme` in `tests/test_paket.py` verlangt das Stichwort und jedes Programm in beiden Dateien und prüft zu jedem Programm die Stelle im Code, die es startet; gegen den alten Stand scheitert er.
+
+
+---
+
+## 317. Die Anleitung für die IT nennt nur die Installation für ein Konto ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Betriebsprüfung, Commit `2b3d553`,
+Natter 0.3.6.
+
+**Beobachtet:** Neben der fehlenden Installation für alle Benutzer
+(Punkt 315) fehlen in `docs/handbuch.md` und
+`tools/paket/ZUERST-LESEN.txt` weitere Angaben, die für die
+Einrichtung eines Raums gebraucht werden:
+
+- Handbuch 1.1 (Zeile 28-34) kündigt „zwei Angaben“ an und zeigt
+  eine Tabelle mit drei Zeilen. Die erste Frage des Setups fehlt:
+  „Installationsart wählen“ mit „Nur für das angemeldete Konto
+  (empfohlen)“ oder für alle Benutzer (`tools/installer_texte.isl`,
+  Zeile 20-24). Was die Wahl bedeutet (Ort, Rechte, „Pakete“), steht
+  nirgends für Lehrkräfte, nur in `docs/bericht.md` 7.4 und in
+  `ide/env/pakete.py:30-43`.
+- Die Tabelle „Wo die Dateien liegen“ (Handbuch Abschnitt 2,
+  Zeile 128-135) und `ZUERST-LESEN.txt` (Zeile 115-120) nennen nur
+  `%LOCALAPPDATA%\Programs\Natter`. Es fehlen `C:\Program Files\Natter`
+  bei einer Installation für alle Benutzer, die Einstellungen unter
+  `%APPDATA%\Natter` und `%LOCALAPPDATA%\Natter`; beide stehen nur
+  verstreut im Abschnitt zum Prüfungsmodus.
+- Die stille Deinstallation (Handbuch 1.5, Zeile 120) steht nur mit
+  dem Pfad im Benutzerprofil. Bei einer Installation für alle
+  Benutzer liegt `unins000.exe` unter `C:\Program Files\Natter`, und
+  der Aufruf braucht Administratorrechte.
+- Bei einer stillen Installation werden Desktop-Symbol und
+  `.natter`-Verknüpfung immer angelegt, weil beide Aufgaben ohne
+  `unchecked` eingetragen sind (`tools/natter.iss:105-109`). Wie sich
+  das abwählen lässt (`/MERGETASKS="!desktopicon"`), steht nicht da.
+
+**Ursache:** nachgewiesen, Dokumentationslücke.
+
+**Zu tun:** Handbuch Abschnitt 1 und 2 sowie `ZUERST-LESEN.txt`
+ergänzen: beide Installationsarten mit Ort, nötigen Rechten und der
+Folge für „Pakete“, die Frage nach der Installationsart in der
+Tabelle von 1.1, alle Ablageorte in der Tabelle von Abschnitt 2, die
+stille Deinstallation für beide Arten und `/MERGETASKS`. Erledigt,
+wenn jede der vier Angaben in beiden Dateien steht.
+
+**Behoben (28. September 2026, ab 0.4.0).** Handbuch 1.1 führt die Frage „Installationsart wählen“ in der Tabelle und stellt beide Arten mit Ort, nötigen Rechten, Sichtbarkeit und Folge für „Pakete“ gegenüber; 1.4 nennt `/MERGETASKS="!desktopicon"` und `!natterverknuepfung`; 1.5 die stille Deinstallation für beide Arten (`C:\Program Files\Natter\unins000.exe` mit Administratorrechten); die Tabelle in Abschnitt 2 alle Ablageorte einschließlich `C:\Program Files\Natter`, `%APPDATA%\Natter` und `%LOCALAPPDATA%\Natter`. `ZUERST-LESEN.txt` hat dieselben Angaben in „Schritt 2“, „Was Natter auf dem Rechner ablegt“ und dem neuen Abschnitt „Natter wieder entfernen“. Test: `test_die_anleitung_nennt_die_installation_fuer_alle_benutzer` in `tests/test_paket.py` verlangt alle vier Angaben in beiden Dateien, die Installationsart in der Tabelle von 1.1 und die Ablageorte in Abschnitt 2; gegen den alten Stand scheitert er.
+
+
+---
+
+## 318. Nach dem Deinstallieren bleibt das Zertifikat des Exe-Exports vertrauenswürdig, und keine Anleitung erwähnt es ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Betriebsprüfung, Commit `2b3d553`,
+Natter 0.3.6.
+
+**Beobachtet:** Beim ersten „Als Exe exportieren“ legt Natter für das
+angemeldete Konto ein Zertifikat „Natter Programme dieses Rechners“
+an, mit privatem Schlüssel in `CurrentUser\My`, und trägt es in
+`CurrentUser\Root` (vertrauenswürdige Stammzertifizierungsstellen) und
+`CurrentUser\TrustedPublisher` ein (`ide/export/signatur.py:214-235`),
+gültig fünf Jahre (Zeile 58). Das Deinstallieren entfernt es nicht:
+`tools/natter.iss` hat dafür weder eine Regel noch Code, und
+`tools/paket/Zertifikat-entfernen.ps1` (Zeile 48) sucht nur den
+Fingerabdruck des Natter-Zertifikats selbst. Auf einem Rechner, an dem
+über ein Schuljahr viele Konten exportiert haben, steht danach in
+jedem dieser Profile ein selbst ausgestelltes Stammzertifikat, zu dem
+es keine Erklärung gibt: Handbuch 3.5 (Zeile 247-254) erwähnt das
+Zertifikat nicht, Handbuch 1.5 nennt nicht, was nach dem Entfernen
+bleibt, und `ZUERST-LESEN.txt` (Zeile 196-208) sagt nur, dass Natter
+es anlegt.
+
+Ebenso bleibt nach dem Deinstallieren
+`HKEY_CURRENT_USER\Software\Natter\Pruefungsmodus` stehen, und damit
+auch `HKCU\Software\Natter`: `tools/natter.iss:170` entfernt diesen
+Schlüssel nur, wenn er leer ist. Die Auswertung zu 0.3.5
+(`docs/auswertung/schuelerweg_0.3.5.md:179`) meldet ihn als entfernt;
+das stimmt seit Punkt 227 nur noch für Konten, in denen nie ein
+Prüfungsmodus lief. Den Vermerk zu behalten ist richtig, sonst
+beendete ein Deinstallieren den Modus; es fehlt nur in der Anleitung.
+
+**Ursache:** nachgewiesen, siehe Zeilen oben.
+
+**Zu tun:** Im Handbuch 3.5 sagen, dass der erste Export ein
+Zertifikat für das Konto anlegt und Windows dazu fragt; in 1.5
+aufzählen, was nach dem Entfernen je Konto bleibt (Projekte,
+`%APPDATA%\Natter`, `%LOCALAPPDATA%\Natter`, der Registry-Schlüssel
+des Prüfungsmodus, das Export-Zertifikat) und wie sich das Zertifikat
+entfernen lässt. `Zertifikat-entfernen.ps1` nimmt auf Wunsch auch
+Zertifikate mit dem Namen „Natter Programme dieses Rechners“ aus den
+Speichern des angemeldeten Kontos. Erledigt, wenn beides im Handbuch
+steht und ein Test für `Zertifikat-entfernen.ps1` mit einem
+Probezertifikat zeigt, dass es gefunden wird.
+
+**Behoben (28. September 2026, ab 0.4.0).** Handbuch 3.5 sagt, dass der erste Export ein Zertifikat „Natter Programme dieses Rechners“ für das Konto anlegt und Windows dazu mit einer Sicherheitswarnung fragt; 1.5 zählt in einer Tabelle auf, was je Konto nach dem Entfernen bleibt (Projekte, `%APPDATA%\Natter`, `%LOCALAPPDATA%\Natter` mit dem Registry-Schlüssel des Prüfungsmodus, das Export-Zertifikat), warum der Vermerk des Prüfungsmodus bleibt und wie sich das Zertifikat entfernen lässt. `tools/paket/Zertifikat-entfernen.ps1` hat den Schalter `-Exportzertifikate`: er nimmt Zertifikate mit dem Namen `CN=Natter Programme dieses Rechners` aus `CurrentUser\My`, `TrustedPublisher` und `Root`, ohne Administratorrechte und vor dem Wechsel zum Administrator, weil das Skript danach die Speicher eines anderen Kontos sähe. `Zertifikat-entfernen.cmd` reicht Schalter mit `%*` weiter. `ZUERST-LESEN.txt` nennt den Aufruf ebenfalls. Test: `tests/test_zertifikat_entfernen.py` holt `Test-Exportzertifikat` aus dem Skript und prüft es mit Probeobjekten, die die Eigenschaften eines Zertifikats tragen: das Export-Zertifikat wird gefunden, das Natter-Zertifikat und ein fremdes nicht. Kriterium angepasst: ein echtes Probezertifikat hätte den Zertifikatspeicher des Rechners verändert. Dazu `test_die_anleitung_nennt_zertifikat_und_reste_nach_dem_entfernen` in `tests/test_paket.py`. Alle scheitern gegen den alten Stand.
+
+
+---
+
+## 319. Unter Wächterkarte oder zurückgesetztem Profil endet der Prüfungsmodus mit dem Abmelden ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Betriebsprüfung, Commit `b94cdf3`,
+Natter 0.3.6.
+
+**Beobachtet:** Der Prüfungsmodus steht an drei Stellen, alle im
+Profil des angemeldeten Kontos: `%APPDATA%\Natter\Natter-IDE.ini`,
+`%LOCALAPPDATA%\Natter\pruefungsmodus.txt` und
+`HKEY_CURRENT_USER\Software\Natter\Pruefungsmodus` (HKCU liegt in
+`NTUSER.DAT` im Profil). Auf Rechnern mit Wächterkarte, mit
+verbindlichen oder temporären Profilen oder mit einem Zurücksetzen
+bei jeder Abmeldung ist nach einem Neustart oder einer neuen Anmeldung
+keine davon mehr da. Wer sich während der Klausur ab- und wieder
+anmeldet oder den Rechner neu startet, arbeitet danach ohne
+Prüfungsmodus, ohne eine der Stellen zu kennen. Die rote Anzeige
+unten rechts fehlt dann; einen anderen Hinweis bekommt die Aufsicht
+nicht.
+
+Probe mit einem nachgestellten Profil unter `%TEMP%` (Ini über
+`QSettings.setPath`, Datei über `LOCALAPPDATA`, die Registry-Stelle
+als Datei im Profil): nach `starten()` meldet `laeuft()` `True` und
+„Prüfungsmodus – noch 3:59 h“, nach dem Zurücksetzen des
+Profilordners `False` und eine leere Anzeige.
+
+Eingeschaltet wird der Modus nur über „Werkzeuge → Prüfungsmodus
+starten …“ im jeweiligen Konto (`ide/shell/hauptfenster.py:4320-4358`).
+In einem Raum mit 30 Schülerkonten muss die Aufsicht an jeden Rechner,
+nachdem sich dort jemand angemeldet hat, oder die Schülerinnen
+schalten ihn selbst ein. Einen Aufruf über die Befehlszeile oder eine
+Verknüpfung gibt es nicht; `ide/main.py:105-114` wertet nur einen
+`.natter`-Pfad aus.
+
+Handbuch Abschnitt 4 nennt als Grenze nur das gezielte Löschen der
+drei Stellen und sagt: „Gegen Schülerinnen und Schüler mit einem
+gewöhnlichen Konto, die nicht wissen, wo die Einträge stehen, hält
+er“. In Räumen mit Zurücksetzen stimmt das nicht. Wächterkarte und
+zurückgesetzte Profile kommen weder im Handbuch noch in
+`tools/paket/ZUERST-LESEN.txt` vor.
+
+**Ursache:** nachgewiesen. `pcl/pruefungsmodus.py:105-110` (Ini),
+Zeile 189-193 (Datei unter `LOCALAPPDATA`), Zeile 89 mit
+`RegistryAblage` (HKCU). Dass alle drei Stellen im Profil liegen,
+folgt aus der Vorgabe, dass der Modus ohne Verwaltungsrechte
+auskommt.
+
+**Zu tun:** In Handbuch Abschnitt 4 und in `ZUERST-LESEN.txt`
+schreiben, dass der Modus an das Profil gebunden ist: mit Wächterkarte
+oder zurückgesetzten Profilen endet er beim Abmelden und beim
+Neustart, und eingeschaltet wird er in jedem Konto einzeln. Dazu, was
+die Aufsicht tun kann (auf die rote Anzeige achten, nach einem
+Neustart erneut einschalten). Prüfen, ob sich der Modus beim Start
+über einen Schalter wie `Natter.exe --pruefung` einschalten lässt,
+den die Lehrkraft als Verknüpfung verteilt; der Schalter startet nur
+und beendet oder verlängert nie. Erledigt, wenn das Handbuch die
+Grenze für zurückgesetzte Profile nennt und, falls der Schalter kommt,
+ein Test zeigt, dass er den Modus startet und ein zweiter Aufruf das
+Ende nicht verschiebt.
+
+**Behoben (28. September 2026, ab 0.4.0).** Die Grenze ist beschrieben, nicht beseitigt: der Modus braucht keine Administratorrechte und legt nichts außerhalb des Profils ab, und dabei bleibt es. Handbuch Abschnitt 4 sagt jetzt, dass der Modus an das Profil gebunden ist, mit Wächterkarte, verbindlichen oder temporären oder bei jeder Abmeldung zurückgesetzten Profilen beim Abmelden und beim Neustart endet und in jedem Konto einzeln eingeschaltet wird, und was die Aufsicht tun kann (nach der Anmeldung einschalten, auf die rote Anzeige achten, nach Abmeldung oder Neustart erneut einschalten). Der Satz „hält er“ ist entsprechend eingeschränkt. `ZUERST-LESEN.txt` hat den Abschnitt „Pruefungsmodus und zurueckgesetzte Profile“. Einen Schalter `Natter.exe --pruefung` gibt es nicht: er müsste über eine Verknüpfung kommen, die in einem zurückgesetzten Profil ebenso verschwindet, und ein Start ohne die Verknüpfung liefe weiter ohne Modus; gewonnen wäre nur der Weg über das Menü. Einen Hinweis in der Oberfläche gibt es ebenfalls nicht, weil Natter nach dem Zurücksetzen nichts mehr von einem früheren Modus weiß. Test: `test_die_anleitung_nennt_die_grenze_des_pruefungsmodus` in `tests/test_paket.py`; gegen den alten Stand scheitert er.
+
+
+---
+
+## 320. Ist „Dokumente“ nicht erreichbar oder nicht beschreibbar, endet ein Beispiel aus dem Menü in der Absturzmeldung ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Betriebsprüfung, Commit `b94cdf3`,
+Natter 0.3.6.
+
+**Beobachtet:** Ein Beispiel wird beim Öffnen nach
+`Dokumente\Natter\Beispielprojekte` kopiert. Ist „Dokumente“ auf ein
+Netzlaufwerk umgeleitet, das gerade nicht verbunden ist, oder darf das
+Konto dort nicht schreiben (Heimatverzeichnis eines neuen Kontos noch
+nicht angelegt, Server nicht erreichbar, Kontingent voll), dann:
+
+- zeigt „Datei → Beispielprojekte → 01_Begruessung“ die allgemeine
+  Absturzmeldung „In Natter ist etwas schiefgegangen“ mit dem Satz
+  „Das ist ein Fehler in Natter selbst“;
+- meldet der Knopf auf der Startseite bei einem nicht verbundenen
+  Laufwerk „Projekt nicht gefunden“: „„01_Begruessung.natter“ liegt
+  nicht (mehr) unter `…\beispielprojekte\01_Begruessung\01_Begruessung.natter`
+  … Wurde der Ordner verschoben oder der USB-Stick abgezogen?“ Die
+  genannte Datei ist das Original im Programmordner und vorhanden; es
+  fehlt der Zielordner. Ohne Schreibrecht lautet die Meldung
+  „lässt sich nicht öffnen: [WinError 5] Zugriff verweigert:
+  '…\Dokumente\Natter'“, ohne zu sagen, dass Natter dort eine Kopie
+  anlegen wollte.
+
+Probe: Hauptfenster offscreen, Profil unter `%TEMP%` nachgestellt,
+`ide.pfade.dokumente_ordner` einmal auf `Q:\Dokumente` (Laufwerk Q:
+gibt es nicht), einmal auf einen Ordner, dem mit `icacls /deny` das
+Anlegen von Dateien und Ordnern verweigert ist. Die Startseite
+(`projekt_oeffnen_gemeldet`) zeigt die beiden Meldungen oben; der
+Menüeintrag lässt `FileNotFoundError: [WinError 3] … 'Q:\\'`
+bzw. `PermissionError: [WinError 5]` bis zum Fehlerhaken durch.
+
+Am ersten Schultag mit neuen Konten oder in der Stunde nach einem
+Serverausfall trifft das die ganze Klasse, sobald sie mit einem
+Beispiel anfangen soll.
+
+**Ursache:** nachgewiesen. Der Menüeintrag
+(`ide/shell/hauptfenster.py:1548`) ruft `beispiel_oeffnen`
+(Zeile 3134) ohne Fehlerbehandlung; `beispiel_kopieren`
+(`ide/shell/startbild.py:325` `wurzel.mkdir`, Zeile 335
+`shutil.copytree`) wirft `OSError`. `projekt_oeffnen_gemeldet`
+(`hauptfenster.py:3383`) fängt den `FileNotFoundError` mit dem Text
+für eine fehlende Projektdatei, der hier nicht zutrifft.
+
+**Zu tun:** `beispiel_oeffnen` fängt `OSError` aus `beispiel_kopieren`
+und meldet, dass sich die Arbeitskopie in `<Zielordner>` nicht anlegen
+ließ, mit den möglichen Gründen (Netzlaufwerk nicht verbunden, kein
+Schreibrecht, kein Platz). Erledigt, wenn ein Test mit nicht
+beschreibbarem Zielordner über Menü und Startseite diese Meldung sieht
+und den Fehlerhaken nicht erreicht.
+
+**Behoben (28. September 2026, ab 0.4.0).** Ursache bestätigt. `beispiel_oeffnen` in `ide/shell/hauptfenster.py` fängt jetzt den `OSError` aus `beispiel_kopieren` und zeigt über `_kopie_nicht_angelegt_melden` die Meldung „Beispiel nicht geöffnet“: Beispiele öffnet Natter als Arbeitskopie, und die Kopie ließ sich in `<Dokumente>\Natter\Beispielprojekte` nicht anlegen. Als mögliche Gründe nennt sie ein nicht verbundenes Netzlaufwerk mit „Dokumente“, fehlendes Schreibrecht des Kontos und vollen Speicherplatz; der Text von Windows bleibt draußen. Die Startseite landet über `projekt_oeffnen_gemeldet` ebenfalls in `beispiel_oeffnen`, der Fehler erreicht dort also nicht mehr den Zweig für eine fehlende Projektdatei. Test: `test_beispiel_ohne_beschreibbares_dokumente_meldet_den_zielordner` in `tests/test_schreibschutz_beim_oeffnen.py`, parametrisiert mit einem Dokumente-Ordner auf einem Laufwerksbuchstaben, den es auf dem Rechner nicht gibt, und mit einem `copytree`, das `PermissionError` wirft. Ausgelöst werden jeweils der Menüeintrag „01_Begruessung“ und die Startseite. Gegen den alten Stand scheitert er in beiden Fällen: der Menüeintrag läuft in den Fehlerhaken von Qt, die Startseite meldet „Projekt nicht gefunden“ bzw. „lässt sich nicht öffnen“.
+
+
+---
+
+## 321. Eine Aufgabe auf einer Freigabe ohne Schreibrecht geht ohne Hinweis auf und lässt sich in Natter nirgends speichern ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Betriebsprüfung, Commit `b94cdf3`,
+Natter 0.3.6.
+
+**Beobachtet:** Ein üblicher Weg, eine Aufgabe zu verteilen: die
+Lehrkraft legt das Projekt in einen Klassen- oder Tauschordner, den
+die Schülerinnen nur lesen dürfen, und sie öffnen die `.natter` dort
+mit einem Doppelklick. Probe: Kopie von `02_Zahlenraten` als
+`Tausch\Aufgabe3\Aufgabe3.natter` unter `%TEMP%`, dem eigenen Konto
+mit `icacls /deny` Schreiben und Anlegen verweigert, im Hauptfenster
+(offscreen) über `projekt_oeffnen_gemeldet` geöffnet, `u_main.py` im
+Editor geändert, `alle_speichern()`:
+
+- Beim Öffnen kommt kein Hinweis. Die Statuszeile meldet „Projekt
+  02_Zahlenraten geöffnet“, die Sperrdatei wird still nicht angelegt.
+- Beim Speichern: „„u_main.py“ konnte nicht gespeichert werden:
+  [Errno 13] Permission denied:
+  '…\Tausch\Aufgabe3\.u_main.py.34168.tmp' … Häufige Gründe: der
+  USB-Stick ist abgezogen, die Datei ist schreibgeschützt oder in
+  einem anderen Programm geöffnet.“ Die Meldung ist zum Teil
+  englisch, nennt eine Zwischendatei, die niemand kennt, und keinen
+  Grund, der hier zutrifft.
+- Einen Weg an einen beschreibbaren Ort gibt es in Natter nicht: kein
+  „Projekt speichern unter …“ und keine Arbeitskopie in
+  `Dokumente\Natter`, wie sie die Beispiele bekommen. Die Arbeit steht
+  nur im Editor, bis jemand Natter verlässt, den Ordner im Explorer
+  kopiert und die Kopie öffnet.
+- `os.access(…, os.W_OK)` liefert für den Ordner mit verweigertem
+  Schreibrecht `True`, weil es unter Windows nur das Attribut
+  „Schreibgeschützt“ ansieht. Die Vorprüfung aus Punkt 255
+  (`ide/designer/canvas.py:2692-2711`), deren Kommentar diesen
+  Fall („Material der Lehrkraft auf einem Netzlaufwerk ohne
+  Schreibrecht“) nennt, greift deshalb hier nicht; das Umbenennen fängt
+  den Fehler erst danach ab.
+
+Handbuch 3.6 beschreibt das Einsammeln von Abgaben, aber nicht das
+Verteilen: dass eine Aufgabe vor dem Öffnen nach „Dokumente“ kopiert
+werden muss, steht nirgends.
+
+**Ursache:** nachgewiesen. `projekt_oeffnen`
+(`ide/shell/hauptfenster.py:3156-3187`) prüft nicht, ob sich im
+Projektordner schreiben lässt; eine Arbeitskopie entsteht nur für
+`ist_beispiel_original`. `atomar_schreiben` legt die Zwischendatei im
+Projektordner an (`ide/atomar.py:56`); die Meldung steht in
+`hauptfenster.py:3845-3853`.
+
+**Zu tun:** Beim Öffnen eines Projekts ausprobieren, ob sich im
+Ordner eine Datei anlegen lässt (nicht über `os.access`), und wenn
+nicht, anbieten, das Projekt nach `Dokumente\Natter` zu kopieren und
+die Kopie zu öffnen. Die Meldung bei `PermissionError` deutsch fassen,
+ohne Zwischendatei, mit „Ordner ohne Schreibrecht, etwa eine Freigabe
+nur zum Lesen“ unter den Gründen. Handbuch 3.6 um einen Absatz zum
+Verteilen einer Aufgabe ergänzen. Erledigt, wenn ein Test mit einem
+nicht beschreibbaren Projektordner beim Öffnen das Angebot sieht und
+die Kopie danach speichert.
+
+**Behoben (28. September 2026, ab 0.4.0).** Ursache bestätigt. Neu ist `ordner_beschreibbar` in `ide/atomar.py`: es legt mit `tempfile.mkstemp` eine versteckte Probedatei `.natter-probe-…` an und löscht sie wieder, statt `os.access` zu fragen. `projekt_oeffnen_gemeldet` ruft vor dem Öffnen `_kopie_statt_schreibschutz` auf. Lässt sich im Projektordner nichts anlegen, fragt Natter unter „Ordner ohne Schreibrecht“, ob das Projekt nach `Dokumente\Natter` kopiert und die Kopie geöffnet werden soll. Kopiert wird über `beispiel_kopieren(projektdatei, natter_ordner())`, mit derselben Logik wie bei den Beispielen: eine vorhandene Kopie gleichen Namens wird weiterbenutzt, ein fremder Ordner gleichen Namens führt zu einer Nummer. Bei „Nein“ öffnet Natter das Projekt wie bisher an Ort und Stelle; scheitert die Kopie, kommt dieselbe Meldung wie in Punkt 320. `datei_schreiben_gemeldet` meldet einen `PermissionError` jetzt deutsch und ohne Zwischendatei: das Schreiben in `<Ordner>` wurde verweigert, erster Grund ist „der Ordner hat kein Schreibrecht, etwa eine Freigabe nur zum Lesen“. Tests: `test_aufgabe_ohne_schreibrecht_wird_als_kopie_angeboten` in `tests/test_schreibschutz_beim_oeffnen.py` stellt den Schreibschutz über die Schreibprobe nach, sieht das Angebot, öffnet die Kopie unter `Dokumente\Natter\Aufgabe3`, speichert dort eine geänderte Unit und prüft, dass das Original unverändert bleibt. Gegen den alten Stand kommt keine Frage, und der Test scheitert. `test_die_schreibprobe_legt_eine_datei_an_und_raeumt_auf` in `tests/test_atomar_schreiben.py` prüft die Probe selbst. Handbuch 3.6 beschreibt jetzt auch das Verteilen einer Aufgabe über einen Ordner nur zum Lesen.
+
+
+---
+
+## 322. Die Sperrdatei erkennt nicht, dass ein Projekt an einem anderen Rechner offen ist ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Betriebsprüfung, Commit `b94cdf3`,
+Natter 0.3.6.
+
+**Beobachtet:** Liegt eine Aufgabe in einem Tauschordner, in den alle
+schreiben dürfen, öffnen oft mehrere Schülerinnen dasselbe Projekt,
+statt es zu kopieren. Die Sperrdatei aus Punkt 286 enthält nur
+Prozessnummer und Startzeit, und ob der Prozess läuft, wird auf dem
+eigenen Rechner nachgesehen. Probe: `.natter-sperre` mit
+`4712 133900000000000000` (Natter an Rechner A) in einen Ordner unter
+`%TEMP%` geschrieben; `sperre.anderer_prozess()` liefert auf diesem
+Rechner `None`, und `sperre.sperren()` überschreibt die Datei mit der
+eigenen Prozessnummer. Einen Hinweis „schon offen“ sieht an keinem
+Rechner jemand. Alle schreiben in dieselben Dateien und damit in das
+Original der Lehrkraft; auffallen kann das nur an den Rückfragen
+„von außen geändert“ beim Speichern (Punkt 286), die dann bei jeder
+Schülerin mit den Änderungen der anderen kommen.
+
+**Ursache:** nachgewiesen. `ide/project/sperre.py:75-77` (`_eintrag`)
+schreibt keinen Rechnernamen, `anderer_prozess` (Zeile 80-95) fragt
+`_startzeit(pid)` auf dem lokalen Rechner.
+
+**Zu tun:** Rechner- und Kontonamen in die Sperrdatei schreiben. Eine
+Sperre von einem anderen Rechner zählt, solange ihre Zeitmarke jung
+ist; das haltende Natter erneuert sie in größeren Abständen, eine
+liegengebliebene zählt nach Ablauf der Zeitmarke nicht mehr. Der Hinweis nennt Rechner und
+Konto und rät, das Projekt nach „Dokumente“ zu kopieren. Erledigt, wenn
+ein Test mit der Sperrdatei eines anderen Rechners den Hinweis sieht
+und eine veraltete Sperre eines anderen Rechners nicht mehr zählt.
+
+**Behoben (28. September 2026, ab 0.4.0).** Ursache bestätigt. `ide/project/sperre.py` schreibt unter die bisherige erste Zeile (Prozessnummer und Startzeit) drei weitere: `rechner=` (`COMPUTERNAME`), `konto=` (Anmeldename) und `erneuert=` (Sekunden seit 1970). Eine Sperrdatei aus 0.3.x ohne diese Zeilen wird weiter gelesen und gilt wie bisher als eine dieses Rechners; umgekehrt liest 0.3.x die neue Datei, weil die erste Zeile gleich bleibt. Neu ist `anderer_besitzer()`, das Prozessnummer, Rechner und Konto liefert; `anderer_prozess()` bleibt als Kurzform. Stammt die Sperre von einem anderen Rechner, wird dort kein Prozess nachgesehen; sie zählt, solange `erneuert` nicht älter als `ZEITGRENZE` (30 Minuten) ist. Das haltende Natter erneuert die Zeit alle fünf Minuten über eine Uhr im Hauptfenster (`_sperre_uhr`, `_sperre_erneuern`); `erneuern()` und `freigeben()` fassen nur die eigene Sperrdatei an, und die ist es nur bei gleicher Prozessnummer und gleichem Rechner. Vorher hätte ein Natter an einem anderen Rechner mit zufällig derselben Prozessnummer die Sperre beim Schließen entfernt. Der Hinweis in `ide/shell/hauptfenster.py` (`_projekt_schon_offen_melden`, erhält jetzt den Besitzer) nennt bei einem anderen Rechner Rechner und Konto und rät, das Projekt nach „Dokumente“ zu kopieren und die Kopie zu öffnen; für ein zweites Fenster am selben Rechner bleibt der alte Text. Tests: `test_sperre_eines_anderen_rechners_zeigt_den_hinweis_bis_sie_veraltet` in `tests/test_von_aussen_geaendert.py` öffnet ein Projekt mit der Sperre von „PC-R07“ (mit der eigenen Prozessnummer), sieht den Hinweis mit Rechner und Konto, findet die fremde Datei nach Erneuern und Schließen unverändert und bekommt bei einer 31 Minuten alten Sperre keinen Hinweis mehr; `test_sperre_nennt_rechner_und_konto_und_wird_erneuert` in `tests/test_projekt_sperre.py` prüft Inhalt, Erneuerung und Zeitgrenze. Gegen den alten Stand scheitern beide.
+
+
+---
+
+## 323. Alle Abgaben als ZIP heißen gleich ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Betriebsprüfung, Commit `b94cdf3`,
+Natter 0.3.6.
+
+**Beobachtet:** „Projekt → Als ZIP speichern …“ schlägt
+`<Projektordner>.zip` vor, und in der ZIP liegt alles unter
+`<Projektordner>/`. Bekommen 30 Schülerinnen die Aufgabe `Aufgabe3`,
+heißen alle Abgaben `Aufgabe3.zip` und entpacken sich alle nach
+`Aufgabe3\`. In einem gemeinsamen Abgabeordner ersetzt die nächste
+Abgabe nach einer Rückfrage des Dateidialogs die vorige; per Mail
+oder Lernplattform eingesammelt, liegen `Aufgabe3.zip`,
+`Aufgabe3 (1).zip` usw. im Download-Ordner, und nach dem Entpacken ist
+nicht zu erkennen, welche zu wem gehört. Das Quelltext-PDF schreibt
+dafür den Namen aus der Windows-Anmeldung in die Kopfzeile
+(Handbuch 3.6); die ZIP enthält keinen Namen, weder im Dateinamen noch
+im Ordner darin.
+
+**Ursache:** nachgewiesen. `ide/shell/hauptfenster.py:5468` (Vorschlag
+für den Dateinamen), Zeile 5459 (Pfad in der ZIP). Den Anmeldenamen
+holt nur `ide/export/quelltext_pdf.py:271`.
+
+**Zu tun:** Den Anmeldenamen in den Vorschlag aufnehmen, etwa
+`Aufgabe3 - mueller.anna.zip`, und den Ordner in der ZIP ebenso
+benennen, damit eingesammelte Abgaben nebeneinander entpackt werden
+können. Handbuch 3.6 anpassen. Erledigt, wenn ein Test den Namen im
+Vorschlag und im Ordner der ZIP findet.
+
+**Behoben (28. September 2026, ab 0.4.0).** Ursache bestätigt. Neu ist `abgabe_name` in `ide/shell/hauptfenster.py`: Projektname, Bindestrich und Windows-Anmeldename aus `getpass.getuser()` (also `USERNAME`), etwa `Aufgabe3 - mueller.anna`. Zeichen, die in Dateinamen nicht erlaubt sind, werden zu `_`; ohne Anmeldenamen bleibt es beim Projektnamen. Genommen wird der Anmeldename und nicht der ausgeschriebene Name aus dem Quelltext-PDF, weil er kurz, in der Klasse eindeutig und ohne Komma ist. `_als_zip_aktion` schlägt `<Projektname> - <Anmeldename>.zip` vor, und `projekt_als_zip` legt alle Dateien in der ZIP unter einen Ordner desselben Namens. Test: `test_die_abgabe_traegt_den_anmeldenamen` in `tests/test_explorer_dateien_und_zip.py` findet den Namen im Vorschlag des Dateidialogs und als einzigen Ordner in der ZIP; gegen den alten Stand scheitert er. Die beiden vorhandenen ZIP-Tests der Datei erwarten jetzt den Ordner `Wetter - mueller.anna/`. Handbuch 3.6 nennt den neuen Vorschlag.
+
+
+---
+
+## 324. Nach einem Zurücksetzen oder einem „Nein“ fragt jeder Export erneut nach dem Stammzertifikat und legt ein weiteres an ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Betriebsprüfung, Commit `b94cdf3`,
+Natter 0.3.6. Nicht nachgestellt, weil dafür der Zertifikatspeicher
+des Kontos geändert werden müsste; belegt am Code.
+
+**Beobachtet:** Der erste Export als Exe in einem Konto legt das
+Zertifikat „Natter Programme dieses Rechners“ in `CurrentUser\My` an
+und trägt es in `CurrentUser\Root` ein; dazu fragt Windows mit einer
+Sicherheitswarnung, ob ein Stammzertifikat installiert werden soll.
+Wird das Profil nach jeder Stunde zurückgesetzt, sind Zertifikat und
+Eintrag danach weg, und beim ersten Export jeder Stunde kommt die
+Warnung wieder, bei jeder Schülerin. Die Klasse gewöhnt sich so an,
+eine Sicherheitswarnung von Windows mit „Ja“ zu beantworten.
+
+Wer „Nein“ wählt, oder wo eine Richtlinie das Eintragen von
+Stammzertifikaten durch Benutzer verbietet, bekommt eine unsignierte
+Exe. Beim nächsten Export findet `vorhandenes_zertifikat()` das nicht
+vertraute Zertifikat nicht, `zertifikat_anlegen()` legt ein weiteres
+an, und Windows fragt wieder. Die abgelehnten Zertifikate bleiben in
+`CurrentUser\My` liegen, eines je Export. Handbuch 3.5 erwähnt die
+Warnung nicht (siehe auch Punkt 318).
+
+**Ursache:** nachgewiesen. `ide/export/signatur.py:399-403`: ohne
+vertrautes Zertifikat ruft `signieren_wenn_moeglich(anlegen=True)`
+jedes Mal `zertifikat_anlegen()` (Zeile 214-256) auf;
+`vorhandenes_zertifikat()` (Zeile 182-208) übergeht Zertifikate, die
+nicht in `Root` stehen, und ein angelegtes, aber abgelehntes wird
+nicht entfernt.
+
+**Zu tun:** Ein angelegtes Zertifikat, das nicht eingetragen wurde,
+sofort wieder aus `CurrentUser\My` entfernen. Nach einem „Nein“ im
+selben Konto nicht bei jedem Export neu fragen, sondern erst, wenn
+jemand es über einen Eintrag im Exportdialog ausdrücklich will. Im
+Handbuch 3.5 und in `ZUERST-LESEN.txt` die Warnung beschreiben und
+sagen, dass sie bei zurückgesetzten Profilen in jeder Stunde kommt.
+Erledigt, wenn ein Test mit nachgebildetem PowerShell-Aufruf zeigt,
+dass nach einer abgelehnten Rückfrage kein Zertifikat liegen bleibt
+und der nächste Export nicht erneut anlegt.
+
+**Behoben (28. September 2026, ab 0.4.0).** Ursache bestätigt. `zertifikat_anlegen()` in `ide/export/signatur.py` trägt zuerst nur in `CurrentUser\Root` ein, in einem `try`; verneint jemand die Rückfrage, wirft `Add`, der Befehl meldet `Abgelehnt|<Fingerabdruck>`, und das Zertifikat kommt nicht zu den vertrauenswürdigen Herausgebern. Ist es abgelehnt oder danach nicht vertraut, entfernt `_zertifikat_entfernen()` es samt Schlüssel aus `CurrentUser\My` und aus `TrustedPublisher`, und `_ablehnung_vermerken()` legt `%LOCALAPPDATA%\Natter\zertifikat_abgelehnt.txt` an. Solange die Datei besteht, legt `signieren_wenn_moeglich(anlegen=True)` kein neues Zertifikat an und meldet im Protokoll, dass ohne Signatur exportiert wurde und welche Datei für einen neuen Versuch zu löschen ist. Abweichung vom Kriterium: einen Exportdialog gibt es nicht, der Export startet direkt aus dem Menü; der ausdrückliche neue Versuch geht deshalb über das Löschen der Datei. `rueckfrage_wieder_zulassen()` hebt den Vermerk auf und steht für einen späteren Menüeintrag bereit. Handbuch 3.5 und `ZUERST-LESEN.txt` beschreiben die Warnung, das Verhalten nach „Nein“ und dass die Warnung bei zurückgesetzten Profilen nach jeder Anmeldung wiederkommt. Test: `test_nach_einem_nein_bleibt_nichts_liegen_und_es_wird_nicht_neu_gefragt` in `tests/test_export_signatur.py` bildet die Speicher des Kontos nach (`Add` auf `Root` abgelehnt) und zeigt: nach zwei Exporten liegt nichts in `My`, angelegt wurde nur einmal, und nach `rueckfrage_wieder_zulassen()` wird wieder angelegt; `test_nur_der_stammspeicher_steht_im_try` hält die Reihenfolge im Befehl fest. Beide scheitern gegen den alten Stand.
+
+
+---
+
+## 325. Bei englischem Windows-Format zeigt das Feld „Schrift“ im Diagramm-Editor einen Dezimalpunkt und nimmt kein Komma an ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Betriebsprüfung, Commit `b94cdf3`,
+Natter 0.3.6.
+
+**Beobachtet:** Ist unter „Region“ ein englisches Format eingestellt,
+etwa auf einem Leihgerät oder einem englischen Abbild des Trägers,
+zeigt das Eigenschaften-Panel des Diagramm-Editors die Schriftgröße
+als „10.50 pt“, und die Eingabe „11,5“ nimmt das Feld nicht an. Probe:
+`QLocale.setDefault(QLocale("en_US"))` vor dem Aufbau (so übernimmt Qt
+die Einstellung aus Windows), `EigenschaftenPanel` offscreen gebaut:
+Text `'10.50 pt'`, `validate("11,5 pt")` ergibt `Invalid`; mit
+`de_DE` `'10,50 pt'` und `Acceptable`. Die Zahlenfelder in `pcl`
+stellen das deutsche Format fest ein (Punkt 192), in der IDE fehlt
+das.
+
+**Ursache:** nachgewiesen. `ide/diagramm/eigenschaften.py:122` legt
+ein `QDoubleSpinBox` ohne `setLocale` an, und in `ide/` setzt keine
+Stelle `QLocale.setDefault` oder `setLocale` (Suche nach `QLocale`
+ohne Treffer).
+
+**Zu tun:** In `anwendung_erzeugen()` (`ide/main.py`) das deutsche
+Format mit `QLocale.setDefault` für die ganze IDE einstellen.
+Erledigt, wenn ein Test mit englischer Voreinstellung im Feld
+„Schrift“ „10,50 pt“ findet und „11,5“ annimmt.
+
+**Behoben (28. September 2026, ab 0.4.0).** Ursache bestätigt. `deutsch_einschalten()` in `ide/deutsch.py`, das `anwendung_erzeugen()` beim Start aufruft, stellt jetzt mit `QLocale.setDefault` das deutsche Format für die ganze IDE ein, bevor es die Übersetzungen lädt; die Einstellung unter „Region“ in Windows spielt damit für Zahlen- und Datumsfelder der IDE keine Rolle mehr. Zusätzlich setzt `EigenschaftenPanel` das Feld „Schrift“ mit `setLocale` fest auf Deutsch, wie es die Zahlenfelder in `pcl` tun, damit es auch ohne den Start der IDE stimmt. Weitere `QDoubleSpinBox`, Validatoren oder Datumsfelder gibt es in `ide/` nicht. Test: `test_feld_schrift_zeigt_und_nimmt_das_komma_auch_bei_englischem_format` in `tests/test_diagramm_eigenschaften.py` stellt `en_US` über `QLocale.setDefault` ein, findet im Feld „10,50 pt“, sieht „11,5 pt“ als gültig und prüft, dass `deutsch_einschalten()` das englische Format durch das deutsche ersetzt; das vorige Format wird danach wiederhergestellt. Gegen den alten Stand scheitert er mit `'10.50 pt'`.
+
+---
+
+## 326. Eine CSV-Datei mit offenem Anführungszeichen endet in der Absturzmeldung ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Durchsicht (Runde 6), Commit
+`6ff90fa`.
+
+**Beobachtet:** Beginnt ein Feld mit einem Anführungszeichen, das
+nicht geschlossen wird (etwa `Zeile 3;3;"5 Zoll`), liest `csv.reader`
+den ganzen Rest der Datei als ein Feld. Ab 128 KB bricht er mit
+`_csv.Error: field larger than field limit (131072)` ab. Probe mit
+20.000 Zeilen und diesem einen Feld in Zeile 4, `CsvAnsicht(pfad)`
+offscreen gebaut: die Ausnahme kommt aus dem Konstruktor. Beim
+Doppelklick im Projekt-Explorer erscheint damit „In Natter ist etwas
+schiefgegangen: Error“ statt einer Meldung zur Datei. Eine Tabelle,
+die ein Programm selbst schreibt oder die aus einer Messung stammt,
+enthält so ein Zeichen schnell. Derselbe Weg gilt für einen
+`OSError` beim Lesen, etwa wenn ein anderes Programm die Datei
+gesperrt hält.
+
+**Ursache:** nachgewiesen. `ide/viewers/csv_ansicht.py:59`
+(`csv_erkennen`) und `:244`/`:247` (`_laden`) fangen weder `OSError`
+noch `csv.Error`; `ide/shell/hauptfenster.py:5710` ruft
+`datei_ansicht_oeffnen(pfad, lambda: CsvAnsicht(pfad))` ohne
+`try`, und `datei_ansicht_oeffnen` (Zeile 5784) fängt ebenfalls
+nichts.
+
+**Zu tun:** Lese- und CSV-Fehler beim Öffnen abfangen und in der
+Statuszeile melden, welche Datei sich nicht lesen ließ und warum
+(beim `csv.Error` mit der Zeilennummer aus `reader.line_num`);
+ersatzweise die Rohansicht zeigen. Erledigt, wenn ein Test die Datei
+aus der Probe über `HauptFenster.oeffnen` öffnet und eine Meldung
+statt einer Ausnahme bekommt.
+
+**Behoben (28. September 2026, ab 0.4.0).** Ursache bestätigt. `CsvAnsicht` in `ide/viewers/csv_ansicht.py` fängt Lese- und CSV-Fehler jetzt selbst ab und meldet sie in einer Hinweiszeile über der Tabelle; der Konstruktor wirft nicht mehr, und der Doppelklick im Projekt-Explorer öffnet den Reiter statt der allgemeinen Fehlermeldung. Die Datei wird nur noch einmal gelesen, Trennzeichen und Zeichensatz werden aus denselben Bytes erkannt. Bricht `csv.reader` ab, behält die Tabelle die Zeilen davor, die Ansicht schaltet auf „Als Text anzeigen“, und die Hinweiszeile nennt die Zeile, in der der fehlerhafte Datensatz beginnt: „Ab Zeile 4 lässt sich die Datei nicht als Tabelle lesen. Dort beginnt ein Feld mit einem Anführungszeichen, das nicht wieder geschlossen wird. …“. `reader.line_num` stünde an dieser Stelle schon am Ende der Datei; gezählt wird deshalb ab der letzten vollständig gelesenen Zeile. Ein `OSError` erscheint als deutscher Satz („„messung.csv“ lässt sich nicht lesen. Der Zugriff wurde verweigert. Vielleicht hält ein anderes Programm sie gerade geöffnet.“), beim Neuladen bleibt der bisherige Inhalt dabei stehen. Die Meldung steht in der Ansicht statt in der Statuszeile, weil sie dort so lange sichtbar bleibt wie der unvollständige Inhalt; `ide/shell/hauptfenster.py` blieb unverändert. Test: `test_csvansicht_meldet_offenes_anfuehrungszeichen_statt_abzustuerzen` in `tests/test_viewer_csv.py` baut die Probe mit 20.000 Zeilen nach und prüft Hinweis, die zwei Zeilen davor und den ganzen Text in der Rohansicht; ohne die Änderung scheitert er mit `_csv.Error: field larger than field limit (131072)`.
+
+
+---
+
+## 327. Die Arbeitskopie eines Projekts erbt die Sperrdatei des Originals ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Durchsicht (Runde 6), Commit
+`6ff90fa`.
+
+**Beobachtet:** Hat die Lehrkraft die Aufgabe im Tauschordner gerade
+in Natter offen, liegt dort `.natter-sperre` mit ihrem Rechner und
+einer frischen Zeit. Öffnet eine Schülerin das Projekt aus dem nur
+lesbaren Ordner und nimmt die angebotene Kopie nach
+`Dokumente\Natter` an, kopiert `beispiel_kopieren` die Sperrdatei mit.
+Beim Öffnen der eigenen Kopie kommt dann „Das Projekt „Aufgabe3“ ist
+bereits am Rechner „LEHRER-PC“ im Konto „lehrer“ geöffnet“, obwohl
+niemand sonst an dieser Kopie arbeitet. Probe: Quellordner mit
+`.natter-sperre` (`rechner=LEHRER-PC`, `erneuert` = jetzt),
+`beispiel_kopieren(projektdatei, ziel)`, danach
+`sperre.anderer_besitzer(kopie.parent)` ergibt
+`Besitzer(pid=4711, rechner='LEHRER-PC', konto='lehrer',
+anderer_rechner=True)`. Dasselbe passiert, wenn der Rat aus genau
+diesem Hinweis befolgt und das Projekt im Windows-Explorer nach
+„Dokumente“ kopiert wird: die Sperrdatei ist keine versteckte Datei
+und kommt mit. Solange die fremde Sperre gilt, legt Natter für die
+Kopie auch keine eigene an.
+
+**Ursache:** nachgewiesen. `ide/shell/startbild.py:335` kopiert mit
+`_NICHT_MITKOPIEREN` (Zeile 163), das nur `__pycache__` und `*.pyc`
+auslässt. `ide/shell/hauptfenster.py:3235` schreibt die eigene
+Sperre nur, wenn `anderer_besitzer` nichts findet.
+`ide/project/sperre.py:161` prüft nicht, ob die Sperrdatei zum
+Ordner gehört, in dem sie liegt.
+
+**Zu tun:** `.natter-sperre` beim Kopieren auslassen. Zusätzlich den
+Projektordner in die Sperrdatei schreiben und eine Sperre, deren
+Ordner nicht zum gelesenen passt, nicht zählen lassen; damit wirkt
+auch eine im Explorer kopierte Sperrdatei nicht mehr. Erledigt, wenn
+ein Test die Probe oben ohne Hinweis öffnet und in der Kopie die
+eigene Sperre findet.
+
+**Behoben (28. September 2026, ab 0.4.0).** Ursache bestätigt. `_NICHT_MITKOPIEREN` in `ide/shell/startbild.py` lässt neben `__pycache__` und `*.pyc` jetzt auch `.natter-sperre` aus; das gilt für `beispiel_kopieren` und `beispiel_zuruecksetzen`. `ide/project/sperre.py` schreibt zusätzlich die Zeile `ordner=` mit dem Projektordner, aufgelöst über `Path.resolve()`, damit ein verbundenes Netzlaufwerk als Netzpfad dasteht. `anderer_besitzer()` lässt eine Sperre nicht gelten, deren Ordnerangabe nicht zu dem Ordner passt, in dem sie liegt (verglichen mit `os.path.normcase`); `erneuern()` und `freigeben()` fassen eine solche Datei nicht als eigene an. Eine im Explorer mitkopierte Sperrdatei wirkt in der Kopie deshalb nicht mehr, und Natter legt dort seine eigene an. Sperrdateien ohne `ordner=`, also aus Natter 0.3.x und aus dem bisherigen Stand von 0.4.0, gelten weiter wie bisher; ältere Fassungen lesen die neue Datei, weil sie unbekannte Zeilen übergehen. Ein Rest bleibt: sieht ein anderer Rechner denselben Tauschordner unter einem Pfad, den `resolve` nicht auf denselben Netzpfad bringt (etwa über einen anderen Servernamen), bleibt dort der Hinweis aus. Das Projekt ginge in diesem Fall ohnehin auf, die Sperre verbietet nichts. Test: `test_kopie_eines_offenen_projekts_erbt_keine_sperre` in `tests/test_von_aussen_geaendert.py`, einmal mit der Probe aus dem Punkt über `beispiel_kopieren` (Sperre von `LEHRER-PC` ohne Ordnerangabe), einmal als Explorer-Kopie mit `shutil.copytree` samt Sperrdatei mit Ordnerangabe. Beide Fälle öffnen die Kopie im Hauptfenster ohne Hinweis und finden dort die eigene Sperre mit eigener Prozessnummer und eigenem Rechner; die Sperre im Original zählt weiter und bleibt unverändert. Gegen den alten Stand scheitern beide Fälle am Hinweis.
+
+
+---
+
+## 328. Objektinspektor: Kommazahlen erscheinen mit Punkt, und „0,5“ wird abgelehnt ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Durchsicht (Runde 6), Commit
+`6ff90fa`.
+
+**Beobachtet:** `FloatSpinEdit` hat die Eigenschaften `minimum`,
+`maximum`, `value` und `increment` vom Typ `float`. Im
+Objektinspektor steht `increment = 0.5` als „0.5“, und die Eingabe
+„0,5“ lehnt er ab mit „'0,5' ist keine gültige Eingabe für
+increment.“; nur „0.5“ wird angenommen. Im laufenden Programm zeigt
+dasselbe Feld „0,50“ und nimmt nur das Komma (Punkt 192). Probe:
+`text_aus_wert(0.5)` ergibt `'0.5'`, `wert_aus_text(float, "0,5")`
+wirft `ValueError: could not convert string to float: '0,5'`.
+Punkt 325 hat das Zahlenformat der IDE auf Deutsch gestellt, erfasst
+aber nur Qt-Eingabefelder, nicht die Zellen des Objektinspektors.
+
+**Ursache:** nachgewiesen. `pcl/properties.py:65` gibt eine Zahl
+mit `str(wert)` aus, `pcl/properties.py:79` liest sie mit
+`typ(text)`, also `float("0,5")`.
+`ide/inspector/eigenschaften_tabelle.py:606` und `:634` benutzen
+beide ohne eigene Behandlung für `float`.
+
+**Zu tun:** In `text_aus_wert` und `wert_aus_text` für `float` das
+deutsche Format verwenden: Ausgabe mit Komma (wie `pcl.zahlen.text`),
+Eingabe über `pcl.zahlen.zahl`, das Komma und Punkt annimmt. Die
+`.pfm` behält den Zahlenwert. Erledigt, wenn ein Test im
+Objektinspektor „0,5“ für `increment` einträgt, danach `0.5` in der
+Komponente und „0,5“ in der Zelle findet.
+
+**Behoben (28. September 2026, ab 0.4.0).** Ursache bestätigt. `text_aus_wert` in `pcl/properties.py` gibt eine Kommazahl über `pcl.zahlen.text` mit Dezimalkomma aus, `wert_aus_text` liest den Typ `float` über `pcl.zahlen.zahl` und nimmt damit „0,5“ wie „0.5“ an. Ganze Zahlen, Texte, Datum und Uhrzeit bleiben, wie sie waren. Die `.pfm` und der erzeugte Code bekommen weiter den Zahlenwert: `pfm_wert` ist unverändert, und der Codegenerator benutzt die beiden Funktionen nicht; das Dateiformat ändert sich also nicht. In `ide/inspector/eigenschaften_tabelle.py` füllt `_bei_zellenaenderung` die Zelle einer Kommazahl nach dem Annehmen neu, wenn die Schreibweise abweicht, so dass auch ein eingetipptes „0.5“ danach als „0,5“ dasteht. Test: `test_kommazahl_mit_komma_in_der_zelle` in `tests/test_eigenschaften_tabelle.py`, parametrisiert mit „0,5“ und „0.5“, trägt den Wert für `increment` eines `FloatSpinEdit` in die Zelle ein und prüft: keine Fehlermeldung, `0.5` in der Komponente, „0,5“ in der Zelle, auch nach erneutem Anzeigen, und `0.5` als Zahl für die `.pfm`. Gegen den alten Stand scheitern beide Fälle, „0,5“ an der Meldung „'0,5' ist keine gültige Eingabe für increment.“, „0.5“ an der Anzeige mit Punkt. `tests/test_eigenschaften_rundlauf.py`, das jede Eigenschaft jeder Komponente über die Zelle einträgt, läuft mit dem neuen Format weiter durch.
+
+
+---
+
+## 329. CSV-Ansicht sortiert Zahlen als Text: 10, 100, 25, 9 ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Durchsicht (Runde 6), Commit
+`6ff90fa`.
+
+**Beobachtet:** Ein Klick auf die Überschrift einer Zahlenspalte
+sortiert nach Zeichen, nicht nach Wert. Probe mit `noten.csv`
+(`Punkte` 9, 10, 100, 25; `Schnitt` 2,5, 11,25, 3, 1,75), Modell
+offscreen sortiert: `Punkte` aufsteigend ergibt „10, 100, 25, 9“,
+`Schnitt` ergibt „1,75, 11,25, 2,5, 3“. Wer Messwerte oder Punkte
+nach Größe ordnen will, bekommt eine falsche Reihenfolge, die auf
+den ersten Blick sortiert aussieht. Im Datenbank-Panel ist derselbe
+Fehler beim CSV-Import mit Punkt 288 behoben worden.
+
+**Ursache:** nachgewiesen. `ide/viewers/csv_ansicht.py:158` bis
+`:166` (`_CsvModell.sort`) sortiert mit dem Zelltext als Schlüssel.
+
+**Zu tun:** Beim Sortieren Zellen, die sich mit `pcl.zahlen.zahl`
+als Zahl lesen lassen, nach Wert ordnen und vor den übrigen Texten
+einreihen; leere Zellen ans Ende. Erledigt, wenn ein Test die Probe
+oben als „9, 10, 25, 100“ und „1,75, 2,5, 3, 11,25“ sortiert.
+
+**Behoben (28. September 2026, ab 0.4.0).** Ursache bestätigt. `_CsvModell.sort` in `ide/viewers/csv_ansicht.py` ordnet Zellen, die `pcl.zahlen.zahl` lesen kann, nach Wert, mit Dezimalkomma wie mit Dezimalpunkt, also nach derselben Regel wie der CSV-Import des Datenbank-Panels seit Punkt 288. Zahlen stehen vor Texten, leere Zellen am Ende; absteigend kehrt sich die Folge aus Zahlen und Texten um, die leeren Zellen bleiben unten. Die Schlüssel entstehen je Spalte einmal beim ersten Sortieren nach ihr und gelten danach für beide Richtungen; eine Zelle, die nicht mit Ziffer, Vorzeichen, Punkt oder Komma beginnt, gilt ohne Versuch als Text. Gemessen mit 100.000 Zeilen und fünf Spalten, Qt offscreen: erstes Sortieren einer Zahlenspalte 0,06 s, einer Datumsspalte 0,14 s, jedes weitere 0,01 bis 0,03 s; Öffnen 0,11 s. `test_csvansicht_bleibt_mit_100000_zeilen_bedienbar` bleibt grün. Test: `test_csvansicht_sortiert_zahlen_nach_wert` in `tests/test_viewer_csv.py` sortiert die Probe als „9, 10, 25, 100“ und „1,75, 2,5, 3, 11,25“, dazu absteigend und mit leerer Zelle und Text; ohne die Änderung scheitert er mit „'', 10, 100, 25, 9“.
+
+
+---
+
+## 330. CSV-Ansicht zeigt nach einem Programmlauf den alten Inhalt ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, Durchsicht (Runde 6), Commit
+`6ff90fa`.
+
+**Beobachtet:** Ein Programm schreibt Messwerte oder einen
+Punktestand in eine CSV-Datei, die als Reiter in der CSV-Ansicht
+offen ist. Nach dem Lauf zeigt der Reiter weiter den Stand beim
+Öffnen. Ein erneuter Doppelklick im Projekt-Explorer holt nur den
+alten Reiter nach vorn; den neuen Inhalt gibt es erst nach Schließen
+und neuem Öffnen des Reiters. Die Markdown- und die HTML-Ansicht
+laden sich bei einer Änderung der Datei dagegen selbst neu. Probe:
+`CsvAnsicht` offscreen gebaut, Datei mit vier Datenzeilen danach mit
+einer überschrieben, das Modell meldet weiter 4 Zeilen.
+
+**Ursache:** nachgewiesen. `ide/viewers/csv_ansicht.py` hat keinen
+`QFileSystemWatcher` (vorhanden in `ide/viewers/html_vorschau.py:43`
+und `ide/viewers/markdown_ansicht.py:106`).
+`ide/shell/hauptfenster.py:5796` bis `:5802`
+(`datei_ansicht_oeffnen`) aktiviert einen vorhandenen Reiter, ohne
+ihn neu zu laden, und `_von_aussen_geaenderte_neu_laden` (Zeile 3790)
+sieht nur Quelltexteditoren an.
+
+**Zu tun:** Die CSV-Ansicht wie die Markdown-Ansicht beobachten
+lassen und bei einer Änderung neu laden; Filtertext und
+Sortierspalte bleiben dabei stehen. Erledigt, wenn ein Test die Datei
+nach dem Öffnen überschreibt und die neue Zeilenzahl in der Tabelle
+findet.
+
+**Behoben (28. September 2026, ab 0.4.0).** Ursache bestätigt. `CsvAnsicht` beobachtet die Datei wie die Markdown- und die HTML-Ansicht mit einem `QFileSystemWatcher` und nimmt sie nach dem Neuladen wieder auf, falls ein Programm sie ersetzt statt überschrieben hat. Die Änderungssignale starten einen Einzelschuss-`QTimer` (`NEU_LADEN_PAUSE_MS`, 300 ms) jedes Mal neu; ein Programm, das Zeile für Zeile schreibt, löst so ein einziges Neuladen aus. Filtertext und Sortierspalte samt Richtung gelten für den neuen Inhalt; sortiert wird das neue Modell dabei einmal, bevor es in die Tabelle kommt. Ist die Rohansicht gerade zu sehen, zeigt sie den neuen Text. Neuladen von 100.000 Zeilen mit Sortierung dauert offscreen 0,29 s. Ein erneuter Doppelklick im Projekt-Explorer holt weiterhin den vorhandenen Reiter nach vorn, der nun aktuell ist. Test: `test_csvansicht_laedt_nach_aenderung_der_datei_neu` in `tests/test_viewer_csv.py` sortiert und filtert, überschreibt die Datei und findet die neuen Zeilen gefiltert und sortiert; ohne die Änderung läuft er nach 5 s in die Zeitgrenze, weil die Tabelle bei den alten Zeilen bleibt.
+
+
+---
+
+## 331. Zurücksetzen eines Beispiels löscht die Sperrdatei des offenen Fensters ~~(erledigt)~~
+
+**Gemeldet:** 28. September 2026, beim Beheben von Punkt 327 (Runde 6 von `/freigabe`).
+
+**Beobachtet:** „Beispiel zurücksetzen“ leert den Ordner der Arbeitskopie vollständig und kopiert das Original hinein. Dabei verschwindet auch `.natter-sperre`, obwohl das Projekt im selben Fenster offen bleibt. Die Erneuern-Uhr legt eine fehlende Sperre nicht wieder an; ein zweites Fenster oder ein anderer Rechner bekommt danach keinen Hinweis mehr.
+
+**Ursache:** `beispiel_zuruecksetzen` in `ide/shell/startbild.py` löscht jeden Eintrag des Ordners ohne Ausnahme.
+
+**Zu tun:** Die Sperrdatei beim Leeren auslassen. Erledigt, wenn ein Test nach dem Zurücksetzen dieselbe Sperrdatei vorfindet.
+
+**Behoben (28. September 2026, ab 0.4.0).** `beispiel_zuruecksetzen` übergeht beim Leeren des Ordners die Sperrdatei; das Original enthält keine (`_NICHT_MITKOPIEREN`), also bleibt die Sperre des offenen Fensters unverändert stehen. Test: `test_zuruecksetzen_laesst_die_sperre_des_offenen_fensters_stehen` in `tests/test_beispiel_und_thema.py`; gegen den alten Stand scheitert er, weil die Sperrdatei fehlt.
+
+---
+
+## 332. Die HTML-Vorschau reicht Verweise mit jedem Schema an Windows weiter ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung, Commit
+`2780e08` (Entwicklungsstand nach 0.3.6).
+
+**Beobachtet:** Ein Klick auf einen Verweis in einer `.html`-Datei,
+die in Natter als Vorschau offen ist, geht bei jedem Schema außer
+`file` und `qrc` an Windows, und Windows startet das Programm, das
+für dieses Schema eingetragen ist (`ms-settings:`, `search-ms:` und
+was installierte Programme sonst anmelden). Ein Browser fragt in
+diesem Fall vorher nach, die Vorschau nicht. Eine HTML-Datei aus
+fremder Hand, etwa aus einer eingesammelten Abgabe, startet so mit
+einem Klick ein anderes Programm mit Argumenten, die in der Datei
+stehen. Die Markdown-Ansicht lässt dagegen nur `http`, `https` und
+`mailto` hinaus.
+
+Probe: `HtmlVorschau` mit `<a href="natterprobe:etwas">`, für das
+Schema `natterprobe` über `QDesktopServices.setUrlHandler` ein
+eigener Empfänger eingetragen, Verweis mit Tab und Eingabetaste
+ausgelöst. Der Empfänger bekommt `natterprobe:etwas`; ohne ihn ginge
+der Aufruf an Windows.
+
+**Ursache:** nachgewiesen. `ide/viewers/html_vorschau.py:30` setzt
+`setOpenExternalLinks(True)`; `QTextBrowser` öffnet damit jeden
+Verweis, dessen Schema nicht `file` oder `qrc` ist, über
+`QDesktopServices.openUrl`. `ide/viewers/markdown_ansicht.py:162`
+prüft das Schema, die HTML-Vorschau nicht.
+
+**Zu tun:** Verweise in der HTML-Vorschau selbst behandeln wie in der
+Markdown-Ansicht (`setOpenLinks(False)`, `anchorClicked`): `http`,
+`https` und `mailto` an den Browser, alles andere mit einer Zeile in
+der Statusleiste abweisen. Erledigt, wenn ein Test mit einem Verweis
+auf ein fremdes Schema keinen Aufruf von `QDesktopServices.openUrl`
+sieht.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `HtmlVorschau` (`ide/viewers/html_vorschau.py`) öffnet Verweise nicht mehr selbst (`setOpenExternalLinks(False)`, `setOpenLinks(False)`), sondern entscheidet in `_verweis_geklickt` über `anchorClicked`: `http`, `https` und `mailto` gehen über `open_url` an den Browser, eine Sprungmarke bleibt in der Vorschau, eine `.html`- oder `.htm`-Datei neben der Seite wird in der Vorschau angezeigt. Jedes andere Schema, auch `file`, wird mit einer Zeile in der Statusleiste abgewiesen. Test: `test_verweis_mit_fremdem_schema_geht_nicht_an_windows` in `tests/test_viewer_html.py`, die Probe aus dem Punkt: Verweis auf `natterprobe:etwas`, eigener Empfänger über `QDesktopServices.setUrlHandler`, ausgelöst mit Tab und Eingabetaste. Weder der Empfänger noch `open_url` wird gerufen; gegen den alten Stand bekommt der Empfänger `natterprobe:etwas`.
+
+
+---
+
+## 333. Die angebotene Kopie einer Aufgabe bleibt schreibgeschützt, wenn es die Dateien des Originals waren ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung, Commit
+`2780e08` (Entwicklungsstand nach 0.3.6).
+
+**Beobachtet:** Seit Punkt 321 bietet Natter beim Öffnen aus einem
+Ordner ohne Schreibrecht eine Kopie unter `Dokumente\Natter` an,
+damit sich die Aufgabe bearbeiten lässt. Tragen die Dateien des
+Originals das Attribut „Schreibgeschützt“, geht es mit in die Kopie.
+Dateien von einer CD oder DVD haben es immer, und manche Lehrkräfte
+setzen es zusätzlich, um eine Vorlage zu schützen. Die Kopie geht
+auf, die Schreibprobe im Ordner gelingt, und erst beim Speichern
+kommt „Nicht gespeichert“. Einen weiteren Weg an einen beschreibbaren
+Ort gibt es in Natter nicht; die Arbeit steht nur im Editor.
+
+Probe unter `%TEMP%`: Ordner `Aufgabe` mit `Aufgabe.natter` und
+`u_haupt.py`, beide mit `os.chmod(…, stat.S_IREAD)`, kopiert mit
+`beispiel_kopieren(…, ziel)` wie in `_kopie_statt_schreibschutz`.
+Danach liefert `os.access` für `u_haupt.py` in der Kopie `False`, und
+`atomar_schreiben` endet mit „PermissionError: [Errno 13] Die Datei
+ist schreibgeschützt“.
+
+**Ursache:** nachgewiesen. `ide/shell/startbild.py:341` kopiert mit
+`shutil.copytree`, das über `copy2` die Dateiattribute mitnimmt;
+`ide/atomar.py:52` lehnt eine Datei ohne Schreibrecht ab.
+`_kopie_statt_schreibschutz` (`ide/shell/hauptfenster.py:3526`)
+prüft nur den Ordner. Die Arbeitskopien der Beispiele laufen durch
+dieselbe Funktion.
+
+**Zu tun:** Beim Anlegen einer Arbeitskopie das Attribut
+„Schreibgeschützt“ an den kopierten Dateien entfernen, etwa mit
+`copy_function=shutil.copyfile` oder einem `os.chmod` danach.
+Erledigt, wenn ein Test mit schreibgeschützten Dateien im Original
+die Kopie speichern kann.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `ide/shell/startbild.py` kopiert jetzt über `_beschreibbar_kopieren`: `shutil.copy2` wie bisher, damit die Zeitstempel bleiben, danach entfernt ein `os.chmod` das Attribut „Schreibgeschützt“ an der Kopie. `beispiel_kopieren`, das neue `aufgabe_kopieren` und `beispiel_zuruecksetzen` benutzen es; auch die Arbeitskopien der Beispiele entstehen damit ohne das Attribut, sonst ändert sich an ihnen nichts. Test: `test_die_kopie_schreibgeschuetzter_dateien_laesst_sich_speichern` in `tests/test_kopie_einer_aufgabe.py`, für Aufgabe und Beispiel, setzt die Dateien des Originals mit `os.chmod(…, stat.S_IREAD)` auf schreibgeschützt und schreibt die Kopie mit `atomar_schreiben`. Mit `copy2` ohne das `chmod` scheitern beide Fälle mit `PermissionError`.
+
+
+---
+
+## 334. Ein Bildpfad auf einen anderen Rechner in der `.pfm` hält Natter beim Öffnen des Designers 40 Sekunden an ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung, Commit
+`2780e08` (Entwicklungsstand nach 0.3.6).
+
+**Beobachtet:** `icon` eines Formulars und `picture` einer
+`Image`-Komponente dürfen in der `.pfm` jeden Pfad tragen, auch einen
+absoluten oder einen UNC-Pfad. Der Designer lädt das Bild beim Öffnen
+im Hauptfaden von dort, und so lange reagiert das Fenster nicht.
+Zugleich baut Natter eine Verbindung zu dem Rechner auf, den die Datei
+nennt; Windows versucht dabei üblicherweise, sich dort mit dem
+angemeldeten Konto anzumelden (nicht nachgestellt). Wer ein Projekt
+aus fremder Hand im Designer öffnet, etwa eine Lehrkraft beim
+Durchsehen der Abgaben, verbindet sich also mit einem Rechner, den
+der Absender bestimmt hat. Ohne Absicht entsteht ein solcher Pfad in
+einer von Hand bearbeiteten `.pfm` oder in einem Projekt, das von
+einem Rechner mit anderem Netzlaufwerk kommt.
+
+Probe: `u_main.pfm` eines Beispiels samt Ordner nach `%TEMP%`
+kopiert, `properties.icon` auf `\\192.0.2.1\bilder\symbol.png`
+(Dokumentationsadresse, nicht erreichbar) gesetzt,
+`formular_fuer_designer_laden` aufgerufen: 42,5 s. Mit einem
+fehlenden relativen Pfad: 0,1 s.
+
+Der Exe-Export nimmt dasselbe Symbol nur, wenn es im Projektordner
+liegt (`ide/export/exporter.py:250`); Designer und Export behandeln
+denselben Wert verschieden.
+
+**Ursache:** nachgewiesen. `_bilddatei_finden`
+(`pcl/components/additional.py:448`) gibt einen absoluten Pfad
+unverändert zurück und fragt sonst `Path.exists()`; `Picture` lädt
+ihn mit `QPixmap` (Zeile 523), `Form` mit `QIcon`
+(`pcl/form.py:238`). Im Designer geschieht das beim Bau der Vorschau
+(`ide/designer/laden.py:197`) im Hauptfaden.
+
+**Zu tun:** Im Designer (`_projektordner` gesetzt) Bilder nur aus dem
+Projektordner laden, wie beim Export; einen Pfad außerhalb nicht
+anfassen und im Objektinspektor als fehlend zeigen. Im gestarteten
+Programm bleibt es, wie es ist. Erledigt, wenn ein Test mit einem
+UNC-Pfad als `icon` den Designer öffnet, ohne dass auf diesen Pfad
+zugegriffen wird.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt, dazu eine zweite Stelle: `_relativ_zum_projekt` rief für einen absoluten Bildpfad `Path.resolve()` auf, und auch das fragte den fremden Rechner an. Im Designer (am Formular ist `_projektordner` vermerkt) nimmt `_bilddatei_finden` (`pcl/components/additional.py`) ein Bild nur noch aus dem Projektordner, wie der Exe-Export. Ob der Pfad dort liegt, entscheidet `_im_projektordner` allein am Text (`os.path.normpath`, `commonpath`), ohne das Dateisystem zu fragen; ein Pfad außerhalb, auch ein UNC-Pfad oder einer mit `..`, ergibt kein Bild. `_relativ_zum_projekt` rechnet ebenso nur am Text. Der Wert bleibt in `.pfm` und Objektinspektor stehen, die Vorschau zeigt kein Bild. Im gestarteten Programm ist `_projektordner` nicht gesetzt, dort sucht `_bilddatei_finden` wie bisher. Eine eigene Kennzeichnung als fehlend im Objektinspektor gibt es nicht. Test: `test_bildpfad_auf_anderen_rechner_bleibt_im_designer_unberuehrt` in `tests/test_designer_laden.py`: `icon` des Formulars und `picture` eines `Image` auf `\\192.0.2.1\bilder\symbol.png`, `QPixmap`, `QIcon`, `Path.exists` und `Path.resolve` durch Aufzeichner ersetzt, der Pfad wird nie wirklich aufgerufen. Kein Aufruf erreicht den Pfad, ein Bild unter `assets/` wird weiter geladen; gegen den alten Stand geht der UNC-Pfad an `QPixmap`.
+
+
+---
+
+## 335. Eine Aufgabe aus der Wurzel einer Freigabe wird nach „Dokumente\Natter\ 2“ kopiert, samt allem, was dort liegt ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung, Commit
+`2780e08` (Entwicklungsstand nach 0.3.6).
+
+**Beobachtet:** Liegt die `.natter` in der Wurzel einer Freigabe oder
+eines Laufwerks (`\\server\klausur\Klausur.natter`,
+`K:\Klausur.natter`), hat der Projektordner keinen Namen. Das liegt
+nahe, wenn eine Lehrkraft für eine Klausur eine eigene Freigabe nur
+zum Lesen einrichtet. Die angebotene Kopie aus Punkt 321 landet dann
+in einem Ordner „ 2“ mit führendem Leerzeichen, und kopiert wird die
+ganze Wurzel mit allen Unterordnern, im Hauptfaden und ohne
+Fortschrittsanzeige. Ein Projekt aus einer zweiten Wurzel landet in
+„ 3“. Im Explorer ist nicht zu erkennen, welche Aufgabe in welchem
+Ordner steckt.
+
+Probe mit nachgebildetem `copytree`:
+`beispiel_kopieren(Path(r"\\server\klausur\Klausur.natter"), ziel)`
+ruft `copytree('\\\\server\\klausur\\', '<ziel>\\ 2')` auf und
+liefert `<ziel>\ 2\Klausur.natter`.
+
+**Ursache:** nachgewiesen. `ide/shell/startbild.py:333` bildet den
+Zielordner aus `quelle.name`, der für eine Wurzel leer ist.
+`wurzel / ""` ist `wurzel` selbst, das es schon gibt, und Zeile 338
+hängt die Nummer an den leeren Namen. Zeile 341 kopiert die Quelle
+ohne Begrenzung.
+
+**Zu tun:** Für eine Quelle ohne Ordnernamen den Namen der
+Projektdatei als Ordnernamen nehmen (`Klausur`) und aus einer Wurzel
+nur die Dateien des Projekts kopieren, oder eine Wurzel nicht kopieren
+und das melden. Erledigt, wenn ein Test mit einer Projektdatei in
+einer Wurzel einen Ordner `Klausur` und keine fremden Unterordner
+bekommt.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `aufgabe_kopieren` in `ide/shell/startbild.py` erkennt eine Quelle ohne Ordnernamen (`_ist_wurzel`, etwa `K:\` oder `\\server\klausur\`) und benennt den Ordner der Kopie nach der Projektdatei (`Klausur`). `_projekt_kopieren` nimmt aus einer Wurzel nur die Dateien und den Ordner `diagramme` mit, keine anderen Unterordner. Das Handbuch, Abschnitt 3.6, nennt beides. Test: `test_eine_aufgabe_aus_der_wurzel_einer_freigabe_bekommt_ihren_namen` prüft `_ist_wurzel` an `PureWindowsPath`-Pfaden einer Freigabe und eines Laufwerks und kopiert dann aus einem Ordner, der über `monkeypatch` als Wurzel gilt und einen fremden Unterordner enthält. Erwartet wird `Natter\Klausur\Klausur.natter` mit `diagramme`, aber ohne den fremden Ordner. Mit dem alten Namen (`quelle.name`) oder mit `copytree` auch für eine Wurzel scheitert der Test.
+
+
+---
+
+## 336. Läuft das Anlegen des Export-Zertifikats in die Zeitgrenze, bleibt es liegen, und der nächste Export legt ein weiteres an ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung, Commit
+`2780e08` (Entwicklungsstand nach 0.3.6). Nicht am echten
+Zertifikatspeicher nachgestellt; belegt mit nachgebildetem
+PowerShell-Aufruf.
+
+**Beobachtet:** `zertifikat_anlegen()` legt das Zertifikat in
+`CurrentUser\My` an und trägt es danach in den Stammspeicher ein;
+dazu zeigt Windows eine Rückfrage. Bleibt sie länger als 180 Sekunden
+unbeantwortet, etwa weil sie hinter dem Natter-Fenster steht oder
+niemand am Platz ist, beendet Natter PowerShell. Das Zertifikat liegt
+dann schon im Speicher, wird aber weder entfernt noch vermerkt. Der
+nächste Export findet es nicht, weil ihm nicht vertraut wird, legt
+ein weiteres an und fragt erneut. Das ist der Zustand, den Punkt 324
+für ein „Nein“ behoben hat; in diesem Zweig besteht er weiter.
+
+Probe: `_powershell` durch eine Attrappe ersetzt, die die
+Zeitüberschreitung liefert. `zertifikat_anlegen()` gibt
+`(None, 'Das Zertifikat ließ sich nicht anlegen: Zeitüberschreitung')`
+zurück; `_zertifikat_entfernen` und `_ablehnung_vermerken` werden
+nicht aufgerufen.
+
+**Ursache:** nachgewiesen. `ide/export/signatur.py:137` macht aus der
+Zeitüberschreitung eine leere Ausgabe und verwirft dabei auch, was
+PowerShell bis dahin geschrieben hatte. Zeile 317 kehrt ohne
+Fingerabdruck zurück, das Aufräumen ab Zeile 325 wird übersprungen.
+Den Fingerabdruck gibt der Befehl ohnehin erst am Ende oder im
+`catch` aus.
+
+**Zu tun:** Den Fingerabdruck gleich nach `New-SelfSignedCertificate`
+ausgeben, bei einer Zeitüberschreitung die bis dahin gelesene Ausgabe
+behalten und das Zertifikat dann ebenso entfernen und vermerken wie
+nach „Nein“. Erledigt, wenn ein Test mit nachgebildeter
+Zeitüberschreitung nichts in `My` zurücklässt.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. Der Befehl in `zertifikat_anlegen()` (`ide/export/signatur.py`) gibt den Fingerabdruck gleich nach `New-SelfSignedCertificate` als `Angelegt|…` aus, am Ende `Abgelehnt|…` oder `Eingetragen|…`. `_powershell` behält bei einer Zeitüberschreitung die bis dahin gelesene Ausgabe. Das Aufräumen steht jetzt in einem gemeinsamen `finally`-Zweig: ist ein Zertifikat angelegt und der Ausgang kein Erfolg (Eintrag bestätigt und in `vertrauenswuerdige_fingerabdruecke()` gefunden), wird es entfernt, bei jedem Rückgabeweg und auch bei einer Ausnahme. Nach „Nein“, Zeitgrenze oder fehlendem Vertrauen wird außerdem vermerkt, dass nicht erneut gefragt wird; die Meldung nennt jetzt auch eine nicht beantwortete Rückfrage. Bei einem sonstigen Fehler wird entfernt, aber nicht vermerkt, der nächste Export versucht es erneut. Test: `test_kein_ausgang_ausser_erfolg_laesst_ein_zertifikat_liegen` in `tests/test_export_signatur.py`, parametrisiert über „nein“, „zeitgrenze“ und „fehler“, mit nachgebildetem `subprocess.run`, sodass `_powershell` mitgeprüft ist; in keinem Fall bleibt etwas in `My`. Gegen den alten Stand scheitern die Fälle Zeitgrenze und Fehler.
+
+
+---
+
+## 337. `Natter-pruefen.ps1` startet Natter anders als `Natter.exe` ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung, Commit
+`2780e08` (Entwicklungsstand nach 0.3.6).
+
+**Beobachtet:** Das Prüfskript aus dem Paket für die Schule soll
+zeigen, woran der Start von Natter scheitert. Es ruft die
+mitgelieferte `python.exe` aber ohne die Schalter `-E -s` auf, mit
+denen `Natter.exe` startet, und ohne die Umgebung zu bereinigen.
+`PYTHONPATH`, `PYTHONHOME`, `PYTHONPYCACHEPREFIX`, die Qt-Variablen
+aus Punkt 272 und die Pakete im Benutzerprofil wirken damit im
+Prüflauf, im echten Start nicht. Dazu legt es das Startskript nach
+`%TEMP%`, das so vorn im Suchpfad steht: ein dort liegengebliebener
+Ordner `ide` oder eine Datei `platform.py` würde statt der
+Installation geladen. Auf einem Rechner, auf dem eine andere
+Python-Installation `PYTHONHOME` oder `PYTHONPATH` für das Konto setzt,
+meldet der Bericht einen Fehler, den `Natter.exe` nicht hat, und mit
+gesetztem `PYTHONPYCACHEPREFIX` eine Abweichung der
+Integritätsprüfung (`bytecode_von_woanders`), die es beim echten
+Start nicht gibt.
+
+**Ursache:** nachgewiesen. `tools/paket/Natter-pruefen.ps1:170` ruft
+`& $python $tmp` auf, `$tmp` liegt nach Zeile 166 in `%TEMP%`.
+`tools/launcher.py:275` startet mit `PYTHON_SCHALTER` (`-E`, `-s`,
+Zeile 67) und der Umgebung aus `eigene_umgebung()`.
+
+**Zu tun:** Im Skript mit `-I` aufrufen (schließt `-E`, `-s` und
+`-P` ein) und die Variablen entfernen, die der Starter entfernt.
+Erledigt, wenn ein Test in `tests/test_paket.py` den Schalter im
+Aufruf findet.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `tools/paket/Natter-pruefen.ps1` ruft die mitgelieferte Python mit `-I` auf (schließt `-E`, `-s` und `-P` ein). Vorher entfernt es alle `PYTHON*`-Variablen, `VIRTUAL_ENV` und die Qt-Variablen aus `QT_NACHLADEN` und setzt `PYTHONNOUSERSITE=1`, wie `eigene_umgebung()` in `tools/launcher.py`; danach stellt es die alte Umgebung wieder her. Wegen `-P` kommt der Ordner des Startskripts in `%TEMP%` nicht mehr in den Suchpfad; den Programmordner trägt das Startskript selbst vorn ein, so wie `python -m ide` im Programmordner ihn einträgt. Nachgestellt mit gesetztem `PYTHONPATH` und `QT_PLUGIN_PATH`: der gestartete Prozess sieht keine der beiden, `sys.flags.isolated` ist 1, danach sind beide wieder gesetzt. Test: `test_natter_pruefen_startet_python_wie_der_starter` in `tests/test_paket.py` findet `-I` im Aufruf und jede Variable aus `FREMDE_UMGEBUNG` und `QT_NACHLADEN` im Skript; gegen den alten Stand scheitert er.
+
+
+---
+
+## 338. Abmelden oder Herunterfahren bei offenem Natter verwirft ungespeicherte Änderungen ohne Nachfrage ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung (Absturzsicherheit
+und Datenintegrität), Entwicklungsbaum auf Commit `2780e08`.
+
+**Beobachtet:** Am Stundenende melden sich Schülerinnen oft einfach
+von Windows ab, oder die Lehrkraft fährt die Rechner zentral herunter,
+während Natter noch offen ist. Alles, was beim normalen Schließen des
+Fensters geschieht, läuft dabei nicht: die Nachfrage nach
+ungespeicherten Änderungen (Punkt 84), das Nachschreiben einer
+Designer-Änderung, die noch auf ihren Schreibzeitpunkt wartet (Punkt
+312), die Nachfrage zu einer offenen Transaktion im Datenbank-Panel
+(Punkt 276), das Beenden des laufenden Schülerprogramms und das
+Entfernen der Sperrdatei. Text, der im Editor steht und noch nicht
+gespeichert ist, ist nach der nächsten Anmeldung weg, ohne dass Windows
+„Diese App verhindert das Abmelden“ gezeigt hätte. Zu erwarten wäre,
+dass Natter beim Abmelden wie beim Schließen fragt oder die Änderungen
+sichert.
+
+Nachgestellt in einem eigenen Prozess mit einem `QMainWindow`, dessen
+`closeEvent` mitschreibt, unter der Windows-Plattform von Qt:
+`WM_QUERYENDSESSION` mit `ENDSESSION_LOGOFF`, danach `WM_ENDSESSION`
+an das Fenster geschickt. Qt sendet `commitDataRequest` und
+`aboutToQuit` und antwortet Windows mit 1 („darf beendet werden“);
+`closeEvent` wird nicht aufgerufen. Nach `WM_ENDSESSION` beendet
+Windows den Prozess.
+
+**Ursache:** nachgewiesen. Die ganze Aufräum- und Nachfragelogik steht
+in `HauptFenster.closeEvent` (`ide/shell/hauptfenster.py`, Zeile 4675
+ff.). Qt 6 ruft beim Sitzungsende kein `closeEvent` mehr auf; die
+Ersatzbehandlung aus Qt 5, die alle Fenster schloss, gibt es nicht
+mehr (`QGuiApplication.isFallbackSessionManagementEnabled` fehlt in
+PySide6 6.11). Natter verbindet sich weder mit `commitDataRequest`
+noch mit `aboutToQuit` (`grep` über `ide/` und `pcl/` findet keins
+von beiden und auch keinen eigenen Umgang mit `WM_QUERYENDSESSION`).
+
+**Zu tun:** `commitDataRequest` behandeln: zuerst
+`designer_nachschreiben()`, dann bei ungespeicherten Editoren,
+Diagrammen oder offener Transaktion im Panel dieselbe Nachfrage wie
+beim Schließen zeigen, wenn der `QSessionManager` Rückfragen erlaubt,
+und bei „Abbrechen“ `manager.cancel()` rufen; erlaubt er keine, die
+geänderten Dateien speichern oder eine Sicherung daneben ablegen, die
+beim nächsten Start angeboten wird. Beim Sitzungsende außerdem die
+Sperrdatei freigeben und laufende Schülerprogramme beenden. Erledigt,
+wenn ein Test mit einem geänderten, nicht gespeicherten Editor ein
+`commitDataRequest` auslöst und danach entweder die Nachfrage kam und
+das Abbrechen die Sitzung aufhält oder der Text auf der Platte steht.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `HauptFenster.__init__` verbindet sich jetzt mit `commitDataRequest` und `aboutToQuit` der Anwendung. Der gemeinsame Teil von `closeEvent` steht in zwei neuen Methoden: `_ungespeicherte_namen()` sammelt die Namen für die Nachfrage, `_beim_beenden_aufraeumen()` schließt die Diagrammfenster, gibt die Sperrdatei frei, merkt sich die Fensterlage, bricht einen Hintergrundvorgang ab, beendet laufendes Programm und Debugger und trennt das Datenbank-Panel. `closeEvent` ruft beide auf, `aboutToQuit` nur das Aufräumen. Beim ersten Durchlauf löst das Aufräumen beide Signale wieder, damit ein geschlossenes Fenster beim Beenden nicht noch einmal aufräumt. Auf `commitDataRequest` antwortet `_sitzungsende_klaeren(manager)`: zuerst `designer_nachschreiben()`, dann, wenn `manager.allowsInteraction()` es erlaubt, dieselbe Nachfrage wie beim Schließen samt offener Transaktion (`_vor_dem_schliessen_klaeren`). „Abbrechen“ oder ein gescheitertes Speichern ruft `manager.cancel()`, und Windows hält das Abmelden an. Aufgeräumt wird an dieser Stelle noch nicht: bricht ein anderes Programm das Abmelden ab, arbeitet Natter weiter. Erlaubt der Sitzungsmanager keine Rückfrage (unter Windows liefert Qt dort immer `True`, der Weg betrifft andere Plattformen), speichert `_ohne_rueckfrage_speichern()` alle geänderten Editoren und Diagramme ohne Fenster, wie es der vorgewählte Knopf „Speichern“ täte; eine Datei, die sich nicht schreiben lässt, bleibt als geändert markiert. Die offene Transaktion wird in diesem Fall zurückgenommen, weil sich Daten in der Datenbank nur mit Zustimmung ändern sollen. Eine Sicherung neben der Datei, die beim nächsten Start angeboten würde, war damit nicht nötig. Test: `tests/test_sitzungsende.py` ruft den Empfänger mit einer Attrappe des `QSessionManager` auf (Abbrechen hält die Sitzung auf und lässt die Datei unverändert, Speichern schreibt, Verwerfen schreibt nicht, ohne Rückfrage wird gespeichert), prüft die Verbindung mit `commitDataRequest` und sendet `aboutToQuit`, worauf die Sperrdatei fehlt und die laufenden Programme beendet sind. Gegen den alten Stand scheitern alle sechs Fälle.
+
+
+---
+
+## 339. `StringGrid.to_dataframe()` macht aus Postleitzahlen und Telefonnummern Zahlen und verliert die führende Null ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung
+(Datenbankanbindung, `to_dataframe`/`load_dataframe`),
+Entwicklungsbaum auf Commit `2780e08`.
+
+**Beobachtet:** Ein `StringGrid` mit den Spalten „plz“ („01067“,
+„10115“), „tel“ („0351123“, „030456“) und „preis“ („1.500“, „2.000“),
+gefüllt über `load_dataframe` aus einem `DataFrame`, in dem alle drei
+Spalten Text sind. `to_dataframe()` liefert:
+
+- „plz“ als `int64` mit den Werten 1067 und 10115,
+- „tel“ als `int64` mit 351123 und 30456,
+- „preis“ als `int64` mit 1500 und 2000.
+
+Aus Text wurde ohne Hinweis eine Zahl, und die führende Null ist
+weg. Wer die Tabelle danach mit `to_csv` speichert oder in eine
+Datenbank schreibt, hat „1067“ als Postleitzahl von Dresden. Das
+Datenbank-Panel behandelt denselben Fall beim CSV-Import richtig:
+dort bleibt „01067“ Text (Punkt 288). Ein Grid-Programm und ein
+CSV-Import desselben Adressbuchs kommen damit zu verschiedenen Daten.
+
+Eine Kommazahl ab 10^21 übersteht den Rundlauf ebenfalls nicht:
+`load_dataframe` schreibt 2,5e21 als „2,5 · 10^21“ in die Zelle,
+`to_dataframe()` kann das nicht lesen, und die ganze Spalte kommt als
+Text zurück.
+
+**Ursache:** nachgewiesen. `_spalte_lesen` in `pcl/dataframe.py`
+(Zeile 82 ff.) wandelt eine Spalte um, sobald jede Zelle mit `zahl()`
+lesbar ist (Zeile 96), und `_ganzzahlig` (Zeile 108) erkennt „01067“
+als ganze Zahl. Eine Ausnahme für Werte mit führender Null, wie sie
+`_FUEHRENDE_NULL` in `ide/database/panel.py` (Zeile 92) für den
+CSV-Import hat, fehlt. Eingeführt mit der Behebung von Punkt 216, die
+reine Zahlenspalten zu Zahlen machen sollte.
+
+**Zu tun:** In `to_dataframe` eine Spalte, in der ein Wert mit „0“
+und einer weiteren Ziffer beginnt, als Text lassen, mit derselben
+Regel wie beim CSV-Import; Zellen in der Schreibweise mit „· 10^“ als
+Zahl lesen oder beim Schreiben ohne sie auskommen. Die
+Komponenten-Referenz beim `StringGrid` nennt die Regel. Erledigt, wenn
+ein Test nach `load_dataframe` und `to_dataframe` „01067“ als Text
+zurückbekommt und eine Spalte „3“, „4“ weiterhin als Zahlen.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt, dazu eine zweite: ganze Zahlen liefen über `zahl()` und damit über `float`, sodass eine Zahl mit mehr als 15 bis 17 Stellen verfälscht zurückkam. `_spalte_lesen` in `pcl/dataframe.py` lässt eine Spalte als Text, sobald ein Wert mit „0“ und einer weiteren Ziffer beginnt (`_FUEHRENDE_NULL`, dieselbe Regel wie beim CSV-Import in `ide/database/panel.py`). Ganze Zahlen werden aus den Ziffern selbst gelesen; über 2^63 − 1 bleibt die Spalte Text. Zellen in der Schreibweise „2,5 · 10^21“, die `load_dataframe` über `text()` schreibt, liest `_zelle_lesen` als Kommazahl. Die Behebung von Punkt 216 bleibt erhalten: „3“, „4“ kommen als `int64` zurück, „1.000“ als 1000. Komponenten-Referenz beim `StringGrid` ergänzt. Test: `test_to_dataframe_laesst_fuehrende_nullen_und_grosse_zahlen_heil` in `tests/test_dataframe.py`: nach `load_dataframe` und `to_dataframe` bleiben „01067“ und „0351123“ Text, die Summe von 3 und 4 ist 7, 2,5 · 10^21 und 1234567890123456789 kommen unverändert zurück. Gegen den alten Stand kommt „01067“ als 1067 zurück.
+
+
+---
+
+## 340. Eine Aufgabe ohne Schreibrecht öffnet stattdessen ein eigenes Projekt gleichen Namens ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung (Datenintegrität,
+Kopie statt Schreibschutz aus Punkt 321), Entwicklungsbaum auf Commit
+`2780e08`.
+
+**Beobachtet:** Liegt eine Aufgabe in einem Ordner ohne Schreibrecht,
+bietet Natter eine Kopie unter „Dokumente\Natter“ an (Punkt 321).
+Gibt es dort schon einen Ordner mit demselben Namen und einer
+gleichnamigen `.natter`-Datei, wird dieser geöffnet, auch wenn er
+nichts mit der Aufgabe zu tun hat. Probe: ein Projekt „Ampel“ auf der
+Freigabe, in dessen `u_main.py` „Aufgabe der Lehrkraft“ steht, und ein
+eigenes Projekt „Ampel“ unter „Dokumente\Natter“ mit „eigenes
+Projekt“. `beispiel_kopieren(freigabe/Ampel.natter, Dokumente\Natter)`
+liefert das eigene Projekt; von der Aufgabe wird nichts kopiert.
+
+Dasselbe gilt für zwei Aufgaben gleichen Namens aus verschiedenen
+Ordnern (etwa „Woche1\Taschenrechner“ und „Woche3\Taschenrechner“) und
+für eine Aufgabe, die die Lehrkraft nach der ersten Kopie
+überarbeitet hat: geöffnet wird die alte Kopie. Die Nachfrage sagt nur
+„Liegt dort schon eine Kopie, wird sie geöffnet“; dass die gefundene
+Kopie aus einer anderen Quelle stammt oder älter ist, erfährt
+niemand. Der Platzhalter im Dialog „Neues Projekt“ schlägt selbst
+„Ampel“ vor, gleiche Namen sind also nicht abwegig.
+
+**Ursache:** nachgewiesen. `_kopie_statt_schreibschutz`
+(`ide/shell/hauptfenster.py`, Zeile 3550 und 3565) ruft
+`beispiel_kopieren` mit dem Ordner der eigenen Projekte als Ziel.
+`beispiel_kopieren` (`ide/shell/startbild.py`, Zeile 335 bis 337)
+nimmt jeden vorhandenen Ordner mit gleichnamiger Projektdatei als
+Arbeitskopie. Für die mitgelieferten Beispiele stimmt das, weil dort
+eine eigene Ablage nur Kopien enthält; unter „Dokumente\Natter“ liegen
+auch die eigenen Projekte.
+
+**Zu tun:** Die Kopie einer Aufgabe als solche kennzeichnen (etwa mit
+dem Quellordner in einer kleinen Datei in der Kopie) und nur eine
+Kopie derselben Quelle weiterbenutzen; sonst unter einem freien Namen
+neu kopieren. Ist die Quelle neuer als die Kopie, darauf hinweisen.
+Erledigt, wenn ein Test mit einem eigenen Projekt „Ampel“ und einer
+schreibgeschützten Aufgabe „Ampel“ eine neue Kopie „Ampel 2“ mit dem
+Inhalt der Aufgabe erhält und ein zweites Öffnen derselben Aufgabe
+wieder „Ampel 2“ öffnet.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `_kopie_statt_schreibschutz` ruft jetzt `aufgabe_kopieren` statt `beispiel_kopieren`. Die Kopie einer Aufgabe bekommt die Datei `.natter-quelle` mit dem Quellordner (absolut, `normcase`). Weiterbenutzt wird ein vorhandener Ordner nur, wenn dieser Eintrag auf denselben Quellordner zeigt; sonst kommt die Aufgabe in den nächsten freien Ordner „Ampel 2“, „Ampel 3“. Die Datei beginnt mit einem Punkt und bleibt damit aus dem Export und der Projektansicht heraus; beim Kopieren wird sie nicht mitgenommen. Die Beispielkopien erkennen ihr Original weiter an der Projektdatei, wie bisher. Die Nachfrage sagt jetzt „Liegt dort schon eine Kopie dieser Aufgabe, wird sie geöffnet“, das Handbuch, Abschnitt 3.6, beschreibt die Nummerierung. Einen Hinweis, wenn die Aufgabe neuer ist als die Kopie, gibt es nicht; das Kriterium verlangt ihn nicht. Test: `test_ein_eigenes_projekt_gleichen_namens_ist_keine_kopie` legt ein eigenes Projekt „Ampel“ an, kopiert die Aufgabe „Ampel“ zweimal und erhält beide Male „Ampel 2“ mit dem Stand der Stunde; eine gleichnamige Aufgabe aus „Woche3“ landet in „Ampel 3“, das eigene Projekt bleibt unverändert. Wird jeder Ordner mit gleichnamiger Projektdatei als Kopie genommen, wie vorher, scheitert der Test.
+
+---
+
+## 341. Nach „Nein“ beim Kopierangebot lässt sich die Arbeit nicht mehr in eine Kopie bringen, und die Statuszeile meldet eine Kopie, die nicht geöffnet wurde ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Benutzbarkeitsprüfung (Runde 8,
+Bereiche 1, 2 und 4), Commit `c16494b`.
+
+**Beobachtet:** Probe mit dem Hauptfenster (Fixture `hauptfenster`),
+Schreibschutz nachgestellt über `ordner_beschreibbar` und
+`atomar_schreiben`, die für den Tauschordner `False` bzw.
+`PermissionError` liefern:
+
+1. Aufgabe `Tausch\Ampel\Ampel.natter` öffnen. Die Frage „Ordner ohne
+   Schreibrecht“ kommt, beantwortet mit „Nein“. Das Projekt geht im
+   Tauschordner auf. Was „Nein“ bedeutet (ansehen, nicht speichern),
+   sagt die Frage nicht; sie endet mit „Das Projekt nach … kopieren und
+   die Kopie öffnen?“. Titel und Statuszeile zeigen danach nichts
+   anderes als bei einem beschreibbaren Projekt („Projekt Ampel
+   geöffnet“).
+2. In `u_main.py` eine Zeile schreiben, Strg+S. Meldung „Nicht
+   gespeichert … Das Schreiben in …\Tausch\Ampel wurde verweigert. Der
+   Text steht noch im Editor. Häufige Gründe: der Ordner hat kein
+   Schreibrecht …“. Ein Weg zur Kopie wird nicht genannt.
+3. Die Aufgabe noch einmal öffnen und diesmal „Ja“ wählen. Natter
+   legt die Kopie unter `Dokumente\Natter\Ampel` an und fragt nach der
+   geänderten `u_main.py`. „Speichern“ scheitert wieder am
+   Tauschordner, der Wechsel wird abgebrochen, und das Projekt bleibt
+   im Tauschordner offen. In der Statuszeile steht trotzdem „Projekt
+   nach …\Tausch\Ampel kopiert und geöffnet.“, also der Tauschordner
+   als angebliches Ziel der Kopie.
+
+Die Arbeit aus Schritt 2 lässt sich nur retten, indem sie von Hand
+herauskopiert wird; „Verwerfen“ öffnet die Kopie ohne sie. Im
+Unterricht klickt eine Schülerin bei einer Frage mit zwei Knöpfen
+schnell auf den falschen; bemerkt wird das erst beim ersten Speichern,
+oft nach einer Viertelstunde. Die falsche Statuszeile lässt sie danach
+glauben, sie arbeite in der Kopie.
+
+**Ursache:** nachgewiesen. `ide/shell/hauptfenster.py:3503`: die
+Meldung „kopiert und geöffnet“ hängt nur an `kopie != Path(pfad)` und
+`projekt is not None`; `projekt_oeffnen` gibt bei abgebrochenem Wechsel
+aber das bisherige Projekt zurück (Zeile 3237 bis 3239). Die Frage in
+Zeile 3562 bis 3573 nennt die Folge von „Nein“ nicht.
+`datei_schreiben_gemeldet` (Zeile 4002 bis 4012) kennt keinen Weg an
+einen beschreibbaren Ort, und ein „Speichern unter“ für Projekte gibt
+es nicht.
+
+**Zu tun:** Die Statuszeile nur melden lassen, was geschehen ist
+(Ordner des tatsächlich geöffneten Projekts vergleichen). Bei einem
+Projekt ohne Schreibrecht beim Scheitern des Speicherns die Kopie
+anbieten und dabei den Text aus den offenen Editoren mitnehmen, statt
+ihn am alten Ort speichern zu wollen. In der Frage sagen, dass „Nein“
+das Projekt nur zum Ansehen öffnet. Erledigt, wenn die Probe aus
+Schritt 1 bis 3 mit der geänderten Zeile in der Kopie endet und die
+Statuszeile bei abgebrochenem Wechsel nichts von einer Kopie sagt.
+
+**Zweite Meldung:** Die Prüfung der Verständlichkeit in derselben Runde fand denselben Fehler von der Meldung her: Nach „Nein“ sagt die Fehlermeldung beim Speichern nicht, was zu tun ist (`hauptfenster.py:3560`, 4002–4011, 3378–3386).
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. Das Kopierangebot heißt jetzt `_ort_zum_oeffnen` in `ide/shell/hauptfenster.py` und fragt über `_kopie_anbieten` mit den Knöpfen „Eigene Kopie öffnen“ und „Nur ansehen“; der Text sagt, dass „Nur ansehen“ das Projekt an seinem Ort öffnet und dort nichts gespeichert werden kann, und nennt `Dokumente\Natter` als Ziel. Danach steht in der Statuszeile „Projekt … nur zum Ansehen geöffnet: in … darf Natter nicht schreiben.“ Scheitert das Speichern einer Datei des offenen Projekts, weil der Projektordner kein Schreibrecht hat, bietet `datei_schreiben_gemeldet` in der Meldung denselben Knopf an (`_kopie_bei_speicherfehler`); der Wechsel läuft per `QTimer.singleShot` erst nach dem gescheiterten Speichern, weil das mitten in einem Projektwechsel oder im Schließen stecken kann. Beide Wege und das zweite Öffnen mit „Eigene Kopie öffnen“ gehen über `_in_kopie_wechseln`: es schreibt den ungespeicherten Text aller Editoren mit Dateien aus dem Ordner der Aufgabe an dieselbe Stelle in der Kopie, öffnet die Kopie und dort die mitgenommenen Dateien. Wird der Wechsel abgebrochen, gelten die Editoren wieder als geändert, und die Statuszeile meldet nur „Das Projekt wurde nicht gewechselt.“; ob gewechselt wurde, prüft `_ist_projekt_in` am Ordner des tatsächlich geöffneten Projekts. Test: `test_nach_nur_ansehen_kommt_die_arbeit_in_die_kopie` in `tests/test_schreibschutz_beim_oeffnen.py`, parametrisiert über den Weg (Angebot beim Speichern, zweites Öffnen nach einem abgebrochenen Wechsel); Schreibschutz über `ordner_beschreibbar` und ein `atomar_schreiben`, das für den Tauschordner `PermissionError` wirft. Gegenprobe mit dem alten Stand von `hauptfenster.py`/`startbild.py`: beide Fälle scheitern.
+
+
+---
+
+## 342. In einem beschreibbaren Tauschordner bekommt nur die erste Schülerin die Aufgabe für sich, alle anderen nur einen Hinweis ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Benutzbarkeitsprüfung (Runde 8,
+Bereiche 1, 2 und 4), Commit `c16494b`.
+
+**Beobachtet:** Viele Schulen haben einen Tauschordner, in den die
+ganze Klasse schreiben darf. Legt die Lehrkraft dort eine Aufgabe ab
+und öffnen 25 Schülerinnen sie gleichzeitig, bietet Natter keine Kopie
+an, weil der Ordner beschreibbar ist. Die erste bekommt die Sperre,
+alle weiteren sehen „Das Projekt „Ampel“ ist bereits am Rechner
+„PC-R12“ im Konto „mueller.anna“ geöffnet. Beide Sitzungen schreiben
+in dieselben Dateien, und wer zuletzt speichert, überschreibt die
+Änderungen der anderen. Für eine eigene Fassung das Projekt in den
+Ordner „Dokumente“ kopieren und die Kopie öffnen.“ Der einzige Knopf
+ist „OK“, danach arbeiten alle im selben Ordner weiter. Das Kopieren
+von Hand im Windows-Explorer (Ordner finden, kopieren, in Natter über
+„Projekt öffnen …“ die Kopie wählen) schafft eine Siebtklässlerin ohne
+Hilfe kaum. Natter hat dafür mit `aufgabe_kopieren` schon alles, was
+nötig wäre, samt Wiedererkennen der eigenen Kopie in der nächsten
+Stunde, nutzt es hier aber nicht. Wer den Hinweis wegklickt, trägt
+außerdem keine eigene Sperre ein; schließt die erste Schülerin Natter,
+bekommt die nächste, die öffnet, gar keinen Hinweis mehr, obwohl noch
+zwanzig im Ordner arbeiten.
+
+**Ursache:** nachgewiesen. `ide/shell/hauptfenster.py:3312` bis 3325
+zeigt nur `QMessageBox.information`. Das Kopierangebot in
+`_kopie_statt_schreibschutz` (Zeile 3555 bis 3560) greift nur bei
+fehlendem Schreibrecht. Zeile 3245 legt keine Sperre an, wenn schon
+eine fremde besteht.
+
+**Zu tun:** Beim Hinweis auf eine Sperre eines anderen Rechners
+dieselbe Kopie anbieten wie bei einem Ordner ohne Schreibrecht
+(`aufgabe_kopieren`, Knöpfe etwa „Eigene Kopie öffnen“ und „Trotzdem
+hier öffnen“). Erledigt, wenn ein Test mit einer fremden Sperre im
+beschreibbaren Ordner nach der Wahl der Kopie das Projekt unter
+`Dokumente\Natter` offen findet und beim zweiten Öffnen dieselbe Kopie
+bekommt.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `_ort_zum_oeffnen` bietet die eigene Kopie jetzt auch in einem beschreibbaren Ordner an, wenn `sperre.anderer_besitzer` eine Sperre eines anderen Rechners in einem anderen Konto meldet; Knöpfe „Eigene Kopie öffnen“ und „Trotzdem hier öffnen“. Die Kopie entsteht über `aufgabe_kopieren` mit `.natter-quelle` wie bei einem Ordner ohne Schreibrecht. Damit auch die nächste Stunde in die eigene Kopie führt, wenn am Tauschordner gerade niemand mehr sitzt, fragt dieselbe Frage auch dann, wenn unter `Dokumente\Natter` schon eine Kopie dieses Projekts liegt (Knopf „Original öffnen“). Eine eigene Sperre im Tauschordner nach „Trotzdem hier öffnen“ trägt Natter weiterhin nicht ein; das verlangte das Kriterium nicht, und mit dem Angebot arbeitet ohnehin kaum noch jemand im Tauschordner selbst. Test: `test_fremde_sperre_im_tauschordner_fuehrt_in_die_eigene_kopie` (fremde Sperrdatei in `tmp_path`, Kopie unter `Dokumente\Natter\Ampel` offen, zweites Öffnen bringt dieselbe Kopie und kein „Ampel 2“). Gegenprobe mit dem alten Stand: scheitert, das Projekt geht im Tauschordner auf.
+
+
+---
+
+## 343. Eine in Excel geöffnete Datei lässt die Abgabe als ZIP scheitern, eine leere ZIP bleibt liegen, und gemeldet wird es nur englisch in der Statuszeile ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Benutzbarkeitsprüfung (Runde 8,
+Bereiche 1, 2 und 4), Commit `c16494b`.
+
+**Beobachtet:** Probe mit dem Hauptfenster: Projekt mit
+`a_daten.csv`, die Datei exklusiv geöffnet, so wie Excel eine CSV
+offen hält (`CreateFileW` ohne Freigabe). Dann „Projekt → Als ZIP
+speichern …“ mit dem Ziel `Abgabe\Ampel - anna.zip`. Ergebnis:
+
+- Statuszeile: „Die ZIP ließ sich nicht schreiben: [Errno 13]
+  Permission denied: 'C:\\…\\Ampel\\a_daten.csv'“. Die Ursache ist
+  eine Datei, die sich nicht lesen ließ, nicht die ZIP; der Grund
+  steht englisch und mit doppelten Rückstrichen da.
+- Im Abgabeordner liegt `Ampel - anna.zip` mit 22 Byte und ohne
+  Inhalt. Sie sieht aus wie eine abgegebene Arbeit. Die Lehrkraft
+  findet erst beim Entpacken nach der Stunde, dass nichts darin ist.
+- Es erscheint kein Fenster. An anderer Stelle begründet Natter
+  gerade ein Fenster damit, dass eine nicht geschriebene Datei zu
+  wichtig ist, um sie zu übersehen (`datei_schreiben_gemeldet`).
+
+Eine CSV aus dem Projekt nebenbei in Excel offen zu haben, ist in den
+Stunden zur Datenauswertung (Beispiel `07_CsvAuswertung`) üblich, und
+abgegeben wird am Stundenende unter Zeitdruck.
+
+**Ursache:** nachgewiesen. `ide/shell/hauptfenster.py:5708` öffnet
+die ZIP direkt am Ziel und schreibt Datei für Datei hinein; ein
+Lesefehler in Zeile 5714 bricht mitten darin ab und lässt die
+angefangene Datei stehen. `_als_zip_aktion` (Zeile 5732 bis 5736)
+meldet jeden `OSError` mit seinem Rohtext in der Statuszeile.
+
+**Zu tun:** Die ZIP neben dem Ziel in eine Zwischendatei schreiben und
+erst am Ende umbenennen (wie `atomar_schreiben`), bei einem Fehler die
+Zwischendatei entfernen. Einen Lesefehler als Fenster auf Deutsch
+melden, mit dem Namen der Datei und dem Hinweis, dass sie vermutlich
+in einem anderen Programm offen ist. Erledigt, wenn die Probe oben mit
+einer deutschen Meldung zu `a_daten.csv` endet und am Ziel keine Datei
+liegt.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `projekt_als_zip` in `ide/shell/hauptfenster.py` schreibt die ZIP jetzt in eine versteckte Zwischendatei neben dem Ziel (`.<name>.<pid>.tmp`) und setzt sie erst am Ende mit `os.replace` an seine Stelle; bei jedem Fehler wird die Zwischendatei entfernt. Scheitert das Öffnen einer Projektdatei, kommt die neue Ausnahme `ZipDateiUnlesbar` mit dieser Datei. `_als_zip_aktion` meldet sie in einem Fenster „Keine ZIP gespeichert“ mit dem Namen der Datei relativ zum Projekt und dem Hinweis, dass sie vermutlich in einem anderen Programm wie Excel geöffnet ist und die ZIP nach dem Schließen dort noch einmal gespeichert werden kann. Andere Schreibfehler melden ebenfalls ein deutsches Fenster ohne den Text von Windows. Handbuch 3.6 ergänzt. Test: `test_eine_gesperrte_datei_hinterlaesst_keine_zip` in `tests/test_explorer_dateien_und_zip.py` hält `daten/wetter.csv` wie Excel über `CreateFile` ohne Freigabe offen, löst „Als ZIP speichern“ aus und prüft, dass der Abgabeordner leer bleibt und die deutsche Meldung die Datei nennt; gegen den alten Stand scheitert er an der liegengebliebenen ZIP.
+
+
+---
+
+## 345. Die Sperre eines anderen Rechners im eigenen Konto rät zu einer Kopie des eigenen Projekts ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Benutzbarkeitsprüfung (Runde 8,
+Bereiche 1, 2 und 4), Commit `c16494b`.
+
+**Beobachtet:** Liegt „Dokumente“ auf einem Netzlaufwerk, ist das
+eigene Projekt von jedem Rechner aus erreichbar. Stürzt ein Rechner ab
+oder wird er ausgeschaltet, während Natter offen ist, bleibt die
+Sperrdatei liegen. Setzt sich die Schülerin an einen anderen Rechner
+oder geht sie in der nächsten Stunde in einen anderen Raum, kommt beim
+Öffnen, Probe mit dem Hauptfenster und einer Sperre von „PC-R12“ im
+eigenen Konto:
+
+„Das Projekt „Ampel“ ist bereits am Rechner „PC-R12“ im Konto „jonat“
+geöffnet. Beide Sitzungen schreiben in dieselben Dateien, und wer
+zuletzt speichert, überschreibt die Änderungen der anderen. Für eine
+eigene Fassung das Projekt in den Ordner „Dokumente“ kopieren und die
+Kopie öffnen.“
+
+Das Konto ist das eigene, das Projekt liegt schon in „Dokumente“, und
+von „anderen“ ist keine Rede. Wer dem Rat folgt, hat danach zwei
+Fassungen des eigenen Projekts und weiß nicht, welche gilt. Dass die
+Sperre eine halbe Stunde nach dem Absturz von selbst verfällt und dass
+das Weiterarbeiten hier gefahrlos ist, wenn am anderen Rechner nichts
+mehr offen ist, sagt der Hinweis nicht. Die Sperrdatei bleibt
+unverändert, auch nach dem Öffnen.
+
+**Ursache:** nachgewiesen. `ide/shell/hauptfenster.py:3312` bis 3325
+vergleicht das Konto der Sperre nicht mit dem eigenen
+(`sperre.kontoname()`); für beide Fälle steht derselbe Text.
+
+**Zu tun:** Bei gleichem Konto einen eigenen Text zeigen: dass das
+Projekt zuletzt am Rechner X geöffnet war, dass Natter dort vermutlich
+nicht beendet wurde und dass sich weiterarbeiten lässt, wenn dort
+nichts mehr offen ist; ohne Rat zur Kopie. Erledigt, wenn ein Test mit
+einer Sperre im eigenen Konto von einem anderen Rechner diesen Text
+bekommt und bei fremdem Konto den bisherigen.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `_projekt_schon_offen_melden` vergleicht das Konto der Sperre mit dem eigenen (`_eigenes_konto`, ohne Unterschied der Groß- und Kleinschreibung). Bei gleichem Konto kommt „Projekt war an einem anderen Rechner geöffnet“: das Projekt war zuletzt am Rechner X im selben Konto offen, Natter wurde dort vermutlich nicht beendet, weiterarbeiten geht, wenn es dort nicht mehr offen ist, und der Hinweis entfällt nach einer halben Stunde. Einen Rat zur Kopie gibt es dabei nicht, und `_ort_zum_oeffnen` bietet in diesem Fall auch keine an. Bei fremdem Konto bleibt der Hinweis auf die andere Sitzung. Die Sperrdatei bleibt wie bisher unverändert. Test: `test_sperre_eines_anderen_rechners_im_eigenen_konto_raet_zu_keiner_kopie`, parametrisiert über eigenes und fremdes Konto. Gegenprobe mit dem alten Stand: beide Fälle scheitern.
+
+
+---
+
+## 346. Die Kopie einer Aufgabe lässt sich nicht erneuern: kein Zurücksetzen, und eine berichtigte Aufgabe kommt nicht an ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Benutzbarkeitsprüfung (Runde 8,
+Bereiche 1, 2 und 4), Commit `c16494b`.
+
+**Beobachtet:** Wer eine Aufgabe aus einem Ordner ohne Schreibrecht
+öffnet, bekommt beim zweiten Mal immer die vorhandene Kopie
+(Punkt 340). Zwei häufige Fälle kommen damit nicht mehr zurecht:
+
+- Die Schülerin hat ihre Kopie verdorben (Formular leer gelöscht,
+  Unit nicht mehr lauffähig) und will neu anfangen. „Projekt → Auf
+  Original zurücksetzen …“ ist bei der Kopie einer Aufgabe grau, es
+  gilt nur für Beispiele. Die Aufgabe noch einmal aus dem Tauschordner
+  zu öffnen führt wieder in die verdorbene Kopie.
+- Die Lehrkraft merkt in der Stunde einen Fehler in der Aufgabe,
+  berichtigt sie im Tauschordner und bittet die Klasse, sie neu zu
+  öffnen. Alle, die sie schon einmal geöffnet hatten, bekommen die alte
+  Kopie, ohne Hinweis, dass die Aufgabe inzwischen neuer ist.
+
+In beiden Fällen meldet die Statuszeile „Projekt nach …\Ampel kopiert
+und geöffnet.“, auch wenn nichts kopiert, sondern die alte Kopie
+geöffnet wurde. Der einzige Ausweg ist, den Ordner unter
+`Dokumente\Natter` im Windows-Explorer zu löschen oder umzubenennen;
+davon steht nichts in Handbuch 3.6.
+
+**Ursache:** nachgewiesen. `ide/shell/startbild.py:440` bis 449 gibt
+die vorhandene Kopie zurück, sobald `.natter-quelle` passt, ohne die
+Dateien zu vergleichen. `_zuruecksetzen_pruefen`
+(`ide/shell/hauptfenster.py:3404` bis 3406) schaltet den Eintrag nur
+für Kopien von Beispielen frei. Die Statuszeile in Zeile 3503 bis 3506
+unterscheidet nicht zwischen neuer und weiterbenutzter Kopie.
+
+**Zu tun:** „Auf Original zurücksetzen …“ auch für die Kopie einer
+Aufgabe anbieten, mit dem Ordner aus `.natter-quelle` als Original.
+Beim Weiterbenutzen einer Kopie prüfen, ob die Aufgabe seit dem
+Kopieren geändert wurde, und dann fragen, ob die eigene Kopie oder
+eine neue geöffnet werden soll. Die Statuszeile nennt, ob kopiert
+oder eine vorhandene Kopie geöffnet wurde. Erledigt, wenn ein Test
+eine Kopie ändert, sie zurücksetzt und den Stand der Aufgabe findet,
+und ein zweiter nach Ändern der Aufgabe beim erneuten Öffnen gefragt
+wird.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. „Datei → Beispielprojekte → Auf Original zurücksetzen …“ ist jetzt auch bei der Kopie einer Aufgabe bedienbar (`_zuruecksetzen_pruefen` fragt `aufgabe_original`, das nur `.natter-quelle` liest und keine Freigabe anspricht). `beispiel_zuruecksetzen_nachfragen` fragt dann „auf den Stand der Aufgabe zurücksetzen?“ mit dem Ordner der Aufgabe, prüft vorher, ob sie erreichbar ist, und ruft `aufgabe_zuruecksetzen` in `ide/shell/startbild.py`: die Aufgabe wird erst in einen Zwischenordner neben der Kopie kopiert und dann gegen deren Inhalt getauscht, damit eine abbrechende Netzverbindung die Kopie nicht leer zurücklässt. `.natter-quelle` trägt in einer zweiten Zeile einen Fingerabdruck aus Namen, Größen und Änderungszeiten der Aufgabendateien beim Kopieren; gelesen wird dafür keine Datei. Beim Weiterbenutzen einer Kopie vergleicht `aufgabe_geaendert` ihn mit dem jetzigen Stand und fragt bei einer Abweichung „Eigene Kopie öffnen“ oder „Kopie ersetzen“ (mit dem Hinweis, dass die Änderungen verloren gehen). Kopien ohne zweite Zeile gelten als unverändert. Die Statuszeile unterscheidet „kopiert und geöffnet“, „Die eigene Kopie … ist geöffnet, mit dem Stand vom letzten Mal“ und „Die Aufgabe wurde neu nach … kopiert“. Der Eintrag steht weiter im Untermenü „Beispielprojekte“ und ist im Prüfungsmodus mit ihm gesperrt; ein eigener Eintrag im Menü „Projekt“ hätte das Aktionsregister berührt, an dem gerade parallel gearbeitet wird. Handbuch 3.6 beschreibt Zurücksetzen und Nachfrage. Test: `test_kopie_einer_aufgabe_laesst_sich_zuruecksetzen_und_erneuern` (Kopie verdorben und zurückgesetzt; Aufgabe geändert, beim erneuten Öffnen einmal behalten, einmal ersetzt). Gegenprobe mit dem alten Stand: scheitert am grauen Menüeintrag.
+
+
+---
+
+## 347. CSV-Ansicht: ein offenes Anführungszeichen in einer kleinen Datei verschluckt die folgenden Zeilen ohne Hinweis ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Benutzbarkeitsprüfung (Runde 8,
+Bereiche 1, 2 und 4), Commit `c16494b`.
+
+**Beobachtet:** Datei `noten.csv` mit
+
+```
+Name;Note
+Anna;2
+Ben;"1
+Cem;3
+Dana;4
+```
+
+offscreen in `CsvAnsicht` geöffnet: die Tabelle hat zwei Zeilen,
+„Anna 2“ und „Ben 1…“. Cem und Dana fehlen; sie stecken als
+Zeilenumbrüche in der Zelle von Ben. Die Hinweiszeile bleibt leer, die
+Ansicht bleibt auf der Tabelle. Seit Punkt 326 kommt der Hinweis „Ab
+Zeile … lässt sich die Datei nicht als Tabelle lesen. Dort beginnt ein
+Feld mit einem Anführungszeichen, das nicht wieder geschlossen wird“
+nur, wenn der Rest der Datei 128 KB überschreitet. Die Dateien im
+Unterricht (Notenliste, Messreihe, selbst getippte Daten) sind fast
+immer kleiner; ein vergessenes Anführungszeichen beim Tippen führt
+dort zu einer scheinbar kürzeren Tabelle, und niemand merkt es.
+
+**Ursache:** nachgewiesen. `ide/viewers/csv_ansicht.py:142` bis 159
+meldet nur einen `csv.Error`. `csv.reader` wirft bei einem offenen
+Anführungszeichen am Dateiende keinen Fehler, solange das Feld unter
+der Grenze bleibt, sondern liefert es mit allem bis zum Ende.
+
+**Zu tun:** Nach dem Lesen prüfen, ob das letzte Feld mit einem
+Anführungszeichen begann und nie geschlossen wurde (oder ob ein Feld
+Zeilenumbrüche samt Trennzeichen enthält), und dann denselben Hinweis
+mit der Zeilennummer zeigen. Erledigt, wenn ein Test mit der Datei oben
+den Hinweis „Ab Zeile 3 …“ bekommt.
+
+**Zweite Meldung:** In derselben Runde auch von der Prüfung der Verständlichkeit gefunden: Bei nur einem Datensatz nach dem Anführungszeichen erscheint die Datei als eine einzige Zeile, ebenfalls ohne Hinweis.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt: ohne `strict` liefert `csv.reader` ein Feld mit offenem Anführungszeichen unterhalb der Grenze von 128 KB still mit allem bis zum Dateiende. `_zeilen_lesen` in `ide/viewers/csv_ansicht.py` merkt sich jetzt, in welcher Zeile der letzte Datensatz beginnt, und `_bleibt_offen` liest nur diesen Datensatz ein zweites Mal, mit einer Schlusszeile dahinter. Ist das Feld offen, verschwindet die Schlusszeile darin; dann fällt der kaputte Datensatz aus der Tabelle, und die Hinweiszeile sagt wie bei großen Dateien „Ab Zeile … lässt sich die Datei nicht als Tabelle lesen. Dort beginnt ein Feld mit einem Anführungszeichen, das nicht wieder geschlossen wird.“ `strict` wurde nicht genommen, weil der Leser damit auch bei `"a"b` abbräche, das die Tabelle bisher ohne Fehler zeigt. Ein ordentlich geschlossenes Feld über mehrere Zeilen, auch am Dateiende, bleibt gültig und ohne Hinweis. Die Prüfung kostet nur das Überspringen der Zeilen bis zum letzten Datensatz; der Test mit 100.000 Zeilen bleibt unter seinen Grenzen. Test: `test_csvansicht_findet_offenes_anfuehrungszeichen_in_kleiner_datei` in `tests/test_viewer_csv.py` mit der Datei aus der Meldung („Ab Zeile 3“, eine Datenzeile), mit nur einem Datensatz nach dem Anführungszeichen („Ab Zeile 2“, zweite Meldung) und mit zwei gültigen mehrzeiligen Feldern ohne Hinweis. Gegen den alten Stand scheitern die beiden Fälle mit offenem Anführungszeichen.
+
+
+---
+
+## 348. Im Konsolenprojekt bleibt dem Editor bei 150 % auf 1280 × 800 ein Zehntel des Fensters ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Benutzbarkeitsprüfung (Darstellung),
+Entwicklungsstand `c16494b`.
+
+**Beobachtet:** Probe offscreen mit `QT_SCALE_FACTOR=1.5` und einem
+Hauptfenster von 853 × 500 logischen Pixeln, also 1280 × 800 am Beamer
+ohne Taskleiste. Ein Konsolenprojekt „Rechnen“ mit `u_main.py` ist
+geöffnet, die Unit steht im Editor. Die Komponentenpalette nimmt oben
+die volle Breite und 89 Pixel Höhe ein, rechts steht der
+Objektinspektor, links der Projekt-Explorer. Für den Text im Editor
+bleiben 241 × 186 Pixel: gut acht Zeilen, und schon
+`zahl = int(input('Zahl: '))` ragt über den rechten Rand
+(Bildschirmfoto `meldungen_150.png`, Probeordner inzwischen gelöscht).
+Palette und Objektinspektor haben in einem Konsolenprojekt nichts zu
+tun: es gibt kein Formular, auf das sich eine Komponente legen ließe,
+und nichts, dessen Eigenschaften der Inspektor zeigen könnte. Wer vorne
+ein Programm mit `input()` und `print()` vorführt, muss beide Docks
+erst über „Ansicht“ einzeln abschalten und für ein GUI-Projekt wieder
+einschalten. „Schrift größer“ verschärft das, statt zu helfen.
+
+**Ursache:** nachgewiesen. `inspektor_dock` und `palette_dock`
+(`ide/shell/hauptfenster.py:644` und `655`) sind unabhängig von der Art
+des Projekts immer sichtbar; `projekt_oeffnen` (Zeile 3228) fragt die
+Art dafür nicht ab.
+
+**Zu tun:** In einem Konsolenprojekt, solange kein Designer offen ist,
+Komponentenpalette und Objektinspektor ausblenden und beim Öffnen eines
+Formulars oder beim Wechsel zu einem GUI-Projekt wieder zeigen.
+Erledigt, wenn ein Test bei 150 % und 853 × 500 in einem
+Konsolenprojekt eine Editorfläche von mindestens der halben
+Fensterbreite findet.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. Neu ist `HauptFenster._formular_docks_anpassen` in `ide/shell/hauptfenster.py`: In einem Konsolenprojekt ohne offenen Designer blendet sie Komponentenpalette und Objektinspektor aus. Aufgerufen wird sie beim Öffnen und Schließen eines Projekts, beim Öffnen eines Designers und beim Schließen eines Designer-Reiters. Wieder gezeigt wird nur, was sie selbst verborgen hat; ein Dock, das jemand über „Ansicht“ geschlossen hat, bleibt zu. Die Namen der verborgenen Docks stehen unter `fenster/fuer_konsole_verborgen` in den Einstellungen, weil die Sichtbarkeit auch im gespeicherten Layout steht: endete Natter im Konsolenprojekt, kämen die Docks sonst im nächsten GUI-Projekt nicht zurück. Handbuch, Abschnitt 3.2, beschreibt das Verhalten. Tests in `tests/test_hauptfenster_ansicht.py`: `test_konsolenprojekt_laesst_dem_editor_die_halbe_breite` öffnet bei 853 × 500 logischen Pixeln (1280 × 800 bei 150 %; `QT_SCALE_FACTOR` ändert die Aufteilung in logischen Pixeln nicht) ein Konsolenprojekt mit `u_main.py` und verlangt eine Editorfläche von mindestens der halben Fensterbreite, danach mit einem GUI-Projekt beide Docks wieder sichtbar. Gegen den alten Stand scheitert er mit 221 Pixeln Breite. `test_verborgene_formular_docks_kommen_nach_neustart_zurueck` prüft den Neustart im Konsolenprojekt und dass ein von Hand geschlossener Objektinspektor zu bleibt.
+
+
+---
+
+## 349. Die Meldung zur Sperre an einem anderen Rechner rät zu einer Kopie, die Natter nicht anbietet ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Benutzbarkeitsprüfung
+(Einheitlichkeit, Auffindbarkeit), Entwicklungsstand `c16494b`.
+
+**Beobachtet:** Öffnet eine Schülerin eine Aufgabe in einem
+beschreibbaren Tauschordner, die an einem anderen Rechner schon offen
+ist, kommt „Das Projekt „…“ ist bereits am Rechner „PC-R12“ im Konto
+„…“ geöffnet. … Für eine eigene Fassung das Projekt in den Ordner
+„Dokumente“ kopieren und die Kopie öffnen.“ Einen Befehl dafür gibt es
+in Natter nicht, weder im Menü „Projekt“ noch in der Meldung, die nur
+„OK“ kennt; der Weg führt über den Windows-Explorer. Für eine Aufgabe
+in einem Ordner ohne Schreibrecht erledigt Natter dasselbe mit einem
+Klick (`aufgabe_kopieren`, Punkte 321 und 340) und erkennt die Kopie
+in der nächsten Stunde wieder. Außerdem nennt die Meldung „Dokumente“
+als Ziel, während Natter Kopien von Aufgaben nach `Dokumente\Natter`
+legt. Wer dem Rat im Explorer folgt, legt die Kopie also woanders ab
+als Natter selbst, ohne `.natter-quelle`, und „Liegt dort schon eine
+Kopie dieser Aufgabe …“ greift später nicht.
+
+**Ursache:** nachgewiesen. `_projekt_schon_offen_melden`
+(`ide/shell/hauptfenster.py:3306-3325`) zeigt nur
+`QMessageBox.information`; die Kopie über `aufgabe_kopieren` bietet
+allein `_kopie_statt_schreibschutz` (Zeile 3536-3577) an.
+
+**Zu tun:** In der Meldung zur Sperre eines anderen Rechners dieselbe
+Kopie anbieten wie bei einem Ordner ohne Schreibrecht, mit Ziel
+`Dokumente\Natter` über `aufgabe_kopieren`. Erledigt, wenn ein Test
+mit der Sperrdatei eines anderen Rechners nach „Ja“ die Kopie unter
+`Dokumente\Natter` geöffnet findet.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt; zusammen mit Punkt 342 gelöst. Bei einer Sperre eines anderen Rechners in einem anderen Konto fragt `_ort_zum_oeffnen` vor dem Öffnen mit denselben Knöpfen wie bei einem Ordner ohne Schreibrecht, nennt Rechner, Konto und den Zielordner `Dokumente\Natter` und legt die Kopie über `aufgabe_kopieren` samt `.natter-quelle` an. Nach „Trotzdem hier öffnen“ kommt kein zweiter Hinweis (`projekt_oeffnen(..., sperrhinweis=False)`). Wer ein gesperrtes Projekt auf einem Weg öffnet, der nicht über `projekt_oeffnen_gemeldet` läuft, bekommt weiter den Hinweis aus `_projekt_schon_offen_melden`; der rät nicht mehr zu einer Kopie in „Dokumente“, sondern nennt `Dokumente\Natter` und den Weg über „Projekt → Projekt öffnen …“ und „Eigene Kopie öffnen“. Test: `test_hinweis_zur_fremden_sperre_bietet_die_kopie_mit_ihrem_ordner_an` (Text der Frage, kein zweiter Hinweis nach „Trotzdem hier öffnen“, nach „Eigene Kopie öffnen“ die Kopie unter `Dokumente\Natter` offen). Gegenprobe mit dem alten Stand: scheitert.
+
+
+---
+
+## 350. Die Sicherheitswarnung von Windows beim ersten Export kommt ohne Ankündigung ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Benutzbarkeitsprüfung
+(Verständlichkeit), Entwicklungsstand `c16494b`. Nicht nachgestellt,
+weil dafür der Zertifikatspeicher des Kontos geändert werden müsste;
+belegt am Code, die Wirkung auf die Klasse ist eingeschätzt.
+
+**Beobachtet:** Beim ersten „Projekt → Als Exe exportieren …“ in einem
+Konto erscheint mitten im Export die Sicherheitswarnung von Windows, ob
+ein Stammzertifikat „Natter Programme dieses Rechners“ installiert
+werden soll, samt dem Hinweis auf ein Sicherheitsrisiko. In Natter
+steht zu diesem Zeitpunkt nur „Exe wird erstellt - die IDE bleibt
+bedienbar.“ und ein Ladebalken. Dass die Frage von Natter ausgelöst
+wird, wozu sie dient und dass „Nein“ nur die Signatur kostet, steht
+allein im Handbuch, Abschnitt 3.5. Eine Schülerin der 7. Klasse hält
+die Warnung eher für einen Angriff und holt die Lehrkraft; auf eine
+unerwartete Warnung antworten die meisten mit „Nein“, und danach fragt
+Natter in diesem Konto nicht wieder (Punkt 352). Auf Rechnern mit
+zurückgesetzten Profilen kommt die Warnung nach jeder Anmeldung neu.
+
+**Ursache:** nachgewiesen. `_als_exe_exportieren_aktion`
+(`ide/shell/hauptfenster.py:2070-2101`) startet den Export ohne
+Hinweis; `signieren_wenn_moeglich(exe_pfad, anlegen=True)`
+(`ide/export/exporter.py:531`) ruft `zertifikat_anlegen`
+(`ide/export/signatur.py:288`) auf, ohne dass Natter vorher etwas
+zeigt.
+
+**Zu tun:** Bevor Natter zum ersten Mal ein Zertifikat anlegt, in
+einem eigenen Fenster ankündigen, dass Windows gleich nachfragt, wozu
+das Zertifikat dient und was „Nein“ bewirkt. Erledigt, wenn ein Test
+ohne vorhandenes Zertifikat und ohne Vermerk die Ankündigung vor dem
+Aufruf von `zertifikat_anlegen` sieht.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `signieren_wenn_moeglich` und `exe_exportieren` nehmen jetzt `vor_dem_anlegen` entgegen; es läuft unmittelbar vor `zertifikat_anlegen`, also nur ohne brauchbares Zertifikat und ohne Vermerk. Das Hauptfenster übergibt `_zertifikat_ankuendigen_lassen`, das über die neue Methode `Hintergrundarbeit.im_vordergrund` ein Fenster im Faden der Oberfläche zeigt und den Export bis zum „OK“ warten lässt, höchstens 300 Sekunden. Gewartet wird über ein `threading.Event`, das `abbrechen()` freigibt, damit das Schließen von Natter nicht festhängt. Das Fenster sagt, dass Windows gleich mit einer Sicherheitswarnung zum Zertifikat „Natter Programme dieses Rechners“ fragt, dass die Frage von Natter kommt, wozu das Zertifikat dient und was „Ja“ und „Nein“ bewirken. Handbuch 3.5 und `ZUERST-LESEN.txt` ergänzt. Test: `test_vor_dem_anlegen_des_zertifikats_kommt_eine_ankuendigung` in `tests/test_hauptfenster_exe_export.py` startet den Export mit dem echten `signieren_wenn_moeglich` ohne Zertifikat und ohne Vermerk und prüft, dass die Ankündigung vor dem Aufruf von `zertifikat_anlegen` erscheint; gegen den alten Stand scheitert er.
+
+
+---
+
+## 351. Nach einem Export ohne Signatur ist der Grund nirgends ganz zu lesen ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Benutzbarkeitsprüfung (Darstellung),
+Entwicklungsstand `c16494b`.
+
+**Beobachtet:** Probe offscreen, Hauptfenster 1280 × 800,
+`_export_fertig` mit einem erfolgreichen Export, dessen letzte
+Protokollzeile der Grund aus `zertifikat_anlegen` ist. Die Statuszeile
+lautet „Exe erstellt:
+C:\Users\mueller.anna\Documents\Natter\Ampel\dist\Ampel.exe - Ohne
+Signatur: das Zertifikat wurde nicht als vertrauenswürdig eingetragen,
+die Rückfrage von Windows wurde verneint, nicht beantwortet“ und endet
+dort am Fensterrand. Im Panel „Meldungen“ steht derselbe Satz als eine
+einzige Zeile, abgeschnitten bei „fragt in diesem Konto n“; der Pfad
+der Datei, die für einen neuen Versuch zu löschen ist, liegt rechts
+außerhalb und ist nur über die waagrechte Bildlaufleiste zu erreichen
+(Bildschirmfoto `export_1280.png`, Probeordner inzwischen gelöscht).
+Darüber stehen im echten Export die letzten neun Zeilen der
+PyInstaller-Ausgabe, und die sind englisch. Gleichzeitig öffnet Natter
+den Ordner `dist` im Explorer, der sich vor das Fenster legt.
+
+**Ursache:** nachgewiesen. `_export_fertig`
+(`ide/shell/hauptfenster.py:2118-2135`) hängt die ganze Signaturzeile
+an die Statuszeile und schreibt `letzte[-10:]` des Protokolls als
+einzelne Einträge in `meldungen_liste`, eine `QListWidget` ohne
+Zeilenumbruch.
+
+**Zu tun:** In die Statuszeile nur einen kurzen Satz („Exe erstellt,
+ohne Signatur - Grund unter „Meldungen““), den ganzen Grund umbrochen
+ins Panel „Meldungen“, die PyInstaller-Zeilen nach einem Erfolg
+weglassen. Erledigt, wenn ein Test bei 1280 × 800 den ganzen Grund im
+Panel ohne waagrechte Bildlaufleiste findet.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `_export_fertig` ruft nach einem Export ohne Signatur `_ohne_signatur_melden` auf: das Panel „Meldungen“ enthält dann den Pfad der Exe und den ganzen Grund, beide an Leerzeichen auf die Breite des Panels umbrochen (`_auf_breite_umbrechen`), ohne die Zeilen von PyInstaller; das Panel wird nach vorn geholt und bei Bedarf höher gezogen. Die Statuszeile sagt nur „Exe erstellt, ohne Signatur - der Grund steht im Panel „Meldungen“.“ Nach einem signierten Export bleibt es bei „Exe erstellt: <Pfad>“. Handbuch 3.5 ergänzt. Test: `test_der_grund_ohne_signatur_steht_ganz_im_panel` in `tests/test_hauptfenster_exe_export.py` meldet bei 1280 × 800 einen Export mit PyInstaller-Zeile und langem Grund und prüft, dass der ganze Grund im Panel steht, keine PyInstaller-Zeile, keine waagrechte Bildlaufleiste und ein kurzer Satz in der Statuszeile; gegen den alten Stand scheitert er.
+
+
+---
+
+## 352. Ein neuer Versuch mit dem Export-Zertifikat geht nur über eine Datei im versteckten Profilordner ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Benutzbarkeitsprüfung
+(Auffindbarkeit), Entwicklungsstand `c16494b`. Rest aus Punkt 324.
+
+**Beobachtet:** Nach einem „Nein“ zur Sicherheitswarnung beim Export
+(Punkt 350) signiert Natter in diesem Konto nicht mehr. Für einen
+neuen Versuch sagen Meldung, Handbuch 3.5 und `ZUERST-LESEN.txt`, die
+Datei `%LOCALAPPDATA%\Natter\zertifikat_abgelehnt.txt` zu löschen.
+`AppData` ist im Explorer ausgeblendet, und `%LOCALAPPDATA%` führt nur
+über die Adresszeile ans Ziel, was Schülerinnen der Mittelstufe nicht
+kennen. Die Funktion, die den Vermerk aufhebt, gibt es schon
+(`rueckfrage_wieder_zulassen`). Punkt 324 verlangte dafür einen Eintrag
+im Exportweg; beim Beheben blieb sie „für einen späteren Menüeintrag“
+liegen, und in `ide/` ruft sie niemand auf.
+
+**Ursache:** nachgewiesen. `rueckfrage_wieder_zulassen`
+(`ide/export/signatur.py:255`) hat außerhalb der Tests keinen
+Aufrufer.
+
+**Zu tun:** Einen Eintrag anbieten, der die Rückfrage wieder zulässt,
+etwa unter „Werkzeuge → Einstellungen …“ oder als Knopf in der Meldung
+nach einem Export ohne Signatur, und Meldung, Handbuch 3.5 und
+`ZUERST-LESEN.txt` darauf verweisen lassen. Erledigt, wenn ein Test
+den Vermerk über die Oberfläche entfernt.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. Liegt nach einem Export ohne Signatur der Vermerk `zertifikat_abgelehnt.txt` vor, steht im Panel „Meldungen“ unter dem Grund der unterstrichene Eintrag „Beim nächsten Export wieder nach dem Zertifikat fragen“ (`WIEDER_FRAGEN` in `ide/export/signatur.py`). Ein Klick darauf ruft `rueckfrage_wieder_zulassen` auf, entfernt den Eintrag und meldet in der Statuszeile, dass der nächste Export wieder fragt. Beide Gründe aus `ide/export/signatur.py` verweisen jetzt auf diesen Eintrag statt auf die Datei im Profilordner; Handbuch 3.5 und `ZUERST-LESEN.txt` nennen den Eintrag zuerst und die Datei nur noch als gleichwertigen Weg. Test: `test_die_rueckfrage_laesst_sich_im_panel_wieder_zulassen` in `tests/test_hauptfenster_exe_export.py` legt den Vermerk an, meldet einen Export ohne Signatur, klickt mit der Maus auf den Eintrag und prüft, dass der Vermerk weg ist; gegen den alten Stand scheitert er, weil es den Eintrag nicht gibt. `test_nach_einem_nein_bleibt_nichts_liegen_und_es_wird_nicht_neu_gefragt` prüft jetzt den Verweis im Grund.
+
+
+---
+
+## 353. Die CSV-Ansicht springt bei einem Lesefehler in die Textansicht, der Hinweis spricht von der Tabelle ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Benutzbarkeitsprüfung
+(Verständlichkeit), Entwicklungsstand `c16494b`.
+
+**Beobachtet:** Probe offscreen: `noten.csv` mit offenem
+Anführungszeichen in Zeile 4 und 20.000 Zeilen danach, `CsvAnsicht`
+mit 800 × 350. Die Hinweiszeile sagt: „Ab Zeile 4 lässt sich die Datei
+nicht als Tabelle lesen. … Die Tabelle enthält nur die Zeilen davor;
+„Als Text anzeigen“ zeigt den ganzen Inhalt.“ Zu sehen ist aber keine
+Tabelle, sondern schon der ganze Text, und der Knopf „Als Text
+anzeigen“ ist bereits gedrückt (Bildschirmfoto `csv_hinweis.png`,
+Probeordner inzwischen gelöscht). Dass ein weiterer Klick auf
+denselben Knopf zur Tabelle führt, ist nicht zu erkennen, denn seine
+Beschriftung ändert sich nie. Wer der Anweisung im Hinweis folgt,
+klickt auf „Als Text anzeigen“ und landet in der Tabelle mit drei
+Zeilen.
+
+**Ursache:** nachgewiesen. `_laden` (`ide/viewers/csv_ansicht.py:468`)
+schaltet bei einem CSV-Fehler auf die Textansicht; der Hinweistext
+(Zeile 155-157) geht von der Tabelle aus. Die Beschriftung des Knopfs
+steht fest in Zeile 346.
+
+**Zu tun:** Den Hinweis zu dem passend machen, was zu sehen ist, und
+den Knopf je nach Ansicht „Als Text anzeigen“ oder „Als Tabelle
+anzeigen“ beschriften. Erledigt, wenn ein Test nach dem Lesefehler die
+Beschriftung „Als Tabelle anzeigen“ und einen Hinweis ohne Verweis auf
+den gedrückten Knopf findet.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. Der Knopf in `CsvAnsicht` heißt jetzt je nach Ansicht „Als Text anzeigen“ oder „Als Tabelle anzeigen“ und nennt damit die Ansicht, zu der ein Klick führt. `_zeilen_lesen` liefert nur noch den Satz zur Fehlerstelle; den Schluss setzt `_hinweis_zeigen` je nach Ansicht dazu: in der Textansicht „Zu sehen ist deshalb der ganze Inhalt als Text; die Tabelle enthält nur die Zeilen davor.“, in der Tabelle „Die Tabelle enthält nur die Zeilen davor.“ Ein Lesefehler der Datei (gesperrt, gelöscht) hat in der Hinweiszeile weiter Vorrang. Nach einem CSV-Fehler steht wie bisher die Textansicht vorn. Test: `test_csvansicht_hinweis_und_knopf_passen_zur_ansicht` in `tests/test_viewer_csv.py` mit offenem Anführungszeichen und 20.000 Zeilen danach: nach dem Laden Beschriftung „Als Tabelle anzeigen“ und kein Verweis auf „Als Text anzeigen“ im Hinweis, nach einem Klick Tabelle, Beschriftung „Als Text anzeigen“ und ein Hinweis ohne „als Text“. Gegen den alten Stand scheitert er an der Beschriftung.
+
+---
+
+## 354. Designer: jede Pfeiltaste liest und übersetzt die Unit einmal je Ereignis, auf einem Netzlaufwerk läuft die Komponente hinterher ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Leistungsprüfung, Entwicklungsbaum
+auf Commit `98c9efe`. Notebook mit Core i7-13700H (20 logische
+Kerne), 32 GB, SSD, Qt offscreen. Der Rechner drosselt nach etwa
+zweieinhalb Sekunden Volllast stark; eine Vergleichsschleife braucht
+danach drei- bis sechsmal so lang. Die Werte je Schritt stammen
+deshalb aus frischen Prozessen mit kurzer Last. Ein Schulrechner ist
+auch ohne Drosselung langsamer als dieser.
+
+**Beobachtet:** Beispiel `03_Taschenrechner` im Designer, eine
+Komponente ausgewählt, Pfeiltaste rechts über
+`DesignerCanvas._tastatur_verarbeiten`, sechs Schritte je Fall. Die
+Unit wurde für den zweiten Fall um einfache Methoden auf 1.064 Zeilen
+verlängert. Das Netzlaufwerk ist `\\localhost\C$\…`, also ohne echtes
+Netz und ohne andere Rechner am Server.
+
+| Ort               | Unit mit 65 Zeilen | Unit mit 1.064 Zeilen                 |
+|-------------------|--------------------|---------------------------------------|
+| lokal             | 9 ms (7 bis 11)    | 42 ms (40 bis 60)                     |
+| UNC-Pfad          | 46 ms (38 bis 52)  | 210 ms beim ersten Schritt, bis 530 ms |
+
+Windows wiederholt eine gehaltene Taste rund 30-mal in der Sekunde,
+also alle 33 ms. Schon lokal mit der längeren Unit und auf dem
+UNC-Pfad mit der kurzen kommt die Verarbeitung damit nicht mit.
+Dreißig Schritte hintereinander, also eine Sekunde gehaltene Taste,
+brauchten auf dem UNC-Pfad mit der kurzen Unit 3,6 s (drei Runden:
+3,57, 3,58 und 3,85 s), mit der langen 14,4 s, lokal mit der langen
+7,3 s. In diesen längeren Läufen drosselt der Rechner schon; ohne
+Drosselung ergeben die Werte je Schritt 1,4 s bzw. 6,3 s. So lange
+wandert die Komponente nach dem Loslassen weiter, und der Designer
+nimmt keinen Klick an. Für ein Formular ohne Unit nennt Punkt 312
+6 ms je Schritt bei 200 Komponenten; der Test dazu läuft weiter grün.
+
+**Ursache:** nachgewiesen per Profil. `DesignerCanvas._nach_aenderung`
+(`ide/designer/canvas.py`, Zeile 2855) ruft über `_benachrichtigen`
+(Zeile 2849) nach jedem Schritt die Beobachter der Auswahl auf.
+`HauptFenster._designer_auswahl_geaendert`
+(`ide/shell/hauptfenster.py`, Zeile 5814) baut daraufhin den
+Objektinspektor neu auf. `EreignisseTabelle.anzeigen`
+(`ide/inspector/ereignisse_tabelle.py`, Zeile 118) ruft für jede
+Zeile `passende_methoden` (Zeile 40), und das ruft jedes Mal über
+`_methoden_nachladen` die Funktion `unit_methoden_ergaenzen`
+(`ide/designer/laden.py`, Zeile 127): Unit von der Platte lesen, mit
+`ast.parse` übersetzen und die Signaturen bestimmen. Bei der
+gewählten Komponente mit sechs Ereignissen geschieht das sechsmal je
+Schritt. Im Profil eines Schritts auf dem UNC-Pfad mit der langen
+Unit entfallen 0,18 s auf das Öffnen der Datei, 0,15 s auf
+`compile`/`ast.parse` und 0,06 s auf `setCellWidget`. Punkt 312 hat
+Schreiben, Prüfung und Komponentenbaum gebündelt; der Objektinspektor
+folgt weiter jedem Schritt. Der Test zu Punkt 312 benutzt ein
+Formular ohne Unit und sieht das deshalb nicht.
+
+**Zu tun:** Die Unit nicht für jede Zeile der Ereignistabelle lesen,
+sondern höchstens einmal je Aufbau, und nur dann, wenn sie sich seit
+dem letzten Lesen geändert hat (Änderungszeit der Datei oder Stand
+des offenen Editors). Bei einer bloßen Verschiebung oder
+Größenänderung die Ereignistabelle stehen lassen. Erledigt, wenn im
+Taschenrechner mit einer Unit von 1.000 Zeilen ein Schritt mit der
+Pfeiltaste lokal wie auf einem UNC-Pfad unter 33 ms bleibt und bei
+20 Schritten hintereinander `unit_lesen` höchstens einmal aufgerufen
+wird, belegt durch einen Test.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `unit_methoden_ergaenzen` in `ide/designer/laden.py` merkt sich an der Formularklasse als `_unit_stand` Änderungszeit und Größe der Unit (`dateistand.kennung`, ein einziger `stat`-Aufruf) und liest und übersetzt die Datei nur, wenn sich eines von beiden geändert hat. Wie bisher zählt die Unit auf der Platte; eine im Editor gespeicherte Methode erscheint beim nächsten Aufbau. Schreibt der Designer die Unit selbst (neue Ereignis-Methode, Umbenennen), setzt `_unit_stand_nachfuehren` in `ide/designer/canvas.py` den Stand zurück, weil Windows die Änderungszeit nur grob fortschreibt und ein Umbenennen auf einen gleich langen Namen die Größe nicht ändert. `EreignisseTabelle.anzeigen` in `ide/inspector/ereignisse_tabelle.py` gleicht die Unit einmal je Aufruf ab statt einmal je Zeile (`passende_methoden(..., nachladen=False)`) und baut die Tabelle nicht neu auf, solange Komponente, Formular, Unit-Stand und die Namen der verknüpften Methoden gleich sind; bei einem Schritt mit der Pfeiltaste bleibt sie also stehen. Nach einem Doppelklick auf eine Zeile wird sie immer neu aufgebaut. Messung im Taschenrechner mit einer Unit von 1.064 Zeilen, `b_plus` gewählt, Pfeiltaste rechts über `_tastatur_verarbeiten`, Designer und Objektinspektor ohne Hauptfenster, je drei frische Prozesse: lokal vorher 28 bis 30 ms je Schritt (Median) und sechsmal `unit_lesen` je Schritt, nachher 0,5 bis 0,6 ms und bei 30 Schritten kein einziges Mal; auf `\\localhost\C$\…` nachher 1,3 ms (Median über 20 Schritte), ebenfalls ohne Lesen. Test: `test_pfeiltaste_liest_die_unit_nicht_bei_jedem_schritt` in `tests/test_designer_viele_komponenten.py` zählt bei 20 Schritten die Aufrufe von `unit_lesen` (höchstens einer), verlangt einen Median unter 33 ms und prüft, dass eine danach in die Unit geschriebene Methode `neu_click` im Auswahlfeld von `on_click` erscheint. Ohne die Änderung scheitert er mit 120 Lesevorgängen.
+
+
+---
+
+## 355. CSV-Ansicht: bei einer Million Zeilen stehen Neuladen und „Als Text anzeigen“ mehrere Sekunden ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Leistungsprüfung, Entwicklungsbaum
+auf Commit `98c9efe`. Rechner wie in Punkt 354.
+
+**Beobachtet:** CSV-Datei mit vier Spalten (`Nr;Name;Wert;Ort`,
+Dezimalkomma), per `CsvAnsicht` geöffnet, jede Messung dreimal in
+einem frischen Prozess:
+
+| Vorgang                                       | 100.000 Zeilen | 1.000.000 Zeilen (31,7 MB) |
+|-----------------------------------------------|----------------|----------------------------|
+| Öffnen                                        | 0,09 s         | 0,97 bis 0,99 s            |
+| Sortieren nach „Wert“ (erstes Mal)            | 0,09 s         | 1,02 bis 1,08 s            |
+| Filter anwenden                               | 0,02 s         | 1,04 bis 1,11 s            |
+| Neuladen nach einer Änderung, sortiert        | 0,15 s         | 8,7 bis 8,8 s              |
+| „Als Text anzeigen“                           | 0,22 s         | 15,3 bis 15,5 s            |
+| Öffnen mit offenem Anführungszeichen, Zeile 7 | –              | 6,5 bis 6,9 s              |
+| Neuladen derselben Datei                      | –              | 14,6 bis 15,2 s            |
+
+Neuladen und Umschalten kamen in diesen Läufen nach mehr als zwei
+Sekunden Last und damit schon gedrosselt. Ohne Drosselung gemessen:
+`setPlainText` mit dem Text der ganzen Datei allein 3,7 bis 3,9 s
+(300.000 Zeilen: 0,7 s); das Neuladen besteht aus Lesen und Zerlegen
+(rund 1 s) und dem neuen Berechnen der Sortierschlüssel (rund 1 s).
+Auch ungedrosselt steht das Fenster also 2 bis 4 s, auf einem
+Schulrechner länger. Das Neuladen beginnt ohne Zutun, sobald ein
+Programm die offene Datei neu schreibt (Punkt 330); ein Programm,
+das eine große Datei mehrmals schreibt, hält Natter jedes Mal an.
+Speicher: 32 MB Datei belegen geöffnet 478 MB, nach dem Schließen
+sind sie wieder frei.
+
+**Ursache:** nachgewiesen. `CsvAnsicht._laden`
+(`ide/viewers/csv_ansicht.py`, Zeile 482) liest, zerlegt und
+sortiert im Hauptfaden. Beim Neuladen entsteht ein neues Modell, und
+`_sortierschluessel` (Zeile 203) rechnet die Schlüssel der sortierten
+Spalte über `pcl.zahlen.zahl` für jede Zelle neu (im Profil 16 von
+27 s, davon 10 s in `zahl`). `_ansicht_umschalten` (Zeile 538) gibt
+den ganzen Text auf einmal an `QPlainTextEdit.setPlainText`; bei einer
+Datei, die sich nicht ganz als Tabelle lesen lässt, schaltet `_laden`
+in Zeile 532 selbst auf diese Ansicht um.
+
+**Zu tun:** Lesen, Zerlegen und Sortierschlüssel beim Neuladen aus
+dem Hauptfaden nehmen und das fertige Modell erst am Ende einsetzen;
+die Rohansicht auf einen Teil der Datei begrenzen und das dazusagen
+oder sie stückweise füllen. Erledigt, wenn mit 1.000.000 Zeilen das
+Neuladen einer sortierten Tabelle, das Umschalten auf den Text und
+das Öffnen einer Datei mit offenem Anführungszeichen eine 20-ms-Uhr
+im Hauptfaden nie länger als 1 s anhalten, belegt durch einen Test.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `CsvAnsicht` in `ide/viewers/csv_ansicht.py` lädt eine geänderte Datei jetzt in einem Nebenfaden neu (Daemon-Faden aus `threading`). Lesen, Zerlegen, Filtern, Sortierschlüssel und Sortieren erledigt dort die neue Funktion `_datei_lesen`, die kein Qt-Objekt berührt; das Ergebnis kommt über das Signal `_neu_geladen` zurück, und im Faden der Oberfläche entsteht nur noch das Modell. Es läuft höchstens ein Neuladen zugleich. Ändert sich die Datei währenddessen, wird sein Ergebnis verworfen und danach noch einmal geladen; wurden Filter oder Sortierung inzwischen geändert, holt das Einsetzen sie nach. Bis die neue Tabelle erscheint, bleibt die alte stehen. Die Zellen liegen jetzt in einer einzigen Liste, die Zeilengrenzen in einer zweiten (`_Tabellendaten`), statt in einer Liste je Zeile: eine Million Zeilenlisten ließ jeden vollen Durchgang der Speicherbereinigung bis zu 0,7 s dauern, auch im Faden der Oberfläche. Der Nebenfaden läuft außerdem im Rahmen `nebenfaden_rechnet` aus `ide/shell/vervollstaendigung.py` (bisher `_nebenfaden_rechnet`: ohne automatische Speicherbereinigung, mit kurzer Umschaltzeit), und `_bleibt_offen` überspringt die Zeilen vor dem letzten Datensatz einzeln statt mit `itertools.islice`, das den Faden der Oberfläche in einem Zug 0,45 s lang blockierte. Die Ansicht „Als Text“ zeigt höchstens die ersten 50.000 Zeilen (`HOECHSTZAHL_TEXTZEILEN`, nach dem Vorbild von `HOECHSTZAHL_ZEILEN` im Datenbank-Panel); die Hinweiszeile sagt dann „Als Text zu sehen sind nur die ersten 50.000 Zeilen der Datei; die Tabelle enthält alle.“, bei einem offenen Anführungszeichen steht dasselbe im Satz zur unvollständigen Tabelle. Zeilenenden werden nur noch in diesem Anfang vereinheitlicht. Ab 5 MB wartet das Neuladen 1,5 s nach dem letzten Änderungssignal statt 0,3 s (`NEU_LADEN_PAUSE_GROSS_MS`), damit ein Programm, das die Datei in mehreren Zügen schreibt, sie nur einmal lesen lässt. Das erste Öffnen bleibt im Faden der Oberfläche, weil die Ansicht beim Erscheinen ihren Inhalt zeigen soll; ohne offenes Anführungszeichen dauert es mit einer Million Zeilen weiter rund 1 s. Gemessen mit 1.000.000 Zeilen (31,7 MB, `Nr;Name;Wert;Ort`, Dezimalkomma), Qt offscreen, alle Schritte nacheinander in einem Prozess und deshalb ab dem Neuladen gedrosselt, längste Pause einer 20-ms-Uhr: Neuladen der nach „Wert“ sortierten Tabelle 0,48 s statt 26,6 s (so lange lief `_laden` im Profil); die neue Tabelle steht gedrosselt nach rund 10 s, das Fenster bleibt dabei bedienbar. „Als Text anzeigen“ 0,52 s statt 15,5 s. Öffnen einer Datei mit offenem Anführungszeichen in Zeile 7: 0,2 s in einem frischen Prozess, 1,0 s am Ende der gedrosselten Messreihe, statt 14,0 bis 16,1 s. Neuladen derselben Datei 0,47 s statt 15,7 bis 23,9 s. Test: `test_csvansicht_haelt_bei_grossen_dateien_nicht_an` in `tests/test_viewer_csv.py` spielt Neuladen einer sortierten Tabelle, Umschalten auf den Text und Öffnen einer Datei mit offenem Anführungszeichen mit 400.000 Zeilen durch und verlangt, dass eine 20-ms-Uhr nie länger als 1 s aussetzt; er dauert rund 8 s. Gegen den alten Stand scheitert er mit einer Pause von 6,1 s. Die übrigen Tests der Datei, darunter der mit 100.000 Zeilen, die Hinweiszeile, die Knopfbeschriftung, das Neuladen mit Filter und Sortierung und das offene Anführungszeichen in kleinen und großen Dateien, bleiben unverändert grün.
+
+
+---
+
+## 356. DBGrid und StringGrid: 100.000 Zeilen belegen 290 MB, eine Million fast 3 GB, und das Programm steht beim Füllen ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Leistungsprüfung, Entwicklungsbaum
+auf Commit `98c9efe`. Rechner wie in Punkt 354.
+
+**Beobachtet:** Ein Schülerprogramm füllt eine Tabelle mit vier
+Spalten, einmal ein `DBGrid` über `SQLQuery` („SELECT * FROM
+messung“ auf einer SQLite-Datei) und `DataSource`, einmal mit
+`DBGrid.show_rows(verbindung.query(…))`, einmal ein `StringGrid` mit
+`load_dataframe(df)`. Jede Messung dreimal in einem frischen Prozess,
+Speicher als private Bytes des Prozesses:
+
+| Weg                        | 10.000 Zeilen          | 100.000 Zeilen                   | 1.000.000 Zeilen                 |
+|----------------------------|------------------------|----------------------------------|----------------------------------|
+| `DBGrid` mit `SQLQuery`    | 0,09 bis 0,10 s, +31 MB | 1,00 bis 1,02 s, +294 MB         | 98 s (gedrosselt), +2.875 MB     |
+| `DBGrid.show_rows`         | 0,10 s, +32 MB         | 1,10 bis 1,13 s, +288 MB         | nicht gemessen                   |
+| `StringGrid.load_dataframe` | 0,37 bis 0,39 s, +30 MB | 17,0 und 17,6 s (gedrosselt), +289 MB | nach 500 s abgebrochen           |
+
+Ohne Drosselung wächst die Zeit gleichmäßig: `load_dataframe` braucht
+je 10.000 Zeilen 0,37 s, bis nach gut zwei Sekunden die Drosselung
+einsetzt (60.000 Zeilen: 2,3 s). Für 100.000 Zeilen sind das
+ungedrosselt 3,7 s, für eine Million rund 37 s; ein `DBGrid` mit einer
+Million Zeilen braucht ungedrosselt rund 10 s. Der Speicher ist von
+der Drosselung unabhängig: rund 2,9 KB je Zeile. Eine Million Zeilen
+belegt knapp 3 GB; auf einem Schulrechner mit 8 GB, auf dem daneben
+Natter, ein Browser und der Virenscanner laufen, bleibt davon wenig
+übrig. Während des Füllens nimmt das Fenster des Programms keine
+Eingaben an. Offene Daten (Wetterstationen, Verkehrszählungen) haben
+leicht 100.000 Zeilen, und eine Abfrage ohne `LIMIT` ist im
+Unterricht der übliche Anfang.
+
+**Ursache:** nachgewiesen. `DBGrid._neu_fuellen`
+(`pcl/components/data_controls.py`, Zeile 203) und `_zeilen_zeigen`
+(Zeile 237) legen für jede Zelle ein eigenes `QTableWidgetItem` an
+(Zeilen 218 und 250). `load_dataframe` (`pcl/dataframe.py`, Zeile 37)
+schreibt jede Zelle einzeln über `grid.cells[…]`, das je Zelle
+`_pruefen` und `setItem` aufruft (`pcl/components/additional.py`,
+Zeilen 162 und 196). Eine Obergrenze wie `HOECHSTZAHL_ZEILEN` im
+Datenbank-Panel (Punkt 239) gibt es in beiden Komponenten nicht.
+
+**Zu tun:** Beide Komponenten auf ein Tabellenmodell umstellen, das
+die Werte einmal hält und nur die sichtbaren Zellen liefert, wie
+`_CsvModell` der CSV-Ansicht (Punkt 311); oder ab einer Grenze nur
+einen Teil zeigen und das im Programm deutlich sagen. Erledigt, wenn
+ein `DBGrid` und ein `StringGrid` mit 100.000 Zeilen und vier Spalten
+jeweils in unter 1 s und mit weniger als 100 MB zusätzlichem Speicher
+gefüllt sind und `cells[…]`, `to_dataframe()` und der Datensatzzeiger
+weiter wie bisher arbeiten, belegt durch einen Test.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `StringGrid` und `DBGrid` sind jetzt eine `QTableView` mit eigenem Modell (`TabellenAnsicht` und `TabellenModell` in der neuen Datei `pcl/components/tabelle.py`) statt eines `QTableWidget` mit einem `QTableWidgetItem` je Zelle. Das Modell hält die Zeilen einmal als Listen und macht erst beim Anzeigen Text daraus, nur für die sichtbaren Zellen. `DBGrid` übernimmt die Zeilen der Abfrage (`all_rows()`) unverändert, `show_rows` legt je Zeile eine Liste der Werte ab; umgewandelt wird wie bisher mit `anzeigetext`. `load_dataframe` (`pcl/dataframe.py`) schreibt nicht mehr Zelle für Zelle über `cells[…]`, sondern holt jede Spalte mit `tolist()`, setzt fehlende Werte als leeren Text und legt alles auf einmal ins Modell; die Kommazahl wird beim Anzeigen mit `text()` geschrieben (`_zelltext` in `pcl/components/additional.py`), das Ergebnis ist dasselbe wie vorher. `to_dataframe` liest die Spalten direkt aus dem Modell. Die Ansicht bietet die Methoden des `QTableWidget`, die beide Komponenten und die Tests brauchen (`rowCount`, `setCurrentCell`, `currentRow`, `item`, `horizontalHeaderItem`, das Signal `currentCellChanged`); `cells`, `row_count`, `col_count`, `col_titles`, `col_widths`, `row`/`col`, `read_only`, `on_select_cell`, `on_edit_cell` und der Datensatzzeiger mit `DBNavigator`, `DBText` und `DBEdit` arbeiten wie bisher. Das Theme (`pcl/theme/__init__.py`) nennt `QTableView` statt `QTableWidget`, damit die Zellen im Dunkelmodus ihre Farbe behalten. Gemessen mit vier Spalten (Ganzzahl, Text, Kommazahl, Text), jeweils in einem frischen Prozess, Qt offscreen, zusätzliche private Bytes: 100.000 Zeilen `DBGrid` mit `SQLQuery` 0,01 s und +1 MB statt 1,23 s und +251 MB, `DBGrid.show_rows` 0,03 s und +4 MB statt 1,41 s und +242 MB, `StringGrid.load_dataframe` 0,05 s und +20 MB statt 27,1 s (gedrosselt) und +267 MB; eine Million Zeilen `DBGrid` mit `SQLQuery` 0,01 s und +8 MB, `show_rows` 0,32 s und +25 MB, `load_dataframe` 0,53 s und +164 MB (vorher nach 500 s abgebrochen). Test: `test_dbgrid_und_stringgrid_fassen_100000_zeilen` in `tests/test_tabellen_viele_zeilen.py` füllt beide Komponenten mit 100.000 Zeilen, verlangt je weniger als 100 MB und 1 s und prüft danach Datensatzzeiger, `cells[…]` und `to_dataframe()`; gegen den alten Stand scheitert er mit 240 MB beim `DBGrid`. `test_zeilenwechsel_in_grosser_tabelle_baut_sie_nicht_neu_auf` in `tests/test_data_controls.py` zählt statt gleicher Zellobjekte, ob das Modell neu gefüllt wurde. `docs/komponenten.md` nennt bei `StringGrid` und `DBGrid`, was große Tabellen kosten.
+
+---
+
+## 357. Unter dem Systemkonto ohne `/SUPPRESSMSGBOXES` bleibt das Setup an einer unsichtbaren Meldung hängen, statt abzubrechen ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Betriebsprüfung (Runde 10,
+Bereiche 1, 3, 4, 5, 9), Commit `f5eb8ad`. Geprüft am Installer-Skript
+und an der Dokumentation von Inno Setup 6.4 (`ISetup.chm`, Seiten zu
+`SuppressibleMsgBox`, „Setup Command Line Parameters“ und „Setup Exit
+Codes“); nicht als Systemkonto ausgeführt.
+
+**Beobachtet:** Punkt 315 hat das Setup so geändert, dass es unter dem
+Systemkonto ohne `/ALLUSERS` abbricht, statt Natter unsichtbar ins
+Profil des Systemkontos zu legen. Handbuch 1.4 (Zeile 114-120) und
+`ZUERST-LESEN.txt` (Zeile 126-131) versprechen dafür einen
+Rückgabewert ungleich 0 und den Grund im Protokoll. Das gilt nur, wenn
+auch `/SUPPRESSMSGBOXES` auf der Befehlszeile steht. Vor dem Abbruch
+zeigt das Setup eine Meldung mit „OK“ (`tools/natter.iss:281-285`).
+`SuppressibleMsgBox` zeigt sie laut Inno-Dokumentation immer, außer
+Meldungen sind mit `/SUPPRESSMSGBOXES` unterdrückt; `/VERYSILENT`
+allein genügt nicht. Eine Softwareverteilung startet das Setup als
+Systemkonto in Sitzung 0, wo niemand die Meldung sieht oder
+bestätigen kann. Das Setup wartet dann, bis die Verteilung es nach
+ihrer eigenen Zeitgrenze beendet (bei Intune eine Stunde), und meldet
+eine Zeitüberschreitung statt des Grundes, auf jedem Rechner des
+Raums.
+
+Betroffen ist gerade der Fall, für den die Prüfung da ist: wer
+`/ALLUSERS` weglässt, hat die Anleitung nicht vor Augen und benutzt
+meist den verbreiteten Aufruf `Natter-Setup.exe /VERYSILENT
+/NORESTART`. Dieselbe Falle steckt in den beiden anderen Meldungen des
+Setups: „Eine ältere Fassung wird nicht darüber installiert“
+(Zeile 292-295) und die Liste der nicht wieder installierten Pakete
+nach einem Update ohne Netz oder hinter einem Proxy (Zeile 356-362).
+
+**Ursache:** nachgewiesen. `InitializeSetup` und `CurStepChanged` in
+`tools/natter.iss` rufen `SuppressibleMsgBox` ohne Rücksicht darauf,
+ob überhaupt jemand vor dem Bildschirm sitzen kann.
+
+**Zu tun:** Unter einem Dienstkonto (`LaeuftAlsDienstkonto`) und bei
+einer stillen Installation (`WizardSilent`) keine Meldung zeigen,
+sondern nur ins Protokoll schreiben und mit dem Rückgabewert enden.
+Erledigt, wenn `tools/natter.iss` in allen drei Fällen unter dem
+Systemkonto keine Meldung aufruft und ein Test am Text des Skripts
+das verlangt.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. Alle drei Meldungen des Setups laufen in `tools/natter.iss` jetzt über die neue Prozedur `Melden`: sie schreibt den Text immer ins Protokoll (`/LOG`) und ruft `SuppressibleMsgBox` nur auf, wenn `NiemandSiehtZu` falsch ist, also weder `WizardSilent()` noch `LaeuftAlsDienstkonto()` gilt. Unter dem Systemkonto und bei `/SILENT` oder `/VERYSILENT` bricht das Setup damit auch ohne `/SUPPRESSMSGBOXES` sofort mit Rückgabewert ungleich 0 ab, statt auf eine unsichtbare Meldung zu warten. Betroffen sind der Abbruch unter dem Systemkonto ohne `/ALLUSERS`, der Abbruch „ältere über neuere Fassung“ und die Liste der nach einem Update nicht wieder installierten Pakete. Test: `test_ohne_zuschauer_zeigt_das_setup_keine_meldung` in `tests/test_installer_update.py` verlangt genau einen Meldungsaufruf in `[Code]`, und zwar in `Melden` hinter der Prüfung auf `NiemandSiehtZu`, zwei `Melden`-Aufrufe in `InitializeSetup`, einen in `CurStepChanged` und die für Pascal nötige Reihenfolge der Deklarationen; gegen den alten Stand scheitert er (drei `SuppressibleMsgBox`-Aufrufe). Der ältere Test zu Punkt 315 prüft jetzt `Melden(` statt `Log(`. Beim Bau zu prüfen: dass `ISCC.exe` das Skript übersetzt (nicht übersetzt, weil in dieser Runde nichts gebaut wurde), und nach Möglichkeit ein Lauf als Systemkonto ohne `/SUPPRESSMSGBOXES`, der ohne Wartezeit mit Rückgabewert ungleich 0 endet.
+
+
+---
+
+## 358. Wer von Installationen je Konto auf `/ALLUSERS` umstellt, behält in jedem Konto die alte Fassung, und sie überdeckt die neue ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Betriebsprüfung (Runde 10,
+Bereiche 1, 3, 4, 5, 9), Commit `f5eb8ad`. Belegt am Installer-Skript
+und an `Natter-pruefen.ps1`; nicht an einem Rechner mit zwei
+Installationen durchgespielt.
+
+**Beobachtet:** Bis Punkt 315 nannte die Anleitung nur die
+Installation für ein Konto, und Handbuch 1.1 (Zeile 24-26) wirbt noch
+damit, dass sie „auf einem Schulrechner mit eingeschränktem Konto …
+ohne Rückfrage bei der Systembetreuung“ gehe. In Schulen, die so
+angefangen haben, liegt in jedem Schülerkonto eine eigene Natter unter
+`%LOCALAPPDATA%\Programs\Natter`. Installiert die IT danach nach
+Handbuch 1.4 mit `/ALLUSERS`, bleiben diese stehen, und in jedem Konto
+gilt weiter die alte:
+
+- Die `.natter`-Verknüpfung der Kontoinstallation steht unter
+  `HKCU\Software\Classes` (`tools/natter.iss:165-168`, `HKA` im
+  Nicht-Verwaltungsmodus). Windows gibt diesem Zweig Vorrang vor
+  `HKLM\Software\Classes`; ein Doppelklick auf ein Projekt startet
+  also die alte Fassung, unter AppLocker eine gesperrte Exe.
+- Im Startmenü stehen zwei Einträge „Natter“, einer aus dem Konto,
+  einer für alle Benutzer, dazu gegebenenfalls zwei Desktop-Symbole.
+- Die Updates über die Softwareverteilung erreichen die
+  Kontoinstallation nie: das Setup unter dem Systemkonto sieht nur
+  `HKLM` (`tools/natter.iss:210-215`).
+- `Natter-pruefen.cmd` liest zuerst `HKCU` (`Natter-pruefen.ps1:22-25`)
+  und prüft damit die alte Kontoinstallation statt der für alle
+  Benutzer.
+- Je Konto bleiben rund 1,2 GB im Profil belegt.
+
+Keine Anleitung sagt, dass die Kontoinstallationen vor dem Umstieg in
+jedem Konto zu entfernen sind; der Aufruf dafür steht zwar in
+Handbuch 1.5, aber nur unter „Entfernen“.
+
+**Ursache:** nachgewiesen, Dokumentationslücke; im Setup wird eine
+Installation im eigenen Konto neben einer für alle Benutzer nicht
+bemerkt.
+
+**Zu tun:** In Handbuch 1.4 und `ZUERST-LESEN.txt` einen Absatz „Von
+Installationen je Konto auf eine für alle Benutzer umstellen“ mit dem
+stillen Aufruf von `unins000.exe` im jeweiligen Konto (etwa als
+Anmeldeskript). Zusätzlich könnte Natter beim Start eine zweite
+Installation im Konto neben einer unter `C:\Program Files` erkennen
+und darauf hinweisen. Erledigt, wenn beide Anleitungen den Umstieg
+beschreiben und ein Test in `tests/test_paket.py` das verlangt.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. Handbuch 1.4 hat einen neuen Unterabschnitt „Von Installationen je Konto auf eine für alle Benutzer umstellen“, `tools/paket/ZUERST-LESEN.txt` einen gleichnamigen Abschnitt: was eine alte Kontoinstallation nach `/ALLUSERS` anrichtet (Vorrang der `.natter`-Verknüpfung unter HKCU, doppelter Startmenüeintrag, keine Updates, 1,2 GB je Profil) und wie sie in jedem Konto still verschwindet, als Anmeldeskript über eine Gruppenrichtlinie mit `if exist "%LOCALAPPDATA%\Programs\Natter\unins000.exe" … /VERYSILENT /SUPPRESSMSGBOXES /NORESTART`. Soweit es ohne Eingriff in fremde Konten geht, hilft Natter selbst: `InstallierteFassung` in `tools/natter.iss` liest nur noch den Deinstallationseintrag der eigenen Installationsart (bei `/ALLUSERS` HKLM, sonst HKCU); bisher gewann HKCU, und eine neuere Kontoinstallation verhinderte sogar die Installation für alle Benutzer. Die neue Prozedur `ZweiteInstallationMelden` meldet eine Installation der jeweils anderen Art im eigenen Konto (über `Melden`, also still ins Protokoll bei einer Verteilung). `Natter-pruefen.ps1` liest beide Einträge, prüft die neuere Fassung, bei Gleichstand die für alle Benutzer, und nennt im Bericht beide Installationen samt Aufruf zum Entfernen. Einen Hinweis beim Start von Natter gibt es nicht; die dafür nötige Stelle im Hauptfenster war in dieser Runde nicht Teil der Arbeit, und Einfachheit ging vor. Tests: `test_die_anleitung_beschreibt_den_umstieg_auf_alle_benutzer` in `tests/test_paket.py` (Abschnitt in beiden Anleitungen mit Anmeldeskript, stillem Aufruf von `unins000.exe` und `Natter-pruefen.cmd`, dazu die Auswahl der neueren Fassung im Prüfskript) und `test_das_setup_liest_die_fassung_seiner_eigenen_installationsart` in `tests/test_installer_update.py`; beide scheitern gegen den alten Stand. Die Auswahllogik des Prüfskripts wurde mit Attrappen-Einträgen (0.4.0/0.3.6, 0.3.6/0.10.0, Gleichstand) nachgespielt, das Skript mit dem PowerShell-Parser ohne Fehler gelesen. Beim Bau bzw. an einem Probe-Rechner zu prüfen: ein Setup mit `/ALLUSERS` in einem Konto mit alter Kontoinstallation zeigt den Hinweis und schreibt ihn ins Protokoll.
+
+
+---
+
+## 359. `Natter.exe` trägt keine Versionsangabe, und für die Erkennung in einer Softwareverteilung steht nirgends ein Merkmal ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Betriebsprüfung (Runde 10,
+Bereiche 1, 3, 4, 5, 9), Commit `f5eb8ad`, an `dist\Natter` vom
+28. September (0.3.6).
+
+**Beobachtet:** Eine Softwareverteilung braucht zu jedem Paket eine
+Erkennungsregel, an der sie sieht, ob und in welcher Fassung Natter
+auf einem Rechner liegt; ohne sie wiederholt sie die Installation
+oder spielt ein Update nie ein. Üblich sind die Dateiversion der
+Programmdatei oder ein Registrierungswert. Beides fehlt für die
+IT-Beauftragte:
+
+- `dist\Natter\Natter.exe` hat keine Versionsressource.
+  `(Get-Item dist\Natter\Natter.exe).VersionInfo` liefert leere
+  `FileVersion`, `ProductVersion` und `ProductName`; im Explorer
+  zeigt „Eigenschaften → Details“ keine Fassung. Die Setup-Datei
+  trägt dagegen `ProductVersion 0.3.6`.
+- Der Deinstallationsschlüssel
+  `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{961DA420-CA63-4436-9023-9CA411B620DA}_is1`
+  mit `DisplayVersion` steht nur in `tools/natter.iss:204` und in
+  `Natter-pruefen.ps1`, nicht im Handbuch, nicht in
+  `ZUERST-LESEN.txt`.
+
+Wer Natter in Intune, baramundi oder opsi einträgt, muss den
+Schlüssel also erst an einer Probeinstallation suchen.
+
+**Ursache:** nachgewiesen. `tools/ide_paketieren.py:450-476` baut den
+Starter mit PyInstaller ohne `--version-file`, obwohl der Docstring
+(Zeile 451-455) sagt, dass die eigene Exe „seine Versionsangabe“
+trägt.
+
+**Zu tun:** Den Starter mit einer Versionsressource bauen, deren
+Nummer aus `pyproject.toml` kommt, und `tools/auslieferung_bauen.py`
+prüft sie nach dem Bau. In Handbuch 1.4 und `ZUERST-LESEN.txt` die
+Erkennungsregel nennen: Registrierungsschlüssel mit `DisplayVersion`
+oder die Dateiversion von `C:\Program Files\Natter\Natter.exe`.
+Erledigt, wenn `VersionInfo.FileVersion` der gebauten `Natter.exe`
+der Fassung entspricht und beide Anleitungen die Erkennungsregel
+enthalten.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `tools/ide_paketieren.py` baut den Starter jetzt mit `--version-file`. Die Datei erzeugt `versionsdatei()` aus der Nummer, die `natter_version()` aus `pyproject.toml` liest, derselben, die `tools/auslieferung_bauen.py` in Schritt 2 zusammen mit `tools/natter.iss` und `ide/main.py` setzt; eine vierte Stelle von Hand gibt es nicht. Sie trägt `FileVersion` und `ProductVersion` dreiteilig (etwa `0.4.0`), die feste Dateiversion vierteilig (`0.4.0.0`), dazu `ProductName` und `CompanyName`. Schritt 5 von `tools/auslieferung_bauen.py` liest danach mit der neuen Funktion `dateiversion()` (über `version.dll`, wie `VersionInfo.FileVersion`) die Dateiversion der gebauten `Natter.exe` und bricht ab, wenn sie fehlt oder von der gebauten Nummer abweicht, auch bei `--nur-installer`. Handbuch 1.4 und `ZUERST-LESEN.txt` nennen die Erkennungsregel: den Schlüssel `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{961DA420-CA63-4436-9023-9CA411B620DA}_is1` mit `DisplayVersion` (bei einer Kontoinstallation unter HKEY_CURRENT_USER), Vergleich als Versionsnummer, und die Dateiversion von `C:\Program Files\Natter\Natter.exe`. Tests in `tests/test_auslieferung_bauen.py`: `test_der_starter_bekommt_die_versionsnummer_aus_pyproject` treibt `_starter_bauen` mit einer Attrappe statt PyInstaller, verlangt `--version-file` im Aufruf und die Nummer aus `pyproject.toml` in der Datei und lässt die Datei vom Leser von PyInstaller auswerten; `test_die_dateiversion_wird_nach_dem_bau_geprueft` liest die Dateiversion der Entwicklungs-Python, erkennt eine Datei ohne Angabe und lässt den Bau bei fehlender oder falscher Nummer scheitern; `test_die_anleitung_nennt_die_erkennungsregel` in `tests/test_paket.py` verlangt Schlüssel, `DisplayVersion` und Dateiversion in beiden Anleitungen. Alle drei scheitern gegen den alten Stand. Zusätzlich von Hand: die erzeugte Versionsangabe mit PyInstallers `write_version_info_to_executable` in eine Kopie des Bootloaders unter %TEMP% geschrieben; `dateiversion()` und `(Get-Item …).VersionInfo` lieferten danach `FileVersion 0.3.6`, `ProductVersion 0.3.6`, `ProductName Natter`. Beim Bau zu prüfen: dass Schritt 5 die Dateiversion der echten `Natter.exe` meldet und Explorer unter „Eigenschaften → Details“ die Fassung zeigt, und dass die Signatur danach weiter gültig ist.
+
+
+---
+
+## 360. Das README nennt die Installation je Konto den Weg, „der immer funktioniert“ ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Betriebsprüfung (Runde 10,
+Bereiche 1, 3, 4, 5, 9), Commit `f5eb8ad`.
+
+**Beobachtet:** Die Projektseite ist für viele Schulen der erste
+Kontakt mit Natter. Ihr Abschnitt „Installation“ (`README.md:406-408`)
+sagt: „Vorgabe ist die Installation nur für den angemeldeten Benutzer
+— auf einem Schulrechner ohne Administratorrechte der Weg, der immer
+funktioniert.“ Handbuch 1.4 sagt das Gegenteil: unter AppLocker oder
+einer Softwareeinschränkung mit den Standardregeln startet diese
+Installation nicht, „schon `Natter.exe` wird abgewiesen“. Für einen
+Computerraum nennt das README weder `/ALLUSERS` noch einen Verweis auf
+Handbuch 1.4; Handbuch 1.1 (Zeile 24-26) wiederholt dieselbe
+Empfehlung für eingeschränkte Konten. Wer dem README folgt, installiert
+in jedem Schülerkonto einzeln, mit 1,2 GB je Profil, ohne Updates über
+die Verteilung und mit den Folgen aus Punkt 358.
+
+**Ursache:** nachgewiesen, Dokumentationslücke. Punkt 316 und 317
+haben Handbuch und `ZUERST-LESEN.txt` ergänzt, das README nicht.
+
+**Zu tun:** Im README den Satz „der immer funktioniert“ streichen, für
+einen Computerraum die Installation für alle Benutzer nennen und auf
+Handbuch 1.4 und `ZUERST-LESEN.txt` verweisen; Handbuch 1.1 um den
+Hinweis auf AppLocker ergänzen. Erledigt, wenn README und Handbuch 1.1
+die Einschränkung nennen und `test_paket.py` das README mitprüft.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. Der Abschnitt „Installation“ im `README.md` nennt die Installation nur für den angemeldeten Benutzer jetzt als Weg für einen einzelnen Rechner und sagt, dass sie unter AppLocker oder einer Softwareeinschränkung mit Freigabe nur für `C:\Windows` und `C:\Program Files` nicht startet. Für einen Computerraum nennt er die Installation für alle Benutzer mit dem Aufruf `Natter-Setup.exe /ALLUSERS /VERYSILENT /SUPPRESSMSGBOXES /NORESTART` und verweist für Umstieg und Erkennungsregel auf Handbuch 1.4 und `ZUERST-LESEN.txt`. Der Satz „der immer funktioniert“ ist gestrichen. Handbuch 1.1 nennt dieselbe Einschränkung und verweist auf Abschnitt 1.4. Test: `test_das_readme_nennt_die_installation_fuer_alle_benutzer` in `tests/test_paket.py` prüft den README-Abschnitt (ohne „immer funktioniert“, auch über einen Zeilenumbruch hinweg, mit `/ALLUSERS`, AppLocker und beiden Verweisen) und Handbuch 1.1; gegen den alten Stand scheitert er.
+
+
+---
+
+## 361. Im beschreibbaren Tauschordner arbeitet die erste Schülerin im Original der Lehrkraft, und wer danach kopiert, bekommt ihren Stand ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Betriebsprüfung (Runde 10,
+Bereiche 2, 6, 7 und 8), Commit `f5eb8ad`, Natter 0.3.6.
+
+**Beobachtet:** Probe mit vier Hauptfenstern nacheinander, jedes mit
+eigenem „Dokumente“; die Aufgabe `Tausch6\Ampel` (Kopie von
+`01_Begruessung`) liegt in einem Ordner, in den alle schreiben dürfen.
+
+- B legt vorab eine eigene Kopie an (`aufgabe_kopieren`).
+- A öffnet die Aufgabe über `projekt_oeffnen_gemeldet`. Es kommt keine
+  Frage, das Projekt geht in `Tausch6\Ampel` auf. A ergänzt in
+  `u_main.py` eine Zeile und speichert: die Zeile steht danach im
+  Original.
+- D kopiert, während A das Projekt offen hat. In der Kopie von D steht
+  die Zeile von A.
+- Für B meldet `aufgabe_geaendert` jetzt `True`. Beim nächsten Öffnen
+  kommt „Aufgabe wurde geändert … Kopie ersetzen“, obwohl die Lehrkraft
+  nichts geändert hat; wer ersetzt, arbeitet mit dem Stand von A weiter.
+- A schließt das Projekt. C öffnet danach: wieder keine Frage, wieder
+  im Original.
+
+Übrig ist damit der Teil von Punkt 322, den Punkt 342 nicht erfasst
+hat: die erste Schülerin, und jede, die öffnet, während gerade niemand
+eine Sperre hält, schreibt in die Aufgabe selbst. Handbuch 3.6
+beschreibt das Verhalten so, eine Warnung für die Lehrkraft steht dort
+nicht. In einer Klasse, die die Aufgabe am Stundenanfang gemeinsam
+öffnet, verteilt sich so eine halbe Lösung an alle, die kurz danach
+kopieren, und die Aufgabe für die Parallelklasse ist verändert.
+
+**Ursache:** nachgewiesen. `_ort_zum_oeffnen`
+(`ide/shell/hauptfenster.py:3870` bis 3911) bietet die Kopie nur bei
+fehlendem Schreibrecht, bei der Sperre eines anderen Rechners in einem
+anderen Konto oder bei einer vorhandenen Kopie an; sonst endet es in
+Zeile 3911 mit `return pfad, "hier"`. Ob der Ordner einem selbst
+gehört oder eine Aufgabe in einem gemeinsamen Ordner ist, wird nicht
+unterschieden.
+
+**Zu tun:** Ein Projekt außerhalb von `Dokumente\Natter`, das weder
+in einem eigenen Ordner des Kontos liegt noch schon als eigenes
+Projekt geöffnet wurde, beim ersten Öffnen ebenfalls mit „Eigene Kopie
+öffnen“ anbieten, oder für Tauschordner eine andere eindeutige Regel
+finden (etwa: Projekte auf Netzlaufwerken außerhalb von „Dokumente“
+immer als Kopie anbieten). Handbuch 3.6 nennt die Regel. Erledigt,
+wenn die Probe oben A in eine eigene Kopie führt, das Original
+unverändert bleibt und B keine Nachfrage bekommt.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. Weil der Ablauf „Aufgabe öffnen und als eigene Kopie bearbeiten“ in dieser Freigabe immer wieder Befunde ergab (321, 333, 335, 340 bis 342, 345, 346, 349, dazu 361, 362, 364), entscheidet jetzt eine einzige Regel, und die einzelnen Anlässe wurden zusammengefasst. Neu ist `im_eigenen_ordner` in `ide/pfade.py`: ein Projekt im Dokumente-Ordner des Kontos, samt `Dokumente\Natter`, ist ein eigenes Projekt, jedes andere gilt als verteilte Aufgabe. `_ort_zum_oeffnen` in `ide/shell/hauptfenster.py` bietet bei jeder verteilten Aufgabe die eigene Kopie an, unabhängig von Schreibrecht, Sperre und vorhandener Kopie; diese bestimmen nur noch Titel, Text und den zweiten Knopf („Nur ansehen“, „Trotzdem hier öffnen“, sonst „Original öffnen“, über den die Lehrkraft ihre Aufgabe bearbeitet). Die Antwort wird nicht gespeichert, damit ein einmal gewähltes „Original öffnen“ nicht jedes weitere Öffnen ins Original führt. Eine beschädigte Projektdatei wird vor der Frage gemeldet (`Projekt.laden`). Handbuch 3.6 nennt die Regel und die drei Knöpfe. Die neue autouse-Fixture `_aufgabe_an_ort_und_stelle` in `tests/conftest.py` beantwortet die Frage in allen übrigen Tests mit dem zweiten Knopf, weil deren Projekte in `tmp_path` liegen; sonst änderte sich an den vorhandenen Tests nichts. Tests in `tests/test_aufgabe_verteilen.py`: `test_eine_aufgabe_im_beschreibbaren_tauschordner_wird_als_kopie_angeboten` (Probe aus der Meldung: A bekommt die Frage und arbeitet in ihrer Kopie, das Original bleibt unverändert, für B gilt die Aufgabe nicht als geändert) und `test_eine_klasse_arbeitet_an_derselben_aufgabe` (Lehrkraft über „Original öffnen“, drei Schülerinnen mit je eigenem Dokumente-Ordner in drei Hauptfenstern; keine sieht die Arbeit einer anderen, in der nächsten Stunde geht dieselbe Kopie auf, und eine berichtigte Aufgabe wird angekündigt). Gegenprobe mit dem alten Stand von `ide/`: beide scheitern, weil ohne Frage das Original aufgeht. Nachträglich erweitert: Auch der Desktop und Wechseldatenträger wie ein USB-Stick gelten als eigener Ort (`im_eigenen_ordner`, `_auf_wechseldatentraeger` in `ide/pfade.py`), damit ein eigenes Projekt dort nicht bei jedem Öffnen nach einer Kopie fragt. Test: `test_usb_stick_und_desktop_gelten_als_eigener_ort` in `tests/test_aufgabe_verteilen.py`, gegen den alten Stand scheitern alle drei Fälle.
+
+
+---
+
+## 362. Zurücksetzen oder „Kopie ersetzen“ bei einer gesperrten Datei lässt die Kopie ohne Projektdatei zurück ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Betriebsprüfung (Runde 10,
+Bereiche 2, 6, 7 und 8), Commit `f5eb8ad`, Natter 0.3.6.
+
+**Beobachtet:** Probe: Aufgabe `Tausch2\Wetter` (Kopie von
+`07_CsvAuswertung`) mit `aufgabe_kopieren` nach `Dokumente\Natter`
+kopiert, dann `daten\wetter.csv` der Kopie ohne Freigabe geöffnet, so
+wie Excel eine CSV offen hält, und `aufgabe_zuruecksetzen` auf die
+Kopie aufgerufen. Ergebnis:
+
+- `PermissionError [WinError 32] … wetter.csv`
+- vorher: `.natter-quelle`, `07_CsvAuswertung.natter`, `daten`,
+  `main.py`, `u_main.pfm`, `u_main.py`, `u_main_design.py`
+- nachher: `daten`, `main.py`, `u_main.pfm`, `u_main.py`,
+  `u_main_design.py`, keine Projektdatei, keine `.natter-quelle`
+- der Zwischenordner mit der frischen Aufgabe ist wieder gelöscht
+
+In Natter meldet `beispiel_zuruecksetzen_nachfragen` danach „Nicht
+zurückgesetzt … Die Aufgabe ließ sich nicht noch einmal kopieren nach
+… Mögliche Gründe: Das Netzlaufwerk mit „Dokumente“ ist nicht
+verbunden …“. Der Grund stimmt nicht, und dass die Kopie inzwischen
+halb gelöscht ist, sagt die Meldung nicht. Der Ordner ist kein Projekt
+mehr. Wird die Aufgabe noch einmal geöffnet, erkennt
+`vorhandene_aufgabenkopie` ihn nicht wieder (keine `.natter`), und es
+entsteht „Wetter 2“; was von der Arbeit übrig ist, liegt unbemerkt im
+alten Ordner. Derselbe Weg läuft bei „Kopie ersetzen“ nach einer
+geänderten Aufgabe (`_kopie_holen`).
+
+Eine gesperrte Datei im Projekt ist im Unterricht häufig: eine CSV in
+Excel, eine exportierte Exe unter `dist`, die noch läuft, eine
+SQLite-Datei, die das laufende Schülerprogramm offen hat. Vor dem
+Zurücksetzen werden nur die Reiter geschlossen, laufende Programme und
+die Verbindung im Datenbank-Panel bleiben bestehen (vermutet als
+weiterer Auslöser, nicht einzeln geprüft).
+
+**Ursache:** nachgewiesen. `aufgabe_zuruecksetzen`
+(`ide/shell/startbild.py:575` bis 586) löscht erst den ganzen alten
+Inhalt Eintrag für Eintrag und schiebt dann den neuen hinein; ein
+Fehler beim Löschen bricht mitten darin ab, und `finally` entfernt den
+Zwischenordner mit der frischen Kopie. Die Zusicherung im Docstring
+gilt nur für einen Abbruch beim Kopieren. `beispiel_zuruecksetzen`
+(Zeile 626 bis 639) hat denselben Ablauf.
+`beispiel_zuruecksetzen_nachfragen`
+(`ide/shell/hauptfenster.py:3728` bis 3740) beendet vorher weder
+Programme noch die Datenbankverbindung und meldet jeden `OSError` mit
+dem Text für ein nicht erreichbares „Dokumente“.
+
+**Zu tun:** Vor dem Löschen prüfen, ob sich alle Einträge entfernen
+lassen, oder den alten Inhalt zuerst beiseite schieben (umbenennen)
+und bei einem Fehler zurückholen. Laufende Programme und die
+Datenbankverbindung des Projekts vorher beenden. Bei einer gesperrten
+Datei deren Namen melden, wie bei der ZIP (Punkt 343). Erledigt, wenn
+die Probe oben mit einer Meldung zu `daten\wetter.csv` endet und die
+Kopie danach unverändert samt `.natter` und `.natter-quelle` dasteht.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `aufgabe_zuruecksetzen` und `beispiel_zuruecksetzen` in `ide/shell/startbild.py` gehen jetzt beide über `_inhalt_ersetzen`: der neue Inhalt entsteht vollständig in einem Zwischenordner neben der Kopie, bei einer Aufgabe samt `.natter-quelle`; danach wandert der alte Inhalt Datei für Datei in den Zwischenordner und der neue in die Kopie. Dateiweise, weil Windows bei einem Ordner mit einer offenen Datei nur den Ordner nennt. Scheitert ein Schritt, kommt alles zurück, und es folgt die neue Ausnahme `DateiGesperrt` mit der Datei; die Sperrdatei bleibt wie bisher stehen. Im Hauptfenster laufen „Auf Original zurücksetzen …“ und „Kopie ersetzen“ über `_kopie_zuruecksetzen`: ist die Kopie offen, gehen vorher die Reiter zu, das laufende Programm wird beendet und das Datenbank-Panel getrennt. Eine gesperrte Datei meldet ein Fenster „Nicht zurückgesetzt“ mit ihrem Namen relativ zur Kopie, dem Hinweis auf ein anderes Programm wie Excel und dass die Kopie unverändert ist; andere Fehler melden weiter die Gründe für „Dokumente“, beim Beispiel mit eigenem Satz. Handbuch 3.6 ergänzt. Test: `test_eine_gesperrte_datei_laesst_die_kopie_unveraendert` in `tests/test_aufgabe_verteilen.py`, parametrisiert über Zurücksetzen einer Aufgabe, Zurücksetzen eines Beispiels und „Kopie ersetzen“: `daten\wetter.csv` ist über `CreateFile` ohne Freigabe offen, danach sind alle Dateien der Kopie samt Projektdatei und `.natter-quelle` unverändert, kein Zwischenordner bleibt liegen, und die Meldung nennt die Datei und kein Netzlaufwerk; nach dem Schließen gelingt das Zurücksetzen. Gegenprobe mit dem alten Stand: alle drei Fälle scheitern an der halb gelöschten Kopie.
+
+
+---
+
+## 363. Die Abgabe als ZIP scheitert in einem Einsammelordner, in dem nur Anlegen erlaubt ist, und lässt eine Zwischendatei liegen ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Betriebsprüfung (Runde 10,
+Bereiche 2, 6, 7 und 8), Commit `f5eb8ad`, Natter 0.3.6.
+
+**Beobachtet:** Für Abgaben richten Schulen oft einen Ordner ein, in
+dem Schülerinnen Dateien anlegen, aber weder löschen noch umbenennen
+dürfen, damit niemand eine fremde Abgabe entfernt. Nachgestellt mit
+einem Ordner unter `%TEMP%`, Rechte `icacls … /inheritance:r /grant:r
+<Konto>:(OI)(CI)(RX,W)`:
+
+- eine Datei direkt anlegen: geht
+- sie umbenennen: `[WinError 5] Zugriff verweigert`
+- `projekt_als_zip` mit dem Ziel `Abgabe\Ampel - jonat.zip`:
+  `PermissionError [WinError 5] Zugriff verweigert:
+  '…\Abgabe\.Ampel - jonat.zip.42356.tmp' -> '…\Abgabe\Ampel -
+  jonat.zip'`
+- im Abgabeordner liegt danach `.Ampel - jonat.zip.42356.tmp`
+  (1235 Byte, Attribut nur „Archiv“, im Explorer also sichtbar)
+
+Die Schülerin sieht „Keine ZIP gespeichert … Häufige Gründe: der
+Ordner hat kein Schreibrecht …“, obwohl sie dort schreiben darf. Die
+Lehrkraft findet beim Einsammeln eine Datei mit Punkt am Anfang und
+`.tmp` am Ende, die zwar die vollständige Abgabe enthält, sich aber
+nicht per Doppelklick öffnen lässt. Bis zur Änderung für Punkt 343
+wurde die ZIP direkt am Ziel geschrieben, und das ging in einem
+solchen Ordner.
+
+**Ursache:** nachgewiesen. `projekt_als_zip`
+(`ide/shell/hauptfenster.py:6238` bis 6270) schreibt in
+`.<name>.<pid>.tmp` und tauscht mit `os.replace`; das braucht das
+Recht zum Löschen der Zwischendatei. Das anschließende `unlink` im
+`except`-Zweig scheitert aus demselben Grund und wird verschluckt.
+
+**Zu tun:** Die Zwischendatei nicht im Zielordner anlegen, sondern im
+Temp-Ordner (oder neben dem Projekt), dort vollständig schreiben und
+erst dann in einem Zug an das Ziel kopieren. Scheitert nur das
+Umbenennen, die ZIP stattdessen direkt schreiben. Erledigt, wenn die
+Probe oben eine `Ampel - jonat.zip` im Abgabeordner ergibt und dort
+keine weitere Datei liegt.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `projekt_als_zip` in `ide/shell/hauptfenster.py` baut die ZIP jetzt zuerst im Temp-Ordner (`tempfile.mkstemp`, Name `natter_abgabe_….zip`) und kopiert sie erst vollständig ans Ziel: die Zieldatei wird nur angelegt und beschrieben, nicht umbenannt. Dafür reicht in einem Einsammelordner das Recht zum Anlegen. Die Datei im Temp-Ordner wird in jedem Fall wieder gelöscht. Scheitert das Kopieren ans Ziel, wird eine dabei neu angelegte Zieldatei nach Möglichkeit entfernt, und es kommt wie bisher das Fenster „Keine ZIP gespeichert“. Das Ziel aus Punkt 343 bleibt erhalten: eine gesperrte Projektdatei bricht den Bau im Temp-Ordner ab, bevor am Ziel etwas entsteht. Der Weg über `os.replace` ist entfallen; die Rückfallebene aus dem Kriterium (direkt schreiben, wenn nur das Umbenennen scheitert) wird damit nicht mehr gebraucht. Test: `test_abgabe_in_einen_ordner_nur_zum_anlegen` in `tests/test_explorer_dateien_und_zip.py` stellt den Abgabeordner in `tmp_path` mit `icacls /inheritance:r /grant:r <Konto>:(OI)(CI)(RX,W)` nach, prüft zuerst, dass Umbenennen dort verboten ist, und erwartet nach „Als ZIP speichern …“ keine Meldung, im Ordner außer der Probedatei nur die ZIP und darin `main.py`; die Rechte werden im `finally` zurückgesetzt. Gegenprobe mit dem alten `projekt_als_zip`: der Test scheitert, weil das Fenster „Keine ZIP gespeichert“ erscheint. `test_eine_gesperrte_datei_hinterlaesst_keine_zip` (Punkt 343) bleibt grün.
+
+
+---
+
+## 364. Über Laufwerksbuchstabe und Netzpfad geöffnet, erkennt Natter die eigene Kopie einer Aufgabe nicht wieder ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Betriebsprüfung (Runde 10,
+Bereiche 2, 6, 7 und 8), Commit `f5eb8ad`, Natter 0.3.6.
+
+**Beobachtet:** Ein Tauschordner ist an Schulen meist als Laufwerk
+verbunden (`K:\`) und zugleich über den Netzpfad erreichbar (Verknüpfung
+auf dem Desktop, „Netzwerk“ im Explorer). `Path.resolve()` macht aus
+dem Laufwerk den Netzpfad; auf diesem Rechner ergibt `Path('H:/')
+.resolve()` `\\100.118.29.42\projekte\`. Nachgestellt mit einer
+Verzeichnisverbindung `K` → `Server\tausch` im Probeordner, der
+`resolve()` genauso folgt:
+
+- geöffnet über `…\K\Ampel\01_Begruessung.natter`
+- in „Zuletzt geöffnet“ steht `…\Server\tausch\Ampel\01_Begruessung.natter`
+- `.natter-quelle` der Kopie: `…\k\ampel`
+- `vorhandene_aufgabenkopie` für den gemerkten Pfad: `None`
+- `aufgabe_kopieren` für den gemerkten Pfad legt „Ampel 2“ an
+
+Im Unterricht heißt das: Wer die Aufgabe einmal über „Nur ansehen“
+oder „Original öffnen“ geöffnet hat, hat das Original in „Zuletzt
+geöffnet“. Ein Klick darauf in der nächsten Stunde bietet bei einer
+Freigabe nur zum Lesen eine neue Kopie „Ampel 2“ an, und die Arbeit
+der letzten Stunde bleibt in „Ampel“ liegen, wie vor Punkt 340. In
+einem beschreibbaren Tauschordner geht das Original ohne Frage auf
+(Punkt 361). Dasselbe passiert, wenn eine Schülerin einmal über `K:`
+und einmal über die Desktop-Verknüpfung mit dem Netzpfad öffnet.
+
+**Ursache:** nachgewiesen. `_herkunft` (`ide/shell/startbild.py:408`
+bis 413) vergleicht den Ordner nur als Text (`abspath`, `normcase`)
+und lässt `resolve()` bewusst weg. `zuletzt_merken` (Zeile 138)
+speichert dagegen den aufgelösten Pfad, und `sperre._ordnerangabe`
+(`ide/project/sperre.py:135` bis 142) löst ebenfalls auf. Zwei Pfade
+zum selben Ordner ergeben so zwei verschiedene Herkunftsangaben.
+
+**Zu tun:** Herkunft und Vergleich einheitlich machen: Laufwerke über
+`WNetGetConnection` (ohne Zugriff auf die Freigabe) in den Netzpfad
+übersetzen, bevor `.natter-quelle` geschrieben oder verglichen wird,
+oder beim Vergleich beide Formen gelten lassen. Erledigt, wenn die
+Probe oben für den gemerkten Pfad die vorhandene Kopie „Ampel“
+liefert und keine „Ampel 2“ entsteht.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. Neu ist `einheitlicher_pfad` in `ide/pfade.py` (`resolve()`, bei einem Fehler der absolute Pfad) als einzige Stelle, an der Natter Pfade vereinheitlicht. `_herkunft` (Inhalt und Vergleich von `.natter-quelle`), `zuletzt_merken` und `sperre._ordnerangabe` benutzen sie; derselbe Ordner ergibt so über ein verbundenes Laufwerk und über den Netzpfad dieselbe Angabe. `WNetGetConnection` wurde nicht genommen: `resolve()` übersetzt verbundene Laufwerke ebenso, erfasst auch Verzeichnisverbindungen, und die Freigabe wird beim Öffnen der Aufgabe ohnehin angesprochen. Kopien mit einer `.natter-quelle` in der alten Form gibt es nicht, weil die Datei erst mit 0.4.0 kommt. Test: `test_laufwerk_und_netzpfad_ergeben_dieselbe_kopie` in `tests/test_aufgabe_verteilen.py` mit zwei gleichen Ordnern `K` und `Server\tausch` und einem `Path.resolve`, das `K` in `Server\tausch` übersetzt: der Eintrag in „Zuletzt geöffnet“ nach dem Öffnen über `K` findet die über `K` angelegte Kopie, und weder darüber noch über `K` entsteht eine „Ampel 2“. Gegenprobe mit dem alten Stand: `vorhandene_aufgabenkopie` liefert `None`.
+
+---
+
+## 365. Der Wechsel aus dem Original in die vorhandene eigene Kopie überschreibt deren Dateien mit dem Text aus dem Editor ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Durchsicht (Runde 11), Commit
+`31df33a`, Natter 0.3.6.
+
+**Beobachtet:** Probe mit dem Hauptfenster (Hilfen aus
+`tests/test_schreibschutz_beim_oeffnen.py`): Aufgabe `Tausch\Ampel`
+ohne Schreibrecht, eigene Kopie unter `Dokumente\Natter\Ampel`
+angelegt, darin `u_main.py` auf `x = 5  # Arbeit von gestern`
+geändert. Am nächsten Tag die Aufgabe noch einmal geöffnet und „Nur
+ansehen“ gewählt; die Frage sagte dabei „„Eigene Kopie öffnen“ öffnet
+die eigene Kopie in … mit dem Stand vom letzten Mal.“ Im Original
+`u_main.py` geändert, Strg+S scheiterte, in der Meldung „Eigene Kopie
+öffnen“ gewählt. Danach steht in der Kopie `x = 1\ny = 2\n`, der Text
+aus dem Editor des Originals; die Arbeit vom Vortag ist ohne Rückfrage
+weg. Die Statuszeile meldet beides zugleich: „Die eigene Kopie … ist
+geöffnet, mit dem Stand vom letzten Mal. Die ungespeicherten
+Änderungen stehen in der Kopie.“ Dasselbe geschieht, wenn statt über
+die Speichermeldung die Aufgabe ein zweites Mal geöffnet und „Eigene
+Kopie öffnen“ gewählt wird. Zu erwarten wäre, dass eine vorhandene
+Kopie nicht ungefragt überschrieben wird.
+
+**Ursache:** nachgewiesen. `_in_kopie_wechseln`
+(`ide/shell/hauptfenster.py:4048`) schreibt für jeden ungespeicherten
+Editor aus dem Original den Text an dieselbe Stelle der Kopie
+(Zeilen 4066 und 4067, `datei_schreiben_gemeldet`), gleich ob die
+Kopie gerade neu angelegt wurde (`art == "kopiert"`) oder schon
+bestand (`"vorhanden"`, Zeile 4044). Für eine neue Kopie ist das
+richtig (Punkt 341), bei einer vorhandenen ersetzt es deren Stand.
+
+**Zu tun:** Bei einer vorhandenen Kopie den Text aus dem Original nur
+nach Rückfrage übernehmen, oder ihn nicht über die Datei der Kopie
+schreiben, sondern in einem Editor der Kopie als ungespeicherte
+Änderung zeigen. Die Texte in `_ort_zum_oeffnen` und in der
+Speichermeldung sagen, was mit dem Text aus dem Editor geschieht.
+Erledigt, wenn die Probe oben `x = 5  # Arbeit von gestern` in der
+Kopie behält oder vor dem Überschreiben fragt.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `_in_kopie_wechseln` in `ide/shell/hauptfenster.py` schreibt den ungespeicherten Text aus dem Original nur noch in eine Kopie, die gerade angelegt oder mit „Kopie ersetzen“ neu angelegt wurde (`kopiert`, `erneuert`) oder in der die Datei noch fehlt. Bei einer vorhandenen Kopie (`vorhanden`) bleiben deren Dateien unberührt: die Datei der Kopie geht im Editor auf, und der Text aus dem Original wird dort über einen `QTextCursor` in einem Bearbeitungsschritt eingesetzt. Er steht damit als Änderung im Editor, die noch nicht gespeichert ist; ein Rückgängig stellt den Stand der Kopie wieder her, Schließen ohne Speichern lässt die Kopie, wie sie war, und gespeichert wird erst auf Wunsch mit der üblichen Nachfrage. Verloren geht so keiner der beiden Stände, und eine zusätzliche Frage mitten im Wechsel ist nicht nötig. Stimmt der Text schon mit der Datei der Kopie überein, etwa nach einem abgebrochenen ersten Wechsel, ändert sich nichts. Die Texte sagen jetzt, was geschieht: der Satz zum Knopf „Eigene Kopie öffnen“ in `_ort_zum_oeffnen` und in der Meldung zum gescheiterten Speichern kommt aus einer gemeinsamen Methode `_kopie_folge` und lautet bei einer vorhandenen Kopie „… mit dem Stand vom letzten Mal. Der ungespeicherte Text aus den Editoren erscheint dort als Änderung, die noch nicht gespeichert ist; die Dateien der Kopie bleiben, wie sie sind.“ Die Speichermeldung versprach vorher immer eine neue Kopie. Die Statuszeile meldet „Die ungespeicherten Änderungen aus dem Original stehen im Editor und sind noch nicht gespeichert; Rückgängig stellt den Stand der Kopie wieder her.“ Handbuch 3.6 ergänzt. Test: `test_eine_vorhandene_kopie_behaelt_ihren_stand` in `tests/test_schreibschutz_beim_oeffnen.py` stellt die Probe aus dem Befund auf beiden Wegen nach (Speichermeldung und zweites Öffnen): `x = 5  # Arbeit von gestern` bleibt in der Datei der Kopie, der Editor zeigt den Text aus dem Original als geändert, und Rückgängig holt den Stand der Kopie zurück. Gegen den alten Stand scheitern beide Fälle mit `'x = 1\ny = 2\n' == 'x = 5  # Arbeit von gestern\n'`.
+
+
+---
+
+## 366. Ein Projekt auf dem Desktop gilt als verteilte Aufgabe, sobald der Desktop umgeleitet ist, etwa zu OneDrive ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Durchsicht (Runde 11), Commit
+`31df33a`, Natter 0.3.6.
+
+**Beobachtet:** Punkt 361 wurde nachträglich so erweitert, dass der
+Desktop als eigener Ort gilt. Auf dem Prüfrechner liefert Windows als
+Desktop `C:\Users\…\OneDrive\Desktop`; `C:\Users\…\Desktop`
+gibt es nicht. Probe:
+`im_eigenen_ordner(r"C:\Users\…\OneDrive\Desktop\Ampel")` ergibt
+`False`, derselbe Ordner unter `OneDrive\Dokumente` ergibt `True`. Ein
+eigenes Projekt auf dem Desktop bekommt damit bei jedem Öffnen die
+Frage „Aufgabe öffnen“ mit „Eigene Kopie öffnen“ als vorgewähltem
+Knopf; wer mit der Eingabetaste bestätigt, arbeitet danach in einer
+Kopie unter `Dokumente\Natter` weiter, während das Projekt auf dem
+Desktop auf dem alten Stand bleibt. Dasselbe gilt für einen Desktop,
+den eine Schule per Ordnerumleitung auf den Server legt. Das Handbuch
+(3.6) sagt, ein Projekt auf dem Desktop gehe ohne Frage auf.
+
+**Ursache:** nachgewiesen. `im_eigenen_ordner` in `ide/pfade.py:155`
+nimmt `Path.home() / "Desktop"`. Für „Dokumente“ fragt dieselbe Datei
+Windows über `SHGetKnownFolderPath`, weil der geratene Pfad bei
+OneDrive falsch ist; das steht im Modulkommentar von
+`ide/pfade.py`. Der Test `test_usb_stick_und_desktop_gelten_als_eigener_ort`
+prüft nur einen Desktop direkt im Profil.
+
+**Zu tun:** Den Desktop wie „Dokumente“ bei Windows erfragen
+(`FOLDERID_Desktop`). Erledigt, wenn die Probe oben für
+`OneDrive\Desktop` `True` liefert und ein Test einen umgeleiteten
+Desktop nachstellt.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `ide/pfade.py` fragt Windows jetzt auch nach dem Desktop: die Abfrage über `SHGetKnownFolderPath` steckt in `_bekannter_ordner(kennung, rueckfall)`, `dokumente_ordner()` nimmt sie mit `FOLDERID_Documents` wie bisher, das neue `desktop_ordner()` mit `FOLDERID_Desktop` und `~/Desktop` als Rückfall außerhalb von Windows oder wenn die Abfrage nichts liefert. `im_eigenen_ordner` vergleicht mit `desktop_ordner()` statt mit `Path.home() / "Desktop"`. Auf dem Prüfrechner liefert `desktop_ordner()` `C:\Users\…\OneDrive\Desktop`, und die Probe aus dem Befund ergibt `True`. Die Testumgebung in `tests/conftest.py` lenkt `desktop_ordner` wie `dokumente_ordner` auf den Heim-Ordner des Tests, damit kein Test vom Desktop des Prüfrechners abhängt; `test_usb_stick_und_desktop_gelten_als_eigener_ort` gibt den Desktop deshalb jetzt selbst vor. Handbuch 3.6 nennt, dass „Dokumente“ und Desktop die Ordner sind, die Windows dafür nennt, auch mit OneDrive oder Ordnerumleitung. Test: `test_ein_projekt_auf_dem_umgeleiteten_desktop_ist_ein_eigenes` in `tests/test_pfade.py` ersetzt `ctypes.windll` durch eine Attrappe, die für `FOLDERID_Desktop` `Profil\OneDrive\Desktop` meldet, und prüft `desktop_ordner()` und `im_eigenen_ordner` für ein Projekt dort; an Windows ändert der Test nichts. Gegen den alten Vergleich mit `Path.home() / "Desktop"` scheitert er.
+
+
+---
+
+## 367. Ein mit „Neues Projekt“ außerhalb von „Dokumente“ angelegtes Projekt gilt beim nächsten Öffnen als fremde Aufgabe ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Durchsicht (Runde 11), Commit
+`31df33a`, Natter 0.3.6.
+
+**Beobachtet:** Der Dialog „Neues Projekt“ bietet „Durchsuchen …“ und
+legt das Projekt in jedem gewählten Ordner an, etwa auf dem
+Heimatlaufwerk `H:\Informatik` oder unter `D:\Schule`. Geöffnet wird es
+danach direkt. Beim nächsten Öffnen, auch über „Zuletzt geöffnet“,
+kommt dann die Frage „Aufgabe öffnen“: „„Ampel“ liegt nicht im Ordner
+„Dokumente“ dieses Kontos … Ein Projekt dort gilt als verteilte
+Aufgabe“, mit „Eigene Kopie öffnen“ vorgewählt. Probe:
+`im_eigenen_ordner(r"H:\Informatik\Ampel")` und
+`im_eigenen_ordner(r"D:\Schule\Ampel")` ergeben `False`. Wer die
+Frage mit der Eingabetaste bestätigt, hat danach zwei Fassungen des
+eigenen Projekts und arbeitet in der Kopie weiter, ohne dass das
+angelegte Projekt davon etwas erfährt. Ein Hinweis beim Anlegen, dass
+Natter den gewählten Ort als fremd ansehen wird, fehlt.
+
+**Ursache:** nachgewiesen. `_ort_zum_oeffnen`
+(`ide/shell/hauptfenster.py:3911`) entscheidet nur am Ort
+(`im_eigenen_ordner`), `NeuesProjektDialog._ordner_waehlen`
+(`ide/project/neu_dialog.py:122`) lässt jeden Ordner zu, und
+`_neues_projekt_dialog` öffnet das neue Projekt über
+`projekt_oeffnen`, also ohne diese Frage. Der vorgewählte Knopf ist
+„Eigene Kopie öffnen“ (Zeile 3995).
+
+**Zu tun:** Eine Regel, die ein selbst angelegtes Projekt als eigenes
+erkennt, etwa über einen Vermerk beim Anlegen, oder beim Anlegen
+außerhalb von „Dokumente“, Desktop und Wechseldatenträger darauf
+hinweisen, dass Natter beim Öffnen nach einer Kopie fragen wird.
+Erledigt, wenn ein über „Neues Projekt“ in einem anderen Ordner
+angelegtes Projekt beim zweiten Öffnen nicht als verteilte Aufgabe
+behandelt wird oder der Dialog beim Anlegen darauf hinweist.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. Natter merkt sich in seiner Ini unter `projekt/angelegt` die Ordner der Projekte, die in diesem Konto mit „Projekt → Neues Projekt …“ angelegt wurden (`angelegt_merken` und `selbst_angelegt` in `ide/shell/startbild.py`, in der Form von `einheitlicher_pfad`, höchstens 50). `_neues_projekt_dialog` trägt den Ordner nach dem Anlegen ein, und `_ort_zum_oeffnen` öffnet ein so angelegtes Projekt wie eines in „Dokumente“ ohne Frage, gleich wo es liegt. Entschieden wurde für den Vermerk und gegen einen Hinweis im Dialog: ein Hinweis hätte das Anlegen auf dem Heimatlaufwerk `H:` nur angekündigt, die Frage bei jedem Öffnen aber gelassen, und wer sie mit der Eingabetaste bestätigt, hätte weiter zwei Fassungen des eigenen Projekts. Der Vermerk ist ein Eintrag neben „Zuletzt geöffnet“ in derselben Ini, ohne Datei im Projektordner und ohne neues Dateiformat. Er gehört dem Konto: eine Aufgabe, die die Lehrkraft im Tauschordner anlegt, geht bei ihr ohne Frage auf, bei den Schülerinnen mit ihren eigenen Konten kommt die Frage wie bisher. Gemerkt wird nur das Anlegen, nie eine Antwort auf die Frage; sonst arbeitete die erste Schülerin, die in einem beschreibbaren Tauschordner „Original öffnen“ wählt, von da an immer im Original (Punkt 361). Nach 50 weiteren neuen Projekten fällt ein altes aus der Liste und fragt danach wieder, mehr geschieht nicht. Die Regel „allein der Ort entscheidet“ im Docstring von `_ort_zum_oeffnen` und in Handbuch 3.6 um diese eine Ausnahme ergänzt. Test: `test_ein_selbst_angelegtes_projekt_gilt_auch_ausserhalb_als_eigenes` in `tests/test_aufgabe_verteilen.py` legt über „Neues Projekt“ ein Projekt unter `H\Informatik\Ampel` an und öffnet es danach ohne Frage; eine Aufgabe im Tauschordner, bei der „Original öffnen“ gewählt wurde, fragt beim zweiten Öffnen wieder. Gegen den alten Stand scheitert der Test, weil beim Öffnen des angelegten Projekts eine dritte Frage „Aufgabe öffnen“ kommt.
+
+
+---
+
+## 368. HTML-Vorschau: nach dem ersten Wechsel auf eine andere Seite lässt sich kein Verweis mehr öffnen ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Durchsicht (Runde 11), Commit
+`31df33a`, Natter 0.3.6.
+
+**Beobachtet:** Probe mit `QT_QPA_PLATFORM=offscreen`: `index.html`
+verweist auf `seite2.html`, `seite2.html` zurück auf `index.html`. Der
+erste Verweis führt auf Seite 2. Der Verweis zurück kommt als
+`file:///C:/…/index.html` an, und die Statuszeile meldet „Der Verweis
+„file:///C:/…/index.html“ wird in der Vorschau nicht geöffnet.“ Ab der
+zweiten Seite gilt das für jeden Verweis auf eine Datei daneben und
+ebenso für Sprungmarken wie `#abschnitt`. Eine kleine Website aus
+mehreren Seiten, wie sie im Unterricht entsteht, lässt sich in der
+Vorschau so nicht durchklicken.
+
+**Ursache:** nachgewiesen. Die erste Seite wird mit `setHtml` geladen,
+eine weitere mit `setSource(QUrl.fromLocalFile(…))`
+(`ide/viewers/html_vorschau.py:86`). Danach ist die Quelle eine
+`file`-Adresse, und `QTextBrowser` löst jeden relativen Verweis vor
+`anchorClicked` gegen sie auf. `_verweis_geklickt` nimmt aber nur
+Adressen ohne Schema als Datei oder Sprungmarke an (Zeile 80); alles
+andere außer `http`, `https` und `mailto` weist es ab (Zeile 89).
+Dazu bezieht es einen relativen Pfad immer auf den Ordner der ersten
+Datei (`self._pfad.parent`), nicht auf die gerade gezeigte Seite.
+
+**Zu tun:** `file`-Adressen, die auf eine `.html`/`.htm` oder eine
+Sprungmarke zeigen, wie relative Verweise behandeln und relativ zur
+gerade gezeigten Seite auflösen. Erledigt, wenn in der Probe oben der
+Verweis zurück auf `index.html` und eine Sprungmarke auf Seite 2
+funktionieren.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `HtmlVorschau` (`ide/viewers/html_vorschau.py`) lädt jede Seite mit `setHtml` (`_seite_zeigen`), auch die zweite und jede weitere, und merkt sich die gezeigte Seite in `_seite`. `setSource` wird nicht mehr gerufen; damit löst `QTextBrowser` keinen Verweis mehr zu einer `file`-Adresse auf, und da `setHtml` eine einmal gesetzte Quelle nicht zurücksetzt, wäre sonst auch die neu geladene erste Seite gegen die zweite aufgelöst worden. `_lokales_ziel` bestimmt die Datei eines Verweises: ein relativer Pfad gilt ab der gezeigten Seite, ein leerer Pfad mit Sprungmarke meint die Seite selbst, eine `file`-Adresse ohne Rechnernamen wird zum lokalen Pfad. Angenommen wird das Ziel nur, wenn es im Ordner der geöffneten Datei oder darunter liegt. Eine Sprungmarke auf der gezeigten Seite scrollt, eine `.html`/`.htm`-Datei wird in der Vorschau gezeigt, auf Wunsch gleich an der Sprungmarke. Die Regel aus Punkt 332 bleibt: nur `http`, `https` und `mailto` gehen an den Browser, alles andere wird mit einer Zeile in der Statusleiste abgewiesen, jetzt auch ein Verweis, der mit `../` aus dem Ordner hinausführt. „Im Browser öffnen“ öffnet die gerade gezeigte Seite. Test: `test_verweise_funktionieren_auch_nach_dem_ersten_seitenwechsel` in `tests/test_viewer_html.py`, die Probe aus dem Punkt: `index.html` und `seite2.html`, jeder Verweis mit Tab und Eingabetaste ausgelöst, von der ersten auf die zweite Seite, dort zur Sprungmarke `#ende` am Seitenende (die Bildlaufleiste bewegt sich) und zurück auf `index.html`. Die Statusleiste bleibt leer, weder `open_url` noch ein über `QDesktopServices.setUrlHandler` eingetragener Empfänger für `file` wird gerufen. Gegen den alten Stand scheitert der Test an der Sprungmarke auf der zweiten Seite.
+
+
+---
+
+## 369. StringGrid: `on_edit_cell` kommt auch, wenn eine Zelle ohne Änderung verlassen wird ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Durchsicht (Runde 11), Commit
+`31df33a`, Natter 0.3.6.
+
+**Beobachtet:** Probe mit `QT_QPA_PLATFORM=offscreen`: `cells[0, 0] =
+"Anna"`, dann der Weg, den Qt beim Beenden einer Bearbeitung geht
+(`createEditor`, `setEditorData`, `setModelData` des Standard-Delegaten),
+ohne den Text zu ändern. `on_edit_cell` wird mit `(0, 0, "Anna")`
+ausgelöst. Derselbe Ablauf an einem `QTableWidget`, wie es das
+`StringGrid` bis Punkt 356 war, meldet nichts. Ein Doppelklick in eine
+Zelle und ein Klick daneben zählen damit als Änderung; ein Programm,
+das in `on_edit_cell` Änderungen zählt, nachfragt oder speichert, tut
+das jetzt auch ohne Änderung. `docs/komponenten.md` beschreibt das
+Ereignis mit „eine Zelle wurde geändert“.
+
+**Ursache:** nachgewiesen. `TabellenModell.setData`
+(`pcl/components/tabelle.py:74`) schreibt den Text und sendet
+`zelle_bearbeitet` in jedem Fall (Zeile 82). `QTableWidgetItem.setData`
+kehrte bei gleichem Wert vorher zurück, ohne `itemChanged` zu senden.
+
+**Zu tun:** In `setData` nur schreiben und `zelle_bearbeitet` senden,
+wenn sich der Text der Zelle ändert. Erledigt, wenn die Probe oben
+kein Ereignis mehr auslöst und eine echte Änderung weiter eines.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `TabellenModell.setData` (`pcl/components/tabelle.py`) vergleicht den neuen Text mit dem angezeigten Text der Zelle und kehrt bei Gleichheit zurück, ohne zu schreiben und ohne `zelle_bearbeitet` zu senden; `on_edit_cell` kommt so wie beim früheren `QTableWidget` nur bei einer echten Änderung. Das gilt auch für `setText` auf einer Zelle aus `item()`, die über `setData` geht. Test: `test_nur_eine_geaenderte_zelle_meldet_on_edit_cell` in `tests/test_components_additional.py`, parametrisiert mit unverändertem und geändertem Text, auf dem Weg, den Qt beim Beenden einer Bearbeitung geht (`createEditor`, `setEditorData`, Text setzen, `setModelData` des Standard-Delegaten). Ohne Änderung kommt kein Ereignis, mit Änderung genau eines. Gegen den alten Stand meldet der Fall ohne Änderung `(0, 0, "Anna")`.
+
+---
+
+## 370. HTML-Vorschau und Markdown-Ansicht lesen Bilder von überall, auch von einem anderen Rechner, und Verweise der Markdown-Ansicht führen aus dem Ordner hinaus ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung (Runde 12),
+Commit `705c05c`, Natter 0.3.6.
+
+**Beobachtet:** Seit Punkt 368 nimmt die HTML-Vorschau einen Verweis
+nur an, wenn er im Ordner der geöffneten Datei bleibt. Für Bilder gilt
+das nicht, und in der Markdown-Ansicht auch nicht für Verweise.
+Probe unter `%TEMP%` mit `QT_QPA_PLATFORM=offscreen`, `index.html` im
+Ordner `aufgabe`, ein Bild im Nachbarordner `aussen`:
+
+- `<img src="../aussen/geheim.png">` und `<img src="C:/…/aussen/geheim.png">`
+  werden geladen und angezeigt, ebenso `![b](../aussen/geheim.png)` in
+  einer `.md`.
+- Eine `file`-Adresse mit Rechnernamen und ein Pfad mit zwei
+  Rückstrichen gehen als Netzpfad an das Dateisystem. Nachgewiesen mit
+  den lokalen Formen `file://./C:/…/geheim.png` und
+  `\\?\C:\…\geheim.png`: beide Bilder werden geladen. Mit der Attrappe
+  `file://natter-attrappe/freigabe/a.png` (über eine abgeleitete
+  Klasse, die `loadResource` aufzeichnet und nichts lädt) fragt die
+  Vorschau diese Adresse bei einem einzigen Anzeigen siebenmal an.
+- In der Markdown-Ansicht öffnet ein Klick auf `[Unit](../aussen/geheim.png)`
+  die Datei außerhalb des Ordners in Natter (`datei_angefordert`
+  kommt mit dem Pfad in `aussen`).
+- In der HTML-Vorschau wird ein Verweis wie `\\natter-attrappe\freigabe\c.html`
+  oder `file:////natter-attrappe/freigabe/d.html` zwar abgewiesen, aber
+  erst, nachdem `Path.resolve()` den Netzpfad angefragt hat
+  (aufgezeichnet mit einem Ersatz für `Path.resolve`).
+
+Wer eine eingesammelte Abgabe mit einer `.html` oder `.md` in Natter
+ansieht, verbindet sich damit ohne Klick mit einem Rechner, den die
+Datei nennt, und Windows versucht dort üblicherweise die Anmeldung
+mit dem eigenen Konto (nicht nachgestellt). Das Laden geschieht im
+Hauptfaden; ist der Rechner nicht erreichbar, steht Natter so lange
+wie beim Designer vor Punkt 334, dort 42 Sekunden je Anfrage
+(vermutet, ohne Netzzugriff nicht gemessen). Dasselbe trifft
+unabsichtlich ein Bild, das auf ein Netzlaufwerk eines anderen
+Rechners zeigt. Für den Designer ist dieser Fall seit Punkt 334
+behoben, für die beiden Ansichten nicht.
+
+**Ursache:** nachgewiesen. `ide/viewers/html_vorschau.py:79` und
+`ide/viewers/markdown_ansicht.py:131` setzen nur einen Suchpfad; das
+Laden der Bilder bleibt bei `QTextBrowser.loadResource`, das jeden
+absoluten Pfad, jedes `..` und jede `file`-Adresse mit Rechnernamen
+öffnet. `markdown_ansicht.py:172` löst einen Verweis mit `resolve()`
+auf und prüft danach nur `is_file()`, nicht, ob er im Ordner bleibt.
+`html_vorschau.py:122` und `:124` rufen `resolve()` vor der Prüfung in
+Zeile 127 auf.
+
+**Zu tun:** In beiden Ansichten `loadResource` überschreiben und ein
+Bild nur aus dem Ordner der geöffneten Datei laden, geprüft allein am
+Text wie `_im_projektordner` aus Punkt 334 (`normpath`, `commonpath`),
+ohne das Dateisystem zu fragen; ein Pfad mit Rechnernamen oder
+außerhalb ergibt kein Bild. Verweise der Markdown-Ansicht ebenso nur
+im Ordner annehmen, und in der HTML-Vorschau erst am Text prüfen und
+dann auflösen. Erledigt, wenn ein Test mit `<img>`, `![]()` und
+Verweisen auf `\\attrappe\…`, `file://attrappe/…` und `../` für diese
+Pfade weder einen Dateizugriff noch `Path.resolve` noch
+`datei_angefordert` sieht und ein Bild neben der Datei weiter
+erscheint.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt, dazu zwei weitere Wege zum Dateisystem, die ein eigenes `loadResource` allein nicht schließt: Antwortet der Browser mit `None`, öffnet `QTextDocument` eine `file`-Adresse selbst, auch eine mit Rechnernamen. Und findet Qt beim Setzen kein Bild, lädt es den Namen aus der Seite mit `QImage::load` selbst; bei einer Bildschirmskalierung über 100 % fragt es vorher noch nach `name@2x.png`. Beide Ansichten nutzen jetzt `ide/viewers/ordnergrenze.py`. `pfad_im_ordner` entscheidet allein am Text (`os.path.normpath`, `commonpath`, wie `_im_projektordner` aus Punkt 334), ob eine Adresse im Ordner der geöffneten Datei oder darunter bleibt; eine `file`-Adresse mit Rechnernamen, ein anderes Schema, `..` hinaus, ein anderes Laufwerk und ein Netzpfad ergeben `None`. Die Beimischung `NurAusDemOrdner` (vor `QTextBrowser` bzw. `HilfeAnsicht`) liest die Seite in `setHtml` zuerst in ein Dokument ohne Anzeige ein, dessen `loadResource` dieselbe Prüfung macht, gibt jedem Bild im Ordner seine vollständige `file`-Adresse und jedem anderen einen leeren Namen und setzt erst dann die bereinigte Seite. `loadResource` im Browser lädt nur den geprüften Pfad und weist alles andere mit einem leeren `QByteArray` ab, nie mit `None`. Ein abgewiesenes Bild erscheint als Qts Platzhalter. Die Suchpfade sind entfallen. Die Markdown-Ansicht nimmt einen Verweis nur noch im Ordner an und meldet alles andere mit „Der Verweis „…“ wird in dieser Ansicht nicht geöffnet.“ in der Statusleiste; `is_file()` kommt erst nach der Prüfung. Die HTML-Vorschau prüft Verweise mit derselben Funktion und ruft `resolve()` nicht mehr auf. Den Pfad der geöffneten Datei vervollständigt sie mit `abspath`/`normpath`. Relative Verweise und Bilder gelten dort weiter ab der gezeigten Seite. Die Regeln aus den Punkten 332 und 368 bleiben. Test: `test_bilder_und_verweise_bleiben_im_ordner_der_datei` in `tests/test_viewer_html.py`, für HTML und Markdown. Die Seite enthält ein Bild daneben sowie `../`, einen absoluten Pfad, `file://./…`, `\\?\…`, `\\natter-attrappe\freigabe\a.png` und `file://natter-attrappe/…` als Bilder. Als Verweise folgen `../`, `\\natter-attrappe\…`, `file:////natter-attrappe/…` und `file://natter-attrappe/…`. Eine Wache ersetzt `QTextBrowser.loadResource`, zeichnet jede Anfrage auf und reicht keine mit der Attrappe oder dem Nachbarordner weiter. `Path.resolve`, `Path.is_file` und `Path.exists` zeichnen jede Frage nach der Attrappe auf. Geprüft wird, dass keine solche Anfrage und keine solche Frage kommt, dass `datei_angefordert` ausbleibt und jeder Verweis in der Statusleiste abgewiesen wird. Im gesetzten Dokument darf nur der Name des Bildes daneben stehen, sonst nur leere Namen, und das Bild daneben wird geladen. Gegen den alten Stand scheitern beide Fälle: alle sechs fremden Bildadressen erreichen das Laden in Qt. Nicht offscreen nachstellbar ist die Anfrage nach `name@2x.png` bei Skalierung; sie ist durch die bereinigten Namen mit abgedeckt.
+
+
+---
+
+## 371. Im Prüfungsmodus lässt sich die Kopie einer Aufgabe nicht zurücksetzen ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung (Runde 12),
+Commit `705c05c`, Natter 0.3.6.
+
+**Beobachtet:** Seit Punkt 346 setzt „Datei → Beispielprojekte → Auf
+Original zurücksetzen …“ auch die eigene Kopie einer Aufgabe aus
+einem Tauschordner auf den Stand der Aufgabe zurück, so beschrieben
+im Handbuch, Abschnitt zu verteilten Aufgaben. Im Prüfungsmodus ist
+das ganze Menü „Beispielprojekte“ gesperrt, und mit ihm dieser
+Eintrag. Gerade in einer Klausur wird die Aufgabe über einen
+Tauschordner verteilt; wer dort die eigene Kopie verdorben hat und
+von vorn beginnen will, findet in Natter keinen Weg. „Kopie ersetzen“
+erscheint nur, wenn sich die Aufgabe seit dem Kopieren geändert hat.
+Übrig bleibt, den Ordner der Kopie im Explorer zu löschen und die
+Aufgabe neu zu öffnen, und das steht nirgends. Der Abschnitt zum
+Prüfungsmodus im Handbuch nennt nur die Beispiele als gesperrt.
+
+**Ursache:** nachgewiesen am Codepfad. Der Eintrag hängt im Menü der
+Beispiele (`ide/shell/hauptfenster.py:1699`);
+`_beispielmenue_pruefen` sperrt dieses Menü im Prüfungsmodus als
+Ganzes (`hauptfenster.py:2352`). Ein gesperrtes Untermenü öffnet
+sich nicht, und die Befehlspalette kennt den Eintrag nicht, weil er
+nicht im Aktionsregister steht.
+
+**Zu tun:** Das Zurücksetzen einer Aufgabenkopie vom Menü der
+Beispiele trennen, etwa als eigener Eintrag unter „Projekt“, der im
+Prüfungsmodus bedienbar bleibt; bei der Kopie eines Beispiels bleibt
+er dort gesperrt. Erledigt, wenn ein Test im Prüfungsmodus die Kopie
+einer Aufgabe über diesen Eintrag zurücksetzt und derselbe Eintrag
+bei der Kopie eines Beispiels gesperrt ist.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. „Auf Original zurücksetzen …“ ist jetzt die Aktion `projekt.auf_original_zuruecksetzen` im Aktionsregister, steht im Menü „Projekt“ direkt unter „Projekt schließen“ und damit auch in der Befehlspalette; im Untermenü „Datei → Beispielprojekte“ steht der Eintrag nicht mehr. `_zuruecksetzen_pruefen` in `ide/shell/hauptfenster.py` fragt über das neue `_zuruecksetzen_moeglich`: bei der Kopie einer Aufgabe immer bedienbar, bei der Kopie eines Beispiels nur außerhalb des Prüfungsmodus. `_pruefungsmodus_nachfuehren` ruft die Prüfung mit auf, und `beispiel_zuruecksetzen_nachfragen` prüft dasselbe noch einmal, sodass auch ein Aufruf an Menü und Palette vorbei ein Beispiel im Prüfungsmodus nicht zurücksetzt. Handbuch 3.6, Abschnitt 4 (Prüfungsmodus) und Abschnitt 7 nennen den neuen Ort; Abschnitt 4 sagt, dass der Eintrag im Prüfungsmodus nur bei der Kopie einer Aufgabe geht. Test: `test_im_pruefungsmodus_laesst_sich_die_kopie_einer_aufgabe_zuruecksetzen` in `tests/test_aufgabe_verteilen.py`: im Prüfungsmodus findet die Befehlspalette „Projekt → Auf Original zurücksetzen …“, der Eintrag setzt die verdorbene Kopie einer Aufgabe zurück, und bei der Kopie eines Beispiels ist er gesperrt. `test_das_zuruecksetzen_steht_im_menue_projekt` in `tests/test_beispiele_im_dateimenue.py` ersetzt den Test für den alten Platz am Ende des Beispielmenüs. Gegenprobe mit dem alten Stand: scheitert an der leeren Trefferliste der Befehlspalette.
+
+
+---
+
+## 372. Eine erneut gespeicherte Abgabe-ZIP wird erst geleert und dann geschrieben; scheitert das Schreiben, ist auch die alte ZIP weg ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung (Runde 12,
+Bereiche 3, 4 und 8), Commit `705c05c`.
+
+**Beobachtet:** „Projekt → Als ZIP speichern …“ auf eine schon
+vorhandene ZIP gleichen Namens, etwa weil nach einer Korrektur noch
+einmal abgegeben wird. Scheitert das Schreiben am Ziel, zum Beispiel
+weil das Kontingent auf dem Heimatlaufwerk voll ist oder der
+USB-Stick abgezogen wird, liegt danach eine abgeschnittene Datei am
+Ziel, und die vorige, vollständige Abgabe ist verloren. Nachgestellt
+mit `projekt_als_zip` in `tmp_path`: erste ZIP 3.002.986 Byte, beim
+zweiten Aufruf bricht das Kopieren ans Ziel nach 100.000 Byte mit
+`OSError 28` ab (nachgebildet über `shutil.copyfileobj`, nur für die
+Zieldatei). Danach: Ziel vorhanden, 100.000 Byte,
+`zipfile.BadZipFile: File is not a zip file`. Die Meldung lautet
+„Keine ZIP gespeichert … eine ältere ZIP gleichen Namens ist in einem
+anderen Programm geöffnet“ und lässt annehmen, die ältere sei noch
+da. Die Lehrkraft sammelt eine Datei ein, die sich nicht öffnen
+lässt.
+
+Das ist mit Punkt 363 hinzugekommen. Bis dahin tauschte `os.replace`
+die fertige ZIP in einem Zug aus, und eine gescheiterte Abgabe ließ
+die alte unberührt.
+
+**Ursache:** nachgewiesen. `ide/shell/hauptfenster.py:6424` bis
+6437: `open(ziel, "wb")` kürzt eine vorhandene Datei sofort auf null,
+bevor ein Byte der neuen ZIP geschrieben ist. Entfernt wird eine halbe
+Datei im `except`-Zweig nur, wenn sie neu angelegt wurde
+(`angelegt`); eine überschriebene bleibt abgeschnitten liegen.
+
+**Zu tun:** Eine vorhandene ZIP erst ersetzen, wenn die neue
+vollständig am Ziel steht: zuerst über eine Zwischendatei neben dem
+Ziel und `os.replace`, und nur wenn das Umbenennen verweigert wird
+(Ordner nur zum Anlegen, Punkt 363), direkt schreiben. Scheitert auch
+das bei einer vorhandenen Datei, muss die Meldung sagen, dass die
+vorige ZIP nicht mehr vollständig ist. Erledigt, wenn die Probe oben
+danach eine lesbare ZIP mit dem alten Inhalt findet und der Test aus
+Punkt 363 grün bleibt.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `projekt_als_zip` in `ide/shell/hauptfenster.py` kopiert eine am Ziel schon vorhandene ZIP jetzt zuerst in den Temp-Ordner, bevor `open(ziel, "wb")` sie leert. Scheitert danach das Schreiben der neuen ZIP, wird die alte aus dieser Sicherung zurückgeschrieben; lässt sich die alte gar nicht lesen, bricht es ab, bevor sie angefasst ist. Gelingt auch das Zurückschreiben nicht, kommt die neue Ausnahme `ZipVorigeBeschaedigt`, und die Meldung sagt, dass die ältere ZIP nicht mehr vollständig ist, statt ein geöffnetes Programm zu vermuten. Die Sicherung liegt im Temp-Ordner und wird dort wieder gelöscht. Der Weg aus dem „Zu tun“ über eine Zwischendatei neben dem Ziel und `os.replace` wurde verworfen: im Einsammelordner aus Punkt 363 (lesen und anlegen, aber weder löschen noch umbenennen) ließe sich eine solche Zwischendatei bei einer zweiten Abgabe weder an die Stelle der alten setzen noch wieder entfernen, und sie bliebe sichtbar liegen. Mit der Sicherung wird am Ziel weiterhin nur geschrieben, nie umbenannt oder zusätzlich angelegt. Gegenüber `os.replace` bleibt eine Lücke: wird der USB-Stick mitten im Schreiben abgezogen, lässt sich auch die alte ZIP nicht zurückschreiben; das sagt dann die Meldung. Die Probe aus dem Befund (Abbruch nach 100.000 Byte mit `OSError 28`) findet danach am Ziel die alte ZIP byte-gleich und lesbar. Test: `test_eine_gescheiterte_zweite_abgabe_laesst_die_erste_stehen` in `tests/test_explorer_dateien_und_zip.py`, zweifach parametrisiert (Zurückschreiben gelingt, Zurückschreiben scheitert ebenfalls); gegen den alten Stand scheitert er an der abgeschnittenen Datei. Die Tests zu Punkt 343 und 363 in derselben Datei bleiben grün, der zu 363 lief mit den gesetzten Rechten und wurde nicht übersprungen.
+
+
+---
+
+## 373. Scheitert der Wechsel in die vorhandene Kopie an deren Projektdatei, gelten die Editoren im Original als gespeichert, und der Text geht beim Schließen ohne Frage verloren ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung (Runde 12,
+Bereiche 3, 4 und 8), Commit `705c05c`.
+
+**Beobachtet:** In einer Aufgabe, die nur zum Ansehen offen ist,
+wird in `main.py` geschrieben; dann geht es über „Eigene Kopie
+öffnen“ in die Kopie vom letzten Mal (Punkt 365, Art „vorhanden“).
+Lässt sich deren `.natter` nicht lesen, etwa weil sie von Hand
+bearbeitet oder von einer neueren Fassung geschrieben wurde, kommt
+die Meldung „Projekt konnte nicht geöffnet werden“, und das Original
+bleibt offen. Nachgestellt mit dem Hauptfenster aus
+`tests/conftest.py`: vor dem Wechsel `isModified() == True`,
+`_ungespeicherte_namen() == ['main.py']`; nach dem Wechsel
+(`JSONDecodeError`) steht der Text weiter im Editor, aber
+`isModified() == False` und `_ungespeicherte_namen() == []`. In die
+Kopie geschrieben wurde er nicht. Beim Schließen von Natter oder beim
+nächsten Projektwechsel fragt nichts mehr nach, und der Text ist weg.
+
+**Ursache:** nachgewiesen. `_in_kopie_wechseln`
+(`ide/shell/hauptfenster.py:4112` bis 4134) setzt jeden Editor schon
+vor `projekt_oeffnen` (Zeile 4128) auf „unverändert“; bei der Art
+„vorhanden“ liegt der Text danach nur noch in der lokalen Liste
+`vorgelegt`. Der Rückweg in Zeile 4130 bis 4134 gilt nur für ein
+abgebrochenes Öffnen. `projekt_oeffnen` wirft aber schon in Zeile 3484
+(`Projekt.laden`), und die Ausnahme läuft am Rückweg vorbei bis
+`projekt_oeffnen_gemeldet`.
+
+**Zu tun:** Die Editoren erst nach einem gelungenen Öffnen auf
+„unverändert“ setzen oder bei jeder Ausnahme aus `projekt_oeffnen`
+wieder auf „geändert“. Erledigt, wenn ein Test mit beschädigter
+`.natter` in der vorhandenen Kopie nach dem Wechsel den Editor noch
+als geändert findet und die Nachfrage beim Schließen ihn nennt.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `_in_kopie_wechseln` in `ide/shell/hauptfenster.py` setzt die Editoren erst nach der Schleife auf „unverändert“, wenn jeder Text geschrieben oder vorgemerkt ist; scheitert vorher ein Schreiben in die Kopie, bleiben alle als geändert stehen. Wirft `projekt_oeffnen` eine Ausnahme, etwa `JSONDecodeError` aus `Projekt.laden` für eine beschädigte `.natter` der vorhandenen Kopie, gelten die Editoren wieder als geändert, bevor die Ausnahme zu `projekt_oeffnen_gemeldet` und dessen Meldung weiterläuft. Test: `test_eine_unlesbare_kopie_laesst_den_text_als_geaendert_stehen` in `tests/test_schreibschutz_beim_oeffnen.py`: Aufgabe nur zum Ansehen offen, Text in `u_main.py`, Projektdatei der vorhandenen Kopie beschädigt; nach „Eigene Kopie öffnen“ kommt die Meldung „beschädigt“, das Original bleibt offen, der Editor gilt als geändert, und die Nachfrage beim Schließen nennt `u_main.py`. Gegenprobe mit dem alten Stand: scheitert daran, dass der Editor als unverändert gilt.
+
+
+---
+
+## 374. „Auf Original zurücksetzen“ lässt offene Diagrammfenster der Kopie stehen; deren Speichern schreibt den alten Stand in die zurückgesetzte Kopie ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung (Runde 12,
+Bereiche 3, 4 und 8), Commit `705c05c`.
+
+**Beobachtet:** Die Rückfrage zum Zurücksetzen sagt „Alle Änderungen
+an dieser Kopie gehen dabei verloren“. Ein offenes Diagrammfenster
+mit ungespeicherten Änderungen bleibt danach aber offen und zeigt den
+alten Stand. Beim Beenden von Natter nennt die Nachfrage das Diagramm,
+„Speichern“ ist vorgewählt, und der alte Stand steht wieder in der
+eben zurückgesetzten Kopie; zusammen mit dem neuen Code der Aufgabe
+passt er womöglich nicht mehr dazu. Nachgestellt mit einer Aufgabe
+samt `diagramme/klassen.pdiag` (aus `06_Kontoverwaltung`), kopiert
+über `aufgabe_kopieren`, Diagramm geöffnet und geändert, dann
+`beispiel_zuruecksetzen_nachfragen(bestaetigt=True)`: Ergebnis
+`True`, das Fenster ist weiter in `_offene_diagramme` und sichtbar,
+`_ungespeicherte_namen() == ['klassen.pdiag']`, und
+`speichern()` überschreibt die zurückgesetzte Datei mit dem alten
+Inhalt.
+
+**Ursache:** nachgewiesen. `_kopie_zuruecksetzen`
+(`ide/shell/hauptfenster.py:3763` bis 3766) schließt nur die Reiter
+(`_tabs_im_ordner_schliessen`), nicht die Diagrammfenster. Das
+anschließende `projekt_oeffnen` desselben Ordners schließt sie auch
+nicht: `_vorheriges_projekt_schliessen` kehrt bei gleichem Ordner in
+Zeile 3636 bis 3637 vor dem Schließen der Diagrammfenster zurück.
+
+**Zu tun:** Beim Zurücksetzen auch die Diagrammfenster aus dem Ordner
+ohne weitere Frage schließen, wie es `_vorheriges_projekt_schliessen`
+für einen Projektwechsel tut. Erledigt, wenn die Probe oben nach dem
+Zurücksetzen kein Diagrammfenster der Kopie mehr findet.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `_kopie_zuruecksetzen` in `ide/shell/hauptfenster.py` schließt bei offener Kopie jetzt über `_fenster_im_ordner_schliessen` (vorher `_tabs_im_ordner_schliessen`) neben den Reitern auch alle Diagrammfenster mit Dateien aus der Kopie, ohne weitere Frage. Das Schließen der Diagrammfenster ist dafür als `_diagramme_schliessen_wenn` aus `_vorheriges_projekt_schliessen` herausgezogen; beide Wege nutzen es. Andere Fenster mit Dateien der Kopie gibt es nicht: CSV-, Bild- und Designeransichten sind Reiter und gingen schon vorher zu. Gilt für „Auf Original zurücksetzen …“ und „Kopie ersetzen“. Handbuch 3.6 nennt es. Test: `test_zuruecksetzen_schliesst_die_diagrammfenster_der_kopie` in `tests/test_aufgabe_verteilen.py`: Aufgabe aus `06_Kontoverwaltung`, `konto_klassen.pdiag` in der Kopie geöffnet und geändert, dann zurückgesetzt; danach ist kein Diagrammfenster der Kopie mehr offen, die Nachfrage nennt das Diagramm nicht, und die Datei hat den Inhalt der Aufgabe. Gegenprobe mit dem alten Stand: scheitert am noch eingetragenen Diagrammfenster.
+
+
+---
+
+## 375. Scheitert beim Zurücksetzen einer Kopie der Rückweg, löscht das Aufräumen die schon beiseitegelegten Dateien ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung (Runde 12,
+Bereiche 3, 4 und 8), Commit `705c05c`.
+
+**Beobachtet:** Das Zurücksetzen verspricht seit Punkt 362, dass die
+Kopie unverändert bleibt, wenn eine Datei gesperrt ist. Dazu wandern
+die alten Dateien einzeln in einen Zwischenordner und bei einer
+Sperre wieder zurück. Scheitert auch eines dieser Zurückschieben,
+etwa weil ein Virenscanner die eben verschobene Datei gerade prüft,
+löscht der `finally`-Zweig den ganzen Zwischenordner samt den Dateien,
+die noch darin liegen. Nachgestellt mit `_inhalt_ersetzen` in
+`tmp_path` und einem `os.rename`, das beim zweiten und dritten Aufruf
+`PermissionError` wirft (zweite Datei gesperrt, dann der Rückweg der
+ersten): die Kopie enthält danach nur noch `u_1.py` und `u_2.py`,
+`u_0.py` ist gelöscht, neben der Kopie liegt nichts mehr. Die Meldung
+dazu ist „Die Aufgabe ließ sich nicht noch einmal kopieren“, weil
+statt `DateiGesperrt` ein einfacher `OSError` ankommt.
+
+Vermutet, nicht nachgestellt: wie oft ein Virenscanner das
+Zurückschieben tatsächlich verhindert. Der Codepfad ist belegt.
+
+**Ursache:** nachgewiesen. `ide/shell/startbild.py:616` bis 619
+(`_zurueckstellen`) bricht beim ersten Fehler ab;
+`_inhalt_ersetzen` räumt in Zeile 694 mit
+`shutil.rmtree(zwischen, ignore_errors=True)` in jedem Fall auf, auch
+wenn `zwischen / "alt"` noch Dateien der Kopie enthält.
+
+**Zu tun:** Den Zwischenordner nur löschen, wenn der alte Inhalt
+vollständig zurück ist oder das Zurücksetzen gelungen ist; sonst
+stehen lassen und in der Meldung nennen, wo die übrigen Dateien
+liegen. Erledigt, wenn die Probe oben `u_0.py` noch findet, in der
+Kopie oder im genannten Ordner.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `_zurueckstellen` in `ide/shell/startbild.py` bricht beim ersten Fehler nicht mehr ab: eine Datei, die sich nicht zurückschieben lässt, bleibt liegen, und die übrigen kommen trotzdem zurück. `_inhalt_ersetzen` sieht danach im Unterordner `alt` des Zwischenordners nach. Liegt dort noch eine Datei, bleibt dieser Ordner stehen (nur `neu` wird entfernt), und statt `DateiGesperrt` folgt die neue Ausnahme `RueckwegGescheitert` mit der gesperrten Datei und dem Ordner (`ablage`). Nur wenn nichts liegen blieb, wird der Zwischenordner wie bisher gelöscht. `_kopie_zuruecksetzen` in `ide/shell/hauptfenster.py` meldet das als „Nicht zurückgesetzt“ mit der gesperrten Datei, dem Ordner, in dem die übrigen Dateien liegen, und dem Hinweis, dass sie sich von dort zurückkopieren lassen; vorher kam „Die Aufgabe ließ sich nicht noch einmal kopieren“. Handbuch 3.6 nennt den Fall. Test: `test_scheitert_der_rueckweg_bleiben_die_alten_dateien_erhalten` in `tests/test_aufgabe_verteilen.py`: `os.rename` verweigert `u_1.py` in der Kopie und danach das Zurückschieben von `u_0.py`; danach liegt `u_0.py` mit dem alten Inhalt im Zwischenordner, `u_1.py` ist unverändert, und die einzige Meldung nennt den Ordner. Gegenprobe mit dem alten Stand: scheitert an der gelöschten `u_0.py`.
+
+
+---
+
+## 376. Geschlossene Reiter werden nie freigegeben; eine geschlossene CSV-Ansicht belegt weiter ihren Speicher und lädt die Datei bei jeder Änderung neu ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung (Runde 12,
+Bereiche 3, 4 und 8), Commit `705c05c`.
+
+**Beobachtet:** Ein Reiter, der über das „×“ oder beim Projektwechsel
+zugeht, verschwindet nur aus der Leiste. Das Widget dahinter bleibt
+als verborgenes Kind des Hauptfensters bestehen, mit allem, was es
+hält. Nachgestellt mit dem Hauptfenster aus `tests/conftest.py`:
+
+- CSV-Ansicht und Editor geöffnet und über `_tab_schliessen`
+  geschlossen: `findChildren(CsvAnsicht)` findet danach 1, der Editor
+  ist ebenfalls noch da.
+- Die geschlossene CSV-Ansicht beobachtet ihre Datei weiter. Nach
+  einer Änderung der Datei startet sie einen Ladevorgang im
+  Nebenfaden (`_auftrag` von 0 auf 1), mit abgeschalteter
+  Speicherbereinigung für die Dauer des Ladens
+  (`nebenfaden_rechnet`).
+- Eine CSV mit 300.000 Zeilen dreimal geöffnet und geschlossen:
+  privater Speicher 79 MB vor dem ersten Öffnen, danach 228, 350 und
+  474 MB, nach jedem Schließen unverändert; `findChildren(CsvAnsicht)`
+  zählt 1, 2, 3.
+
+Im Unterricht wird eine CSV, die das eigene Programm schreibt, immer
+wieder geöffnet und geschlossen. Jede geschlossene Ansicht lädt dann
+bei jedem Programmlauf mit, und der Speicher wächst über die Stunde,
+bis Natter auf einem Rechner mit wenig Arbeitsspeicher langsam wird
+oder abbricht.
+
+**Ursache:** nachgewiesen. `_tab_schliessen`
+(`ide/shell/hauptfenster.py:5931`) ruft nur
+`editor_tabs.removeTab(index)`. Qt löscht die Seite dabei nicht, und
+nirgends folgt ein `deleteLater()`. Der `QFileSystemWatcher` der
+CSV-Ansicht (`ide/viewers/csv_ansicht.py:607` bis 612) bleibt damit
+aktiv.
+
+**Zu tun:** Nach `removeTab` das Widget (bei einem Designer den
+`QScrollArea` samt Formular) mit `deleteLater()` freigeben; die
+CSV-Ansicht vorher ihre Beobachtung beenden und einen laufenden
+Ladevorgang verwerfen lassen. Zu prüfen ist, dass kein Verweis
+(`_widget_zu_canvas`, `_pfad_zu_formular`, Vervollständigung) auf das
+gelöschte Widget übrig bleibt. Erledigt, wenn die Probe oben nach dem
+Schließen keine `CsvAnsicht` mehr findet, der Speicher nach drei
+Durchgängen nicht mehr um die Größe der Tabelle je Durchgang wächst
+und eine Änderung der Datei keinen Ladevorgang mehr auslöst.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `_tab_schliessen` in `ide/shell/hauptfenster.py` gibt die Seite nach `removeTab` jetzt über die neue Methode `_reiter_freigeben` mit `deleteLater()` frei, bei einem Designer den `QScrollArea` samt Formular. Vorher ruft sie eine Methode `beim_schliessen` des Inhalts auf, wenn er eine hat; die CSV-Ansicht (`ide/viewers/csv_ansicht.py`) nimmt dort ihre Datei aus dem `QFileSystemWatcher`, hält Neulade- und Filteruhr an und erhöht `_auftrag`, sodass ein Ladevorgang, der noch im Nebenfaden läuft, verworfen wird. Andere Ansichten können dieselbe Methode bekommen, ohne dass das Hauptfenster sie kennen muss. Geprüft wurde, was nach dem Schließen noch auf den Reiter zeigen könnte: `_widget_zu_canvas`, `_offene_canvases` und `_pfad_zu_formular` wurden schon bisher geleert. Neu hinzugekommen sind drei Stellen. Der Objektinspektor wird geleert, wenn er das Formular des geschlossenen Designers zeigt; sonst griff eine Eingabe dort auf gelöschte Widgets zu. Ein laufender Platzierungsmodus wird beendet, weil sein Filter für Escape an der ganzen Anwendung hängt. Der Suchdialog wechselt zum Editor, der jetzt vorn ist, oder geht zu, wenn keiner mehr offen ist. Die Vorschläge beim Tippen fingen einen gelöschten Editor schon ab (`RuntimeError` beim Senden aus dem Nebenfaden), ebenso die Schreibuhr des Designers (`destroyed` hält sie an). Gemessen mit 300.000 Zeilen und fünf Spalten, dreimal geöffnet und geschlossen, Qt offscreen, privater Speicher: vorher 90, 253, 403 und 554 MB, danach 88, 130, 133 und 135 MB; `findChildren(CsvAnsicht)` zählt danach 0 statt 3. Test: `test_geschlossene_reiter_werden_freigegeben` in `tests/test_hauptfenster_tab_schliessen.py` öffnet Designer, CSV-Ansicht und Editor, schließt alle drei und prüft mit `shiboken6.isValid`, dass Seiten und Inhalte gelöscht sind, dass eine Änderung der CSV danach nichts mehr einliest und dass der Suchdialog zu ist. Ohne die Freigabe scheitert er am Warten auf das Löschen. Dazu liefen alle 116 Testdateien, die Reiter, Designer, Editor, Betrachter, Objektinspektor oder den Projektwechsel berühren: 1611 bestanden.
+
+
+---
+
+## 377. Die HTML-Vorschau stürzt bei einer Datei ab, die nicht in UTF-8 gespeichert ist oder beim Neuladen fehlt ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung Runde 12 (Bereiche 1, 2, 5, 6, 7) als Nebenbefund für Bereich 3.
+
+**Beobachtet:** `HtmlVorschau._seite_zeigen` (`ide/viewers/html_vorschau.py:80`) liest die Seite mit `read_text(encoding="utf-8")` und fängt nichts ab. Eine HTML-Datei in ANSI (etwa mit „ä“ aus dem Windows-Editor älterer Fassungen) wirft `UnicodeDecodeError` aus dem Konstruktor; wird die Datei gelöscht oder umbenannt, während die Vorschau offen ist, wirft das Neuladen aus dem Slot des `QFileSystemWatcher`. Beides endet in der Absturzmeldung. Die Markdown-Ansicht fängt beide Fälle ab.
+
+**Ursache:** fehlende Fehlerbehandlung beim Lesen in `_seite_zeigen`.
+
+**Zu tun:** Wie in der Markdown-Ansicht lesen: UTF-8 mit Rückfall auf die Windows-Codepage, und bei einem `OSError` einen deutschen Hinweis in der Vorschau statt einer Ausnahme. Erledigt, wenn ein Test eine ANSI-Datei anzeigt und eine gelöschte Datei ohne Ausnahme meldet.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `_seite_zeigen` in `ide/viewers/html_vorschau.py` liest die Seite jetzt über `text_lesen` aus `ide/viewers/ordnergrenze.py`, dieselbe Funktion, die auch die Markdown-Ansicht nutzt: UTF-8, bei einem `UnicodeDecodeError` die Windows-Codepage mit Ersatzzeichen. Ein `OSError` ergibt in der Vorschau den Hinweis „„name.html“ lässt sich nicht lesen: …“ statt einer Ausnahme. Das gilt beim Öffnen, beim Neuladen über den `QFileSystemWatcher` und beim Wechsel auf eine andere Seite. Test: `test_vorschau_zeigt_ansi_datei_und_meldet_eine_fehlende` in `tests/test_viewer_html.py` zeigt eine in cp1252 gespeicherte Seite mit „Grüße“, löscht die Datei, löst das Neuladen aus und findet den Hinweis. Gegen den alten Stand scheitert er mit `UnicodeDecodeError` im Konstruktor.
+
+
+---
+
+## 378. „Eigene Kopie öffnen“ nach einem gescheiterten Speichern endet bei einer beschädigten Kopie in der Absturzmeldung ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, beim Beheben von Punkt 373 (Runde 12 von `/freigabe`).
+
+**Beobachtet:** Scheitert das Speichern in einem Ordner ohne Schreibrecht, bietet die Meldung „Eigene Kopie öffnen“ an. Ist die Projektdatei der vorhandenen Kopie beschädigt, fliegt der `JSONDecodeError` als Traceback aus dem Aufruf, statt wie beim Öffnen über das Menü als Meldung „ist beschädigt“ zu erscheinen.
+
+**Ursache:** `_kopie_nach_speicherfehler` in `ide/shell/hauptfenster.py` ruft `_in_kopie_wechseln` ohne die Fehlerbehandlung von `projekt_oeffnen_gemeldet` auf.
+
+**Zu tun:** Beide Wege über dieselbe Meldung führen. Erledigt, wenn ein Test den Weg über `_kopie_nach_speicherfehler` mit beschädigter Kopie durchspielt und eine Meldung statt einer Ausnahme sieht.
+
+**Behoben (29. September 2026, ab 0.4.0).** Die Meldungen zu einem Projekt, das sich nicht öffnen ließ, stehen jetzt in `_oeffnen_fehler_melden`, die erwarteten Ausnahmen in `_oeffnen_fehler()` (als Funktion, weil `schema_fehler()` erst beim Aufruf `jsonschema` lädt). `projekt_oeffnen_gemeldet` und `_kopie_nach_speicherfehler` nutzen beide dieselbe Behandlung; eine beschädigte Kopie meldet sich auf beiden Wegen als „ist beschädigt“, das Original bleibt offen und der Text als geändert stehen (Punkt 373). Test: `test_kopie_nach_speicherfehler_meldet_eine_beschaedigte_kopie` in `tests/test_schreibschutz_beim_oeffnen.py`; gegen den alten Stand scheitert er mit dem Traceback.
+
+---
+
+## 379. Ein eigenes Projekt auf dem Heimatlaufwerk gilt nach einem Rechnerwechsel als Aufgabe, und die vorgewählte Kopie landet im lokalen Profil ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Benutzbarkeitsprüfung (Runde 13,
+Bereiche 1, 2 und 4), Commit `ecc7136`, Natter 0.3.6. Nachfolger von
+Punkt 367, der im Archiv als erledigt steht.
+
+**Beobachtet:** An vielen Schulen liegen die Arbeiten auf dem
+Heimatlaufwerk `H:`, während das Windows-Profil am Rechner bleibt oder
+beim Abmelden zurückgesetzt wird (Handbuch 3.5 nennt solche Rechner
+selbst). Ablauf, offscreen nachgestellt: In Stunde 1 legt eine
+Schülerin mit „Projekt → Neues Projekt …“ das Projekt
+`H:\Informatik\Ampel` an. In Stunde 2 sitzt sie an einem anderen
+Rechner, oder ihr Profil wurde zurückgesetzt; die Ini von Natter ist
+also leer. Sie öffnet ihr Projekt über „Projekt öffnen …“ und bekommt:
+
+„Aufgabe öffnen – „Ampel“ liegt nicht im Ordner „Dokumente“ dieses
+Kontos, sondern in H:\Informatik\Ampel. Ein Projekt dort gilt als
+verteilte Aufgabe: was dort gespeichert wird, steht danach in der
+Aufgabe selbst und bei allen, die sie später öffnen.“
+
+Vorgewählt ist „Eigene Kopie öffnen“. Mit der Eingabetaste wird das
+Projekt nach `C:\Users\…\Documents\Natter\Ampel` kopiert, die
+Statuszeile meldet „Projekt nach … kopiert und geöffnet.“, und die
+Arbeit der Stunde 2 landet dort. Auf einem Rechner mit zurückgesetztem
+Profil ist sie nach dem Abmelden weg. An einem anderen Rechner liegt
+sie nur an diesem einen, und in Stunde 3 kommt dieselbe Frage mit
+einer neuen Kopie vom Stand aus Stunde 1. Auf `H:` ändert sich nichts.
+
+Ohne Rechnerwechsel trifft es auch jedes Projekt, das vor 0.4.0 auf
+`H:` angelegt wurde: der Vermerk aus Punkt 367 entsteht nur beim
+Anlegen, nach dem Update fragt also jedes vorhandene eigene Projekt
+dort. Dasselbe gilt für ein Projekt, das die Schülerin selbst im
+Explorer vom USB-Stick nach `H:` kopiert oder dort umbenannt hat.
+
+**Ursache:** nachgewiesen. `_ort_zum_oeffnen`
+(`ide/shell/hauptfenster.py:3983` bis 3987) kennt als eigenen Ort nur
+„Dokumente“, Desktop und Wechseldatenträger sowie die Liste aus
+`selbst_angelegt` (`ide/shell/startbild.py:184`). Diese Liste steht in
+der Ini unter `%APPDATA%\Natter` (`QSettings(… UserScope …)`,
+`ide/shell/hauptfenster.py:705`), also im Profil des Rechners. Der
+vorgewählte Knopf kopiert nach `natter_ordner()`, also ebenfalls ins
+Profil. Probe: `_neues_projekt_dialog` mit Ordner
+`…\H\Informatik\Ampel`, danach Ini geleert, neues Hauptfenster,
+`projekt_oeffnen_gemeldet`: Frage „Aufgabe öffnen“, geöffnet wird
+`…\Dokumente\Natter\Ampel`.
+
+**Zu tun:** Ein eigenes Projekt außerhalb von „Dokumente“ muss auch
+ohne die Ini des Rechners als eigenes erkennbar sein, etwa über den
+Anmeldenamen des Kontos, das es angelegt hat, oder das Heimatlaufwerk
+(`HOMEDRIVE`/`HOMESHARE`) als eigenen Ort. Wo trotzdem gefragt wird,
+darf die Frage ein Projekt des eigenen Kontos nicht als „verteilte
+Aufgabe“ bezeichnen. Erledigt, wenn ein auf dem Heimatlaufwerk
+angelegtes Projekt auch mit leerer Ini ohne Frage an seinem Ort
+aufgeht.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. Die Regel „eigenes Projekt oder verteilte Aufgabe“ hatte nach den Punkten 361, 366 und 367 zum vierten Mal einen Befund erzeugt. Statt eines weiteren Sonderfalls richtet sie sich jetzt nach dem Besitzer des Projektordners, nicht mehr nach Ort und Ini-Vermerk. `eigenes_projekt` in `ide/pfade.py` fragt Windows über `ctypes` nach dem Besitzer (`GetNamedSecurityInfoW` mit `OWNER_SECURITY_INFORMATION`) und vergleicht ihn mit `EqualSid` mit dem Konto und dem voreingestellten Besitzer des Prozess-Tokens (`gehoert_dem_konto`). „Dokumente“, Desktop und Wechseldatenträger bleiben immer eigene Orte; lässt sich kein Besitzer ermitteln (FAT, Fehler, anderes Betriebssystem), entscheidet der Ort wie bisher. Gefragt wird nach dem Ordner, nicht nach der `.natter`-Datei: eine Probe in `%TEMP%` zeigte, dass `atomar_schreiben` mit `os.replace` die ganze Sicherheitsbeschreibung der Datei durch die der Zwischendatei ersetzt (ein eigens gesetzter Eintrag für „Jeder“ war danach weg); die Datei gehört nach dem Speichern also dem Konto, das gespeichert hat. Der Vermerk `projekt/angelegt` aus Punkt 367 (`angelegt_merken`, `selbst_angelegt`) ist damit überflüssig und entfernt. `_ort_zum_oeffnen` in `ide/shell/hauptfenster.py` fragt nur noch bei einem Projekt eines anderen Kontos; der Text der Frage sagt das so. Handbuch 3.6 beschreibt die neue Regel. Test: `test_ein_eigenes_projekt_auf_dem_heimatlaufwerk_geht_ohne_frage_auf` in `tests/test_aufgabe_verteilen.py` legt ein Projekt unter `H\Informatik\Ampel` an, leert die Einstellungen und öffnet es ohne Frage an seinem Ort, während die Aufgabe im Tauschordner weiter jedes Mal fragt; dazu in `tests/test_pfade.py` die echte Abfrage (ein Ordner in `tmp_path` gehört dem Konto, `%SystemRoot%` nicht) und ein Test mit nachgestelltem fremdem Besitzer. Gegen den alten Stand scheitern sie. Die Tests zum Verteilen stellen den Besitzer über `gehoert_dem_konto` nach (Fixture `fremdes_konto` in `tests/conftest.py`, Tauschordner gehört der Lehrkraft).
+
+
+---
+
+## 380. Nach einer berichtigten Aufgabe kommen bei jedem Öffnen zwei Fragen hintereinander, und ein Fehlklick auf „Kopie ersetzen“ löscht die Arbeit endgültig ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Benutzbarkeitsprüfung (Runde 13,
+Bereiche 1, 2 und 4), Commit `ecc7136`, Natter 0.3.6.
+
+**Beobachtet:** Die Lehrkraft verteilt „Ampel“ im Tauschordner, die
+Klasse arbeitet in ihren Kopien. Danach berichtigt die Lehrkraft einen
+Tippfehler in der Aufgabe. Öffnet eine Schülerin die Aufgabe in der
+nächsten Stunde wieder aus dem Tauschordner, kommen zwei Fenster
+nacheinander (offscreen nachgestellt):
+
+1. „Eigene Kopie vorhanden – Von „Ampel“ gibt es schon eine eigene
+   Kopie. „Eigene Kopie öffnen“ öffnet die eigene Kopie in … mit dem
+   Stand vom letzten Mal.“ Knöpfe „Eigene Kopie öffnen“ und „Original
+   öffnen“.
+2. Nach „Eigene Kopie öffnen“ sofort: „Aufgabe wurde geändert – …
+   „Kopie ersetzen“ kopiert die Aufgabe neu; alle Änderungen an der
+   Kopie gehen dabei verloren.“ Knöpfe „Eigene Kopie öffnen“ und
+   „Kopie ersetzen“, kein Abbrechen.
+
+Das erste Fenster hat die Antwort schon versprochen, die das zweite
+noch einmal abfragt. Wer „Eigene Kopie öffnen“ wählt, bekommt beide
+Fenster bei jedem weiteren Öffnen aus dem Tauschordner wieder, im
+Probelauf beim zweiten und dritten Öffnen gleich. Die zerstörende
+Wahl steht also in jeder Stunde erneut vor der ganzen Klasse; nach dem
+Satz der Lehrkraft „die Aufgabe ist berichtigt“ liegt „Kopie ersetzen“
+nahe. Die Arbeit mehrerer Stunden ist danach nicht mehr da, weder im
+Papierkorb noch als Sicherung; Löschen einer Unit im
+Projekt-Explorer legt dagegen in den Papierkorb (Punkt 273).
+
+Dasselbe endgültige Löschen gilt für „Projekt → Auf Original
+zurücksetzen …“; dort ist aber „Abbrechen“ vorgewählt, und die Frage
+kommt nur auf Wunsch.
+
+**Ursache:** nachgewiesen. `_ort_zum_oeffnen` stellt die Frage
+„Eigene Kopie vorhanden“ (`ide/shell/hauptfenster.py:4026` bis 4043),
+danach fragt `_kopie_holen` über `_geaenderte_aufgabe_fragen` (Zeile
+4108) getrennt nach der geänderten Aufgabe. Der Fingerabdruck in
+`.natter-quelle` wird nur beim Kopieren geschrieben; nach „behalten“
+bleibt die Abweichung bestehen, und `aufgabe_geaendert` meldet sie
+jedes Mal. `_inhalt_ersetzen` (`ide/shell/startbild.py:675`) schiebt
+die alten Dateien in den Zwischenordner `alt` und löscht ihn am Ende
+mit `shutil.rmtree` (Zeile 728).
+
+**Zu tun:** Eine Frage statt zwei, wenn die vorhandene Kopie älter
+ist als die Aufgabe. Nach der Wahl „eigene Kopie behalten“ nicht bei
+jedem Öffnen wieder nach demselben Stand der Aufgabe fragen. Beim
+Ersetzen und Zurücksetzen den alten Inhalt nicht endgültig löschen,
+sondern in den Papierkorb legen oder als Ordner daneben behalten, und
+das in der Frage sagen. Erledigt, wenn ein Test nach berichtigter
+Aufgabe beim Öffnen genau eine Frage zählt, beim nächsten Öffnen nach
+„behalten“ keine, und die Dateien der ersetzten Kopie danach noch
+auffindbar sind.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. Ist die Aufgabe seit dem Anlegen der Kopie geändert, stellt `_ort_zum_oeffnen` nur noch eine Frage (`_geaenderte_aufgabe_fragen` mit dem Text der Kopierfrage und dem zweiten Knopf): „Eigene Kopie öffnen“ (vorgewählt), „Kopie ersetzen“ und „Original öffnen“ bzw. „Nur ansehen“/„Trotzdem hier öffnen“. Nach „Eigene Kopie öffnen“ trägt `aufgabe_stand_merken` (`ide/shell/startbild.py`) den Fingerabdruck der Aufgabe in `.natter-quelle` nach; zu diesem Stand fragt Natter nicht wieder, erst nach der nächsten Änderung. `_inhalt_ersetzen` löscht den alten Inhalt beim Ersetzen und beim Zurücksetzen einer Aufgabenkopie nicht mehr, sondern legt ihn als „Ampel (vorher)“ (bei Bedarf „Ampel (vorher 2)“) neben die Kopie, ohne `.natter-quelle`; Frage, Rückfrage von „Auf Original zurücksetzen …“ und Statuszeile nennen den Ordner. Beispiele werden weiter ohne Aufbewahrung zurückgesetzt. Test: `test_nach_berichtigter_aufgabe_kommt_eine_frage_und_nichts_geht_verloren` in `tests/test_aufgabe_verteilen.py` zählt nach berichtigter Aufgabe genau eine Frage, danach keine Frage zur Änderung mehr (nur die gewöhnliche „Eigene Kopie vorhanden“), findet nach „Kopie ersetzen“ die Arbeit in „Ampel (vorher)“ und prüft am echten Fenster den vorgewählten Knopf; gegen den alten Stand scheitert er.
+
+
+---
+
+## 381. Jede entpackte Abgabe fragt die Lehrkraft nach einer Kopie und nennt sie „verteilte Aufgabe“ ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Benutzbarkeitsprüfung (Runde 13,
+Bereiche 1, 2 und 4), Commit `ecc7136`, Natter 0.3.6.
+
+**Beobachtet:** Eine Schülerin gibt über „Projekt → Als ZIP
+speichern …“ ab (`Aufgabe3 - mueller.anna.zip`). Die Lehrkraft
+entpackt die Abgaben, wie es Windows vorschlägt, neben der ZIP, etwa
+unter „Downloads“ oder im Einsammelordner auf dem Server, und öffnet
+sie nacheinander. Bei jeder Abgabe kommt (offscreen nachgestellt mit
+einer Abgabe unter `Downloads`):
+
+„Aufgabe öffnen – „Aufgabe3“ liegt nicht im Ordner „Dokumente“ dieses
+Kontos, sondern in …\Downloads\Aufgabe3 - x\Aufgabe3 - jonat. Ein
+Projekt dort gilt als verteilte Aufgabe: was dort gespeichert wird,
+steht danach in der Aufgabe selbst und bei allen, die sie später
+öffnen.“
+
+Beides trifft auf eine Abgabe nicht zu. Vorgewählt ist „Eigene Kopie
+öffnen“; mit der Eingabetaste entsteht für jede Abgabe ein Ordner
+`Dokumente\Natter\Aufgabe3 - mueller.anna`, bei 28 Abgaben 28
+Ordner zwischen den eigenen Projekten der Lehrkraft. Anmerkungen, die
+sie beim Korrigieren in den Quelltext schreibt, stehen dann in diesen
+Kopien und nicht in der entpackten Abgabe, die sie zurückgeben will.
+Wer das vermeiden will, muss bei jeder Abgabe den zweiten Knopf
+„Original öffnen“ wählen. Handbuch 3.6 beschreibt diesen Weg so, das
+Verhalten ist also bekannt; es kostet aber bei jeder Korrektur einer
+Klasse einen Klick pro Abgabe, und die Eingabetaste führt in die
+falsche Richtung.
+
+**Ursache:** nachgewiesen. `_ort_zum_oeffnen`
+(`ide/shell/hauptfenster.py:3958`) unterscheidet nur nach dem Ort.
+Die Abgabe trägt mit dem Ordnernamen aus `abgabe_name`
+(`ide/shell/hauptfenster.py:500`) und ohne `.natter-quelle` genug
+Merkmale, um als Abgabe erkennbar zu sein, das wird aber nicht
+genutzt.
+
+**Zu tun:** Eine entpackte Abgabe an ihrem Ort öffnen, ohne Frage
+oder mit „Original öffnen“ als Vorwahl und einem Text, der von einer
+Abgabe spricht. Erledigt, wenn ein Test eine mit „Als ZIP
+speichern …“ erzeugte und außerhalb von „Dokumente“ entpackte Abgabe
+öffnet und dabei weder eine Kopie anlegt noch von einer verteilten
+Aufgabe spricht.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt; behoben mit der neuen Regel aus Punkt 379. Die Ordner einer entpackten Abgabe gehören dem Konto, das sie entpackt hat; die Abgabe geht bei der Lehrkraft deshalb ohne Frage an Ort und Stelle auf, und es entsteht keine Kopie unter `Dokumente\Natter`. Handbuch 3.6 sagt das. Test: `test_eine_entpackte_abgabe_oeffnet_die_lehrkraft_an_ihrem_ort` in `tests/test_aufgabe_verteilen.py` gibt mit „Als ZIP speichern …“ ab, entpackt unter `Downloads` und öffnet: keine Frage, keine Kopie, kein Text mit „verteilte Aufgabe“. Gegen den alten Stand scheitert er.
+
+
+---
+
+## 382. HTML-Vorschau: auf einer Unterseite fehlen Bilder, und der Verweis zur Startseite geht nicht ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Benutzbarkeitsprüfung (Runde 13,
+Bereiche 3, 5, 6, 7, 8), Commit `ecc7136`, Natter 0.3.6.
+
+**Beobachtet:** Eine kleine Website, wie sie im Unterricht entsteht:
+`index.html` im Projektordner, die Unterseite `seiten/kontakt.html`
+mit `<img src="../bilder/logo.png">` und
+`<a href="../index.html">Zur Startseite</a>`. Probe offscreen im
+Hauptfenster bei 1280 × 800: `kontakt.html` in der Vorschau geöffnet,
+wie nach einem Doppelklick im Explorer. Statt des Logos steht ein
+leeres Bildsymbol, und ein Klick auf „Zur Startseite“ meldet in der
+Statuszeile „Der Verweis „../index.html“ wird in der Vorschau nicht
+geöffnet.“ Dieselbe Seite, über den Verweis von `index.html` aus
+erreicht, zeigt beides richtig. Ob die Seite funktioniert, hängt so
+davon ab, welche Datei zuerst geöffnet wurde; eine Schülerin, die ihre
+Unterseite bearbeitet und nachsieht, hält ihren richtigen Pfad für
+falsch.
+
+**Ursache:** nachgewiesen. Die Grenze für Bilder und Verweise ist der
+Ordner der zuerst geöffneten Datei, nicht der Projektordner:
+`ide/viewers/html_vorschau.py:94` (`ordner_setzen(self._pfad.parent,
+…)`) und Zeile 141 (`pfad_im_ordner(adresse, self._pfad.parent, …)`).
+Die Grenze selbst stammt aus Punkt 370 und soll bleiben; sie ist nur
+zu eng gezogen.
+
+**Zu tun:** Liegt die Datei in einem geöffneten Projekt, gilt der
+Projektordner als Grenze, sonst wie bisher der Ordner der Datei.
+Erledigt, wenn in der Probe oben das Logo erscheint und der Verweis
+auf `../index.html` die Startseite zeigt, ein Verweis aus dem
+Projektordner hinaus aber weiter abgewiesen wird.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. Die Grenze für Bilder und Verweise wählt jetzt `grenze_waehlen` in `ide/viewers/ordnergrenze.py`: liegt die Datei in dem übergebenen Projektordner, gilt dieser Ordner, sonst wie bisher der Ordner der Datei. Entschieden wird wie bei `pfad_im_ordner` nur am Text. `HtmlVorschau` und `MarkdownAnsicht` nehmen den Projektordner als Schlüsselwort `projektordner` an und rechnen relative Pfade weiter ab der gezeigten Seite; das Hauptfenster übergibt beim Erzeugen beider Ansichten den Ordner des geöffneten Projekts (`_offener_projektordner`). Alles aus den Punkten 332, 368 und 370 gilt weiter: kein Rechnername, kein anderes Laufwerk, kein `..` über die Grenze, geprüft vor jedem Zugriff. Test: `test_unterseite_im_projekt_reicht_bis_zum_projektordner` in `tests/test_hauptfenster_betrachter.py`, für HTML und Markdown. Er öffnet ein Projekt mit `seiten/kontakt.*`, prüft, dass `../bilder/logo.png` geladen ist, dass `../index.*` die Startseite zeigt und dass ein Verweis auf eine vorhandene Datei neben dem Projektordner abgewiesen wird; gegen den alten Stand scheitert er in beiden Fällen am fehlenden Logo.
+
+
+---
+
+## 383. HTML-Vorschau: ein Tippfehler im Verweis heißt „wird in der Vorschau nicht geöffnet“ ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Benutzbarkeitsprüfung (Runde 13,
+Bereiche 3, 5, 6, 7, 8), Commit `ecc7136`, Natter 0.3.6.
+
+**Beobachtet:** Probe wie in Punkt 382. Die Statuszeile meldet für
+drei ganz verschiedene Fälle denselben Satz:
+
+- `seiten/kontackt.html` (Tippfehler, die Datei heißt `kontakt.html`):
+  „Der Verweis „seiten/kontackt.html“ wird in der Vorschau nicht
+  geöffnet.“
+- `plan.pdf` (vorhanden, aber keine HTML-Seite): „Der Verweis
+  „plan.pdf“ wird in der Vorschau nicht geöffnet.“
+- `../index.html` (aus dem Ordner hinaus): derselbe Satz.
+
+Die Markdown-Ansicht sagt beim Tippfehler dagegen „„anleitng.md“ gibt
+es neben „notiz.md“ nicht.“ In der HTML-Vorschau liest sich der Satz
+so, als sei die Vorschau das Hindernis; wer den Tippfehler sucht,
+findet keinen Hinweis darauf, und dass „Im Browser öffnen“ die PDF
+zeigen würde, steht nirgends. Einschätzung: gerade beim Bauen der
+ersten eigenen Website ist ein falsch geschriebener Dateiname der
+häufigste Fehler.
+
+**Ursache:** nachgewiesen. `_verweis_geklickt` in
+`ide/viewers/html_vorschau.py:127-130` meldet jeden Fall, der nicht
+angezeigt wird, mit demselben Text; die Markdown-Ansicht unterscheidet
+die fehlende Datei (`ide/viewers/markdown_ansicht.py:187`).
+
+**Zu tun:** Drei Meldungen: die Datei gibt es nicht (mit ihrem Namen,
+wie in der Markdown-Ansicht); die Datei ist keine HTML-Seite und
+lässt sich über „Im Browser öffnen“ ansehen; der Verweis führt aus dem
+Ordner hinaus. Erledigt, wenn die drei Fälle der Probe drei
+verschiedene Meldungen bekommen.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. Beide Ansichten holen den Satz für einen Verweis, der nicht aufgeht, aus `verweis_meldung` in `ide/viewers/ordnergrenze.py`. Die fehlende Datei heißt „„seiten/kontackt.html“ gibt es neben „index.html“ nicht.“, ein Verweis aus der Grenze hinaus „„../index.html“ liegt außerhalb des Ordners „…“ und wird deshalb nicht geöffnet.“, eine vorhandene Datei, die die Ansicht nicht zeigt, „„plan.pdf“ lässt sich in dieser Ansicht nicht anzeigen.“ Die HTML-Vorschau hängt daran „Mit „Im Browser öffnen“ lässt sich die Seite samt Verweis im Browser ansehen.“ an, denn nur sie hat den Knopf. Ein fremdes Schema wie `ms-settings:` behält den Satz „Der Verweis … wird in dieser Ansicht nicht geöffnet.“ Die Markdown-Ansicht fordert PDF- und Office-Dateien, Archive und Programme (`_NICHT_ANZEIGBAR` in `ide/viewers/markdown_ansicht.py`) nicht mehr beim Hauptfenster an, wo eine PDF als „keine Textdatei“ gemeldet wurde. Test: `test_verweise_die_nicht_aufgehen_bekommen_je_einen_eigenen_satz` in `tests/test_viewer_html.py` klickt in beiden Ansichten auf einen Tippfehler, eine PDF und einen Verweis aus dem Ordner hinaus und verlangt drei verschiedene Sätze, die in beiden Ansichten gleich lauten; gegen den alten Stand scheitert er an der Meldung zum Tippfehler.
+
+
+---
+
+## 384. „Projekt ist schon geöffnet“ empfiehlt einen Weg zur eigenen Kopie, den es für dieses Projekt nicht gibt ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Benutzbarkeitsprüfung (Runde 13,
+Bereiche 3, 5, 6, 7, 8), Commit `ecc7136`, Natter 0.3.6.
+
+**Beobachtet:** Die Lehrkraft legt eine Aufgabe mit „Projekt → Neues
+Projekt …“ gleich im Tauschordner an (für sie ein eigenes Projekt,
+Punkt 367). Eine Schülerin öffnet sie dort mit „Original öffnen“. Öffnet
+die Lehrkraft das Projekt danach an ihrem Rechner, kommt: „Das Projekt
+„02_Zahlenraten“ ist bereits am Rechner „PC-R12“ im Konto
+„mueller.anna“ geöffnet. … Eine eigene Kopie unter …\Dokumente\Natter
+entsteht, wenn das Projekt über „Projekt → Projekt öffnen …“ noch
+einmal geöffnet und „Eigene Kopie öffnen“ gewählt wird.“ Probe
+offscreen (Sperre eines fremden Kontos an einem anderen Rechner
+nachgestellt, Ordner mit `angelegt_merken` vermerkt): beim zweiten
+Öffnen über denselben Weg kommt wieder genau diese Meldung, eine Frage
+mit „Eigene Kopie öffnen“ erscheint nie, und das Projekt geht wieder im
+Tauschordner auf. Der Rat führt im Kreis.
+
+**Ursache:** nachgewiesen. `_ort_zum_oeffnen`
+(`ide/shell/hauptfenster.py:3983-3988`) gibt für ein Projekt im
+eigenen Ordner oder ein selbst angelegtes sofort „hier“ zurück, bevor
+die Sperre betrachtet wird; nur dann landet der Fall bei
+`_projekt_schon_offen_melden` (Zeilen 3609-3622), deren Text die
+Frage aus `_ort_zum_oeffnen` voraussetzt.
+
+**Zu tun:** Entweder bei einer fremden Sperre auch für solche Projekte
+die Frage mit „Eigene Kopie öffnen“ stellen, oder den Satz über den
+Weg zur Kopie in diesem Fall weglassen. Erledigt, wenn der Hinweis nur
+einen Weg nennt, der beim nächsten Öffnen tatsächlich zur Frage führt.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. In `_projekt_schon_offen_melden` landet mit der neuen Regel (Punkt 379) nur noch ein eigenes Projekt, das ein anderes Konto an einem anderen Rechner offen hat; für eine Aufgabe eines anderen Kontos kommt vorher die Frage mit „Eigene Kopie öffnen“. Der Satz über den Weg zur Kopie ist deshalb entfallen; stattdessen rät der Hinweis, erst zu speichern, wenn das Projekt dort geschlossen ist. Test: `test_sperrhinweis_bei_einem_eigenen_projekt_raet_zu_keiner_kopie` in `tests/test_schreibschutz_beim_oeffnen.py` öffnet ein eigenes Projekt mit fremder Sperre zweimal: keine Frage, und der Hinweis nennt weder eine Kopie noch `Dokumente\Natter`. Gegen den alten Stand scheitert er.
+
+
+---
+
+## 385. Eine Projektdatei ohne Leserecht meldet „[Errno 13] Permission denied“ ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Benutzbarkeitsprüfung (Runde 13,
+Bereiche 3, 5, 6, 7, 8), Commit `ecc7136`, Natter 0.3.6.
+
+**Beobachtet:** Probe offscreen: Kopie von `01_Begruessung` unter
+`Dokumente\Natter\Ampel`, dem eigenen Konto mit `icacls /deny …:(RD)`
+das Lesen der `.natter` verweigert, geöffnet über
+`projekt_oeffnen_gemeldet` (der Weg von „Projekt öffnen …“, „Zuletzt
+geöffnet“ und Doppelklick). Die Meldung „Projekt konnte nicht geöffnet
+werden“ lautet: „„01_Begruessung.natter“ lässt sich nicht öffnen:
+[Errno 13] Permission denied:
+'C:\\Users\\…\\Dokumente\\Natter\\Ampel\\01_Begruessung.natter'“. Der
+Grund ist englisch, der Pfad steht mit doppelten Backslashes da, und
+kein Satz sagt, was zu tun ist. Vorkommen: Aufgaben auf Freigaben mit
+eingeschränkten Rechten, eine Datei in einem Einsammelordner, der nur
+zum Abgeben gedacht ist. Für Kopien und die Ordner „Dokumente“ hat
+Punkt 320 den Windows-Text schon durch eine deutsche Meldung ersetzt,
+für beschädigte Projektdateien Punkt 280; der übrige `OSError` blieb.
+
+**Ursache:** nachgewiesen. `_oeffnen_fehler_melden`
+(`ide/shell/hauptfenster.py:3951-3956`) hängt im letzten Zweig
+`str(fehler)` an.
+
+**Zu tun:** Für `PermissionError` eine deutsche Meldung mit dem
+Hinweis auf fehlendes Leserecht oder ein anderes Programm, das die
+Datei hält; für übrige `OSError` ein deutscher Satz ohne den Text von
+Python. Erledigt, wenn die Probe oben keine englischen Wörter und
+keinen Windows-Fehlercode mehr zeigt.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `_oeffnen_fehler_melden` behandelt `PermissionError` eigens: die Meldung nennt Datei und Ordner und sagt, dass entweder das Leserecht fehlt oder ein anderes Programm die Datei offen hält und wer das Leserecht vergibt. Auch für übrige `OSError` steht dort jetzt ein deutscher Satz statt des Textes von Python. Test: `test_projektdatei_ohne_leserecht_meldet_den_grund_auf_deutsch` in `tests/test_schreibschutz_beim_oeffnen.py` (Leseverbot über ein `Projekt.laden`, das `PermissionError` wirft) findet weder „Errno“ noch „Permission“ noch doppelte Backslashes; gegen den alten Stand scheitert er.
+
+
+---
+
+## 386. Die Statuszeile nach dem Wechsel in die eigene Kopie ist bei 1280 Punkten Breite abgeschnitten, der Satz zu Rückgängig fehlt ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Benutzbarkeitsprüfung (Runde 13,
+Bereiche 3, 5, 6, 7, 8), Commit `ecc7136`, Natter 0.3.6.
+
+**Beobachtet:** Wird eine vorhandene eigene Kopie geöffnet, während im
+Original ungespeicherter Text steht, ersetzt Natter den Text der Kopie
+im Editor und sagt das nur in der Statuszeile: „Die eigene Kopie in
+C:\Users\mueller.anna\Documents\Natter\Aufgabe3 ist geöffnet, mit dem
+Stand vom letzten Mal. Die ungespeicherten Änderungen aus dem Original
+stehen im Editor und sind noch nicht gespeichert; Rückgängig stellt
+den Stand der Kopie wieder her.“ Probe offscreen, Hauptfenster
+1280 × 800, Segoe UI 9: der Text ist 1571 Punkte breit, die
+Statuszeile 1280. Sichtbar endet er bei „… und sind noch nicht
+gespeiche“; der entscheidende Halbsatz, wie die Arbeit der letzten
+Stunde zurückkommt, fehlt. Mit einem OneDrive-Pfad ist er noch
+länger. Die nächste Meldung, etwa beim Speichern, löscht ihn ganz.
+Wer dann speichert, überschreibt die Kopie mit dem Text aus dem
+Original, ohne je gelesen zu haben, dass es einen Rückweg gab.
+
+**Ursache:** nachgewiesen. `_in_kopie_wechseln`
+(`ide/shell/hauptfenster.py:4232-4251`) setzt den ganzen Satz über
+`statusBar().showMessage`; die Statuszeile bricht nicht um. Für den
+Grund einer Exe ohne Signatur wurde dasselbe Problem mit Punkt 351
+ins Panel „Meldungen“ verlegt.
+
+**Zu tun:** Den Hinweis auf den ersetzten Editortext dorthin, wo er
+ganz zu lesen ist und stehen bleibt (Panel „Meldungen“ oder ein
+Fenster), in der Statuszeile nur eine kurze Zeile. Erledigt, wenn bei
+1280 × 800 der Satz zu Rückgängig vollständig zu sehen ist.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `_in_kopie_wechseln` setzt nach dem Wechsel in eine vorhandene Kopie mit ungespeichertem Text aus dem Original eine kurze Zeile ohne Pfad, den Rückweg vorn: „Eigene Kopie geöffnet. Rückgängig holt ihren Stand vom letzten Mal zurück; der Text aus dem Original im Editor ist noch nicht gespeichert.“ Wo die Kopie liegt, nannte schon die Frage davor. Mit Segoe UI 9 ist die Zeile 728 Punkte breit. Test: `test_eine_vorhandene_kopie_behaelt_ihren_stand` in `tests/test_schreibschutz_beim_oeffnen.py` misst die Zeile und verlangt „Rückgängig“ und weniger als 1200 Punkte; gegen den alten Stand (1728 Punkte mit dem Pfad aus `tmp_path`) scheitert er.
+
+---
+
+## 387. Eine Aufgabe mit vielen Dateien öffnet langsam: Natter liest ihren Stand bis zu dreimal, jede Datei einzeln, und das Fenster steht ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Leistungsprüfung (Runde 14),
+Entwicklungsbaum auf Commit `5e47554`. Rechner: Notebook mit
+i7-13700H (14 Kerne), 32 GB, Windows 11, Python 3.13, Qt offscreen.
+Jede Messung dreimal in einem frischen Prozess. Als Netzlaufwerk
+diente `\\localhost\C$\…`; ein Server im Schulnetz antwortet
+langsamer.
+
+**Beobachtet:** Eine Aufgabe im Tauschordner, die einem anderen Konto
+gehört (die Antwort der Besitzerabfrage im Test auf „fremd“ gesetzt,
+die echte Abfrage lief trotzdem mit), über `projekt_oeffnen_gemeldet`
+geöffnet. Die Aufgabe hat einen Unterordner `daten` mit N kleinen
+Dateien.
+
+| Vorgang                                        | 20 Dateien | 500 Dateien  | 3.000 Dateien |
+|------------------------------------------------|------------|--------------|---------------|
+| Erstes Öffnen, Kopie wird angelegt             | 0,43 s     | 1,23–1,35 s  | 20,9–22,6 s   |
+| Öffnen, Kopie vorhanden                        | 0,10 s     | 0,61–0,69 s  | 17,7–20,9 s   |
+| Öffnen, Aufgabe geändert, Kopie behalten       | 0,10 s     | 2,9–3,7 s    | 26,5–28,0 s   |
+
+`_fingerabdruck` lief dabei beim ersten Öffnen einmal, mit
+vorhandener Kopie zweimal und bei geänderter Aufgabe dreimal. Bei
+500 Dateien kostete das zusammen 0,50–0,57 s bzw. 2,4–3,0 s, bei
+3.000 Dateien 15,2–18,3 s bzw. 24,1–25,4 s. Dieselbe Aufgabe mit
+3.000 Dateien lokal: vorhandene Kopie 3,8–4,1 s, davon Fingerabdruck
+1,6–1,9 s. Alles läuft im Hauptfaden; so lange nimmt das Fenster
+keine Eingabe an.
+
+Getrennt gemessen, über den Netzpfad: `_projekt_dateien` allein
+(Ordner durchlaufen) 15–18 ms bei 3.000 Dateien, Größe und Zeit aus
+den Verzeichniseinträgen (`os.scandir`, `DirEntry.stat()`) 13–20 ms,
+`_fingerabdruck` 1,42–1,47 s. Bei 500 Dateien 4 ms gegen 237–266 ms.
+
+Die neue Besitzerabfrage ist unauffällig: `gehoert_dem_konto` läuft je
+Öffnen genau einmal und braucht über den Netzpfad 0,25 ms (der erste
+Aufruf im Prozess 0,65–6,6 ms), `eigenes_projekt` 1,1 ms. Ein eigenes
+Projekt über den Netzpfad öffnet in 42–47 ms, beim ersten Mal im
+Prozess in 158–168 ms.
+
+**Ursache:** nachgewiesen. `_fingerabdruck`
+(`ide/shell/startbild.py`, Zeile 434) ruft für jede Datei
+`datei.stat()` auf (Zeile 442). Auf einer Freigabe ist das je Datei
+eine eigene Anfrage an den Server, obwohl Größe und Zeit schon in den
+Verzeichniseinträgen stehen, die `os.walk` in `_projekt_dateien` eben
+gelesen hat. Dazu kommt die Wiederholung: `_ort_zum_oeffnen` fragt
+`aufgabe_geaendert` (`ide/shell/hauptfenster.py`, Zeile 4082),
+`_kopie_holen` fragt noch einmal (Zeile 4232), und
+`aufgabe_stand_merken` (Zeile 4241, weiter über `_quelle_eintragen`
+in `startbild.py`, Zeile 503) bildet den Fingerabdruck ein drittes
+Mal, ohne dass sich die Aufgabe dazwischen geändert hätte.
+
+**Zu tun:** Den Fingerabdruck aus den Verzeichniseinträgen bilden,
+je Öffnen nur einmal, und den Wert an `_kopie_holen` und
+`aufgabe_stand_merken` weitergeben. Erledigt, wenn beim Öffnen einer
+Aufgabe mit vorhandener Kopie, auch bei geänderter Aufgabe,
+`_fingerabdruck` höchstens einmal läuft und mit 3.000 Dateien auf
+`\\localhost\C$\…` unter 0,1 s braucht (heute 1,4 s), belegt durch
+einen Test, der die Aufrufe zählt.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `_fingerabdruck` in `ide/shell/startbild.py` läuft jetzt selbst mit `os.scandir` durch die Aufgabe und nimmt Größe und Änderungszeit aus den Verzeichniseinträgen (`DirEntry.stat()`), statt jede Datei einzeln mit `stat()` abzufragen. Es sind dieselben Dateien wie in `_projekt_dateien`: `__pycache__`, `.pyc`, Sperr- und Quelldatei bleiben draußen, aus der Wurzel einer Freigabe zählt nur `diagramme`, und Verknüpfungen auf Ordner werden wie bei `os.walk` nicht betreten. Der Wert ist derselbe wie vorher, vorhandene Kopien halten ihre Aufgabe also nicht für geändert. Ist der Ordner der Aufgabe selbst nicht lesbar, folgt jetzt `OSError`, und `aufgabe_geaendert` meldet wie beschrieben „unverändert“; vorher ergab ein leerer Durchlauf einen anderen Fingerabdruck. Neu ist `neuer_aufgabenstand`, das den Fingerabdruck einer geänderten Aufgabe zurückgibt. `_ort_zum_oeffnen` bildet ihn einmal und reicht ihn über `_kopie_holen(…, stand=…)` an `aufgabe_stand_merken(…, stand)` weiter; `_kopie_holen` sieht nur noch selbst nach, wenn es ohne Antwort aufgerufen wird. Je Öffnen läuft der Fingerabdruck damit einmal statt zwei- (Kopie vorhanden) oder dreimal (Aufgabe geändert, Kopie behalten). Gemessen mit 3.000 Dateien in `daten`: `_fingerabdruck` auf `\\localhost\C$\…` 0,021 s statt 1,68 s, lokal 0,009 s statt 0,104 s; bei 500 Dateien über den Netzpfad 0,009 s. Test: `test_eine_geaenderte_aufgabe_wird_beim_oeffnen_einmal_durchgesehen` in `tests/test_aufgabe_verteilen.py` öffnet eine geänderte Aufgabe mit 300 Dateien und vorhandener Kopie, zählt die Aufrufe von `_fingerabdruck` (einer) und von `os.stat` auf Dateien der Aufgabe (keiner) und vergleicht den Wert mit dem alten Verfahren. Gegen den alten Stand scheitert er mit drei Aufrufen; mit nur weitergereichtem Wert, aber altem Rumpf, mit 300 Abfragen von `os.stat`.
+
+
+---
+
+## 388. „Als ZIP speichern“ hält Natter bei einem Projekt mit 100 MB Fotos 10 bis 15 Sekunden an, weil auch schon gepackte Bilder noch einmal gepackt werden ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Leistungsprüfung (Runde 14),
+Entwicklungsbaum auf Commit `5e47554`. Rechner wie in Punkt 387.
+
+**Beobachtet:** Projekt aus `03_Taschenrechner` mit einem Ordner
+`bilder` aus Dateien zu je 1 MB Zufallsdaten, die sich so wenig packen
+lassen wie JPEG-Fotos. `projekt_als_zip` mit Ziel auf
+`\\localhost\C$\…`, je drei Durchgänge in drei Prozessen:
+
+| Projekt | erste Abgabe  | Abgabe über eine vorhandene ZIP |
+|---------|---------------|---------------------------------|
+| 10 MB   | 0,55–0,57 s   | 0,34–0,48 s                     |
+| 30 MB   | 1,45–1,49 s   | 1,19–4,57 s                     |
+| 100 MB  | 9,9–10,9 s    | 13,9–15,0 s                     |
+
+Lokal gespeichert sind es bei 100 MB 9,1–9,9 s und 13,4–14,0 s. Das
+Fenster steht die ganze Zeit, `_als_zip_aktion` ruft
+`projekt_als_zip` direkt auf.
+
+Die Sicherung der alten ZIP (Punkt 372) trägt dazu wenig bei:
+`shutil.copyfile` der alten 100-MB-ZIP in den Temp-Ordner dauerte
+0,21–0,27 s. Die längeren Zeiten der späteren Durchgänge kommen von
+der Drosselung des Notebooks. Im ersten Durchgang brauchte das Packen
+je MB 26–30 ms, nach rund 1,5 s Volllast 110–160 ms. Ungedrosselt
+steht das Fenster bei 100 MB also rund 3 s, auf einem Schulrechner
+mit vier langsameren Kernen länger.
+
+Getrennt gemessen, 100 Dateien zu 1 MB: mit `ZIP_DEFLATED` 7,7–13,5 s
+(gedrosselt), mit `ZIP_STORED` 1,15–1,37 s.
+
+**Ursache:** nachgewiesen. `projekt_als_zip`
+(`ide/shell/hauptfenster.py`, Zeile 6568) packt im Hauptfaden
+(Aufruf aus `_als_zip_aktion`, Zeile 6705) und mit `ZIP_DEFLATED`
+(Zeile 6621) jede Datei, auch JPEG, PNG, MP3 oder ZIP, die sich nicht
+weiter verkleinern lassen.
+
+**Zu tun:** Die ZIP im Nebenfaden bauen, wie Export und Testlauf
+(`_hintergrundarbeit`), und schon gepackte Formate unverändert
+ablegen (`ZIP_STORED`). Erledigt, wenn beim Speichern eines Projekts
+mit 100 MB Fotos über eine vorhandene ZIP eine 20-ms-Uhr im
+Hauptfaden nie länger als 1 s aussetzt, belegt durch einen Test.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. Das Schreiben der ZIP steht jetzt in der Funktion `zip_schreiben` in `ide/shell/hauptfenster.py`, die kein Widget anrührt. `_als_zip_aktion` speichert wie bisher zuerst im Faden der Oberfläche und lässt `zip_schreiben` dann über `_hintergrund_starten` (`Hintergrundarbeit`, wie beim Exe-Export) nebenher laufen; die Statuszeile zeigt „… wird gespeichert …“ und den Ladebalken, das Ergebnis meldet `_als_zip_fertig`. Fehler kommen als Ergebnis zurück, damit die Meldungen je Fehlerart (gesperrte Datei, vorige ZIP beschädigt, Ziel nicht beschreibbar) unverändert bleiben. Läuft schon ein anderer Vorgang, sagt die Statuszeile das. Schon gepackte Formate kommen mit `ZIP_STORED` in die ZIP, alles andere weiter mit `ZIP_DEFLATED`; die Liste `_SCHON_GEPACKT` umfasst JPG, JPEG, PNG, GIF, WEBP, MP3, OGG, MP4, ZIP, 7Z, GZ, PDF, DOCX, XLSX und PPTX, ohne Rücksicht auf Groß- und Kleinschreibung. `projekt_als_zip` bleibt für Aufrufe aus dem Code und läuft im Faden des Aufrufers. Name mit Anmeldename, Bau im Temp-Ordner, Schreiben ans Ziel ohne Umbenennen, Sicherung einer vorhandenen ZIP und das Weglassen versteckter Dateien (auch `.natter-quelle`) sind unverändert. Gemessen mit 100 Dateien zu 1 MB Zufallsdaten (`.jpg`) über eine vorhandene ZIP, lokal, Qt offscreen, je drei Durchgänge: vorher stand Natter 13,1 bis 13,3 s, und eine 20-ms-Uhr setzte ebenso lange aus. Nur mit `ZIP_STORED`, noch im Faden der Oberfläche, waren es 1,8 bis 2,1 s, also weiter deutlich über 1 s; deshalb zusätzlich der Nebenfaden. Nachher kehrt der Menübefehl nach unter 0,01 s zurück, die ZIP ist nach 2,0 bis 2,2 s fertig, und die Uhr setzt höchstens 0,02 s aus. Tests in `tests/test_explorer_dateien_und_zip.py`: `test_schon_gepackte_dateien_kommen_unveraendert_in_die_zip` prüft die Packart je Endung, `test_als_zip_speichern_haelt_natter_nicht_an` das Kriterium (100 MB Fotos über eine vorhandene ZIP, Uhr nie länger als 1 s angehalten, ZIP vollständig). Gegen den alten Stand scheitern beide, der zweite mit einer Pause von 13,4 s. Die Tests, die `_als_zip_aktion` aufrufen, warten jetzt mit `hintergrund_abwarten` auf das Ende.
+
+
+---
+
+## 389. „Kopie ersetzen“ und „Auf Original zurücksetzen“ halten Natter bei einer Aufgabe mit 3.000 Dateien 24 bis 54 Sekunden an ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Leistungsprüfung (Runde 14),
+Entwicklungsbaum auf Commit `5e47554`. Rechner wie in Punkt 387.
+
+**Beobachtet:** `aufgabe_zuruecksetzen` direkt aufgerufen; aus der
+Oberfläche läuft es genauso im Hauptfaden
+(`_kopie_zuruecksetzen`). Aufgabe mit Unterordner `daten` aus N
+Dateien zu 2 KB, in der Kopie 50 eigene Dateien dazu, je drei
+Rücksetzungen hintereinander in drei Prozessen. Jede legt einen
+Ordner „(vorher)“, „(vorher 2)“ … an; `vorher_ordner` selbst braucht
+0,2–2,8 ms.
+
+| Vorgang                              | 500 Dateien                          | 3.000 Dateien   |
+|--------------------------------------|--------------------------------------|-----------------|
+| Zurücksetzen, Aufgabe lokal          | 0,56–0,62 s                          | 23,7–27,3 s     |
+| Zurücksetzen, Aufgabe auf `\\localhost\C$\…` | 1,28–1,42 s beim ersten, 5,8–8,1 s beim zweiten und dritten Mal | 39,0–54,4 s |
+| Zum Vergleich: erste Kopie, lokal / Netzpfad | 0,23 s / 0,9–1,0 s           | 1,4 s / 19,4–21,4 s |
+
+Im Profil (3.000 Dateien, lokal, 30,6 s) entfallen 21,1 s auf
+`_verschieben`, davon 12,6 s auf 6.005 Aufrufe von `os.rename` und
+5,1 s auf 6.006 Aufrufe von `Path.mkdir`; das neue Kopieren der
+Aufgabe braucht 7,6 s, der Fingerabdruck 1,8 s. Getrennt gemessen,
+3.000 Dateien: `_verschieben` 7,5–9,0 s, dieselben Dateien einzeln
+umbenennen ohne `mkdir` 5,4–6,7 s, den Ordner `daten` als Ganzes
+umbenennen 8–10 ms. Je Umbenennung stieg die Zeit mit der Zahl der
+Dateien im Ordner, von 0,2 ms bei 500 auf rund 2 ms bei 3.000.
+
+**Ursache:** zum größten Teil nachgewiesen. `_inhalt_ersetzen`
+(`ide/shell/startbild.py`, Zeile 663) verschiebt erst den alten und
+dann den neuen Inhalt Datei für Datei (`_verschieben`, Zeile 633) und
+legt dabei für jede Datei ihren Zielordner an (Zeile 645), auch wenn
+er schon besteht. Dateiweise ist gewollt: Windows verweigert das
+Verschieben eines Ordners, in dem eine Datei offen ist (Punkt 362).
+Der Weg wird aber auch genommen, wenn nichts offen ist. Alles läuft
+im Hauptfaden (`_kopie_zuruecksetzen`, `ide/shell/hauptfenster.py`,
+Zeile 3798). Warum eine einzelne Umbenennung in einem großen Ordner
+teurer wird, ist nicht geklärt; vermutet wird der Virenscanner, der
+eben angelegte Dateien beim Umbenennen noch einmal prüft.
+
+**Zu tun:** Die Einträge der obersten Ebene, etwa den Ordner `daten`,
+zuerst als Ganzes umbenennen und nur bei einem Fehler Datei für Datei;
+jeden Zielordner nur einmal anlegen; den Vorgang aus dem Hauptfaden
+nehmen. Erledigt, wenn das Zurücksetzen einer lokalen Aufgabe mit
+3.000 Dateien unter 3 s bleibt und eine 20-ms-Uhr im Hauptfaden dabei
+nie länger als 1 s aussetzt, belegt durch einen Test.
+
+**Teilweise behoben (29. September 2026, ab 0.4.0), soweit es das Verschieben betrifft.** Ursache bestätigt. `_verschieben` in `ide/shell/startbild.py` benennt jetzt jeden Eintrag der obersten Ebene als Ganzes um, einen Ordner wie `daten` also mit einem einzigen `os.rename`, und legt den Zielordner einmal an. Nur wenn Windows das Umbenennen eines Ordners verweigert, geht es in genau diesem Ordner Eintrag für Eintrag weiter, und dort wieder zuerst mit ganzen Unterordnern. Das geschieht, wenn darin eine Datei offen ist; Windows nennt dann nur den Ordner, der Versuch mit der einzelnen Datei liefert die gesperrte Datei für `DateiGesperrt`. Rückweg und Meldungen aus den Punkten 362, 375 und 380 bleiben: scheitert eine Datei, kommen alle schon verschobenen Einträge zurück, ein dabei angelegter leerer Zielordner wird vorher entfernt, damit das Zurückschieben eines ganzen Ordners gleichen Namens nicht an ihm scheitert, und was nicht zurückkommt, bleibt im Zwischenordner (`RueckwegGescheitert`). Der bisherige Stand kommt weiter nach „(vorher)“. Die Sperrdatei direkt in der Kopie bleibt liegen wie bisher. Gemessen, 3.000 Dateien zu 2 KB in `daten`, 50 eigene Dateien dazu, je drei Rücksetzungen: `_verschieben` hin und zurück lokal 2–5 ms statt 1,8–15,9 s, über `\\localhost\C$\…` 10–20 ms statt über 250 s für drei Durchgänge (Zeitgrenze der Messung). `aufgabe_zuruecksetzen` gesamt lokal 6,5–9,8 s statt 24,3–25,7 s, über den Netzpfad 13,2–15,5 s statt 41,2–45,1 s, bei 500 Dateien über den Netzpfad 0,71–1,52 s. Die verbleibende Zeit ist das neue Kopieren der Aufgabe (`_projekt_kopieren`, im Profil 12.008 Aufrufe von `CopyFile2` mit 21,3 s für vier Kopien). Dasselbe Kopieren dreimal hintereinander allein gemessen dauerte 1,3 s, 4,2 s, 7,9 s und 8,2 s; auf diesem Rechner wird jede weitere Kopie langsamer, vermutlich durch Virenscanner und Drosselung. Das Kriterium „unter 3 s“ ist lokal damit nicht erreicht, und das Kopieren läuft weiter im Hauptfaden. `Hintergrundarbeit` wurde geprüft und ist dafür nicht einfach nutzbar: `_kopie_zuruecksetzen` liegt mitten im Ablauf von `projekt_oeffnen_gemeldet` und `_kopie_holen`, die das geöffnete Projekt zurückgeben; ein Nebenfaden hieße, diesen ganzen Ablauf auf Rückrufe umzubauen. Während des Austauschs sind die Reiter der Kopie geschlossen und ihr Ordner halb ersetzt; wer dabei weiterarbeitet, könnte in ihn speichern. Außerdem gibt es nur einen Platz für Hintergrundarbeit, den Export, Testlauf, Paketinstallation und künftig die ZIP (Punkt 388) belegen, und Fehler kommen dort nur als Text zurück, sodass `DateiGesperrt` und `RueckwegGescheitert` ihre eigenen Meldungen verlören. Das Kopieren ist dasselbe wie beim ersten „Eigene Kopie öffnen“, das ebenfalls im Hauptfaden läuft; aus dem Hauptfaden nehmen ließen sich beide nur zusammen. Test: `test_zuruecksetzen_verschiebt_einen_ordner_als_ganzes` in `tests/test_aufgabe_verteilen.py` setzt eine Kopie mit 300 Dateien in `daten` zurück, zählt die Aufrufe von `os.rename` (unter 20) und prüft neuen Inhalt und „Ampel (vorher)“. Gegen den alten Stand scheitert er mit 609 Aufrufen. Die Fälle mit gesperrter Datei in `daten` und gescheitertem Rückweg (`test_eine_gesperrte_datei_laesst_die_kopie_unveraendert`, `test_scheitert_der_rueckweg_bleiben_die_alten_dateien_erhalten`) laufen unverändert durch.
+
+---
+
+## 391. Eine Aufgabe aus einer ZIP wird unter „Downloads“ oder im Temp-Ordner bearbeitet, wo ein zurückgesetztes Profil sie löscht ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Betriebsprüfung (Runde 15,
+Bereiche 2, 6, 7 und 8), Commit `9b1ce1e`, Entwicklungsbaum.
+
+**Beobachtet:** Viele Schulen verteilen Aufgaben als ZIP über LernSax,
+Moodle oder eine Mail. Die Schülerin lädt `Ampel.zip` herunter und
+hat zwei naheliegende Wege:
+
+1. Entpacken, wie Windows es vorschlägt, neben der ZIP unter
+   „Downloads“, dann die `.natter` doppelklicken. Der entpackte
+   Ordner gehört ihr, also gilt er seit Punkt 379 als eigenes
+   Projekt und geht ohne Frage an Ort und Stelle auf. Probe:
+   ein Projektordner außerhalb von „Dokumente“ und Desktop, vom
+   eigenen Konto angelegt, liefert `gehoert_dem_konto = True`,
+   `im_eigenen_ordner = False`, `eigenes_projekt = True`.
+2. Die ZIP im Explorer öffnen und die `.natter` darin
+   doppelklicken. Windows legt die Datei dazu in einem
+   Zwischenordner `%TEMP%\Temp1_Ampel.zip\…` ab (am echten Explorer
+   nicht nachgestellt). Probe offscreen: nur die `.natter` in
+   `…\Temp1_Ampel.zip\Ampel\`, geöffnet über
+   `projekt_oeffnen_gemeldet`. Keine Frage, keine Meldung, die
+   Statuszeile sagt „Projekt 01_Begruessung geöffnet“, obwohl
+   `main.py` und `u_main.py` fehlen; Natter legt dort seine
+   Sperrdatei an und würde auch dort speichern.
+
+In beiden Fällen liegt die Arbeit im lokalen Profil außerhalb von
+„Dokumente“. Auf Rechnern mit Wächterkarte oder zurückgesetztem
+Profil ist „Dokumente“ meist auf den Server umgeleitet, „Downloads“
+und `%TEMP%` nicht: nach der Stunde ist die Arbeit weg, und „Zuletzt
+geöffnet“ zeigt beim nächsten Mal ins Leere. Den Temp-Ordner räumt
+Windows auch ohne Zurücksetzen auf. Bis 0.3.6 bot Natter für beide
+Orte die Kopie nach `Dokumente\Natter` an; die Regel nach dem
+Besitzer hat diesen Schutz für Ordner des eigenen Kontos
+weggenommen. Handbuch 3.6 beschreibt den Weg über eine ZIP nicht.
+
+**Ursache:** nachgewiesen. `eigenes_projekt`
+(`ide/pfade.py:206`) gibt für jeden Ordner des eigenen Kontos `True`
+zurück, gleich wo er liegt; `_ort_zum_oeffnen`
+(`ide/shell/hauptfenster.py:4172-4176`) öffnet ihn dann an seinem
+Ort. Temp- und Download-Ordner werden nirgends gesondert behandelt,
+und ob die Dateien des Projekts vorhanden sind, prüft beim Öffnen
+niemand.
+
+**Zu tun:** Ein Projekt unter `%TEMP%` (insbesondere
+`Temp*_*.zip`) nie an Ort und Stelle öffnen, sondern mit einem
+Hinweis, dass es aus einer ZIP stammt, die Kopie nach
+`Dokumente\Natter` anbieten. Für „Downloads“
+(`FOLDERID_Downloads`) dasselbe oder zumindest die Frage mit
+„Eigene Kopie öffnen“. Handbuch 3.6 um den Weg „Aufgabe als ZIP“
+ergänzen. Erledigt, wenn die beiden Proben oben die Frage nach der
+Kopie zeigen und die Kopie unter `Dokumente\Natter` liegt.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `ide/pfade.py` kennt jetzt den Download-Ordner (`downloads_ordner`, über `FOLDERID_Downloads` wie `desktop_ordner`) und den Temp-Ordner (`temp_ordner`, `tempfile.gettempdir()`); `fluechtiger_ort` sagt, ob ein Pfad in einem der beiden liegt. `eigenes_projekt` gibt für diese beiden Orte nicht mehr allein wegen des Besitzers `True` zurück. „Dokumente“, Desktop und Wechseldatenträger bleiben wie bisher immer eigene Orte, und an der Besitzerregel sonst ändert sich nichts (Punkte 390, 392, 393 bleiben zurückgestellt). `_ort_zum_oeffnen` in `ide/shell/hauptfenster.py` bietet dort die Kopie nach `Dokumente\Natter` an, mit eigenem Titel („Projekt aus einer ZIP-Datei“ bzw. „Projekt im Download-Ordner“), dem Grund im Text (wird beim Abmelden geleert, Temp-Ordner räumt Windows auf) und dem zweiten Knopf „Hier öffnen“. Fehlen an einem der beiden Orte Startdatei oder Haupt-Unit (`_fehlende_dateien`), geht das Projekt nicht auf, und die Meldung „ZIP-Datei nicht entpackt“ nennt die fehlenden Dateien und verweist auf „Alle extrahieren …“; es entsteht keine Sperrdatei. `tests/conftest.py` leitet beide Ordner je Test in das Heimverzeichnis des Tests um, weil `tmp_path` unter dem echten `%TEMP%` liegt. Handbuch 3.6 beschreibt den Weg über eine ZIP-Datei. Test: `test_ein_projekt_im_temp_oder_download_ordner_wird_kopiert` in `tests/test_aufgabe_verteilen.py`, je einmal für `Temp1_Ampel.zip` unter dem Temp-Ordner und für „Downloads“, beide Ordner per Monkeypatch; geprüft werden Frage, Kopie unter `Dokumente\Natter` und die Meldung für eine allein herausgeholte `.natter`. Gegen den alten Stand scheitern beide Fälle (keine Frage).
+
+
+---
+
+## 394. Wird Natter während „Als ZIP speichern“ geschlossen, erfährt niemand, ob die Abgabe entstanden ist ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Betriebsprüfung (Runde 15,
+Bereiche 2, 6, 7 und 8), Commit `9b1ce1e`, Entwicklungsbaum.
+
+**Beobachtet:** Seit Punkt 388 entsteht die Abgabe-ZIP nebenher.
+Am Stundenende speichert eine Schülerin in den Einsammelordner und
+schließt Natter gleich danach, oder der Rechner wird abgemeldet.
+Probe offscreen: Projekt mit einer Datei `aa_film.mp4` (400 MB) und
+`zz_daten.csv`, die ein anderes Programm ohne Mitlesen offen hält
+(wie Excel, Punkt 343). „Als ZIP speichern …“ in einen leeren
+Einsammelordner, sofort danach Schließen. Das Fenster verschwindet,
+Natter wartet 1,3 s auf den Faden, dann ist es beendet. Es erscheint
+keine Meldung, und der Einsammelordner ist leer. Ohne Schließen käme
+das Fenster „Keine ZIP gespeichert“ aus Punkt 343. Auch bei Erfolg
+sagt nichts, dass die Abgabe fertig ist. Beim Abmelden kann Windows
+Natter während des Wartens beenden; was dann am Ziel liegt, hängt vom
+Zeitpunkt ab (nicht nachgestellt).
+
+**Ursache:** nachgewiesen. `closeEvent` und
+`_beim_beenden_aufraeumen` rufen `_hintergrund_abbrechen`
+(`ide/shell/hauptfenster.py:5731`). Dort werden alle Signale gelöst
+(Zeilen 2693-2700), das Fenster versteckt (2702) und auf den Faden
+gewartet; `_als_zip_fertig` (6793) läuft damit nie. Vor dem Schließen
+fragt Natter bei laufender ZIP nicht nach.
+
+**Zu tun:** Beim Schließen während einer laufenden ZIP fragen oder
+das Schließen aufschieben, bis sie fertig ist, und das Ergebnis
+zeigen; mindestens eine gescheiterte Abgabe muss vor dem Ende noch
+gemeldet werden. Erledigt, wenn die Probe oben das Fenster „Keine ZIP
+gespeichert“ zeigt oder das Schließen bis zum Ende der ZIP aufhält.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. Beim Schließen wartet Natter jetzt auf eine laufende Abgabe-ZIP, bevor `_hintergrund_abbrechen` die Signale löst. `_als_zip_aktion` merkt sich den Lauf samt einem `threading.Event` in `_zip_lauf`; die neue Methode `_zip_abwarten` in `ide/shell/hauptfenster.py` steht am Anfang von `_beim_beenden_aufraeumen` und greift damit beim Schließen des Fensters wie beim Ende der Windows-Sitzung. Sie lässt das Fenster offen, schreibt „Natter schließt, sobald die ZIP gespeichert ist …“ in die Statuszeile und stellt nur Signale und Uhren zu, keine Eingaben (`ExcludeUserInputEvents`), bis der Faden fertig ist; danach läuft `_als_zip_fertig` wie ohne Schließen, und eine gescheiterte Abgabe zeigt das Fenster „Keine ZIP gespeichert“ aus Punkt 343. Eine gelungene meldet beim Schließen zusätzlich das Fenster „ZIP gespeichert“ mit Ziel und Dateizahl, weil die Statuszeile mit dem Fenster verschwindet. Nach `_ZIP_GEDULD` (60 Sekunden) wird das Event gesetzt; der Melder, den `packen` an `zip_schreiben` gibt, wirft dann nach der laufenden Datei die neue Ausnahme `ZipAbgebrochen`. In dieser Phase ist am Ziel noch nichts angelegt, und die Zwischendatei im Temp-Ordner räumt `zip_schreiben` weg; die Meldung sagt, dass die ZIP nicht fertig wurde und keine angelegt ist. Das Kopieren ans Ziel wird nicht unterbrochen, damit dort nie eine halbe ZIP entsteht (Punkte 363 und 372); es ist der kürzere Teil. Ein zweiter Klick auf Schließen während des Wartens wird übergangen. Gefragt wird nicht: am Stundenende ist Warten mit Ergebnis die einfachere Antwort als ein Dialog mit Wahl. Handbuch 3.6 beschreibt das Verhalten. Test: `test_beim_schliessen_waehrend_der_zip_kommt_das_ergebnis` in `tests/test_explorer_dateien_und_zip.py`, parametrisiert mit gelungener ZIP, gesperrter CSV und gerissener Zeitgrenze (auf 0,2 s gesetzt); die ZIP wird künstlich verlangsamt und das Fenster sofort geschlossen. Gegen den alten Stand scheitern alle drei Fälle, weil keine Meldung kommt. Die Probe aus dem Befund (400 MB `aa_film.mp4`, `zz_daten.csv` ohne Freigabe geöffnet, offscreen, Schließen direkt nach dem Start) zeigt jetzt nach 0,9 s „Keine ZIP gespeichert“ mit der CSV, und der Einsammelordner bleibt leer; ohne Sperre hält das Schließen 1,2 s auf und meldet „ZIP gespeichert“. Nicht nachgestellt: ob Windows beim Abmelden Natter während des Wartens beendet.
+
+
+---
+
+## 395. Eine gescheiterte Kopie bleibt halb liegen: bei Aufgaben entsteht je Versuch ein weiterer Ordner, bei Beispielen wird die halbe Kopie weiterbenutzt ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Betriebsprüfung (Runde 15,
+Bereiche 2, 6, 7 und 8), Commit `9b1ce1e`, Entwicklungsbaum.
+
+**Beobachtet:** Kopien von Aufgaben und Beispielen entstehen unter
+`Dokumente\Natter`, an Schulen oft auf einem Heimatlaufwerk mit
+Kontingent. Scheitert das Kopieren mittendrin (Kontingent voll,
+Server kurz weg, eine Datei der Aufgabe gesperrt), bleibt der
+angefangene Ordner stehen.
+
+Probe 1: Aufgabe `Tausch\Ampel` mit `zz_daten.csv`, die ein anderes
+Programm ohne Mitlesen offen hält. `aufgabe_kopieren` dreimal, dann
+nach Freigabe ein viertes Mal. Ergebnis: `Ampel`, `Ampel 2` und
+`Ampel 3` mit `.natter`, `main.py` und `u_main.py`, aber ohne
+`zz_daten.csv` und ohne `.natter-quelle`; die vollständige Kopie
+heißt `Ampel 4`. Die drei halben Ordner sehen wie eigene Projekte
+aus und gehen ohne Frage auf, ihr Programm scheitert an der fehlenden
+Datei. Bei vollem Kontingent füllt jeder Versuch es weiter.
+
+Probe 2: `beispiel_kopieren` für `01_Begruessung`, Kopieren von
+`u_main.py` scheitert mit „kein Speicherplatz“ (nachgestellt).
+Nach dem Freigeben von Platz liefert der zweite Aufruf ohne Fehler
+die vorhandene Kopie mit nur `01_Begruessung.natter` und `main.py`.
+Die Schülerin bekommt das Beispiel ab jetzt immer ohne Unit; nur
+„Auf Original zurücksetzen …“ hilft, und darauf deutet nichts hin.
+
+**Ursache:** nachgewiesen. `_projekt_kopieren`
+(`ide/shell/startbild.py:209-236`) kopiert direkt in den Zielordner
+und räumt bei einem Fehler nicht auf. `aufgabe_kopieren` schreibt
+`.natter-quelle` erst danach (Zeile 636), die Kopie wird deshalb
+nicht wiedererkannt; `beispiel_kopieren` nimmt jeden Ordner mit der
+Projektdatei als fertige Kopie (Zeile 403).
+
+**Zu tun:** In einen Zwischenordner neben dem Ziel kopieren und erst
+vollständig umbenennen, bei einem Fehler den Zwischenordner löschen.
+Erledigt, wenn beide Proben nach dem Fehler keinen Ordner
+hinterlassen und der nächste Versuch eine vollständige Kopie unter
+dem ursprünglichen Namen anlegt.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `_projekt_anlegen` in `ide/shell/startbild.py` kopiert in einen Zwischenordner `.natter-neu-… <Name>` neben dem Ziel, trägt bei einer Aufgabe dort auch die `.natter-quelle` ein und benennt ihn erst danach in einem Schritt um. Scheitert etwas, wird der Zwischenordner entfernt und der Fehler weitergegeben. `aufgabe_kopieren` und `beispiel_kopieren` legen neue Kopien nur noch so an. Der Zwischenordner entsteht nicht über `tempfile.mkdtemp`, weil dessen Rechte nur für das eigene Konto mit der Umbenennung auf die Kopie übergingen. `_projekt_kopieren` merkt sich, welche Datei Windows mit Fehler 32 oder 33 abgelehnt hat, und wirft dann `DateiGesperrt` mit ihr; `_kopie_nicht_angelegt_melden` nennt die Datei in diesem Fall und sagt, dass keine Kopie entstanden ist. Eine schon vorhandene halbe Beispielkopie (Projektdatei oder eine Python-Datei des Beispiels fehlt oder ist leer, und jede Datei darin kommt auch im Beispiel vor) erkennt `_halbe_beispielkopie`; `_halbe_kopie_ersetzen` legt sie über `_inhalt_ersetzen` neu an und hebt den alten Stand nur dann in „… (vorher)“ auf, wenn eine Datei vom Beispiel abweicht. Handbuch 3.6 ergänzt. Tests in `tests/test_kopie_einer_aufgabe.py`: `test_eine_gescheiterte_kopie_hinterlaesst_keinen_ordner` (Aufgabe mit einer über `_winapi.CreateFile` ohne Freigabe gesperrten `zz_daten.csv`, zweimal versucht; Beispiel mit nachgestelltem vollem Laufwerk beim Kopieren von `u_main.py`): danach ist `Natter` leer, der nächste Versuch legt `Ampel` vollständig an. `test_eine_halbe_beispielkopie_wird_vervollstaendigt`, unverändert und bearbeitet. Dazu in `tests/test_aufgabe_verteilen.py` `test_eine_gesperrte_datei_der_aufgabe_wird_beim_kopieren_genannt` für die Meldung im Hauptfenster. Gegen den alten Stand scheitern alle vier Fälle und der Fenstertest.
+
+
+---
+
+## 396. Mit einem gemeinsamen Schülerkonto heißen alle Abgaben gleich ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Betriebsprüfung (Runde 15,
+Bereiche 2, 6, 7 und 8), Commit `9b1ce1e`, Entwicklungsbaum.
+
+**Beobachtet:** Kleinere Schulen und Räume mit Wächterkarte arbeiten
+oft mit einem Konto für alle, etwa „schueler“ oder „Klasse8b“. Punkt
+323 macht die Abgaben mit dem Windows-Anmeldenamen unterscheidbar;
+mit einem gemeinsamen Konto schlägt Natter an allen dreißig Rechnern
+denselben Namen vor, etwa `Ampel - schueler.zip`. Im gemeinsamen
+Einsammelordner fragt der Dateidialog dann, ob die vorhandene Datei
+ersetzt werden soll; mit „Ja“ ersetzt jede Abgabe die vorige. In
+einem Ordner nur zum Anlegen (Punkt 363) scheitert die zweite Abgabe,
+und die Meldung nennt als Gründe fehlendes Schreibrecht, einen
+abgezogenen USB-Stick oder eine geöffnete ältere ZIP, nicht den
+gleichen Namen. Handbuch 3.6 nennt den Anmeldenamen als
+unterscheidendes Merkmal, ohne diese Grenze.
+
+**Ursache:** nachgewiesen. `abgabe_name`
+(`ide/shell/hauptfenster.py:500-520`) nimmt allein
+`getpass.getuser()` (Zeile 516).
+
+**Zu tun:** Bei einem Namen, der am Ziel schon existiert, nicht still
+den gleichen vorschlagen: etwa den Rechnernamen (`COMPUTERNAME`)
+anhängen oder vor dem Speichern nach dem Namen der Schülerin fragen.
+Im Handbuch die Grenze nennen. Erledigt, wenn zwei Abgaben aus
+demselben Konto an zwei Rechnern im selben Ordner nebeneinander
+liegen.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `abgabe_name` in `ide/shell/hauptfenster.py` hängt an den Anmeldenamen immer den Rechnernamen an (`sperre.rechnername()`, also `COMPUTERNAME`): `Aufgabe3 - mueller.anna - PC-R12`. Der Ordner in der ZIP heißt weiter genauso. Erwogen wurde, den Rechner nur bei Konten von einer Liste üblicher Sammelnamen wie „schueler“, „student“ oder „gast“ anzuhängen. Das hätte den Normalfall kürzer gehalten, aber ein gemeinsames Konto lässt sich nicht erkennen, und schon das Beispiel aus dem Befund, „Klasse8b“, stünde auf keiner solchen Liste. Eine Frage nach dem Namen vor jedem Speichern wäre ein zusätzlicher Dialog in jeder Abgabe. Der Rechnername macht den Namen um ein Wort länger, bleibt aber lesbar und verhindert gleichnamige Abgaben ohne jede Sonderregel. Dass eine zweite Abgabe an einem anderen Rechner die erste nicht mehr ersetzt, sondern daneben liegt, nennt Handbuch 3.6; dort steht auch, dass ein gemeinsames Konto nur den Platz verrät und der Name der Schülerin sich im Dialog ergänzen lässt. Test: `test_ein_gemeinsames_konto_gibt_an_zwei_rechnern_nebeneinander_ab` in `tests/test_explorer_dateien_und_zip.py` schreibt mit dem Konto „schueler“ von „PC-R01“ und „PC-R02“ in denselben Ordner und findet zwei ZIPs; gegen den alten Stand liegt dort nur `Wetter - schueler.zip`. Die übrigen Tests der Datei setzen `COMPUTERNAME` in der Fixture `anmeldename` und erwarten `Wetter - mueller.anna - PC-R12`.
+
+
+---
+
+## 397. Nach dem Zurücksetzen einer Kopie haben deren Dateien Rechte nur für das eigene Konto ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, beim Beheben von Punkt 395 (Runde 15 von `/freigabe`).
+
+**Beobachtet:** `_inhalt_ersetzen` in `ide/shell/startbild.py` legt seinen Zwischenordner mit `tempfile.mkdtemp` an. Unter Python 3.13 bekommt ein solcher Ordner unter Windows eine Zugriffsliste nur für das eigene Konto (Modus 0o700). Die neuen Dateien entstehen darin und werden danach in die Kopie verschoben; beim Verschieben auf demselben Laufwerk behalten sie ihre Rechte. Nach „Auf Original zurücksetzen“ oder „Kopie ersetzen“ kann dann etwa die Lehrkraft die Kopie nicht mehr lesen.
+
+**Ursache:** `tempfile.mkdtemp` statt eines selbst angelegten Ordners, wie ihn `_projekt_anlegen` seit Punkt 395 verwendet.
+
+**Zu tun:** Den Zwischenordner selbst anlegen. Erledigt, wenn ein Test das Zurücksetzen ohne `tempfile.mkdtemp` durchspielt.
+
+**Behoben (29. September 2026, ab 0.4.0).** `_inhalt_ersetzen` legt seinen Zwischenordner `.natter-neu-<hex>` neben der Kopie selbst mit `mkdir` an statt mit `tempfile.mkdtemp`; die Dateien erben damit die gewöhnlichen Rechte des Ordners, wie bei `_projekt_anlegen` aus Punkt 395. Test: `test_zuruecksetzen_legt_keinen_ordner_nur_fuer_das_eigene_konto_an` in `tests/test_kopie_einer_aufgabe.py`; gegen den alten Stand scheitert er, weil `mkdtemp` aufgerufen wird. Die Rechte selbst sind nicht an einer echten Zugriffsliste geprüft.
+
+---
+
+## 344. Beim Abmelden fragt Natter, sichert aber vorher nichts; wer bei Windows „Trotzdem abmelden“ wählt, verliert den Text im Editor ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Benutzbarkeitsprüfung (Runde 8,
+Bereiche 1, 2 und 4), Commit `c16494b`.
+
+**Beobachtet:** Punkt 338 lässt Natter beim Abmelden dieselbe Frage
+stellen wie beim Schließen. Ohne Rückfrage gespeichert wird nur, wenn
+Qt keine Rückfrage erlaubt. Unter Windows erlaubt Qt sie immer: Probe
+mit einem Qt-Fenster unter der Windows-Plattform, an das
+`WM_QUERYENDSESSION` mit `ENDSESSION_LOGOFF` geschickt wird;
+`commitDataRequest` kommt mit `allowsInteraction() == True`. Natter
+zeigt also in jedem Fall die modale Frage und wartet.
+
+Eingeschätzt, nicht offscreen nachstellbar: Windows zeigt nach wenigen
+Sekunden seine Vollbildseite „Diese App verhindert das Abmelden“ mit
+dem Knopf „Trotzdem abmelden“. Am Stundenende, beim Klingeln, ist das
+der Knopf, den eine Schülerin drückt. Windows beendet Natter dann, und
+weil vor der Frage nichts gesichert wurde, ist der ungespeicherte Text
+weg, wie vor Punkt 338. Dasselbe gilt, wenn die Lehrkraft die
+Rechner zentral mit Zwang herunterfährt.
+
+**Ursache:** nachgewiesen für den Codepfad. `ide/shell/
+hauptfenster.py:4772` bis 4779: im Zweig mit Rückfrage wird nur
+gefragt; `_ohne_rueckfrage_speichern` (Zeile 4780) läuft nur im Zweig
+ohne Rückfrage. Eine Sicherung, die beim nächsten Start angeboten
+würde, gibt es nicht (weder im Editor noch beim Sitzungsende).
+
+**Zu tun:** Vor der Frage den Stand jedes geänderten Editors und
+Diagramms als Sicherung ablegen (etwa neben dem Projekt oder unter
+`%LOCALAPPDATA%\Natter`) und sie beim nächsten Öffnen des Projekts
+anbieten; nach „Speichern“ oder „Verwerfen“ die Sicherung entfernen.
+Erledigt, wenn ein Test `commitDataRequest` mit geändertem Editor
+auslöst, die Frage unbeantwortet lässt und beim nächsten Öffnen des
+Projekts den Text wieder angeboten bekommt.
+
+**Zurückgestellt:** 29. September 2026, weil der verbleibende Teil eine Entscheidung des Nutzers braucht: eine eigene Sicherungsablage für ungespeicherte Editoren, die beim nächsten Öffnen angeboten wird. Das widerspricht ohne ausdrückliche Zustimmung dem Grundsatz, lieber Funktionsumfang wegzulassen als Infrastruktur dazuzubauen. Stand bis dahin: **Teilweise behoben (29. September 2026, ab 0.4.0).** Umgesetzt ist die kleine Lösung: Solange die Frage beim Abmelden offen ist, nennt Natter Windows über `ShutdownBlockReasonCreate` den Grund „Ungespeicherte Änderungen in Natter. Ohne Speichern gehen sie beim Abmelden verloren.“ und nimmt ihn nach der Antwort mit `ShutdownBlockReasonDestroy` wieder heraus (`ide/shell/abmeldegrund.py`, aufgerufen in `_sitzungsende_klaeren`). Windows zeigt ihn auf seiner Seite mit dem Knopf „Trotzdem abmelden“; außerhalb von Windows und unter `offscreen` geschieht nichts. Nicht umgesetzt ist die Sicherung jedes geänderten Editors vor der Frage, die beim nächsten Öffnen angeboten würde: das wäre eine eigene Ablage mit Regeln zum Anbieten und Aufräumen, und die Entscheidung darüber steht aus (Einfachheit vor Vollständigkeit). Test: `test_windows_nennt_beim_abmelden_den_grund` in `tests/test_sitzungsende.py` ersetzt `user32` durch eine Attrappe und prüft die Reihenfolge Grund gesetzt, gefragt, Grund entfernt; gegen den alten Stand scheitert er, weil kein Grund gesetzt wird.
+
+**Entscheidung (29. September 2026):** Der Nutzer will eine Sicherung je Projekt in einer eigenen Datei mit eigener Endung. Erledigt, wenn ungespeicherte Editoren eines Projekts beim Abmelden (vor der Frage) und in regelmäßigen Abständen in diese Datei gesichert werden, Natter sie beim nächsten Öffnen des Projekts anbietet und sie nach dem Speichern oder Verwerfen wieder verschwindet.
+
+**Behoben (29. September 2026, ab 0.4.0).** Umgesetzt nach der Entscheidung des Nutzers: eine Sicherung je Projekt in einer eigenen Datei mit eigener Endung. Die kleine Lösung von vorher bleibt bestehen: solange die Frage beim Abmelden offen ist, nennt Natter Windows über `ShutdownBlockReasonCreate` den Grund (`ide/shell/abmeldegrund.py`). Neu ist die Datei `<Projektname>.natter-sicherung` im Projektordner, JSON im Format `natter-sicherung/1` mit Schema `schemas/natter-sicherung.schema.json`: Zeitpunkt der Sicherung und je ungespeichertem Editor oder geändertem Diagramm der Pfad relativ zum Projektordner, der Inhalt und der Stand der Datei auf der Platte (Änderungszeit in ns und Größe), auf dem der Inhalt beruht. Lesen, Schreiben und Prüfen stehen in `ide/project/sicherung.py`; geschrieben wird atomar. `HauptFenster._sitzungsende_klaeren` schreibt die Sicherung vor der Frage, eine Uhr (`_SICHERUNG_TAKT_MS`, zwei Minuten) schreibt sie, solange im Projekt etwas ungespeichert ist, und unveränderter Inhalt wird nicht neu geschrieben. Ein Schreibfehler zeigt nur einen Hinweis in der Statuszeile, beim Abmelden nichts. Entfernt wird sie nach „Speichern“ oder „Verwerfen“ in der Frage beim Abmelden, beim Schließen des Fensters oder beim Schließen und Wechseln des Projekts, und sobald nach dem Speichern, dem Schließen eines Reiters oder Strg+Z bis zum Stand der Datei nichts mehr ungespeichert ist; die Uhr räumt auch nach dem Speichern im Diagrammfenster auf. Entfernt wird nur eine Sicherung, die das Fenster selbst geschrieben oder übernommen hat. Beim Öffnen des Projekts fragt Natter mit „Wiederherstellen“ (vorgewählt, auch für Escape) und „Verwerfen“ und nennt Dateien und Uhrzeit, bei einer seither auf der Platte geänderten Datei mit dem Zusatz „seit der Sicherung auf der Platte geändert“. Wiederherstellen setzt den Text als ein Bearbeitungsschritt in den Editor, ohne die Datei zu schreiben: Strg+Z holt den Stand der Datei zurück, und der Stand aus der Sicherung wird zum Stand des Editors, sodass „Speichern“ bei einer seither geänderten Datei vorher fragt (Punkt 286). Ein Diagramm öffnet sich mit dem gesicherten Inhalt als geändert (`Diagramm.aus_daten`, neuer Parameter `diagramm` in `diagramm_oeffnen`). Nicht angeboten wird eine Sicherung, wenn das Projekt in einem laufenden anderen Natter offen ist oder das Original eines Beispiels ist; Dateien, deren gesicherter Inhalt ohnehin auf der Platte steht oder die inzwischen fehlen, bleiben aus der Frage. Eine unlesbare oder nicht zum Schema passende Sicherung, auch eine mit `..` im Pfad, führt zu einem Hinweis und bleibt liegen. Die Datei fehlt im Projekt-Explorer (`Projekt.weitere_dateien`), in der Abgabe-ZIP (`zip_schreiben`), im Exe-Export (`_KEINE_DATEN`) und in Kopien von Aufgaben und Beispielen (`_NICHT_MITKOPIEREN`). Handbuch Abschnitt 2 und 6 und `docs/bericht.md` (Liste der Dateiformate) nennen sie. Tests: `tests/test_sicherung.py` (17 Fälle): Sicherung liegt vor, während die Frage beim Abmelden offen ist, und verschwindet nach „Speichern“ und „Verwerfen“; das Kriterium des Punkts, `commitDataRequest` mit geändertem Editor, Frage unbeantwortet, beim nächsten Öffnen kommt der Text als ungespeicherte Änderung zurück und Strg+Z führt zum Stand der Datei; Verwerfen beim Öffnen; seither geänderte Datei; Uhr und Aufräumen nach Speichern und nach Schließen des Projekts; Diagramm; vorgewählter Knopf; drei kaputte Sicherungen; Ausschluss aus Explorer, ZIP, Export und Kopie; Schema. `tests/test_schemas.py` prüft das neue Schema mit. Gegen den alten Stand (Commit `b3cbb14` mit dem neuen Modul, aber ohne die Änderungen am Hauptfenster und an den Ausschlusslisten) scheitern alle Fälle außer dem reinen Schema-Test: während der Frage liegt keine Sicherung vor, beim Öffnen wird nichts angeboten, und die Datei steht im Projekt-Explorer.
+
+
+---
+
+## 390. Nach einem Umzug des Heimatlaufwerks gilt jedes eigene Projekt darauf als fremde Aufgabe ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Betriebsprüfung (Runde 15,
+Bereiche 1, 3, 4, 5 und 9), Commit `9b1ce1e`, Natter 0.3.6
+(Entwicklungsstand).
+
+**Beobachtet:** Seit den Punkten 379 bis 386 entscheidet der
+Besitzer des Projektordners, ob ein Projekt als eigenes gilt. Außerhalb
+von „Dokumente“, Desktop und USB-Stick, also etwa unter
+`H:\Informatik\Ampel` auf einem Heimatlaufwerk, dessen „Dokumente“
+nach `H:\Dokumente` umgeleitet ist, zählt nur noch der Eintrag, den
+Windows als Besitzer führt. Dieser Eintrag ändert sich aber ohne
+Zutun der Schülerin, wenn die Schul-IT Daten bewegt:
+
+- Ein Umzug der Heimatlaufwerke auf einen neuen Server mit
+  `robocopy` kopiert den Besitzer nicht mit. `robocopy /?` auf diesem
+  Rechner: „/COPY:copyflags … (der Standard ist "/COPY:DAT")“, mit
+  „O=Besitzerinformationen“ als eigener Angabe, die im Standard fehlt;
+  für Ordner gilt „/DCOPY:DA“. Neuer Besitzer jedes Ordners ist das
+  Konto, das kopiert hat, meist ein Verwaltungskonto.
+- Dasselbe gilt für ein Zurückspielen aus einer Sicherung ohne
+  Rechte, für ein Kopieren im Explorer durch die Systembetreuung und
+  für eine Datenpartition `D:`, die ein Neuaufsetzen des Rechners
+  überdauert, wenn die Schülerinnen dort mit lokalen Konten arbeiten,
+  die dabei neu angelegt werden und eine neue SID bekommen.
+- Vermutet, nicht nachgestellt: auf einem NAS mit eigener
+  Benutzerverwaltung meldet die Freigabe als Besitzer eine SID des NAS,
+  nie die des angemeldeten Windows-Kontos.
+
+Probe mit `ide.pfade` in `%TEMP%`: ein selbst angelegter Ordner ergibt
+`gehoert_dem_konto(...) == True`, lokal wie über
+`\\localhost\C$\…`; ein Ordner mit anderem Besitzer (`C:\Users\Public`,
+`C:\ProgramData`) ergibt `False` und damit `eigenes_projekt(...) ==
+False`.
+
+Nach einem solchen Umzug fragt Natter bei jedem eigenen Projekt auf
+dem Heimatlaufwerk, bei jedem Öffnen und auch über „Zuletzt
+geöffnet“: „Das Projekt „Ampel“ in H:\Informatik\Ampel hat ein anderes
+Konto angelegt, meist ist es eine verteilte Aufgabe.“ Vorgewählt ist
+„Eigene Kopie öffnen“; wer das bestätigt, arbeitet ab dann in einer
+Kopie unter `Dokumente\Natter`, das Original auf `H:` bleibt auf dem
+alten Stand. Die Arbeit einer Klasse liegt danach an zwei Orten, und
+ein Weg, das Projekt wieder als eigenes zu markieren, fehlt; die
+Antwort merkt sich Natter ausdrücklich nicht (Handbuch 3.6). Betroffen
+ist nach einem Serverumzug nicht eine Schülerin, sondern jede.
+
+Die Dokumentation sagt das Gegenteil: Handbuch 3.6 (Zeile 462 bis
+464) „Windows trägt das als Besitzer des Ordners ein, auf dem
+Heimatlaufwerk wie auf dem Server, und das gilt an jedem Rechner.“
+In `tools/paket/ZUERST-LESEN.txt`, das die Systembetreuung liest,
+kommt die Regel gar nicht vor; niemand dort erfährt, dass ein Umzug
+mit `robocopy /COPYALL` (oder `/COPY:DATSO`) statt mit den
+Voreinstellungen erfolgen muss.
+
+**Ursache:** nachgewiesen für den Codepfad. `eigenes_projekt` in
+`ide/pfade.py` (Zeile 181 bis 206) gibt außerhalb der eigenen Orte nur
+dann `True`, wenn `gehoert_dem_konto` (Zeile 246 bis 304) den Besitzer
+des Ordners mit `EqualSid` gleich der SID des Kontos oder dem
+voreingestellten Besitzer des Prozesses findet. `_ort_zum_oeffnen` in
+`ide/shell/hauptfenster.py` (Zeile 4172 bis 4176) öffnet nur dann ohne
+Frage; sonst folgt der Text ab Zeile 4219. Der Besitzer ist unter
+Windows keine feste Eigenschaft des Anlegens, sondern wird beim
+Kopieren neu gesetzt.
+
+**Zu tun:** Ein eigenes Projekt, dessen Besitzer durch einen Umzug
+fremd geworden ist, darf nicht zur Aufgabe werden. Denkbar ist, als
+eigenes auch zu werten, was unter dem Heimatverzeichnis des Kontos
+liegt (`HOMEDRIVE`/`HOMESHARE`) oder wofür das Konto Vollzugriff
+hat und das keine `.natter-quelle` trägt, oder in der Frage einen
+Knopf anzubieten, der das Projekt für dieses Konto dauerhaft als
+eigenes vermerkt. Zusätzlich nennen ZUERST-LESEN und Handbuch 1.4 die
+Regel und dass Heimatlaufwerke mit Besitzer umzuziehen sind
+(`robocopy /COPYALL`), und Handbuch 3.6 streicht „das gilt an jedem
+Rechner“. Erledigt, wenn ein Projekt unter `H:\Informatik`, dessen
+Ordner einem anderen Konto gehört (im Test über `gehoert_dem_konto`
+nachgestellt), das aber im Heimatverzeichnis des Kontos liegt, ohne
+Frage an seinem Ort aufgeht, während eine Aufgabe im Tauschordner
+weiter fragt.
+
+**Zurückgestellt:** 29. September 2026, Runde 15 von `/freigabe`. Die Unterscheidung „eigenes Projekt oder verteilte Aufgabe“ hat in dieser Freigabe viermal eine neue Regel bekommen (Ort, Punkt 361; Desktop/OneDrive und selbst angelegte Projekte, 366/367; Besitzer des Ordners, 379), und jede hatte eine Lücke. Wie Natter sie treffen soll (automatisch nach Besitzer, nach Ort, nur über eine Markierung, die die Lehrkraft beim Austeilen setzt, oder gar nicht, also immer fragen) ist eine Entscheidung des Nutzers. Bis dahin bleibt die Besitzerregel; „Original öffnen“ arbeitet in jedem Fall am Ort weiter, es geht nichts verloren.
+
+**Entscheidung (29. September 2026):** Der Nutzer hat entschieden: Jeder soll einen Projektordner mit Natter öffnen können, wenn dieser kopiert wurde. Natter stuft ein Projekt deshalb nicht mehr nach Besitzer oder Ort als fremde Aufgabe ein; eine Kopie wird nur noch angeboten, wo sie nötig ist (Ordner ohne Schreibrecht, mitgelieferte Beispiele). Lehrkräfte verteilen Aufgaben über einen Ordner nur zum Lesen. Damit gilt für diesen Punkt: Erledigt, wenn ein kopierter oder umgezogener Projektordner ohne Frage aufgeht.
+
+**Behoben (29. September 2026, ab 0.4.0).** Umgesetzt nach der Entscheidung des Nutzers: „Jeder soll einen Projektordner mit Natter öffnen können, wenn dieser kopiert wurde.“ Natter stuft ein Projekt nicht mehr nach Besitzer oder Ort als verteilte Aufgabe ein. Entfernt sind aus `ide/pfade.py` `eigenes_projekt`, `gehoert_dem_konto` samt `_sids_des_kontos`, `im_eigenen_ordner`, `_auf_wechseldatentraeger`, `desktop_ordner`, `downloads_ordner` und `fluechtiger_ort`; in `_ort_zum_oeffnen` (`ide/shell/hauptfenster.py`) die Frage „Aufgabe öffnen“ mit dem Knopf „Original öffnen“ und der Zweig für den Download-Ordner; in `tests/conftest.py` die Fixture `fremdes_konto` und die Umleitungen von Desktop, Download- und Temp-Ordner. Eine Kopie bietet Natter nur noch an, wo sie nötig ist: im Ordner ohne Schreibrecht (Schreibprobe `ordner_beschreibbar`, Punkt 321), bei einem Projekt, das ein anderes Konto an einem anderen Rechner offen hat, und in einem Ordner, in den der Explorer eine ZIP-Datei nur vorläufig entpackt hat (`%TEMP%\Temp1_*.zip`, neu `vorlaeufig_entpackt`, Punkt 391); mitgelieferte Beispiele werden wie bisher kopiert. `.natter-quelle`, „Eigene Kopie vorhanden“, „Auf Original zurücksetzen …“, der Ordner „(vorher)“ und die Frage nach einer geänderten Aufgabe bleiben für diese Fälle. Handbuch 2 und 3.6, der Abschnitt zum Prüfungsmodus und `tools/paket/ZUERST-LESEN.txt` nennen die neue Regel und empfehlen, Aufgaben über einen Ordner nur zum Lesen zu verteilen; die Beschreibung der Besitzer- und Ortsregel ist gestrichen. Test: `test_ein_kopierter_projektordner_geht_ohne_frage_an_seinem_ort_auf` in `tests/test_aufgabe_verteilen.py`, je ein Fall für Heimatlaufwerk (`HOMESHARE` gesetzt), Klassenordner und „Downloads“, jeweils mit fremdem Besitzer über `gehoert_dem_konto`; gegen den alten Stand scheitern alle drei, weil das Projekt in einer Kopie unter `Dokumente\Natter` aufgeht. Tests, die die alte Einstufung prüften, sind entfernt oder benutzen jetzt einen Tauschordner ohne Schreibrecht.
+
+
+---
+
+## 392. Eigene Projekte auf einem Heimatlaufwerk, dessen Server einen anderen Besitzer meldet, gelten bei jedem Öffnen als Aufgabe ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Betriebsprüfung (Runde 15,
+Bereiche 2, 6, 7 und 8), Commit `9b1ce1e`, Entwicklungsbaum.
+
+**Beobachtet:** Die Regel aus Punkt 379 setzt voraus, dass der
+Server als Besitzer eines Ordners die SID des angemeldeten Kontos
+meldet. Das trifft auf einen Windows-Server in derselben Domäne zu.
+An Schulen gibt es daneben häufig:
+
+- ein NAS, dessen Freigabe mit eigenem Benutzernamen verbunden wird
+  (`net use H: \\nas\home /user:mueller.anna`), während die
+  Anmeldung am Rechner lokal oder mit einem anderen Konto erfolgt;
+- Samba ohne Zuordnung der Unix-Konten zu Windows-Konten, das als
+  Besitzer „Unix User\…“ (`S-1-22-1-…`) meldet, oder eine Freigabe
+  mit `force user`, in der alles demselben Dienstkonto gehört;
+- Heimatlaufwerke, die bei einem Serverumzug ohne Besitzer kopiert
+  wurden (`robocopy` ohne `/COPY:O`) und danach dem Konto der
+  Administration gehören.
+
+In allen drei Fällen ist der Besitzer bekannt, aber nicht das
+angemeldete Konto (`gehoert_dem_konto` liefert `False`, nicht
+`None`). Nachgestellt über die Abfrage (Besitzer „fremd“ für alles
+unter `H\`), Projekt unter `H\Informatik\Ampel`, zweimal geöffnet:
+beim ersten Mal „Aufgabe öffnen – Das Projekt … hat ein anderes Konto
+angelegt, meist ist es eine verteilte Aufgabe. Was dort gespeichert
+wird, steht danach in der Aufgabe selbst und bei allen, die sie
+später öffnen.“, vorgewählt „Eigene Kopie öffnen“; beim zweiten Mal
+„Eigene Kopie vorhanden“. Geöffnet wird beide Male die Kopie unter
+`Dokumente\Natter`, das eigene Projekt auf dem Heimatlaufwerk bleibt
+unverändert. Ob die genannten Server wirklich so antworten, ließ sich
+ohne sie nicht prüfen (vermutet).
+
+Die Folge ist gerade dort am schwersten, wo das Heimatlaufwerk
+eingerichtet wurde, weil der Rechner zurückgesetzt wird: „Dokumente“
+bleibt dann lokal, die Kopie verschwindet nach der Stunde, und in der
+nächsten Stunde kopiert Natter wieder den alten Stand vom
+Heimatlaufwerk. Das ist der Fall aus Punkt 379, nur auf einem
+anderen Weg; der Text nennt eine Aufgabe, die es nicht gibt.
+
+**Ursache:** vermutet für die Antwort der Server, nachgewiesen für
+den Ablauf danach. `eigenes_projekt` (`ide/pfade.py:206`) kennt als
+eigene Orte nur „Dokumente“, Desktop und Wechseldatenträger; das
+Heimatlaufwerk (`HOMEDRIVE`/`HOMESHARE`, ein verbundenes Laufwerk mit
+eigenem Benutzernamen) zählt nicht dazu. `gehoert_dem_konto`
+(`ide/pfade.py:246-304`) vergleicht nur mit Token-Benutzer und
+Token-Besitzer.
+
+**Zu tun:** Das Heimatlaufwerk als eigenen Ort aufnehmen, wo Windows
+es kennt (`HOMESHARE`), und einen Besitzer „Unix User“ (`S-1-22-…`)
+wie „nicht ermittelbar“ behandeln. Im Handbuch 3.6 und in
+`ZUERST-LESEN.txt` sagen, dass die Unterscheidung am Besitzer hängt
+und was ein NAS dafür liefern muss. Erledigt, wenn ein Test mit
+fremdem Besitzer unter einem als `HOMESHARE` gesetzten Ordner ohne
+Frage an Ort und Stelle öffnet.
+
+**Zurückgestellt:** 29. September 2026, Runde 15 von `/freigabe`. Die Unterscheidung „eigenes Projekt oder verteilte Aufgabe“ hat in dieser Freigabe viermal eine neue Regel bekommen (Ort, Punkt 361; Desktop/OneDrive und selbst angelegte Projekte, 366/367; Besitzer des Ordners, 379), und jede hatte eine Lücke. Wie Natter sie treffen soll (automatisch nach Besitzer, nach Ort, nur über eine Markierung, die die Lehrkraft beim Austeilen setzt, oder gar nicht, also immer fragen) ist eine Entscheidung des Nutzers. Bis dahin bleibt die Besitzerregel; „Original öffnen“ arbeitet in jedem Fall am Ort weiter, es geht nichts verloren.
+
+**Entscheidung (29. September 2026):** Der Nutzer hat entschieden: Jeder soll einen Projektordner mit Natter öffnen können, wenn dieser kopiert wurde. Natter stuft ein Projekt deshalb nicht mehr nach Besitzer oder Ort als fremde Aufgabe ein; eine Kopie wird nur noch angeboten, wo sie nötig ist (Ordner ohne Schreibrecht, mitgelieferte Beispiele). Lehrkräfte verteilen Aufgaben über einen Ordner nur zum Lesen. Damit gilt für diesen Punkt: Erledigt, wenn ein kopierter oder umgezogener Projektordner ohne Frage aufgeht.
+
+**Behoben (29. September 2026, ab 0.4.0).** Mit Punkt 390 erledigt: der Besitzer eines Ordners zählt nicht mehr, gleich was ein NAS, Samba oder ein ohne Besitzer umgezogenes Heimatlaufwerk meldet. Ein Projekt auf dem Heimatlaufwerk geht ohne Frage an seinem Ort auf, solange Natter dort schreiben darf. Test: Fall `heimatlaufwerk` von `test_ein_kopierter_projektordner_geht_ohne_frage_an_seinem_ort_auf` in `tests/test_aufgabe_verteilen.py` (fremder Besitzer unter einem als `HOMESHARE` gesetzten Ordner); gegen den alten Stand scheitert er.
+
+
+---
+
+## 393. Beim Austeilen über die Schulsoftware landet die Arbeit in einer Kopie, die das Einsammeln nicht findet ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Betriebsprüfung (Runde 15,
+Bereiche 2, 6, 7 und 8), Commit `9b1ce1e`, Entwicklungsbaum.
+
+**Beobachtet:** Pädagogische Netze haben eigene Funktionen zum
+Austeilen und Einsammeln. Die Lehrkraft teilt einen Ordner aus, die
+Software kopiert ihn in einen Ordner jeder Schülerin (meist im
+Heimatlaufwerk), und später holt „Einsammeln“ genau diesen Ordner
+zurück. Wem der ausgeteilte Ordner gehört, hängt davon ab, wie die
+Software kopiert: mit einem Dienstkonto oder dem Konto der Lehrkraft
+(Besitzer fremd) oder mit anschließend auf die Schülerin gesetztem
+Besitzer.
+
+Mit fremdem Besitzer und einem Zielordner außerhalb von „Dokumente“
+fragt Natter „Aufgabe öffnen“, vorgewählt ist „Eigene Kopie öffnen“
+(nachgestellt wie in Punkt 392: Frage, danach Kopie unter
+`Dokumente\Natter`). Wer mit der Eingabetaste bestätigt, arbeitet
+die ganze Stunde in der Kopie; eingesammelt wird der unveränderte
+ausgeteilte Ordner, bei allen dreißig Schülerinnen. Der Text sagt
+dabei, was gespeichert wird, stehe „bei allen, die sie später
+öffnen“, obwohl der Ordner nur der Schülerin zugeteilt ist. Mit dem
+Besitzer auf der Schülerin geht dieselbe Aufgabe dagegen ohne Frage
+an Ort und Stelle auf. Welcher der beiden Fälle vorliegt, sieht die
+Lehrkraft nicht; im Explorer steht der Besitzer erst unter
+„Eigenschaften → Sicherheit → Erweitert“.
+
+Handbuch 3.6 und `tools/paket/ZUERST-LESEN.txt` beschreiben nur den
+Tauschordner und die Abgabe als ZIP, nicht das Austeilen und
+Einsammeln einer Schulsoftware.
+
+**Ursache:** nachgewiesen für den Ablauf in Natter
+(`_ort_zum_oeffnen`, `ide/shell/hauptfenster.py:4172-4252`),
+vermutet für die Besitzer, die einzelne Produkte setzen (ohne diese
+Software nicht prüfbar).
+
+**Zu tun:** Im Handbuch 3.6 einen Absatz zum Austeilen und
+Einsammeln: der Knopf „Original öffnen“ für ausgeteilte Ordner, die
+eingesammelt werden, oder Austeilen mit Besitzer Schülerin bzw. nach
+`Dokumente`. Den Text der Frage so fassen, dass er für einen
+persönlichen Ordner nicht von „allen, die sie später öffnen“ spricht.
+Erledigt, wenn Handbuch 3.6 und `ZUERST-LESEN.txt` das Austeilen und
+Einsammeln einer Schulsoftware beschreiben und der Text der Frage
+keine anderen Personen mehr unterstellt.
+
+**Zurückgestellt:** 29. September 2026, Runde 15 von `/freigabe`. Die Unterscheidung „eigenes Projekt oder verteilte Aufgabe“ hat in dieser Freigabe viermal eine neue Regel bekommen (Ort, Punkt 361; Desktop/OneDrive und selbst angelegte Projekte, 366/367; Besitzer des Ordners, 379), und jede hatte eine Lücke. Wie Natter sie treffen soll (automatisch nach Besitzer, nach Ort, nur über eine Markierung, die die Lehrkraft beim Austeilen setzt, oder gar nicht, also immer fragen) ist eine Entscheidung des Nutzers. Bis dahin bleibt die Besitzerregel; „Original öffnen“ arbeitet in jedem Fall am Ort weiter, es geht nichts verloren.
+
+**Entscheidung (29. September 2026):** Der Nutzer hat entschieden: Jeder soll einen Projektordner mit Natter öffnen können, wenn dieser kopiert wurde. Natter stuft ein Projekt deshalb nicht mehr nach Besitzer oder Ort als fremde Aufgabe ein; eine Kopie wird nur noch angeboten, wo sie nötig ist (Ordner ohne Schreibrecht, mitgelieferte Beispiele). Lehrkräfte verteilen Aufgaben über einen Ordner nur zum Lesen. Damit gilt für diesen Punkt: Erledigt, wenn ein kopierter oder umgezogener Projektordner ohne Frage aufgeht.
+
+**Behoben (29. September 2026, ab 0.4.0).** Mit Punkt 390 erledigt: ein von einer Schulsoftware ausgeteilter Ordner geht ohne Frage an seinem Ort auf, gleich mit welchem Besitzer die Software kopiert, und eingesammelt wird, was darin gespeichert wurde. Die Frage „Aufgabe öffnen“, deren Text anderen Personen den Zugriff unterstellte, gibt es nicht mehr. Handbuch 3.6 beschreibt das Austeilen und Einsammeln in einem Absatz, `ZUERST-LESEN.txt` nennt die Regel und die Verteilung über einen Ordner nur zum Lesen. Test: Fall `klassenordner` von `test_ein_kopierter_projektordner_geht_ohne_frage_an_seinem_ort_auf` in `tests/test_aufgabe_verteilen.py`; gegen den alten Stand scheitert er.
+
+
+---
+
+## 398. Das Kopieren einer großen Aufgabe hält Natter ohne Rückmeldung an ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Rest aus Punkt 389.
+
+**Beobachtet:** Eine Aufgabe mit 3.000 Dateien zu kopieren oder zurückzusetzen dauert lokal 6,5 bis 9,8 s, über ein Netzlaufwerk rund 14 s, im Hauptfaden. In dieser Zeit steht das Fenster ohne Hinweis.
+
+**Ursache:** Windows kopiert jede Datei einzeln (`CopyFile2`), dazu prüft der Virenscanner. Das Verschieben ist seit Punkt 389 schnell.
+
+**Entscheidung:** Aufgaben im Unterricht haben selten mehr als einige Dutzend Dateien; 500 Dateien brauchen unter 1,5 s. Ein Umbau des Öffnens auf einen Nebenfaden ließe eine Schülerin in einen halb kopierten Ordner speichern und kostet mehr, als er bringt. Stattdessen zeigt Natter während des Kopierens den Wartezeiger und in der Statuszeile, was geschieht.
+
+**Zu tun:** Wartezeiger und Statusmeldung beim Anlegen, Ersetzen und Zurücksetzen einer Kopie. Erledigt, wenn ein Test beides während des Kopierens sieht.
+
+**Behoben (29. September 2026, ab 0.4.0).** Wie entschieden ohne Nebenfaden: `_beim_kopieren` in `ide/shell/hauptfenster.py` setzt während der Arbeit `QApplication.setOverrideCursor` mit dem Wartezeiger, schreibt vorher, was geschieht, in die Statuszeile und zeichnet sie sofort (`repaint`, ohne `processEvents`, damit keine Klicks dazwischenkommen). Danach ist der Zeiger zurückgesetzt, und eine stehengebliebene Meldung verschwindet. Umhüllt sind das Anlegen einer Kopie (`aufgabe_kopieren` in `_kopie_holen`, `beispiel_kopieren` in `beispiel_oeffnen`) sowie Zurücksetzen und Ersetzen (`aufgabe_zuruecksetzen` und `beispiel_zuruecksetzen` in `_kopie_zuruecksetzen`). Test: `test_beim_kopieren_zeigt_natter_wartezeiger_und_statusmeldung` in `tests/test_aufgabe_verteilen.py` sieht beim Anlegen, Zurücksetzen und Ersetzen der Kopie den Wartezeiger und eine Meldung „„Ampel“ wird … kopiert …“; ohne die Umhüllung scheitert er, weil kein Wartezeiger gesetzt ist.
+
+
+---
+
+## 399. Hart beendete Starter lassen je 16 MB in `%TEMP%` zurück ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Betriebsprüfung Runde 10 (Nebenbefund), vom Nutzer zur Behebung freigegeben.
+
+**Beobachtet:** Auf dem Entwicklungsrechner lagen 214 Ordner `_MEI*` mit zusammen 3,85 GB in `%TEMP%` (inzwischen gelöscht). `Natter.exe` ist ein PyInstaller-Einzeldatei-Starter, der sich bei jedem Start dorthin entpackt; wird er hart beendet (Taskmanager, erzwungenes Abmelden, Rauchprobe, `tools.wache --aufraeumen` mit `taskkill /F`), bleibt der Ordner liegen. Auf einem Schulrechner ohne zurückgesetztes Profil sammeln sie sich über Monate.
+
+**Ursache:** Einzeldatei-Starter (`tools/ide_paketieren.py`, `_starter_bauen`).
+
+**Zu tun:** Entweder den Starter als Ordnerfassung bauen (kein Entpacken, vermutlich auch schneller, vgl. zurückgestellten Punkt 7), oder beim Start alte eigene `_MEI`-Ordner an einer Markendatei erkennen und entfernen. Erledigt, wenn nach einem hart beendeten Start kein Ordner dauerhaft liegen bleibt bzw. der nächste Start ihn entfernt.
+
+**Behoben (29. September 2026, ab 0.4.0).** `Natter.exe` wird als Ordner gebaut (`--onedir --contents-directory starter` in `_starter_bauen`, `tools/ide_paketieren.py`) und entpackt sich nicht mehr nach `%TEMP%`; nach einem harten Beenden bleibt nichts liegen. Abgewogen gegen das Aufräumen beim Start: damit wären die Ordner weiter entstanden und bis zum nächsten Start liegen geblieben, ein Rechner, auf dem Natter nie wieder startet, behielte sie ganz, und der Starter lüde weiter DLLs aus einem Ordner, den jedes Konto beschreiben darf. Probebau des Starters allein in `%TEMP%` (PyInstaller 6.22.3): als Einzeldatei 8,4 MB, die sich bei jedem Start zu 53 Dateien mit 18,3 MB entpackt, darunter elf DLLs ohne Signatur (`python313.dll`, `libcrypto-3-x64.dll`, `_ctypes.pyd` …); nach `taskkill /F` blieb der Ordner liegen. Als Ordner 20,0 MB in `starter\` neben `Natter.exe`; nach `taskkill /F` entstand kein `_MEI`-Ordner. Vom Aufruf bis zum Ende einer Python, die sofort wieder endet, im Median 1,07 s als Einzeldatei und 0,22 s als Ordner (je 16 Starts); die Python allein braucht 0,05 s. Der Anteil des Starters sinkt damit von rund 1,0 s auf 0,17 s. Punkt 7 nannte 0,79 s für `Natter.exe`, bevor Python anläuft; davon fällt nach dieser Messung der größte Teil weg. Die Dateien in `starter\` signiert der Bau mit allen übrigen, und Schritt 10 prüft sie; das Manifest erfasst sie, und die schnelle Prüfung bei jedem Start sieht sie wie `Natter.exe` (`STARTER_ORDNER` und `ist_kerndatei` in `ide/integritaet/manifest.py`). `tools/natter.iss` leert `{app}\starter` vor jedem Update wie `{app}\python`, damit keine alte DLL als fremde Datei gemeldet wird. Die Rauchprobe in Schritt 6 prüft, dass `Natter.exe` und die Python des Starters im Programmordner liegen. `tools/wache.py` meldet Entpackordner alter Starter bis 0.3.6 und entfernt sie mit `--aufraeumen`. Als Natters gilt nur ein `_MEI`-Ordner, dessen Dateien nach Name und Größe genau dem Inhaltsverzeichnis einer vorhandenen Einzeldatei-`Natter.exe` entsprechen (installiert oder in `dist\Natter`), der älter als eine Stunde ist und dessen `python313.dll` sich löschen lässt; solange ein Starter läuft, lässt Windows das nicht zu, nachgesehen an einem laufenden Probestarter. Exportierte Schüler-Exes bringen PySide6 mit und passen nie. Tests: `test_der_starter_wird_als_ordner_gebaut` in `tests/test_auslieferung_bauen.py`, `test_schnelle_pruefung_erkennt_einen_veraenderten_starter` in `tests/test_integritaet_manifest.py`, `test_das_setup_ersetzt_die_mitgelieferte_python_vollstaendig` (jetzt auch für `starter`) in `tests/test_installer_update.py`, `test_nur_alte_entpackordner_eines_natter_starters_werden_entfernt` und `test_ohne_eingepackte_dateien_gibt_es_keinen_starterinhalt` in `tests/test_wache.py`; gegen den alten Stand scheitern sechs der neuen Fälle. Beim Bau zu prüfen: `dist\Natter\starter` ist vorhanden und in Schritt 10 vollständig signiert; die gebaute `Natter.exe` startet Natter aus dem Startmenü und per Doppelklick auf eine `.natter`; nach einem Update von 0.3.6 liegt `starter\` im Programmordner und die Prüfung beim Start meldet nichts; nach dem Deinstallieren bleibt kein `starter\` zurück; die Startzeit bis zum Fenster, zum Vergleich mit den 1,65 s aus Punkt 7.
+
+---
+
+## 400. Nach einem Rechnerwechsel wird die Sicherung nicht angeboten und nach zwei Minuten überschrieben ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Durchsicht vor dem Bau von 0.4.0,
+Entwicklungsstand `b16800a`.
+
+**Beobachtet:** Eine Schülerin arbeitet am Rechner A in ihrem
+Projekt auf dem Heimatlaufwerk und wählt beim Abmelden „Trotzdem
+abmelden“, oder Rechner A geht aus. Natter wird dort hart beendet,
+die Sicherung `T.natter-sicherung` liegt im Projektordner, und die
+Sperrdatei bleibt mit `rechner=A` und einer höchstens fünf Minuten
+alten Zeit stehen. Meldet sie sich innerhalb der nächsten halben
+Stunde an Rechner B an, etwa in der nächsten Stunde in einem anderen
+Raum, und öffnet das Projekt, kommt nur der Hinweis „Projekt war an
+einem anderen Rechner geöffnet … lässt sich hier ohne Weiteres
+weiterarbeiten“. Die Sicherung wird nicht angeboten. Sobald sie
+wieder etwas ändert, schreibt die Uhr nach spätestens zwei Minuten
+die neue Sicherung über die alte, und der Text vom Rechner A ist weg.
+Das Handbuch (Abschnitt 6, „Ungespeicherter Text nach Abmelden oder
+Absturz“) nennt gerade diesen Fall, „der Rechner ausgegangen ist“,
+als Anlass für das Angebot.
+
+Probelauf (`QT_QPA_PLATFORM=offscreen`, Hauptfenster aus der Fixture):
+Sicherung mit `gesichert = 1` für `main.py`, Sperrdatei mit
+`rechner=PC-ANDERER`, eigenem Konto und `erneuert` vor fünf Minuten;
+`projekt_oeffnen_gemeldet` öffnet das Projekt an seinem Ort, die
+Frage `_sicherung_wiederherstellen_fragen` wird nie gestellt,
+`main.py` wird geändert, `_sicherung_uhr_schlaegt()` läuft, und
+`sicherung.lesen` liefert danach nur noch `neu = 2`.
+
+Derselbe Weg gilt, wenn das Projekt am selben Rechner in einem
+zweiten Natter offen ist: beide Fenster schreiben dieselbe Datei, und
+das Fenster, das zuerst speichert, löscht mit `_sicherung_entfernen`
+auch den Text des anderen.
+
+**Ursache:** nachgewiesen. `projekt_oeffnen` in
+`ide/shell/hauptfenster.py:3774` bietet die Sicherung nur an, wenn
+`sperre.anderer_besitzer` niemanden meldet; die Sperre eines anderen
+Rechners im eigenen Konto zählt dort bis zu 30 Minuten
+(`ZEITGRENZE` in `ide/project/sperre.py`). `_sicherung_schreiben`
+(`ide/shell/hauptfenster.py:6058`, Schreiben in Zeile 6073) prüft vor
+dem Schreiben nicht, ob schon eine Sicherung liegt, die nicht von
+diesem Fenster stammt (`_sicherung_eigen` ist dann `False`), und
+ersetzt sie.
+
+**Zu tun:** Eine vorhandene fremde Sicherung darf nie still
+überschrieben oder gelöscht werden. Bei der Sperre eines anderen
+Rechners im eigenen Konto die Sicherung trotzdem anbieten, oder
+zumindest im Hinweis nennen; solange eine fremde Sicherung liegt,
+eine eigene nicht an ihre Stelle schreiben. Erledigt, wenn der
+Probelauf oben die Frage zeigt und nach „Wiederherstellen“ der Text
+`gesichert = 1` im Editor steht, und wenn in einem zweiten Fall ohne
+Wiederherstellen der gesicherte Text nach einem Uhrschlag noch
+auf der Platte liegt.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `projekt_oeffnen` in `ide/shell/hauptfenster.py` bietet die Sicherung jetzt auch bei einer fremden Sperre an und entscheidet je Anteil der Sicherung, ob er zu einem noch laufenden Fenster gehört (`sicherung.laeuft` in `ide/project/sicherung.py`, zum Format siehe Punkt 406). An diesem Rechner wird am Prozess nachgesehen (Prozessnummer und Startzeit wie bei der Sperre, im eigenen Prozess zusätzlich die Kennung des Fensters). An einem anderen Rechner geht das nicht; dort gilt ein Anteil aus dem eigenen Konto nie als laufend, denn wer sich hier angemeldet hat, arbeitet in aller Regel nicht mehr am anderen Rechner. Der Anteil eines fremden Kontos gilt als laufend, solange die Sperrdatei jenen Rechner als Besitzer nennt, also höchstens 30 Minuten nach der letzten Erneuerung; er wird dann nicht angeboten, aber auch nicht überschrieben, weil jedes Fenster nur noch seinen eigenen Anteil schreibt. Eine Sicherung im alten Format `natter-sicherung/1` hat keine Herkunft; für sie entscheidet die Sperrdatei allein, mit derselben Ausnahme für das eigene Konto. Die Frage kommt vor dem Hinweis auf den anderen Rechner. Grenze: Arbeitet dieselbe Schülerin tatsächlich gleichzeitig an zwei Rechnern, wird ihr der Text des anderen Rechners angeboten. Verloren geht dabei nichts: nach „Wiederherstellen“ oder „Verwerfen“ verschwindet nur der angebotene Anteil, und das Natter am anderen Rechner schreibt ihn beim nächsten Uhrschlag wieder, weil es seinen Anteil in der Datei nicht mehr vorfindet. Test: `test_sperre_eines_anderen_rechners_und_vorhandene_sicherung` in `tests/test_sicherung.py` stellt den Probelauf nach (Sperre von `PC-ANDERER`, vor fünf Minuten erneuert, Sicherung mit `gesichert = 1` im Format `/1`): im eigenen Konto kommt die Frage, und nach „Wiederherstellen“ steht der Text ungespeichert im Editor; bei einem fremden Konto kommt keine Frage, und nach einer Änderung und einem Uhrschlag stehen der gesicherte und der neue Text in der Datei. Gegen den alten Stand scheitern beide Fälle (keine Frage; nach dem Uhrschlag nur noch `neu = 2`). Das Handbuch, Abschnitt 6 „Ungespeicherter Text nach Abmelden oder Absturz“, beschreibt das Verhalten.
+
+
+---
+
+## 401. Die eigene Kopie aus 0.3.6 wird nicht mehr gefunden, wenn die Aufgabe in einem beschreibbaren Klassenordner liegt ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Durchsicht vor dem Bau von 0.4.0,
+Entwicklungsstand `b16800a`.
+
+**Beobachtet:** Bis 0.3.6 galt eine Aufgabe in einem Klassenordner,
+den ein anderes Konto angelegt hatte, als verteilte Aufgabe, und
+Natter legte auf Wunsch eine eigene Kopie unter `Dokumente\Natter`
+an. In der Kopie steckt die Arbeit der bisherigen Stunden. Mit 0.4.0
+geht dieselbe Aufgabe per Doppelklick im beschreibbaren Klassenordner
+ohne jede Frage im Original auf. Die Schülerin sieht dort den leeren
+Stand der Lehrkraft, hält ihre Arbeit für verloren, und was sie jetzt
+speichert, landet im Original, das alle anderen der Klasse auch
+öffnen. Ein Hinweis auf die vorhandene Kopie fehlt. Das Handbuch
+(Abschnitt 3.6) sagt dagegen allgemein: „Liegt unter
+`Dokumente\Natter` schon eine Kopie derselben Aufgabe, wird sie
+geöffnet; die Arbeit vom letzten Mal bleibt so erhalten.“
+
+Probelauf (`QT_QPA_PLATFORM=offscreen`): Aufgabe unter
+`tmp_path\Klasse7b\T`, Kopie über `aufgabe_kopieren` nach
+`Dokumente\Natter\T` mit geänderter `main.py`;
+`projekt_oeffnen_gemeldet` auf die Aufgabe öffnet
+`Klasse7b\T`, nicht die Kopie.
+
+**Ursache:** nachgewiesen. `_ort_zum_oeffnen` in
+`ide/shell/hauptfenster.py:4300` kehrt bei einem beschreibbaren,
+nicht gesperrten Ordner mit „hier“ zurück, bevor in Zeile 4310
+`vorhandene_aufgabenkopie` nachsieht.
+
+**Zu tun:** Die Entscheidung zu Punkt 390 bleibt: ein beschreibbarer
+Projektordner geht ohne Frage auf, und es entsteht keine neue Kopie.
+Gibt es aber schon eine Kopie mit passender `.natter-quelle`, muss das
+beim Öffnen sichtbar werden, etwa als Zeile in der Statusleiste oder
+als Eintrag auf der Startseite mit dem Pfad der Kopie; oder das
+Handbuch sagt ausdrücklich, dass eine Kopie aus 0.3.6 nur noch über
+„Zuletzt geöffnet“ oder `Dokumente\Natter` erreichbar ist. Erledigt,
+wenn der Probelauf oben einen Hinweis auf die Kopie zeigt oder das
+Handbuch den Fall beschreibt.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. Die Entscheidung zu Punkt 390 bleibt: ein beschreibbarer Projektordner geht ohne Frage am Ort auf, und es entsteht keine neue Kopie. Neu ist `_eigene_kopie_nennen` in `ide/shell/hauptfenster.py`: geht ein Projekt in `projekt_oeffnen_gemeldet` mit der Art „hier“ auf, sieht Natter über `_eigene_kopie_des_projekts` (also `vorhandene_aufgabenkopie` unter `Dokumente\Natter`) nach einer Kopie mit passender `.natter-quelle` und nennt sie in der Statuszeile: „Projekt Ampel an seinem Ort geöffnet. Eine eigene Kopie davon liegt unter …“. Ein Dialog kommt nicht. Das Handbuch, Abschnitt 3.6, sagt jetzt, dass eine vorhandene Kopie nur dort geöffnet wird, wo Natter die Kopie anbietet, dass eine Kopie aus 0.3.6 in einem Ordner mit Schreibrecht nur in der Statuszeile genannt wird und über „Projekt öffnen …“ oder „Zuletzt geöffnet“ erreichbar bleibt. Test: `test_eine_alte_kopie_der_aufgabe_nennt_die_statuszeile` in `tests/test_aufgabe_verteilen.py` stellt den Probelauf nach (Aufgabe in `Klasse7b\Ampel`, Kopie über `aufgabe_kopieren` mit geänderter Unit) und prüft, dass keine Frage kommt, das Original aufgeht und die Statuszeile den Ordner der Kopie nennt; gegen den alten Stand scheitert er („Projekt Ampel geöffnet“).
+
+
+---
+
+## 402. In einem Ordner, den 7-Zip oder WinRAR vorläufig entpackt, fehlt der Hinweis aus Punkt 391 ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Durchsicht vor dem Bau von 0.4.0,
+Entwicklungsstand `b16800a`.
+
+**Beobachtet:** Wird in 7-Zip oder WinRAR die `.natter` in einer
+ZIP-Datei doppelgeklickt, holt das Programm nur diese eine Datei nach
+`%TEMP%\7zO…` bzw. `%TEMP%\Rar$DI…` und löscht den Ordner wieder,
+sobald das Archiv geschlossen wird. Natter erkennt diese Ordner nicht
+als vorläufig entpackt. Das Projekt geht ohne Hinweis auf, obwohl
+`main.py` und die Unit fehlen, und erst das Starten scheitert; was
+dort doch gespeichert wird, ist mit dem Schließen des Archivs weg.
+Das ist genau der Ablauf, den Punkt 391 abgestellt hatte: bis zur
+Vereinfachung der Öffnen-Regel galt jeder Ordner unter `%TEMP%` als
+flüchtig, jetzt nur noch das Muster des Windows-Explorers. 7-Zip ist
+auf vielen Schulrechnern installiert und dort oft als Programm für
+ZIP-Dateien eingetragen.
+
+Probe mit `uv run python -c` in `%TEMP%`: `vorlaeufig_entpackt`
+liefert für `%TEMP%\Temp1_Ampel.zip\Ampel` `True`, für
+`%TEMP%\7zO4A1B2C3D\Ampel`, `%TEMP%\Rar$DIa12345.6789\Ampel` und
+`%TEMP%\Temp1_Ampel.7z\Ampel` jeweils `False`.
+
+**Ursache:** nachgewiesen. `_VORLAEUFIG_ENTPACKT` in
+`ide/pfade.py:120` kennt nur `temp\d+_.+\.zip`.
+
+**Zu tun:** Die Ordner der verbreiteten Packprogramme ebenfalls
+erkennen (`7zO…`, `Rar$DI…`/`Rar$EX…`, beim Explorer auch andere
+Archivendungen), oder für die Meldung „ZIP-Datei nicht entpackt“
+jeden Ordner unter `%TEMP%` zählen, dem Startdatei oder Unit fehlen.
+Erledigt, wenn ein Projekt mit nur der `.natter` unter
+`%TEMP%\7zO…\` die Meldung aus Punkt 391 bringt.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `_VORLAEUFIG_ENTPACKT` in `ide/pfade.py` erkennt neben `Temp<n>_….zip` jetzt auch die Ordner von 7-Zip (`7zO…`, beim Herausziehen `7zE…`, gefolgt von Hexziffern), von WinRAR (`Rar$DI…`, `Rar$EX…`, `Rar$DR…`) und die des Explorers für andere Archive (`Temp<n>_….7z`, `.rar`, `.tar`, `.tgz`, `.gz`, `.bz2`, `.xz`). Die Muster stehen mit Beispielen im Kommentar darüber. Die Texte der Frage „Projekt aus einer ZIP-Datei“ und der Meldung „ZIP-Datei nicht entpackt“ nennen jetzt den Explorer oder ein Packprogramm wie 7-Zip statt nur Windows; das Handbuch, Abschnitt 3.6, nennt die Ordner von 7-Zip und WinRAR. Tests: `test_nur_die_projektdatei_aus_einem_packprogramm_bringt_den_hinweis` in `tests/test_aufgabe_verteilen.py` (je ein Fall für `%TEMP%\7zO4A1B2C3D` und `%TEMP%\Rar$DIa12345.6789` mit nur der `.natter`) prüft, dass die Meldung aus Punkt 391 kommt und nichts geöffnet oder kopiert wird; dazu Fälle in `test_nur_der_vorlaeufige_zip_ordner_im_temp_ordner_zaehlt` in `tests/test_pfade.py`. Gegen den alten Stand scheitern beide.
+
+
+---
+
+## 403. Im Prüfungsmodus holt „Auf Original zurücksetzen …“ ein Beispiel über eine selbst geschriebene `.natter-quelle` ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung vor 0.4.0
+(Bereiche 1, 2, 5, 6, 7), Commit `b16800a`, Natter 0.4.0
+(Entwicklungsstand).
+
+**Beobachtet:** Im Prüfungsmodus bleibt „Auf Original zurücksetzen …“
+bei jeder Kopie einer Aufgabe bedienbar (Punkt 371). Als Kopie einer
+Aufgabe gilt jedes Projekt mit einer Datei `.natter-quelle`, und der
+Ordner, aus dem zurückgesetzt wird, ist die erste Zeile dieser Datei.
+Beides ist gewöhnlicher Text im eigenen Projekt und lässt sich vor der
+Klausur von Hand anlegen. Zeigt die Datei auf das Original eines
+mitgelieferten Beispiels, kopiert das Zurücksetzen die vollständige
+Lösung in das eigene Projekt und öffnet es; die Sperre der Beispiele
+greift dabei nicht.
+
+Die einzige Bedingung, eine Projektdatei gleichen Namens wie im
+Beispiel, lässt sich mit anderer Groß- und Kleinschreibung erfüllen:
+`beispiel_original` vergleicht die Namen genau und erkennt
+`04_cookieklicker.natter` nicht als Kopie von
+`04_CookieKlicker.natter`, `is_file()` findet die Datei im Original
+unter Windows trotzdem.
+
+Nachgestellt ohne Hauptfenster in `%TEMP%`: Projekt „Mein“ mit
+`04_cookieklicker.natter`, eigener `u_main.py` und einer
+`.natter-quelle` auf `beispielprojekte\04_CookieKlicker`.
+`beispiel_original` und `_beispiel_projektordner` liefern `None`,
+`aufgabe_original` das Beispiel, und nach `aufgabe_zuruecksetzen` ist
+`u_main.py` byte-gleich mit der Lösung. Erst danach erkennt
+`beispiel_nach_inhalt` das Projekt. Das Handbuch, Abschnitt 4, sagt,
+dass die Wege in Natter gesperrt sind; dieser ist es nicht.
+
+**Ursache:** nachgewiesen. `_zuruecksetzen_moeglich`
+(`ide/shell/hauptfenster.py:3966`, Zeile 3970) gibt das Zurücksetzen
+frei, sobald `aufgabe_original` etwas liefert, ohne zu prüfen, worauf
+es zeigt. `aufgabe_zuruecksetzen` (`ide/shell/startbild.py:979` bis
+981) übernimmt den Ordner aus `.natter-quelle` ungeprüft.
+`beispiel_zuruecksetzen_nachfragen` öffnet das Ergebnis mit
+`projekt_oeffnen` (`hauptfenster.py:4032`), das `_beispiel_gesperrt`
+nicht fragt. `beispiel_original` vergleicht mit Rücksicht auf Groß- und
+Kleinschreibung (`startbild.py:331`).
+
+**Zu tun:** Ein Ordner aus `.natter-quelle`, der im Ordner der
+Beispiele liegt (`ist_beispiel_original`) oder dessen Inhalt einem
+Beispiel gleicht (`beispiel_nach_inhalt`), gilt nicht als Aufgabe; im
+Prüfungsmodus wird das Zurücksetzen dann abgelehnt, und das
+zurückgesetzte Projekt geht wie jedes andere durch
+`_beispiel_gesperrt`. `beispiel_original` vergleicht die Namen ohne
+Rücksicht auf Groß- und Kleinschreibung. Erledigt, wenn ein Test im
+Prüfungsmodus die nachgestellte Kopie zurückzusetzen versucht, der
+Eintrag gesperrt ist oder eine Meldung kommt und `u_main.py`
+unverändert bleibt; dazu ein Fall, in dem `04_cookieklicker.natter`
+als Kopie des Beispiels erkannt wird.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `beispiel_original` in `ide/shell/startbild.py` vergleicht die Namen der Projektdateien ohne Rücksicht auf Groß- und Kleinschreibung (`casefold`), `04_cookieklicker.natter` gilt damit als Kopie von `04_CookieKlicker`; `ist_beispiel_original` vergleicht über `einheitlicher_pfad` und `os.path.normcase` und kann mit `aufloesen=False` nur am Text des Pfads prüfen. Neu ist `beispiel_als_quelle` (Original, Projektdatei oder Inhalt eines Beispiels). Im Prüfungsmodus wirft `aufgabe_zuruecksetzen` für eine solche Quelle `ValueError`, bevor etwas kopiert wird. In `ide/shell/hauptfenster.py` ist `_zuruecksetzen_moeglich` im Prüfungsmodus aus, wenn das Projekt die Kopie eines Beispiels ist oder `.natter-quelle` in den Ordner der Beispiele zeigt (nur am Text, weil das bei jedem Öffnen geschieht); `beispiel_zuruecksetzen_nachfragen` schickt die Quelle vor dem Kopieren durch `_beispiel_gesperrt`, das auch den Inhalt vergleicht, und `_kopie_zuruecksetzen` meldet den `ValueError` als „Beispielprojekt gesperrt“. Das Handbuch, Abschnitt 4, nennt den Fall. Test: `test_im_pruefungsmodus_holt_eine_eigene_quelldatei_kein_beispiel` in `tests/test_aufgabe_verteilen.py` stellt die Kopie „Mein“ mit `04_cookieklicker.natter`, eigener `u_main.py` und einer `.natter-quelle` in Großbuchstaben auf das Beispiel nach, schaltet den Prüfungsmodus ein und prüft, dass das Zurücksetzen abgelehnt wird, der Eintrag gesperrt ist, `aufgabe_zuruecksetzen` ablehnt, `u_main.py` unverändert bleibt und `beispiel_original` das Beispiel erkennt; gegen den alten Stand setzt der Test zurück und scheitert.
+
+
+---
+
+## 404. Ohne `starter\` daneben meldet `Natter.exe` einen englischen Ladefehler ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung vor 0.4.0
+(Bereiche 1, 2, 5, 6, 7), Commit `b16800a`, Natter 0.4.0
+(Entwicklungsstand).
+
+**Beobachtet:** Seit Punkt 399 braucht `Natter.exe` den Ordner
+`starter\` neben sich, darin ihre eigene `python313.dll`. Fehlt er,
+etwa weil `Natter.exe` auf den Desktop oder einen USB-Stick kopiert
+wurde statt einer Verknüpfung, weil eine Softwareverteilung nur
+einzelne Dateien übernimmt oder weil ein Virenscanner eine DLL daraus
+in Quarantäne legt, kommt der Starter selbst nicht mehr zum Zug. Statt
+der deutschen Meldung „Natter ist nicht vollständig installiert.“ aus
+`tools/launcher.py` erscheint dann die Meldung des Bootloaders von
+PyInstaller, englisch und mit einem Pfad zu einer DLL, die niemand
+kennt. Bis 0.3.6 steckte alles in `Natter.exe`, und eine einzeln
+kopierte Exe meldete auf Deutsch, was fehlt.
+
+**Ursache:** am Bau belegt, das Fenster selbst vermutet (kein Bau in
+dieser Prüfung). `_starter_bauen` baut mit `--onedir
+--contents-directory starter` (`tools/ide_paketieren.py:539`). Der
+Bootloader lädt die Python aus diesem Ordner, bevor eine Zeile aus
+`tools/launcher.py` läuft; die Prüfung dort (`main`, Zeile 281)
+erreicht der Start nie. Der Bootloader für Fensterprogramme
+(`PyInstaller\bootloader\Windows-64bit-intel\runw.exe` im
+Entwicklungsbaum) enthält als Text „Failed to load Python DLL '%ls'.“
+und eine deutsche Fassung davon nicht.
+
+**Zu tun:** Beim Bau nachsehen, was eine allein kopierte `Natter.exe`
+zeigt. Bleibt es die englische Meldung, sie im Handbuch
+(Abschnitt zur Installation und zu AppLocker) mit ihrem Wortlaut
+nennen und sagen, dass `Natter.exe` nur zusammen mit `starter\` und
+`python\` läuft und auf dem Desktop als Verknüpfung liegt; die
+Rauchprobe in Schritt 6 startet zusätzlich eine allein kopierte
+`Natter.exe` und hält den Text fest. Erledigt, wenn Handbuch und
+`tools/paket/ZUERST-LESEN.txt` die Meldung und ihre Ursache nennen.
+
+**Behoben (29. September 2026, ab 0.4.0).** Handbuch Abschnitt 6 („„Failed to load Python DLL“ beim Start“) und `tools/paket/ZUERST-LESEN.txt` nennen die englische Meldung des Bootloaders, ihre Ursachen (Natter.exe allein kopiert, Softwareverteilung mit einzelnen Dateien, Virenscanner) und dass auf dem Desktop eine Verknüpfung statt einer Kopie gehört. Der Wortlaut am gebauten Starter wird bei der Prüfung der installierten Fassung 0.4.0 nachgesehen.
+
+
+---
+
+## 405. „Auf Original zurücksetzen“ und „Kopie ersetzen“ verwerfen ungespeicherten Text samt Sicherung, auch wenn das Zurücksetzen scheitert ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung (Bereiche 3, 4
+und 8), Commit `b16800a`.
+
+**Beobachtet:** In der Kopie einer Aufgabe steht in `main.py` ein
+ungespeicherter Text, die Uhr hat ihn schon in
+`T.natter-sicherung` gesichert. Danach „Projekt → Auf Original
+zurücksetzen …“ bestätigt, und das Kopieren scheitert an einer
+gesperrten Datei (`DateiGesperrt`, etwa eine in Excel offene CSV).
+Die Meldung sagt „Die Kopie in … ist unverändert“. Probelauf mit
+`QT_QPA_PLATFORM=offscreen`, `aufgabe_zuruecksetzen` durch eine
+Attrappe ersetzt, die `DateiGesperrt` wirft: danach ist kein Reiter
+mehr offen, `main.py` enthält auf der Platte weiter den alten Stand
+`a = 1`, und die Sicherung ist gelöscht. Der Text ist nirgends mehr.
+
+Auch wenn das Zurücksetzen gelingt, fehlt der ungespeicherte Text:
+die Rückfrage bei einer Aufgabe verspricht „Der bisherige Stand
+dieser Kopie kommt in den Ordner … daneben“, dort landet aber nur,
+was auf der Platte stand. Dasselbe gilt für „Kopie ersetzen“ nach
+einer berichtigten Aufgabe, wenn die Kopie gerade offen ist.
+
+**Ursache:** nachgewiesen. `_kopie_zuruecksetzen`
+(`ide/shell/hauptfenster.py:4075` bis 4078) schließt über
+`_fenster_im_ordner_schliessen` alle Reiter der Kopie, bevor kopiert
+wird. `_reiter_schliessen_wenn` (Zeile 4163 bis 4170) setzt dabei jeden
+Editor auf unverändert; `_aenderung_markieren` (Zeile 4829 bis 4831)
+ruft darauf `_sicherung_aufraeumen`, und weil nichts mehr ungespeichert
+ist, löscht `_sicherung_schreiben` (Zeile 6066 bis 6068) die Sicherung.
+Die Fehlerzweige ab Zeile 4091 stellen nichts davon wieder her.
+
+**Zu tun:** Vor dem Schließen der Reiter ungespeicherte Editoren und
+Diagramme der Kopie wie beim Projektwechsel über
+`_vor_dem_schliessen_klaeren` klären (Speichern, Verwerfen,
+Abbrechen), oder den Text zumindest in die Sicherung bzw. bei einer
+Aufgabe in den Ordner mit dem bisherigen Stand schreiben, bevor die
+Reiter zugehen. Erledigt, wenn ein Test mit geändertem Editor und
+gesperrter Datei nach dem gescheiterten Zurücksetzen den Text noch im
+Editor oder in der Sicherung findet und ein Test mit gelungenem
+Zurücksetzen einer Aufgabe den ungespeicherten Text im Ordner mit dem
+bisherigen Stand findet oder vorher gefragt wurde.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. `_kopie_zuruecksetzen` in `ide/shell/hauptfenster.py` klärt bei offener Kopie vor dem Schließen der Reiter die ungespeicherten Editoren und Diagramme der Kopie über das neue `_ungespeichertes_klaeren`, das auch `_vorheriges_projekt_schliessen` benutzt (dieselbe Nachfrage Speichern/Verwerfen/Abbrechen wie beim Projektwechsel, mit einer offenen Transaktion im Datenbank-Panel). Nach „Abbrechen“ bleibt alles offen, die Statuszeile sagt „… wurde nicht zurückgesetzt.“, und zurück kommt `None`, auch für „Kopie ersetzen“. Nach „Speichern“ liegt der Text auf der Platte und kommt so bei einer Aufgabe in den Ordner „(vorher)“. Scheitert das Zurücksetzen (`DateiGesperrt`, `RueckwegGescheitert`, `OSError`), öffnet `_reiter_wieder_oeffnen` die zuvor offenen Dateien der Kopie wieder (`_reiter_im_ordner`). Das Handbuch, Abschnitt 3.6, beschreibt die Nachfrage. Tests in `tests/test_aufgabe_verteilen.py`: `test_ein_gescheitertes_zuruecksetzen_behaelt_den_ungespeicherten_text` (gesperrte Datei über eine Attrappe von `aufgabe_zuruecksetzen`; nach „Speichern“ steht der Text in der Datei und im wieder geöffneten Reiter, nach „Abbrechen“ ungespeichert im Editor) und `test_nach_speichern_liegt_der_text_im_ordner_mit_dem_bisherigen_stand` (gelungenes Zurücksetzen, der Text liegt in `Ampel (vorher)`). Gegen den alten Stand scheitern beide: es wurde nicht gefragt, und in `Ampel (vorher)` lag der alte Stand.
+
+
+---
+
+## 406. Zwei Natter-Fenster am selben Projekt überschreiben sich die Sicherung; der Text des einen fehlt nach „Trotzdem abmelden“ ~~(erledigt)~~
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung (Bereiche 3, 4
+und 8), Commit `b16800a`.
+
+**Beobachtet:** Ein Projekt ist in zwei Natter-Fenstern offen, was
+Natter mit dem Hinweis „Projekt ist schon geöffnet“ ausdrücklich
+zulässt (ein zweiter Doppelklick auf die `.natter` startet ein
+zweites Natter). Fenster A hat `main.py` geändert, Fenster B
+`zwei.py`, beide ungespeichert. Probelauf mit zwei Hauptfenstern
+unter `QT_QPA_PLATFORM=offscreen`, Inhalt der Sicherung nach jedem
+Schritt:
+
+- A sichert: `['main.py']`
+- B sichert: `['zwei.py']`
+- A sichert wieder: `['zwei.py']`
+- beide erhalten `commitDataRequest`, die Frage bleibt offen:
+  `['zwei.py']`
+
+Der Text aus A kommt nie wieder in die Sicherung, solange sich in A
+nichts ändert. Drückt jemand beim Abmelden „Trotzdem abmelden“, bietet
+Natter beim nächsten Öffnen nur `zwei.py` an; die Änderung an
+`main.py` ist verloren. Speichert B alles, löscht B die Sicherung
+auch dann, wenn sie gerade Text aus A enthält.
+
+**Ursache:** nachgewiesen. Beide Fenster schreiben dieselbe Datei
+`sicherung.pfad_fuer(ordner, name)` und jeweils nur ihre eigenen
+Editoren hinein (`_sicherung_eintraege`, `ide/shell/hauptfenster.py:
+6016`). `_sicherung_schreiben` (Zeile 6070) schreibt nicht neu, wenn
+sich die eigenen Einträge seit dem letzten Schreiben nicht geändert
+haben und die Datei existiert; dass inzwischen ein anderes Fenster
+sie ersetzt hat, bemerkt es nicht. `_sicherung_eigen` sagt nur, dass
+dieses Fenster irgendwann geschrieben hat, und `_sicherung_entfernen`
+(Zeile 6080 bis 6089) löscht daraufhin auch die Einträge des anderen.
+
+**Zu tun:** Die Einträge anderer Fenster beim Schreiben erhalten,
+etwa durch Einlesen und Zusammenführen der vorhandenen Datei (je Pfad
+der neuere Eintrag) oder durch eine Sicherung je Natter-Prozess neben
+der gemeinsamen. Entfernen darf ein Fenster nur seine eigenen
+Einträge. Erledigt, wenn ein Test mit zwei Hauptfenstern auf demselben
+Projekt nach dem Sichern beider Fenster beide Dateien in der Sicherung
+findet und nach dem Speichern in einem Fenster die Einträge des
+anderen noch darin stehen.
+
+**Behoben (29. September 2026, ab 0.4.0).** Ursache bestätigt. Die Sicherung hat das Format `natter-sicherung/2` (`schemas/natter-sicherung.schema.json`): statt einer Liste von Dateien eine Liste von Anteilen, einer je Natter-Fenster, jeder mit Zeitpunkt, Dateien und der Herkunft des Fensters (Rechner, Konto, Prozessnummer, Startzeit des Prozesses und eine zufällige Kennung des Fensters, `sicherung.Herkunft`). `_sicherung_schreiben` und `_sicherung_entfernen` rufen `sicherung.anteil_ersetzen` auf: die Datei wird vor jedem Schreiben neu gelesen, nur der eigene Anteil ersetzt oder entfernt und das Ergebnis atomar geschrieben; ohne Anteile verschwindet die Datei. Nicht geschrieben wird nur, wenn der eigene Anteil in der Datei schon so dasteht; hat ein anderes Fenster ihn ersetzt, schreibt das Fenster ihn beim nächsten Uhrschlag wieder. `_sicherung_stand` entfällt. Beim Öffnen werden nur Anteile angeboten, deren Fenster nicht mehr läuft (Punkt 400); nach der Antwort verschwinden genau diese, und wiederhergestellter Text steht vorher schon im Anteil des neuen Fensters. Nennen zwei angebotene Anteile dieselbe Datei, gilt der jüngere. `natter-sicherung/1` wird weiter gelesen, als ein Anteil ohne Herkunft. Eine eigene Datei je Fenster wäre die andere Möglichkeit gewesen; sie hätte aber Dateien mit wechselnden Namen im Projektordner hinterlassen, und eine Lehrkraft sähe im Windows-Explorer mehrere Sicherungen zu einem Projekt. Grenze: Lesen und Schreiben sind zwei Schritte ohne Sperre. Sichern zwei Fenster im selben Augenblick, kann der Anteil des einen fehlen, bis es wieder sichert, also höchstens zwei Minuten; eine Sperre um die Datei wäre für diesen seltenen Fall mehr Aufwand als Nutzen. Test: `test_zwei_fenster_behalten_jedes_seinen_anteil` in `tests/test_sicherung.py`: zwei Hauptfenster am selben Projekt, A ändert `main.py`, B `zwei.py`; nachdem A, B und wieder A gesichert haben und nach `commitDataRequest` mit offener Frage stehen beide Dateien in der Sicherung, nach dem Speichern in B noch `main.py`, und ein drittes Fenster bietet den Text des noch offenen A nicht an. Gegen den alten Stand scheitert er bei der ersten Prüfung (nur `zwei.py`). Die bestehenden Tests, die das Beenden durch Windows mit einem weiter bestehenden Fenster nachstellen, lassen dieses jetzt mit `_beendet` als geschlossen gelten.
+

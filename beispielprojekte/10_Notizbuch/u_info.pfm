@@ -1,0 +1,49 @@
+{
+  "format": "pfm/1",
+  "class": "FormInfo",
+  "type": "Form",
+  "properties": {
+    "caption": "Über das Notizbuch",
+    "width": 320,
+    "height": 150
+  },
+  "children": [
+    {
+      "name": "l_titel",
+      "type": "Label",
+      "properties": {
+        "left": 16,
+        "top": 16,
+        "width": 288,
+        "height": 24,
+        "caption": "Notizbuch",
+        "font_size": 12,
+        "font_bold": true
+      }
+    },
+    {
+      "name": "l_text",
+      "type": "Label",
+      "properties": {
+        "left": 16,
+        "top": 48,
+        "width": 288,
+        "height": 48,
+        "caption": "Ein Beispiel für ein Menü, eine Textdatei und ein zweites Fenster."
+      }
+    },
+    {
+      "name": "b_ok",
+      "type": "Button",
+      "properties": {
+        "left": 229,
+        "top": 112,
+        "caption": "OK",
+        "default": true
+      },
+      "events": {
+        "on_click": "b_ok_click"
+      }
+    }
+  ]
+}

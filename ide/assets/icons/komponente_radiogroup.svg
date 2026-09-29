@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- RadioGroup: Rahmen mit Beschriftung wie die GroupBox, darin zwei
+       Optionsfelder - das gewählte blau, das andere grau. Beide sind
+       kleine Marken und bekommen deshalb keine Kontur. -->
+  <rect x="3.1" y="6.1" width="17.8" height="14.8" rx="2" fill="#f7f9fa" stroke="#37474f" stroke-width="1.2"/>
+  <rect x="5.2" y="4.2" width="8.8" height="3.8" rx="1" fill="#0067c0"/>
+  <circle cx="7.6" cy="12.3" r="2.1" fill="#0067c0"/>
+  <circle cx="7.6" cy="17.4" r="2.1" fill="#90a4ae"/>
+  <path d="M11.2 12.3h6.8M11.2 17.4h4.6" stroke="#7b8f9a" stroke-width="1" stroke-linecap="round"/>
+</svg>

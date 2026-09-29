@@ -1,0 +1,91 @@
+Natter – Lizenzbedingungen
+
+  A. Lizenz für Natter
+  B. Mitgelieferte Komponenten anderer Hersteller
+  C. Datenschutz
+
+
+  A. LIZENZ FÜR NATTER
+
+Copyright (C) 2026 Jonathan Seeger. Alle Rechte vorbehalten.
+
+1. Geltungsbereich
+Diese Bedingungen gelten für Natter: die Entwicklungsumgebung
+(Ordner „ide“), die Komponentenbibliothek (Ordner „pcl“), die
+Beispielprojekte, Vorlagen, Symbole, das Handbuch und den Starter
+„Natter.exe“. Für die Komponenten anderer Hersteller gilt Abschnitt B.
+
+2. Nutzung
+Natter darf kostenlos installiert und genutzt werden, privat, in
+Schulen und in anderen Bildungseinrichtungen. Eine Schule darf Natter
+auf beliebig vielen eigenen Rechnern installieren und die
+unveränderte Setup-Datei oder ZIP-Datei dafür an Lehrkräfte und
+Schüler weitergeben.
+
+3. Nicht erlaubt
+- Natter oder Teile davon verändert weiterzugeben,
+- Natter über andere Quellen als das offizielle GitHub-Release
+  öffentlich zum Herunterladen anzubieten,
+- Natter zu verkaufen, zu vermieten oder in ein kostenpflichtiges
+  Angebot einzubinden,
+- Urheberrechtsvermerke, diese Lizenz oder die Signatur zu entfernen.
+Der Quelltext ist öffentlich einsehbar. Daraus folgt kein Recht, ihn
+außerhalb dieser Bedingungen zu verwenden.
+
+4. Eigene Programme
+Programme, Formulare, Diagramme und Daten, die mit Natter erstellt
+werden, gehören ihren Urhebern. Sie dürfen frei genutzt, verändert
+und weitergegeben werden, auch als mit „Als Exe exportieren“
+erzeugte Datei. Die darin enthaltene Komponentenbibliothek „pcl“ darf
+dafür als Teil des eigenen Programms mitgegeben werden, auch in
+Quelltextform. Das gilt nicht für eine Weitergabe der Bibliothek für
+sich allein.
+
+5. Gewährleistung und Haftung
+Natter wird unentgeltlich und ohne Gewährleistung überlassen. Der
+Urheber haftet nur für Vorsatz und grobe Fahrlässigkeit. Die
+gesetzliche Haftung für Schäden aus der Verletzung von Leben, Körper
+oder Gesundheit und nach dem Produkthaftungsgesetz bleibt unberührt.
+
+6. Kontakt
+Jonathan Seeger
+jonathan.seeger@gmx.de
+
+
+  B. MITGELIEFERTE KOMPONENTEN ANDERER HERSTELLER
+
+Natter enthält Software anderer Hersteller unter deren eigenen
+Lizenzen. Diese Bedingungen schränken die Rechte daraus nicht ein.
+Die vollständigen Lizenztexte liegen im Ordner „Lizenzen“ des
+Installationsordners.
+
+- Python 3.13: Python Software Foundation License
+- PySide6 und Qt 6: GNU Lesser General Public License Version 3.
+  Die Qt-Bibliotheken liegen als eigene Dateien vor und dürfen durch
+  andere, kompatible Fassungen ersetzt werden. Der Quelltext ist
+  unter https://code.qt.io erhältlich.
+- PyInstaller: GNU General Public License Version 2 mit Ausnahme für
+  erzeugte Programme. PyInstaller wird als eigenständiges Programm
+  für „Als Exe exportieren“ mitgeliefert und ist nicht Teil von
+  Natter. Mit PyInstaller erzeugte Programme unterliegen nicht
+  der GPL.
+- Weitere Pakete (unter anderem pandas, numpy, matplotlib, jedi,
+  debugpy, ruff, libcst, pillow): MIT-, BSD-, Apache- oder
+  vergleichbare Lizenzen, siehe Ordner „Lizenzen“.
+
+
+  C. DATENSCHUTZ
+
+Natter sammelt keine Nutzungsdaten und sendet keine Daten an den
+Urheber. Es gibt keine automatische Suche nach Updates.
+
+Verbindungen ins Internet entstehen nur auf ausdrückliche Anweisung:
+- Paketverwaltung: pip lädt Pakete vom Python Package Index (pypi.org).
+- Als Exe exportieren: beim Signieren der erzeugten Datei wird ein
+  Zeitstempel bei timestamp.digicert.com abgefragt. Ohne Verbindung
+  bleibt die Datei unsigniert oder wird ohne Zeitstempel signiert.
+Dabei wird jeweils die IP-Adresse des Rechners an diesen Dienst
+übertragen.
+
+Einstellungen und Fehlerprotokoll bleiben lokal im Ordner
+„%APPDATA%\Natter“, Projekte im Ordner „Dokumente\Natter“.

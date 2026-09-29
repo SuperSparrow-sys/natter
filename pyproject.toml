@@ -1,0 +1,108 @@
+[project]
+name = "natter"
+version = "0.4.0"
+description = "Entwicklungsumgebung für Python im Informatikunterricht – deutsch, für Windows"
+readme = "README.md"
+requires-python = ">=3.13"
+license = { file = "LICENSE" }
+dependencies = [
+    "pyside6>=6.8",
+    "jsonschema>=4.23",
+    "libcst>=1.4",
+    "debugpy>=1.8",
+    "sqlalchemy>=2.0.54",
+    "pandas>=3.0.5",
+    "numpy>=2.5.3",
+    "openpyxl>=3.1.5",
+    "matplotlib>=3.11.2",
+    # Liegt bei, damit Fortgeschrittene damit arbeiten können (M10,
+    # Abschnitt 7: „numpy rechnet, scikit-learn liegt bei"). Natter
+    # selbst hängt nicht davon ab: `pcl/analyse.py` rechnet jede
+    # Regression über `numpy.polyfit`. BSD-3 wie scipy und joblib, die
+    # es mitbringt - freizügig, also zulässig (AGENTS.md, Lizenzen).
+    "scikit-learn>=1.6",
+    "pyinstaller>=6.11",
+    "pip>=24.0",
+    # Laufzeit-, nicht nur Entwicklungswerkzeug: Natter lässt ruff vor
+    # **jedem** Start über das Schülerprojekt laufen (Abschnitt 8.2).
+    # Stand bis M13 nur in der dev-Gruppe - in einer ausgelieferten
+    # Installation hätte damit die Prüfung vor dem Start gefehlt.
+    "ruff>=0.8",
+    # Prüft beim Start die Signatur des Prüfsummen-Manifests
+    # (Abschnitt 17.8) - muss deshalb in der gebauten Exe stecken.
+    "cryptography>=42",
+    "jedi>=0.20.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-qt>=4.4",
+    "pytest-timeout>=2.4.0",
+    "pytest-xdist>=3.8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pcl", "ide"]
+
+[tool.uv]
+# Die Python für .venv kommt nur aus uvs eigener Verwaltung
+# (%APPDATA%\uv\python). Sonst nahm uv die erste passende im PATH, und
+# einmal war das eine Python in einem Zwischenordner, der später
+# geräumt wurde: danach fehlte ctypes.wintypes und kein Test lief mehr
+# (Punkt 52).
+python-preference = "only-managed"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+# build/ hält Zwischenstände des Baus und Auswertungen, darunter
+# Kopien von Schülerprojekten; der Auslieferungsbau prüft mit
+# `ruff check .` und brach daran ab (Punkt 32).
+extend-exclude = ["build"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# In einem Schuelerprojekt steht `u_main` neben `main.py` und ist damit
+# projekteigen - Ruff sieht darin von aussen aber ein fremdes Paket und
+# will es vor `pcl` sortieren. Die Reihenfolge in den Beispielen kommt
+# aus den Vorlagen (`templates/`) und ist so gewollt; alle uebrigen
+# Regeln gelten hier weiter.
+"beispielprojekte/**" = ["I001"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+# Die Drucker-Tests sind standardmaessig abgewaehlt, siehe unten.
+addopts = ["-m", "not drucker"]
+markers = [
+    # Der erste QPrinter eines Prozesses laesst Windows alle Drucker samt
+    # Treibern durchsuchen. Das kostet auf einem Rechner mit einem nicht
+    # erreichbaren Netzwerkdrucker real gemessen 49 Sekunden - und
+    # schlimmer: waehrend dieser Abfrage reissen die Zeitgrenzen der
+    # Debugger-Tests, die auf echte Unterprozesse warten. In drei
+    # Durchlaeufen fiel jedes Mal ein *anderer* Debugger-Test um; ohne
+    # die Drucker-Tests lief dieselbe Suite dreimal sauber durch.
+    #
+    # Sie sind deshalb nicht Teil des Standardlaufs, aber jederzeit
+    # einzeln aufrufbar:  uv run pytest -m drucker
+    "drucker: fasst das Drucksystem von Windows an; bremst und stoert andere Tests",
+    # Die folgenden vier vergibt tests/conftest.py selbst aus dem Inhalt
+    # der Testdatei. Sie teilen die Suite in Stufen, siehe AGENTS.md,
+    # Abschnitt Tests.
+    "hauptfenster: baut ein ganzes Hauptfenster",
+    "debugger: startet debugpy und wartet auf einen echten Unterprozess",
+    "prozess: startet Unterprozesse, Beispiele, Bau, Exe-Export oder Signatur",
+    "rundlauf: Eigenschaften-Rundlauf ueber alle Komponenten",
+]
+# Ein haengender Test haelt sonst die ganze Suite an, ohne zu sagen,
+# welcher es ist (Punkt 223). Nach der Grenze bricht pytest-timeout
+# ab und zeigt, wo der Test stand. Laengere Grenzen fuer einzelne
+# Dateien vergibt tests/conftest.py (`_LANGE_DATEIEN`).
+timeout = 120

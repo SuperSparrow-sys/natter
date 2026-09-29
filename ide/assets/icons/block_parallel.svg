@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Parallelabschnitt: zwei Straenge zwischen zwei schraeg angeschnittenen Baendern. -->
+  <rect x="3.1" y="4.6" width="17.8" height="14.8" fill="#f7f9fa"/>
+  <path d="M3.1 4.6h17.8l-2.6 3.4H5.7Z" fill="#8764b8"/>
+  <path d="M5.7 16h12.6l2.6 3.4H3.1Z" fill="#8764b8"/>
+  <path d="M12 8v8" stroke="#37474f" stroke-width="1"/>
+  <rect x="5.4" y="10.4" width="5.2" height="3.2" rx="0.6" fill="#0067c0"/>
+  <rect x="13.4" y="10.4" width="5.2" height="3.2" rx="0.6" fill="#0067c0"/>
+  <rect x="3.1" y="4.6" width="17.8" height="14.8" fill="none" stroke="#37474f" stroke-width="1.2"/>
+</svg>

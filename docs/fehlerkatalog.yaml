@@ -1,0 +1,211 @@
+# Fehlerkatalog: fester, von Hand gepflegter Katalog für den Debugger.
+# Siehe konzept-natter.md, Abschnitt 8.3-8.5.
+#
+# Jede Meldung besteht aus drei Teilen: Wo, Was, Zu prüfen.
+# "wo" wird zur Laufzeit aus Datei/Zeile/Methode/Spaltenmarkierung erzeugt
+# und steht daher nicht im Katalog. "was" und "pruefe" stehen hier als
+# Vorlagen; {platzhalter} werden zur Laufzeit mit tatsächlichen Werten
+# gefüllt.
+#
+# Erlaubt: Fehlerart, Ort, Werte von Variablen zum Fehlerzeitpunkt,
+# allgemeine Leitfragen.
+# Nicht erlaubt: korrigierter Code, konkrete Ersatzzeilen, vollständige
+# Anweisungen, Namensvorschläge, Verweise auf Musterlösungen. Die
+# "Did you mean ...?"-Vorschläge von Python werden entfernt.
+#
+# "pruefe" ist Pflicht und darf nie leer sein (M11, Abschnitt 4: "jede
+# Meldung mit Lösungen"). Es ist der Teil, der sagt, was man tun kann -
+# als Leitfrage, nicht als Anweisung. Der Prüfungsmodus (M11,
+# Abschnitt 6) blendet genau diesen Teil wieder aus; alles, was zum
+# Verstehen des Fehlers nötig ist, gehört deshalb nach "was".
+# tests/test_meldungen_mit_loesung.py hält beides fest.
+#
+# Alles, was Python selbst formuliert ("list index out of range"), ist
+# englisch und erscheint nie unverändert: ide/debugger/fehlerkatalog.py
+# übersetzt die im Unterricht vorkommenden Standardmeldungen.
+
+format: fehlerkatalog/1
+
+entries:
+  - id: syntax_error
+    exception: [SyntaxError, IndentationError]
+    was: "Der Quelltext an der markierten Stelle ist kein gültiges Python."
+    pruefe: "Fehlt ein Doppelpunkt am Blockanfang? Stimmt die Einrückung? In Python bestimmt die Einrückung, was zu einem Block gehört."
+
+  - id: name_error
+    exception: NameError
+    was: "Der Name {name} ist an dieser Stelle nicht bekannt."
+    pruefe: "Ist der Name richtig geschrieben? Wurde er vorher zugewiesen? Ist die Unit eingebunden?"
+
+  - id: unbound_local_error
+    exception: UnboundLocalError
+    was: "{name} wird in dieser Funktion verändert, bevor ihm dort ein Wert zugewiesen wurde."
+    pruefe: "Soll an dieser Stelle wirklich eine neue lokale Variable entstehen, oder war die gleichnamige globale gemeint?"
+
+  - id: attribute_error
+    exception: AttributeError
+    was: "{objekt} besitzt keine Eigenschaft {name}."
+    pruefe: "Ist der Eigenschaftsname richtig geschrieben? Gehört er zu dieser Komponente, oder steht in der Variablen ein anderer Objekttyp?"
+    hinweis_kapselung: "Bei Zugriff auf __{name} von außen: Attribute mit zwei führenden Unterstrichen sind gekapselt und nur innerhalb der Klasse erreichbar (Namensumbildung)."
+    # Eine Meldung aus pcl (NatterUnbekannteEigenschaftError, auch der
+    # Menüeintrag mit fehlender Methode) steht unverändert im Was.
+    # Zwei Fälle erkennt der Katalog an der .pfm neben der Datei:
+    # Fehlt die Methode zu einem Ereignis (die Zeile in *_design.py,
+    # die es verknüpft, Punkt 290), zeigt Wo auf die Unit statt auf
+    # die erzeugte Datei. Fehlt an einem Formular eine Komponente, die
+    # es laut .pfm nicht gibt (im Designer gelöscht, Punkt 294), sagt
+    # Was genau das.
+    hinweis_ereignis_ohne_methode: "Das Ereignis {ereignis} der Komponente {komponente} ist im Formular {unit}.pfm mit der Methode {methode} verknüpft, aber in {unit}.py gibt es diese Methode nicht."
+    hinweis_komponente_fehlt: "Auf dem Formular {klasse} gibt es keine Komponente {name}, und die Klasse hat auch keine Methode oder Variable dieses Namens."
+
+  - id: type_error
+    exception: TypeError
+    was: "Der Typ von {wert} passt nicht zur erwarteten Operation oder Parameterzahl."
+    pruefe: "Welchen Typ hat {wert} tatsächlich? Stimmt die Anzahl der Parameter? Kommt der Wert aus einem Eingabefeld und ist damit ein Text?"
+    hinweis_abstrakte_klasse: "Bei Instanziierung einer abstrakten Klasse: Welche mit @abstractmethod markierten Methoden sind in der Unterklasse noch nicht überschrieben?"
+
+  - id: value_error
+    exception: ValueError
+    was: "Der Wert {wert} lässt sich nicht in den gewünschten Typ umwandeln."
+    pruefe: "Entspricht der Wert dem erwarteten Format - ohne Leerzeichen, Einheit oder Dezimalkomma?"
+    hinweis_dezimalkomma: "Bei einer Zahl mit Komma: Python erwartet einen Dezimalpunkt, kein Dezimalkomma."
+    # Der leere Text ist der häufigste Fall: geklickt, bevor etwas im
+    # Eingabefeld steht (Punkt 293).
+    hinweis_leerer_text: "Der Text ist leer - es wurde nichts eingegeben, bevor die Zahl gelesen wurde. Leitfrage: Wird der Fall, dass das Feld leer ist, vorher geprüft?"
+
+  # Eigener Eintrag, obwohl `NatterDatenError` von `ValueError` erbt
+  # (M15, Abschnitt 6). Die Leitfrage oben fragt nach "Leerzeichen,
+  # Einheit oder Dezimalkomma" - bei einem Datenfehler ist das fast
+  # immer die falsche Fährte: wer zu wenige Punkte für eine Regression
+  # hat oder eine Spalte anspricht, die es nicht gibt, sucht sonst am
+  # Zahlenformat. Steht im Katalog **vor** `value_error`, weil die
+  # MRO-Suche den ersten Treffer nimmt.
+  - id: natter_daten_error
+    exception: NatterDatenError
+    was: "Die Daten lassen sich nicht wie angegeben auswerten. Die genaue Meldung kommt aus pcl und steht schon auf Deutsch da."
+    pruefe: "Stehen in der Spalte wirklich Zahlen? Sind es genug Werte? Heißt die Spalte genau so, wie sie in der Datei steht?"
+
+  # `pcl.zahl()` versteht Zahlen mit Komma. Die Leitfrage von
+  # value_error fragt aber gerade nach dem Komma und führte hier auf
+  # die falsche Fährte.
+  - id: natter_zahl_error
+    exception: NatterZahlError
+    was: "„{eingabe}“ ist keine Zahl. Erwartet wird zum Beispiel 2,5 oder -3."
+    pruefe: "Was steht zu diesem Zeitpunkt im Eingabefeld? Wird der Fall, dass dort keine Zahl steht, mit try/except ValueError abgefangen?"
+
+  - id: zero_division_error
+    exception: ZeroDivisionError
+    was: "Es wurde durch 0 geteilt. Der markierte Teiler war zu diesem Zeitpunkt {teiler}."
+    pruefe: "Welche Werte kann der Teiler annehmen? Wird der Fall 0 vorher abgefangen?"
+
+  - id: index_error
+    exception: IndexError
+    was: "Der Index {index} liegt außerhalb des gültigen Bereichs (0 bis {maximum})."
+    pruefe: "Welchen Wert hat {index} an dieser Stelle? Passt er zur Länge der Liste bzw. zur Spalten- und Zeilenanzahl? Gezählt wird ab 0."
+
+  # Eine Zelle außerhalb eines StringGrid. Qt übergeht einen solchen
+  # Zugriff ohne Meldung, deshalb prüft pcl den Index selbst. Steht vor
+  # dem allgemeinen index_error, weil die MRO-Suche den ersten Treffer
+  # nimmt.
+  - id: natter_zellen_error
+    exception: NatterZellenError
+    was: "{art} {index} gibt es nicht, die Tabelle hat {anzahl} {zeilen_oder_spalten} (0 bis {maximum})."
+    pruefe: "Wie viele Zeilen und Spalten hat die Tabelle an dieser Stelle (row_count, col_count)? Gezählt wird ab 0, die letzte Zeile hat also die Nummer row_count - 1. Steht in cells[spalte, zeile] die Spalte vorn?"
+
+  - id: key_error
+    exception: KeyError
+    was: "Der Schlüssel {schluessel} ist nicht vorhanden. Vorhandene Schlüssel: {vorhandene_schluessel}."
+    pruefe: "Ist der Schlüssel bzw. Spaltenname richtig geschrieben, und stimmt die Groß-/Kleinschreibung? Welche Schlüssel enthält die Sammlung an dieser Stelle wirklich?"
+
+  - id: file_not_found_error
+    exception: FileNotFoundError
+    was: "Die Datei {pfad} wurde nicht gefunden. Aktuelles Arbeitsverzeichnis: {arbeitsverzeichnis}."
+    pruefe: "Stimmt der Pfad? Liegt die Datei relativ zum Arbeitsverzeichnis am erwarteten Ort, also im Projektordner?"
+
+  - id: permission_error
+    exception: PermissionError
+    was: "Auf {pfad} kann nicht zugegriffen werden."
+    pruefe: "Ist die Datei gerade in einem anderen Programm (z. B. Excel) geöffnet? Bestehen Schreibrechte für diesen Ordner?"
+
+  - id: unicode_decode_error
+    exception: UnicodeDecodeError
+    was: "Die Datei {pfad} lässt sich nicht als UTF-8 lesen."
+    pruefe: "Wurde die Datei aus Excel exportiert? Excel-CSV-Dateien verwenden häufig einen anderen Zeichensatz (Windows-1252)."
+
+  - id: pandas_parser_error
+    exception: [ParserError, EmptyDataError]
+    was: "Die Datei {pfad} lässt sich nicht als Tabelle einlesen. Erkannte Spaltenanzahl: {spaltenanzahl}."
+    pruefe: "Stimmt das angegebene Trennzeichen? Hat die Datei eine Kopfzeile, und ist sie überhaupt gefüllt?"
+
+  # M12: Fehler, die im Unterricht vorkommen und bis dahin gar keinen
+  # Eintrag hatten - das Schülerprogramm zeigte dann den englischen
+  # Traceback.
+  - id: import_error
+    exception: [ImportError, ModuleNotFoundError]
+    was: "Die Unit oder das Paket {name} konnte nicht geladen werden."
+    pruefe: "Heißt die Unit wirklich so, mit derselben Groß- und Kleinschreibung, und liegt sie im Projektordner? Falls es ein Paket sein soll: ist es über „Pakete → Paket installieren …“ eingerichtet?"
+    # „cannot import name 'main' from 'u_main'“: die Unit ist da, nur
+    # der Name fehlt darin. Wo zeigt dann auf die Unit (Punkt 289).
+    hinweis_name_fehlt: "In der Unit {unit} gibt es keine Funktion, Klasse oder Variable {name}. Die Unit selbst wurde gefunden und geladen."
+
+  # Der einzige Fehler, den man im Editor nicht sehen kann. Der Hinweis
+  # zeigt auf die Ansicht, die Natter seit M11 dafür hat.
+  - id: tab_error
+    exception: TabError
+    was: "In der Einrückung sind Leerzeichen und Tabulatoren gemischt."
+    pruefe: "Wird in dieser Datei überall mit Leerzeichen eingerückt - oder überall mit Tabulatoren? Beides sieht im Editor gleich aus; „Ansicht → Leerzeichen anzeigen“ macht den Unterschied sichtbar."
+
+  - id: recursion_error
+    exception: RecursionError
+    was: "Die Funktion hat sich so oft selbst aufgerufen, dass kein Platz mehr da war. Meistens fehlt der Fall, der die Rekursion beendet."
+    pruefe: "Welcher Fall soll die Rekursion abbrechen, und wird er überhaupt erreicht? Kommt der Aufruf dem Abbruchfall mit jedem Schritt näher?"
+
+  - id: assertion_error
+    exception: AssertionError
+    was: "Eine Behauptung (`assert`) hat nicht gestimmt. Dazu steht da: {meldung}."
+    pruefe: "Welche Werte haben die Namen in der Behauptung an dieser Stelle wirklich? Ist die Behauptung falsch - oder das, was vorher berechnet wurde?"
+
+  # „was“ je nach Programmart: mit Fenster fehlt die Konsole, ohne
+  # Fenster war die Eingabe schon zu Ende.
+  - id: eof_error
+    exception: EOFError
+    was: "input() wartet auf eine Eingabe von der Tastatur, aber ein Programm mit Fenster hat keine Konsole, in die sich etwas tippen ließe."
+    pruefe: "Woher soll der Wert kommen? Gibt es auf dem Formular ein Eingabefeld, aus dem er sich lesen lässt?"
+
+  # Rückfall für alle OSError ohne eigenen Eintrag (FileExistsError,
+  # IsADirectoryError, volle Platte). Ohne ihn fiel die Suche über die
+  # Klassenhierarchie ins Leere.
+  - id: os_error
+    exception: OSError
+    was: "Der Zugriff auf {pfad} ist fehlgeschlagen."
+    pruefe: "Stimmt der Pfad, und gibt es die Datei bzw. den Ordner schon? Ist sie gerade in einem anderen Programm geöffnet?"
+
+  # Rückfall für OverflowError und die übrigen Rechenfehler neben der
+  # Division durch 0.
+  - id: arithmetic_error
+    exception: ArithmeticError
+    was: "Die Rechnung ließ sich nicht ausführen."
+    pruefe: "Welche Werte haben die beteiligten Zahlen an dieser Stelle? Wird eine Zahl in einer Schleife immer weiter vergrößert?"
+
+  # Noch nicht umgesetzt: eine Ausnahme `NatterRuntimeError` gibt es in
+  # `pcl.errors` bisher nicht, und `input()` wird im GUI-Programm nicht
+  # abgefangen. Der Eintrag bleibt als Vorgabe stehen.
+  - id: input_in_gui
+    exception: NatterRuntimeError
+    was: "In GUI-Programmen erfolgen Eingaben über Komponenten auf dem Formular."
+    pruefe: "Welche Komponente auf dem Formular soll diese Eingabe liefern (z. B. ein Edit-Feld)?"
+
+  # Nach „erwartet“ steht der Artikel im Akkusativ: „erwartet einen
+  # Text (str)“ (Punkt 297).
+  - id: pcl_property_error
+    exception: NatterPropertyError
+    was: "{komponente}.{eigenschaft} erwartet {erwarteter_typ}, erhalten wurde {erhaltener_typ}."
+    pruefe: "Welchen Typ liefert der zugewiesene Ausdruck tatsächlich? Kommt der Wert aus einem Eingabefeld und ist damit ein Text?"
+
+  # Ohne eigenen Eintrag fiel die Suche über die MRO bis `RuntimeError`
+  # durch, für den es keinen Eintrag gibt - das Schülerprogramm zeigte
+  # dann einen rohen Traceback statt einer Meldung (M11, Abschnitt 4).
+  - id: natter_datenbank_error
+    exception: NatterDatenbankError
+    was: "Die Datenbank ist nicht erreichbar oder die SQL-Anweisung ist fehlerhaft: {meldung}."
+    pruefe: "Steht die Verbindung zur Datenbank? Heißen Tabelle und Spalten wirklich so, und stimmt die Reihenfolge der SQL-Schlüsselwörter?"

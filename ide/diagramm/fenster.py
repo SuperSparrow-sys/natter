@@ -1,0 +1,1541 @@
+"""DiagrammFenster: eigenes Fenster für den Diagramm-Editor
+(Abschnitt 13.1, 13.2).
+
+Bewusst ein eigenständiges `QMainWindow` ohne Elternfenster, damit
+Windows einen eigenen Taskleisten-Eintrag vergibt und das Fenster
+unabhängig vom Hauptfenster verschoben werden kann (z. B. auf einen
+zweiten Bildschirm) – kein Dock und kein Tab in der IDE
+(entschieden, siehe Arbeitspaket M9).
+
+Stand M9, Schritt 6: Formen- und Verbindungs-Palette links,
+Zeichenfläche in der Mitte, Eigenschaften-Bereich rechts. Die
+Menüeinträge aus Abschnitt 13.2 sind vollständig angelegt, aber nur
+die bereits umgesetzten sind aktiv – der Rest ist ausgegraut, statt
+ein Verhalten vorzutäuschen, das noch nicht existiert.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from PySide6.QtCore import (
+    QEvent,
+    QPoint,
+    QPointF,
+    QRect,
+    QSettings,
+    QSize,
+    Qt,
+    Signal,
+)
+from PySide6.QtGui import (
+    QActionGroup,
+    QCloseEvent,
+    QKeySequence,
+    QPageLayout,
+    QPainter,
+)
+from PySide6.QtPrintSupport import QPrinter, QPrintPreviewDialog
+from PySide6.QtWidgets import (
+    QApplication,
+    QDockWidget,
+    QFileDialog,
+    QGridLayout,
+    QMainWindow,
+    QMenu,
+    QMessageBox,
+    QScrollArea,
+    QWidget,
+)
+
+from ide.assets import symbol
+from ide.deutsch import mehrzahl
+from ide.diagramm import fenstergroesse
+from ide.diagramm.bloecke import alle_bloecke
+from ide.diagramm.canvas import AUSRICHTUNGS_EINTRAEGE, DiagrammCanvas
+from ide.diagramm.codefenster import CodeFenster, CodeOptionenDialog, in_datei_schreiben
+from ide.diagramm.datei import Diagramm
+from ide.diagramm.eigenschaften import EigenschaftenPanel
+from ide.diagramm.export import (
+    als_pdf,
+    als_png,
+    als_svg,
+    auf_seite_zeichnen,
+    in_zwischenablage,
+    seitenformat,
+)
+from ide.diagramm.exportdialog import PngDialog, PngEinstellungen
+from ide.diagramm.formen import formen_fuer
+from ide.diagramm.klassen_code import diagramm_als_python, ungueltige_namen
+from ide.diagramm.kommandos import WerteKommando
+from ide.diagramm.lineale import LINEALBREITE, Lineal, hilfslinien_lesen
+from ide.diagramm.minimap import RAND as MINIMAP_RAND
+from ide.diagramm.minimap import Minimap, abbild_erzeugen
+from ide.diagramm.palette import FormenPalette
+from ide.diagramm.seitendialog import SeitenDialog
+from ide.diagramm.stil import BESCHRIFTUNGEN
+from ide.diagramm.struktogramm import BLOCK_BESCHRIFTUNGEN
+from ide.diagramm.struktogramm_canvas import (
+    StruktogrammCanvas,
+    diagrammnamen_erfragen,
+)
+from ide.diagramm.struktogramm_code import als_python as struktogramm_als_python
+from ide.diagramm.struktogramm_palette import BlockPalette
+from ide.diagramm.tabelle import regelanzahl
+from ide.diagramm.tabelle_canvas import TabellenCanvas
+from ide.diagramm.uml_modell import formname
+from ide.shell.theme import ide_qss_erzeugen
+from pcl.pruefungsmodus import GESPERRT_HINWEIS, restzeit_text
+from pcl.pruefungsmodus import laeuft as pruefungsmodus_laeuft
+
+#: Schmaler als das wird kein Seitenbereich. Gemessen am längsten
+#: Paletteneintrag („Gerichtete Assoziation“ samt Symbol); darunter
+#: kürzt Qt die Beschriftungen mit drei Punkten.
+DOCK_MINDESTBREITE = 200
+
+#: Menüaufbau aus Abschnitt 13.2. `True` = in diesem Schritt bereits
+#: umgesetzt und aktiv, `False` = angelegt, aber ausgegraut.
+_MENUES: dict[str, tuple[tuple[str, bool], ...]] = {
+    "Datei": (
+        ("Speichern", True),
+        ("Speichern unter …", True),
+        ("Exportieren …", True),
+        ("Seite einrichten …", True),
+        ("Drucken …", True),
+        ("Schließen", True),
+    ),
+    "Bearbeiten": (
+        ("Rückgängig", True),
+        ("Wiederholen", True),
+        ("Ausschneiden", True),
+        ("Als Bild kopieren", True),
+        ("Kopieren", True),
+        ("Einfügen", True),
+        ("Duplizieren", True),
+        ("Löschen", True),
+        ("Alles auswählen", True),
+        ("Diagramm umbenennen …", True),
+    ),
+    "Ansicht": (
+        ("Zoom vergrößern", True),
+        ("Zoom verkleinern", True),
+        ("Alles anzeigen", True),
+        ("Zoom 100 %", True),
+        ("Raster", True),
+        ("Lineale", True),
+        ("Hilfslinien", True),
+        ("Minimap", True),
+        ("Seitenränder", True),
+        ("Layout-Hinweise", True),
+    ),
+    "Anordnen": (
+        ("Ausrichten", True),
+        ("Verteilen", True),
+        ("Gleiche Größe", True),
+        ("In den Vordergrund", True),
+        ("In den Hintergrund", True),
+        ("Gruppieren", True),
+        ("Gruppierung aufheben", True),
+    ),
+    "Format": (
+        ("Stilvorlage …", True),
+        # Füllung, Linie und Schrift waren ausgegraut, weil es sie noch
+        # nicht gab. Der Eigenschaften-Bereich rechts kann seither
+        # beides - die Menüeinträge führen jetzt dorthin (M11,
+        # Abschnitt 5: „ausgegraute Menüeinträge, die inzwischen etwas
+        # könnten“).
+        ("Füllung …", True),
+        ("Linie …", True),
+        ("Schrift …", True),
+        ("Stil übertragen", True),
+    ),
+    "Hilfe": (("Über den Diagramm-Editor", True),),
+}
+
+#: Unter diesem Schlüssel steht die zuletzt benutzte Fenstergröße.
+_GROESSE_SCHLUESSEL = "diagramm/fenstergroesse"
+
+#: Die Kurzhilfe hinter „Hilfe → Über den Diagramm-Editor“. Der
+#: Eintrag war bis Punkt 308 mit nichts verbunden. Der erste Absatz
+#: hängt vom Diagrammtyp ab, der Rest gilt für alle.
+_HILFE_JE_TYP = {
+    "struktogramm": (
+        "Einen Block in der Palette links anklicken; der nächste Klick "
+        "auf eine Einfügestelle setzt ihn dorthin. Ein Doppelklick auf "
+        "einen Block beschriftet ihn."
+    ),
+    "entscheidungstabelle": (
+        "Ein Doppelklick auf eine Bedingung oder Aktion beschriftet "
+        "sie, ein Klick in eine Regelzelle schaltet ihren Wert um. "
+        "Zeilen und Regeln kommen über das Menü „Tabelle“ dazu."
+    ),
+    "class": (
+        "Eine Form in der Palette links anklicken und dann auf die "
+        "Zeichenfläche klicken. Attribute und Operationen einer Klasse "
+        "stehen im Eigenschaften-Dialog: Doppelklick auf die Klasse "
+        "oder Rechtsklick und „Eigenschaften …“."
+    ),
+}
+_HILFE_SONST = (
+    "Eine Form in der Palette links anklicken und dann auf die "
+    "Zeichenfläche klicken. Ein Doppelklick auf eine Form beschriftet "
+    "sie. Für eine Verbindung die Verbindungsart in der Palette wählen "
+    "und von Form zu Form ziehen."
+)
+_HILFE_QUELLTEXT = (
+    "„Quelltext → Erzeugen …“ (Strg+Umschalt+E) macht aus dem "
+    "Diagramm eine Vorlage in Python."
+)
+_HILFE_SCHLUSS = (
+    "Mehr steht im Hauptfenster unter „Hilfe → Erste Schritte“, "
+    "Abschnitt „Diagramme“."
+)
+
+#: Einträge, die kein Befehl sind, sondern ein Untermenü aufmachen
+#: (Teilschritt 3b). Die Werte sind (Beschriftung, Argument) – das
+#: Argument geht unverändert an `ausrichten()`, `verteilen()` bzw.
+#: `gleiche_groesse()` der Zeichenfläche.
+_UNTERMENUES: dict[str, tuple[tuple[str, str], ...]] = {
+    "Anordnen/Ausrichten": AUSRICHTUNGS_EINTRAEGE,
+    "Anordnen/Verteilen": (
+        ("Waagerecht", "waagerecht"),
+        ("Senkrecht", "senkrecht"),
+    ),
+    "Anordnen/Gleiche Größe": (
+        ("Breite", "breite"),
+        ("Höhe", "hoehe"),
+        ("Breite und Höhe", "beide"),
+    ),
+}
+
+#: Werkzeugleiste des Diagramm-Editors (M11, Abschnitt 1): die Befehle,
+#: die man beim Zeichnen dauernd braucht. Jeder Eintrag ist der Pfad
+#: einer Aktion, die es schon im Menü gibt – die Leiste hängt
+#: dieselbe `QAction` noch einmal auf, statt den Befehl ein zweites Mal
+#: zu verdrahten (Abschnitt 7.3: „eine Aktion = Menüeintrag +
+#: Werkzeugleisten-Button … nur einmal implementiert“). `None` ist eine
+#: Trennlinie.
+_WERKZEUGLEISTE: tuple[tuple[str, str] | None, ...] = (
+    ("Datei/Speichern", "speichern"),
+    None,
+    ("Bearbeiten/Rückgängig", "rueckgaengig"),
+    ("Bearbeiten/Wiederholen", "wiederholen"),
+    ("Bearbeiten/Löschen", "loeschen"),
+    None,
+    ("Ansicht/Zoom vergrößern", "zoom_groesser"),
+    ("Ansicht/Zoom verkleinern", "zoom_kleiner"),
+    ("Ansicht/Alles anzeigen", "alles_anzeigen"),
+    ("Ansicht/Raster", "raster"),
+)
+
+#: Zusatzmenü, das nur die Entscheidungstabelle bekommt
+#: (Abschnitt 13.5: Spalten und Zeilen hinzufügen/entfernen/verschieben).
+#: Menü „Block“ des Struktogramms. Hinter dem Tabulator steht die Taste,
+#: die auf der Zeichenfläche dasselbe tut; Qt zeigt sie rechts an, ohne
+#: sie für das ganze Fenster zu belegen - ein „+“ im Namensfeld des
+#: Eigenschaften-Bereichs bleibt so ein Pluszeichen.
+_BLOCKMENUE = (
+    "Beschriften …\tF2",
+    "Fall hinzufügen\t+",
+    "Fall entfernen\t-",
+    "Fall beschriften …",
+    "Linken Zweig beschriften …",
+    "Rechten Zweig beschriften …",
+    "Strang hinzufügen\t+",
+    "Strang entfernen\t-",
+)
+
+_TABELLENMENUE = (
+    "Bedingung hinzufügen",
+    "Aktion hinzufügen",
+    "Zeile entfernen",
+    "Regel hinzufügen",
+    "Regel entfernen",
+    "Regel nach links",
+    "Regel nach rechts",
+)
+
+
+def _ansicht_einstellungen() -> QSettings:
+    r"""Dieselbe INI wie der Rest der IDE, Abschnitt „diagramm“.
+
+    Bis 0.3.3 standen Lineale und Minimap über `QSettings("Natter",
+    "Diagramm")` in der Registry. Beim Deinstallieren blieb der Schlüssel
+    `HKCU\Software\Natter\Diagramm` zurück, während alles andere in
+    der INI unter `%APPDATA%\Natter` liegt.
+    """
+    return QSettings(
+        QSettings.Format.IniFormat, QSettings.Scope.UserScope, "Natter", "Natter-IDE"
+    )
+
+
+class DiagrammFenster(QMainWindow):
+    #: Eine Datei, die der Diagramm-Editor geschrieben hat.
+    #:
+    #: Der Editor ist ein eigenes Fenster und kennt das Hauptfenster
+    #: nicht - er soll es auch nicht kennen müssen. Es hängt sich an
+    #: dieses Signal, frischt den Projekt-Explorer auf und öffnet die
+    #: Datei als Reiter. Vorher war die Datei geschrieben, und danach
+    #: passierte nichts: die Schülerin musste ihre eben erzeugte
+    #: Klasse selbst suchen.
+    datei_geschrieben = Signal(Path)
+
+    def __init__(self, diagramm: Diagramm) -> None:
+        super().__init__()
+        self.diagramm = diagramm
+        self._geaendert = False
+        self._drucker: QPrinter | None = None
+        self.setWindowIcon(symbol("app"))
+        self._titel_setzen()
+
+        # Gleiche Einstellungen wie die IDE (Abschnitt 13.1: „Gleiches
+        # Theme … wie die IDE“), gleicher QSettings-Zugriff wie
+        # `HauptFenster` - dadurch wirkt „Ansicht → Design“ der IDE auch
+        # auf neu geöffnete Diagrammfenster.
+        einstellungen = QSettings(
+            QSettings.Format.IniFormat, QSettings.Scope.UserScope, "Natter", "Natter-IDE"
+        )
+        self.setStyleSheet(
+            ide_qss_erzeugen(
+                einstellungen.value("design/thema", "system"),
+                code_schriftart=einstellungen.value("editor/schriftart", "Consolas"),
+            )
+        )
+
+        # Erst die Bereiche, dann die Menüs: die Ansicht-Schalter lesen
+        # ihren Anfangszustand von der Zeichenfläche ab.
+        self._bereiche_aufbauen()
+        self._menues: dict[str, QMenu] = {}
+        self.aktionen: dict[str, object] = {}
+        self._menues_aufbauen()
+        self._statusleiste_aktualisieren()
+        # Nicht größer als der Bildschirm, und in der zuletzt benutzten
+        # Größe (Punkt 304). Mit festen 1100 × 750 lag die Statuszeile
+        # auf 1366 × 768 hinter der Taskleiste.
+        fenstergroesse.einpassen(self, 1100, 750, _GROESSE_SCHLUESSEL)
+
+    def _bereiche_aufbauen(self) -> None:
+        """Aufteilung nach Abschnitt 13.2: Palette links, Zeichenfläche
+        in der Mitte, Eigenschaften rechts. Welche Fläche und welche
+        Palette das sind, hängt am Diagrammtyp – ein Struktogramm hat
+        keine frei platzierten Formen, sondern einen Blockbaum
+        (Abschnitt 13.5)."""
+        if self.diagramm.typ == "struktogramm":
+            self.zeichenflaeche = StruktogrammCanvas(self.diagramm)
+            self.palette = BlockPalette()
+            self.palette.block_gewaehlt.connect(self.zeichenflaeche.einfuegemodus_setzen)
+            self.eigenschaften = None
+        elif self.diagramm.typ == "entscheidungstabelle":
+            # Eine Tabelle wird direkt in sich bearbeitet - eine Palette
+            # gäbe es nichts hineinzuziehen (Abschnitt 13.5).
+            self.zeichenflaeche = TabellenCanvas(self.diagramm)
+            self.palette = None
+            self.eigenschaften = None
+        else:
+            self.zeichenflaeche = DiagrammCanvas(self.diagramm)
+            self.palette = (
+                FormenPalette(self.diagramm.typ) if formen_fuer(self.diagramm.typ) else None
+            )
+            if self.palette is not None:
+                self.palette.form_gewaehlt.connect(
+                    self.zeichenflaeche.platzierungsmodus_setzen
+                )
+                self.palette.verbindung_gewaehlt.connect(
+                    self.zeichenflaeche.verbindungsmodus_setzen
+                )
+            self.eigenschaften = EigenschaftenPanel(self.zeichenflaeche)
+
+        self.zeichenflaeche.auswahl_geaendert.connect(self._bei_auswahl)
+        self.zeichenflaeche.geaendert.connect(self._bei_aenderung)
+        if hasattr(self.zeichenflaeche, "zoom_geaendert"):
+            self.zeichenflaeche.zoom_geaendert.connect(
+                lambda _: self._statusleiste_aktualisieren()
+            )
+
+        # Die Zeichenfläche steckt in einem Rollbereich: ein A4-Blatt ist
+        # breiter als die meisten Fenster, und ein Struktogramm wächst
+        # nach unten aus jedem Fenster heraus. Ohne ihn war alles
+        # außerhalb des sichtbaren Ausschnitts schlicht nicht erreichbar
+        # (vom Nutzer gemeldet). `setWidgetResizable(True)` zusammen mit
+        # der Mindestgröße der Fläche heißt: passt der Inhalt, füllt die
+        # Fläche das Fenster; passt er nicht, erscheinen Rollbalken.
+        self.rollbereich = QScrollArea()
+        self.rollbereich.setWidget(self.zeichenflaeche)
+        self.rollbereich.setWidgetResizable(True)
+        self.rollbereich.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.setCentralWidget(self._mitte_mit_linealen())
+
+        # Ein Struktogramm hat keine "Formen", sondern Blöcke - der
+        # Titel des Docks soll das auch sagen.
+        palettentitel = "Blöcke" if self.diagramm.typ == "struktogramm" else "Formen"
+
+        self.palette_dock = (
+            self._dock(palettentitel, self.palette, Qt.DockWidgetArea.LeftDockWidgetArea)
+            if self.palette is not None
+            else None
+        )
+        self.eigenschaften_dock = (
+            self._dock(
+                "Eigenschaften", self.eigenschaften, Qt.DockWidgetArea.RightDockWidgetArea
+            )
+            if self.eigenschaften is not None
+            else None
+        )
+
+    def _mitte_mit_linealen(self) -> QWidget:
+        """Ecke, oberes Lineal, linkes Lineal und Rollbereich in einem
+        Raster (M15, Abschnitt 5).
+
+        Die Lineale liegen neben der Fläche, nicht darauf: in den
+        `paintEvent` gemalt hätten sie die obersten und linkesten
+        Zentimeter des Blatts unter sich begraben.
+        """
+        self.lineal_oben = Lineal(waagerecht=True)
+        self.lineal_links = Lineal(waagerecht=False)
+        self.lineal_ecke = QWidget()
+        self.lineal_ecke.setFixedSize(LINEALBREITE, LINEALBREITE)
+
+        mitte = QWidget()
+        raster = QGridLayout(mitte)
+        raster.setContentsMargins(0, 0, 0, 0)
+        raster.setSpacing(0)
+        raster.addWidget(self.lineal_ecke, 0, 0)
+        raster.addWidget(self.lineal_oben, 0, 1)
+        raster.addWidget(self.lineal_links, 1, 0)
+        raster.addWidget(self.rollbereich, 1, 1)
+
+        # Eltern ist der Viewport und nicht der Rollbereich selbst:
+        # `_minimap_einpassen()` rechnet mit dessen Maßen, und ein
+        # `move()` gilt immer im Koordinatensystem des Elternteils.
+        # Beides auseinanderzuhalten hieß, die Minimap um die
+        # Rahmenbreite daneben zu setzen.
+        self.minimap = Minimap(self.rollbereich.viewport())
+        self.minimap.sprung_gewuenscht.connect(self._zur_stelle_springen)
+        self.minimap.hide()
+        # Der Viewport meldet seine neue Größe; ohne das bliebe die
+        # Minimap dort stehen, wo sie beim letzten Rollen berechnet
+        # wurde - nach einem Neustart mit anderer Fenstergröße also
+        # mitten auf der Zeichenfläche.
+        self.rollbereich.viewport().installEventFilter(self)
+        #: Ob die Minimap eingeschaltet ist. Nicht `isVisible()`
+        #: fragen: solange das Fenster selbst noch nicht gezeigt wurde,
+        #: meldet Qt dort `False`, auch wenn `setVisible(True)` längst
+        #: gelaufen ist - das Abbild wäre dann nie entstanden, und die
+        #: Minimap bliebe ein leerer weißer Kasten.
+        self._minimap_an = False
+
+        for lineal in (self.lineal_oben, self.lineal_links):
+            lineal.hilfslinie_gezogen.connect(
+                lambda stelle, waagerecht=lineal is self.lineal_oben: (
+                    self._hilfslinie_aus_lineal(stelle, waagerecht)
+                )
+            )
+
+        for balken in (
+            self.rollbereich.horizontalScrollBar(),
+            self.rollbereich.verticalScrollBar(),
+        ):
+            balken.valueChanged.connect(lambda _: self._ansicht_nachfuehren())
+        if hasattr(self.zeichenflaeche, "zoom_geaendert"):
+            self.zeichenflaeche.zoom_geaendert.connect(
+                lambda _: self._ansicht_nachfuehren()
+            )
+        return mitte
+
+    def _ansicht_nachfuehren(self) -> None:
+        """Lineale und Minimap auf den aktuellen Ausschnitt einstellen."""
+        zoom = getattr(self.zeichenflaeche, "zoom", 1.0)
+        waagerecht = self.rollbereich.horizontalScrollBar().value()
+        senkrecht = self.rollbereich.verticalScrollBar().value()
+        self.lineal_oben.stand_setzen(zoom, waagerecht)
+        self.lineal_links.stand_setzen(zoom, senkrecht)
+
+        if self._minimap_an:
+            sicht = self.rollbereich.viewport()
+            self.minimap.ausschnitt_setzen(
+                QRect(
+                    int(waagerecht / max(zoom, 0.01)),
+                    int(senkrecht / max(zoom, 0.01)),
+                    int(sicht.width() / max(zoom, 0.01)),
+                    int(sicht.height() / max(zoom, 0.01)),
+                )
+            )
+            self._minimap_einpassen()
+
+    def eventFilter(self, gegenstand: object, ereignis: QEvent) -> bool:
+        """Hält die Minimap in der Ecke, wenn sich der Viewport ändert."""
+        if (
+            ereignis.type() == QEvent.Type.Resize
+            and gegenstand is self.rollbereich.viewport()
+        ):
+            self._minimap_einpassen()
+        return super().eventFilter(gegenstand, ereignis)
+
+    def _minimap_einpassen(self) -> None:
+        """Unten rechts im Rollbereich, mit Abstand zum Rand.
+
+        Passt sie nicht mehr hin, verschwindet sie. Bei einem schmalen
+        Fenster wurde die Ecke sonst negativ, und die Minimap ragte
+        links über den Rand hinaus - ein weißer Kasten quer über dem
+        Lineal. Und eine Übersichtskarte, die den halben Ausschnitt
+        verdeckt, hilft ohnehin niemandem.
+        """
+        sicht = self.rollbereich.viewport()
+        passt = (
+            sicht.width() >= self.minimap.width() + 2 * MINIMAP_RAND
+            and sicht.height() >= self.minimap.height() + 2 * MINIMAP_RAND
+        )
+        self.minimap.setVisible(self._minimap_an and passt)
+        if not passt:
+            return
+        self.minimap.move(
+            sicht.width() - self.minimap.width() - MINIMAP_RAND,
+            sicht.height() - self.minimap.height() - MINIMAP_RAND,
+        )
+        self.minimap.raise_()
+
+    def _minimap_abbild_erneuern(self) -> None:
+        if not self._minimap_an:
+            return
+        breite, hoehe = self.zeichenflaeche.inhaltsgroesse()
+        gesamt = QSize(int(breite), int(hoehe))
+        self.minimap.abbild_setzen(abbild_erzeugen(self.zeichenflaeche, gesamt), gesamt)
+        self._ansicht_nachfuehren()
+
+    def _zur_stelle_springen(self, stelle: QPoint) -> None:
+        """Ein Klick in die Minimap rückt den Ausschnitt dorthin - die
+        Stelle in die Mitte, nicht an den Rand."""
+        zoom = getattr(self.zeichenflaeche, "zoom", 1.0)
+        sicht = self.rollbereich.viewport()
+        self.rollbereich.horizontalScrollBar().setValue(
+            int(stelle.x() * zoom - sicht.width() / 2)
+        )
+        self.rollbereich.verticalScrollBar().setValue(
+            int(stelle.y() * zoom - sicht.height() / 2)
+        )
+
+    def _hilfslinie_aus_lineal(
+        self, global_punkt: QPointF, waagerecht: bool
+    ) -> None:
+        """Aus dem Lineal gezogen und bei `global_punkt` losgelassen.
+
+        Eine Linie entsteht nur, wenn dort die Zeichenfläche liegt: ein
+        bloßer Klick aufs Lineal legt keine an. Das obere Lineal gibt
+        eine waagerechte Linie auf der Höhe, an der losgelassen wurde,
+        das linke eine senkrechte.
+        """
+        sicht = self.rollbereich.viewport()
+        punkt = global_punkt.toPoint()
+        if not sicht.rect().contains(sicht.mapFromGlobal(punkt)):
+            return
+        lokal = self.zeichenflaeche.mapFromGlobal(punkt)
+        zoom = max(getattr(self.zeichenflaeche, "zoom", 1.0), 0.01)
+        stelle = (lokal.y() if waagerecht else lokal.x()) / zoom
+        if stelle >= 0:
+            self._hilfslinie_anlegen(round(stelle), waagerecht)
+
+    def _hilfslinie_anlegen(self, stelle: float, waagerecht: bool) -> None:
+        """Eine aus dem Lineal gezogene Hilfslinie - als Undo-Schritt,
+        wie jede andere Änderung am Diagramm auch. Im Struktogramm und
+        in der Entscheidungstabelle gibt es keine: dort würde sie nicht
+        gezeichnet, stünde aber in der Datei."""
+        if not hasattr(self.zeichenflaeche, "hilfslinien_sichtbar"):
+            return
+        linien = list(hilfslinien_lesen(self.diagramm.daten))
+        linien.append({"orientation": "h" if waagerecht else "v", "pos": float(stelle)})
+        self.zeichenflaeche.kommandos.ausfuehren(
+            WerteKommando(self.diagramm.daten, {"guides": linien})
+        )
+        self.zeichenflaeche.hilfslinien_sichtbar = True
+        self.aktionen["Ansicht/Hilfslinien"].setChecked(True)
+        self.zeichenflaeche.update()
+        self._bei_aenderung()
+
+    def diagramm_umbenennen(self, name: str | None = None) -> bool:
+        """„Bearbeiten → Diagramm umbenennen …“ (Punkt 64). Der Name
+        steht in der Datei, über dem Struktogramm und als Funktionsname
+        im erzeugten Quelltext; der Dateiname bleibt. Ohne `name` fragt
+        ein Dialog."""
+        if name is None:
+            name = diagrammnamen_erfragen(
+                self, str(self.diagramm.daten.get("name") or "")
+            )
+            if name is None:
+                return False
+        return self.zeichenflaeche.diagramm_umbenennen(name)
+
+    def _dock(self, titel: str, inhalt: QWidget, bereich: Qt.DockWidgetArea) -> QDockWidget:
+        """Ein Seitenbereich mit einer Mindestbreite.
+
+        Ohne die verteilt Qt die Breite allein nach dem Platzbedarf
+        des Inhalts, und ein Bereich mit wenig darin schrumpft, bis
+        von seinem Titel nur noch „Eigen…" übrig ist. In der Palette
+        traf es die Überschriften: aus „Klassendiagramm" wurde
+        „…endiagramm". Die Breite wächst mit der Systemschrift mit,
+        damit sie auch bei vergrößerter Darstellung reicht.
+        """
+        dock = QDockWidget(titel, self)
+        dock.setObjectName(titel)
+        dock.setWidget(inhalt)
+        inhalt.setMinimumWidth(
+            max(DOCK_MINDESTBREITE, dock.fontMetrics().horizontalAdvance(titel) + 64)
+        )
+        self.addDockWidget(bereich, dock)
+        return dock
+
+    def _gewaehlte_form(self) -> dict | None:
+        """Die ausgewählte Form, oder `None` samt Hinweis in der
+        Statuszeile – die drei Format-Einträge brauchen alle eine."""
+        form = getattr(self.zeichenflaeche, "ausgewaehlte_form", None)
+        if form is None:
+            self.statusBar().showMessage(
+                "Keine Form ausgewählt. Zuerst eine Form anklicken.", 3000
+            )
+        return form
+
+    def _fuellung_waehlen(self) -> None:
+        """„Format → Füllung …“ (M11, Abschnitt 5).
+
+        Die drei Einträge „Füllung“, „Linie“ und „Schrift“ waren
+        ausgegraut, weil es sie noch nicht gab. Der Eigenschaften-Bereich
+        rechts kann das inzwischen – also führen sie jetzt dorthin,
+        statt weiter grau dazustehen. Bewusst dieselben Bedienelemente
+        und nicht ein zweiter, eigener Dialog: zwei Wege zur selben
+        Sache, die sich verschieden verhalten, sind schlimmer als einer.
+        """
+        if self._gewaehlte_form() is not None:
+            self.eigenschaften.fuellung.click()
+
+    def _linienfarbe_waehlen(self) -> None:
+        """„Format → Linie …“ – siehe `_fuellung_waehlen`."""
+        if self._gewaehlte_form() is not None:
+            self.eigenschaften.linie.click()
+
+    def _schriftgroesse_waehlen(self) -> None:
+        """„Format → Schrift …“ – siehe `_fuellung_waehlen`. Für die
+        Größe gibt es keinen Farbdialog, also das Drehfeld im
+        Eigenschaften-Bereich: es bekommt den Fokus und seinen Wert
+        ausgewählt, sodass man die neue Zahl direkt eintippen kann."""
+        if self._gewaehlte_form() is None:
+            return
+        self.eigenschaften_dock.show()
+        self.eigenschaften.schrift.setFocus()
+        self.eigenschaften.schrift.selectAll()
+
+    def _stil_uebertragen(self) -> None:
+        """„Format → Stil übertragen“ (Abschnitt 13.3): erster Aufruf
+        merkt sich die Vorlage, der zweite überträgt sie auf die dann
+        ausgewählte Form."""
+        aktuell = getattr(self.zeichenflaeche, "ausgewaehlte_form", None)
+        if aktuell is None:
+            self.statusBar().showMessage("Keine Form ausgewählt.", 3000)
+            return
+        vorlage = getattr(self, "_stil_vorlage", None)
+        if vorlage is None or vorlage is aktuell:
+            self._stil_vorlage = aktuell
+            name = formname(aktuell) or aktuell["kind"]
+            self.statusBar().showMessage(
+                f"Stil von „{name}“ gemerkt – jetzt Zielform auswählen und erneut aufrufen.",
+                5000,
+            )
+            return
+
+        self.eigenschaften.stil_uebertragen(vorlage, aktuell)
+        self._stil_vorlage = None
+        self.statusBar().showMessage("Stil übertragen.", 3000)
+
+    def _bei_auswahl(self, form: dict | None) -> None:
+        if self.eigenschaften is not None:
+            self.eigenschaften.aktualisieren()
+        self._statusleiste_aktualisieren()
+
+    def _bei_aenderung(self) -> None:
+        if self.eigenschaften is not None:
+            self.eigenschaften.aktualisieren()
+        self._geaendert = True
+        self._titel_setzen()
+        self._statusleiste_aktualisieren()
+        # Die Minimap zeigt das ganze Diagramm - wenn sich das ändert,
+        # muss sie es auch. Nur hier und nicht bei jedem Neuzeichnen:
+        # ein Abbild der ganzen Fläche kostet spürbar Zeit.
+        self._minimap_abbild_erneuern()
+
+    # -- Aufbau ---------------------------------------------------------
+
+    def _menues_aufbauen(self) -> None:
+        for menue_name, eintraege in _MENUES.items():
+            menue = self.menuBar().addMenu(menue_name)
+            self._menues[menue_name] = menue
+            for beschriftung, aktiv in eintraege:
+                pfad = f"{menue_name}/{beschriftung}"
+                if pfad in _UNTERMENUES:
+                    self._untermenue_aufbauen(menue, pfad, aktiv)
+                    continue
+                aktion = menue.addAction(beschriftung)
+                aktion.setEnabled(aktiv)
+                self.aktionen[pfad] = aktion
+
+        if self.diagramm.typ == "entscheidungstabelle":
+            self._tabellenmenue_aufbauen()
+        if self.diagramm.typ == "struktogramm":
+            self._blockmenue_aufbauen()
+        if self.diagramm.typ in ("class", "struktogramm"):
+            self._quelltextmenue_aufbauen()
+        self._stilvorlagen_menue_aufbauen()
+        self._ansicht_schalter_aufbauen()
+
+        # Achtung: `QAction.triggered` schickt immer ein `checked`-Flag
+        # mit. Eine Methode, deren erster Parameter optional ist, bekommt
+        # dadurch `False` statt `None` hineingereicht – `exportieren`
+        # stürzte real mit „argument should be a str or an os.PathLike
+        # object … not 'bool'“ ab. Deshalb hier überall ein Lambda ohne
+        # Parameter, das dieses Flag verschluckt.
+        self.aktionen["Datei/Speichern"].triggered.connect(lambda: self.speichern())
+        self.aktionen["Datei/Speichern unter …"].triggered.connect(
+            lambda: self.speichern_unter()
+        )
+        self.aktionen["Datei/Exportieren …"].triggered.connect(lambda: self.exportieren())
+        self.aktionen["Datei/Drucken …"].triggered.connect(lambda: self.drucken())
+        self.aktionen["Datei/Seite einrichten …"].triggered.connect(
+            lambda: self.seite_einrichten()
+        )
+        self.aktionen["Datei/Schließen"].triggered.connect(lambda: self.close())
+        self.aktionen["Hilfe/Über den Diagramm-Editor"].triggered.connect(
+            lambda: self.hilfe_zeigen()
+        )
+        self.aktionen["Bearbeiten/Als Bild kopieren"].triggered.connect(
+            self.als_bild_kopieren
+        )
+        self.aktionen["Bearbeiten/Diagramm umbenennen …"].triggered.connect(
+            lambda: self.diagramm_umbenennen()
+        )
+
+        # Tastenkürzel doppelt zur Zeichenfläche: dort greifen sie nur
+        # bei Fokus auf der Fläche, über das Menü immer im Fenster.
+        for pfad, kuerzel, rueckruf in (
+            ("Bearbeiten/Rückgängig", "Ctrl+Z", lambda: self.zeichenflaeche.rueckgaengig()),
+            ("Bearbeiten/Wiederholen", "Ctrl+Shift+Z", lambda: self.zeichenflaeche.wiederholen()),
+            ("Bearbeiten/Duplizieren", "Ctrl+D", lambda: self.zeichenflaeche.duplizieren()),
+            ("Bearbeiten/Löschen", "Del", lambda: self.zeichenflaeche.loeschen()),
+            ("Datei/Speichern", "Ctrl+S", None),
+            ("Format/Stil übertragen", "Ctrl+Shift+V", self._stil_uebertragen),
+            ("Format/Füllung …", "", self._fuellung_waehlen),
+            ("Format/Linie …", "", self._linienfarbe_waehlen),
+            ("Format/Schrift …", "", self._schriftgroesse_waehlen),
+            ("Ansicht/Zoom vergrößern", "Ctrl++", lambda: self._zoomen(1.25)),
+            ("Ansicht/Zoom verkleinern", "Ctrl+-", lambda: self._zoomen(1 / 1.25)),
+            # Strg+0 stellt wie im Hauptfenster die normale Größe her
+            # (Punkt 310); dort heißt der Befehl „Normale Schriftgröße“.
+            ("Ansicht/Alles anzeigen", "Ctrl+1", self.alles_anzeigen),
+            ("Ansicht/Zoom 100 %", "Ctrl+0", lambda: self._zoom_setzen(1.0)),
+        ):
+            aktion = self.aktionen[pfad]
+            aktion.setShortcut(kuerzel)
+            if rueckruf is not None:
+                aktion.triggered.connect(rueckruf)
+        # Wiederholen auch mit Strg+Y (Punkt 132), wie in der IDE und im
+        # Handbuch. Vorher kannte nur die Zeichenfläche der Formen-
+        # Diagramme Strg+Y; im Struktogramm und in der
+        # Entscheidungstabelle tat die Taste nichts.
+        self.aktionen["Bearbeiten/Wiederholen"].setShortcuts(
+            [QKeySequence("Ctrl+Shift+Z"), QKeySequence("Ctrl+Y")]
+        )
+
+        self._anordnen_verdrahten()
+        self._menue_an_typ_anpassen()
+        self._werkzeugleiste_aufbauen()
+
+    def _werkzeugleiste_aufbauen(self) -> None:
+        """Werkzeugleiste aus `_WERKZEUGLEISTE`.
+
+        Bewusst dieselbe Machart wie die Leiste der Haupt-IDE
+        (`ide/shell/hauptfenster.py`): 18 px Symbole, nicht verschiebbar,
+        und jeder Knopf ist dieselbe `QAction` wie der Menüeintrag.
+        Dadurch erbt er Tastenkürzel, Ein/Aus-Zustand und – beim Raster –
+        auch das Häkchen, ohne dass irgendetwas zweimal dasteht. Was der
+        Diagrammtyp nicht kann, ist im Menü ausgegraut und damit auch
+        hier (`_menue_an_typ_anpassen` läuft vorher).
+        """
+        self.werkzeugleiste = self.addToolBar("Werkzeugleiste")
+        self.werkzeugleiste.setObjectName("Werkzeugleiste")
+        self.werkzeugleiste.setMovable(False)
+        self.werkzeugleiste.setIconSize(QSize(18, 18))
+        for eintrag in _WERKZEUGLEISTE:
+            if eintrag is None:
+                self.werkzeugleiste.addSeparator()
+                continue
+            pfad, symbolname = eintrag
+            aktion = self.aktionen[pfad]
+            aktion.setIcon(symbol(symbolname))
+            self.werkzeugleiste.addAction(aktion)
+
+    def _untermenue_aufbauen(self, menue, pfad: str, aktiv: bool) -> None:
+        """Baut ein Untermenü wie „Anordnen → Ausrichten".
+
+        Die Einzelbefehle bekommen denselben Pfad mit angehängtem
+        Argument (`Anordnen/Ausrichten/links`) – so findet sie der Test,
+        der jeden aktiven Menüeintrag auslöst, genau wie jede andere
+        Aktion auch.
+        """
+        name = pfad.split("/", 1)[1]
+        untermenue = menue.addMenu(name)
+        untermenue.setEnabled(aktiv)
+        self._menues[pfad] = untermenue
+        for beschriftung, argument in _UNTERMENUES[pfad]:
+            aktion = untermenue.addAction(beschriftung)
+            aktion.setEnabled(aktiv)
+            self.aktionen[f"{pfad}/{argument}"] = aktion
+
+    def _anordnen_verdrahten(self) -> None:
+        """Verbindet Bearbeiten und Anordnen mit der Zeichenfläche.
+
+        Alles über parameterlose Lambdas: `QAction.triggered` schickt
+        immer ein `checked`-Flag mit, das sonst als erstes Argument
+        ankäme (in M9 real abgestürzt).
+        """
+        flaeche = self.zeichenflaeche
+        if not hasattr(flaeche, "ausrichten"):
+            # Struktogramm und Entscheidungstabelle kennen keine Formen
+            for pfad, aktion in self.aktionen.items():
+                if pfad.startswith("Anordnen/") or pfad in (
+                    "Bearbeiten/Ausschneiden",
+                    "Bearbeiten/Kopieren",
+                    "Bearbeiten/Einfügen",
+                    "Bearbeiten/Alles auswählen",
+                ):
+                    aktion.setEnabled(False)
+            for pfad, untermenue in self._menues.items():
+                if pfad.startswith("Anordnen/"):
+                    untermenue.setEnabled(False)
+            return
+
+        for pfad, kuerzel, rueckruf in (
+            ("Bearbeiten/Ausschneiden", "Ctrl+X", flaeche.ausschneiden),
+            ("Bearbeiten/Kopieren", "Ctrl+C", flaeche.kopieren),
+            ("Bearbeiten/Einfügen", "Ctrl+V", flaeche.einfuegen),
+            ("Bearbeiten/Alles auswählen", "Ctrl+A", flaeche.alles_auswaehlen),
+            ("Anordnen/In den Vordergrund", "Ctrl+Shift+Up", flaeche.nach_vorne),
+            ("Anordnen/In den Hintergrund", "Ctrl+Shift+Down", flaeche.nach_hinten),
+            ("Anordnen/Gruppieren", "Ctrl+G", flaeche.gruppieren),
+            (
+                "Anordnen/Gruppierung aufheben",
+                "Ctrl+Shift+G",
+                flaeche.gruppierung_aufheben,
+            ),
+        ):
+            aktion = self.aktionen[pfad]
+            aktion.setShortcut(kuerzel)
+            aktion.triggered.connect(lambda *_, f=rueckruf: f())
+
+        for pfad, methode in (
+            ("Anordnen/Ausrichten", flaeche.ausrichten),
+            ("Anordnen/Verteilen", flaeche.verteilen),
+            ("Anordnen/Gleiche Größe", flaeche.gleiche_groesse),
+        ):
+            for _, argument in _UNTERMENUES[pfad]:
+                self.aktionen[f"{pfad}/{argument}"].triggered.connect(
+                    lambda *_, f=methode, a=argument: f(a)
+                )
+
+    def _menue_an_typ_anpassen(self) -> None:
+        """Was die Zeichenfläche dieses Diagrammtyps nicht kann, wird
+        ausgegraut statt vorgetaeuscht – ein Struktogramm kennt keine
+        Formen, also auch kein Duplizieren, keine Hilfslinien und kein
+        Übertragen von Fuellfarben (Abschnitt 13.5)."""
+        for pfad, faehigkeit in (
+            ("Ansicht/Zoom vergrößern", "zoom_setzen"),
+            ("Ansicht/Zoom verkleinern", "zoom_setzen"),
+            ("Ansicht/Alles anzeigen", "alles_anzeigen"),
+            ("Ansicht/Zoom 100 %", "zoom_setzen"),
+            ("Bearbeiten/Duplizieren", "duplizieren"),
+            ("Format/Stil übertragen", "ausgewaehlte_form"),
+            ("Format/Füllung …", "ausgewaehlte_form"),
+            ("Format/Linie …", "ausgewaehlte_form"),
+            ("Format/Schrift …", "ausgewaehlte_form"),
+            ("Ansicht/Raster", "raster_sichtbar"),
+            ("Ansicht/Seitenränder", "seitenrand_sichtbar"),
+            ("Ansicht/Layout-Hinweise", "hinweise_sichtbar"),
+            ("Ansicht/Hilfslinien", "hilfslinien_sichtbar"),
+        ):
+            if not hasattr(self.zeichenflaeche, faehigkeit):
+                self.aktionen[pfad].setEnabled(False)
+
+    def _tabellenmenue_aufbauen(self) -> None:
+        """Eigenes Menü „Tabelle“ – eine Entscheidungstabelle wird nicht
+        über eine Palette gefüllt, sondern über Zeilen und Spalten."""
+        # Vor "Hilfe" einhängen - "Hilfe" gehört ans Ende der
+        # Menüleiste, nicht mittendrin (im Screenshot aufgefallen).
+        menue = QMenu("Tabelle", self)
+        self.menuBar().insertMenu(self._menues["Hilfe"].menuAction(), menue)
+        self._menues["Tabelle"] = menue
+        flaeche = self.zeichenflaeche
+        rueckrufe = {
+            "Bedingung hinzufügen": lambda: flaeche.zeile_hinzufuegen("conditions"),
+            "Aktion hinzufügen": lambda: flaeche.zeile_hinzufuegen("actions"),
+            "Zeile entfernen": flaeche.loeschen,
+            "Regel hinzufügen": lambda: flaeche.regel_hinzufuegen(),
+            "Regel entfernen": lambda: flaeche.regel_entfernen(),
+            "Regel nach links": lambda: self._regel_verschieben(-1),
+            "Regel nach rechts": lambda: self._regel_verschieben(1),
+        }
+        for beschriftung in _TABELLENMENUE:
+            aktion = menue.addAction(beschriftung)
+            aktion.triggered.connect(rueckrufe[beschriftung])
+            self.aktionen[f"Tabelle/{beschriftung}"] = aktion
+
+    def _blockmenue_aufbauen(self) -> None:
+        """Eigenes Menü „Block“ für das Struktogramm (Punkt 53): die
+        Fälle einer Mehrfach- oder Fallauswahl lassen sich sonst nur
+        über die rechte Maustaste, Doppelklick oder Plus und Minus
+        ändern, und wer davon nichts weiß, findet es hier."""
+        menue = QMenu("Block", self)
+        self.menuBar().insertMenu(self._menues["Hilfe"].menuAction(), menue)
+        self._menues["Block"] = menue
+        flaeche = self.zeichenflaeche
+        rueckrufe = {
+            "Beschriften …\tF2": lambda: flaeche.bearbeiten(),
+            "Fall hinzufügen\t+": lambda: flaeche.fall_hinzufuegen(),
+            "Fall entfernen\t-": lambda: flaeche.fall_entfernen(),
+            "Fall beschriften …": self._fall_beschriften,
+            "Linken Zweig beschriften …": lambda: self._zweig_beschriften("then"),
+            "Rechten Zweig beschriften …": lambda: self._zweig_beschriften("else"),
+            "Strang hinzufügen\t+": lambda: flaeche.strang_hinzufuegen(),
+            "Strang entfernen\t-": lambda: flaeche.strang_entfernen(),
+        }
+        for beschriftung in _BLOCKMENUE:
+            aktion = menue.addAction(beschriftung)
+            aktion.triggered.connect(rueckrufe[beschriftung])
+            self.aktionen[f"Block/{beschriftung.split(chr(9))[0]}"] = aktion
+        menue.aboutToShow.connect(self._blockmenue_aktualisieren)
+        self._blockmenue_aktualisieren()
+
+    def _blockmenue_aktualisieren(self) -> None:
+        flaeche = self.zeichenflaeche
+        block = flaeche.ausgewaehlter_block
+        auswahl = flaeche.mehrfachblock()
+        self.aktionen["Block/Beschriften …"].setEnabled(
+            block is not None and block is not flaeche.wurzel
+        )
+        self.aktionen["Block/Fall hinzufügen"].setEnabled(auswahl is not None)
+        self.aktionen["Block/Fall entfernen"].setEnabled(
+            flaeche.fall_entfernbar() is not None
+        )
+        self.aktionen["Block/Fall beschriften …"].setEnabled(
+            flaeche.fall_der_auswahl() is not None
+        )
+        verzweigung = flaeche.verzweigung() is not None
+        self.aktionen["Block/Linken Zweig beschriften …"].setEnabled(verzweigung)
+        self.aktionen["Block/Rechten Zweig beschriften …"].setEnabled(verzweigung)
+        self.aktionen["Block/Strang hinzufügen"].setEnabled(
+            flaeche.parallelblock() is not None
+        )
+        self.aktionen["Block/Strang entfernen"].setEnabled(
+            flaeche.strang_entfernbar() is not None
+        )
+
+    def _zweig_beschriften(self, schluessel: str) -> None:
+        verzweigung = self.zeichenflaeche.verzweigung()
+        if verzweigung is None:
+            self.statusBar().showMessage(
+                "Zuerst eine Verzweigung oder einen Block in einem ihrer "
+                "Zweige anklicken.",
+                5000,
+            )
+            return
+        self.zeichenflaeche.zweig_bearbeiten(verzweigung, schluessel)
+
+    def _fall_beschriften(self) -> None:
+        fall = self.zeichenflaeche.fall_der_auswahl()
+        if fall is None:
+            self.statusBar().showMessage(
+                "Zuerst einen Block in einer Spalte der Auswahl anklicken "
+                "oder die Beschriftung des Falls doppelklicken.",
+                5000,
+            )
+            return
+        self.zeichenflaeche.fall_bearbeiten(*fall)
+
+    def _regel_verschieben(self, richtung: int) -> None:
+        zelle = self.zeichenflaeche.ausgewaehlte_zelle
+        if zelle is None or zelle.spalte < 0:
+            self.statusBar().showMessage("Keine Regel ausgewählt.", 3000)
+            return
+        self.zeichenflaeche.regel_verschieben(zelle.spalte, zelle.spalte + richtung)
+
+    # -- Zoom ------------------------------------------------------------
+
+    def _zoomen(self, faktor: float) -> None:
+        if hasattr(self.zeichenflaeche, "zoom_aendern"):
+            self.zeichenflaeche.zoom_aendern(faktor)
+
+    def _zoom_setzen(self, wert: float) -> None:
+        if hasattr(self.zeichenflaeche, "zoom_setzen"):
+            self.zeichenflaeche.zoom_setzen(wert)
+
+    def alles_anzeigen(self) -> None:
+        """„Ansicht → Alles anzeigen“ (Strg+1): so weit herauszoomen, dass
+        alles ins Sichtfenster passt."""
+        if not hasattr(self.zeichenflaeche, "alles_anzeigen"):
+            return
+        sicht = self.rollbereich.viewport()
+        self.zeichenflaeche.alles_anzeigen(sicht.width(), sicht.height())
+
+    def _quelltextmenue_aufbauen(self) -> None:
+        """„Quelltext → Erzeugen …“ (M9 Schritte 13 und 14). Vor „Hilfe“,
+        das gehört ans Ende der Leiste."""
+        menue = QMenu("Quelltext", self)
+        self.menuBar().insertMenu(self._menues["Hilfe"].menuAction(), menue)
+        self._menues["Quelltext"] = menue
+        aktion = menue.addAction("Erzeugen …")
+        menue.setToolTipsVisible(True)
+        # Nicht Strg+G: das gehört seit Teilschritt 3b dem Gruppieren,
+        # und Strg+G zum Gruppieren kennt jedes Zeichenprogramm. Zwei
+        # aktive Aktionen auf derselben Taste lösen in Qt gar nichts
+        # mehr aus („Ambiguous shortcut overload“).
+        aktion.setShortcut("Ctrl+Shift+E")
+        aktion.triggered.connect(lambda: self.quelltext_erzeugen())
+        self.aktionen["Quelltext/Erzeugen …"] = aktion
+        self.pruefungsmodus_nachfuehren()
+
+    def pruefungsmodus_nachfuehren(self) -> None:
+        """Sperrt „Quelltext → Erzeugen …“ im Prüfungsmodus und gibt es
+        danach wieder frei (M11, Abschnitt 6).
+
+        Aus einem Klassendiagramm oder einem Struktogramm Python
+        erzeugen zu lassen wäre in einer Leistungssituation die halbe
+        Aufgabe. Sichtbar bleibt der Eintrag trotzdem: ein spurlos
+        verschwundener Menüeintrag wäre verwirrender als ein erklärter.
+
+        Das Hauptfenster ruft das für jedes offene Diagrammfenster
+        auf, wenn der Modus an- oder ausgeht. Bis 0.3.5 wurde es nur
+        beim Aufbau des Menüs geprüft, und ein vorher geöffnetes
+        Fenster erzeugte weiter Quelltext (Punkt 188).
+        """
+        aktion = self.aktionen.get("Quelltext/Erzeugen …")
+        if aktion is None:
+            return
+        gesperrt = pruefungsmodus_laeuft()
+        aktion.setEnabled(not gesperrt)
+        aktion.setToolTip(GESPERRT_HINWEIS if gesperrt else "")
+
+    def quelltext_code(self, umfang: str = "alles") -> str:
+        """Der erzeugte Quelltext – ohne jede Oberfläche, damit sich das
+        einzeln prüfen lässt."""
+        auswahl = None
+        if umfang == "auswahl":
+            auswahl = getattr(self.zeichenflaeche, "ausgewaehlte_form", None) or getattr(
+                self.zeichenflaeche, "ausgewaehlter_block", None
+            )
+        if self.diagramm.typ == "struktogramm":
+            return struktogramm_als_python(self.diagramm.daten, auswahl).text
+        return diagramm_als_python(self.diagramm.daten, auswahl)
+
+    def ungueltige_namen(self, umfang: str = "alles") -> list[str]:
+        """Namen, die kein Python sind; nur im Klassendiagramm."""
+        if self.diagramm.typ != "class":
+            return []
+        auswahl = None
+        if umfang == "auswahl":
+            auswahl = getattr(self.zeichenflaeche, "ausgewaehlte_form", None)
+        return ungueltige_namen(self.diagramm.daten, auswahl)
+
+    def quelltext_erzeugen(
+        self, ziel: str | None = None, umfang: str | None = None, pfad: Path | None = None
+    ):
+        """„Quelltext → Erzeugen …“. Ohne Angaben fragt ein Dialog nach
+        Ziel und Umfang; in Tests werden beide direkt übergeben."""
+        # Auch hier und nicht nur am Menüeintrag: die Tastenkürzel und
+        # jeder andere Aufrufer kämen sonst am gesperrten Eintrag
+        # vorbei (Punkt 188).
+        if pruefungsmodus_laeuft():
+            self.pruefungsmodus_nachfuehren()
+            self.statusBar().showMessage(GESPERRT_HINWEIS)
+            return None
+        interaktiv = ziel is None or umfang is None
+        if interaktiv:
+            dialog = CodeOptionenDialog(
+                self,
+                "Umfang" if self.diagramm.typ == "class" else "Ausschnitt",
+            )
+            if dialog.exec() != CodeOptionenDialog.DialogCode.Accepted:
+                return None
+            ziel, umfang = dialog.merken()
+
+        fehler = self.ungueltige_namen(umfang)
+        if fehler:
+            meldung = (
+                "Kein Quelltext erzeugt. " + " ".join(fehler)
+                + " Die Angaben lassen sich im Eigenschaften-Dialog der "
+                "Klasse ändern; Typ und Standardwert haben dort eigene "
+                "Felder."
+            )
+            self.statusBar().showMessage(meldung)
+            if interaktiv:
+                QMessageBox.warning(self, "Quelltext erzeugen", meldung)
+            return None
+
+        quelltext = self.quelltext_code(umfang)
+        if not quelltext.strip():
+            self.statusBar().showMessage("Nichts zu erzeugen.", 3000)
+            return None
+
+        if ziel == "datei":
+            vorschlag = pfad or self._vorschlag_fuer_unit()
+            geschrieben = in_datei_schreiben(
+                quelltext, vorschlag, self, fragen=pfad is None
+            )
+            if geschrieben is not None:
+                self.statusBar().showMessage(f"Geschrieben: {geschrieben.name}", 4000)
+                self.datei_geschrieben.emit(geschrieben)
+            return geschrieben
+
+        fenster = CodeFenster(
+            quelltext,
+            f"Quelltext – {self.diagramm.pfad.stem}",
+            self,
+            vorschlag=self._vorschlag_fuer_unit(),
+        )
+        # „Speichern unter …" im Fenster geht denselben Weg wie
+        # „Quelltext → Erzeugen … → in Datei".
+        fenster.datei_geschrieben.connect(self.datei_geschrieben.emit)
+        if pfad is None:
+            fenster.exec()
+        return fenster
+
+    def _vorschlag_fuer_unit(self) -> Path:
+        """Wohin „Quelltext → Erzeugen …" vorschlägt zu schreiben.
+
+ In den Projektordner, denn dort liegen die Units eines
+ Natter-Projekts - `Projekt.units` liest `ordner.glob("*.py")`.
+ Vorgeschlagen wurde bis dahin ein Unterordner `units/`;
+ die Datei landete damit an einer Stelle, die das Projekt nie
+ ansieht. Sie tauchte weder im Projekt-Explorer auf noch ließ sie
+ sich importieren - der Schüler hatte seine Klasse erzeugt und
+ fand sie nirgends wieder. Im Durchgang durch den ganzen
+ Schülerweg aufgefallen.
+
+ Ein Diagramm liegt in `<projekt>/diagramme/`; eine Ebene
+ darüber ist der Projektordner. Liegt es woanders - jemand hat
+ eine `.pdiag` einzeln geöffnet -, kommt die Datei daneben.
+ """
+        ordner = self.diagramm.pfad.parent
+        if ordner.name == "diagramme":
+            ordner = ordner.parent
+        return ordner / f"u_{self.diagramm.pfad.stem.lower()}.py"
+
+    def _stilvorlagen_menue_aufbauen(self) -> None:
+        """„Format → Stilvorlage“ als Untermenü mit den drei Vorlagen aus
+        Abschnitt 13.6. Bewusst pro Diagramm und unabhängig vom
+        IDE-Theme: ein im dunklen Theme gezeichnetes Diagramm soll
+        trotzdem als Schwarz-Weiß-Abgabe gedruckt werden können."""
+        eintrag = self.aktionen["Format/Stilvorlage …"]
+        untermenue = QMenu("Stilvorlage", self)
+        gruppe = QActionGroup(self)
+        gruppe.setExclusive(True)
+
+        self.stil_aktionen: dict[str, object] = {}
+        for name, beschriftung in BESCHRIFTUNGEN.items():
+            aktion = untermenue.addAction(beschriftung)
+            aktion.setCheckable(True)
+            aktion.setChecked(name == self.diagramm.stil)
+            aktion.triggered.connect(lambda _=False, n=name: self.stil_setzen(n))
+            gruppe.addAction(aktion)
+            self.stil_aktionen[name] = aktion
+
+        eintrag.setMenu(untermenue)
+
+    def stil_setzen(self, name: str) -> None:
+        """Stilvorlage des ganzen Diagramms wechseln – rückgängig machbar
+        wie jede andere Änderung."""
+        if name == self.diagramm.stil:
+            return
+        self.zeichenflaeche.kommandos.ausfuehren(
+            WerteKommando(self.diagramm.daten, {"style": name})
+        )
+        self.stil_aktionen[name].setChecked(True)
+        self.zeichenflaeche.update()
+        self._bei_aenderung()
+
+    def _ansicht_schalter_aufbauen(self) -> None:
+        """Raster, Seitenränder und Layout-Hinweise sind Ein/Aus-Schalter.
+        Die Hinweise lassen sich wie beim Design-Prüfer (M7) abschalten –
+        sie melden nur, blockieren nie."""
+        for pfad, attribut in (
+            ("Ansicht/Raster", "raster_sichtbar"),
+            ("Ansicht/Seitenränder", "seitenrand_sichtbar"),
+            ("Ansicht/Layout-Hinweise", "hinweise_sichtbar"),
+            ("Ansicht/Hilfslinien", "hilfslinien_sichtbar"),
+        ):
+            if not hasattr(self.zeichenflaeche, attribut):
+                continue
+            aktion = self.aktionen[pfad]
+            aktion.setCheckable(True)
+            aktion.setChecked(getattr(self.zeichenflaeche, attribut))
+            aktion.toggled.connect(
+                lambda an, a=attribut: self._ansicht_umschalten(a, an)
+            )
+
+        # Lineale und Minimap hängen nicht an der Zeichenfläche, sondern
+        # am Fenster - und ihr Zustand überlebt das Schließen, wie bei
+        # jedem anderen Ansichtsschalter auch.
+        einstellungen = _ansicht_einstellungen()
+        for pfad, schluessel, standard, umschalten in (
+            ("Ansicht/Lineale", "lineale", True, self._lineale_umschalten),
+            ("Ansicht/Minimap", "minimap", False, self._minimap_umschalten),
+        ):
+            aktion = self.aktionen[pfad]
+            aktion.setCheckable(True)
+            an = einstellungen.value(
+                f"diagramm/ansicht/{schluessel}", standard, type=bool
+            )
+            aktion.toggled.connect(umschalten)
+            aktion.setChecked(an)
+            umschalten(an)
+
+    def _lineale_umschalten(self, an: bool) -> None:
+        for widget in (self.lineal_oben, self.lineal_links, self.lineal_ecke):
+            widget.setVisible(an)
+        _ansicht_einstellungen().setValue("diagramm/ansicht/lineale", an)
+        if an:
+            self._ansicht_nachfuehren()
+
+    def _minimap_umschalten(self, an: bool) -> None:
+        self._minimap_an = an
+        self.minimap.setVisible(an)
+        _ansicht_einstellungen().setValue("diagramm/ansicht/minimap", an)
+        if an:
+            self._minimap_abbild_erneuern()
+
+    def _ansicht_umschalten(self, attribut: str, an: bool) -> None:
+        setattr(self.zeichenflaeche, attribut, an)
+        if hasattr(self.zeichenflaeche, "hinweise_aktualisieren"):
+            self.zeichenflaeche.hinweise_aktualisieren()
+        self.zeichenflaeche.update()
+        self._statusleiste_aktualisieren()
+
+    def menue(self, name: str) -> QMenu:
+        return self._menues[name]
+
+    def _titel_setzen(self) -> None:
+        markierung = "*" if self._geaendert else ""
+        self.setWindowTitle(
+            f"{markierung}{self.diagramm.pfad.name} – Diagramm-Editor – Natter"
+        )
+
+    def _auswahltext(self) -> str:
+        """Linker Teil der Statusleiste – beim Klassendiagramm die Form,
+        beim Struktogramm der Block."""
+        if self.diagramm.typ == "entscheidungstabelle":
+            zeilen = len(self.diagramm.daten.get("conditions") or []) + len(
+                self.diagramm.daten.get("actions") or []
+            )
+            return (
+                f"{mehrzahl(zeilen, 'Zeile')}  │  "
+                f"{mehrzahl(regelanzahl(self.diagramm.daten), 'Regel')}"
+            )
+
+        if self.diagramm.typ == "struktogramm":
+            block = self.zeichenflaeche.ausgewaehlter_block
+            if block is not None:
+                return f"{BLOCK_BESCHRIFTUNGEN.get(block.get('kind'), 'Block')} ausgewählt"
+            anzahl = len(alle_bloecke(self.diagramm.daten)) - 1  # ohne die Wurzel
+            return mehrzahl(anzahl, "Block", "Blöcke")
+
+        auswahl = getattr(self.zeichenflaeche, "auswahl", ())
+        if len(auswahl) > 1:
+            return f"{mehrzahl(len(auswahl), 'Form', 'Formen')} ausgewählt"
+        ausgewaehlt = getattr(self.zeichenflaeche, "ausgewaehlte_form", None)
+        if ausgewaehlt:
+            return f"{formname(ausgewaehlt) or ausgewaehlt['kind']} ausgewählt"
+        return mehrzahl(len(self.diagramm.daten.get("shapes", [])), "Form", "Formen")
+
+    def _statusleiste_aktualisieren(self) -> None:
+        """Statusleiste nach Abschnitt 13.2 (Auswahl, Raster, Einrasten,
+        Seitenformat, Stilvorlage)."""
+        seite = self.diagramm.daten["page"]
+        ausrichtung = "quer" if seite["orientation"] == "landscape" else "hoch"
+        auswahl = self._auswahltext()
+        hinweise = getattr(self.zeichenflaeche, "hinweise", [])
+        hinweis_text = (
+            "  │  " + mehrzahl(len(hinweise), "Layout-Hinweis", "Layout-Hinweise")
+            if hinweise
+            else ""
+        )
+        raster = (
+            "Raster 8 px  │  Einrasten ein  │  "
+            if hasattr(self.zeichenflaeche, "raster_sichtbar")
+            else ""
+        )
+        pruefung = restzeit_text()
+        pruefungsteil = f"  │  {pruefung}" if pruefung else ""
+        zoom = getattr(self.zeichenflaeche, "zoom", None)
+        if zoom is not None:
+            raster += f"Zoom {round(zoom * 100)} %  │  "
+        self.statusBar().showMessage(
+            f"{auswahl}  │  {raster}"
+            f"{seite['size']} {ausrichtung}  │  Stil: "
+            f"{BESCHRIFTUNGEN.get(self.diagramm.stil, self.diagramm.stil)}"
+            f"{hinweis_text}{pruefungsteil}"
+        )
+        # Die Meldungen selbst als Tooltip: eine Form kann außerhalb des
+        # sichtbaren Ausschnitts liegen, dann wäre ihr Warnrahmen allein
+        # nicht zu sehen und die Zahl in der Statusleiste nicht zu
+        # erklären.
+        pruefung = pruefungsmodus_laeuft()
+        self.statusBar().setToolTip(
+            "\n".join(hinweis.anzeige(pruefung) for hinweis in hinweise)
+            if hinweise
+            else ""
+        )
+
+    # -- Datei ----------------------------------------------------------
+
+    @property
+    def geaendert(self) -> bool:
+        """Ob das Diagramm Änderungen hat, die noch nicht in der
+        Datei stehen."""
+        return self._geaendert
+
+    def speichern(self) -> bool:
+        """Schreibt das Diagramm in seine Datei. `False`, wenn das
+        nicht ging; die Meldung dazu ist dann schon gezeigt, und das
+        Diagramm bleibt als geändert markiert."""
+        try:
+            self.diagramm.speichern()
+        except OSError as fehler:
+            self._speicherfehler_melden(self.diagramm.pfad, fehler)
+            return False
+        self._geaendert = False
+        self._titel_setzen()
+        self.statusBar().showMessage(f"{self.diagramm.pfad.name} gespeichert", 3000)
+        return True
+
+    def _speicherfehler_melden(self, pfad: Path, fehler: OSError) -> None:
+        """Eigene Methode, damit Tests das Scheitern prüfen können,
+        ohne dass ein Fenster auf einen Klick wartet."""
+        grund = fehler.strerror or str(fehler)
+        QMessageBox.warning(
+            self,
+            "Speichern nicht möglich",
+            f"{pfad.name} lässt sich nicht speichern:\n\n{grund}\n\n"
+            "Das Diagramm ist noch offen und unverändert.",
+        )
+
+    def _vor_dem_schliessen_fragen(self) -> QMessageBox.StandardButton:
+        """Eigene Methode, damit Tests die Antwort vorgeben können,
+        ohne dass ein Fenster auf einen Klick wartet."""
+        return QMessageBox.question(
+            self,
+            "Ungespeicherte Änderungen",
+            f"{self.diagramm.pfad.name} hat ungespeicherte Änderungen.\n\n"
+            "Vor dem Schließen speichern?",
+            QMessageBox.StandardButton.Save
+            | QMessageBox.StandardButton.Discard
+            | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Save,
+        )
+
+    def hilfe_text(self) -> str:
+        """Die Kurzhilfe für diesen Diagrammtyp."""
+        absaetze = [_HILFE_JE_TYP.get(self.diagramm.typ, _HILFE_SONST)]
+        if "Quelltext/Erzeugen …" in self.aktionen:
+            absaetze.append(_HILFE_QUELLTEXT)
+        absaetze.append(_HILFE_SCHLUSS)
+        return "\n\n".join(absaetze)
+
+    def hilfe_zeigen(self) -> None:
+        """„Hilfe → Über den Diagramm-Editor“ (Punkt 308)."""
+        QMessageBox.about(self, "Über den Diagramm-Editor", self.hilfe_text())
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Fragt bei ungespeicherten Änderungen nach (Punkt 111).
+        Ohne diese Frage schloss ein geändertes Diagramm über
+        „Datei → Schließen“ und über das X sofort, und die Datei blieb
+        auf dem alten Stand. Scheitert das Speichern, bleibt das
+        Fenster offen."""
+        if self._geaendert:
+            antwort = self._vor_dem_schliessen_fragen()
+            if antwort == QMessageBox.StandardButton.Cancel:
+                event.ignore()
+                return
+            if antwort == QMessageBox.StandardButton.Save and not self.speichern():
+                event.ignore()
+                return
+        if not self.isMaximized() and not self.isMinimized():
+            fenstergroesse.merken(self, _GROESSE_SCHLUESSEL)
+        super().closeEvent(event)
+
+    def speichern_unter(self, pfad: Path | None = None) -> Path | None:
+        """Speichert unter einem neuen Pfad. `pfad=None` fragt über einen
+        Dateidialog (in Tests wird der Pfad direkt übergeben)."""
+        if pfad is None:
+            gewaehlt, _ = QFileDialog.getSaveFileName(
+                self, "Diagramm speichern unter", str(self.diagramm.pfad), "Diagramm (*.pdiag)"
+            )
+            if not gewaehlt:
+                return None
+            pfad = Path(gewaehlt)
+
+        try:
+            self.diagramm.speichern(Path(pfad))
+        except OSError as fehler:
+            self._speicherfehler_melden(Path(pfad), fehler)
+            return None
+        self._geaendert = False
+        self._titel_setzen()
+        return self.diagramm.pfad
+
+    # -- Export und Drucken ---------------------------------------------
+
+    def exportieren(
+        self, pfad: Path | None = None, png: PngEinstellungen | None = None
+    ) -> Path | None:
+        """„Datei → Exportieren …“ (Abschnitt 13.2). Das Format ergibt
+        sich aus der gewählten Endung – ein Dialog weniger als eine
+        eigene Formatauswahl. Nur bei PNG folgt eine Rückfrage nach
+        Auflösung und Hintergrund; SVG und PDF sind auflösungsfrei. In
+        Tests werden Pfad und Einstellungen direkt übergeben."""
+        gefragt = pfad is not None
+        if pfad is None:
+            gewaehlt, _ = QFileDialog.getSaveFileName(
+                self,
+                "Diagramm exportieren",
+                str(self.diagramm.pfad.with_suffix(".png")),
+                "Bild (*.png);;Vektorgrafik (*.svg);;PDF (*.pdf)",
+            )
+            if not gewaehlt:
+                return None
+            pfad = Path(gewaehlt)
+
+        pfad = Path(pfad)
+        endung = pfad.suffix.lower()
+        if endung not in (".png", ".svg", ".pdf"):
+            self.statusBar().showMessage(
+                f"Unbekanntes Exportformat „{pfad.suffix}“ – bitte .png, .svg oder .pdf.",
+                5000,
+            )
+            return None
+
+        if endung == ".png":
+            if png is None and not gefragt:
+                dialog = PngDialog(self)
+                if dialog.exec() != PngDialog.DialogCode.Accepted:
+                    return None
+                png = dialog.einstellungen()
+            png = png or PngEinstellungen()
+            als_png(self.diagramm.daten, pfad, png.skalierung, png.transparent)
+        elif endung == ".svg":
+            als_svg(self.diagramm.daten, pfad)
+        else:
+            als_pdf(self.diagramm.daten, pfad)
+
+        self.statusBar().showMessage(f"Exportiert nach {pfad.name}", 3000)
+        return pfad
+
+    def seite_einrichten(self, seite: dict[str, str] | None = None) -> bool:
+        """„Datei → Seite einrichten …“ (Punkt 67): Blattgröße und
+        Ausrichtung, rückgängig machbar. Danach richten sich der
+        Seitenrand auf der Zeichenfläche, der Layout-Hinweis „außerhalb
+        des Seitenbereichs“, der PDF-Export und der Druck. Ohne `seite`
+        fragt ein Dialog; in Tests wird sie direkt übergeben."""
+        alt = dict(self.diagramm.daten.get("page") or {})
+        if seite is None:
+            dialog = SeitenDialog(alt, self)
+            if dialog.exec() != SeitenDialog.DialogCode.Accepted:
+                return False
+            seite = dialog.seite()
+        neu = {**alt, **seite}
+        if neu == alt:
+            return False
+        flaeche = self.zeichenflaeche
+        flaeche.kommandos.ausfuehren(
+            WerteKommando(self.diagramm.daten, {"page": neu})
+        )
+        flaeche.inhaltsgroesse_anpassen()
+        if hasattr(flaeche, "hinweise_aktualisieren"):
+            flaeche.hinweise_aktualisieren()
+        flaeche.update()
+        self._bei_aenderung()
+        return True
+
+    def als_bild_kopieren(self) -> None:
+        """Diagramm in die Zwischenablage, zum Einfügen in Word o. Ä.
+        (Abschnitt 13.2)."""
+        in_zwischenablage(self.diagramm.daten)
+        self.statusBar().showMessage("Diagramm in die Zwischenablage kopiert.", 3000)
+
+    def drucken(self, drucker: QPrinter | None = None) -> None:
+        """„Datei → Drucken …“ mit Seitenvorschau (Abschnitt 13.2). Der
+        Vorschaudialog zeichnet über denselben Rückruf wie der echte
+        Druck, es kann also nichts auseinanderlaufen."""
+        if drucker is None:
+            vorschau = QPrintPreviewDialog(self._drucker_vorbereiten(), self)
+            vorschau.setWindowTitle(f"Druckvorschau – {self.diagramm.pfad.name}")
+            vorschau.paintRequested.connect(self._auf_drucker_zeichnen)
+            vorschau.exec()
+            return
+        self._auf_drucker_zeichnen(drucker)
+
+    def _drucker_vorbereiten(self) -> QPrinter:
+        """Der erste `QPrinter` eines Prozesses lässt Windows alle
+        Drucker samt Treibern durchsuchen; mit einem nicht erreichbaren
+        Netzwerkdrucker dauert das real gemessen fast eine Minute, in
+        der die Oberfläche steht. Deshalb: Sanduhr und eine Meldung,
+        damit niemand denkt, Natter sei abgestürzt – und den fertigen
+        Drucker merken, sodass jeder weitere Aufruf sofort kommt."""
+        if getattr(self, "_drucker", None) is None:
+            self.statusBar().showMessage("Drucker werden gesucht …")
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+            QApplication.processEvents()
+            try:
+                self._drucker = QPrinter(QPrinter.PrinterMode.HighResolution)
+                # Auf 96 dpi, genau wie `als_pdf()` in
+                # `ide/diagramm/export.py`. Dann entspricht ein
+                # Gerätepunkt einem Bildschirmpunkt, und das Diagramm
+                # landet auf dem Papier in denselben Verhältnissen wie
+                # am Schirm.
+                #
+                # Ohne das rechnete der Drucker in 600 dpi: die Kästen
+                # folgten dem Anpassungsfaktor, die Schriften aber der
+                # Geräteauflösung, denn Qt rechnet Punktgrößen darüber
+                # um. Das Diagramm wurde 3,7 cm breit und die Namen
+                # liefen trotzdem aus ihren Kästen. Die Ausgabe bleibt
+                # dabei Vektor; 96 dpi ist das Koordinatensystem, nicht
+                # die Druckqualität.
+                self._drucker.setResolution(96)
+            finally:
+                QApplication.restoreOverrideCursor()
+                self.statusBar().clearMessage()
+                self._statusleiste_aktualisieren()
+
+        # Blattgröße und Ausrichtung bei jedem Aufruf neu: der Drucker
+        # bleibt gemerkt, das Format kann sich seitdem über „Seite
+        # einrichten“ geändert haben. Bis Punkt 67 bekam der Drucker
+        # nur die Ausrichtung, ein A3-Diagramm ging auf das Papier,
+        # das der Treiber gerade eingestellt hatte.
+        blatt, quer = seitenformat(self.diagramm.daten)
+        self._drucker.setPageSize(blatt)
+        self._drucker.setPageOrientation(
+            QPageLayout.Orientation.Landscape
+            if quer
+            else QPageLayout.Orientation.Portrait
+        )
+        return self._drucker
+
+    def _auf_drucker_zeichnen(self, drucker: QPrinter) -> None:
+        """Zeichnet das Diagramm auf eine Druckseite.
+
+        Die Auflösung des Druckers gehört dazu: ohne sie rechnet
+        `auf_seite_zeichnen` mit Bildschirmpunkten und bekommt
+        Gerätepunkte - bei 600 dpi ein Unterschied um das Sechsfache.
+        """
+        maler = QPainter(drucker)
+        bereich = drucker.pageRect(QPrinter.Unit.DevicePixel)
+        auf_seite_zeichnen(
+            maler,
+            self.diagramm.daten,
+            bereich.width(),
+            bereich.height(),
+            aufloesung=drucker.resolution(),
+        )
+        maler.end()

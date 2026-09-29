@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Einzelschritt: der Pfeil biegt aus der Zeile in die naechste
+       ab. Vorher war es ein gerader Pfeil auf eine Grundlinie - das
+       ist anderswo das Zeichen fuers Herunterladen und wurde auch so
+       gelesen. -->
+  <path d="M4.2 4.6h13" fill="none" stroke="#90a4ae" stroke-width="2" stroke-linecap="round"/>
+  <path d="M4.2 4.6v11.8h9.6" fill="none" stroke="#0067c0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M20 16.4 13 12.6v7.6z" fill="#0067c0"/>
+</svg>

@@ -1,0 +1,91 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Virtuelle Umgebungen / uv
+.venv/
+venv/
+uv.lock.tmp
+
+# Build-/Paketausgabe
+dist/
+build_out/
+# Zwischenspeicher des Baus und Auswertungen (Punkt 32 der offenen
+# Punkte): was hier liegt, wird nie eingecheckt und von ruff nicht
+# geprüft.
+/build/
+runtime/
+*.zip
+# PyInstaller-Zwischenstände (ide/export/exporter.py, tools/ide_paketieren.py)
+# - werden nach einem erfolgreichen Bau automatisch entfernt, aber bei
+# einem abgebrochenen/abgestürzten Bau bleiben sie sonst als
+# Repo-Müll liegen (real passiert, siehe Session-Historie).
+_pyinstaller_build*/
+_pyinstaller_spec*/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Natter-spezifisch
+*.natter-session
+# Laufzeit-Datenbanken, die gui_db-Beispielprojekte beim echten Start
+# selbst anlegen (z. B. beispielprojekte/Kontoverwaltung/konten.sqlite) -
+# kein eingecheckter Inhalt, sonst kopieren Tests versehentlich echte,
+# durch manuelles Ausprobieren veränderte Datenbankstände statt eines
+# frischen Zustands.
+*.sqlite
+*.sqlite3
+# Privater Signaturschlüssel (tools/signieren/README.md) - niemals
+# committen, wer ihn hat kann im Namen von "Natter" signieren. Der
+# öffentliche Teil (*.cer) ist dagegen unbedenklich und bewusst NICHT
+# hier gelistet, damit er versioniert werden kann.
+tools/signieren/*.pfx
+tools/signieren/*.pfx.passwort.txt
+
+# Lazarus-Referenzprojekte (referenz/): nur Quelltext + Bilder, keine
+# Kompilate/Sessiondaten (sonst mehrere hundert MB)
+referenz/**/lib/
+referenz/**/backup/
+referenz/**/*.exe
+referenz/**/*.res
+referenz/**/*.lps
+
+# Privater Ed25519-Schlüssel des Prüfsummen-Manifests (Abschnitt 17.8:
+# „privater Schlüssel … niemals im Repository“)
+tools/signieren/manifest-privat.pem
+
+# Arbeitskopien der Beispiele.
+#
+# Wer im Startbild ein Beispiel anklickt, bekommt eine Kopie davon in
+# "Documents\Natter" (ide/shell/startbild.py, beispiel_kopieren) - das
+# Original soll beim naechsten Mal unveraendert dastehen. Auf einem
+# Rechner, auf dem das Repository selbst unter "Documents\natter"
+# liegt, ist das derselbe Ordner: die Kopie landet dann mitten im
+# Projektstamm. Windows unterscheidet keine Gross- und
+# Kleinschreibung, also faellt es nicht einmal auf.
+# Auch die durchnummerierten: wer ein Beispiel zweimal oeffnet,
+# bekommt "... 2", "... 3". Die sind echte Arbeit des Nutzers und
+# duerfen weder eingecheckt noch aufgeraeumt werden.
+/[0-9][0-9]_*/
+/01_Begruessung/
+/02_Zahlenraten/
+/03_Taschenrechner/
+/04_CookieKlicker/
+/05_Bildergalerie/
+/06_Kontoverwaltung/
+/07_CsvAuswertung/
+/08_Regression/
+/09_ObstSortierer/
+
+# Sperrdatei eines offenen Projekts (ide/project/sperre.py)
+.natter-sperre

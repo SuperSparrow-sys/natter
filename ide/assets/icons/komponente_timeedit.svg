@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- TimeEdit: Zifferblatt mit Zeigern -->
+  <circle cx="12" cy="12" r="9" fill="#f7f9fa" stroke="#37474f" stroke-width="1.2"/>
+  <path d="M12 6.8 V12 L15.8 14.2" fill="none" stroke="#0067c0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="12" cy="12" r="1.1" fill="#c42b1c"/>
+</svg>

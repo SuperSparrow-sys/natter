@@ -1,0 +1,167 @@
+object Form1: TForm1
+  Left = 1312
+  Height = 710
+  Top = 128
+  Width = 569
+  Caption = 'Form1'
+  ClientHeight = 710
+  ClientWidth = 569
+  OnCreate = FormCreate
+  LCLVersion = '3.4.0.0'
+  object Label1: TLabel
+    Left = 24
+    Height = 30
+    Top = 32
+    Width = 186
+    Caption = 'Kontoverwanltung'
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -21
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object Label2: TLabel
+    Left = 24
+    Height = 20
+    Top = 96
+    Width = 142
+    Caption = 'Ansicht aller Konten'
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -15
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object b_runter: TButton
+    Left = 184
+    Height = 25
+    Top = 96
+    Width = 43
+    Caption = '<'
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -13
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    ParentFont = False
+    TabOrder = 0
+    OnClick = b_runterClick
+  end
+  object b_hoch: TButton
+    Left = 232
+    Height = 25
+    Top = 96
+    Width = 40
+    Caption = '>'
+    TabOrder = 1
+    OnClick = b_hochClick
+  end
+  object m_anzeige: TMemo
+    Left = 24
+    Height = 114
+    Top = 136
+    Width = 248
+    TabOrder = 2
+  end
+  object Label3: TLabel
+    Left = 24
+    Height = 21
+    Top = 280
+    Width = 168
+    Caption = 'Neues Konto anlegen:'
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -16
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object Label4: TLabel
+    Left = 64
+    Height = 15
+    Top = 320
+    Width = 43
+    Caption = 'Besitzer:'
+  end
+  object Label5: TLabel
+    Left = 43
+    Height = 15
+    Top = 344
+    Width = 199
+    Caption = 'Kontostand:                                           €'
+  end
+  object b_neuesKonto: TButton
+    Left = 24
+    Height = 25
+    Top = 376
+    Width = 248
+    Caption = 'Konto anlegen'
+    TabOrder = 3
+    OnClick = b_neuesKontoClick
+  end
+  object e_kontostand: TEdit
+    Left = 115
+    Height = 23
+    Top = 343
+    Width = 112
+    TabOrder = 4
+  end
+  object e_besitzer: TEdit
+    Left = 115
+    Height = 23
+    Top = 312
+    Width = 144
+    TabOrder = 5
+  end
+  object Label6: TLabel
+    Left = 24
+    Height = 21
+    Top = 416
+    Width = 128
+    Caption = 'Geld überweisen'
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -16
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object Label7: TLabel
+    Left = 40
+    Height = 15
+    Top = 448
+    Width = 81
+    Caption = 'KontoNr:  1234.'
+  end
+  object Label8: TLabel
+    Left = 68
+    Height = 15
+    Top = 488
+    Width = 142
+    Caption = 'Betrag:                                 €'
+  end
+  object e_uB: TEdit
+    Left = 112
+    Height = 23
+    Top = 480
+    Width = 80
+    TabOrder = 6
+  end
+  object e_uKNr: TEdit
+    Left = 134
+    Height = 23
+    Top = 444
+    Width = 98
+    TabOrder = 7
+  end
+  object b_ueberweisen: TButton
+    Left = 24
+    Height = 25
+    Top = 527
+    Width = 248
+    Caption = 'Überweisen'
+    TabOrder = 8
+    OnClick = b_ueberweisenClick
+  end
+end

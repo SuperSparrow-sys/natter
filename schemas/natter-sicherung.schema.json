@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://natter.local/schemas/natter-sicherung.schema.json",
+  "title": "Natter Sicherung ungespeicherter Änderungen (.natter-sicherung)",
+  "description": "Der Stand der Editoren und Diagramme eines Projekts, die beim Sichern ungespeicherte Änderungen hatten (Punkt 344). Liegt als <Projektname>.natter-sicherung im Projektordner, entsteht alle zwei Minuten und vor der Frage beim Abmelden und verschwindet, sobald nichts mehr ungespeichert ist. Geschrieben wird natter-sicherung/2 mit einem Anteil je Natter-Fenster (Punkte 400 und 406); natter-sicherung/1 mit einer einzigen Liste von Dateien wird weiter gelesen.",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["format", "parts"],
+      "additionalProperties": false,
+      "properties": {
+        "format": { "const": "natter-sicherung/2" },
+        "parts": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/part" }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["format", "saved", "files"],
+      "additionalProperties": false,
+      "properties": {
+        "format": { "const": "natter-sicherung/1" },
+        "saved": { "$ref": "#/$defs/saved" },
+        "files": { "$ref": "#/$defs/files" }
+      }
+    }
+  ],
+  "$defs": {
+    "saved": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Zeitpunkt der Sicherung nach ISO 8601 mit Zeitzone, z. B. 2026-09-29T14:05:12+02:00."
+    },
+    "part": {
+      "type": "object",
+      "description": "Was ein Natter-Fenster gesichert hat. Ein Fenster ersetzt oder entfernt nur den Anteil mit seiner eigenen Herkunft.",
+      "required": ["window", "saved", "files"],
+      "additionalProperties": false,
+      "properties": {
+        "window": {
+          "description": "Das Fenster, das den Anteil geschrieben hat. null bei einem Anteil, der aus einer Sicherung im Format natter-sicherung/1 übernommen wurde.",
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["computer", "account", "pid", "start", "id"],
+              "additionalProperties": false,
+              "properties": {
+                "computer": { "type": "string", "description": "Name des Rechners." },
+                "account": { "type": "string", "description": "Windows-Konto, leer, wenn es sich nicht ermitteln ließ." },
+                "pid": { "type": "integer", "minimum": 0, "description": "Prozessnummer des Natter-Prozesses." },
+                "start": { "type": "integer", "minimum": 0, "description": "Startzeit des Prozesses in Windows-Zeiteinheiten, 0, wenn unbekannt. Unterscheidet ihn von einem späteren Prozess mit derselben Nummer." },
+                "id": { "type": "string", "minLength": 1, "description": "Kennung des Fensters; unterscheidet zwei Fenster in einem Prozess." }
+              }
+            }
+          ]
+        },
+        "saved": { "$ref": "#/$defs/saved" },
+        "files": { "$ref": "#/$defs/files" }
+      }
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "kind", "text", "disk"],
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^/\\\\:*?\"<>|\\u0000-\\u001f][^\\\\:*?\"<>|\\u0000-\\u001f]*$",
+            "description": "Pfad der Datei relativ zum Projektordner, mit / getrennt, z. B. u_main.py oder diagramme/klassen.pdiag. Ohne Laufwerk und ohne .. als Teil."
+          },
+          "kind": {
+            "enum": ["text", "diagram"],
+            "description": "text: Inhalt eines Editors. diagram: Inhalt eines Diagrammfensters, so wie er als .pdiag gespeichert würde."
+          },
+          "text": {
+            "type": "string",
+            "description": "Der ungespeicherte Inhalt der Datei."
+          },
+          "disk": {
+            "description": "Stand der Datei auf der Platte, auf dem der ungespeicherte Inhalt beruht: Änderungszeit in Nanosekunden und Größe in Bytes. null, wenn die Datei damals fehlte. Weicht die Datei beim Wiederherstellen davon ab, wurde sie seit der Sicherung geändert.",
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "required": ["mtime_ns", "size"],
+                "additionalProperties": false,
+                "properties": {
+                  "mtime_ns": { "type": "integer" },
+                  "size": { "type": "integer", "minimum": 0 }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

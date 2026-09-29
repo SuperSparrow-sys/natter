@@ -1,0 +1,42 @@
+{
+  "format": "pdiag/1",
+  "type": "entscheidungstabelle",
+  "name": "Buchung auf ein Konto",
+  "page": {
+    "size": "A4",
+    "orientation": "landscape"
+  },
+  "style": "modern-light",
+  "conditions": [
+    {
+      "text": "Betrag größer als null?",
+      "values": ["N", "J", "J", "J"]
+    },
+    {
+      "text": "Einzahlung?",
+      "values": ["*", "J", "N", "N"]
+    },
+    {
+      "text": "Betrag höchstens so groß wie der Kontostand?",
+      "values": ["*", "*", "J", "N"]
+    }
+  ],
+  "actions": [
+    {
+      "text": "Stand erhöhen",
+      "values": ["", "X", "", ""]
+    },
+    {
+      "text": "Stand verringern",
+      "values": ["", "", "X", ""]
+    },
+    {
+      "text": "NichtGenugGeld melden",
+      "values": ["", "", "", "X"]
+    },
+    {
+      "text": "Eingabe zurückweisen",
+      "values": ["X", "", "", ""]
+    }
+  ]
+}

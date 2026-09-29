@@ -1,0 +1,86 @@
+{
+  "format": "pfm/1",
+  "class": "Form1",
+  "type": "Form",
+  "properties": {
+    "caption": "Bildergalerie",
+    "width": 800,
+    "height": 560
+  },
+  "events": {
+    "on_create": "form_create"
+  },
+  "children": [
+    {
+      "name": "l_titel",
+      "type": "Label",
+      "properties": {
+        "left": 24,
+        "top": 16,
+        "width": 300,
+        "height": 28,
+        "caption": "Meine Bildergalerie"
+      }
+    },
+    {
+      "name": "b_hinzufuegen",
+      "type": "Button",
+      "properties": {
+        "left": 24,
+        "top": 56,
+        "width": 240,
+        "caption": "Bild hinzufügen …"
+      },
+      "events": {
+        "on_click": "b_hinzufuegen_click"
+      }
+    },
+    {
+      "name": "b_entfernen",
+      "type": "Button",
+      "properties": {
+        "left": 24,
+        "top": 96,
+        "width": 240,
+        "caption": "Aus der Galerie nehmen"
+      },
+      "events": {
+        "on_click": "b_entfernen_click"
+      }
+    },
+    {
+      "name": "lb_bilder",
+      "type": "ListBox",
+      "properties": {
+        "left": 24,
+        "top": 144,
+        "width": 240,
+        "height": 340
+      },
+      "events": {
+        "on_change": "lb_bilder_change"
+      }
+    },
+    {
+      "name": "i_vorschau",
+      "type": "Image",
+      "properties": {
+        "left": 288,
+        "top": 56,
+        "width": 480,
+        "height": 380
+      }
+    },
+    {
+      "name": "l_info",
+      "type": "Label",
+      "properties": {
+        "left": 288,
+        "top": 452,
+        "width": 480,
+        "height": 40,
+        "caption": "Noch kein Bild ausgewählt."
+      }
+    }
+  ]
+}

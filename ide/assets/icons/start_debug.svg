@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Starten mit Debugger: Abspieldreieck plus roter Haltepunkt -->
+  <path d="M5 3.6 17.4 10.8 5 18z" fill="#1e8e3e" stroke="#14682c" stroke-width="1.2" stroke-linejoin="round"/>
+  <circle cx="17" cy="17" r="4.2" fill="#c42b1c" stroke="#f7f9fa" stroke-width="1.2"/>
+</svg>

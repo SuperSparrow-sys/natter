@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- MaskEdit: Eingabefeld mit fester Schablone -->
+  <rect x="2.6" y="6.6" width="18.8" height="10.8" rx="2" fill="#f7f9fa" stroke="#37474f" stroke-width="1.2"/>
+  <rect x="5" y="9.4" width="3.4" height="5.2" rx="1" fill="#0067c0"/>
+  <rect x="9.6" y="9.4" width="3.4" height="5.2" rx="1" fill="#0067c0"/>
+  <circle cx="15.2" cy="14.2" r="0.9" fill="#37474f"/>
+  <rect x="16.8" y="9.4" width="3.4" height="5.2" rx="1" fill="#90a4ae"/>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Chart: Säulen vor Achsenkreuz -->
+  <rect x="5.6" y="12.2" width="3.8" height="8" fill="#0067c0"/>
+  <rect x="10.6" y="7.6" width="3.8" height="12.6" fill="#1e8e3e"/>
+  <rect x="15.6" y="10.2" width="3.8" height="10" fill="#f2b134"/>
+  <path d="M3.4 3.2v17h17.2" fill="none"
+        stroke="#37474f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

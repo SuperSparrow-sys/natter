@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Anweisung: ein einzelner Kasten. -->
+  <rect x="3.1" y="4.6" width="17.8" height="14.8" fill="#f7f9fa"/>
+  <rect x="5.6" y="8.4" width="12.8" height="2.8" rx="0.6" fill="#0067c0"/>
+  <path d="M5.6 14.2h12.8M5.6 16.6h7.4" stroke="#7b8f9a" stroke-width="1"
+        stroke-linecap="round"/>
+  <rect x="3.1" y="4.6" width="17.8" height="14.8" fill="none" stroke="#37474f" stroke-width="1.2"/>
+</svg>

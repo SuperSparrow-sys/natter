@@ -1,0 +1,149 @@
+"""Tests für HauptFenster._projekt_starten_aktion(): „Starten ohne
+Debugger“ (Strg+F5, Abschnitt 7.8). Siehe Arbeitspaket M2,
+„Ausführung in eigenen Fenstern“.
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+
+def _projekt_ordner_schreiben(ordner: Path, main_inhalt: str) -> Path:
+    ordner.mkdir(parents=True, exist_ok=True)
+    (ordner / "main.py").write_text(main_inhalt, encoding="utf-8")
+    daten = {"format": "natter-project/1", "name": "Test", "type": "gui", "main": "main.py"}
+    natter_pfad = ordner / "test.natter"
+    natter_pfad.write_text(json.dumps(daten), encoding="utf-8")
+    return natter_pfad
+
+
+def test_ohne_offenes_projekt_zeigt_hinweis(hauptfenster) -> None:
+    hauptfenster._projekt_starten_aktion()
+    meldung = hauptfenster.statusBar().currentMessage()
+    assert meldung.startswith("Kein Projekt offen.")
+    assert "Projekt → Projekt öffnen …" in meldung
+
+
+def test_start_setzt_laufenden_prozess_und_zeigt_status(tmp_path: Path, hauptfenster_bauen) -> None:
+    natter_pfad = _projekt_ordner_schreiben(
+        tmp_path,
+        'from pathlib import Path\nPath("lief.txt").write_text("ja", encoding="utf-8")\n',
+    )
+    fenster = hauptfenster_bauen()
+    fenster.projekt_oeffnen(natter_pfad)
+
+    fenster._projekt_starten_aktion()
+    assert fenster.laufender_prozess is not None
+    fenster.laufender_prozess.wait(timeout=10)
+
+    assert fenster.statusBar().currentMessage() == "Test gestartet"
+    assert (tmp_path / "lief.txt").exists()
+
+
+def test_start_mit_ruff_fund_startet_nicht_und_fuellt_die_meldungen(
+    tmp_path: Path, hauptfenster_bauen
+) -> None:
+    natter_pfad = _projekt_ordner_schreiben(
+        tmp_path, "def f():\n    return nicht_definiert\n"
+    )
+    fenster = hauptfenster_bauen()
+    fenster.projekt_oeffnen(natter_pfad)
+
+    fenster._projekt_starten_aktion()
+
+    assert fenster.laufender_prozess is None
+    assert fenster.meldungen_liste.count() >= 1
+    assert "nicht_definiert" in fenster.meldungen_liste.item(0).text()
+    assert "F821" in fenster.meldungen_liste.item(0).toolTip()
+    assert "Fund" in fenster.statusBar().currentMessage()
+
+
+def test_sauberer_start_leert_vorherige_meldungen(tmp_path: Path, hauptfenster_bauen) -> None:
+    natter_pfad = _projekt_ordner_schreiben(
+        tmp_path,
+        'from pathlib import Path\nPath("lief.txt").write_text("ja", encoding="utf-8")\n',
+    )
+    fenster = hauptfenster_bauen()
+    fenster.projekt_oeffnen(natter_pfad)
+    fenster.meldungen_liste.addItem("alte Meldung")
+
+    fenster._projekt_starten_aktion()
+    fenster.laufender_prozess.wait(timeout=10)
+
+    assert fenster.meldungen_liste.count() == 0
+
+
+def test_erneuter_start_waehrend_das_programm_noch_laeuft_wird_abgelehnt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, hauptfenster_bauen
+) -> None:
+    # main.py-Inhalt spielt hier keine Rolle: projekt_starten wird unten
+    # durch einen echten, aber unabhängig gestarteten Prozess ersetzt.
+    natter_pfad = _projekt_ordner_schreiben(tmp_path, "pass\n")
+    fenster = hauptfenster_bauen()
+    fenster.projekt_oeffnen(natter_pfad)
+
+    laufender_prozess = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(5)"])
+    monkeypatch.setattr(
+        "ide.shell.hauptfenster.projekt_starten",
+        lambda projekt, **_: laufender_prozess,
+    )
+
+    try:
+        fenster._projekt_starten_aktion()
+        assert fenster.laufender_prozess is laufender_prozess
+
+        fenster._projekt_starten_aktion()
+        meldung = fenster.statusBar().currentMessage()
+        assert meldung.startswith("Test läuft bereits")
+        assert "Stopp" in meldung
+    finally:
+        laufender_prozess.kill()
+        laufender_prozess.wait(timeout=10)
+
+
+class _Ladeanzeige:
+    """Merkt sich, was das Ladebild meldet."""
+
+    gemeldet: list[str] = []
+
+    def __init__(self, _version: str) -> None:
+        _Ladeanzeige.gemeldet = []
+
+    def show(self) -> None:
+        pass
+
+    def melden(self, text: str) -> None:
+        _Ladeanzeige.gemeldet.append(text)
+
+    def finish(self, _fenster) -> None:  # noqa: ANN001
+        pass
+
+    def close(self) -> None:
+        pass
+
+
+def test_das_ladebild_nennt_ein_projekt_nur_wenn_eines_kommt(monkeypatch) -> None:
+    """Punkt 33: bis 0.3.3 stand „Projekt wird geöffnet …“ bei jedem
+    Start im Ladebild, auch ohne Projekt."""
+    import sys
+
+    from ide import main as ide_main
+
+    monkeypatch.setattr(ide_main, "Ladeanzeige", _Ladeanzeige)
+    monkeypatch.setattr(ide_main, "_projekt_aus_argv_oeffnen", lambda *a: None)
+
+    monkeypatch.setattr(sys, "argv", ["natter"])
+    ide_main.starten()
+    ohne = list(_Ladeanzeige.gemeldet)
+
+    monkeypatch.setattr(sys, "argv", ["natter", r"C:\Projekte\Ampel\Ampel.natter"])
+    ide_main.starten()
+    mit = list(_Ladeanzeige.gemeldet)
+
+    assert "Projekt wird geöffnet …" not in ohne
+    assert "Projekt wird geöffnet …" in mit

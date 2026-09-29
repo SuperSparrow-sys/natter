@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Rückgängig: Bogen als gefüllte Fläche mit großer Spitze links.
+       Sichtprüfung M11: als Strich (1,5) mit kleiner Spitze blieb bei
+       16 px nur ein blasser Bogen übrig, und "Rückgängig" war von
+       "Wiederholen" nicht mehr zu unterscheiden. -->
+  <path d="M4.6 12.5A7.4 7.4 0 0 1 19.4 12.5L16.4 12.5A4.4 4.4 0 0 0 7.6 12.5Z" fill="#0067c0"/>
+  <path d="M2.2 11.9h7.8L6.1 18.7z" fill="#0067c0"/>
+</svg>

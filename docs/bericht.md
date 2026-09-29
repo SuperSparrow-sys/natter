@@ -1,0 +1,868 @@
+# Natter – Bericht
+
+Was Natter ist, wie es aufgebaut ist, wie es entstanden ist, wie eine
+Auslieferung entsteht und was dabei gelernt wurde. Wie Natter bedient
+wird, steht in der [README](../README.md) und im
+[Handbuch](handbuch.md); was noch zu tun ist, in
+[`offene_punkte.md`](offene_punkte.md).
+
+Dieser Bericht ersetzt seit dem 25. September 2026 die früheren
+Planungsunterlagen: `PLAN.md`, `entwicklung.md`, `umsetzungsplan.md`,
+`pruefbericht.md`, `aktionen.md` und die fünfzehn Arbeitspakete
+`arbeitspakete/M0.md` bis `M15.md`, zusammen rund 7000 Zeilen. Sie
+stehen vollständig in der Git-Historie, zuletzt in Commit `8f35f2c`:
+
+```
+git show 8f35f2c:docs/arbeitspakete/M13.md
+```
+
+Wo im Quelltext „Abschnitt 17.8" oder „M13, Schritt 4" steht, ist eine
+Stelle in diesen Unterlagen gemeint. Die Abschnitte 1 bis 16 beziehen
+sich auf die README, 17 bis 23 auf das frühere `entwicklung.md`; der
+Inhalt von 17 bis 23 steht jetzt in diesem Bericht.
+
+## Was in `docs/` liegt
+
+| Datei | Wofür | Wer sie liest |
+|---|---|---|
+| `bericht.md` | dieser Bericht | wer an Natter arbeitet |
+| `offene_punkte.md` | Fehler und Aufgaben, die noch zu erledigen sind | wer an Natter arbeitet |
+| `erledigte_punkte.md` | behobene Fehler mit Ursache und Änderung | wer einen ähnlichen Fehler sucht |
+| `handbuch.md` | Einrichten, Prüfungsmodus, Tasten, Fehlersuche | Schulen; liegt als `Handbuch.html` in der ZIP |
+| `erste_schritte.md` | Anleitung für den Einstieg | Natter selbst, „Hilfe → Erste Schritte" |
+| `komponenten.md` | jede Komponente mit Eigenschaften und Ereignissen | Natter selbst, „Hilfe → Komponenten-Referenz" |
+| `fehlerkatalog.yaml` | die Fehlermeldungen für Schüler, für Menschen lesbar | die Tests gleichen den Katalog im Code dagegen ab |
+
+---
+
+## 1. Stand im September 2026
+
+| | |
+|---|---|
+| Fassung | 0.3.2, veröffentlicht als GitHub-Release |
+| Quelltext | 36 100 Zeilen in `ide/` (120 Module) und `pcl/` (29 Module), dazu 3 200 Zeilen Werkzeuge in `tools/` |
+| Tests | 4152 in 209 Dateien (42 400 Zeilen), alle grün; die CI läuft bei jedem Push auf Windows |
+| Lehrgang | neun aufeinander aufbauende Beispielprojekte |
+| Auslieferung | `Natter-Setup.exe` (278 MB) und `Natter-<Version>-Setup.zip` mit Zertifikat, Skripten und Handbuch |
+| Installiert | rund 30 000 Dateien, 1,2 GB, unter `%LOCALAPPDATA%\Programs\Natter` |
+
+Alle geplanten Meilensteine M0 bis M15 sind abgeschlossen. Was noch
+offen ist, steht in [`offene_punkte.md`](offene_punkte.md).
+
+---
+
+## 2. Aufbau
+
+### 2.1 Repository
+
+```
+natter/
+  pcl/                 die Komponentenbibliothek, gegen die Schülerprogramme laufen
+    components/        standard, additional, common, chart, system, medien, menus, graphics, data_access, data_controls
+    theme/             Stylesheet für Schülerprogramme aus design/tokens.json
+    properties.py      das Eigenschaften-System (Prop, Event)
+    form.py, control.py, crt.py, dialogs.py, errors.py, fehlerkatalog.py, pruefungsmodus.py
+  ide/                 die Entwicklungsumgebung
+    shell/             Hauptfenster, Startbild, Quelltexteditor, Panels, Theme der IDE
+    actions/           Aktionsregister: Menü, Werkzeugleiste, Tastenkürzel an einer Stelle
+    palette/           Komponentenpalette mit Reitern
+    designer/          Formular-Designer: Zeichenfläche, Auswahl, Anfasser, Rückgängig
+    inspector/         Objektinspektor, Menü-Editor, Komponentenbaum
+    codegen/           erzeugt u_*_design.py aus der .pfm, fügt Ereignismethoden mit libcst ein
+    debugger/          DAP-Client gegen debugpy, Fehlerkatalog, Variablen-Tabellenansicht
+    testrunner/        Test-Explorer für unittest
+    viewers/           CSV-, Bild-, HTML-, Markdown- und Hilfeansicht
+    database/          Datenbank-Panel (SQLite)
+    diagramm/          Diagramm-Editor: sieben Diagrammarten, Export, Druck, Quelltexterzeugung
+    lint/              Design-Prüfer
+    env/               Paketverwaltung über pip
+    export/            „Als Exe exportieren", Signatur der exportierten Exe, Quelltext als PDF
+    import_lfm/        Import von .lfm-Formularen
+    integritaet/       signiertes Prüfsummen-Manifest und Prüfung beim Start
+    run/               Programmstart, Prüfung vor dem Start
+    project/           Projektdatei, Vorlagen, Neu-Dialog
+    pfade.py           Dokumente-Ordner, Ordner der Beispielkopien
+  tools/               Werkzeuge für den Bau, nicht Teil der Auslieferung
+    auslieferung_bauen.py   der ganze Bau in einem Befehl (Abschnitt 7)
+    fortschritt.py          Fortschrittsbalken und Protokoll des Baus
+    ide_paketieren.py       baut dist\Natter
+    paket_bauen.py          stellt die ZIP zusammen
+    veroeffentlichen.py     stellt Setup-Datei und ZIP als GitHub-Release bereit
+    launcher.py             Quelltext von Natter.exe
+    natter.iss              Inno Setup
+    signieren/              Zertifikat, Signierskripte
+    paket/                  ZUERST-LESEN.txt und die Skripte für die ZIP
+  schemas/             pfm-, project- und pdiag-Schema mit Versionsnummer
+  templates/           Projektvorlagen gui, console
+  beispielprojekte/    der Lehrgang, 01_Begruessung bis 09_ObstSortierer
+  design/              tokens.json: Farben, Abstände, Schriften für hell und dunkel
+  tests/               pytest, headless mit QT_QPA_PLATFORM=offscreen
+```
+
+### 2.2 Die ausgelieferte Installation
+
+```
+<Installationsordner>\
+  Natter.exe              schlanker Starter (Symbol, Versionsangabe, signiert)
+  starter\                dessen eigene kleine Python, rund 20 MB (Punkt 399)
+  python\                 CPython 3.13 (python-build-standalone), mit pip
+    python.exe            für Konsolenprogramme
+    pythonw.exe           für die IDE und für GUI-Programme
+    Lib\site-packages\    ide, pcl, PySide6, pandas, numpy, … + pip + PyInstaller
+                          dazu templates, docs (nur zwei Hilfeseiten), design, schemas, beispielprojekte
+  Lizenzen\               LGPL-3.0 und die Lizenztexte aller Bibliotheken
+  manifest.json           signierte Prüfsummen (Abschnitt 7.5)
+```
+
+Der Starter ist mit PyInstaller als Ordner gebaut, nicht als einzelne
+Datei. Als einzelne Datei entpackte er sich bei jedem Start nach
+`%TEMP%\_MEI…` und ließ den Ordner nach einem harten Beenden liegen;
+er lud von dort außerdem unsignierte DLLs und brauchte gemessen
+0,85 s länger bis zum Start der IDE (Punkt 399).
+
+Natter bringt eine vollständige Python-Installation mit. Auf einem
+verwalteten Schulrechner ist keine vorhanden, und Schüler dürfen keine
+installieren. Eine dort schon vorhandene Python bleibt unberührt.
+
+**Warum keine venv.** Eine venv speichert absolute Pfade (in
+`pyvenv.cfg` und in Startskripten) und funktioniert nach dem
+Verschieben nicht mehr. Deshalb kommt Python als verschiebbare
+Standalone-Distribution, dieselbe Quelle, aus der `uv python install`
+bedient wird.
+
+**IDE und Schülerprogramme teilen sich eine Umgebung.** Der Starter
+riegelt sie dafür nach außen ab: er entfernt `PYTHONPATH`,
+`PYTHONHOME`, `PYTHONUSERBASE` und `VIRTUAL_ENV` und schaltet das
+Benutzer-Paketverzeichnis ab. Sonst kann eine fremde Python-Umgebung
+auf einem Schulrechner Natter umwerfen, ohne dass jemand etwas an
+Natter geändert hat.
+
+**Wo die Daten liegen.** Projekte liegen unter `Dokumente\Natter`, die
+Arbeitskopien der Beispiele eine Ebene tiefer unter
+`Dokumente\Natter\Beispielprojekte`. „Dokumente" ist der Ordner, den
+Windows dafür eingetragen hat, auch wenn er auf OneDrive umgeleitet
+ist. Einstellungen und Fehlerprotokoll stehen unter `%APPDATA%\Natter`.
+
+### 2.3 Die verbindlichen Schnittstellen
+
+Diese Stellen verbinden die Teile von Natter miteinander. Wer sie
+ändert, ändert mehrere Teile zugleich und prüft entsprechend sorgfältig.
+
+| Schnittstelle | Was sie festlegt |
+|---|---|
+| `schemas/*.schema.json` | die Dateiformate `.pfm` (Formulare), `.natter` (Projekte), `.pdiag` (Diagramme) und `.natter-sicherung` (Sicherung ungespeicherter Änderungen), jeweils mit Versionsnummer wie `pfm/1` |
+| `Prop`/`Event` in `pcl/properties.py` | jede Eigenschaft und jedes Ereignis einer Komponente mit Typ, Standardwert, Kategorie und deutschem Hilfetext. Objektinspektor, Codegenerator und Referenzseite lesen dieselbe Beschreibung |
+| Aktionsregister in `ide/actions/` | eine Aktion ist Menüeintrag, Werkzeugleisten-Knopf, Tastenkürzel und Eintrag der Tastenübersicht zugleich und wird nur einmal beschrieben: ID, deutscher Name, Menüposition, Kürzel, Bereich, Symbol. Die Übersicht unter „Hilfe" wird daraus erzeugt |
+| DAP | der Debugger spricht das Debug Adapter Protocol mit `debugpy` |
+| `design/tokens.json` | Farben, Abstände, Radien und Schriften für hell und dunkel, für IDE und Schülerprogramme |
+| `docs/fehlerkatalog.yaml` | Aufbau jeder Fehlermeldung: Wo, Was, Zu prüfen – mit Ort und Erklärung, nie mit dem korrigierten Code |
+
+Erzeugte Dateien wie `u_*_design.py` tragen die Kopfzeile „Automatisch
+erzeugt aus … – nicht bearbeiten" und werden nur über den Generator in
+`ide/codegen/` geändert.
+
+---
+
+## 3. Entstehung: die Meilensteine
+
+Natter ist in sechzehn Meilensteinen entstanden, M0 bis M15. Jeder
+hatte ein Abnahmekriterium, das am laufenden Programm geprüft wurde und
+nicht nur an Tests.
+
+| | Inhalt | Abnahme |
+|---|---|---|
+| M0 | Repository, CI, Schemas, Design-Tokens | Schema-Tests grün |
+| M1 | `pcl`: Eigenschaften-System, erste Komponenten, Theme, Generator `.pfm` → `u_*_design.py` | Ampel, Würfelspiel und StringGrid-Übung laufen mit `python main.py` |
+| M2 | IDE-Grundgerüst: Hauptfenster, Aktionsregister, Projekte, Explorer, Editor, Units, Start als eigener Prozess | Projekt öffnen, Datei-Menü, Konsolenprogramm mit `input()` |
+| M3 | Formular-Designer, Objektinspektor, Palette, Ereignis-Code mit libcst, Rückgängig | Ampel vollständig in der IDE gebaut, jede Eigenschaft über den Inspektor |
+| M4 | Prüfung vor dem Start (Ruff), Debugger über DAP, Fehlerkatalog, Test-Explorer | Fehlerbeispiele, Haltepunkt mit Variablen, Soll/Ist im Test-Explorer |
+| M5 | Datenbank, pandas, Chart, CSV-/Bild-/HTML-Ansicht, Datenbank-Panel | Kontoverwaltung mit SQLite, CSV-Auswertung, Highscore als HTML |
+| M6 | Konsolen-Feinschliff, `pcl.crt` mit Cursor und Farben | Konsolen- und CRT-Übungen laufen |
+| M7 | Design-Prüfer mit 14 Regeln, Paketverwaltung | jede Regel erkennt ihr Testformular, Paket über das Menü installierbar |
+| M8 | `.lfm`-Import, Exe-Export, Installer, Signatur, Prüfsummen-Manifest | Pizza-Projekt importiert, fertiggestellt, als Exe gestartet; veränderte Datei wird erkannt |
+| M9 | Diagramm-Editor: Klassendiagramm, Struktogramm, Entscheidungstabelle, danach Use-Case, Aktivität, Zustand, Sequenz; Export, Druck, Quelltexterzeugung | Ampel als Klassendiagramm, Struktogramm und Entscheidungstabelle, als PDF |
+| M10 | `Chart` in der Palette, sechs Diagrammarten, Regression über numpy, scikit-learn | CSV einlesen, Regressionsgerade, Steigung und R² – im Designer zusammengeklickt |
+| M11 | Schülertauglichkeit: jede Funktion durchgeprüft, Symbole, Vervollständigung, Startbild, Meldungen mit Lösungsvorschlag, Prüfungsmodus | Funktionsprüfung aller Menüs, Knöpfe, Docks und Paletteneinträge |
+| M12 | Durchsicht aus Sicht von Lernenden: Hilfe, Fehlerkatalog ohne Debugger, gebaute Exe | vier Fehler in der gebauten Exe gefunden und behoben |
+| M13 | eigene Python-Installation statt PyInstaller-Bundle, Installer mit allen üblichen Seiten, Bau in einem Befehl | pip, Export, Start und Prüfung arbeiten in der installierten Fassung |
+| M14 | Aufräumen (490 MB Lazarus-Referenz auf 185 kB Prüfdaten), Lehrgang aus neun Projekten, `Timer` in der Palette, Exe als eine Datei | Lehrgang läuft vollständig |
+| M15 | `MainMenu`/`PopupMenu` mit Menü-Editor, `PaintBox`/`Canvas`, Maus-Ereignisse, sechs weitere Komponenten, einfachere Datenbank, Lineale und Minimap | Zeichenprogramm mit der Maus, Menüleiste im Schülerprogramm |
+
+Nach M15 kamen Fehlerbehebungen aus der Benutzung dazu. Sie stehen mit
+Ursache in [`erledigte_punkte.md`](erledigte_punkte.md): Stylesheets,
+die auf Dialoge durchschlugen, eine winzige Druckvorschau, der
+Prüfungsmodus in der Fußzeile, Beispielkopien am falschen Ort, der
+Designer, der beim Umschalten dunkel blieb, und weitere.
+
+### Wie geprüft wurde
+
+Nicht nur über die Testsuite. Jeder Schritt wurde auch im laufenden
+Programm angesehen, mit Bildschirmfotos und zurückgelesenen PDFs. In
+M9 hat das sieben Fehler gefunden, die alle Tests bestanden hatten:
+abgeschnittene Texte, eine im Schwarz-Weiß-Druck unsichtbare
+Kopfzeile, ein Struktogramm am Blattrand und eine Druckvorschau, die
+das Fenster 48 Sekunden eingefroren hätte.
+
+In M11 wurde jede bedienbare Stelle ausgelöst: 53 Menüeinträge, 8
+Knöpfe der Werkzeugleiste, 5 Docks (schließen und wieder öffnen), 20
+Kacheln der Palette, die Menüs aller sieben Diagrammarten und 48
+Formen und Verbindungen. Die Liste wird aus der Oberfläche gelesen,
+nicht von Hand gepflegt; ein neuer Menüeintrag ist damit vom nächsten
+Testlauf an mitgeprüft (`tests/test_ide_funktionspruefung.py`). Vier
+Einträge sind ausgenommen, weil sie wirklich etwas tun, das in einen
+Testlauf nicht gehört, etwa ein Programm starten oder installieren.
+
+---
+
+## 4. Entscheidungen
+
+| Entscheidung | Begründung |
+|---|---|
+| PySide6 statt PyQt | PySide6 steht unter LGPL, PyQt unter GPL |
+| Eigener Editor (`QPlainTextEdit`) statt Monaco | Monaco hätte QtWebEngine gebraucht, rund 100 MB. Die eigene Hervorhebung in den Farben von VS Code reicht für den Unterricht; Jedi liefert die Vervollständigung |
+| Formulare als erzeugter Python-Code | `.pfm` beschreibt das Formular, daraus entsteht `u_*_design.py`. Jedes Schülerprogramm läuft damit auch ohne Natter mit `python main.py` |
+| Eigene Python-Installation statt PyInstaller-Bundle (M13) | in einem eingefrorenen Python gibt es kein `pip`, und PyInstaller braucht für „Als Exe exportieren" eine vollständige Installation |
+| Kein Tcl/Tk | Natter baut jede Oberfläche mit Qt; Tcl/Tk kostete 10,5 MB. Mit `tkinter` fällt `turtle` weg; gezeichnet wird mit `PaintBox` und `Canvas` |
+| Nur SQLite, keine Passwörter (M15) | MySQL hätte ein gespeichertes Passwort in der `.pfm` und dafür einen Schlüsselspeicher nach sich gezogen. Stattdessen ist die Datenbank einfacher geworden: eine Abfrage ist `db.query("SELECT …")` |
+| Exe-Export als eine Datei (M14) | für Natter selbst ist der entpackte Ordner richtig (1,2 GB entpacken sich nicht bei jedem Start), für ein Schülerprogramm die eine Datei, die sich verschicken lässt |
+| Diagramm-Editor in eigenem Fenster | mit eigenem Taskleisten-Eintrag, nur zum Zeichnen von Hand; UML-Inhalte werden über einen Eigenschaften-Dialog bearbeitet |
+| Prüfungsmodus | vier Stunden ohne Lösungsvorschläge, ohne Vervollständigung und ohne Quelltexterzeugung aus Diagrammen; übersteht einen Neustart und läuft von selbst aus |
+| Keine KI in der IDE, nur Deutsch, keine Aliasse für Python-Namen | Natter soll Python unterrichten, wie es ist |
+| Beispiele als Arbeitskopien | ein Beispiel wird nach `Dokumente\Natter\Beispielprojekte` kopiert und dort weiterbenutzt; „Auf Original zurücksetzen …" holt den Ausgangszustand zurück |
+| Zurückgestellt | Update-Mechanismus (auf Schulrechnern verteilt die Systembetreuung), ER-Diagramm, Syntaxdiagramm, DIA-Import, mehrere Struktogramme auf einer Seite |
+
+---
+
+## 5. Lizenz
+
+Natter ist ein privates Projekt unter eigener Lizenz des
+Projektinhabers: Nutzung erlaubt, Weitergabe und Verbreitung nicht
+erlaubt. Die mitgelieferten Bibliotheken behalten ihre eigenen
+Lizenzen. Daraus folgen Regeln für die Auswahl:
+
+| Regel | Umsetzung |
+|---|---|
+| Nur freizügige Lizenzen oder LGPL | PySide6/Qt (LGPLv3), Jedi, Ruff, libcst, debugpy, SQLAlchemy, openpyxl (MIT), pandas, numpy, scikit-learn, scipy (BSD), matplotlib (PSF-basiert) |
+| Keine Qt-Module, die nur unter GPL stehen | Qt Charts, Qt Data Visualization und Qt Graphs werden nicht verwendet; `Chart` baut auf matplotlib auf. PySide6-Addons bringt sie trotzdem mit: bis 0.3.2 lagen sie in der Installation (rund 13 MB). Seit 0.3.3 löscht der Bau sie, und die Rauchprobe prüft, dass sie sich nicht importieren lassen |
+| Kein PyQt | PyQt steht unter GPL |
+| LGPL-Pflichten für Qt | die Qt-Bibliotheken bleiben austauschbare Dateien im Programmordner, die Lizenztexte liegen in `Lizenzen\` |
+| Lizenztexte | der Bau sammelt sie für jedes Paket der mitgelieferten Python in `Lizenzen\` (bis 0.3.2 nur für eine feste Liste von 18 Paketen; die übrigen rund 30 fehlten). Natters eigene `LICENSE` liegt im Programmordner |
+| Prüfung beim Bau | `lizenzen_pruefen` in `tools/ide_paketieren.py` liest die Lizenzangaben jedes mitgelieferten Pakets. Steht eines unter GPL oder lässt sich seine Lizenz nicht ablesen, bricht der Bau ab. LGPL ist erlaubt, ebenso eine Wahl wie „LGPL-3.0 OR GPL-3.0“ |
+| Ausnahme PyInstaller | PyInstaller steht unter GPL-2.0 mit einer Ausnahme für die erzeugten Programme. Es liegt bei, damit „Als Exe exportieren“ in der installierten Fassung funktioniert, und wird dort als eigenes Programm aufgerufen, nicht in Natter eingebunden. Eingetragen in `LIZENZ_AUSNAHMEN`; weitere Ausnahmen nur nach Prüfung der jeweiligen Lizenz |
+
+Mit „Als Exe exportieren" erzeugte Schülerprogramme sind davon
+unabhängig; der PyInstaller-Bootloader erlaubt jede Lizenz für das
+erzeugte Programm. Diese Einordnung ist eine technische
+Planungsgrundlage und keine Rechtsberatung.
+
+---
+
+## 6. Tests
+
+`uv run pytest` läuft headless (`QT_QPA_PLATFORM=offscreen`). Die
+Drucker-Tests sind im Standardlauf abgewählt (`uv run pytest -m
+drucker` startet sie): die Druckerabfrage von Windows kostet mit einem
+nicht erreichbaren Netzwerkdrucker knapp eine Minute und ließ dabei
+Zeitgrenzen anderer Tests reißen.
+
+Vorgehen: erst gegen nachgebildete Systeme (headless, SQLite im
+Speicher, nachgebildetes `git` und `gh`), zuletzt gegen echte.
+
+| Bereich | Wie |
+|---|---|
+| `pcl` | jede Komponente: Eigenschaften lesen und schreiben, Wirkung auf das Widget, Typprüfung, Ereignisse |
+| Eigenschaften-Rundlauf | eine Änderung im Objektinspektor wirkt wie dieselbe Zuweisung im Code |
+| Beispielprojekte | jedes läuft mit `python main.py` ohne IDE |
+| Formate | `.pfm` → `u_*_design.py` → Formular ergibt dieselben Werte; Schema-Prüfung |
+| Designer, Diagramm-Editor | Kommandos und Rückgängig ohne Fenster |
+| Codegenerierung | libcst-Einfügen und -Umbenennen, Formatierung bleibt erhalten |
+| Debugger | echte DAP-Sitzungen gegen `debugpy` |
+| Fehlermeldungen | jede Meldung hat Ort und Erklärung und keinen Lösungscode |
+| Oberfläche | jede bedienbare Stelle wird ausgelöst (Abschnitt 3) |
+| Texte | `tests/test_textstil.py`: niemand wird mit „du" oder „Sie" angesprochen, keine Markdown-Hervorhebung und keine Zuschreibungs-Etiketten in Kommentaren, kein Verweis auf Lazarus außerhalb von `ide/import_lfm/` |
+| Auslieferung | Rauchprobe in der gebauten Python, Manifest, Signaturen (Abschnitt 7) |
+
+Tests, die etwas an Dateien ändern, arbeiten auf Kopien in `tmp_path`.
+Das gilt auch für alles, was der Designer automatisch in eine `.pfm`
+zurückschreibt. Eine Absicherung in `tests/conftest.py` lenkt
+Heimverzeichnis, Dokumente-Ordner, Einstellungen und die
+Designvorgabe für jeden Test auf Wegwerf-Ordner um.
+
+Die **CI** läuft bei jedem Push auf `windows-latest`
+(`.github/workflows/ci.yml`): Ruff und alle Tests, rund neun Minuten.
+Bis zum 25. September lief sie auf Linux und scheiterte dort 200 Mal
+hintereinander schon beim Einsammeln der Tests, weil
+`PySide6.QtMultimedia` unter Linux `libpulse` erwartet.
+
+---
+
+## 7. Auslieferung
+
+### 7.1 Der Bau in einem Befehl
+
+```powershell
+uv run python -m tools.auslieferung_bauen --version 0.3.3
+```
+
+Das Skript führt zwölf Schritte aus und prüft nach jedem, ob das
+Ergebnis stimmt. Es bricht ab, statt eine kaputte Auslieferung
+fertigzubauen.
+
+| Schritt | Wofür |
+|---|---|
+| 1 Arbeitsbaum | meldet nicht Eingechecktes; prüft, ob sich veröffentlichen ließe (`gh` angemeldet, nichts außer den Versionsdateien offen) und ob der Schlüssel für das Manifest da ist |
+| 2 Versionen | `pyproject.toml`, `tools/natter.iss` und `ide/main.py` tragen dieselbe Nummer; `--version` setzt alle drei |
+| 3 `ruff check` | das verbindliche Tor aus AGENTS.md |
+| 4 `pytest` | rot heißt: nicht bauen. Entfällt, wenn derselbe eingecheckte Stand mit denselben Paketen schon grün war; `--alle-tests` erzwingt ihn |
+| 5 `dist\Natter` | Python bereitstellen, Pakete aus `uv.lock` installieren, Starter bauen, Lizenzen sammeln, Bytecode erzeugen, signieren, Manifest schreiben |
+| 6 Rauchprobe | Importe und eine Rechnung in der **gebauten** Python, nicht im Entwicklungsbaum |
+| 7 Manifest | dieselbe Prüfung, die beim Schüler bei jedem Start läuft |
+| 8 Installer | Inno Setup, Kompression auf acht Kernen |
+| 9 Signieren | die Setup-Datei |
+| 10 Signaturen | Windows selbst fragen, ob jede Binärdatei und die Setup-Datei gültig signiert ist |
+| 11 Paket | `Natter-<Version>-Setup.zip` mit Setup-Datei, Zertifikat, Skripten, Handbuch, Lizenzen |
+| 12 Veröffentlichen | Version einchecken, Tag `v<Version>`, Push, GitHub-Release mit Setup-Datei und ZIP |
+
+Schritt 6 ist die wichtigste Prüfung. Getestet wird der
+Entwicklungsbaum, ausgeliefert wird `dist\Natter`, und genau dazwischen
+sind mehrere Auslieferungsfehler entstanden (Abschnitt 9).
+
+Schalter: `--nicht-veroeffentlichen` für Probebauten,
+`--nur-installer` baut aus einem vorhandenen `dist\Natter` nur die
+Setup-Datei neu, `--ohne-tests` überspringt Schritt 4 und
+veröffentlicht nicht. Ohne Manifest-Schlüssel, mit einem fehlenden
+oder nicht prüfbaren Manifest und mit einer nicht gültig signierten
+Setup-Datei bricht der Bau ab; eine solche Natter meldete bei jedem
+Start eine Veränderung, oder Windows ließe die Setup-Datei nicht zu.
+Nur `--ohne-signatur` macht daraus Warnungen, zum Ausprobieren auf
+einem Rechner ohne Schlüssel und Zertifikat, und veröffentlicht dann
+nicht. Den Ablauf drumherum – wann gebaut werden darf,
+welche Nummer die nächste ist, was danach festgehalten wird – beschreibt
+`.claude/commands/auslieferung.md`.
+
+### 7.2 Fortschritt und Protokoll
+
+In einer Konsole zeigt der Bau drei Zeilen am unteren Rand: einen
+Balken für den ganzen Bau mit Restzeit, einen für den laufenden Schritt
+und darunter, woran gerade gearbeitet wird. Grün heißt gezählt (Tests,
+Pakete, Dateien), gelb mit „≈" heißt geschätzt nach der Dauer des
+letzten Laufs (`build\bau-cache\bauzeiten.json`). In eine Datei
+umgeleitet gibt es Zeilen statt Balken. Jede Zeile aller beteiligten
+Programme steht in `dist\auslieferung.log`; bei einem Fehler zeigt die
+Meldung Schritt, Ende der Ausgabe und den Pfad zum Protokoll.
+
+### 7.3 Was den Bau schneller macht, ohne am Ergebnis etwas zu ändern
+
+| Maßnahme | Wirkung |
+|---|---|
+| Inno Setup auf acht Kernen (`LZMANumBlockThreads=8`) | getrennt gemessen 185 statt 691 Sekunden, im Bau 492; die Setup-Datei wird 0,7 % größer |
+| Signaturen unveränderter Dateien wiederverwenden | abgelegt unter der Prüfsumme der unsignierten Datei, je Zertifikat getrennt, in `build\bau-cache\signaturen`; Schritt 10 prüft trotzdem jede |
+| Tests nicht zweimal für denselben Stand | nur bei eingechecktem Baum und denselben Paketversionen |
+| Setup-Datei im ZIP nur ablegen | sie ist schon mit LZMA gepackt |
+
+Die nächste große Ersparnis wäre, die Paketinstallation (6 Minuten) zu
+überspringen, wenn sich `uv.lock` nicht geändert hat. Sie ist nicht
+gebaut: an genau so einer Stelle ist schon einmal ein alter Stand in
+die Auslieferung geraten.
+
+### 7.4 Der Installer
+
+Inno Setup mit den üblichen Seiten: Willkommen, Lizenz zum Annehmen,
+Zielordner, Startmenü, Zusatzaufgaben (Desktopsymbol,
+`.natter`-Verknüpfung), Zusammenfassung, Fertigstellen mit „Natter
+starten". Deinstallation über „Apps & Features". Nur Deutsch, ohne
+Frage nach der Sprache; `tools/installer_texte.isl` fasst alle
+Meldungen von Inno Setup unpersönlich.
+
+Voreinstellung ist die Installation nur für den angemeldeten Benutzer
+unter `%LOCALAPPDATA%\Programs\Natter`. Auf einem Schulrechner ohne
+Administratorrechte ist das der einzige Weg, und nur dort kann `pip`
+später auch schreiben.
+
+**Update.** Das Setup liest die installierte Fassung aus dem
+Deinstallationseintrag und nennt sie auf der Willkommensseite („Natter
+0.3.3 ist installiert und wird auf 0.3.4 aktualisiert.“); Zielordner
+und Startmenü entfallen dann, eine ältere Fassung über einer neueren
+lehnt es ab, eine laufende Natter schließt es. `[InstallDelete]`
+ersetzt `python\` vollständig: Inno Setup überschreibt sonst nur und
+lässt liegen, was in der neuen Fassung fehlt. Bis 0.3.3 wurden nur
+Natters eigene Ordner geleert, und ein Update von 0.3.2 behielt 148
+Altdateien, darunter die Qt-Module unter GPL. Pakete, die über
+„Pakete“ nachinstalliert waren, schreibt `tools/installer_pakete_merken.py`
+vorher mit der alten Python auf; danach installiert das Setup sie per
+pip wieder, ohne Netz bleibt die Liste in `%APPDATA%\Natter` stehen.
+
+**Bytecode.** Seit 0.3.7 liegt zu jeder `.py` der mitgelieferten
+Python eine `.pyc` bei, erzeugt in Schritt 5 vor dem Signieren und
+dem Manifest mit `compileall --invalidation-mode unchecked-hash`
+(Punkt 270). Bis 0.3.6 brachte nur `site-packages` Bytecode mit, den
+pip beim Installieren angelegt hatte, und der prüft Python gegen
+Änderungsdatum und Größe der `.py`. Inno Setup rundet die
+Zeitstempel beim Installieren auf zwei Sekunden; in der installierten
+0.3.6 passten danach 598 von 1421 `.pyc` in pandas und 242 von 671
+in scikit-learn nicht mehr. Python übersetzte sie beim ersten Start
+neu und schrieb sie in den Programmordner, Defender prüfte jede neue
+Datei, und der erste Start eines Programms mit scikit-learn dauerte
+über 30 Sekunden. Unter `Program Files` kann Python die Dateien gar
+nicht schreiben, dort wäre jeder Start so langsam gewesen. Eine
+`.pyc` mit `unchecked-hash` lädt Python, ohne die `.py` anzusehen.
+Gemessen an einer Kopie der Python aus 0.3.6: `import pcl,
+sklearn.ensemble, pandas, matplotlib.pyplot` ohne Bytecode 21 s,
+mit 2,3 s. Die Setup-Datei wird dadurch um rund 1,2 MB größer
+(LZMA-Schätzung), weil vorher nur die Standardbibliothek ohne
+Bytecode war. Die Datenordner in `site-packages` (Beispiele,
+Vorlagen, Hilfeseiten) bleiben ohne `.pyc`.
+
+`tools/natter.iss` lässt sich mit `ISCC /DOhneProgramm` ohne
+Programmdateien und ohne Signatur übersetzen - in Sekunden statt
+Minuten, um Texte und `[Code]` zu prüfen, ohne zu bauen.
+
+### 7.5 Signatur und Prüfsummen-Manifest
+
+Zwei Ebenen, beide ohne Kosten:
+
+| Ebene | Umsetzung | Wirkung |
+|---|---|---|
+| Authenticode | selbst ausgestelltes Zertifikat „Natter Codesignatur" (`New-SelfSignedCertificate`), jede Binärdatei ohne fremde Signatur wird signiert, mit Zeitstempel von DigiCert | Windows zeigt den Herausgeber; jede Veränderung macht die Signatur ungültig |
+| Prüfsummen-Manifest | SHA-256 der Programmdateien in `manifest.json`, mit einem eigenen Ed25519-Schlüssel signiert; der öffentliche Schlüssel steckt im Starter | Natter erkennt beim Start veränderte, fehlende oder fremde Dateien |
+
+Bei jedem Start werden die Kerndateien geprüft (0,07 s), über
+„Werkzeuge → Umgebung prüfen" alle (2,4 s, im Hintergrund). Nicht
+geprüft werden die Fremdbibliotheken in `site-packages` und die
+Startdateien in `python\Scripts`: dort darf `pip` Pakete
+nachinstallieren. Die mitgelieferten `.pyc` stehen seit Punkt 270 im
+Manifest, weil Python sie ohne Blick auf die `.py` lädt (7.4). Eine
+`.pyc`, die Python zu einem Modul ohne mitgelieferte selbst anlegt,
+gilt nicht als zusätzlich: geladen wird sie nur zu der `.py`
+daneben, und die steht im Manifest. Zu Natter selbst zählen in `site-packages` neben
+`ide`, `pcl`, `design`, `schemas` und `templates` auch
+`beispielprojekte` und `docs`. Was Python bei jedem Start von sich
+aus ausführt (`*.pth` in `site-packages` und `python\Lib`,
+`sitecustomize` und `usercustomize` in jedem Ordner aus `sys.path`
+der mitgelieferten Python, also auch in `python\DLLs` und `python`
+selbst), steht ebenfalls im Manifest und wird schon bei jedem Start
+geprüft; eine neu abgelegte Datei dieser Art ist ein Befund. Seit
+Punkt 253 gehören zur schnellen Prüfung außerdem ganz `python\DLLs`,
+die Module, die Python vor Natter lädt (`site`, `os`, `codecs`,
+`encodings`, `runpy` und einige mehr, `FRUEHE_MODULE` in
+`ide/integritaet/manifest.py`), und jede Datei der mitgelieferten
+Python außerhalb von `site-packages`, die zum Zeitpunkt der Prüfung
+schon geladen ist.
+
+Die Grenze der Startprüfung: sie läuft in dem Python-Prozess, den sie
+prüft, und erst nachdem Qt, `cryptography` und die IDE geladen sind.
+Was vorher ausgeführt wurde, kann sie melden, aber nicht verhindern,
+und eine veränderte Datei, die ihren eigenen Befund unterdrückt, fällt
+ihr nicht auf. Die Fremdbibliotheken in `site-packages`, die Natter vor
+der Prüfung lädt, prüft sie gar nicht, weil `pip` sie beim
+Nachinstallieren anheben darf. `site.py`, `os.py` und `codecs.py` liest
+Python 3.13 in der Regel nicht einmal aus `python\Lib`, sondern nimmt
+die in `python313.dll` eingefrorene Fassung; geprüft werden die
+Dateien trotzdem. Gegen ein Programm des angemeldeten Kontos, das
+gezielt in den Programmordner schreibt, hilft nur eine Installation
+für alle Konten, bei der dieser Ordner Verwaltungsrechte braucht.
+
+Für PySide6, shiboken6, cryptography und
+jsonschema, die Natter selbst lädt, vergleicht „Umgebung prüfen" die
+Prüfsummen und meldet eine Abweichung nur als Hinweis, weil `pip` sie
+beim Nachinstallieren anheben darf (Punkt 230). Die Installation
+erkennt Natter an ihrem Aufbau (`Natter.exe` neben
+`python\pythonw.exe`); ein fehlendes oder unlesbares Manifest ist
+selbst ein Befund.
+
+Nicht signiert werden die Vorlagen unter `PyInstaller\bootloader\`:
+aus ihnen baut „Als Exe exportieren“ die Schüler-Exe, und eine schon
+signierte Vorlage macht die fertige Exe unsignierbar. Schritt 10
+prüft beides - jede andere Binärdatei signiert, die Vorlagen nicht.
+
+Beide privaten Schlüssel liegen nur auf dem Baurechner
+(`tools/signieren/`, von Git ausgeschlossen) und nie in der
+Auslieferung. Läge der Codesignatur-Schlüssel dort, könnte jede
+Installation beliebigen Code mit einem Zertifikat signieren, dem alle
+Rechner mit eingetragenem Zertifikat vertrauen, und widerrufen ließe
+sich das nicht. Die exportierte Exe einer Schülerin wird deshalb mit
+einem Zertifikat signiert, das Natter auf ihrem Rechner anlegt und
+dessen Schlüssel nicht exportierbar ist (`ide/export/signatur.py`).
+Ist der Zeitstempeldienst nicht erreichbar, etwa ohne Netz oder
+hinter einem Proxy, signiert der Export nach höchstens 45 Sekunden
+ein zweites Mal ohne Zeitstempel. Die Signatur gilt dann bis zum
+Ablauf des Zertifikats, und das Protokoll des Exports sagt es
+(Punkt 264).
+
+### 7.6 Smart App Control
+
+Die intelligente App-Steuerung von Windows 11 lässt sich mit einem
+selbst ausgestellten Zertifikat nicht zufriedenstellen. Das wurde
+zunächst anders eingeschätzt und hat zwei Fassungen gekostet.
+
+Gemessen am 21. September: mit dem Zertifikat in `LocalMachine\Root`
+und `LocalMachine\TrustedPublisher` wies Windows frisch signierte
+Bibliotheken beim Laden ab. Im Ereignisprotokoll
+(`Microsoft-Windows-CodeIntegrity/Operational`) standen sie als
+`ValidatedSigningLevel=1`, also als unsigniert, während
+`Get-AuthenticodeSignature` sie als `Valid` meldete. Dieselbe Datei lief
+vor dem Nachsignieren und war danach gesperrt. Entschieden wird nach
+dem Ruf des einzelnen Dateihashs bei Microsoft; für eine frisch
+signierte Datei ist das Zufall, und ein Programm aus 800 Binärdateien
+braucht 800 Treffer.
+
+Eine frühere Messung schien das Gegenteil zu zeigen: eine einzige
+signierte Datei ließ Natter auf einem Testrechner starten. Die übrigen
+Dateien waren dort aber über ihren Ruf durchgekommen; das Zertifikat
+hatte damit nichts zu tun.
+
+Was daraus folgt:
+
+- Auf Rechnern mit eingeschalteter App-Steuerung startet Natter nicht.
+  Abhilfe ist, sie auszuschalten (Einstellungen → Datenschutz und
+  Sicherheit → Windows-Sicherheit → App- und Browsersteuerung). Das
+  lässt Windows nur in eine Richtung zu: einmal aus, bleibt sie aus,
+  bis Windows neu aufgesetzt wird. Oder ein Zertifikat einer
+  öffentlichen Zertifizierungsstelle, etwa 200 bis 400 Euro im Jahr.
+- Verwaltete Schulrechner (Intune, Domäne) haben die App-Steuerung
+  normalerweise aus; betroffen sind frisch aufgesetzte Einzelgeräte.
+- Das Zertifikat bleibt trotzdem nützlich: es nennt den Herausgeber,
+  erspart auf Rechnern mit eingetragenem Zertifikat die
+  SmartScreen-Warnung und macht Veränderungen erkennbar.
+- `ZUERST-LESEN.txt` stellt die Frage nach der App-Steuerung an den
+  Anfang, weil davon alles Weitere abhängt.
+
+### 7.7 Die ZIP und die Veröffentlichung
+
+`Natter-<Version>-Setup.zip` enthält:
+
+| Datei | Wofür |
+|---|---|
+| `ZUERST-LESEN.txt` | Reihenfolge und Voraussetzungen, Versionsnummer wird beim Bau eingesetzt |
+| `Natter-Setup.exe` | das Installationsprogramm |
+| `natter-codesign.cer` | nur der öffentliche Teil des Zertifikats |
+| `Zertifikat-eintragen.cmd`/`.ps1` | trägt es für alle Konten ein, mit Rückfrage nach Administratorrechten; prüft danach, ob der Eintrag wirklich im Speicher steht |
+| `Zertifikat-entfernen.cmd`/`.ps1` | nimmt es wieder heraus |
+| `Natter-pruefen.cmd`/`.ps1` | startet die installierte Fassung und legt einen Bericht auf den Schreibtisch |
+| `Handbuch.html`/`.md` | das Handbuch |
+| `Lizenzen\` | die Lizenztexte |
+
+Zu jedem `.ps1` gibt es ein `.cmd` zum Doppelklicken: auf einem frisch
+aufgesetzten Rechner verweigert Windows PowerShell-Skripte per
+Doppelklick, und Dateien aus einem entpackten ZIP gelten als „aus dem
+Internet". Das `.cmd` ruft das Skript mit `-ExecutionPolicy Bypass` auf,
+nur für diesen einen Aufruf.
+
+Die Setup-Datei und die ZIP liegen als Anhänge an einem GitHub-Release
+im öffentlichen Repository, nicht in der Git-Historie: GitHub nimmt
+dort keine Datei über 100 MB an. Der Link „Herunterladen" in der
+README zeigt auf die neueste Fassung. Vor dem Entpacken die ZIP unter
+*Eigenschaften* „zulassen", sonst fragt Windows bei jeder Datei nach.
+
+### 7.8 Stolpersteine bei der Installation
+
+| Problem | Ursache | Abhilfe |
+|---|---|---|
+| „Eine Anwendungssteuerungsrichtlinie hat diese Datei blockiert" | intelligente App-Steuerung (7.6) | ausschalten oder öffentliches Zertifikat |
+| SmartScreen-Warnung beim Installieren | keine Reputation für ein eigenes Zertifikat | Zertifikat eintragen, oder „Weitere Informationen" → „Trotzdem ausführen" |
+| „Das System kann den angegebenen Pfad nicht finden" | ein sehr langer Zielordner reißt die Windows-Pfadgrenze | kurzen Zielordner wählen; die Vorgabe ist kurz genug |
+| Nachinstallieren über „Pakete" schlägt fehl | systemweite Installation ohne Schreibrecht | für den angemeldeten Benutzer installieren |
+| Nach dem Deinstallieren bleibt ein Ordner | `.ruff_cache` aus der Prüfung vor dem Start (bis 0.3.2) | behoben (Punkt 21): ruff läuft ohne Cache, der Uninstaller räumt einen alten weg |
+
+---
+
+## 8. Protokoll der Auslieferungen
+
+Nach jedem Bau kommt hier ein Eintrag dazu: Datum, Fassung, Größe,
+Signaturen, Dauer, und was der Lauf aufgedeckt hat, samt Irrweg.
+
+### 0.4.0 – nicht gebaut, Freigabelauf 28./29. September 2026
+
+`/freigabe 0.4.0` lief die volle Höchstzahl von 15 Runden und hat
+nicht gebaut: Jede Runde fand neue Punkte, fünf leere Runden
+hintereinander kamen nicht zustande. Behoben und archiviert sind die
+Punkte 282 bis 397 außer den zurückgestellten; jede Runde endete mit
+grüner voller Suite (zuletzt 4935 Tests in 4:30) und grünem CI.
+
+| Runde | Thema | Punkte |
+|---|---|---|
+| 1 / 6 / 11 | Durchsicht | 4 / 6 / 5 |
+| 2 / 7 / 12 | Sicherheit | 3 / 9 / 9 |
+| 3 / 8 / 13 | Benutzbarkeit | 22 / 13 / 8 |
+| 4 / 9 / 14 | Leistung | 4 / 3 / 3 |
+| 5 / 10 / 15 | Betrieb | 11 / 8 / 8 |
+
+Zurückgestellt, weil sie eine Entscheidung brauchen: 344 (Sicherung
+ungespeicherter Editoren beim Abmelden) und 390, 392, 393 (wie Natter
+ein eigenes Projekt von einer verteilten Aufgabe unterscheidet). 389
+ist nur teilweise behoben: das Kopieren einer Aufgabe mit 3.000
+Dateien läuft weiter 6,5 bis 9,8 s im Hauptfaden.
+
+Der Irrweg dieses Laufs war die Unterscheidung zwischen eigenem
+Projekt und verteilter Aufgabe. Sie begann mit dem Angebot einer
+Kopie bei fehlendem Schreibrecht (321) und bekam danach vier Regeln:
+nach dem Ort (361), ergänzt um Desktop, OneDrive und selbst angelegte
+Projekte (366, 367), nach dem Besitzer des Ordners (379), mit
+Ausnahmen für Temp und Downloads (391). Jede Regel hatte eine Lücke,
+die die nächste Runde fand; allein dieser Ablauf lieferte über 25
+Punkte. Die letzte Lücke (Besitzer nach einem Serverumzug oder auf
+einer NAS) ist ohne Entscheidung nicht zu schließen. Entschieden hat
+der Nutzer danach, die Unterscheidung ganz aufzugeben: ein
+Projektordner geht überall auf, wo er liegt, und eine Kopie bietet
+Natter nur noch ohne Schreibrecht, bei der Sperre eines anderen
+Kontos und in einem vorläufig entpackten ZIP-Ordner an (Punkte 390,
+392, 393). Besitzerabfrage und Ortsregeln sind wieder entfernt.
+
+Zweimal stand ein Test nur in der vollen Suite rot: die
+PyInstaller-Attrappe in `test_exporter.py` zeichnete Prozessstarts
+anderer Fäden mit auf, und die Zeitgrenze im Test zu 355 hielt acht
+Prozessen nicht stand. Im CI scheiterte einmal der Test zum
+Einsammelordner (363), weil das Konto dort Verwaltungsrechte hat; er
+überspringt sich jetzt, wenn die Rechte nicht greifen.
+
+### 0.3.6 – 28. September 2026
+
+`Natter-Setup.exe`, 276,8 MB. `Natter.exe` und `Natter-Setup.exe`
+`Valid`, jede der 807 Binärdateien gültig signiert. ZIP 277 MB.
+Veröffentlicht als Release `v0.3.6`. 29,5 Minuten: pytest 4:15
+(4396 Tests auf 8 Prozessen), `dist\Natter` 12:35, Installer rund
+10 Minuten. Enthält die Punkte 53 bis 225, darunter sieben Runden
+Durchsicht; die siebte fand nichts mehr.
+
+Zweimal abgebrochen, bevor es klappte. Erst in Schritt 5: `uv export`
+schrieb Farbcodes in `requirements-auslieferung.txt`, weil das
+Terminal der Bausitzung `FORCE_COLOR` setzte, und pip scheiterte an
+der ersten Zeile. Der Aufruf schaltet die Farben jetzt ab
+(`--color never`, `NO_COLOR`). Dann in Schritt 4: der Test, der den
+genauen `uv export`-Befehl festhält, kannte die neuen Schalter nicht -
+nach einer Änderung am Bau die Tests zu `tools/` vorher laufen
+lassen, nicht erst im Bau.
+
+Die Testsuite war vorher auf 5 972 Tests gewachsen und lief in einem
+Prozess nicht mehr durch (Punkt 223). Der Irrweg: zuerst sah es nach
+zu vielen Tests aus, gemessen Datei für Datei brauchten alle zusammen
+aber nur 28 Minuten. Die Zeit fraßen Fenster und Timer, die kein Test
+wieder abräumte, und ein `gc.collect()` nach jedem Test über alle
+Objekte seit Laufbeginn; dazu hielt jedis Hilfsprozess die Rohre von
+ruff offen (Punkt 224), was einzelne Läufe ganz anhielt.
+
+Update 0.3.5 → 0.3.6 auf dem Baurechner still (`/VERYSILENT
+/CURRENTUSER`) installiert, Rückgabe 0; Windows führt danach „Natter
+0.3.6“. In der installierten Fassung über UI Automation bedient, mit
+Bildschirmfotos (`build\auswertung\036\ui_036.py`): Notizbuch mit F5
+unter dem Debugger gestartet und mit Umschalt+F5 beendet, F5 und
+sofort Umschalt+F5 hinterher (Punkt 222) ohne Programm und ohne
+Debugger danach, mit Strg+F5 gestartet und über das Fenster
+geschlossen; Rechtsklick auf das zweite Formular zeigt „Umbenennen …“
+und „Löschen …“ (Punkt 221); in Malen einen Strich mit der Maus
+gezogen; im Konsolenprogramm „Jörg“ eingegeben, Umlaute richtig. Nach
+dem Beenden von Natter lief kein Python-Prozess der Installation mehr;
+solange Natter offen ist, nur jedis Hilfsprozess. Der erste Start nach
+dem Update dauerte 22,7 Sekunden (Punkt 48, Prüfung frischer Dateien
+durch Defender).
+
+### 0.3.5 – 26. September 2026
+
+`Natter-Setup.exe`, 276,5 MB. `Natter.exe` und `Natter-Setup.exe`
+`Valid`, jede Binärdatei gültig signiert. ZIP 277 MB. Veröffentlicht als
+Release `v0.3.5`, das Tag zeigt auf `39fdfdf`. 48,9 Minuten: pytest
+22:51 (4250 Tests), `dist\Natter` 12:45, Installer 10:29. Behebt die
+drei Fehler, die beim Bedienen der installierten 0.3.4 auffielen (siehe
+dort).
+
+Update 0.3.4 → 0.3.5 auf dem Baurechner: Hinweis „Natter 0.3.4 ist
+installiert und wird auf 0.3.5 aktualisiert.“, 3:20 Minuten, danach nur
+`natter-0.3.5.dist-info`, `cowsay` wieder da. In der installierten
+Fassung durchgespielt, mit Bildschirmfotos: neues GUI-Projekt, Button
+und Hauptmenü aus der Palette (die Kacheln sind über UI Automation mit
+Namen ansprechbar), Komponentenbaum sofort aktuell, Doppelklick auf den
+Button öffnet `u_main.py` in `button_click` mit markiertem `pass`,
+„Umgebung prüfen“ ohne Befund, Programm gestartet, Knopf geklickt.
+Schon an 0.3.4 geprüft und in 0.3.5 unverändert: `form_create` über den
+Reiter „Ereignisse“ verknüpft, Menü „Datei“ links oben im laufenden
+Programm, `input()` im Programm mit Fenster mit deutscher Meldung und
+Code 1, Exe-Export mit gültiger Signatur (Punkt 34).
+
+### 0.3.4 – 26. September 2026
+
+`Natter-Setup.exe`, 276,5 MB. `Natter.exe` und `Natter-Setup.exe`
+`Valid`, jede Binärdatei gültig signiert. ZIP 277 MB. Veröffentlicht als
+Release `v0.3.4`, das Tag zeigt auf `c141d68`. Enthält die Befunde aus
+dem Schülerweg 0.3.3 (Punkte 21, 26 bis 45). 46,3 Minuten: pytest
+18:56 (4247 Tests), `dist\Natter` 13:45, Installer 10:50.
+
+Das Update wurde auf dem Baurechner über die dort installierte Fassung
+0.3.3 durchgespielt, in die vorher `cowsay` über pip nachinstalliert
+worden war. Der Assistent nannte „Natter 0.3.3 ist installiert und wird
+auf 0.3.4 aktualisiert.“, zeigte fünf statt acht Seiten ohne
+Sprachauswahl und lief in 3:39 Minuten ohne Meldung durch. Danach:
+Deinstallationseintrag 0.3.4, nur noch `natter-0.3.4.dist-info`,
+`cowsay` 6.1 wieder da, die Merkliste unter `%APPDATA%\Natter`
+gelöscht, `PySide6.QtCharts` nicht vorhanden, „Umgebung prüfen“ meldet
+„alle Programmdateien unverändert“.
+
+Beim Bedienen der installierten Fassung fiel ein Fehler auf, den kein
+Test gefunden hatte: der Doppelklick auf einen Knopf öffnete die Unit,
+markierte aber ein Stück Kommentar statt des `pass` in der neuen
+Methode. Der Sprung bewegte den Cursor mit „Zeile nach unten“, und das
+zählt bei eingeschaltetem Zeilenumbruch sichtbare Zeilen; die langen
+Kommentare der Projektvorlage werden in einem schmalen Editor
+umbrochen. Die Tests liefen mit einem Editor, der breit genug war, und
+konnten den Fehler nicht zeigen. Dazu kam ein stehengebliebenes `pass`
+in der Klasse über der ersten Methode und ein Satz in der Ausgabe, nach
+dem das Fenster eines abgestürzten GUI-Programms offen bleibe. Alles
+drei ist in 0.3.5 behoben.
+
+### 0.3.2 – 25. September 2026
+
+`Natter-Setup.exe`, 277,9 MB. `Natter.exe` und `Natter-Setup.exe`
+`Valid`, keine Binärdatei ohne gültige Signatur. Die ZIP (278 MB)
+enthält elf Dateien und 28 Lizenztexte. Veröffentlicht als Release
+`v0.3.2`, das Tag zeigt auf `268de88`, den Stand, aus dem gebaut wurde.
+Neu: Beispielkopien im eigenen Unterordner und „Auf Original
+zurücksetzen …", Designer und Programm folgen dem Design von Natter.
+
+Erster Bau mit Fortschrittsanzeige, 36,7 Minuten:
+
+| Schritt | 0.3.1 | 0.3.2 |
+|---|---|---|
+| 4 pytest | 13:32 (4089 Tests) | 15:17 (4142 Tests) |
+| 5 `dist\Natter` | – | 12:16, davon Pakete 6:03, Signieren 4:41 |
+| 8 Installer | etwa 11:30 | 8:12 |
+| gesamt | 42,2 min | 36,7 min |
+
+Das Signieren dauerte länger als sonst, weil der Zwischenspeicher zum
+ersten Mal gefüllt wurde (375 Einträge). Die Mehrkern-Kompression war im
+Bau langsamer als getrennt gemessen; möglich ist, dass der Virenscanner
+die frisch geschriebenen Dateien beim ersten Lesen prüft, nachgewiesen
+ist es nicht. Der erste Versuch brach in Schritt 4 ab: ein älterer Test
+fing die pip-Aufrufe noch auf dem alten Weg ab. Vor dem Start waren
+nur die Bau-Tests gelaufen, nicht die ganze Suite.
+
+### 0.3.1 – 21. September 2026
+
+`Natter-Setup.exe`, 276 MB, 42,2 Minuten, elf Schritte. Erstmals jede
+Binärdatei signiert (377, 0,28 s je Datei). Der erste Bauversuch
+scheiterte an der Rauchprobe: auf dem Baurechner war die App-Steuerung
+an, und sie wies die frisch signierten Dateien ab. Daraus ist die
+Messung in Abschnitt 7.6 entstanden. Auf dem Baurechner ist die
+App-Steuerung seitdem aus. Schritt 10 meldete im ersten Lauf 29 341
+Dateien ohne Signatur: zusammen mit `-LiteralPath` ignoriert PowerShell
+den Schalter `-Include` ohne Meldung und liefert jede Datei.
+
+### 0.3.0 – 20. September 2026
+
+275,3 MB, beide Signaturen `Valid`, 29,4 Minuten, davon 15,6 für 4054
+Tests. Vollständig entfernt und neu installiert: 30 161 Dateien,
+1 202 MB. Nachgesehen in der Installation: Integritätsprüfung sauber,
+Fenster nach 2,6 s, „Quelltext als PDF" schreibt ein PDF.
+
+Aufgedeckt: die Versionsnummer stand an drei Stellen, geprüft wurden
+zwei. Windows zeigte 0.3.0, das Ladebild 0.2.1. Beim Beheben schrieb
+ein Testlauf `1.0.0` in die eingecheckte `ide/main.py`, weil das Skript
+die dritte Datei schon kannte und die Testabsicherung noch nicht; eine
+Warnung im Docstring hatte das nicht aufgehalten. Seitdem lenkt eine
+autouse-Fixture die Pfade um.
+
+### 0.2.0 – 20. September 2026
+
+275,4 MB, rund neun Minuten, davon dreieinhalb für 3690 Tests. Still
+installiert ohne Administratorrechte, „Apps & Features" zeigt die
+Fassung, Startmenü und `.natter`-Verknüpfung stehen.
+
+Aufgedeckt: eine Prüfung suchte in `{app}\ide`, obwohl Natter unter
+`python\Lib\site-packages` liegt – und zwei Kontrollen auf verbotene
+Inhalte meldeten „bestanden", weil der Ordner gar nicht existierte. Die
+Paketbeschreibung in `pyproject.toml` stand noch auf Lazarus. Die
+Auslieferung nahm den ganzen `docs/`-Ordner mit statt der zwei
+Hilfeseiten. Und ein Update ließ entfernte Dateien liegen, woraus
+`[InstallDelete]` entstand (7.4).
+
+### 0.1.0 – 20. September 2026
+
+275,5 MB, Setup-Datei und `Natter.exe` signiert, Aussteller
+`CN=Natter Codesignatur`.
+
+---
+
+## 9. Irrwege und was daraus folgt
+
+Die Befunde, die beim nächsten Mal am meisten Zeit sparen. Ausführlich
+stehen sie in den früheren Arbeitspaketen (Git-Historie) und in
+[`erledigte_punkte.md`](erledigte_punkte.md).
+
+**Ein grünes Testprotokoll belegt nicht, dass die Auslieferung
+funktioniert.** Getestet wird der Entwicklungsbaum, ausgeliefert wird
+`dist\Natter`. Beispiele: pip löste die Abhängigkeiten frisch gegen
+PyPI auf, und in der Auslieferung lag pandas 3.0.6, getestet war 3.0.5.
+Deshalb kommen die Versionen jetzt aus `uv.lock`, und Schritt 6 prüft
+in der gebauten Python.
+
+**Die Umgebung des Baurechners sickert in den Bau.** `PYTHONUSERBASE`
+der Windows-Store-Python ließ die frisch ausgepackte Python die Pakete
+des Baurechners als ihre eigenen sehen. pip meldete „Requirement
+already satisfied" und gab 0 zurück; in der Auslieferung fehlten ein
+Dutzend Pakete. Aufgefallen ist es erst beim Nachzählen.
+
+**Eine Prüfung, die nicht fehlschlagen kann, prüft nichts.** Die
+Integritätsprüfung erkannte eine Installation an `sys.frozen` und lief
+nach M13 still gar nicht mehr. Kontrollen auf verbotene Inhalte zeigten
+auf Ordner, die es nicht gab, und meldeten „bestanden".
+
+**Was nicht verglichen wird, kann auseinanderlaufen.** Die
+Versionsnummer an drei Stellen, die Liste der Endungen im Signierskript
+und in Schritt 10, die Dateien der ZIP und ihre Beschreibung: überall
+hält jetzt ein Test die beiden Seiten zusammen.
+
+**Selbst signieren und die App-Steuerung** – siehe 7.6. Eine Messung
+mit einer einzigen Datei reicht nicht; das Ereignisprotokoll
+(`ValidatedSigningLevel`) sagt, ob Windows eine Signatur wirklich
+anerkennt.
+
+**Tests schreiben wirklich.** Der Designer schreibt jede Änderung in
+die `.pfm` zurück, `_version_setzen()` in die Versionsdateien, der Bau
+in `build\` und `dist\`. Wer so etwas testet, lenkt die Pfade vorher
+um; die Absicherungen in `tests/conftest.py` und den Bau-Tests tun das
+von sich aus. Seit Punkt 312 schreibt der Designer erst kurz nach der
+letzten Änderung einer Folge (`SCHREIB_VERZOEGERUNG_MS`); ein Test,
+der danach `.pfm`, `_design.py`, Komponentenbaum oder Design-Prüfung
+ansieht, ruft vorher `DesignerCanvas.jetzt_schreiben()` auf.
+
+**Ein Prozessbaum hängt an seinen Rohren.** Eine mit PyInstaller
+gebaute Einzeldatei startet sich als Kindprozess nach. Das Kind erbt die
+Ausgabe-Rohre, und `subprocess.run(…, timeout=…)` wartet nach dem
+Abbruch endlos darauf, dass sie zugehen. Ausgabe in Dateien, beenden
+mit `taskkill /PID <pid> /T /F`.
+
+**`taskkill /T` braucht einen lebenden Elternprozess.** Startet ein
+Programm einen Prozess und endet, findet `taskkill` diesen Enkel nicht
+mehr. Schülerprogramme, der Debugger und der Testlauf laufen deshalb
+in einem Windows-Auftragsobjekt (Job Object) mit
+`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` (`ide/prozess.py`). „Stopp“, das
+Schließen von Natter und `prozessbaum_beenden` beenden den ganzen
+Auftrag, auch wenn das Programm selbst schon zu Ende ist (Punkt 281).
+Was die Shell zu einer Adresse oder Datei startet, entsteht als Kind
+des öffnenden Prozesses und käme mit in den Auftrag. `pcl.open_url`
+übergibt deshalb an `explorer.exe`, das die Anfrage an den Explorer
+der Anmeldung weiterreicht; der Browser läuft außerhalb und überlebt
+„Stopp“ (Punkt 285). Herauslösen per `JOB_OBJECT_LIMIT_BREAKAWAY_OK`
+bleibt verboten, sonst könnte jedes Programm den Auftrag verlassen.
+
+**Inno Setup löscht beim Update nichts.** Was in einer neuen Fassung
+fehlt, bleibt liegen, bis `[InstallDelete]` es ausdrücklich entfernt.
+Dasselbe gilt für Dateien, die erst nach der Installation entstehen
+(Uninstaller, `.ruff_cache`): sie gehören nicht ins Manifest und werden
+beim Deinstallieren nicht entfernt.
+
+**PowerShell verschluckt Schalter.** `Get-ChildItem -LiteralPath …
+-Include …` ignoriert `-Include` ohne Meldung. In Inno-Signierbefehlen
+ist `$q` das Anführungszeichen; ein echtes `"` kommt wörtlich durch.
+
+---
+
+## 10. Risiken
+
+| Risiko | Gegenmaßnahme |
+|---|---|
+| Rechner mit eingeschalteter App-Steuerung | in `ZUERST-LESEN.txt` und im Handbuch an erster Stelle; dauerhaft nur mit öffentlichem Zertifikat lösbar |
+| Eigener Code in `u_*_design.py` geht verloren | die Datei ist als erzeugt gekennzeichnet und erscheint nicht im Projekt-Explorer; bearbeitet werden die `.pfm` im Designer und die Unit daneben |
+| Schüler installieren Pakete, die die Umgebung stören | „Werkzeuge → Umgebung prüfen", das Manifest überwacht Natters eigene Dateien |
+| Ausnahmen in Qt-Ereignissen gehen verloren | zentrale Ausnahmebehandlung in `pcl`, Fehlerfenster mit Protokoll unter `%APPDATA%\Natter` |
+| Tastenkürzel kollidieren | das Aktionsregister vergibt sie zentral, ein Test prüft auf Doppelungen |
+| Installationsgröße (1,2 GB) | Tcl/Tk entfernt, nur zwei Hilfeseiten ausgeliefert; Qt und die Rechenbibliotheken machen den Rest aus |
+| Umfang wächst | neue Wünsche als Punkt in `offene_punkte.md`, nicht nebenbei |

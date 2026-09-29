@@ -1,0 +1,489 @@
+"""Tests für ide/assets/symbole.py: SVG-Symbole als QIcon laden. Headless.
+
+Der zweite Teil prüft das Symbolraster aus M11, Abschnitt 1: Rand,
+Strichstärken, Farbpalette, das Umfärben fürs dunkle Theme und die
+Erkennbarkeit bei 16 px. Die Regeln selbst stehen im Modul-Docstring von
+`ide/assets/symbole.py`.
+"""
+
+import re
+from pathlib import Path
+
+from PySide6.QtCore import QSize
+from PySide6.QtGui import QColor, QImage
+
+from ide.assets import symbol
+from ide.assets.symbole import (
+    _ICON_ORDNER,
+    FARBEN,
+    _umgefaerbt,
+    farbkarte,
+    theme_ermitteln,
+)
+
+
+def test_bekannte_symbole_laden_ein_gueltiges_icon() -> None:
+    for name in ("app", "start", "neu", "oeffnen", "projekt_oeffnen", "speichern"):
+        assert not symbol(name).isNull(), name
+
+
+def test_app_symbol_ist_das_png_maskottchen_nicht_leer() -> None:
+    """Gemeldet: eigenes Schlangen-Bild statt
+ des bisherigen Vektor-Symbols als Fenster-/Taskleisten-Icon - `.png`
+ statt `.svg`, `symbol` muss deshalb auch `.png` finden."""
+    icon = symbol("app")
+    assert not icon.isNull()
+    assert icon.availableSizes()  # tatsächlich Bilddaten geladen, kein Platzhalter
+
+
+def test_unbekanntes_symbol_liefert_ein_leeres_icon_statt_fehler() -> None:
+    assert symbol("gibt_es_nicht").isNull()
+
+
+def test_leerer_name_liefert_ein_leeres_icon() -> None:
+    assert symbol("").isNull()
+
+
+# ---------------------------------------------------------------------
+# M11, Abschnitt 1: Symbolraster, Theme-Farbe, Erkennbarkeit bei 16 px
+# ---------------------------------------------------------------------
+
+#: Erlaubte Strichstärken: Binnenlinie, Kontur, Strich, Marke.
+ERLAUBTE_STRICHSTAERKEN = {"1", "1.2", "1.5", "2"}
+
+_HEX_IM_SVG = re.compile(r"#[0-9a-fA-F]{6}")
+_STRICHSTAERKE = re.compile(r'stroke-width="([0-9.]+)"')
+
+
+def _svg_dateien() -> list[Path]:
+    dateien = sorted(_ICON_ORDNER.glob("*.svg"))
+    assert dateien, "keine Symboldateien gefunden"
+    return dateien
+
+
+def _gerendert(name: str, kante: int, theme: str = "light") -> QImage:
+    return symbol(name, theme).pixmap(QSize(kante, kante)).toImage()
+
+
+def _ist_tab_schliessen(datei: Path) -> bool:
+    """Das Kreuz des Reiter-Schließknopfes und seine beiden
+    Theme-Fassungen sind der dokumentierte Sonderfall des Rasters: 16x16
+    statt 24x24, weil `ide/shell/theme.py` sie als `image: url(...)` ins
+    QSS einbindet und dort die Eigengröße der Datei die Knopfgröße
+    bestimmt."""
+    return datei.stem.startswith("tab_schliessen")
+
+
+def test_palette_hat_je_theme_eindeutige_werte() -> None:
+    """Umgefärbt wird über den hellen Hex-Wert. Käme derselbe helle Wert
+    zweimal vor, wäre nicht mehr entscheidbar, welcher dunkle gemeint
+    ist - eine der beiden Farben würde stillschweigend falsch."""
+    helle = [hell for hell, _ in FARBEN.values()]
+    assert len(helle) == len(set(helle))
+    # Kontur und Papier sind die Farben, die zwingend umschalten müssen.
+    assert FARBEN["tinte"][0] != FARBEN["tinte"][1]
+    assert FARBEN["papier"][0] != FARBEN["papier"][1]
+
+
+def test_umfaerben_laeuft_in_einem_durchgang() -> None:
+    """Zwei aufeinanderfolgende Ersetzungen dürfen sich nicht gegenseitig
+    treffen: mit `a -> b` und `b -> c` darf aus `a` nicht `c` werden."""
+    karte = {"#aaaaaa": "#bbbbbb", "#bbbbbb": "#cccccc"}
+    assert _umgefaerbt('fill="#aaaaaa"', karte) == 'fill="#bbbbbb"'
+
+
+def test_jede_symboldatei_nutzt_nur_farben_der_palette() -> None:
+    erlaubt = {hell.lower() for hell, _ in FARBEN.values()}
+    # `tab_schliessen_dunkel.svg` ist schon das Ergebnis des Umfärbens -
+    # das QSS kommt daran vorbei (siehe `_ist_tab_schliessen`). Es trägt
+    # deshalb als einzige Datei einen *dunklen* Palettenwert.
+    erlaubt_dunkel = erlaubt | {dunkel.lower() for _, dunkel in FARBEN.values()}
+    for datei in _svg_dateien():
+        gueltig = erlaubt_dunkel if datei.stem == "tab_schliessen_dunkel" else erlaubt
+        for treffer in _HEX_IM_SVG.findall(datei.read_text(encoding="utf-8")):
+            assert treffer.lower() in gueltig, f"{datei.name}: {treffer} steht nicht in FARBEN"
+
+
+def test_jede_symboldatei_nutzt_nur_die_vier_strichstaerken() -> None:
+    for datei in _svg_dateien():
+        for breite in _STRICHSTAERKE.findall(datei.read_text(encoding="utf-8")):
+            assert breite in ERLAUBTE_STRICHSTAERKEN, f"{datei.name}: stroke-width={breite}"
+
+
+def test_jede_symboldatei_haelt_sich_ans_raster() -> None:
+    for datei in _svg_dateien():
+        text = datei.read_text(encoding="utf-8")
+        # tab_schliessen*.svg ist der dokumentierte Sonderfall (16x16).
+        erwartet = "0 0 16 16" if _ist_tab_schliessen(datei) else "0 0 24 24"
+        assert f'viewBox="{erwartet}"' in text, datei.name
+        # Eine feste Pixelgröße am <svg> würde die Größe des Aufrufers
+        # aushebeln (Werkzeugleiste 18 px, Palette 22 px).
+        assert not re.search(r"<svg[^>]*\swidth=", text), datei.name
+        # Verläufe und Deckkraft überleben das Herunterrechnen auf 16 px
+        # nicht und ließen sich nicht sauber umfärben.
+        for verboten in ("Gradient", "opacity", "filter="):
+            assert verboten not in text, f"{datei.name}: {verboten}"
+        # currentColor löst Qt nicht gegen die Palette auf, siehe
+        # test_currentcolor_wirkt_in_qt_nicht.
+        assert "currentColor" not in text, datei.name
+
+
+def test_jedes_symbol_haelt_den_innenabstand_ein() -> None:
+    """2 von 24 Einheiten Rand ringsum, halbe Strichbreite eingerechnet.
+
+ Real gefunden (Sichtprüfung): `neu`, `start_debug` und
+ `komponente_shape` ragten um bis zu 0,4 Einheiten darüber hinaus -
+ die Marke unten rechts stieß an den Bildrand.
+ """
+    kante = 192
+    rand = kante * 2 // 24
+    for datei in _svg_dateien():
+        if _ist_tab_schliessen(datei):
+            continue  # 16x16-Sonderfall mit eigenem Rand
+        bild = _gerendert(datei.stem, kante)
+        ueber = []
+        for y in range(kante):
+            innen_y = rand <= y < kante - rand
+            for x in range(kante):
+                if innen_y and rand <= x < kante - rand:
+                    continue
+                if bild.pixelColor(x, y).alpha() > 12:
+                    ueber.append((round(x * 24 / kante, 2), round(y * 24 / kante, 2)))
+        assert not ueber, f"{datei.name}: {len(ueber)} Pixel im Rand, z. B. {ueber[:3]}"
+
+
+def test_dunkles_theme_faerbt_die_symbole_wirklich_um() -> None:
+    """Der Beweis am gerenderten Bild, nicht an der Theorie: dieselbe
+    Datei muss im dunklen Theme andere Pixel liefern.
+
+    `komponente_memo` hat eine große `papier`-Fläche und eine
+    `tinte`-Kontur - beide müssen umschalten.
+    """
+
+    def farben(theme: str) -> set[str]:
+        bild = _gerendert("komponente_memo", 96, theme)
+        gefunden = set()
+        for y in range(96):
+            for x in range(96):
+                punkt = bild.pixelColor(x, y)
+                if punkt.alpha() == 255:
+                    gefunden.add(punkt.name())
+        return gefunden
+
+    hell, dunkel = farben("light"), farben("dark")
+    assert FARBEN["papier"][0] in hell
+    assert FARBEN["tinte"][0] in hell
+    assert FARBEN["papier"][0] not in dunkel
+    assert FARBEN["tinte"][0] not in dunkel
+    assert FARBEN["papier"][1] in dunkel
+    assert FARBEN["tinte"][1] in dunkel
+
+
+def test_farbkarte_ist_im_hellen_theme_die_identitaet() -> None:
+    karte = farbkarte("light")
+    assert all(schluessel == wert for schluessel, wert in karte.items())
+    assert farbkarte("dark")[FARBEN["tinte"][0]] == FARBEN["tinte"][1]
+
+
+def test_symbole_folgen_der_design_wahl_des_nutzers() -> None:
+    """Real gefunden (Bildschirmfoto des Hauptfensters):
+ das Fenster stand über „Ansicht → Design → Dunkel“ auf Dunkel, die
+ Symbole aber blieben hell - `symbol` fragte nur das Farbschema des
+ Betriebssystems ab, nicht die Wahl des Nutzers. Auf einem hell
+ eingestellten Schulrechner ergab das dunkle Umrisse auf dunklem
+ Grund.
+ """
+    from PySide6.QtCore import QSettings
+
+    einstellungen = QSettings(
+        QSettings.Format.IniFormat, QSettings.Scope.UserScope, "Natter", "Natter-IDE"
+    )
+    einstellungen.setValue("design/thema", "dark")
+    einstellungen.sync()
+    try:
+        assert theme_ermitteln("system") == "dark"
+        # Und wirklich bis ins gerenderte Bild durch, nicht nur im Namen:
+        bild = _gerendert("komponente_memo", 96, "system")
+        farben = {
+            bild.pixelColor(x, y).name()
+            for y in range(96)
+            for x in range(96)
+            if bild.pixelColor(x, y).alpha() == 255
+        }
+        assert FARBEN["tinte"][1] in farben
+        assert FARBEN["tinte"][0] not in farben
+    finally:
+        einstellungen.setValue("design/thema", "system")
+        einstellungen.sync()
+
+
+def test_currentcolor_wirkt_in_qt_nicht() -> None:
+    """Hält fest, warum `symbol()` den Quelltext umfärbt, statt wie in
+    M11 vorgeschlagen `currentColor` zu benutzen: Qt löst `currentColor`
+    weder gegen die Palette noch gegen den Painter auf, sondern rendert
+    Schwarz. Ändert sich das in einer künftigen Qt-Fassung, schlägt
+    dieser Test fehl - dann lohnt es, den Weg neu zu bewerten."""
+    from PySide6.QtCore import QByteArray, Qt
+    from PySide6.QtGui import QPainter, QPixmap
+    from PySide6.QtSvg import QSvgRenderer
+
+    quelle = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
+        '<rect width="24" height="24" fill="currentColor"/></svg>'
+    )
+    bild = QPixmap(24, 24)
+    bild.fill(Qt.GlobalColor.transparent)
+    maler = QPainter(bild)
+    maler.setPen(QColor("#ff0000"))
+    maler.setBrush(QColor("#ff0000"))
+    QSvgRenderer(QByteArray(quelle.encode("utf-8"))).render(maler)
+    maler.end()
+
+    assert bild.toImage().pixelColor(12, 12).name() == "#000000"
+
+
+def test_jedes_symbol_ist_bei_16_px_noch_erkennbar() -> None:
+    """Bei 16 px muss genug Deckung übrig bleiben, sonst verwäscht das
+    Symbol zu einem hellen Schleier - dasselbe Problem wie seinerzeit bei
+    `app.ico`. Real gefunden: das „A“ von `komponente_label` hatte mit
+    Strichstärke 1,5 nur neun deckende Pixel."""
+    for datei in _svg_dateien():
+        bild = _gerendert(datei.stem, 16)
+        deckend = sum(
+            1 for y in range(16) for x in range(16) if bild.pixelColor(x, y).alpha() >= 190
+        )
+        sichtbar = sum(
+            1 for y in range(16) for x in range(16) if bild.pixelColor(x, y).alpha() >= 30
+        )
+        assert deckend >= 14, f"{datei.name}: nur {deckend} deckende Pixel bei 16 px"
+        assert sichtbar >= 40, f"{datei.name}: nur {sichtbar} sichtbare Pixel bei 16 px"
+
+
+def test_rueckgaengig_und_wiederholen_sind_bei_16_px_unterscheidbar() -> None:
+    """Die Pfeilspitze muss bei 16 px als Fläche auf ihrer Seite
+ stehen - daran allein unterscheiden sich die beiden Knöpfe der
+ Werkzeugleiste.
+
+ Real gefunden (Sichtprüfung): als Bogen im Strich mit
+ kleiner Spitze blieben auf der Spitzenseite nur zehn deckende Pixel
+ gegenüber sieben auf der Gegenseite - beide Symbole sahen bei 16 px
+ wie derselbe blasse Ring aus. (Ein bloßer Pixelvergleich der beiden
+ Bilder taugt hier nicht: auch die falsche Fassung unterschied sich
+ rechnerisch, nur eben nicht sichtbar.)
+ """
+
+    def masse(name: str, von: int, bis: int) -> int:
+        bild = _gerendert(name, 16)
+        return sum(
+            1 for y in range(16) for x in range(von, bis) if bild.pixelColor(x, y).alpha() >= 120
+        )
+
+    for name, spitze, gegenseite in (
+        ("rueckgaengig", (0, 6), (10, 16)),
+        ("wiederholen", (10, 16), (0, 6)),
+    ):
+        auf_spitze = masse(name, *spitze)
+        dagegen = masse(name, *gegenseite)
+        assert auf_spitze >= 16, f"{name}: nur {auf_spitze} deckende Pixel auf der Spitzenseite"
+        assert auf_spitze >= 2 * dagegen, f"{name}: {auf_spitze} gegen {dagegen} - zu wenig"
+
+
+def test_aufklapppfeil_der_combobox_ist_bei_16_px_zu_sehen() -> None:
+    """Real gefunden: als Winkelstrich wurde aus dem Pfeil im blauen
+    Knopf bei 16 px ein weißer Fleck. Als Fläche bleibt er stehen."""
+    bild = _gerendert("komponente_combobox", 16)
+    hell = sum(
+        1
+        for y in range(16)
+        for x in range(10, 16)
+        if bild.pixelColor(x, y).alpha() >= 150 and bild.pixelColor(x, y).lightness() > 190
+    )
+    assert hell >= 3, f"nur {hell} helle Pixel im Aufklappknopf"
+
+
+def test_haken_der_checkbox_ist_bei_16_px_gruen() -> None:
+    """Real gefunden: bei Strichstärke 1,5 war der schräge Haken bei
+    16 px kaum noch grün - eine Schräge verteilt sich auf zwei
+    Pixelreihen und verliert dabei die halbe Deckung."""
+    bild = _gerendert("komponente_checkbox", 16)
+    gruen = 0
+    for y in range(16):
+        for x in range(16):
+            punkt = bild.pixelColor(x, y)
+            if (
+                punkt.alpha() >= 120
+                and punkt.green() > punkt.red() + 25
+                and punkt.green() > punkt.blue() + 25
+            ):
+                gruen += 1
+    assert gruen >= 14, f"nur {gruen} grüne Pixel im Haken"
+
+
+# -- Themenwechsel zur Laufzeit ------------------------------------------
+
+
+def test_werkzeugleiste_faerbt_sich_beim_designwechsel_um(qtbot) -> None:
+    """Beim Überarbeiten der Symbole aufgefallen: ein `QIcon` merkt sich
+    seine Farben. „Ansicht → Design → Dunkel" tauschte zwar das QSS,
+    aber die Werkzeugleiste behielt die hellen Symbole, bis Natter neu
+    gestartet wurde."""
+    from ide.shell.hauptfenster import HauptFenster
+
+    fenster = HauptFenster()
+    qtbot.addWidget(fenster)
+    aktion = fenster.aktionen["datei.neue_unit"].qaction
+
+    hell = aktion.icon().pixmap(32, 32).toImage()
+    fenster._design_wechseln("dark")
+    dunkel = aktion.icon().pixmap(32, 32).toImage()
+
+    assert hell != dunkel, "das Symbol der Werkzeugleiste blieb unverändert"
+
+
+def test_palette_faerbt_sich_beim_designwechsel_um(qtbot) -> None:
+    from ide.shell.hauptfenster import HauptFenster
+
+    fenster = HauptFenster()
+    qtbot.addWidget(fenster)
+    eintrag = fenster.palette.standard_liste.item(0)
+
+    hell = eintrag.icon().pixmap(32, 32).toImage()
+    fenster._design_wechseln("dark")
+    dunkel = eintrag.icon().pixmap(32, 32).toImage()
+
+    assert hell != dunkel
+
+
+def _abweichung(a: QImage, b: QImage, kante: int = 16) -> int:
+    """Zahl der Pixel, in denen sich zwei gleich große Bilder deutlich
+    unterscheiden (Summe der Kanal- und Alpha-Abstände ab 100)."""
+    treffer = 0
+    for y in range(kante):
+        for x in range(kante):
+            pa, pb = a.pixelColor(x, y), b.pixelColor(x, y)
+            abstand = (
+                abs(pa.red() - pb.red())
+                + abs(pa.green() - pb.green())
+                + abs(pa.blue() - pb.blue())
+                + abs(pa.alpha() - pb.alpha())
+            )
+            if abstand >= 100:
+                treffer += 1
+    return treffer
+
+
+#: Die sechs Verbindungen des Klassendiagramms, die eine Marke tragen -
+#: `association` ist die schlichte Linie, gegen die gemessen wird.
+_MARKIERTE_VERBINDUNGEN = (
+    "directed_association",
+    "aggregation",
+    "composition",
+    "inheritance",
+    "dependency",
+    "realization",
+)
+
+
+def test_verbindungen_tragen_bei_16_px_eine_marke_mit_flaeche() -> None:
+    """Real gefunden (Sichtprüfung M11): in der ersten Fassung waren die
+    Endkästen 4,6 × 6 groß und die Marke dazwischen nur 5 breit. Bei
+    16 px sahen alle sieben Verbindungen des Klassendiagramms gleich aus
+    – „Kästchen, Strich, Kästchen“; Raute, Dreieck und Pfeilspitze
+    veränderten das Bild um nur 8 bis 16 Pixel. Mit kleinen Endkästen und
+    einer Marke über die ganze Mitte sind es 20 bis 28.
+
+    Gemessen wird gegen die schlichte Assoziation, nicht Verbindung gegen
+    Verbindung: ein bloßer Pixelvergleich zweier Marken liefert auch dann
+    einen Unterschied, wenn beide zu klein zum Sehen sind.
+    """
+    schlicht = _gerendert("verbindung_association", 16)
+    for kind in _MARKIERTE_VERBINDUNGEN:
+        mit_marke = _gerendert(f"verbindung_{kind}", 16)
+        geaendert = _abweichung(schlicht, mit_marke)
+        assert geaendert >= 20, f"verbindung_{kind}: nur {geaendert} Pixel Marke bei 16 px"
+
+
+def test_vererbung_und_realisierung_sind_bei_16_px_unterscheidbar() -> None:
+    """Beide tragen dasselbe leere Dreieck, die Realisierung zusätzlich
+    einen gestrichelten Strich. Real gefunden: das Strichmuster trägt auf
+    16 Pixel nicht – die beiden Symbole waren nicht auseinanderzuhalten.
+    Die Realisierung führt zu einem Interface, und das Interface ist
+    blau; das Dreieck trägt deshalb jetzt die Interface-Farbe.
+    """
+
+    def blaue_pixel(name: str) -> int:
+        bild = _gerendert(name, 16)
+        return sum(
+            1
+            for y in range(16)
+            for x in range(16)
+            if bild.pixelColor(x, y).alpha() >= 120
+            and bild.pixelColor(x, y).blue() > bild.pixelColor(x, y).red() + 40
+        )
+
+    assert blaue_pixel("verbindung_inheritance") == 0
+    assert blaue_pixel("verbindung_realization") >= 12
+
+
+def test_ersetzen_zeigt_bei_16_px_zwei_durchgehende_wortbalken() -> None:
+    """Real gefunden (Sichtprüfung M11): „Ersetzen“ bestand zuerst aus
+    zwei gegeneinander versetzten Halbbalken und zwei gegenläufigen
+    Pfeilen im Kreis. Bei 16 px war das ein Knäuel: der grüne Balken (das
+    neue Wort) begann erst bei Pixel 6 statt am linken Rand, und die
+    breiteste Zeile der beiden Pfeile war vier Pixel breit. Jetzt: zwei
+    volle Balken übereinander und ein breiter Pfeil dazwischen.
+    """
+    bild = _gerendert("ersetzen", 16)
+
+    def ist_gruen(x: int, y: int) -> bool:
+        punkt = bild.pixelColor(x, y)
+        return (
+            punkt.alpha() >= 150
+            and punkt.green() > punkt.red() + 25
+            and punkt.green() > punkt.blue() + 25
+        )
+
+    def ist_blau(x: int, y: int) -> bool:
+        punkt = bild.pixelColor(x, y)
+        return (
+            punkt.alpha() >= 150
+            and punkt.blue() > punkt.red() + 40
+            and punkt.blue() > punkt.green() + 25
+        )
+
+    gruen = [x for y in range(16) for x in range(16) if ist_gruen(x, y)]
+    assert gruen, "kein grüner Balken zu sehen"
+    assert min(gruen) <= 3, f"der grüne Balken beginnt erst bei Pixel {min(gruen)}"
+    assert max(gruen) >= 12, f"der grüne Balken endet schon bei Pixel {max(gruen)}"
+
+    breiteste = max(sum(1 for x in range(16) if ist_blau(x, y)) for y in range(16))
+    assert breiteste >= 6, f"der Pfeil ist nirgends breiter als {breiteste} Pixel"
+
+
+def test_reiter_kreuz_hat_je_theme_eine_eigene_datei() -> None:
+    """M11, Abschnitt 1, letzter offener Punkt: `ide/shell/theme.py`
+    bindet das Kreuz des Reiter-Schließknopfes als `image: url(...)` ins
+    QSS ein, und dort kommt Qt am Umfärben aus `symbole.py` vorbei. Es
+    stand deshalb auf einem theme-neutralen Grau, das in beiden Themes
+    nur halb passte. Jetzt wählt das QSS je Theme eine eigene Datei.
+    """
+    from ide.shell.theme import ide_qss_erzeugen
+
+    hell_qss = ide_qss_erzeugen("light")
+    dunkel_qss = ide_qss_erzeugen("dark")
+
+    assert "tab_schliessen_hell.svg" in hell_qss
+    assert "tab_schliessen_dunkel.svg" not in hell_qss
+    assert "tab_schliessen_dunkel.svg" in dunkel_qss
+    assert "tab_schliessen_hell.svg" not in dunkel_qss
+
+    # Und wirklich verschieden gefärbt, nicht nur verschieden benannt:
+    # im dunklen Theme muss das Kreuz heller sein als im hellen.
+    def strichfarbe(stamm: str) -> QColor:
+        text = (_ICON_ORDNER / f"{stamm}.svg").read_text(encoding="utf-8")
+        return QColor(_HEX_IM_SVG.findall(text)[0])
+
+    hell = strichfarbe("tab_schliessen_hell")
+    dunkel = strichfarbe("tab_schliessen_dunkel")
+    assert hell != dunkel
+    assert dunkel.lightness() > hell.lightness()

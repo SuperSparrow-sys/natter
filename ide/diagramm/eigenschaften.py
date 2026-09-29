@@ -1,0 +1,358 @@
+"""Eigenschaften-Bereich rechts im Diagramm-Fenster (Abschnitt 13.2).
+
+Zeigt für die ausgewählte Form Position/Größe, Füllung, Linie und
+Schriftgröße, für eine ausgewählte Verbindung ihre Beschriftungen
+(Multiplizitäten/Rollen). Jede Änderung läuft über den Kommando-Stapel
+der Zeichenfläche, ist also genauso rückgängig machbar wie eine
+Änderung mit der Maus.
+
+Aufgebaut wie der Objektinspektor des Formular-Designers
+(`ide/inspector/eigenschaften_tabelle.py`), aber eigenständig:
+Diagrammformen sind schlichte `dict`s, keine `pcl`-Komponenten mit
+`Prop`-Deskriptoren.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QColorDialog,
+    QComboBox,
+    QDoubleSpinBox,
+    QFormLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
+)
+
+from ide.deutsch import DEUTSCH
+from ide.diagramm.formen import (
+    ist_verbindungsart,
+    verbindungen_fuer,
+    verbindungs_art,
+)
+from ide.diagramm.kommandos import WerteKommando
+from ide.diagramm.stil import stil as stil_zu_namen
+from ide.diagramm.uml_modell import formname
+from ide.diagramm.zeichnen import fuellfarbe, randfarbe, schriftgroesse
+
+_GEOMETRIE = (("x", "Links"), ("y", "Oben"), ("w", "Breite"), ("h", "Höhe"))
+
+#: Schlüssel, mit denen eine Form von ihrer Stilvorlage abweicht.
+EIGENER_STIL = ("fill", "line", "font_size")
+
+
+def _artname(kind: str) -> str:
+    return verbindungs_art(kind).beschriftung if ist_verbindungsart(kind) else kind
+
+
+def _hat_eigenen_stil(form: dict[str, Any]) -> bool:
+    return any(form.get(schluessel) for schluessel in EIGENER_STIL)
+
+
+class FarbKnopf(QPushButton):
+    """Knopf, der seine Farbe zeigt und beim Klick den Farbdialog
+    öffnet. `farbe` bleibt `None`, solange die Stilvorlage gilt."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.farbe: str | None = None
+        self.setFixedHeight(22)
+
+    def farbe_zeigen(self, farbe: str, eigen: bool) -> None:
+        self.farbe = farbe if eigen else None
+        # Mit Selektor und nicht als nackte Anweisung: ein Stylesheet
+        # ohne Selektor gilt in Qt für dieses Widget *und für jedes
+        # Kind*. Als der Farbdialog noch an diesem Knopf hing, bekam
+        # dadurch jede Beschriftung und jeder Knopf darin einen grauen
+        # Rahmen - der Dialog sah aus, als wäre er abgeschaltet.
+        self.setStyleSheet(
+            f"QPushButton {{ background-color: {farbe}; border: 1px solid #808080; }}"
+        )
+        self.setText("" if eigen else "(Stilvorlage)")
+
+    def farbe_waehlen(self) -> str | None:
+        """Öffnet den Farbdialog.
+
+        Als Elternteil das Fenster und nicht der Knopf: ein Dialog gilt
+        in Qt als Kind seines Elternteils und erbt dessen Stylesheet.
+        Am Knopf hing damit die Rahmenzeile von oben in jedem Label und
+        jedem Knopf des Dialogs. Am Fenster erbt er das Thema der IDE,
+        und genau das soll er.
+        """
+        gewaehlt = QColorDialog.getColor(QColor(self.farbe or "#ffffff"), self.window())
+        return gewaehlt.name() if gewaehlt.isValid() else None
+
+
+class EigenschaftenPanel(QWidget):
+    def __init__(self, canvas) -> None:
+        super().__init__()
+        self.canvas = canvas
+        self._laeuft = False  # verhindert Rückkopplung beim Befüllen
+
+        self.hinweis = QLabel("Nichts ausgewählt")
+        self.hinweis.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.hinweis.setWordWrap(True)
+
+        self.formular = QWidget()
+        self._layout = QFormLayout(self.formular)
+        self._layout.setContentsMargins(6, 6, 6, 6)
+
+        self.felder: dict[str, QWidget] = {}
+        for name, beschriftung in _GEOMETRIE:
+            feld = QSpinBox()
+            feld.setRange(-9999, 9999)
+            feld.valueChanged.connect(lambda wert, n=name: self._geometrie_setzen(n, wert))
+            self.felder[name] = feld
+            self._layout.addRow(beschriftung, feld)
+
+        self.fuellung = FarbKnopf()
+        self.fuellung.clicked.connect(lambda: self._farbe_setzen("fill", self.fuellung))
+        self._layout.addRow("Füllung", self.fuellung)
+
+        self.linie = FarbKnopf()
+        self.linie.clicked.connect(lambda: self._farbe_setzen("line", self.linie))
+        self._layout.addRow("Linie", self.linie)
+
+        self.schrift = QDoubleSpinBox()
+        # Fest auf Deutsch, auch wenn jemand das Panel ohne
+        # `deutsch_einschalten()` baut (Punkt 325): „10,50 pt“, und
+        # „11,5“ wird angenommen.
+        self.schrift.setLocale(DEUTSCH)
+        self.schrift.setRange(6, 48)
+        self.schrift.setSingleStep(1)
+        self.schrift.setSuffix(" pt")
+        self.schrift.valueChanged.connect(self._schrift_setzen)
+        self._layout.addRow("Schrift", self.schrift)
+
+        # Eigene Farben und Schriftgröße wieder der Stilvorlage
+        # überlassen (Punkt 71). Vorher ging das nur über „Rückgängig“,
+        # und auch das nur, solange die Änderung noch auf dem Stapel lag.
+        self.stil_zuruecksetzen = QPushButton("Auf Stilvorlage zurücksetzen")
+        self.stil_zuruecksetzen.clicked.connect(self.form_stil_zuruecksetzen)
+        self._layout.addRow("", self.stil_zuruecksetzen)
+
+        # Art der Verbindung (Punkt 66). Angeboten wird nur, was der
+        # Diagrammtyp kennt: eine Komposition im Zustandsdiagramm hätte
+        # keine Bedeutung.
+        self.art = QComboBox()
+        self.art.currentIndexChanged.connect(self._art_setzen)
+        self._layout.addRow("Art", self.art)
+
+        self.beschriftung_von = QLineEdit()
+        self.beschriftung_von.editingFinished.connect(
+            lambda: self._label_setzen("from", self.beschriftung_von)
+        )
+        self._layout.addRow("Ende Quelle", self.beschriftung_von)
+
+        self.beschriftung_zu = QLineEdit()
+        self.beschriftung_zu.editingFinished.connect(
+            lambda: self._label_setzen("to", self.beschriftung_zu)
+        )
+        self._layout.addRow("Ende Ziel", self.beschriftung_zu)
+
+        # Beschriftung in der Mitte der Linie. Im Zustandsdiagramm trägt
+        # sie den ganzen Übergang („Ereignis [Bedingung] / Aktion“), im
+        # Klassendiagramm den Namen einer Assoziation.
+        self.beschriftung_mitte = QLineEdit()
+        self.beschriftung_mitte.editingFinished.connect(
+            lambda: self._label_setzen("mitte", self.beschriftung_mitte)
+        )
+        self._layout.addRow("Mitte", self.beschriftung_mitte)
+
+        self.lage_zuruecksetzen = QPushButton("Beschriftungen zurück an ihren Platz")
+        self.lage_zuruecksetzen.clicked.connect(self.beschriftungslage_zuruecksetzen)
+        self._layout.addRow("", self.lage_zuruecksetzen)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.hinweis)
+        layout.addWidget(self.formular)
+        layout.addStretch(1)
+
+        self.aktualisieren()
+
+    # -- Anzeige --------------------------------------------------------
+
+    @property
+    def form(self) -> dict[str, Any] | None:
+        return self.canvas.ausgewaehlte_form
+
+    @property
+    def verbindung(self) -> dict[str, Any] | None:
+        return self.canvas.ausgewaehlte_verbindung
+
+    def aktualisieren(self) -> None:
+        """Übernimmt die aktuelle Auswahl der Zeichenfläche."""
+        self._laeuft = True
+        try:
+            form, verbindung = self.form, self.verbindung
+            self.formular.setVisible(form is not None or verbindung is not None)
+
+            for name, _ in _GEOMETRIE:
+                self._zeile_zeigen(self.felder[name], form is not None)
+            for widget in (
+                self.fuellung,
+                self.linie,
+                self.schrift,
+                self.stil_zuruecksetzen,
+            ):
+                self._zeile_zeigen(widget, form is not None)
+            for widget in (
+                self.art,
+                self.beschriftung_von,
+                self.beschriftung_zu,
+                self.beschriftung_mitte,
+                self.lage_zuruecksetzen,
+            ):
+                self._zeile_zeigen(widget, verbindung is not None)
+
+            if form is not None:
+                self.hinweis.setText(self._formtitel(form))
+                for name, _ in _GEOMETRIE:
+                    self.felder[name].setValue(int(form[name]))
+                stil = stil_zu_namen(self.canvas.diagramm.stil)
+                # Nach dem Wert fragen und nicht nach dem Schlüssel: eine
+                # Form aus einer älteren Datei kann `"fill": null` oder
+                # einen leeren Text tragen, und dann gilt die Stilvorlage.
+                self.fuellung.farbe_zeigen(
+                    fuellfarbe(form, stil), bool(form.get("fill"))
+                )
+                self.linie.farbe_zeigen(
+                    randfarbe(form, stil), bool(form.get("line"))
+                )
+                self.schrift.setValue(schriftgroesse(form))
+                self.stil_zuruecksetzen.setEnabled(_hat_eigenen_stil(form))
+            elif verbindung is not None:
+                self.hinweis.setText(
+                    f"Verbindung: {_artname(verbindung['kind'])}"
+                )
+                self._arten_fuellen(verbindung["kind"])
+                labels = verbindung.get("labels") or {}
+                self.beschriftung_von.setText(str(labels.get("from", "")))
+                self.beschriftung_mitte.setText(str(labels.get("mitte", "")))
+                self.beschriftung_zu.setText(str(labels.get("to", "")))
+                self.lage_zuruecksetzen.setEnabled(
+                    bool(verbindung.get("label_offsets"))
+                )
+            else:
+                self.hinweis.setText("Nichts ausgewählt")
+        finally:
+            self._laeuft = False
+
+    def _zeile_zeigen(self, feld: QWidget, sichtbar: bool) -> None:
+        feld.setVisible(sichtbar)
+        beschriftung = self._layout.labelForField(feld)
+        if beschriftung is not None:
+            beschriftung.setVisible(sichtbar)
+
+    def _formtitel(self, form: dict[str, Any]) -> str:
+        """Überschrift über den Feldern.
+
+        Bei Mehrfachauswahl steht die Anzahl dabei: die Felder zeigen
+        immer nur die führende Form, und eine Eingabe wirkt auch nur
+        auf sie. Ohne diesen Zusatz sähe es so aus, als gälte „Breite"
+        für alle drei ausgewählten Klassen (in der Sichtprüfung zu
+        Teilschritt 3b aufgefallen).
+        """
+        name = formname(form) or form["kind"]
+        weitere = len(getattr(self.canvas, "auswahl", ())) - 1
+        if weitere > 0:
+            return f"Form: {name}  (und {weitere} weitere ausgewählt)"
+        return f"Form: {name}"
+
+    # -- Ändern ---------------------------------------------------------
+
+    def _anwenden(self, ziel: dict[str, Any], werte: dict[str, Any]) -> None:
+        if self._laeuft or ziel is None:
+            return
+        if all(ziel.get(name) == wert for name, wert in werte.items()):
+            return  # `None` gleicht dabei auch einem fehlenden Schlüssel
+        self.canvas.kommandos.ausfuehren(WerteKommando(ziel, werte))
+        self.canvas.geaendert.emit()
+        self.canvas.update()
+        self.aktualisieren()
+
+    def _geometrie_setzen(self, name: str, wert: int) -> None:
+        self._anwenden(self.form, {name: wert})
+
+    def _schrift_setzen(self, wert: float) -> None:
+        self._anwenden(self.form, {"font_size": wert})
+
+    def _farbe_setzen(self, schluessel: str, knopf: FarbKnopf) -> None:
+        if self.form is None:
+            return
+        farbe = knopf.farbe_waehlen()
+        if farbe is not None:
+            self._anwenden(self.form, {schluessel: farbe})
+
+    def _arten_fuellen(self, aktuell: str) -> None:
+        """Die Arten, die der Diagrammtyp kennt. Eine unbekannte Art aus
+        einer von Hand bearbeiteten Datei steht trotzdem in der Liste,
+        sonst zeigte das Feld eine Art an, die gar nicht gilt."""
+        self.art.blockSignals(True)
+        try:
+            self.art.clear()
+            for art in verbindungen_fuer(self.canvas.diagramm.typ):
+                self.art.addItem(art.beschriftung, art.kind)
+            if self.art.findData(aktuell) < 0:
+                self.art.addItem(_artname(aktuell), aktuell)
+            self.art.setCurrentIndex(self.art.findData(aktuell))
+        finally:
+            self.art.blockSignals(False)
+
+    def _art_setzen(self, _index: int) -> None:
+        verbindung = self.verbindung
+        art = self.art.currentData()
+        if self._laeuft or verbindung is None or not ist_verbindungsart(art or ""):
+            return
+        self.canvas.verbindungsart_setzen(verbindung, art)
+        self.aktualisieren()
+
+    def _label_setzen(self, schluessel: str, feld: QLineEdit) -> None:
+        verbindung = self.verbindung
+        if verbindung is None:
+            return
+        labels = dict(verbindung.get("labels") or {})
+        if labels.get(schluessel, "") == feld.text():
+            return
+        labels[schluessel] = feld.text()
+        self._anwenden(verbindung, {"labels": labels})
+
+    # -- Zurücksetzen (Punkt 71) -----------------------------------------
+
+    def form_stil_zuruecksetzen(self) -> None:
+        """Eigene Füllung, Linie und Schriftgröße der ausgewählten Form
+        entfernen - danach gilt wieder die Stilvorlage. Ein Schritt
+        für „Rückgängig“."""
+        form = self.form
+        if form is None or not _hat_eigenen_stil(form):
+            return
+        self._anwenden(form, dict.fromkeys(EIGENER_STIL))
+
+    def beschriftungslage_zuruecksetzen(self) -> None:
+        """Verschobene Beschriftungen einer Verbindung wieder an die
+        berechnete Stelle setzen."""
+        verbindung = self.verbindung
+        if verbindung is None or not verbindung.get("label_offsets"):
+            return
+        self._anwenden(verbindung, {"label_offsets": None})
+
+    # -- Stil übertragen -------------------------------------------------
+
+    def stil_uebertragen(self, von: dict[str, Any], auf: dict[str, Any]) -> None:
+        """„Format → Stil übertragen“ (Abschnitt 13.3): Füllung, Linie
+        und Schriftgröße einer Form auf eine andere übernehmen."""
+        werte = {
+            schluessel: von[schluessel]
+            for schluessel in ("fill", "line", "font_size")
+            if schluessel in von
+        }
+        if werte:
+            self._anwenden(auf, werte)

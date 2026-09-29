@@ -1,0 +1,151 @@
+{
+  "format": "pfm/1",
+  "class": "Form1",
+  "type": "Form",
+  "properties": {
+    "caption": "Malen",
+    "width": 560,
+    "height": 420
+  },
+  "events": {
+    "on_create": "form_create"
+  },
+  "children": [
+    {
+      "name": "p_schwarz",
+      "type": "Panel",
+      "properties": {
+        "left": 8,
+        "top": 10,
+        "width": 28,
+        "height": 28,
+        "caption": "",
+        "color": "#000000",
+        "hint": "Schwarz"
+      },
+      "events": {
+        "on_click": "farbe_click"
+      }
+    },
+    {
+      "name": "p_rot",
+      "type": "Panel",
+      "properties": {
+        "left": 40,
+        "top": 10,
+        "width": 28,
+        "height": 28,
+        "caption": "",
+        "color": "#e53935",
+        "hint": "Rot"
+      },
+      "events": {
+        "on_click": "farbe_click"
+      }
+    },
+    {
+      "name": "p_gruen",
+      "type": "Panel",
+      "properties": {
+        "left": 72,
+        "top": 10,
+        "width": 28,
+        "height": 28,
+        "caption": "",
+        "color": "#43a047",
+        "hint": "Grün"
+      },
+      "events": {
+        "on_click": "farbe_click"
+      }
+    },
+    {
+      "name": "p_blau",
+      "type": "Panel",
+      "properties": {
+        "left": 104,
+        "top": 10,
+        "width": 28,
+        "height": 28,
+        "caption": "",
+        "color": "#1e88e5",
+        "hint": "Blau"
+      },
+      "events": {
+        "on_click": "farbe_click"
+      }
+    },
+    {
+      "name": "b_farbe",
+      "type": "Button",
+      "properties": {
+        "left": 142,
+        "top": 11,
+        "width": 90,
+        "caption": "Farbe …",
+        "hint": "Eine beliebige Farbe auswählen"
+      },
+      "events": {
+        "on_click": "b_farbe_click"
+      }
+    },
+    {
+      "name": "l_dicke",
+      "type": "Label",
+      "properties": {
+        "left": 246,
+        "top": 14,
+        "width": 70,
+        "caption": "Dicke: 3",
+        "word_wrap": false
+      }
+    },
+    {
+      "name": "tb_dicke",
+      "type": "TrackBar",
+      "properties": {
+        "left": 316,
+        "top": 8,
+        "width": 130,
+        "minimum": 1,
+        "maximum": 20,
+        "position": 3,
+        "frequency": 0
+      },
+      "events": {
+        "on_change": "tb_dicke_change"
+      }
+    },
+    {
+      "name": "b_leeren",
+      "type": "Button",
+      "properties": {
+        "left": 477,
+        "top": 11,
+        "caption": "Leeren",
+        "anchors_left": false,
+        "anchors_right": true
+      },
+      "events": {
+        "on_click": "b_leeren_click"
+      }
+    },
+    {
+      "name": "pb_flaeche",
+      "type": "PaintBox",
+      "properties": {
+        "left": 8,
+        "top": 48,
+        "width": 544,
+        "height": 364,
+        "anchors_right": true,
+        "anchors_bottom": true
+      },
+      "events": {
+        "on_mouse_down": "pb_flaeche_mouse_down",
+        "on_mouse_move": "pb_flaeche_mouse_move",
+        "on_mouse_up": "pb_flaeche_mouse_up"
+      }
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+object Form1: TForm1
+  Left = 515
+  Height = 582
+  Top = 256
+  Width = 556
+  Caption = 'Form1'
+  ClientHeight = 582
+  ClientWidth = 556
+  OnCreate = FormCreate
+  LCLVersion = '3.8.0.0'
+  object m_ausgabe: TMemo
+    Left = 88
+    Height = 202
+    Top = 152
+    Width = 224
+    Lines.Strings = (
+      ''
+    )
+    TabOrder = 0
+  end
+  object b_hinzufuegen: TButton
+    Left = 232
+    Height = 25
+    Top = 72
+    Width = 78
+    Caption = 'Hinzufügen'
+    TabOrder = 1
+    OnClick = b_hinzufuegenClick
+  end
+  object b_speichern: TButton
+    Left = 88
+    Height = 33
+    Top = 376
+    Width = 224
+    Caption = 'Speichern'
+    TabOrder = 2
+    OnClick = b_speichernClick
+  end
+  object b_auslesen: TButton
+    Left = 88
+    Height = 25
+    Top = 32
+    Width = 222
+    Caption = 'Auslesen'
+    TabOrder = 3
+    OnClick = b_auslesenClick
+  end
+  object m_name: TEdit
+    Left = 88
+    Height = 23
+    Top = 72
+    Width = 136
+    TabOrder = 4
+  end
+end

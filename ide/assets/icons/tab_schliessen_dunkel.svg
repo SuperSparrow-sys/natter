@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <!-- Reiter schließen, Fassung für das dunkle Theme (siehe
+       tab_schliessen_hell.svg). Hier steht ausnahmsweise der *dunkle*
+       Wert von `tinte_hell`: die Datei ist selbst schon das Ergebnis des
+       Umfärbens, das `symbole.py` sonst beim Laden erledigt. -->
+  <path d="M4.4 4.4 11.6 11.6M11.6 4.4 4.4 11.6" fill="none"
+        stroke="#94a4ad" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

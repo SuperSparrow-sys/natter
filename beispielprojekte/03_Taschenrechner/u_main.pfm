@@ -1,0 +1,126 @@
+{
+  "format": "pfm/1",
+  "class": "Form1",
+  "type": "Form",
+  "properties": {
+    "caption": "Taschenrechner",
+    "width": 520,
+    "height": 340
+  },
+  "children": [
+    {
+      "name": "l_titel",
+      "type": "Label",
+      "properties": {
+        "left": 24,
+        "top": 20,
+        "width": 300,
+        "height": 28,
+        "caption": "Taschenrechner"
+      }
+    },
+    {
+      "name": "l_zahl1",
+      "type": "Label",
+      "properties": {
+        "left": 24,
+        "top": 72,
+        "width": 110,
+        "caption": "Erste Zahl"
+      }
+    },
+    {
+      "name": "e_zahl1",
+      "type": "Edit",
+      "properties": {
+        "left": 150,
+        "top": 68,
+        "width": 120,
+        "text": "12"
+      }
+    },
+    {
+      "name": "l_zahl2",
+      "type": "Label",
+      "properties": {
+        "left": 24,
+        "top": 112,
+        "width": 110,
+        "caption": "Zweite Zahl"
+      }
+    },
+    {
+      "name": "e_zahl2",
+      "type": "Edit",
+      "properties": {
+        "left": 150,
+        "top": 108,
+        "width": 120,
+        "text": "4"
+      }
+    },
+    {
+      "name": "b_plus",
+      "type": "Button",
+      "properties": {
+        "left": 24,
+        "top": 160,
+        "width": 100,
+        "caption": "+"
+      },
+      "events": {
+        "on_click": "b_plus_click"
+      }
+    },
+    {
+      "name": "b_minus",
+      "type": "Button",
+      "properties": {
+        "left": 134,
+        "top": 160,
+        "width": 100,
+        "caption": "-"
+      },
+      "events": {
+        "on_click": "b_minus_click"
+      }
+    },
+    {
+      "name": "b_mal",
+      "type": "Button",
+      "properties": {
+        "left": 244,
+        "top": 160,
+        "width": 100,
+        "caption": "*"
+      },
+      "events": {
+        "on_click": "b_mal_click"
+      }
+    },
+    {
+      "name": "b_geteilt",
+      "type": "Button",
+      "properties": {
+        "left": 354,
+        "top": 160,
+        "width": 100,
+        "caption": "/"
+      },
+      "events": {
+        "on_click": "b_geteilt_click"
+      }
+    },
+    {
+      "name": "l_ergebnis",
+      "type": "Label",
+      "properties": {
+        "left": 24,
+        "top": 220,
+        "width": 440,
+        "height": 40,
+        "caption": "Ergebnis: -"
+      }
+    }
+  ]
+}

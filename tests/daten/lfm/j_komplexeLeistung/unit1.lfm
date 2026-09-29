@@ -1,0 +1,151 @@
+object Form1: TForm1
+  Left = 1202
+  Height = 742
+  Top = 114
+  Width = 696
+  Caption = 'Form1'
+  ClientHeight = 742
+  ClientWidth = 696
+  OnCreate = FormCreate
+  LCLVersion = '3.4.0.0'
+  object l_titel: TLabel
+    Left = 88
+    Height = 31
+    Top = 24
+    Width = 224
+    Caption = 'Lott-Spiel - 6 aus 49'
+    Font.CharSet = ANSI_CHARSET
+    Font.Height = -19
+    Font.Name = 'Segoe Script'
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object l_GuthabenAusgabe: TLabel
+    Left = 93
+    Height = 15
+    Top = 76
+    Width = 127
+    Caption = 'Die aktuelles Guthaben: '
+  end
+  object sg_TippTabelle: TStringGrid
+    Left = 93
+    Height = 49
+    Top = 103
+    Width = 251
+    ColCount = 6
+    DefaultColWidth = 40
+    FixedCols = 0
+    Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRangeSelect, goEditing, goSmoothScroll]
+    RowCount = 2
+    TabOrder = 0
+    UseXORFeatures = True
+    Cells = (
+      6
+      0
+      0
+      '1'
+      1
+      0
+      '2'
+      2
+      0
+      '3'
+      3
+      0
+      '4'
+      4
+      0
+      '5'
+      5
+      0
+      '6'
+    )
+  end
+  object b_Tipp: TButton
+    Left = 352
+    Height = 52
+    Top = 103
+    Width = 123
+    Caption = 'Tipp abegeben'
+    TabOrder = 1
+    OnClick = b_TippClick
+  end
+  object b_ziehung: TButton
+    Left = 93
+    Height = 48
+    Top = 184
+    Width = 127
+    Caption = 'Ziehung'
+    TabOrder = 2
+    OnClick = b_ziehungClick
+  end
+  object b_auswertung: TButton
+    Left = 96
+    Height = 25
+    Top = 264
+    Width = 379
+    Caption = 'Auswertung'
+    TabOrder = 3
+    OnClick = b_auswertungClick
+  end
+  object m_auswertungMemo: TMemo
+    Left = 96
+    Height = 98
+    Top = 320
+    Width = 376
+    Enabled = False
+    TabOrder = 4
+  end
+  object b_neuesSpiel: TButton
+    Left = 96
+    Height = 31
+    Top = 440
+    Width = 379
+    Caption = 'Neues Spiel starten'
+    TabOrder = 5
+    OnClick = b_neuesSpielClick
+  end
+  object sg_ZiehungTabelle: TStringGrid
+    Left = 224
+    Height = 48
+    Top = 184
+    Width = 248
+    ColCount = 6
+    DefaultColWidth = 40
+    FixedCols = 0
+    RowCount = 2
+    TabOrder = 6
+    Cells = (
+      6
+      0
+      0
+      '1'
+      1
+      0
+      '2'
+      2
+      0
+      '3'
+      3
+      0
+      '4'
+      4
+      0
+      '5'
+      5
+      0
+      '6'
+    )
+  end
+  object b_guthabena: TButton
+    Left = 96
+    Height = 25
+    Top = 488
+    Width = 379
+    Caption = 'Guthaben auffüllen'
+    TabOrder = 7
+    OnClick = b_guthabenaClick
+  end
+end

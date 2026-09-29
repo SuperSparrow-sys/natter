@@ -1,0 +1,112 @@
+{
+  "format": "pfm/1",
+  "class": "Form1",
+  "type": "Form",
+  "properties": {
+    "caption": "CSV-Auswertung",
+    "width": 900,
+    "height": 620
+  },
+  "events": {
+    "on_create": "form_create"
+  },
+  "children": [
+    {
+      "name": "l_titel",
+      "type": "Label",
+      "properties": {
+        "left": 24,
+        "top": 16,
+        "width": 420,
+        "height": 28,
+        "caption": "Wetterdaten auswerten"
+      }
+    },
+    {
+      "name": "b_laden",
+      "type": "Button",
+      "properties": {
+        "left": 24,
+        "top": 56,
+        "width": 200,
+        "caption": "Andere CSV laden …"
+      },
+      "events": {
+        "on_click": "b_laden_click"
+      }
+    },
+    {
+      "name": "l_ort",
+      "type": "Label",
+      "properties": {
+        "left": 248,
+        "top": 60,
+        "width": 60,
+        "caption": "Ort:"
+      }
+    },
+    {
+      "name": "cb_ort",
+      "type": "ComboBox",
+      "properties": {
+        "left": 300,
+        "top": 56,
+        "width": 200
+      },
+      "events": {
+        "on_change": "cb_ort_change"
+      }
+    },
+    {
+      "name": "b_speichern",
+      "type": "Button",
+      "properties": {
+        "left": 520,
+        "top": 56,
+        "width": 220,
+        "caption": "Auswertung speichern"
+      },
+      "events": {
+        "on_click": "b_speichern_click"
+      }
+    },
+    {
+      "name": "sg_tabelle",
+      "type": "StringGrid",
+      "properties": {
+        "left": 24,
+        "top": 104,
+        "width": 420,
+        "height": 400,
+        "row_count": 1,
+        "col_count": 3
+      }
+    },
+    {
+      "name": "ch_verlauf",
+      "type": "Chart",
+      "properties": {
+        "left": 464,
+        "top": 104,
+        "width": 410,
+        "height": 400,
+        "kind": "line",
+        "title": "Temperatur im Jahresverlauf",
+        "x_label": "Monat",
+        "y_label": "Grad Celsius",
+        "grid": true
+      }
+    },
+    {
+      "name": "l_ergebnis",
+      "type": "Label",
+      "properties": {
+        "left": 24,
+        "top": 520,
+        "width": 850,
+        "height": 70,
+        "caption": ""
+      }
+    }
+  ]
+}

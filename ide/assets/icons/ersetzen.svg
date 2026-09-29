@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Ersetzen: aus dem alten Wort (grau) wird das neue (gruen). Zwei Pfeile im Kreis waren bei 16 px ein Knaeuel (Sichtpruefung M11) - jetzt ein einziger, breiter Pfeil. -->
+  <rect x="3.4" y="3.6" width="17.2" height="4.6" rx="1.2" fill="#90a4ae"
+        stroke="#37474f" stroke-width="1.2"/>
+  <rect x="3.4" y="15.8" width="17.2" height="4.6" rx="1.2" fill="#1e8e3e"
+        stroke="#14682c" stroke-width="1.2"/>
+  <path d="M12 15.2 7.2 9.4 16.8 9.4Z" fill="#0067c0"/>
+</svg>

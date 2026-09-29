@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Zoom vergroessern: Lupe mit gruenem Plus. -->
+  <circle cx="10.2" cy="10.2" r="6.6" fill="#f7f9fa" stroke="#37474f" stroke-width="1.2"/>
+  <path d="M15.2 15.2 20.4 20.4" fill="none" stroke="#37474f" stroke-width="1.5"
+        stroke-linecap="round"/>
+  <path d="M10.2 7v6.4M7 10.2h6.4" stroke="#1e8e3e" stroke-width="2"
+        stroke-linecap="round"/>
+</svg>

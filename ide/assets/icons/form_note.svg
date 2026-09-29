@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Notiz: Blatt mit umgeknickter Ecke. -->
+  <path d="M4.1 5.1a1 1 0 0 1 1-1h9.3l5.5 5.5v9.3a1 1 0 0 1-1 1H5.1a1 1 0 0 1-1-1Z"
+        fill="#f7f9fa" stroke="#37474f" stroke-width="1.2" stroke-linejoin="round"/>
+  <path d="M14.4 4.1v5.5h5.5Z" fill="#f2b134" stroke="#c98f1e" stroke-width="1.2"
+        stroke-linejoin="round"/>
+  <path d="M6.6 12.4h10.8M6.6 15h10.8M6.6 17.6h6.8"
+        stroke="#7b8f9a" stroke-width="1" stroke-linecap="round"/>
+</svg>

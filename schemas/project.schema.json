@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://natter.local/schemas/project.schema.json",
+  "title": "Natter Projektdatei (.natter)",
+  "description": "Name, Typ, Hauptformular, DB-Einstellungen und Export-Optionen eines Schülerprojekts. Siehe konzept-natter.md, Abschnitt 4.1. Entwurf – wird in M0/M1 anhand des ersten Beispielprojekts geprüft und ggf. angepasst.",
+  "type": "object",
+  "required": ["format", "name", "type", "main"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "natter-project/1" },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^<>:\"/\\\\|?*\\u0000-\\u001f]*[^<>:\"/\\\\|?*\\u0000-\\u001f. ]$",
+      "description": "Projektname, zugleich Dateiname der .natter und der Exe. Ein reiner Dateiname ohne Pfadtrenner, Laufwerk oder Punkt bzw. Leerzeichen am Ende."
+    },
+    "type": {
+      "enum": ["gui", "console"],
+      "description": "gui: Programm mit Fenster, console: input()/print()."
+    },
+    "main": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^<>:\"/\\\\|?*\\u0000-\\u001f]*[^<>:\"/\\\\|?*\\u0000-\\u001f. ]$",
+      "description": "Einstiegspunkt, z. B. main.py. Ein reiner Dateiname im Projektordner."
+    },
+    "main_form": {
+      "type": "string",
+      "pattern": "^([^<>:\"/\\\\|?*\\u0000-\\u001f]*[^<>:\"/\\\\|?*\\u0000-\\u001f. ])?$",
+      "description": "Unit des Hauptformulars ohne .py, nur bei type gui. Ein reiner Dateiname im Projektordner."
+    },
+    "database": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "driver": { "enum": ["sqlite3"] }
+      },
+      "required": ["driver"]
+    },
+    "export": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Einstellungen für „Als Exe exportieren“. Ohne Angabe trägt die Exe das icon des Hauptformulars.",
+      "properties": {
+        "icon": { "type": "string", "description": "Bilddatei relativ zum Projektordner; geht dem icon des Hauptformulars vor" }
+      }
+    }
+  }
+}
