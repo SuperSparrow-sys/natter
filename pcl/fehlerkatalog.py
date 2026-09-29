@@ -625,7 +625,10 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
 #: deutsche Satz von `pcl` davor bleibt stehen.
 _DATENBANKMELDUNGEN: tuple[tuple[re.Pattern[str], str], ...] = (
     (
-        re.compile(r"no such table:\s*(?P<name>\S+)"),
+        # Der Punkt am Satzende gehört nicht zum Namen: `pcl` hängt an
+        # diese Meldung einen Hinweis auf die Datenbankdatei an
+        # (Punkt 427). Ein Punkt im Namen („main.konto“) bleibt.
+        re.compile(r"no such table:\s*(?P<name>\S+?)(?=\.?(?:\s|$))"),
         "eine Tabelle namens „{name}“ gibt es in der Datenbank nicht",
     ),
     (
@@ -1300,8 +1303,8 @@ def _natter_datenbank_error(exc: BaseException) -> tuple[str, str, str]:
     return (
         "Datenbank nicht erreichbar oder SQL-Fehler",
         _datenbankmeldung_eindeutschen(str(exc)),
-        "Steht die Verbindung zur Datenbank? Heißen Tabelle und Spalten wirklich "
-        "so, und stimmt die Reihenfolge der SQL-Schlüsselwörter?",
+        "Steht die Verbindung zur richtigen Datenbankdatei? Heißen Tabelle und "
+        "Spalten wirklich so, und stimmt die Reihenfolge der SQL-Schlüsselwörter?",
     )
 
 

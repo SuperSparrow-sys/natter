@@ -216,4 +216,4 @@ entries:
   - id: natter_datenbank_error
     exception: NatterDatenbankError
     was: "Die Datenbank ist nicht erreichbar oder die SQL-Anweisung ist fehlerhaft: {meldung}."
-    pruefe: "Steht die Verbindung zur Datenbank? Heißen Tabelle und Spalten wirklich so, und stimmt die Reihenfolge der SQL-Schlüsselwörter?"
+    pruefe: "Steht die Verbindung zur richtigen Datenbankdatei? Heißen Tabelle und Spalten wirklich so, und stimmt die Reihenfolge der SQL-Schlüsselwörter?"

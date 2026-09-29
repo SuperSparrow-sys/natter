@@ -1284,6 +1284,14 @@ einer, den SQLite erst beim Lesen einer späteren Zeile bemerkt (etwa
 ungültiges JSON), und einer beim Schreiben in eine schreibgeschützte
 Datei.
 
+Weil SQLite eine fehlende Datei beim Verbinden anlegt, landet ein
+Tippfehler im Dateinamen (`"konton.sqlite"` statt `"konten.sqlite"`)
+in einer neuen, leeren Datenbank. Scheitert eine Abfrage an einer
+Tabelle, die es nicht gibt, nennt die Meldung deshalb die Datei. War
+die Datei beim Verbinden neu oder enthält sie keine einzige Tabelle,
+steht dazu der Hinweis, dass wahrscheinlich eine andere Datei gemeint
+war. Die leere Datei bleibt im Ordner liegen und lässt sich löschen.
+
 ### SQLQuery und DataSource
 
 Eine Abfrage mit Datensatzzeiger, für `DBNavigator` und die anderen
@@ -1308,7 +1316,7 @@ self.g_konten.data_source = self.ds_konten
 | `record_count`, `record_index` | Anzahl der Datensätze, Stelle des Zeigers |
 | `field_by_name(name)` | ein Feld des aktuellen Datensatzes, siehe unten |
 | `set_field(name, wert)` | ändert ein Feld des aktuellen Datensatzes |
-| `to_dataframe()` | das Ergebnis als pandas-`DataFrame`; schreibt wie `open()` fest |
+| `to_dataframe()` | führt `sql` erneut aus und liefert das Ergebnis als pandas-`DataFrame`; schreibt wie `open()` fest. Gepufferte Zeilen und Datensatzzeiger bleiben unverändert, gebundene Data Controls arbeiten danach weiter |
 
 Ein Feld aus `field_by_name` gibt seinen Wert auf vier Arten her:
 

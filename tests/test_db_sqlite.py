@@ -485,3 +485,60 @@ def test_weitere_treibermeldungen_stehen_im_katalog(
     meldung = _datenbankmeldung_eindeutschen(f"SQL-Fehler: {treiber}")
     assert deutsch in meldung
     assert treiber not in meldung
+
+
+# -- Tippfehler im Dateinamen (Punkt 427) -------------------------------
+
+
+_ANDERE_DATEI = "Wahrscheinlich ist eine andere Datenbankdatei gemeint"
+
+
+@pytest.mark.parametrize(
+    ("fall", "hinweis"),
+    [
+        # Die Datei gibt es nicht, sie entsteht erst beim Verbinden.
+        ("tippfehler", "vorher nicht"),
+        # Die Datei gibt es schon, aber ohne eine einzige Tabelle.
+        ("leere_datei", "keine einzige Tabelle"),
+        # Die Datei hat Tabellen, nur die gesuchte fehlt: dann ist
+        # eher der Tabellenname falsch als die Datei.
+        ("andere_tabelle", None),
+    ],
+)
+def test_fehlende_tabelle_nennt_die_datei(
+    tmp_path, fall: str, hinweis: str | None
+) -> None:
+    richtig = SQLite3Connection(tmp_path / "konten.sqlite")
+    richtig.execute("CREATE TABLE konto (nr INTEGER)")
+    richtig.connected = False
+    pfad = tmp_path / "konton.sqlite"
+    if fall == "leere_datei":
+        pfad.touch()
+    elif fall == "andere_tabelle":
+        with closing(sqlite3.connect(pfad)) as vorher:
+            vorher.execute("CREATE TABLE kunde (nr INTEGER)")
+
+    db = SQLite3Connection(pfad)
+    with pytest.raises(NatterDatenbankError) as fehler:
+        db.query("SELECT * FROM konto")
+    db.connected = False
+
+    meldung = _datenbankmeldung_eindeutschen(str(fehler.value))
+    assert f"„{pfad}“" in meldung
+    assert "eine Tabelle namens „konto“ gibt es" in meldung
+    if hinweis is None:
+        assert _ANDERE_DATEI not in meldung
+    else:
+        assert hinweis in meldung
+        assert _ANDERE_DATEI in meldung
+
+
+def test_fehlende_tabelle_im_arbeitsspeicher_nennt_keine_datei() -> None:
+    db = SQLite3Connection(":memory:")
+    with pytest.raises(NatterDatenbankError) as fehler:
+        db.query("SELECT * FROM konto")
+    meldung = _datenbankmeldung_eindeutschen(str(fehler.value))
+    assert meldung == (
+        "SQL-Fehler: eine Tabelle namens „konto“ gibt es in der "
+        "Datenbank nicht"
+    )

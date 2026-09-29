@@ -5,6 +5,8 @@ Arbeitspaket M5, Schritt 5. Headless, gegen echtes
 
 from __future__ import annotations
 
+import pytest
+
 from pcl import (
     DataSource,
     DBComboBox,
@@ -489,3 +491,27 @@ def test_geaenderte_daten_fuellen_die_tabelle_trotzdem_neu() -> None:
     grid = formular.dbg_kunden._qwidget
     assert grid.item(1, 0).text() == "Berta"
     assert grid.currentRow() == 1
+
+
+# -- to_dataframe() an einer gebundenen Abfrage (Punkt 426) -------------
+
+
+@pytest.mark.parametrize("weg", ["navigator", "gitterklick"])
+def test_to_dataframe_laesst_gebundene_controls_weiterarbeiten(
+    weg: str,
+) -> None:
+    formular = _Formular()
+
+    tabelle = formular.abfrage.to_dataframe()
+
+    assert list(tabelle["name"]) == ["Anna", "Bo", "Cem"]
+    assert formular.abfrage.record_count == 3
+    assert formular.abfrage.record_index == 0
+    assert formular.abfrage.column_names == ["name", "ort"]
+    if weg == "navigator":
+        formular.dbn_kunden.knopf_vor.click()
+    else:
+        formular.dbg_kunden._qwidget.setCurrentCell(1, 0)
+    assert formular.abfrage.record_index == 1
+    assert formular.dbt_ort._qwidget.text() == "Bonn"
+    assert formular.dbe_name._qwidget.text() == "Bo"

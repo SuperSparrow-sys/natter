@@ -142,6 +142,10 @@ class SQLite3Connection(Komponente):
         # `_bei_prop_aenderung` auf, und das greift auf `_verbindung` zu.
         self._verbindung: sqlite3.Connection | None = None
         self._abschluss: weakref.finalize | None = None
+        #: Ob die Datei beim Verbinden erst angelegt wurde. Eine
+        #: Abfrage, die dann an einer fehlenden Tabelle scheitert, weist
+        #: auf einen falsch geschriebenen Dateinamen hin (Punkt 427).
+        self._neu_angelegt = False
         if database_name is not None:
             self.database_name = str(database_name)
             self.connected = True
@@ -332,8 +336,44 @@ class SQLite3Connection(Komponente):
             # Transaktion bleibt für `commit()`/`rollback()` stehen.
             if not war_offen and verbindung.in_transaction:
                 verbindung.rollback()
+            if "no such table" in str(fehler):
+                raise NatterDatenbankError(
+                    self._meldung_fehlende_tabelle(fehler)
+                ) from fehler
             raise NatterDatenbankError(f"SQL-Fehler: {fehler}") from fehler
         return cursor
+
+    def _meldung_fehlende_tabelle(self, fehler: sqlite3.Error) -> str:
+        """Meldung für eine Abfrage, deren Tabelle es nicht gibt, mit
+        dem Namen der Datenbankdatei. `sqlite3.connect` legt eine
+        fehlende Datei stillschweigend an. Bei einem Tippfehler im
+        Dateinamen ging die Abfrage deshalb an eine neue, leere Datei,
+        und die Meldung lenkte auf den Tabellennamen, der in der
+        richtigen Datei stimmte (Punkt 427)."""
+        name = self.database_name
+        if not name or name == ":memory:":
+            return f"SQL-Fehler: {fehler}"
+        meldung = f"SQL-Fehler in der Datei „{name}“: {fehler}."
+        try:
+            (anzahl,) = self.verbindung.execute(
+                "SELECT count(*) FROM sqlite_master WHERE type = 'table'"
+            ).fetchone()
+        except sqlite3.Error:
+            anzahl = None
+        if self._neu_angelegt:
+            grund = (
+                "Die Datei gab es vorher nicht, sie wurde beim Verbinden "
+                "neu angelegt."
+            )
+        elif anzahl == 0:
+            grund = "Die Datei enthält keine einzige Tabelle."
+        else:
+            return meldung
+        return (
+            f"{meldung} {grund} Wahrscheinlich ist eine andere "
+            "Datenbankdatei gemeint. Ist der Dateiname richtig "
+            "geschrieben?"
+        )
 
     def _bei_prop_aenderung(self, name: str, wert: Any) -> None:
         if name != "connected":
@@ -345,6 +385,9 @@ class SQLite3Connection(Komponente):
 
     def _verbindung_oeffnen(self) -> None:
         ziel = self.database_name or ":memory:"
+        self._neu_angelegt = (
+            ziel != ":memory:" and not Path(ziel).exists()
+        )
         try:
             self._verbindung = sqlite3.connect(ziel)
         except sqlite3.Error as fehler:
@@ -576,14 +619,19 @@ class SQLQuery(Komponente):
     def to_dataframe(self) -> Any:
         """Führt ``sql`` aus (SELECT) und liefert das vollständige
         Ergebnis als pandas-`DataFrame` (Abschnitt 11.6). Eine
-        schreibende Anweisung wird wie bei `open()` festgeschrieben."""
+        schreibende Anweisung wird wie bei `open()` festgeschrieben.
+
+        Gelesen wird mit einem eigenen Cursor. Puffer, Spalten und
+        Datensatzzeiger der Abfrage bleiben, wie sie sind: vorher rief
+        die Methode am Ende `close()` auf, und `DBGrid`, `DBText` und
+        `DBNavigator` an derselben Abfrage reagierten danach auf nichts
+        mehr, ohne dass es eine Meldung gab (Punkt 426)."""
         import pandas as pd
 
         war_offen = self.database.verbindung.in_transaction
-        self._ausfuehren()
-        zeilen = self.database._zeilen_holen(self._cursor, war_offen)
-        spalten = list(self._spalten)
-        self.close()
+        cursor = self.database._ausfuehren(self.sql, dict(self.params))
+        spalten = [beschreibung[0] for beschreibung in cursor.description or []]
+        zeilen = self.database._zeilen_holen(cursor, war_offen)
         self.database._festschreiben_falls_eigen(self.sql, war_offen)
         return pd.DataFrame(zeilen, columns=spalten)
 
