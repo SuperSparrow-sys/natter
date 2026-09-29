@@ -384,7 +384,12 @@ class DatenbankPanel(QWidget):
         self._transaktion_offen = False
 
         self._sqlite_pfad = QLineEdit()
-        self._sqlite_pfad.setPlaceholderText("Datenbankdatei oder :memory:")
+        # Der alte Platzhalter nannte „:memory:“, und ein leeres Feld
+        # verband mit einer Datenbank ohne Datei, deren Tabellen beim
+        # Trennen verloren gingen (Punkt 430).
+        self._sqlite_pfad.setPlaceholderText(
+            "Datenbankdatei, etwa schule.sqlite"
+        )
         self._sqlite_datei_waehlen_knopf = QPushButton("Datei wählen …")
         self._sqlite_datei_waehlen_knopf.clicked.connect(self._sqlite_datei_waehlen)
         self._sqlite_widget = QWidget()
@@ -591,28 +596,34 @@ class DatenbankPanel(QWidget):
         # Die vorige Verbindung geht in jedem Fall zu, auch wenn die
         # neue scheitert (Punkt 244).
         self.trennen()
-        text = self._sqlite_pfad.text().strip() or ":memory:"
-        if text == ":memory:":
-            ziel = text
-        else:
-            pfad = self._pfad_aufloesen(text)
-            if not pfad.parent.is_dir():
-                self._status_label.setText(
-                    f"Verbindung fehlgeschlagen: den Ordner {pfad.parent} "
-                    "gibt es nicht."
-                )
-                return
-            if pfad.is_dir():
-                self._status_label.setText(
-                    f"Verbindung fehlgeschlagen: {pfad} ist ein Ordner."
-                )
-                return
-            # Ein Tippfehler im Namen legte vorher still eine leere
-            # Datenbank an, und das Panel meldete „Verbunden“.
-            if not pfad.exists() and not self._datei_anlegen_fragen(pfad):
-                self._status_label.setText("Nicht verbunden.")
-                return
-            ziel = str(pfad)
+        text = self._sqlite_pfad.text().strip()
+        # Ein leeres Feld verband früher mit einer Datenbank, die nur im
+        # Arbeitsspeicher lag: Tabellen einer ganzen Stunde waren beim
+        # Trennen ohne Nachfrage verloren, und ein Programm mit
+        # SQLite3Connection sah sie nie (Punkt 430). Das Panel arbeitet
+        # deshalb nur mit einer Datei.
+        if not text or text.lower() == ":memory:":
+            self._status_label.setText(self._ohne_datei_meldung(text))
+            self._sqlite_pfad.setFocus()
+            return
+        pfad = self._pfad_aufloesen(text)
+        if not pfad.parent.is_dir():
+            self._status_label.setText(
+                f"Verbindung fehlgeschlagen: den Ordner {pfad.parent} "
+                "gibt es nicht."
+            )
+            return
+        if pfad.is_dir():
+            self._status_label.setText(
+                f"Verbindung fehlgeschlagen: {pfad} ist ein Ordner."
+            )
+            return
+        # Ein Tippfehler im Namen legte vorher still eine leere
+        # Datenbank an, und das Panel meldete „Verbunden“.
+        if not pfad.exists() and not self._datei_anlegen_fragen(pfad):
+            self._status_label.setText("Nicht verbunden.")
+            return
+        ziel = str(pfad)
 
         verbindung = SQLite3Connection()
         verbindung.database_name = ziel
@@ -640,6 +651,24 @@ class DatenbankPanel(QWidget):
         self._trennen_knopf.setEnabled(True)
         self._status_label.setText("Verbunden")
         self._tabellenbaum_aktualisieren()
+
+    def _ohne_datei_meldung(self, text: str) -> str:
+        """Die Meldung, wenn im Feld keine Datei steht."""
+        if text:
+            anfang = (
+                "Nicht verbunden. „:memory:“ ist keine Datei: eine "
+                "solche Datenbank wäre beim Trennen verloren."
+            )
+        else:
+            anfang = "Nicht verbunden. Es ist keine Datenbankdatei angegeben."
+        ort = (
+            " im Projektordner" if self._projektordner is not None else ""
+        )
+        return (
+            f"{anfang} Zuerst über „Datei wählen …“ eine Datenbankdatei "
+            f"wählen oder einen Namen eintragen, etwa „schule.sqlite“; "
+            f"eine neue Datei entsteht dann{ort}."
+        )
 
     def trennen(self) -> None:
         """Schließt die Verbindung und gibt die Datei frei. Läuft gerade

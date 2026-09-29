@@ -1,26 +1,60 @@
 """Tests für das Datenbank-Panel (Abschnitt 10.2). Siehe
-Arbeitspaket M5, Schritt 8. Headless, gegen echtes
-`:memory:`-SQLite (kein Mock).
+Arbeitspaket M5, Schritt 8. Headless, gegen eine echte SQLite-Datei
+im Probeordner (kein Mock).
 """
 
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
+
+import pytest
 
 from ide.database import DatenbankPanel
 
 
-def _verbunden() -> DatenbankPanel:
+@pytest.fixture(autouse=True)
+def _im_probeordner(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Das Panel verbindet nur mit einer Datei (Punkt 430). Ein Name
+    ohne Pfad landet so im Probeordner des Tests."""
+    monkeypatch.chdir(tmp_path)
+
+
+def _verbunden(name: str = "probe.sqlite") -> DatenbankPanel:
+    sqlite3.connect(name).close()
     panel = DatenbankPanel()
-    panel._sqlite_pfad.setText(":memory:")
+    panel._sqlite_pfad.setText(name)
     panel._verbinden()
     return panel
 
 
-def test_verbinden_gegen_memory_sqlite_setzt_den_status() -> None:
+def test_verbinden_mit_sqlite_datei_setzt_den_status() -> None:
     panel = _verbunden()
     assert panel.verbindung is not None
     assert panel._status_label.text() == "Verbunden"
+
+
+@pytest.mark.parametrize("eingabe", ["", "   ", ":memory:"])
+def test_ohne_datei_verbindet_das_panel_nicht(
+    tmp_path: Path, eingabe: str
+) -> None:
+    """Punkt 430: ein leeres Feld verband still mit einer Datenbank im
+    Arbeitsspeicher, deren Tabellen beim Trennen verloren waren."""
+    projekt = tmp_path / "projekt"
+    projekt.mkdir()
+    panel = DatenbankPanel()
+    panel.projektordner_setzen(projekt)
+    panel._sqlite_pfad.setText(eingabe)
+
+    panel._verbinden_knopf.click()
+
+    assert panel.verbindung is None
+    text = panel._status_label.text()
+    assert text.startswith("Nicht verbunden.")
+    assert "Datei wählen" in text
+    assert "Namen eintragen" in text
+    assert "im Projektordner" in text
+    assert list(projekt.iterdir()) == []
 
 
 def test_verbinden_mit_ungueltiger_sqlite_datei_zeigt_fehlermeldung(tmp_path: Path) -> None:
@@ -124,7 +158,7 @@ def test_sql_dump_export_erzeugt_lauffaehige_insert_anweisungen(tmp_path: Path) 
 
     # Der Dump muss sich in eine leere Datenbank einspielen lassen;
     # er bringt die Tabellendefinition selbst mit (Punkt 242).
-    zweites_panel = _verbunden()
+    zweites_panel = _verbunden("leer.sqlite")
     zweites_panel.verbindung.verbindung.executescript(dump)
     zweites_panel._sql_eingabe.setPlainText("SELECT COUNT(*) AS anzahl FROM kunden")
     zweites_panel._sql_ausfuehren()

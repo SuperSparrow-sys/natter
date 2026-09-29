@@ -17,6 +17,10 @@ Dateiauswahl. Ein ungültiger Wert wird abgelehnt; unter der Tabelle
 steht dann, warum. Über der Tabelle schalten „A–Z“ und „Kategorie“
 zwischen alphabetischer Liste und Gruppen nach Kategorie um.
 
+F1 öffnet diese Seite an der Stelle der Komponente, die im Designer
+gewählt ist oder deren Klasse im Quelltext unter dem Cursor steht.
+Strg+F sucht in der Seite, F3 springt zum nächsten Treffer.
+
 ## Was jede Komponente hat
 
 Diese Eigenschaften und Ereignisse hat jede Komponente, die auf einem

@@ -17,13 +17,30 @@ einem eigenen Reiter neben dem Quelltext.
 
 from __future__ import annotations
 
+import re
+
+from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import (
+    QFont,
     QFontDatabase,
+    QKeyEvent,
+    QTextBlockFormat,
     QTextCharFormat,
     QTextCursor,
     QTextDocument,
+    QTextList,
+    QTextListFormat,
 )
-from PySide6.QtWidgets import QTextBrowser, QWidget
+from PySide6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QTextBrowser,
+    QToolButton,
+    QWidget,
+)
 
 #: Schriftarten für Code-Stellen, in der Reihenfolge der Vorliebe. Die
 #: erste, die es auf dem Rechner gibt, wird genommen.
@@ -100,8 +117,107 @@ def stilvorlage(dunkel: bool, code_schrift: str) -> str:
     """
 
 
+_UMLAUTE = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
+
+
+def anker_name(titel: str) -> str:
+    """Der Name eines Sprungziels zu einer Überschrift: „Behälter“
+    wird zu „behaelter“, „Auswertung: pcl.analyse“ zu
+    „auswertung-pcl-analyse“. Nur ASCII, weil ein Umlaut im Verweis
+    als %C3%A4 ankäme und dann zu keinem Ziel mehr passte."""
+    name = titel.lower().translate(_UMLAUTE)
+    return re.sub(r"[^a-z0-9]+", "-", name).strip("-") or "abschnitt"
+
+
+def _anker_setzen(dokument: QTextDocument) -> list[tuple[int, str, str]]:
+    """Gibt jeder Überschrift der Ebenen 2 und 3 ein Sprungziel und
+    liefert (Ebene, Titel, Anker) in der Reihenfolge der Seite."""
+    abschnitte: list[tuple[int, str, str]] = []
+    vergeben: set[str] = set()
+    cursor = QTextCursor(dokument)
+    block = dokument.begin()
+    while block.isValid():
+        ebene = block.blockFormat().headingLevel()
+        titel = block.text().strip()
+        if ebene in (2, 3) and titel:
+            anker = basis = anker_name(titel)
+            zaehler = 2
+            while anker in vergeben:
+                anker = f"{basis}-{zaehler}"
+                zaehler += 1
+            vergeben.add(anker)
+            format_ = QTextCharFormat()
+            format_.setAnchor(True)
+            format_.setAnchorNames([anker])
+            cursor.setPosition(block.position())
+            cursor.setPosition(
+                block.position() + block.length() - 1,
+                QTextCursor.MoveMode.KeepAnchor,
+            )
+            cursor.mergeCharFormat(format_)
+            abschnitte.append((ebene, titel, anker))
+        block = block.next()
+    return abschnitte
+
+
+def _inhaltsverzeichnis_einfuegen(
+    dokument: QTextDocument, abschnitte: list[tuple[int, str, str]]
+) -> None:
+    """Setzt vor den ersten Abschnitt, also unter die Einleitung, eine
+    Liste mit Verweisen auf alle Abschnitte. Erzeugt aus den
+    Überschriften der Seite, damit es mit jedem neuen Abschnitt
+    stimmt, ohne dass jemand es pflegt."""
+    if not abschnitte:
+        return
+    block = dokument.begin()
+    while block.isValid() and block.blockFormat().headingLevel() not in (
+        2,
+        3,
+    ):
+        block = block.next()
+    if block.previous().isValid():
+        block = block.previous()
+    cursor = QTextCursor(block)
+    cursor.movePosition(QTextCursor.MoveOperation.EndOfBlock)
+    absatz = QTextBlockFormat()
+    zeichen = QTextCharFormat()
+    fett = QTextCharFormat()
+    fett.setFontWeight(QFont.Weight.Bold)
+    cursor.insertBlock(absatz, zeichen)
+    cursor.insertText("Inhalt", fett)
+    listen: dict[int, QTextList] = {}
+    for ebene, titel, anker in abschnitte:
+        cursor.insertBlock(absatz, zeichen)
+        liste = listen.get(ebene)
+        if liste is None:
+            art = QTextListFormat()
+            art.setStyle(
+                QTextListFormat.Style.ListDisc
+                if ebene == 2
+                else QTextListFormat.Style.ListCircle
+            )
+            art.setIndent(ebene - 1)
+            listen[ebene] = cursor.createList(art)
+        else:
+            liste.add(cursor.block())
+        if ebene == 2:
+            # Unterpunkte beginnen unter jedem Abschnitt eine eigene
+            # Liste.
+            listen.pop(3, None)
+        verweis = QTextCharFormat()
+        verweis.setAnchor(True)
+        verweis.setAnchorHref(f"#{anker}")
+        cursor.insertText(titel, verweis)
+
+
 class HilfeAnsicht(QTextBrowser):
-    """Eine Hilfeseite aus Markdown. Nur lesen, nicht ändern."""
+    """Eine Hilfeseite aus Markdown. Nur lesen, nicht ändern.
+
+    Strg+F blendet unten eine Suchleiste ein, die in der Seite sucht.
+    Vorher meldete Strg+F in einer Hilfeseite nur, es sei kein
+    Quelltext-Reiter vorn, und die Komponenten-Referenz mit rund 90
+    Bildschirmseiten ließ sich allein durch Rollen durchsehen
+    (Punkt 438)."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -110,8 +226,144 @@ class HilfeAnsicht(QTextBrowser):
         self.document().setDocumentMargin(20)
         self._markdown = ""
         self._rand = -1
+        self._unten = 0
+        self._abschnitte: list[tuple[int, str, str]] = []
+        self._suchleiste_bauen()
 
-    def markdown_setzen(self, text: str) -> None:
+    # -- Suchleiste -----------------------------------------------------
+
+    def _suchleiste_bauen(self) -> None:
+        self.suchleiste = QFrame(self)
+        self.suchleiste.setFrameShape(QFrame.Shape.StyledPanel)
+        self.suchleiste.setAutoFillBackground(True)
+        zeile = QHBoxLayout(self.suchleiste)
+        zeile.setContentsMargins(6, 4, 6, 4)
+        zeile.addWidget(QLabel("Suchen:"))
+        self.suchfeld = QLineEdit()
+        self.suchfeld.setPlaceholderText("Text in dieser Seite")
+        self.suchfeld.setClearButtonEnabled(True)
+        self.suchfeld.textEdited.connect(self._beim_tippen)
+        self.suchfeld.installEventFilter(self)
+        zeile.addWidget(self.suchfeld, 1)
+        self.weitersuchen_knopf = QPushButton("Weitersuchen")
+        self.weitersuchen_knopf.setAutoDefault(False)
+        self.weitersuchen_knopf.clicked.connect(lambda: self.weitersuchen())
+        zeile.addWidget(self.weitersuchen_knopf)
+        self.suchhinweis = QLabel("")
+        zeile.addWidget(self.suchhinweis)
+        schliessen = QToolButton()
+        schliessen.setText("×")
+        schliessen.setToolTip("Suchleiste schließen (Esc)")
+        schliessen.setAutoRaise(True)
+        schliessen.clicked.connect(self.suche_schliessen)
+        zeile.addWidget(schliessen)
+        self.suchleiste.hide()
+
+    def suche_zeigen(self) -> None:
+        """Strg+F: Suchleiste einblenden. Ein markiertes Wort wird
+        zum Suchtext."""
+        markiert = self.textCursor().selectedText()
+        if markiert and " " not in markiert:
+            self.suchfeld.setText(markiert)
+        self.suchleiste.show()
+        self._raender_setzen()
+        self.suchfeld.setFocus()
+        self.suchfeld.selectAll()
+
+    def suche_schliessen(self) -> None:
+        self.suchleiste.hide()
+        self.suchhinweis.setText("")
+        self._raender_setzen()
+        self.setFocus()
+
+    def weitersuchen(self, rueckwaerts: bool = False) -> bool:
+        """Der nächste Treffer; am Seitenende geht es oben weiter.
+        Liefert `False`, wenn der Text nirgends vorkommt."""
+        return self._suchen(self.suchfeld.text(), rueckwaerts, False)
+
+    def _beim_tippen(self, text: str) -> None:
+        # Beim Tippen bleibt der Treffer stehen, solange er noch passt.
+        self._suchen(text, rueckwaerts=False, am_treffer=True)
+
+    def _suchen(self, text: str, rueckwaerts: bool, am_treffer: bool) -> bool:
+        if not text:
+            self.suchhinweis.setText("")
+            return False
+        schalter = QTextDocument.FindFlag(0)
+        if rueckwaerts:
+            schalter |= QTextDocument.FindFlag.FindBackward
+        if am_treffer:
+            cursor = self.textCursor()
+            cursor.setPosition(cursor.selectionStart())
+            self.setTextCursor(cursor)
+        if not self.find(text, schalter):
+            cursor = self.textCursor()
+            cursor.movePosition(
+                QTextCursor.MoveOperation.End
+                if rueckwaerts
+                else QTextCursor.MoveOperation.Start
+            )
+            self.setTextCursor(cursor)
+            if not self.find(text, schalter):
+                self.suchhinweis.setText("Nicht gefunden")
+                return False
+        self.suchhinweis.setText("")
+        return True
+
+    def eventFilter(self, objekt: QObject, ereignis: QEvent) -> bool:  # noqa: N802 - Qt-Name
+        """Esc schließt die Suchleiste, Eingabe sucht weiter und
+        Umschalt+Eingabe zurück."""
+        if objekt is self.suchfeld and isinstance(ereignis, QKeyEvent):
+            taste = ereignis.key()
+            gedrueckt = ereignis.type() == QEvent.Type.KeyPress
+            if taste == Qt.Key.Key_Escape:
+                # Auch beim ShortcutOverride annehmen, sonst griffe ein
+                # Esc-Kürzel des Fensters vor der Suchleiste zu.
+                ereignis.accept()
+                if gedrueckt:
+                    self.suche_schliessen()
+                return True
+            if gedrueckt and taste in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                umschalt = bool(
+                    ereignis.modifiers() & Qt.KeyboardModifier.ShiftModifier
+                )
+                self.weitersuchen(rueckwaerts=umschalt)
+                return True
+        return super().eventFilter(objekt, ereignis)
+
+    # -- Abschnitte -----------------------------------------------------
+
+    def abschnitte(self) -> list[tuple[int, str, str]]:
+        """(Ebene, Titel, Anker) aller Überschriften der Ebenen 2
+        und 3."""
+        return list(self._abschnitte)
+
+    def zu_abschnitt(self, name: str) -> bool:
+        """Rollt zum Abschnitt über `name`, etwa „Button“ oder
+        „SQLQuery“. Passt keine Überschrift genau, zählt eine, in der
+        der Name als eigenes Wort vorkommt („SQLQuery und
+        DataSource“). Liefert `False`, wenn es keine gibt."""
+        ziel = next(
+            (anker for _, titel, anker in self._abschnitte if titel == name),
+            None,
+        )
+        if ziel is None:
+            ziel = next(
+                (
+                    anker
+                    for _, titel, anker in self._abschnitte
+                    if name in re.findall(r"\w+", titel)
+                ),
+                None,
+            )
+        if ziel is None:
+            return False
+        self.scrollToAnchor(ziel)
+        return True
+
+    def markdown_setzen(
+        self, text: str, inhaltsverzeichnis: bool = False
+    ) -> None:
         """Setzt den Inhalt aus Markdown.
 
         Der Umweg über HTML ist nötig, damit die Vorlage überhaupt
@@ -125,6 +377,12 @@ class HilfeAnsicht(QTextBrowser):
         self._markdown = text
         zwischen = QTextDocument()
         zwischen.setMarkdown(text)
+        # Sprungziele an den Überschriften: für das Inhaltsverzeichnis
+        # und für F1, das die Referenz an der Stelle einer Komponente
+        # öffnet.
+        self._abschnitte = _anker_setzen(zwischen)
+        if inhaltsverzeichnis:
+            _inhaltsverzeichnis_einfuegen(zwischen, self._abschnitte)
         self.document().setDefaultStyleSheet(
             stilvorlage(self._ist_dunkel(), code_schriftart())
         )
@@ -141,6 +399,31 @@ class HilfeAnsicht(QTextBrowser):
     def resizeEvent(self, ereignis) -> None:  # noqa: N802 - Qt-Name
         super().resizeEvent(ereignis)
         self._breite_begrenzen()
+        self._suchleiste_legen()
+
+    def _raender_setzen(self) -> None:
+        """Nach dem Ein- oder Ausblenden der Suchleiste: der
+        Sichtbereich macht ihr unten Platz, damit sie keinen Treffer
+        verdeckt."""
+        self._breite_begrenzen()
+        self._suchleiste_legen()
+
+    def _suchleiste_legen(self) -> None:
+        """Die Suchleiste liegt im freigehaltenen unteren Rand des
+        Sichtbereichs, über der waagerechten und links neben der
+        senkrechten Bildlaufleiste."""
+        if self.suchleiste.isHidden():
+            return
+        sicht = self.viewport().geometry()
+        rahmen = self.frameWidth()
+        breite = self.width() - 2 * rahmen
+        leiste = self.verticalScrollBar()
+        if leiste.isVisible():
+            breite -= leiste.width()
+        self.suchleiste.setGeometry(
+            rahmen, sicht.bottom() + 1, breite, self._unten
+        )
+        self.suchleiste.raise_()
 
     def _breite_begrenzen(self) -> None:
         """Hält die Textspalte schmal genug zum Lesen.
@@ -157,10 +440,17 @@ class HilfeAnsicht(QTextBrowser):
         mit dem zuletzt gesetzten Wert ist der zweite Riegel.
         """
         rand = max(0, (self.width() - HOECHSTBREITE) // 2)
-        if rand == self._rand:
+        # Unten bekommt die Suchleiste Platz, solange sie offen ist.
+        unten = (
+            0
+            if self.suchleiste.isHidden()
+            else self.suchleiste.sizeHint().height()
+        )
+        if rand == self._rand and unten == self._unten:
             return
         self._rand = rand
-        self.setViewportMargins(rand, 0, rand, 0)
+        self._unten = unten
+        self.setViewportMargins(rand, 0, rand, unten)
 
     def _code_schrift_setzen(self) -> None:
         """Ersetzt die Gattungsfamilie „monospace“ durch eine, die es

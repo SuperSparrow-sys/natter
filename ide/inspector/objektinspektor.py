@@ -75,6 +75,10 @@ class Objektinspektor(QWidget):
         self.reiter = QTabWidget()
         self.reiter.addTab(eigenschaften_seite, "Eigenschaften")
         self.reiter.addTab(self.ereignisse_tabelle, "Ereignisse")
+        self._knapp = False
+        self._kopf_hoechstens = (
+            self.eigenschaften_tabelle.horizontalHeader().maximumHeight()
+        )
 
         # Warum eine Eingabe abgelehnt wurde. Die Tabelle setzte die
         # Zelle bei einem ungültigen Wert schon immer zurück, sagte
@@ -87,10 +91,49 @@ class Objektinspektor(QWidget):
             self._meldung_zeigen
         )
 
-        layout = QVBoxLayout(self)
-        layout.addWidget(self.baum, 1)
-        layout.addWidget(self.reiter, 2)
-        layout.addWidget(self.meldung)
+        self._layout = QVBoxLayout(self)
+        self._layout.addWidget(self.baum, 1)
+        self._layout.addWidget(self.reiter, 2)
+        self._layout.addWidget(self.meldung)
+        self._raender = self._layout.contentsMargins()
+
+    @property
+    def knapp(self) -> bool:
+        return self._knapp
+
+    def knapp_setzen(self, knapp: bool) -> None:
+        """Bei wenig Fensterhöhe geht mehr Platz an die Eigenschaften
+        (Punkt 437).
+
+        Der Baum behielt sonst ein Drittel der Höhe, und bei 1280 × 800
+        mit 150 % blieb unter „Eigenschaft | Wert“ keine Zeile übrig.
+        Knapp heißt: schmale Ränder, der Baum bekommt ein Viertel statt
+        eines Drittels, und Zeilen und Spaltenköpfe der Tabellen werden
+        so hoch wie die Schrift mit etwas Luft statt so hoch wie ein
+        Auswahlfeld (30 Pixel).
+
+        Die Knöpfe „A–Z“ und „Kategorie“ bleiben über der Tabelle. In
+        der Reiterleiste daneben fehlten bei 278 Pixel Breite rund 40,
+        und „Ereignisse“ wäre hinter Pfeilen verschwunden."""
+        if knapp == self._knapp:
+            return
+        self._knapp = knapp
+        if knapp:
+            self._layout.setContentsMargins(2, 2, 2, 2)
+            self._layout.setStretch(1, 3)
+        else:
+            self._layout.setContentsMargins(self._raender)
+            self._layout.setStretch(1, 2)
+        hoehe = self.fontMetrics().height() + 5
+        for tabelle in (self.eigenschaften_tabelle, self.ereignisse_tabelle):
+            kopf = tabelle.horizontalHeader()
+            if knapp:
+                tabelle.verticalHeader().setDefaultSectionSize(hoehe)
+                kopf.setFixedHeight(hoehe + 2)
+            else:
+                tabelle.verticalHeader().resetDefaultSectionSize()
+                kopf.setMinimumHeight(0)
+                kopf.setMaximumHeight(self._kopf_hoechstens)
 
     @staticmethod
     def _einstellungen() -> QSettings:
