@@ -93,6 +93,22 @@ from pcl.pruefungsmodus import laeuft as pruefungsmodus_laeuft
 #: kürzt Qt die Beschriftungen mit drei Punkten.
 DOCK_MINDESTBREITE = 200
 
+#: Die Menütitel mit Zugriffstaste, wie im Hauptfenster (Punkt 439).
+#: „Tabelle“, „Block“ und „Quelltext“ kommen nur bei ihrer
+#: Diagrammart dazu; auch mit ihnen kommt kein Buchstabe zweimal vor.
+#: `_menues`, `menue()` und `aktionen` kennen die Titel ohne `&`.
+MENUE_ZUGRIFF = {
+    "Datei": "&Datei",
+    "Bearbeiten": "&Bearbeiten",
+    "Ansicht": "&Ansicht",
+    "Anordnen": "A&nordnen",
+    "Format": "&Format",
+    "Tabelle": "&Tabelle",
+    "Block": "B&lock",
+    "Quelltext": "&Quelltext",
+    "Hilfe": "&Hilfe",
+}
+
 #: Menüaufbau aus Abschnitt 13.2. `True` = in diesem Schritt bereits
 #: umgesetzt und aktiv, `False` = angelegt, aber ausgegraut.
 _MENUES: dict[str, tuple[tuple[str, bool], ...]] = {
@@ -664,7 +680,7 @@ class DiagrammFenster(QMainWindow):
 
     def _menues_aufbauen(self) -> None:
         for menue_name, eintraege in _MENUES.items():
-            menue = self.menuBar().addMenu(menue_name)
+            menue = self.menuBar().addMenu(MENUE_ZUGRIFF[menue_name])
             self._menues[menue_name] = menue
             for beschriftung, aktiv in eintraege:
                 pfad = f"{menue_name}/{beschriftung}"
@@ -865,7 +881,7 @@ class DiagrammFenster(QMainWindow):
         über eine Palette gefüllt, sondern über Zeilen und Spalten."""
         # Vor "Hilfe" einhängen - "Hilfe" gehört ans Ende der
         # Menüleiste, nicht mittendrin (im Screenshot aufgefallen).
-        menue = QMenu("Tabelle", self)
+        menue = QMenu(MENUE_ZUGRIFF["Tabelle"], self)
         self.menuBar().insertMenu(self._menues["Hilfe"].menuAction(), menue)
         self._menues["Tabelle"] = menue
         flaeche = self.zeichenflaeche
@@ -888,7 +904,7 @@ class DiagrammFenster(QMainWindow):
         Fälle einer Mehrfach- oder Fallauswahl lassen sich sonst nur
         über die rechte Maustaste, Doppelklick oder Plus und Minus
         ändern, und wer davon nichts weiß, findet es hier."""
-        menue = QMenu("Block", self)
+        menue = QMenu(MENUE_ZUGRIFF["Block"], self)
         self.menuBar().insertMenu(self._menues["Hilfe"].menuAction(), menue)
         self._menues["Block"] = menue
         flaeche = self.zeichenflaeche
@@ -983,7 +999,7 @@ class DiagrammFenster(QMainWindow):
     def _quelltextmenue_aufbauen(self) -> None:
         """„Quelltext → Erzeugen …“ (M9 Schritte 13 und 14). Vor „Hilfe“,
         das gehört ans Ende der Leiste."""
-        menue = QMenu("Quelltext", self)
+        menue = QMenu(MENUE_ZUGRIFF["Quelltext"], self)
         self.menuBar().insertMenu(self._menues["Hilfe"].menuAction(), menue)
         self._menues["Quelltext"] = menue
         aktion = menue.addAction("Erzeugen …")

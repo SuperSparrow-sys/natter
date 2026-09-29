@@ -54,13 +54,16 @@ def test_aktionen_mit_symbol_tragen_ein_icon(hauptfenster) -> None:
 
 
 def test_alle_menuetitel_aus_abschnitt_7_2_vorhanden(hauptfenster) -> None:
-    vorhandene_titel = [aktion.text() for aktion in hauptfenster.menuBar().actions()]
+    vorhandene_titel = [
+        aktion.text().replace("&", "")
+        for aktion in hauptfenster.menuBar().actions()
+    ]
     assert vorhandene_titel == list(MENUETITEL)
 
 
 def test_menue_liefert_das_richtige_menue_ueber_seinen_titel(hauptfenster) -> None:
-    assert hauptfenster.menue("Datei").title() == "Datei"
-    assert hauptfenster.menue("Projekt").title() == "Projekt"
+    assert hauptfenster.menue("Datei").title() == "&Datei"
+    assert hauptfenster.menue("Projekt").title() == "&Projekt"
 
 
 def test_zentrale_editor_tabs_sind_leer_und_schliessbar(hauptfenster) -> None:

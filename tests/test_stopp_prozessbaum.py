@@ -229,6 +229,12 @@ ide.run.starter.python_befehl = lambda: [sys.argv[3]]
 
 from ide.shell.hauptfenster import HauptFenster
 
+# Das Programm läuft beim Schließen noch, und Natter fragt, ob es
+# enden soll (Punkt 433). Ohne Antwort wartete die Frage in diesem
+# Prozess auf einen Klick, der nie kommt. Die Antwort ist „Beenden und
+# schließen“; geprüft wird, was danach vom Programm übrig bleibt.
+HauptFenster._laufendes_programm_fragen = lambda self: True
+
 
 def main():
     # Wie in `ide/main.py`: das Fenster ist eine lokale Variable und

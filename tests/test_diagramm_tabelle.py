@@ -389,7 +389,7 @@ def test_tabellenmenue_ist_vorhanden(fenster: DiagrammFenster) -> None:
 def test_tabellenmenue_steht_vor_hilfe(fenster: DiagrammFenster) -> None:
     """Im Screenshot aufgefallen: „Tabelle“ landete hinter „Hilfe“, weil
     es erst nachträglich angehängt wurde."""
-    menues = [a.text() for a in fenster.menuBar().actions()]
+    menues = [a.text().replace("&", "") for a in fenster.menuBar().actions()]
 
     assert menues[-2:] == ["Tabelle", "Hilfe"]
 

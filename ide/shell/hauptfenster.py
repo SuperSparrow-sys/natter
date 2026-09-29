@@ -208,6 +208,24 @@ MENUETITEL = (
     "Hilfe",
 )
 
+#: Die Menütitel mit Zugriffstaste: Alt und der unterstrichene
+#: Buchstabe öffnen das Menü, wie unter Windows üblich (Punkt 439).
+#: Innerhalb der Menüleiste kommt kein Buchstabe zweimal vor.
+#: `_menues` und `menue()` kennen die Titel ohne `&`.
+MENUE_ZUGRIFF = {
+    "Datei": "&Datei",
+    "Bearbeiten": "&Bearbeiten",
+    "Suchen": "&Suchen",
+    "Ansicht": "&Ansicht",
+    "Quelltext": "&Quelltext",
+    "Projekt": "&Projekt",
+    "Start": "S&tart",
+    "Pakete": "Pa&kete",
+    "Werkzeuge": "&Werkzeuge",
+    "Fenster": "&Fenster",
+    "Hilfe": "&Hilfe",
+}
+
 #: Gruppenzeilen, die debugpy unter die Variablen mischt.
 _DEBUGPY_GRUPPEN = frozenset(
     {
@@ -365,6 +383,9 @@ def _auf_breite_umbrechen(
     if zeile:
         zeilen.append(zeile)
     return "\n".join(zeilen)
+
+# Wie viele Funde die letzte Design-Prüfung eines Designers hatte.
+_DESIGN_FUNDE_EIGENSCHAFT = "natter_design_funde"
 
 # Was die Design-Prüfung während der Arbeit im Designer nicht meldet.
 # Die Namen und Beschriftungen, die der Designer beim Platzieren
@@ -931,7 +952,9 @@ class HauptFenster(QMainWindow):
 
         self._menues: dict[str, object] = {}
         for titel in MENUETITEL:
-            self._menues[titel] = self.menuBar().addMenu(titel)
+            self._menues[titel] = self.menuBar().addMenu(
+                MENUE_ZUGRIFF[titel]
+            )
 
         self.werkzeugleiste = self.addToolBar("Haupt-Werkzeugleiste")
         self.werkzeugleiste.setObjectName("Haupt-Werkzeugleiste")
@@ -2118,11 +2141,18 @@ class HauptFenster(QMainWindow):
                 f"Projekt konnte nicht angelegt werden: {fehler}"
             )
             return
+        except FileExistsError:
+            # Den Fall fängt schon der Dialog ab; hier landet nur, wer
+            # den Ordner in der Zwischenzeit angelegt hat.
+            self.statusBar().showMessage(
+                f"Projekt konnte nicht angelegt werden: „{name}“ gibt "
+                f"es in diesem Ordner schon. Einen anderen Namen wählen."
+            )
+            return
         except OSError as fehler:
-            # Auch FileExistsError. Ohne diesen Zweig endete ein Name,
-            # den Windows nicht als Ordner annimmt, in der
-            # Absturzmeldung.
-            grund = fehler.strerror or str(fehler)
+            # Ohne diesen Zweig endete ein Name, den Windows nicht als
+            # Ordner annimmt, in der Absturzmeldung.
+            grund = (fehler.strerror or str(fehler)).rstrip(".")
             self.statusBar().showMessage(
                 f"Projekt konnte nicht angelegt werden: {grund}. Einen "
                 f"anderen Namen oder einen Ordner wählen, in dem "
@@ -6070,10 +6100,17 @@ class HauptFenster(QMainWindow):
         Beim Schließen eines einzelnen Reiters gab es die Frage schon,
         beim Schließen des ganzen Fensters gingen die Änderungen bis
         0.3.5 ohne ein Wort verloren. Eine offene Transaktion im
-        Datenbank-Panel steht in derselben Nachfrage (Punkt 276)."""
+        Datenbank-Panel steht in derselben Nachfrage (Punkt 276). Läuft
+        noch ein Programm, kommt davor die Frage, ob es enden soll
+        (Punkt 433)."""
         if self._schliesst_nach_zip:
             # Schon unterwegs: das Fenster wartet auf die ZIP und
             # schließt danach ohnehin.
+            event.ignore()
+            return
+        # Zuerst das laufende Programm, dann das Speichern: wer hier
+        # abbricht, soll nicht vorher schon gespeichert haben.
+        if self._programm_laeuft() and not self._laufendes_programm_fragen():
             event.ignore()
             return
         self.designer_nachschreiben()
@@ -6085,6 +6122,37 @@ class HauptFenster(QMainWindow):
         self._sicherung_entfernen()
         self._beim_beenden_aufraeumen()
         super().closeEvent(event)
+
+    def _laufendes_programm_fragen(self) -> bool:
+        """Fragt beim Schließen, ob das laufende Programm mit Natter
+        enden soll. Liefert, ob geschlossen werden darf. Eigene
+        Methode, damit Tests die Antwort vorgeben können.
+
+        Bis 0.4.2 endete das Programm ohne Nachfrage. Liegen Natter
+        und das Programm übereinander, trifft ein Klick leicht das
+        Kreuz des falschen Fensters, und was im Programm eingegeben
+        war, ist weg (Punkt 433). Beim Ende der Windows-Sitzung kommt
+        die Frage nicht: dort läuft `closeEvent` nicht, und
+        `_beim_beenden_aufraeumen` beendet das Programm wie bisher.
+
+        Vorgewählt ist „Abbrechen“, denn die Frage kommt meist nach
+        einem Klick, der nicht Natter galt."""
+        box = QMessageBox(
+            QMessageBox.Icon.Question,
+            "Programm läuft noch",
+            "Das Programm läuft noch. Beenden und Natter schließen?",
+            parent=self,
+        )
+        beenden = box.addButton(
+            "Beenden und schließen", QMessageBox.ButtonRole.AcceptRole
+        )
+        abbrechen = box.addButton(
+            "Abbrechen", QMessageBox.ButtonRole.RejectRole
+        )
+        box.setDefaultButton(abbrechen)
+        box.setEscapeButton(abbrechen)
+        box.exec()
+        return box.clickedButton() is beenden
 
     def _ungespeicherte_namen(self) -> list[str]:
         """Die Dateinamen aller geänderten Editoren und Diagramme, wie
@@ -7124,11 +7192,22 @@ class HauptFenster(QMainWindow):
             self.meldungen_liste.addItem(eintrag)
         if befunde:
             self.panels.setCurrentWidget(self.meldungen_liste)
-        self.statusBar().showMessage(
-            f"Design-Prüfung: {len(befunde)} {'Fund' if len(befunde) == 1 else 'Funde'}. Jeder "
-            f"Eintrag unten im Panel „Meldungen“ sagt, was sich ändern lässt; ein Klick "
-            f"markiert die Komponente."
-        )
+        # Die Prüfung nach jeder Änderung meldet sich in der
+        # Statusleiste nur mit Funden oder wenn sich deren Zahl
+        # geändert hat. Bis 0.4.2 stand nach jedem Verschieben
+        # „0 Funde“ dort, samt einem Satz über Einträge, die es nicht
+        # gab, und verdrängte die Meldung davor (Punkt 434).
+        vorher = canvas.property(_DESIGN_FUNDE_EIGENSCHAFT) or 0
+        canvas.setProperty(_DESIGN_FUNDE_EIGENSCHAFT, len(befunde))
+        if befunde:
+            self.statusBar().showMessage(
+                f"Design-Prüfung: {len(befunde)} "
+                f"{'Fund' if len(befunde) == 1 else 'Funde'}. Jeder "
+                f"Eintrag unten im Panel „Meldungen“ sagt, was sich "
+                f"ändern lässt; ein Klick markiert die Komponente."
+            )
+        elif not automatisch or vorher:
+            self.statusBar().showMessage("Design-Prüfung: keine Funde.")
 
     def _bei_meldung_geklickt(self, eintrag: QListWidgetItem) -> None:
         """Klick auf eine Meldung.
@@ -7861,10 +7940,7 @@ class HauptFenster(QMainWindow):
             return
         if self._laedt_noch():
             return
-        if self.laufender_prozess is not None and self.laufender_prozess.poll() is None:
-            self.statusBar().showMessage(
-                f"{self.projekt.name} läuft bereits - zuerst über „Start → Stopp“ beenden."
-            )
+        if self._laeuft_schon():
             return
 
         if self._vorstart_pruefung_blockiert():
@@ -7886,6 +7962,31 @@ class HauptFenster(QMainWindow):
         self.statusBar().showMessage(f"{self.projekt.name} gestartet")
         prozess = self.laufender_prozess
         self._ladeanzeige_starten(lambda: prozess, lademarke)
+
+    def _programm_laeuft(self) -> bool:
+        """Läuft ein Programm aus Natter heraus, mit oder ohne
+        Debugger?"""
+        return self.debug_sitzung is not None or (
+            self.laufender_prozess is not None
+            and self.laufender_prozess.poll() is None
+        )
+
+    def _laeuft_schon(self) -> bool:
+        """Beim Start: läuft schon ein Programm, mit oder ohne Debugger?
+        Dann startet kein zweites, und die Statusleiste sagt, wie das
+        erste endet.
+
+        Bis 0.4.2 sah jeder Startweg nur nach seinem eigenen Programm:
+        F5 prüfte die Debugger-Sitzung, Strg+F5 den Prozess. Wer erst
+        Strg+F5 und dann F5 drückte, hatte zwei Fenster desselben
+        Programms (Punkt 429)."""
+        laeuft = self._programm_laeuft()
+        if laeuft and self.projekt is not None:
+            self.statusBar().showMessage(
+                f"{self.projekt.name} läuft bereits - zuerst über "
+                f"„Start → Stopp“ beenden."
+            )
+        return laeuft
 
     def _vorstart_pruefung_blockiert(self) -> bool:
         """Die Prüfung vor dem Start (Abschnitt 8.2). Liefert, ob der
@@ -8565,13 +8666,9 @@ class HauptFenster(QMainWindow):
         if self.projekt is None:
             self.statusBar().showMessage(self._kein_projekt_text())
             return
-        if self.debug_sitzung is not None:
-            self.statusBar().showMessage(
-                f"{self.projekt.name} läuft bereits (Debugger) - zuerst über „Start → Stopp“ "
-                f"beenden."
-            )
-            return
         if self._laedt_noch():
+            return
+        if self._laeuft_schon():
             return
 
         if self._vorstart_pruefung_blockiert():

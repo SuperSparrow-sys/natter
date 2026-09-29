@@ -405,8 +405,10 @@ def test_die_startbefehle_loesen_wirklich_den_starter_aus(
     for pfad, aktion in _alle_aktionen(fenster):
         if pfad in ("Start/Starten", "Start/Starten ohne Debugger"):
             # Ein Start während der Ladeanzeige des vorigen wird
-            # abgelehnt (Punkt 271); hier zählt jeder Befehl für sich.
-            fenster._ladeanzeige_beenden()
+            # abgelehnt (Punkt 271), ebenso ein Start, solange das
+            # vorige Programm läuft (Punkt 429); hier zählt jeder
+            # Befehl für sich.
+            fenster.kindprozesse_beenden()
             aktion.trigger()
 
     assert set(gestartet) == {"ohne", "mit"}, gestartet

@@ -161,3 +161,37 @@ def test_design_pruefung_laesst_funde_vor_dem_start_stehen(
     ]
     assert "u_main.py:3:1: F401 `os` wird nicht benutzt" in texte
     assert sum("außerhalb" in t for t in texte) == 1
+
+
+def test_design_pruefung_ohne_funde_laesst_die_statusleiste_stehen(
+    tmp_path: Path, hauptfenster_bauen
+) -> None:
+    """Punkt 434: bis 0.4.2 stand nach jeder Änderung „Design-Prüfung:
+    0 Funde. Jeder Eintrag unten …“ in der Statusleiste. Die Prüfung
+    nach einer Änderung meldet sich jetzt nur mit Funden oder wenn
+    sich deren Zahl geändert hat; die von Hand ausgelöste immer."""
+    from pcl import Button
+
+    pfad = _pfm_schreiben(tmp_path, button_left=8)
+    fenster = hauptfenster_bauen()
+    formular = fenster.designer_oeffnen(pfad)
+    canvas = fenster._offene_canvases[0]
+    fenster._design_pruefung_automatisch_aktion.qaction.setChecked(True)
+    statusleiste = fenster.statusBar()
+
+    statusleiste.showMessage("vorher")
+    fenster._design_pruefen_aktion()
+    assert statusleiste.currentMessage() == "Design-Prüfung: keine Funde."
+
+    statusleiste.showMessage("vorher")
+    canvas.komponente_platzieren(Button, 8, 64)
+    canvas.jetzt_schreiben()
+    assert statusleiste.currentMessage() == "vorher"
+
+    canvas.verschieben(1000, 0, formular.b_a)
+    canvas.jetzt_schreiben()
+    assert statusleiste.currentMessage().startswith("Design-Prüfung: 1 Fund.")
+
+    canvas.verschieben(-1000, 0, formular.b_a)
+    canvas.jetzt_schreiben()
+    assert statusleiste.currentMessage() == "Design-Prüfung: keine Funde."

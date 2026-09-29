@@ -182,7 +182,9 @@ def _schliessen_ohne_nachfrage(monkeypatch):
 
     Dasselbe gilt für das Diagrammfenster (Punkt 111) und für das
     Löschen einer Komponente, die die Unit noch benutzt (Punkt 294):
-    dort löscht der Designer im Test ohne Nachfrage."""
+    dort löscht der Designer im Test ohne Nachfrage. Ein noch
+    laufendes Programm endet beim Schließen wie vor Punkt 433 ohne
+    Frage."""
     from PySide6.QtWidgets import QMessageBox
 
     from ide.designer.canvas import DesignerCanvas
@@ -193,6 +195,9 @@ def _schliessen_ohne_nachfrage(monkeypatch):
         HauptFenster,
         "_vor_dem_schliessen_fragen",
         lambda self, namen: QMessageBox.StandardButton.Discard,
+    )
+    monkeypatch.setattr(
+        HauptFenster, "_laufendes_programm_fragen", lambda self: True
     )
     monkeypatch.setattr(
         DiagrammFenster,
