@@ -24,7 +24,16 @@ from ide.viewers.csv_ansicht import csv_erkennen
 from pcl.errors import NatterDatenbankError
 
 
-def _verbunden(ziel: str = ":memory:") -> DatenbankPanel:
+@pytest.fixture(autouse=True)
+def _im_probeordner(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Das Panel verbindet nur mit einer Datei (Punkt 430). Ein Name
+    ohne Pfad landet so im Probeordner des Tests."""
+    monkeypatch.chdir(tmp_path)
+
+
+def _verbunden(ziel: str = "probe.sqlite") -> DatenbankPanel:
+    if ziel == "probe.sqlite":
+        sqlite3.connect(ziel).close()
     panel = DatenbankPanel()
     panel._sqlite_pfad.setText(ziel)
     panel._verbinden()

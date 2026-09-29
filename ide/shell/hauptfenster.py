@@ -31,6 +31,7 @@ from PySide6.QtGui import (
     QFont,
     QFontMetrics,
     QGuiApplication,
+    QResizeEvent,
     QSessionManager,
     QTextCursor,
 )
@@ -301,6 +302,12 @@ _PFAD_EIGENSCHAFT = "pfad"
 
 #: Mindesthöhe des Inhalts jedes Docks in Pixeln (Punkt 299).
 _DOCK_MINDESTHOEHE = 60
+
+#: Unter dieser Fensterhöhe in logischen Pixeln gilt die Höhe als
+#: knapp, und der Objektinspektor bekommt die ganze rechte Seite
+#: (Punkt 437). 1366 × 768 bei 100 % lässt einem maximierten Fenster
+#: rund 690, 1920 × 1080 bei 100 % rund 1000.
+KNAPPE_FENSTERHOEHE = 700
 
 
 def _aufzaehlung(namen: list[str]) -> str:
@@ -977,6 +984,9 @@ class HauptFenster(QMainWindow):
         self.inspektor_dock = self._dock_erzeugen(
             "Objektinspektor", Qt.DockWidgetArea.RightDockWidgetArea, inhalt=self.objektinspektor
         )
+        #: Ob die rechten Ecken gerade dem Objektinspektor gehören,
+        #: siehe `_aufteilung_nach_hoehe` (Punkt 437).
+        self._knappe_hoehe = False
 
         self.palette = Komponentenpalette()
         # Über *alle* Reiter, nicht über zwei namentlich genannte: sonst
@@ -1606,6 +1616,17 @@ class HauptFenster(QMainWindow):
                 "Startseite",
                 menue="Ansicht",
                 callback=self._startseite_aktion,
+            )
+        )
+        # F1 war keiner Aktion zugeordnet, obwohl es unter Windows die
+        # übliche Hilfetaste ist (Punkt 438).
+        self.aktionen.registrieren(
+            Aktion(
+                "hilfe.zur_auswahl",
+                "Hilfe zur Auswahl",
+                menue="Hilfe",
+                tastenkuerzel="F1",
+                callback=self._hilfe_zur_auswahl_aktion,
             )
         )
         self.aktionen.registrieren(
@@ -3606,6 +3627,39 @@ class HauptFenster(QMainWindow):
             sorted(self._fuer_konsole_verborgen),
         )
 
+    def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802 - Qt-Name
+        super().resizeEvent(event)
+        self._aufteilung_nach_hoehe()
+
+    def _aufteilung_nach_hoehe(self) -> None:
+        """Bei wenig Höhe bekommt der Objektinspektor die ganze rechte
+        Seite (Punkt 437).
+
+        Palette oben und Panels unten liefen sonst über die volle
+        Breite und nahmen dem Inspektor ihre Höhe weg: bei 1280 × 800
+        mit 150 % blieb unter „Eigenschaft | Wert“ keine einzige Zeile,
+        bei 1366 × 768 mit 125 % waren es zwei. Gehören die beiden
+        rechten Ecken dem rechten Dockbereich, enden Palette und Panels
+        am Inspektor, und er reicht von der Werkzeugleiste bis zur
+        Statuszeile. Punkt 348 blendet beide Docks nur in
+        Konsolenprojekten aus; hier werden sie gebraucht und bleiben.
+
+        Auf einem großen Bildschirm bleibt alles, wie es war."""
+        knapp = self.height() < KNAPPE_FENSTERHOEHE
+        if knapp == self._knappe_hoehe:
+            return
+        self._knappe_hoehe = knapp
+        rechts = Qt.DockWidgetArea.RightDockWidgetArea
+        self.setCorner(
+            Qt.Corner.TopRightCorner,
+            rechts if knapp else Qt.DockWidgetArea.TopDockWidgetArea,
+        )
+        self.setCorner(
+            Qt.Corner.BottomRightCorner,
+            rechts if knapp else Qt.DockWidgetArea.BottomDockWidgetArea,
+        )
+        self.objektinspektor.knapp_setzen(knapp)
+
     def menue(self, titel: str):
         """Liefert das Menü mit diesem Titel (Abschnitt 7.2)."""
         return self._menues[titel]
@@ -3650,9 +3704,12 @@ class HauptFenster(QMainWindow):
         self.mitte.setCurrentWidget(self.editor_tabs)
         self.statusBar().showMessage("")
 
-    def hilfe_zeigen(self, titel: str, markdown: str) -> HilfeAnsicht:
+    def hilfe_zeigen(
+        self, titel: str, markdown: str, inhaltsverzeichnis: bool = False
+    ) -> HilfeAnsicht:
         """Öffnet eine Hilfeseite als eigenen Reiter – lesbar gesetzt,
-        im Programm.
+        im Programm. Lange Seiten bekommen oben ein Inhaltsverzeichnis
+        (Punkt 438).
 
         Ein zweiter Aufruf mit demselben Titel holt den vorhandenen
         Reiter nach vorn, statt einen zweiten aufzumachen.
@@ -3662,17 +3719,19 @@ class HauptFenster(QMainWindow):
             if isinstance(widget, HilfeAnsicht) and (
                 self.editor_tabs.tabText(index) == titel
             ):
-                widget.markdown_setzen(markdown)
+                widget.markdown_setzen(markdown, inhaltsverzeichnis)
                 self.editor_tabs.setCurrentIndex(index)
                 return widget
 
         ansicht = HilfeAnsicht()
-        ansicht.markdown_setzen(markdown)
+        ansicht.markdown_setzen(markdown, inhaltsverzeichnis)
         index = self.editor_tabs.addTab(ansicht, titel)
         self.editor_tabs.setCurrentIndex(index)
         return ansicht
 
-    def _hilfedatei_zeigen(self, dateiname: str, titel: str) -> bool:
+    def _hilfedatei_zeigen(
+        self, dateiname: str, titel: str, inhaltsverzeichnis: bool = False
+    ) -> bool:
         """Eine Hilfeseite aus `docs/`. Liefert `False`, wenn es sie
         nicht gibt; die Meldung sagt dann, wo sie liegen müsste."""
         # `daten_ordner` statt eines eigenen relativen Pfads: wo die
@@ -3684,7 +3743,9 @@ class HauptFenster(QMainWindow):
                 f"docs/{dateiname}; eine neue Installation bringt sie mit."
             )
             return False
-        self.hilfe_zeigen(titel, pfad.read_text(encoding="utf-8"))
+        self.hilfe_zeigen(
+            titel, pfad.read_text(encoding="utf-8"), inhaltsverzeichnis
+        )
         return True
 
     def _erste_schritte_aktion(self) -> bool:
@@ -3704,7 +3765,7 @@ class HauptFenster(QMainWindow):
         Wer vor der Klasse nachsehen wollte, wie der Prüfungsmodus
         oder das Zurücksetzen eines Beispiels geht, fand es in Natter
         nicht."""
-        return self._hilfedatei_zeigen("handbuch.md", "Handbuch")
+        return self._hilfedatei_zeigen("handbuch.md", "Handbuch", True)
 
     def _tastenkuerzel_aktion(self) -> HilfeAnsicht:
         """„Hilfe → Tastenkürzel-Übersicht“ (M11, Abschnitt 4).
@@ -5472,6 +5533,11 @@ class HauptFenster(QMainWindow):
     # -- Suchen (Abschnitt 7.2) -----------------------------------------------
 
     def _suchen_aktion(self) -> None:
+        hilfe = self.editor_tabs.currentWidget()
+        if isinstance(hilfe, HilfeAnsicht):
+            # Strg+F in einer Hilfeseite sucht in der Seite (Punkt 438).
+            hilfe.suche_zeigen()
+            return
         editor = self._aktueller_editor()
         if editor is None:
             self.statusBar().showMessage(
@@ -5548,6 +5614,10 @@ class HauptFenster(QMainWindow):
         """„Suchen → Weitersuchen“ (F3, Punkt 85): der nächste Treffer
         des zuletzt gesuchten Textes, ohne den Dialog wieder zu öffnen.
         Wurde noch nichts gesucht, öffnet sich der Suchdialog."""
+        hilfe = self.editor_tabs.currentWidget()
+        if isinstance(hilfe, HilfeAnsicht) and hilfe.suchfeld.text():
+            hilfe.weitersuchen(rueckwaerts=rueckwaerts)
+            return
         editor = self._aktueller_editor()
         dialog = getattr(self, "_suchen_dialog", None)
         if editor is None or dialog is None or not dialog.suchfeld.text():
@@ -6504,7 +6574,48 @@ class HauptFenster(QMainWindow):
         Editor auf, im Normalfall passierte nichts. Jetzt dieselbe
         Ansicht wie bei „Erste Schritte“.
         """
-        return self._hilfedatei_zeigen("komponenten.md", "Komponenten-Referenz")
+        return self._hilfedatei_zeigen(
+            "komponenten.md", "Komponenten-Referenz", True
+        )
+
+    def _hilfe_zur_auswahl_aktion(self) -> None:
+        """F1 (Punkt 438): die Komponenten-Referenz an der Stelle der
+        Komponente, die im Designer gewählt ist oder deren Klasse im
+        Editor unter dem Cursor steht. Sonst das Handbuch."""
+        klassen = self._klassen_zur_auswahl()
+        if not klassen:
+            self._handbuch_aktion()
+            return
+        if not self._komponenten_referenz_aktion():
+            return
+        ansicht = self.editor_tabs.currentWidget()
+        if isinstance(ansicht, HilfeAnsicht):
+            for name in klassen:
+                if ansicht.zu_abschnitt(name):
+                    return
+
+    def _klassen_zur_auswahl(self) -> list[str]:
+        """Die Klassennamen, unter denen F1 in der Referenz sucht: bei
+        einer Komponente im Designer ihre Klasse und deren Oberklassen
+        (ein eigenes Formular findet so „Form“), im Editor der Name
+        unter dem Cursor, wenn `pcl` eine Klasse dieses Namens hat."""
+        import pcl
+
+        canvas = self._aktueller_canvas
+        if canvas is not None and canvas.ausgewaehlte_komponente is not None:
+            return [
+                klasse.__name__
+                for klasse in type(canvas.ausgewaehlte_komponente).__mro__
+            ]
+        editor = self._aktueller_editor()
+        if editor is None:
+            return []
+        cursor = editor.textCursor()
+        cursor.select(QTextCursor.SelectionType.WordUnderCursor)
+        wort = cursor.selectedText()
+        if wort and isinstance(getattr(pcl, wort, None), type):
+            return [wort]
+        return []
 
     def _ueber_aktion(self) -> None:
         QMessageBox.about(

@@ -376,14 +376,13 @@ def test_haeufige_sql_fehler_kommen_deutsch_an(
     db.connected = False
 
 
-def test_panel_und_pcl_nennen_mehrere_anweisungen_gleich() -> None:
+def test_panel_und_pcl_nennen_mehrere_anweisungen_gleich(tmp_path: Path) -> None:
     db = SQLite3Connection(":memory:")
     with pytest.raises(NatterDatenbankError) as fehler:
         db.query("SELECT 1; SELECT 2")
     im_programm = _datenbankmeldung_eindeutschen(str(fehler.value))
 
-    panel = DatenbankPanel()
-    panel._sqlite_pfad.setText(":memory:")
+    panel = _datei_panel(tmp_path)
     panel._verbinden()
     im_panel = _ausfuehren(panel, "SELECT 1; SELECT 2")
     assert im_panel == im_programm
@@ -391,12 +390,21 @@ def test_panel_und_pcl_nennen_mehrere_anweisungen_gleich() -> None:
     panel.trennen()
 
 
+def _datei_panel(ordner: Path) -> DatenbankPanel:
+    """Ein Panel vor dem Verbinden mit einer leeren Datei; ohne Datei
+    verbindet es nicht (Punkt 430)."""
+    pfad = ordner / "probe.sqlite"
+    sqlite3.connect(pfad).close()
+    panel = DatenbankPanel()
+    panel._sqlite_pfad.setText(str(pfad))
+    return panel
+
+
 # -- Punkt 269 ---------------------------------------------------------
 
 
-def test_join_zeigt_die_echten_spaltennamen() -> None:
-    panel = DatenbankPanel()
-    panel._sqlite_pfad.setText(":memory:")
+def test_join_zeigt_die_echten_spaltennamen(tmp_path: Path) -> None:
+    panel = _datei_panel(tmp_path)
     panel._verbinden()
     _ausfuehren(panel, "CREATE TABLE a (id INTEGER, name TEXT)")
     _ausfuehren(panel, "CREATE TABLE b (id INTEGER, a_id INTEGER, name TEXT)")
@@ -416,9 +424,8 @@ def test_join_zeigt_die_echten_spaltennamen() -> None:
     panel.trennen()
 
 
-def test_echte_spalte_mit_doppelpunkt_bleibt_stehen() -> None:
-    panel = DatenbankPanel()
-    panel._sqlite_pfad.setText(":memory:")
+def test_echte_spalte_mit_doppelpunkt_bleibt_stehen(tmp_path: Path) -> None:
+    panel = _datei_panel(tmp_path)
     panel._verbinden()
     _ausfuehren(panel, 'SELECT 1 AS "x:1", 2 AS y')
     tabelle = panel.ergebnis_tabelle

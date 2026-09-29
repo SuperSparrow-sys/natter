@@ -677,7 +677,8 @@ neben den Panels unten im Fenster. In das Feld oben kommt der
 Dateiname, etwa `schule.sqlite`. Ein Name ohne Pfad gilt im
 Projektordner. **Verbinden** öffnet die Datei; gibt es sie noch
 nicht, fragt Natter, ob eine neue, leere Datenbank angelegt werden
-soll.
+soll. Ohne Dateinamen verbindet das Panel nicht, denn eine Datenbank
+ohne Datei wäre beim Trennen samt ihren Tabellen verloren.
 
 Tabellen entstehen mit SQL im Eingabefeld und **Ausführen**. Das
 Panel führt eine Anweisung nach der anderen aus, also erst
@@ -861,6 +862,13 @@ Programm erzeugt und ist damit immer aktuell.
 | `Strg+Umschalt+F` | In allen Dateien des Projekts suchen |
 | `Alt+Links` | Zurück an die Stelle vor dem letzten Sprung (F12, Suchtreffer) |
 | `Strg+G` | Zu Zeile springen |
+
+### Hilfe
+
+| Taste | Was passiert |
+|---|---|
+| `F1` | Hilfe zur Auswahl: die Komponenten-Referenz an der Stelle der im Designer gewählten Komponente oder der Klasse unter dem Cursor, sonst dieses Handbuch |
+| `Strg+F` in einer Hilfeseite | In der Seite suchen; Eingabe sucht weiter, Esc schließt die Suchleiste |
 
 ### Starten und Debuggen
 
