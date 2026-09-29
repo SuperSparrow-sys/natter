@@ -7,12 +7,12 @@ ganze Vorgeschichte der früheren Punkte stehen, damit sich bei einem
 ähnlichen Fehler nachlesen lässt, was schon geprüft wurde.
 
 Die Nummern laufen durch und werden nicht neu vergeben. Der nächste
-Punkt bekommt die **425**.
+Punkt bekommt die **429**.
 
 ## Ein neuer Punkt
 
 ```markdown
-## 425. Kurz, was nicht stimmt
+## 429. Kurz, was nicht stimmt
 
 **Gemeldet:** Datum, wo es auffiel (Fenster, Menü, Beispielprojekt),
 Natter-Version.
@@ -61,6 +61,48 @@ erkennen ist.
 **Ursache:** nachgewiesen. `paket_installieren()` in `ide/env/pakete.py` (Zeile 68-77) ruft `pip install` ohne `--timeout`, `--retries` oder eine eigene Zeitgrenze auf. `_mit_rechtehinweis()` (Zeile 80-91) ergänzt nur fehlende Schreibrechte; jede andere Ausgabe von `pip` geht unverändert über `_hintergrund_fehler()` in `ide/shell/hauptfenster.py` (Zeile 2860-2873) an die Oberfläche.
 
 **Zu tun:** `pip` mit kürzerer Wartezeit und weniger Wiederholungen aufrufen und die Ausgabe auswerten: Verbindungsfehler als „Keine Verbindung zum Paketverzeichnis …“ melden, einen unbekannten Namen als solchen, jeweils auf Deutsch; die Rohausgabe höchstens im Panel „Meldungen“. Erledigt, wenn ein Test mit einem nicht erreichbaren Proxy die deutsche Meldung zur Verbindung ergibt und der Vorgang in weniger als 30 Sekunden endet.
+
+## 425. Stürzt der Testprozess ab, meldet der Test-Explorer „0 Tests gelaufen, 0 nicht bestanden“
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung, Entwicklungsstand `94200dc`.
+
+**Beobachtet:** Endet `harness.py` vorzeitig, fallen die Ergebnisse aller Testdateien weg, und die Statuszeile meldet „0 Tests gelaufen, 0 nicht bestanden“. Das sieht aus wie ein Lauf ohne Fehler. Probe in einem Ordner unter `%TEMP%` mit zwei Testdateien: `test_b.py` mit einem scheiternden `assertEqual(2, 3)`, `test_a.py` mit einem Test, der ein `Form()` aus `pcl` anlegt, ohne dass eine `QApplication` besteht. Qt bricht den Prozess dabei ab (Rückgabewert `0xC0000409`), und `tests_ausfuehren` liefert eine leere Liste; auch der scheiternde Test aus `test_b.py` erscheint nicht. Dasselbe gilt für jeden anderen harten Abbruch im geprüften Code, etwa `os._exit()`. Ein Formular im Test anzulegen liegt im Unterricht nahe, sobald die Logik eines Formulars geprüft werden soll.
+
+**Ursache:** nachgewiesen: `ide/testrunner/ausfuehrung.py` wertet den Rückgabewert des Prozesses nicht aus. Nach `prozess.wait` (Zeile 91) wird nur die Ausgabe gelesen; fehlt die Marke und ist die Ausgabe leer, gibt Zeile 120 eine leere Liste zurück. `_tests_fertig` in `ide/shell/hauptfenster.py` zählt diese leere Liste als erfolgreichen Lauf. Eine Ausgabe ohne gültiges JSON hinter der Marke endet in Zeile 122 als `JSONDecodeError` und erscheint als englische Rohmeldung.
+
+**Zu tun:** Fehlt die Ergebnismarke oder endet der Prozess mit einem Rückgabewert ungleich 0, ein Ergebnis mit Status „fehler“ liefern, das sagt, dass der Testlauf abgebrochen ist, und den Rückgabewert nennt; bei einem Abbruch durch Qt den Hinweis, dass ein Formular im Test eine `QApplication` braucht. Einen einzelnen Absturz nicht die Ergebnisse der übrigen Testdateien mitnehmen lassen, etwa indem jede Datei in eigenem Prozess läuft oder die bis dahin fertigen Ergebnisse vorher geschrieben werden. Erledigt, wenn ein Test mit den beiden Dateien oben den scheiternden Test aus `test_b.py` und einen Eintrag zum Abbruch findet.
+
+## 426. `SQLQuery.to_dataframe()` leert den Puffer der Abfrage, an der DBGrid, DBText und DBNavigator hängen
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung, Entwicklungsstand `94200dc`.
+
+**Beobachtet:** Hängen `DBGrid`, `DBText` und `DBNavigator` über eine `DataSource` an einer geöffneten `SQLQuery` und ruft das Programm danach `to_dataframe()` auf derselben Abfrage auf, etwa für ein Diagramm, zeigt das Gitter weiter alle Zeilen, aber keines der Steuerelemente reagiert mehr. Probe mit drei Zeilen (Anna, Ben, Cem), Qt offscreen: nach `to_dataframe()` ist `record_count` 0, „Vor“ im Navigator ändert nichts, `DBText` zeigt weiter „Anna“, und ein Klick auf die dritte Gitterzeile setzt den Datensatzzeiger nicht (`record_index` -1). Eine Meldung gibt es nicht; erst ein neues `open()` mit `aktualisieren()` bringt die Anzeige zurück.
+
+**Ursache:** nachgewiesen: `pcl/components/data_access.py`, `SQLQuery.to_dataframe` (Zeile 576) führt `sql` neu aus und ruft am Ende `self.close()` (Zeile 586). Das leert `_zeilen` und setzt den Zeiger auf -1, benachrichtigt die `DataSource` aber nicht. `DBGrid._bei_zeilenwechsel` in `pcl/components/data_controls.py` verwirft danach jeden Klick, weil `zeile >= query.record_count` gilt.
+
+**Zu tun:** `to_dataframe()` den Zustand der Abfrage nicht verändern lassen, also mit einem eigenen Cursor lesen und Puffer, Spalten und Zeiger stehen lassen; zumindest dürfen gebundene Steuerelemente nicht still aus dem Tritt geraten. Die Komponenten-Referenz nennt das Verhalten. Erledigt, wenn ein Test nach `to_dataframe()` mit dem Navigator auf den zweiten Datensatz kommt und `DBText` dessen Wert zeigt.
+
+## 427. `SQLite3Connection` legt bei einem Tippfehler im Dateinamen still eine leere Datenbank an
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung, Entwicklungsstand `94200dc`.
+
+**Beobachtet:** `SQLite3Connection("konton.sqlite")` statt `"konten.sqlite"` öffnet ohne Meldung eine neue, leere Datei im Projektordner. Die erste Abfrage scheitert mit „SQL-Fehler: eine Tabelle namens „konto“ gibt es in der Datenbank nicht“, obwohl die Tabelle in der richtigen Datei steht und im Datenbank-Panel zu sehen ist. Die Meldung nennt die Datei nicht, und der Hinweis unter „Zu prüfen“ lenkt auf Tabellen- und Spaltennamen. Die leere Datei `konton.sqlite` bleibt im Projektordner liegen. Probe unter `%TEMP%`: nach dem Aufruf liegen `konten.sqlite` und `konton.sqlite` nebeneinander. Das Datenbank-Panel fragt in diesem Fall seit Punkt 244 nach; im Schülerprogramm fehlt ein entsprechender Hinweis.
+
+**Ursache:** nachgewiesen: `pcl/components/data_access.py`, `_verbindung_oeffnen` (Zeile 349) ruft `sqlite3.connect(ziel)` ohne Prüfung, ob die Datei vorher bestand. `sqlite3` legt eine fehlende Datei dabei an. `_datenbankmeldung_eindeutschen` in `pcl/fehlerkatalog.py` kennt den Dateinamen nicht.
+
+**Zu tun:** Das Anlegen einer neuen Datei bleibt erlaubt, weil Programme ihre Datenbank so erzeugen. Scheitert aber eine Abfrage an einer fehlenden Tabelle, soll die Meldung den Dateinamen nennen und, wenn die Datei beim Verbinden neu angelegt wurde oder keine einzige Tabelle enthält, darauf hinweisen, dass wahrscheinlich eine andere Datei gemeint war. Erledigt, wenn ein Test mit falsch geschriebenem Dateinamen in der Meldung den Namen der Datei und diesen Hinweis findet.
+
+## 428. Eine große Nachricht von debugpy, die stockend ankommt, lässt die Debug-Sitzung hängen
+
+**Gemeldet:** 29. September 2026, Sicherheitsprüfung, Entwicklungsstand `94200dc`.
+
+**Beobachtet:** Kommt eine Nachricht von debugpy mit mehr als 4 KB nicht in einem Stück an, gehen beim Lesen schon empfangene Bytes verloren. Der Datenstrom gerät aus dem Tritt und endet in einem `JSONDecodeError`. Mit einer Probe bestätigt, die eine Nachricht über 4 KB mit einer Pause mitten im Text schickt. Die Sitzung meldet danach nie „beendet“: Start und Stopp bleiben im Zustand des laufenden Debuggers stehen. Große Nachrichten entstehen vermutlich beim Aufklappen einer langen Liste in der Variablenansicht (nicht nachgemessen). Das ist selten, lässt sich dann aber nur durch einen Neustart von Natter beheben.
+
+**Ursache:** nachgewiesen: `_naechste_nachricht` im DAP-Client liest mit einer Abfragezeitgrenze von 0,05 s und verwirft einen angefangenen Block, wenn die Zeitgrenze mitten in einer Nachricht abläuft. `DebugSitzung._worker` fängt nur `DapFehler`, nicht den `JSONDecodeError`, der daraus folgt.
+
+**Zu tun:** Angefangene Nachrichten über die Zeitgrenze hinweg im Puffer behalten, und jede unerwartete Ausnahme im Lesefaden als Ende der Sitzung mit einer deutschen Meldung behandeln. Erledigt, wenn ein Test mit einer stockend gesendeten Nachricht über 4 KB sie vollständig liest und ein Test mit ungültigem JSON die Sitzung sauber beendet.
+
+---
 
 # Zurückgestellt
 
