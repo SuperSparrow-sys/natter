@@ -7,12 +7,12 @@ ganze Vorgeschichte der früheren Punkte stehen, damit sich bei einem
 ähnlichen Fehler nachlesen lässt, was schon geprüft wurde.
 
 Die Nummern laufen durch und werden nicht neu vergeben. Der nächste
-Punkt bekommt die **416**.
+Punkt bekommt die **417**.
 
 ## Ein neuer Punkt
 
 ```markdown
-## 416. Kurz, was nicht stimmt
+## 417. Kurz, was nicht stimmt
 
 **Gemeldet:** Datum, wo es auffiel (Fenster, Menü, Beispielprojekt),
 Natter-Version.
@@ -29,6 +29,18 @@ erkennen ist.
 ---
 
 # Offen
+
+## 416. Ein Knopf der Taskleiste zeigt noch das leere Fenstersymbol
+
+**Gemeldet:** 29. September 2026, Prüfung der neu gebauten Fassung 0.4.2 (`build\auswertung\042b\`, Bilder `03_e_taskleiste_drittel2.png`, `03_i_taskleiste_aus_bildschirm_lupe.png`), nicht sicher belegt.
+
+**Beobachtet:** Im ersten Programmlauf nach der Installation zeigte einer von zwei Knöpfen (vermutlich die IDE) das leere Fenstersymbol, der andere die Natter. In zwei Wiederholungen zeigten beide die Natter. Titelleiste und `WM_GETICON` liefern die Natter, das Symbol der Fensterklasse ist weiter leer. Beide Knöpfe heißen über UI Automation „Python – 1 aktives Fenster“.
+
+**Ursache:** noch offen. Möglich: Die Taskleiste liest beim ersten Erscheinen das Symbol der Fensterklasse, bevor Qt das Fenstersymbol setzt; die Beschriftung kommt von `pythonw.exe`, weil weder IDE noch Programm eine eigene `AppUserModelID` setzen.
+
+**Zu tun:** Am ersten Start nach einer Installation nachprüfen. Bestätigt es sich: ein eigenes `AppUserModelID` für IDE und Programme und das Symbol früh setzen. Erledigt, wenn ein Bildschirmfoto der Taskleiste beim ersten Programmlauf die Natter zeigt.
+
+---
 
 # Zurückgestellt
 

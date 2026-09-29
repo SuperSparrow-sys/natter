@@ -600,12 +600,50 @@ sind eine Obergrenze, weil das Prüfskript das Ladebild synchron nach
 vorn holte und dabei auf den beschäftigten Faden wartete. Erster
 Programmstart des ObstSortierers 75,8 s.
 
-Zwei neue Punkte, nicht behoben, weil der Nutzer nach dieser Prüfung
-anhalten wollte: Die Ladeanzeige nimmt die halbe Statusleiste ein und
-schiebt „Zeile N, Spalte M“ in die Mitte (413), und das Ladebild
-erscheint beim ersten Start auf dem Bildschirm weiß, obwohl sein
-Fenster den Text enthält (414, nur aus einem Hintergrundprozess
-gestartet, am Startmenü noch nicht nachgeprüft).
+Die Prüfung fand zwei Punkte: Die Ladeanzeige nahm die halbe
+Statusleiste ein und schob „Zeile N, Spalte M“ in die Mitte (413), und
+das Ladebild erschien beim ersten Start auf dem Bildschirm weiß,
+obwohl sein Fenster den Text enthielt (414). Dazu meldete der Nutzer
+das leere Fenstersymbol gestarteter Programme (415).
+
+#### 0.4.2 neu gebaut, 29. September 2026
+
+Auf Wunsch des Nutzers ohne neue Nummer: Die Punkte 413 bis 415 sind
+behoben, gebaut wurde mit `--nicht-veroeffentlichen` (31,7 Minuten,
+jede Binärdatei gültig signiert, `Natter-Setup.exe` 276,5 MB), und
+Setup-Datei und ZIP ersetzen die Dateien am Release `v0.4.2`. Das
+Werkzeug biegt ein veröffentlichtes Tag bewusst nicht um
+(`_tag_setzen` in `tools/veroeffentlichen.py`); das Tag wurde beim
+Kürzen des Verlaufs von Hand gesetzt.
+
+414 lag nicht am Start aus einem Hintergrundprozess: Der Import des
+Hauptfensters dauert beim ersten Start 7 s, und Windows zeigt ein
+Fenster, das 5 s keine Nachricht abholt, als weiße Fläche. Jetzt holt
+das Ladebild beim Import alle 0,25 s seine Nachrichten ab.
+
+Update still, Rückgabe 0 nach 387 s. Geprüft mit Bildschirmfotos
+(`build\auswertung\042b\`): An einer frischen Kopie zeigte der
+Bildschirm das Ladebild in 10 von 10 Proben mit Text, 10 von 11
+Proben antworteten auf `WM_NULL` in höchstens 283 ms. Die
+Ladeanzeige steht ganz rechts neben „Zeile N, Spalte M“ und ist rund
+420 von 3840 px breit. Der ObstSortierer zeigt die Natter in der
+Titelleiste. Erster Start nach der Installation 22,2 s, zweiter 1,4 s.
+
+Beim Aufbau des Hauptfensters schweigt das Ladebild weiter bis zu
+3,2 s, unter der Grenze von 5 s; dort holt es bewusst keine
+Nachrichten ab, damit keine Uhr in ein halb gebautes Fenster feuert.
+Neu eingetragen, nicht behoben: Im ersten Programmlauf nach der
+Installation zeigte ein Knopf der Taskleiste noch das leere
+Fenstersymbol, und die Knöpfe heißen „Python“ statt „Natter“ (416).
+
+#### Aufgeräumt auf GitHub, 29. September 2026
+
+Auf Wunsch des Nutzers stehen nur noch die Releases 0.4.0, 0.4.1 und
+0.4.2; 0.3.2 bis 0.3.6 sind mit ihren Tags gelöscht. Der Verlauf ist
+auf zehn Commits gekürzt: Der erste enthält den Stand von 0.4.0, die
+übrigen die Schritte seitdem, jeder mit genau dem Dateistand des
+alten Commits. Die Tags zeigen auf die neuen Commits; `main` und die
+Tags wurden mit `--force` ersetzt.
 
 ### 0.4.1 – 29. September 2026
 
