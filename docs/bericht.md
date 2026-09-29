@@ -571,7 +571,46 @@ README zeigt auf die neueste Fassung. Vor dem Entpacken die ZIP unter
 Nach jedem Bau kommt hier ein Eintrag dazu: Datum, Fassung, Größe,
 Signaturen, Dauer, und was der Lauf aufgedeckt hat, samt Irrweg.
 
-### 0.4.0 – nicht gebaut, Freigabelauf 28./29. September 2026
+### 0.4.0 – 29. September 2026
+
+`Natter-Setup.exe`, 276,4 MB, ZIP 277 MB. `Natter.exe` und
+`Natter-Setup.exe` `Valid`, jede der 859 Binärdateien gültig signiert.
+Veröffentlicht als Release `v0.4.0`. 31,5 Minuten: pytest 4:44,
+`dist\Natter` 15:04, Rest Installer, Signaturen, Paket und Release.
+Enthält die Punkte 282 bis 406 aus dem Freigabelauf darunter und die
+Entscheidungen des Nutzers danach: ein kopierter Projektordner öffnet
+überall ohne Frage (Punkte 390, 392, 393), ungespeicherte Arbeit wird
+je Projekt in `<Projekt>.natter-sicherung` aufgehoben (344, 400, 406),
+und der Starter ist eine Ordnerfassung mit `starter\` statt einer
+Einzeldatei, die sich bei jedem Start nach `%TEMP%\_MEI…` entpackte
+(399). Vor dem Bau lief eine letzte Runde Durchsicht und Sicherheit
+(Punkte 400 bis 406); der Nutzer hatte nach 15 Runden eine weitere
+Prüf- und Beheberunde und dann den Bau verlangt.
+
+Update 0.3.6 → 0.4.0 still (`/VERYSILENT /CURRENTUSER`), Rückgabe 0;
+Windows führt „Natter 0.4.0“, `Natter.exe` trägt die Dateiversion
+0.4.0. Über UI Automation mit Bildschirmfotos geprüft
+(`build\auswertung\040\`): Notizbuch mit und ohne Debugger samt
+Stopp und sofortigem Stopp, Ladeanzeige, Malen, Konsole mit
+„Jürgen Öztürk“, Kontextmenü im Explorer, Datenbank-Panel mit
+`BEGIN` und Nachfrage beim Start, Sicherung nach hartem Beenden mit
+Angebot und Wiederherstellen, kopierter Projektordner am Ort, allein
+kopierte `Natter.exe` („Failed to load Python DLL …“, wie in Punkt 404
+beschrieben). Kein `_MEI`-Ordner entstand mehr, die Wache blieb ohne
+Befund. Warmer Start 1,55 s (Punkt 7 nannte 1,65 s).
+
+Nicht bestanden hat der erste Start nach der Installation: 91,9 s bis
+zum bedienbaren Fenster, bei 0.3.6 waren es 22,7 s; der erste Start
+des ObstSortierers dauerte 62,9 s (zweiter 4,0 s). In die
+Installation wurde dabei keine `.pyc` geschrieben. Ob es die Prüfung
+frischer Dateien durch den Virenscanner ist oder eine zweite
+Sitzung, die während der Messung Fenster auf demselben Bildschirm
+öffnete, ist nicht geklärt. Dazu drei kleinere Befunde
+(„Projekt öffnen …“ beginnt im Programmordner, Vorschlagsliste im
+Kommentar, Doppelklick im Explorer unzuverlässig); alle stehen als
+neue Punkte für 0.4.1 in `docs/offene_punkte.md`.
+
+#### Freigabelauf davor: 15 Runden ohne Bau, 28./29. September 2026
 
 `/freigabe 0.4.0` lief die volle Höchstzahl von 15 Runden und hat
 nicht gebaut: Jede Runde fand neue Punkte, fünf leere Runden
