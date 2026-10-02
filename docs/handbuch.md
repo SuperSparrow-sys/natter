@@ -394,7 +394,14 @@ Es läuft immer nur ein Programm. Solange eines läuft, mit oder ohne
 Debugger, startet weder `F5` noch `Strg+F5` ein zweites; beendet wird
 es über **Start → Stopp**. Wird Natter geschlossen, während das
 Programm noch läuft, fragt Natter vorher, ob es mit beendet werden
-soll.
+soll. Ein fertiges Konsolenprogramm, dessen Fenster nur noch auf die
+Eingabetaste wartet, zählt nicht mehr als laufend: der nächste Start
+schließt das Fenster und startet neu.
+
+Ist kein Projekt offen, startet `F5` oder `Strg+F5` die `.py`-Datei im
+aktiven Reiter als Konsolenprogramm, etwa eine Aufgabe, die als
+einzelne Datei ausgeteilt wurde. Den Debugger und die Prüfung vor dem
+Start gibt es dabei nicht; dafür braucht es ein Projekt.
 
 Im Debugger lässt sich Zeile für Zeile durchgehen (`F11` hinein,
 `F10` darüber hinweg), und im Panel **Variablen** ist zu sehen, was

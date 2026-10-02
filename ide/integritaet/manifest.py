@@ -567,11 +567,48 @@ def manifest_pruefen(
         fremd=sorted(
             name for name in set(aktuell) - set(erwartet)
             if not ist_bytecode(name)
+            and not _pth_eines_pakets(programmordner, name)
         ),
         veraendert=sorted(
             name for name in set(erwartet) & set(aktuell) if erwartet[name] != aktuell[name]
         ),
     )
+
+
+def _pth_eines_pakets(programmordner: Path, relativer_pfad: str) -> bool:
+    """Ob `relativer_pfad` eine `.pth` in `site-packages` ist, die ein
+    über `pip` installiertes Paket mitgebracht hat: sie steht in der
+    Datei `RECORD` eines `*.dist-info` daneben, das nicht zu Natter
+    gehört.
+
+    Manche Pakete legen eine solche Datei an, `pywin32` etwa
+    `pywin32.pth`. Seit Punkt 230 gilt jede `.pth` dort als
+    Startdatei; nach „Pakete → Paket installieren …“ meldete Natter
+    deshalb bei jedem Start, es sei verändert worden, und riet zur
+    Neuinstallation, die das Paket gleich wieder mit einrichtete
+    (Punkt 447). Eine `.pth` ohne zugehöriges Paket bleibt ein Befund.
+    Was der Schutz dabei aufgibt, steht in `docs/bericht.md`,
+    Abschnitt 7.5."""
+    if not (
+        relativer_pfad.startswith(SITE_PACKAGES)
+        and relativer_pfad.lower().endswith(".pth")
+    ):
+        return False
+    name = relativer_pfad[len(SITE_PACKAGES):]
+    if "/" in name:
+        return False
+    site_packages = Path(programmordner) / SITE_PACKAGES
+    for record in site_packages.glob("*.dist-info/RECORD"):
+        paket = record.parent.name.split("-", 1)[0].lower()
+        if paket in NATTER_EIGEN or paket == "natter":
+            continue
+        try:
+            zeilen = record.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeDecodeError):
+            continue
+        if any(zeile.split(",", 1)[0] == name for zeile in zeilen):
+            return True
+    return False
 
 
 def _bibliotheken_vergleichen(

@@ -36,7 +36,11 @@ from ide.prozess import (
     prozessbaum_beenden,
 )
 from ide.run.interpreter import python_befehl
-from ide.run.ladeanzeige import LADEMARKE_HUELLE, umgebung_mit_lademarke
+from ide.run.ladeanzeige import (
+    ENDMARKE_SETZEN,
+    LADEMARKE_HUELLE,
+    umgebung_mit_lademarke,
+)
 from pcl.eigener_code import ist_eigener_code
 
 # Großzügig bemessen: schadet der echten Nutzung nicht (ein einzelner
@@ -130,7 +134,8 @@ _DEBUG_KONSOLEN_HUELLE = (
     "try:\n"
     "    runpy.run_path(skript, run_name='__main__')\n"
     "finally:\n"
-    "    import os\n"
+    + ENDMARKE_SETZEN
+    + "    import os\n"
     "    try:\n"
     "        if not os.environ.get('NATTER_KONSOLE_NICHT_OFFEN_HALTEN'):\n"
     "            input('\\nProgramm beendet. Eingabetaste zum Schließen ...')\n"

@@ -124,6 +124,7 @@ from ide.project.sicherung import ist_sicherung
 from ide.prozess import Auftrag, auftrag_von, prozessbaum_beenden
 from ide.run import erste_zeile_der_haupt_unit, projekt_pruefen, projekt_starten
 from ide.run.ladeanzeige import (
+    endmarke_zu,
     hat_sichtbares_fenster,
     lademarke_anlegen,
     lademarke_entfernen,
@@ -1174,6 +1175,11 @@ class HauptFenster(QMainWindow):
         self._lade_beginn: float | None = None
         self._lade_prozess: Callable[[], subprocess.Popen | None] | None = None
         self._lademarke: Path | None = None
+        #: Die Endmarke des laufenden Konsolenprogramms
+        #: (`ide.run.ladeanzeige.endmarke_zu`) und ob ihr Ende schon
+        #: im Panel „Ausgabe“ steht.
+        self._endmarke: Path | None = None
+        self._ende_gemeldet = False
 
         panel_widgets = {
             "Meldungen": self.meldungen_liste,
@@ -8083,7 +8089,8 @@ class HauptFenster(QMainWindow):
         eine weitere Instanz zu starten. Vor dem Start prüft Ruff das
         Projekt (Abschnitt 8.2); bei Funden wird nicht gestartet."""
         if self.projekt is None:
-            self.statusBar().showMessage(self._kein_projekt_text())
+            if not self._einzelne_datei_starten():
+                self.statusBar().showMessage(self._kein_projekt_text())
             return
         if self._laedt_noch():
             return
@@ -8097,6 +8104,8 @@ class HauptFenster(QMainWindow):
         if self.ausgabe_vor_start_leeren():
             self.ausgabe_liste.clear()
         lademarke = self._lademarke_fuer(self.projekt)
+        self._endmarke_entfernen()
+        self._endmarke = endmarke_zu(lademarke)
         # Was vom vorigen Lauf noch übrig ist, endet jetzt.
         self._programm_auftrag_beenden()
         self.laufender_prozess = projekt_starten(self.projekt, lademarke=lademarke)
@@ -8127,13 +8136,102 @@ class HauptFenster(QMainWindow):
         F5 prüfte die Debugger-Sitzung, Strg+F5 den Prozess. Wer erst
         Strg+F5 und dann F5 drückte, hatte zwei Fenster desselben
         Programms (Punkt 429)."""
+        self._wartendes_fenster_schliessen()
         laeuft = self._programm_laeuft()
-        if laeuft and self.projekt is not None:
+        if laeuft:
+            name = self.projekt.name if self.projekt is not None else "Das Programm"
             self.statusBar().showMessage(
-                f"{self.projekt.name} läuft bereits - zuerst über "
-                f"„Start → Stopp“ beenden."
+                f"{name} läuft bereits - zuerst über „Start → Stopp“ beenden."
             )
         return laeuft
+
+    def _einzelne_datei_starten(self, *, mit_debugger: bool = False) -> bool:
+        """Startet die `.py`-Datei im aktiven Reiter, wenn kein Projekt
+        offen ist, als Konsolenprogramm. Liefert, ob es eine solche
+        Datei gab.
+
+        Eine Aufgabe kommt oft als einzelne Datei vom Tauschlaufwerk.
+        Sie ließ sich öffnen, F5 und Strg+F5 meldeten aber nur „Kein
+        Projekt offen“, und ein Projekt dazu gab es nicht (Punkt 454).
+        Das Projekt dafür entsteht nur im Speicher: im Ordner der
+        Lehrkraft wird nichts angelegt. Den Debugger und die Prüfung
+        vor dem Start gibt es nur in einem Projekt."""
+        editor = self._aktueller_editor()
+        pfad = editor.property(_PFAD_EIGENSCHAFT) if editor is not None else None
+        if not pfad or not str(pfad).lower().endswith(".py"):
+            return False
+        datei = Path(pfad)
+        if self._laedt_noch() or self._laeuft_schon():
+            return True
+        if editor.document().isModified() and not self._editor_speichern(editor):
+            return True
+        projekt = Projekt(
+            ordner=datei.parent,
+            daten={
+                "format": "natter-project/1",
+                "name": datei.stem,
+                "type": "console",
+                "main": datei.name,
+            },
+        )
+        self._ausgabe_leser_beenden()
+        if self.ausgabe_vor_start_leeren():
+            self.ausgabe_liste.clear()
+        lademarke = self._lademarke_fuer(projekt)
+        self._endmarke_entfernen()
+        self._endmarke = endmarke_zu(lademarke)
+        self._programm_auftrag_beenden()
+        self.laufender_prozess = projekt_starten(projekt, lademarke=lademarke)
+        self._programm_auftrag = auftrag_von(self.laufender_prozess)
+        self._start_zeitpunkt = time.monotonic()
+        self.ausgabe_zeile(f"{datei.name} gestartet")
+        self.panels.setCurrentWidget(self.ausgabe_liste)
+        self._laufzeit_uhr.start()
+        self.statusBar().showMessage(
+            f"{datei.name} läuft ohne Debugger - den gibt es nur in einem "
+            "Projekt."
+            if mit_debugger
+            else f"{datei.name} gestartet"
+        )
+        prozess = self.laufender_prozess
+        self._ladeanzeige_starten(lambda: prozess, lademarke)
+        self._startaktionen_pruefen()
+        return True
+
+    def _programm_wartet_nur_noch(self) -> bool:
+        """Ob das Konsolenprogramm fertig ist und sein Fenster nur noch
+        auf die Eingabetaste wartet."""
+        return self._endmarke is not None and self._endmarke.exists()
+
+    def _wartendes_fenster_schliessen(self) -> None:
+        """Schließt das Fenster eines fertigen Konsolenprogramms, das
+        nur noch auf die Eingabetaste wartet. Der nächste Start soll
+        nicht daran scheitern: wer den Code ändert und neu startet,
+        drückt vorher nicht im alten Fenster die Eingabetaste
+        (Punkt 455)."""
+        if not self._programm_wartet_nur_noch():
+            return
+        if self.debug_sitzung is not None:
+            self.debug_sitzung.beenden()
+            self.debug_sitzung = None
+            self._aktueller_thread_id = None
+            self._faden_id = None
+        if self.laufender_prozess is not None:
+            prozessbaum_beenden(self.laufender_prozess)
+            self._ausgabe_leser_beenden()
+            self.laufender_prozess = None
+        self._laufzeit_uhr.stop()
+        self._endmarke_entfernen()
+        self._startaktionen_pruefen()
+
+    def _endmarke_entfernen(self) -> None:
+        if self._endmarke is not None:
+            try:
+                self._endmarke.unlink(missing_ok=True)
+            except OSError:
+                pass
+        self._endmarke = None
+        self._ende_gemeldet = False
 
     def _vorstart_pruefung_blockiert(self) -> bool:
         """Die Prüfung vor dem Start (Abschnitt 8.2). Liefert, ob der
@@ -8574,6 +8672,12 @@ class HauptFenster(QMainWindow):
             return
         code = self.laufender_prozess.poll()
         if code is None:
+            if self._programm_wartet_nur_noch() and not self._ende_gemeldet:
+                self._ende_gemeldet = True
+                self.ausgabe_zeile(
+                    "Programm beendet - das Konsolenfenster wartet auf die "
+                    "Eingabetaste. Ein neuer Start schließt es."
+                )
             return
         self._laufzeit_uhr.stop()
         self.programmende_melden(code)
@@ -8609,7 +8713,9 @@ class HauptFenster(QMainWindow):
         if code == 0:
             self.ausgabe_zeile(f"Programm beendet (Code 0){dauer}")
             return
-        konsole = self.projekt is not None and self.projekt.typ == "console"
+        # Ohne Projekt lief eine einzelne Datei, und die immer als
+        # Konsolenprogramm (Punkt 454).
+        konsole = self.projekt is None or self.projekt.typ == "console"
         wo = (
             "Die Fehlermeldung steht im Konsolenfenster des Programms, es "
             "bleibt dafür offen."
@@ -8811,7 +8917,8 @@ class HauptFenster(QMainWindow):
     def _mit_debugger_starten(self, halten_bei: tuple[Path, int] | None = None) -> None:
         """Start mit Debugger; `halten_bei` für „Ausführen bis Cursor“."""
         if self.projekt is None:
-            self.statusBar().showMessage(self._kein_projekt_text())
+            if not self._einzelne_datei_starten(mit_debugger=True):
+                self.statusBar().showMessage(self._kein_projekt_text())
             return
         if self._laedt_noch():
             return
@@ -8839,6 +8946,8 @@ class HauptFenster(QMainWindow):
         self.debug_sitzung.exceptioninfo_bereit.connect(self._debugger_exceptioninfo_bereit)
         self.debug_sitzung.ausgewertet.connect(self._debugger_tabelle_bereit)
         lademarke = self._lademarke_fuer(self.projekt)
+        self._endmarke_entfernen()
+        self._endmarke = endmarke_zu(lademarke)
         self.debug_sitzung.client.lademarke = lademarke
         self.debug_sitzung.starten(
             self.projekt.haupt_datei,

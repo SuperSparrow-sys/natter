@@ -445,7 +445,15 @@ aus ausführt (`*.pth` in `site-packages` und `python\Lib`,
 `sitecustomize` und `usercustomize` in jedem Ordner aus `sys.path`
 der mitgelieferten Python, also auch in `python\DLLs` und `python`
 selbst), steht ebenfalls im Manifest und wird schon bei jedem Start
-geprüft; eine neu abgelegte Datei dieser Art ist ein Befund. Seit
+geprüft; eine neu abgelegte Datei dieser Art ist ein Befund.
+Ausgenommen ist seit Punkt 447 eine `.pth` in `site-packages`, die in
+der Datei `RECORD` eines nachinstallierten Pakets steht, etwa
+`pywin32.pth`: sonst meldete Natter nach „Pakete → Paket
+installieren …“ bei jedem Start, es sei verändert worden. Der Schutz
+gibt dabei auf, dass jemand mit Schreibrecht im Programmordner eine
+`.pth` samt passender Zeile in einem `RECORD` ablegt. Wer das kann,
+kann aber ebenso jedes nachinstallierte Paket verändern, das ohnehin
+nicht unter Aufsicht steht. Seit
 Punkt 253 gehören zur schnellen Prüfung außerdem ganz `python\DLLs`,
 die Module, die Python vor Natter lädt (`site`, `os`, `codecs`,
 `encodings`, `runpy` und einige mehr, `FRUEHE_MODULE` in

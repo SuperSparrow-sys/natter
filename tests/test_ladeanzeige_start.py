@@ -175,3 +175,72 @@ def test_ein_konsolenprogramm_laedt_bis_zur_ersten_ausgabe(
     # Ausgabe, nicht wegen des Programmendes.
     assert prozess.poll() is None
     assert not marke.exists(), "Die Marke bleibt nicht im Temp-Ordner liegen."
+
+
+def test_ein_fertiges_konsolenprogramm_haelt_den_naechsten_start_nicht_auf(
+    hauptfenster, qtbot, tmp_path: Path
+) -> None:  # noqa: ANN001
+    """Nach dem Programmende wartet das Konsolenfenster auf die
+    Eingabetaste, der Prozess lebt also noch. Natter lehnte den
+    nächsten Start mit „läuft bereits“ ab. Ein Programm, das wirklich
+    noch läuft, wird weiter abgelehnt."""
+    fenster = hauptfenster
+    fenster.projekt_oeffnen(
+        _projekt(tmp_path / "k", 'print("fertig")\n', typ="console")
+    )
+
+    fenster._projekt_starten_aktion()
+    erster = fenster.laufender_prozess
+    qtbot.waitUntil(fenster._programm_wartet_nur_noch, timeout=60_000)
+    qtbot.waitUntil(
+        lambda: any(
+            "wartet auf die Eingabetaste" in fenster.ausgabe_liste.item(i).text()
+            for i in range(fenster.ausgabe_liste.count())
+        ),
+        timeout=5_000,
+    )
+    assert erster.poll() is None
+
+    fenster._projekt_starten_aktion()
+
+    assert fenster.laufender_prozess is not erster
+    assert fenster.laufender_prozess is not None
+    erster.wait(timeout=10)
+
+
+def test_ein_laufendes_konsolenprogramm_wird_weiter_abgelehnt(
+    hauptfenster, qtbot, tmp_path: Path
+) -> None:  # noqa: ANN001
+    fenster = hauptfenster
+    fenster.projekt_oeffnen(
+        _projekt(tmp_path / "k", "import time\ntime.sleep(30)\n", typ="console")
+    )
+
+    fenster._projekt_starten_aktion()
+    erster = fenster.laufender_prozess
+    qtbot.wait(500)
+    fenster._projekt_starten_aktion()
+
+    assert fenster.laufender_prozess is erster
+    assert "läuft bereits" in fenster.statusBar().currentMessage()
+
+
+def test_eine_einzelne_datei_ohne_projekt_laesst_sich_starten(
+    hauptfenster, qtbot, tmp_path: Path
+) -> None:  # noqa: ANN001
+    """Eine Aufgabe als einzelne `aufgabe.py`: F5 und Strg+F5 meldeten
+    nur „Kein Projekt offen“. Im Ordner entsteht dabei nichts."""
+    fenster = hauptfenster
+    aufgabe = tmp_path / "aufgabe.py"
+    aufgabe.write_text("open('lief.txt', 'w').write('ja')\n", encoding="utf-8")
+    fenster.datei_oeffnen(aufgabe)
+    assert fenster.projekt is None
+
+    fenster._mit_debugger_starten()
+
+    assert fenster.laufender_prozess is not None
+    assert "ohne Debugger" in fenster.statusBar().currentMessage()
+    qtbot.waitUntil(fenster._programm_wartet_nur_noch, timeout=60_000)
+    assert (tmp_path / "lief.txt").read_text() == "ja"
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["aufgabe.py", "lief.txt"]
+

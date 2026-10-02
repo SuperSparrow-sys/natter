@@ -51,9 +51,28 @@ _KONSOLENKLASSEN = frozenset(
 #: Programm nichts mehr. Die Variable wird aus der Umgebung entfernt,
 #: damit Programme, die das Schülerprogramm selbst startet, sie nicht
 #: erben.
+#: Was an den Namen der Lademarke angehängt wird, um die Endmarke zu
+#: bekommen (`endmarke_zu`).
+ENDMARKE_ZUSATZ = ".ende"
+
+#: Legt die Endmarke an. Steht in den Konsolenhüllen im `finally`,
+#: vor der Frage nach der Eingabetaste.
+ENDMARKE_SETZEN = (
+    "    if _endmarke:\n"
+    "        try:\n"
+    "            open(_endmarke, 'w').close()\n"
+    "        except OSError:\n"
+    "            pass\n"
+)
+
 LADEMARKE_HUELLE = (
     "import os as _os\n"
     f"_marke = _os.environ.pop({LADEMARKE_VARIABLE!r}, '')\n"
+    # Die Endmarke daneben legt die Hülle an, wenn das Programm fertig
+    # ist und das Fenster nur noch auf die Eingabetaste wartet (Punkt
+    # 455). Der Name wird jetzt festgehalten: `_marke` ist nach der
+    # ersten Ausgabe leer.
+    f"_endmarke = _marke + {ENDMARKE_ZUSATZ!r} if _marke else ''\n"
     "if _marke and sys.stdout is not None and sys.stderr is not None:\n"
     "    import builtins as _eingebaut\n"
     "    _vorher = (sys.stdout, sys.stderr, _eingebaut.input)\n"
@@ -152,6 +171,17 @@ def alte_lademarken_entfernen(
             continue
         entfernt += 1
     return entfernt
+
+
+def endmarke_zu(lademarke: Path | None) -> Path | None:
+    """Die Datei, die die Hülle eines Konsolenprogramms anlegt, wenn
+    das Programm zu Ende ist und das Fenster nur noch auf die
+    Eingabetaste wartet. Der Prozess lebt dann noch; ohne die Marke
+    hielt Natter das Programm für laufend und lehnte den nächsten
+    Start mit „läuft bereits“ ab (Punkt 455)."""
+    if lademarke is None:
+        return None
+    return Path(f"{lademarke}{ENDMARKE_ZUSATZ}")
 
 
 def umgebung_mit_lademarke(

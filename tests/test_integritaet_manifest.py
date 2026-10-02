@@ -506,6 +506,29 @@ def test_ein_geladenes_modul_der_standardbibliothek_wird_mitgeprueft(
     assert _pruefen(programm, oeffentlich, nur_kern=True).in_ordnung
 
 
+@pytest.mark.parametrize("mit_paket", [True, False])
+def test_eine_pth_aus_einem_nachinstallierten_paket_ist_kein_befund(
+    programm, schluesselpaar, mit_paket: bool
+) -> None:
+    """`pywin32` bringt `pywin32.pth` mit. Nach „Pakete → Paket
+    installieren …“ meldete Natter bei jedem Start, es sei verändert
+    worden. Eine `.pth` ohne Paket, das sie in seinem `RECORD` führt,
+    bleibt ein Befund."""
+    privat, oeffentlich = schluesselpaar
+    manifest_schreiben(programm, privat)
+    _legen(programm, f"{SP}/pywin32.pth", b"win32\nimport pywin32_bootstrap")
+    if mit_paket:
+        _legen(
+            programm,
+            f"{SP}/pywin32-311.dist-info/RECORD",
+            b"pywin32.pth,sha256=abc,42\npywin32-311.dist-info/RECORD,,\n",
+        )
+
+    schnell = _pruefen(programm, oeffentlich, nur_kern=True)
+
+    assert schnell.fremd == ([] if mit_paket else [f"{SP}/pywin32.pth"])
+
+
 def test_eine_mitgelieferte_pth_ist_in_ordnung_solange_sie_gleich_bleibt(
     programm, schluesselpaar
 ) -> None:

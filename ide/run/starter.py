@@ -25,7 +25,11 @@ from pathlib import Path
 from ide.project import Projekt
 from ide.prozess import auftrag_zuweisen, ohne_konsole
 from ide.run.interpreter import python_befehl, umgebung_mit_utf8
-from ide.run.ladeanzeige import LADEMARKE_HUELLE, umgebung_mit_lademarke
+from ide.run.ladeanzeige import (
+    ENDMARKE_SETZEN,
+    LADEMARKE_HUELLE,
+    umgebung_mit_lademarke,
+)
 
 #: Hülle für Konsolenprogramme: führt das Schülerprogramm aus und hält
 #: das Fenster danach offen.
@@ -81,7 +85,8 @@ _KONSOLEN_HUELLE = (
     "        traceback.print_exc()\n"
     "    rueckgabe = 1\n"
     "finally:\n"
-    "    try:\n"
+    + ENDMARKE_SETZEN
+    + "    try:\n"
     "        input('\\nProgramm beendet. Eingabetaste zum Schließen ...')\n"
     "    except (EOFError, KeyboardInterrupt):\n"
     "        pass\n"
