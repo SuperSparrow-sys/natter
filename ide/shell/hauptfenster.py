@@ -1385,6 +1385,13 @@ class HauptFenster(QMainWindow):
         #: Grund des letzten Halts ("breakpoint"/"step"/"exception"),
         #: entscheidet, welches Panel danach nach vorne kommt.
         self._letzter_haltegrund: str = ""
+        #: Wodurch der nächste Halt ausgelöst wird, wenn Natter es
+        #: besser weiß als debugpy: (Grund laut debugpy, Text). Der
+        #: vorübergehende Haltepunkt für F11 vor dem Start meldet sich
+        #: als „breakpoint“, F10 als „step“ wie F11 - in der
+        #: Statusleiste stand dann ein Haltepunkt, den es nicht gibt,
+        #: und „Einzelschritt“ nach einem Prozedurschritt.
+        self._erwarteter_halt: tuple[str, str] | None = None
         #: Zuletzt geöffnete Tabellenansicht; hält das Fenster am Leben
         #: (ein `QDialog` ohne Verweis wird sonst sofort eingesammelt).
         self.letzte_tabellen_ansicht: TabellenAnsicht | None = None
@@ -1980,6 +1987,14 @@ class HauptFenster(QMainWindow):
                 callback=self._debugger_prozedurschritt_aktion,
             )
         )
+        # Der Kurzhinweis sagt, worin sich die beiden Schritte
+        # unterscheiden; der Name allein sagt es nicht.
+        for kennung, unterschied in (
+            ("start.einzelschritt", "springt in Funktionen hinein"),
+            ("start.prozedurschritt", "führt Funktionsaufrufe als einen Schritt aus"),
+        ):
+            qaktion = self.aktionen[kennung].qaction
+            qaktion.setToolTip(f"{qaktion.toolTip()} - {unterschied}")
         self.aktionen.registrieren(
             Aktion(
                 "start.bis_cursor",
@@ -8864,7 +8879,11 @@ class HauptFenster(QMainWindow):
         self._startaktionen_pruefen()
         grund = ereignis.get("reason", "?")
         self._letzter_haltegrund = grund
-        self.statusBar().showMessage(f"Angehalten: {haltegrund_deutsch(grund)}")
+        text = haltegrund_deutsch(grund)
+        if self._erwarteter_halt is not None and self._erwarteter_halt[0] == grund:
+            text = self._erwarteter_halt[1]
+        self._erwarteter_halt = None
+        self.statusBar().showMessage(f"Angehalten: {text}")
         if self._aktueller_thread_id is None or self.debug_sitzung is None:
             return
         self.debug_sitzung.aufrufstapel_lesen(self._aktueller_thread_id)
@@ -9197,6 +9216,7 @@ class HauptFenster(QMainWindow):
             return
         faden = self._weiterlaufen()
         if faden is not None:
+            self._erwarteter_halt = ("step", "nach einem Einzelschritt")
             self.debug_sitzung.einzelschritt(faden)
 
     def _debugger_prozedurschritt_aktion(self) -> None:
@@ -9205,6 +9225,7 @@ class HauptFenster(QMainWindow):
             return
         faden = self._weiterlaufen()
         if faden is not None:
+            self._erwarteter_halt = ("step", "nach einem Prozedurschritt")
             self.debug_sitzung.prozedurschritt(faden)
 
     def _schrittweise_starten(self, befehl: str) -> None:
@@ -9221,6 +9242,7 @@ class HauptFenster(QMainWindow):
             return
         ziel = erste_zeile_der_haupt_unit(self.projekt)
         self._mit_debugger_starten(halten_bei=ziel)
+        self._erwarteter_halt = ("breakpoint", "gleich zu Beginn des Programms")
         if self.debug_sitzung is not None:
             self.statusBar().showMessage(
                 f"{befehl}: {self.projekt.name} läuft mit dem Debugger bis "
@@ -9231,4 +9253,7 @@ class HauptFenster(QMainWindow):
     def _debugger_ruecksprung_aktion(self) -> None:
         faden = self._weiterlaufen()
         if faden is not None:
+            self._erwarteter_halt = (
+                "step", "nach der Rückkehr aus der Funktion"
+            )
             self.debug_sitzung.bis_ruecksprung(faden)

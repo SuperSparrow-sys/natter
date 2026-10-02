@@ -160,6 +160,34 @@ def test_die_statusleiste_zeigt_den_deutschen_grund(qtbot) -> None:
     )
 
 
+def test_die_statusleiste_nennt_den_gewaehlten_schritt(hauptfenster) -> None:  # noqa: ANN001
+    """F10 hieß in der Statusleiste „Einzelschritt“, und der Halt
+    nach F11 vor dem Start „an einem Haltepunkt“, den es nicht gab.
+    Der Kurzhinweis sagt, worin sich die Schritte unterscheiden."""
+
+    class _Sitzung:
+        def prozedurschritt(self, _faden: int) -> None:
+            pass
+
+    hauptfenster.debug_sitzung = _Sitzung()
+    hauptfenster._weiterlaufen = lambda: 1
+    hauptfenster._debugger_prozedurschritt_aktion()
+    hauptfenster._debugger_angehalten({"threadId": None, "reason": "step"})
+    assert hauptfenster.statusBar().currentMessage() == (
+        "Angehalten: nach einem Prozedurschritt"
+    )
+
+    hauptfenster._erwarteter_halt = ("breakpoint", "gleich zu Beginn des Programms")
+    hauptfenster._debugger_angehalten({"threadId": None, "reason": "breakpoint"})
+    assert "Haltepunkt" not in hauptfenster.statusBar().currentMessage()
+    hauptfenster.debug_sitzung = None
+
+    assert "hinein" in hauptfenster.aktionen["start.einzelschritt"].qaction.toolTip()
+    assert "Funktionsaufrufe" in (
+        hauptfenster.aktionen["start.prozedurschritt"].qaction.toolTip()
+    )
+
+
 # -- Karett-Zeile im Panel „Meldungen“ -----------------------------------
 
 

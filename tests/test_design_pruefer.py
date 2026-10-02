@@ -434,3 +434,32 @@ def test_standardname_des_designers_bekommt_nur_einen_hinweis() -> None:
 
     assert len(namenshinweise) == 1
     assert "'b_'" in namenshinweise[0].meldung
+
+
+def test_auch_in_einem_panel_wird_geprueft_und_ein_timer_ueberlappt_nichts() -> None:
+    """Die Regeln sahen nur die oberste Ebene: zwei überlappende
+    Knöpfe in einem Panel und einer, der über das Panel hinausragt,
+    blieben ohne Meldung. Ein Timer, der im Programm unsichtbar ist,
+    hieß dagegen Überlappung."""
+    panel = _komponente("p_knoepfe", "Panel", left=8, top=8, width=200, height=100)
+    panel["children"] = [
+        _komponente("b_a", "Button", left=8, top=8),
+        _komponente("b_b", "Button", left=40, top=8),
+        _komponente("b_c", "Button", left=180, top=50),
+    ]
+    pfm = _pfm(
+        [
+            panel,
+            _komponente("b_start", "Button", left=250, top=8),
+            {"name": "t_takt", "type": "Timer", "properties": {"left": 260, "top": 12}},
+        ]
+    )
+
+    befunde = pruefen(pfm)
+    ueberlappungen = [b for b in befunde if b.regel == "geometrie.ueberlappung"]
+    ausserhalb = [b for b in befunde if b.regel == "geometrie.ausserhalb_formular"]
+
+    assert [b.komponente for b in ueberlappungen] == ["b_a"]
+    assert [b.komponente for b in ausserhalb] == ["b_c"]
+    assert "außerhalb von p_knoepfe" in ausserhalb[0].meldung
+

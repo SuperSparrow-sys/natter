@@ -159,6 +159,47 @@ def _formulargroesse(pfm: dict[str, Any]) -> tuple[int, int]:
     )
 
 
+@cache
+def _nur_im_designer(typname: str) -> bool:
+    """Ob eine Komponente im laufenden Programm unsichtbar ist (Timer,
+    MainMenu, PopupMenu). Ihr Symbol im Designer überlappt nichts,
+    was im Programm zu sehen ist."""
+    import pcl
+
+    return bool(getattr(getattr(pcl, typname, None), "nur_im_designer", False))
+
+
+def _ebenen(
+    pfm: dict[str, Any],
+) -> list[tuple[str | None, list[dict[str, Any]], int, int]]:
+    """Jede Ebene, auf der Komponenten nebeneinander liegen: das
+    Formular und jeder Behälter (Panel, GroupBox) mit Kindern. Je
+    Ebene der Name des Behälters (`None` fürs Formular), die im
+    Programm sichtbaren Kinder und die Fläche, in der sie liegen.
+
+    Bis Punkt 452 prüften die Regeln nur die oberste Ebene: zwei
+    überlappende Knöpfe in einem Panel blieben ohne Meldung, ein
+    Timer neben einem Knopf dagegen hieß Überlappung."""
+    breite, hoehe = _formulargroesse(pfm)
+    ergebnis: list[tuple[str | None, list[dict[str, Any]], int, int]] = []
+    offen: list[tuple[str | None, dict[str, Any], int, int]] = [
+        (None, pfm, breite, hoehe)
+    ]
+    while offen:
+        name, knoten, breite, hoehe = offen.pop(0)
+        kinder = [
+            k for k in knoten.get("children", [])
+            if not _nur_im_designer(k.get("type", ""))
+        ]
+        if kinder:
+            ergebnis.append((name, kinder, breite, hoehe))
+        for kind in kinder:
+            if kind.get("children"):
+                _, _, k_breite, k_hoehe = _rechteck(kind)
+                offen.append((kind.get("name"), kind, k_breite, k_hoehe))
+    return ergebnis
+
+
 def _rechteck(komponente: dict[str, Any]) -> tuple[int, int, int, int]:
     # width/height defaulten wie die Komponente selbst statt auf 0 -
     # die .pfm speichert nur Eigenschaften, die vom Standardwert
@@ -229,21 +270,42 @@ def _ueberlappende_paare(
 
 def _geometrie_pruefen(pfm: dict[str, Any]) -> list[Befund]:
     befunde: list[Befund] = []
-    kinder = pfm.get("children", [])
-    form_breite, form_hoehe = _formulargroesse(pfm)
+    for behaelter, kinder, breite, hoehe in _ebenen(pfm):
+        befunde.extend(_ebene_pruefen(behaelter, kinder, breite, hoehe))
+    return befunde
 
+
+def _ebene_pruefen(
+    behaelter: str | None,
+    kinder: list[dict[str, Any]],
+    form_breite: int,
+    form_hoehe: int,
+) -> list[Befund]:
+    befunde: list[Befund] = []
     for kind in kinder:
         left, top, width, height = _rechteck(kind)
         if left < 0 or top < 0 or left + width > form_breite or top + height > form_hoehe:
+            if behaelter is None:
+                was = f"{kind['name']} liegt teilweise außerhalb des Formulars."
+                loesung = (
+                    "Ins Formular hineinschieben oder das Formular größer "
+                    "machen - sonst fehlt sie im laufenden Programm."
+                )
+            else:
+                was = f"{kind['name']} liegt teilweise außerhalb von {behaelter}."
+                loesung = (
+                    f"In {behaelter} hineinschieben oder {behaelter} größer "
+                    "machen - sonst ist sie im laufenden Programm "
+                    "abgeschnitten."
+                )
             befunde.append(
                 _befund(
                     "geometrie.ausserhalb_formular",
                     "Geometrie",
                     "warnung",
                     kind["name"],
-                    f"{kind['name']} liegt teilweise außerhalb des Formulars.",
-                    "Ins Formular hineinschieben oder das Formular größer machen - "
-                    "sonst fehlt sie im laufenden Programm.",
+                    was,
+                    loesung,
                 )
             )
 
@@ -367,7 +429,7 @@ def _kontrastverhaeltnis(farbe1: str, farbe2: str) -> float:
 
 def _lesbarkeit_pruefen(pfm: dict[str, Any]) -> list[Befund]:
     befunde: list[Befund] = []
-    for kind in [pfm, *pfm.get("children", [])]:
+    for kind in [pfm, *_alle_komponenten(pfm)]:
         farbe = _eigenschaft(kind, "color", "")
         if not farbe:
             continue
@@ -410,7 +472,7 @@ _MIT_BESCHRIFTUNG = ("Button", "CheckBox", "RadioButton")
 
 def _beschriftung_pruefen(pfm: dict[str, Any]) -> list[Befund]:
     befunde: list[Befund] = []
-    for kind in pfm.get("children", []):
+    for kind in _alle_komponenten(pfm):
         if kind.get("type") not in _MIT_BESCHRIFTUNG:
             continue
         text = str(_eigenschaft(kind, "caption", "")).replace("&", "")
@@ -434,7 +496,13 @@ def _beschriftung_pruefen(pfm: dict[str, Any]) -> list[Befund]:
 
 def _konsistenz_pruefen(pfm: dict[str, Any]) -> list[Befund]:
     befunde: list[Befund] = []
-    kinder = pfm.get("children", [])
+    for _, kinder, _, _ in _ebenen(pfm):
+        befunde.extend(_konsistenz_der_ebene(kinder))
+    return befunde
+
+
+def _konsistenz_der_ebene(kinder: list[dict[str, Any]]) -> list[Befund]:
+    befunde: list[Befund] = []
 
     buttons = [k for k in kinder if k["type"] == "Button"]
     if len(buttons) > 1:
@@ -501,7 +569,13 @@ def _konsistenz_pruefen(pfm: dict[str, Any]) -> list[Befund]:
 
 def _bedienbarkeit_pruefen(pfm: dict[str, Any]) -> list[Befund]:
     befunde: list[Befund] = []
-    kinder = pfm.get("children", [])
+    for _, kinder, _, _ in _ebenen(pfm):
+        befunde.extend(_bedienbarkeit_der_ebene(kinder))
+    return befunde
+
+
+def _bedienbarkeit_der_ebene(kinder: list[dict[str, Any]]) -> list[Befund]:
+    befunde: list[Befund] = []
 
     for kind in kinder:
         _, _, width, height = _rechteck(kind)

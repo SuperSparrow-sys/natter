@@ -235,3 +235,96 @@ def test_ein_klick_links_im_rand_setzt_einen_haltepunkt(
 
     assert editor.breakpoints == {12}
     assert editor._gefaltet == set()
+
+
+# -- Zeilen verschieben und verdoppeln bei zugeklappten Funktionen ------
+
+
+def _cursor_auf(feld: QuelltextEditor, zeile: int) -> None:
+    cursor = feld.textCursor()
+    cursor.setPosition(feld.document().findBlockByNumber(zeile - 1).position())
+    feld.setTextCursor(cursor)
+
+
+def test_alt_pfeil_bewegt_eine_zugeklappte_funktion_als_ganzes(
+    editor: QuelltextEditor,
+) -> None:
+    """Vorher tauschte nur die Kopfzeile mit der ersten versteckten
+    Zeile, und die Datei hatte einen Einrückungsfehler."""
+    import ast
+
+    editor.falten(5)
+    _cursor_auf(editor, 5)
+
+    assert editor.zeile_verschieben(True)
+    ast.parse(editor.toPlainText())
+    zeilen = editor.toPlainText().split("\n")
+    assert zeilen[4:7] == ["", "    def __init__(self):", "        self.farbe = 'rot'"]
+    assert editor._gefaltet == {6}
+    assert 7 not in _sichtbar(editor)
+
+    assert editor.zeile_verschieben(False)
+    assert editor.toPlainText() == QUELLE
+    assert editor._gefaltet == {5}
+
+
+def test_eine_zeile_springt_ueber_eine_zugeklappte_funktion(
+    editor: QuelltextEditor,
+) -> None:
+    editor.falten(12)
+    _cursor_auf(editor, 11)
+
+    assert editor.zeile_verschieben(True)
+
+    zeilen = editor.toPlainText().split("\n")
+    assert zeilen[10:14] == ["def haupt():", "    ampel = Ampel()", "    ampel.weiter()", ""]
+    assert editor._gefaltet == {11}
+    assert [12, 13] == [z for z in (12, 13) if z not in _sichtbar(editor)]
+
+
+def test_verschieben_woanders_laesst_faltungen_zu(editor: QuelltextEditor) -> None:
+    """Der Rumpf wurde wieder sichtbar, `_gefaltet` meldete ihn aber
+    weiter als zugeklappt."""
+    editor.falten(12)
+    _cursor_auf(editor, 1)
+
+    editor.zeile_verschieben(True)
+
+    assert editor._gefaltet == {12}
+    assert 13 not in _sichtbar(editor)
+
+
+def test_strg_d_verdoppelt_eine_zugeklappte_funktion_ganz(
+    editor: QuelltextEditor,
+) -> None:
+    import ast
+
+    editor.falten(12)
+    _cursor_auf(editor, 12)
+
+    editor.zeile_duplizieren()
+
+    ast.parse(editor.toPlainText())
+    assert editor.toPlainText().count("def haupt():") == 2
+    assert editor.toPlainText().count("    ampel.weiter()") == 2
+    assert editor._gefaltet == {12, 15}
+
+
+def test_haltepunkt_wandert_mit_seiner_zeile(qtbot) -> None:  # noqa: ANN001
+    """Der Haltepunkt blieb an seiner Zeilennummer und stand danach
+    auf einer anderen Anweisung."""
+    feld = QuelltextEditor()
+    qtbot.addWidget(feld)
+    feld.setPlainText("a = 1\nb = 2\nc = 3\n")
+    feld.breakpoints = {1}
+    feld.bedingungen = {1: "a > 0"}
+    _cursor_auf(feld, 1)
+
+    feld.zeile_verschieben(True)
+    assert feld.breakpoints == {2}
+    assert feld.bedingungen == {2: "a > 0"}
+
+    feld.zeile_verschieben(False)
+    assert feld.breakpoints == {1}
+    assert feld.bedingungen == {1: "a > 0"}
+

@@ -1245,28 +1245,112 @@ class QuelltextEditor(QPlainTextEdit):
             )
             self.setTextCursor(neu)
 
+    def _sichtbare_einheit(self, zeile: int) -> tuple[int, int]:
+        """Erste und letzte Zeile (ab 1) dessen, was als `zeile` zu
+        sehen ist: eine zugeklappte Kopfzeile samt Rumpf, eine Zeile
+        im versteckten Rumpf als die äußerste zugeklappte Funktion
+        darum, sonst die Zeile allein."""
+        faltbar = self.faltbare_zeilen() if self._gefaltet else {}
+        for kopf in sorted(self._gefaltet):
+            ende = faltbar.get(kopf)
+            if ende is not None and kopf <= zeile <= ende:
+                return kopf, ende
+        return zeile, zeile
+
     def zeile_duplizieren(self) -> None:
-        """Strg+D: die aktuelle Zeile noch einmal darunter."""
+        """Strg+D: die aktuelle Zeile noch einmal darunter. Auf einer
+        zugeklappten Funktion die ganze Funktion, so wie sie zu sehen
+        ist - vorher kam nur die Kopfzeile ohne Rumpf heraus."""
         cursor = self.textCursor()
-        text = cursor.block().text()
-        cursor.movePosition(cursor.MoveOperation.EndOfBlock)
-        cursor.insertText("\n" + text)
-        self.setTextCursor(cursor)
+        anfang, ende = self._sichtbare_einheit(cursor.blockNumber() + 1)
+        if anfang == ende:
+            text = cursor.block().text()
+            cursor.movePosition(cursor.MoveOperation.EndOfBlock)
+            cursor.insertText("\n" + text)
+            self.setTextCursor(cursor)
+            return
+        zeilen = self.toPlainText().split("\n")
+        kopie = zeilen[anfang - 1:ende]
+        anzahl = len(kopie)
+        gefaltet = {
+            z + anzahl if z > ende else z for z in self._gefaltet
+        } | {anfang + anzahl}
+        self._ganzen_text_ersetzen(
+            zeilen[:ende] + kopie + zeilen[ende:],
+            {z: z + anzahl if z > ende else z for z in range(1, len(zeilen) + 1)},
+            gefaltet,
+            anfang + anzahl,
+            0,
+        )
 
     def zeile_verschieben(self, nach_unten: bool) -> bool:
         """Alt+Pfeil: die aktuelle Zeile eine Position nach oben oder
-        unten. Liefert `False`, wenn es dort nicht weitergeht."""
-        dokument = self.document()
+        unten. Liefert `False`, wenn es dort nicht weitergeht.
+
+        Bewegt wird, was zu sehen ist: eine zugeklappte Funktion als
+        Ganzes, und auch die Nachbarzeile, mit der getauscht wird, ist
+        gegebenenfalls eine ganze zugeklappte Funktion. Vorher tauschte
+        die Kopfzeile mit der ersten versteckten Zeile, und die Datei
+        hatte einen Einrückungsfehler. Faltungen und Haltepunkte
+        wandern mit ihren Zeilen."""
         cursor = self.textCursor()
-        nummer = cursor.blockNumber()
-        ziel = nummer + (1 if nach_unten else -1)
-        if not 0 <= ziel < dokument.blockCount():
-            return False
+        zeile = cursor.blockNumber() + 1
+        anzahl = self.document().blockCount()
+        anfang, ende = self._sichtbare_einheit(zeile)
+        if nach_unten:
+            if ende >= anzahl:
+                return False
+            n_anfang, n_ende = self._sichtbare_einheit(ende + 1)
+            oben, unten = (anfang, ende), (n_anfang, n_ende)
+        else:
+            if anfang <= 1:
+                return False
+            n_anfang, n_ende = self._sichtbare_einheit(anfang - 1)
+            oben, unten = (n_anfang, n_ende), (anfang, ende)
 
-        spalte = cursor.positionInBlock()
         zeilen = self.toPlainText().split("\n")
-        zeilen[nummer], zeilen[ziel] = zeilen[ziel], zeilen[nummer]
+        erster = zeilen[oben[0] - 1:oben[1]]
+        zweiter = zeilen[unten[0] - 1:unten[1]]
+        neu_zeilen = (
+            zeilen[:oben[0] - 1] + zweiter + erster + zeilen[unten[1]:]
+        )
+        # alte Zeile -> neue Zeile
+        zuordnung = {z: z for z in range(1, len(zeilen) + 1)}
+        for z in range(oben[0], oben[1] + 1):
+            zuordnung[z] = z + len(zweiter)
+        for z in range(unten[0], unten[1] + 1):
+            zuordnung[z] = z - len(erster)
+        gefaltet = {zuordnung.get(z, z) for z in self._gefaltet}
+        self._ganzen_text_ersetzen(
+            neu_zeilen,
+            zuordnung,
+            gefaltet,
+            zuordnung[zeile],
+            cursor.positionInBlock(),
+        )
+        return True
 
+    def _ganzen_text_ersetzen(
+        self,
+        zeilen: list[str],
+        zuordnung: dict[int, int],
+        gefaltet: set[int],
+        cursor_zeile: int,
+        spalte: int,
+    ) -> None:
+        """Setzt den ganzen Text in einem Bearbeitungsschritt neu und
+        führt Faltungen, Haltepunkte und Bedingungen über `zuordnung`
+        (alte Zeile -> neue Zeile, ab 1) mit. Das Neusetzen machte
+        sonst alle Zeilen sichtbar, während `_gefaltet` weiter die
+        alten Faltungen meldete, und ein Haltepunkt blieb an seiner
+        Zeilennummer stehen, auf einer anderen Anweisung."""
+        dokument = self.document()
+        vorher = (set(self.breakpoints), dict(self.bedingungen))
+        breakpoints = {zuordnung.get(z, z) for z in self.breakpoints}
+        bedingungen = {
+            zuordnung.get(z, z): b for z, b in self.bedingungen.items()
+        }
+        cursor = self.textCursor()
         # In einem Rutsch, damit ein einziges Strg+Z es zurücknimmt -
         # sonst wären es drei Schritte, und man müsste dreimal drücken.
         cursor.beginEditBlock()
@@ -1274,10 +1358,20 @@ class QuelltextEditor(QPlainTextEdit):
         cursor.insertText("\n".join(zeilen))
         cursor.endEditBlock()
 
+        self._gefaltet = gefaltet
+        self._alles_sichtbar_machen()
+        # Beim Einfügen hat `_breakpoints_nachfuehren` sie schon nach
+        # der Zeilenzahl verschoben; maßgeblich ist die Zuordnung.
+        self.breakpoints = breakpoints
+        self.bedingungen = bedingungen
+        self._rand.update()
+        if (breakpoints, bedingungen) != vorher:
+            self.breakpoints_geaendert.emit()
+
+        block = dokument.findBlockByNumber(cursor_zeile - 1)
         neu = self.textCursor()
-        neu.setPosition(dokument.findBlockByNumber(ziel).position() + spalte)
+        neu.setPosition(block.position() + min(spalte, len(block.text())))
         self.setTextCursor(neu)
-        return True
 
     def zeilenumbruch_setzen(self, an: bool) -> None:
         """„Ansicht → Zeilenumbruch“: lange Zeilen umbrechen statt
