@@ -2214,7 +2214,19 @@ class HauptFenster(QMainWindow):
 
         formulare = projekt.formulare()
         if formulare:
-            self.designer_oeffnen(formulare[0])
+            # Wie beim Öffnen einer einzelnen `.pfm`: eine beschädigte
+            # soll das Projekt nicht mit der allgemeinen Fehlermeldung
+            # abbrechen, die Unit ist dann trotzdem offen.
+            try:
+                self.designer_oeffnen(formulare[0])
+            except (
+                json.JSONDecodeError, UnicodeDecodeError, schema_fehler(),
+                KeyError, PfmBeschaedigt,
+            ) as fehler:
+                self.statusBar().showMessage(
+                    f"„{formulare[0].name}“ lässt sich nicht öffnen, die "
+                    f"Datei ist beschädigt. {fehler_beschreiben(fehler)}"
+                )
 
     def projekt_dateien(self) -> list[Path]:
         """Alle Units und Formulare des offenen Projekts, für „Unit

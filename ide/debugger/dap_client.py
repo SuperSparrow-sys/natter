@@ -91,6 +91,27 @@ def _freien_port_finden() -> int:
 #: Fenstertitel und hält das Fenster am Ende offen, fängt aber keinen
 #: Fehler ab: ein unbehandelter Fehler soll bis zum Debugger
 #: durchlaufen, der dann an der Fehlerzeile anhält.
+#: Python läuft unter dem Debugger mit `-P`: sonst stünde der
+#: Projektordner vor der Standardbibliothek im Suchpfad, solange
+#: debugpy lädt, und eine `random.py` oder `queue.py` der Schülerin
+#: hätte das gleichnamige Modul ersetzt - der Debugger kam dann nach
+#: drei Versuchen zu je 30 Sekunden mit einer Meldung ohne Ursache
+#: nicht hoch. Den Ordner des Programms trägt erst die Hülle ein, wie
+#: `python main.py` es täte, wenn debugpy fertig geladen ist.
+_ORDNER_DES_PROGRAMMS = (
+    "import os as _os\n"
+    "sys.path.insert(0, _os.path.dirname(_os.path.abspath(skript)))\n"
+)
+
+#: Ein Fensterprogramm unter dem Debugger, ohne eigene Konsole.
+_DEBUG_HUELLE = (
+    "import runpy, sys\n"
+    "skript = sys.argv[1]\n"
+    "sys.argv = sys.argv[1:]\n"
+    + _ORDNER_DES_PROGRAMMS
+    + "runpy.run_path(skript, run_name='__main__')\n"
+)
+
 _DEBUG_KONSOLEN_HUELLE = (
     "import runpy, sys\n"
     # Die Marke für die Ladeanzeige (Punkt 271), wie ohne Debugger.
@@ -98,6 +119,8 @@ _DEBUG_KONSOLEN_HUELLE = (
     +
     "titel, skript = sys.argv[1], sys.argv[2]\n"
     "sys.argv = sys.argv[2:]\n"
+    + _ORDNER_DES_PROGRAMMS
+    +
     "if sys.platform == 'win32':\n"
     "    try:\n"
     "        import ctypes\n"
@@ -139,9 +162,15 @@ def debugpy_aufruf(
     `lademarke` legt ein Konsolenprogramm bei seiner ersten Ausgabe an
     (`ide/run/ladeanzeige.py`).
     """
-    kopf = [*python_befehl(), "-m", "debugpy", "--listen", str(port), "--wait-for-client"]
+    kopf = [
+        *python_befehl(), "-P", "-m", "debugpy",
+        "--listen", str(port), "--wait-for-client",
+    ]
     if konsole_titel is None:
-        return [*kopf, str(skriptpfad)], ohne_konsole(cwd=arbeitsordner)
+        return (
+            [*kopf, "-c", _DEBUG_HUELLE, str(skriptpfad)],
+            ohne_konsole(cwd=arbeitsordner),
+        )
     optionen: dict = {
         "cwd": arbeitsordner,
         "env": umgebung_mit_lademarke(lademarke),
@@ -282,6 +311,13 @@ class DapClient:
         while time.monotonic() < ende:
             if self._gestoppt.is_set():
                 raise DapAbgebrochen("Der Start des Debuggers wurde abgebrochen.")
+            # Ist der Prozess schon beendet, kommt keine Verbindung
+            # mehr. Gewartet wurde trotzdem die volle Zeit.
+            if self.prozess is not None and self.prozess.poll() is not None:
+                raise DapFehler(
+                    "Der Debugger wurde beendet, bevor das Programm "
+                    "starten konnte."
+                )
             try:
                 return socket.create_connection(("127.0.0.1", port), timeout=1)
             except OSError as fehler:

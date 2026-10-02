@@ -191,3 +191,36 @@ def test_einfuegen_aus_der_zwischenablage_fuehrt_nichts_aus(
     assert canvas.einfuegen() == []
     assert not marker.exists()
     assert meldungen and "Zwischenablage ist beschädigt" in meldungen[0]
+
+
+@pytest.mark.parametrize(
+    ("stelle", "eigenschaften", "erwartet"),
+    [
+        ("formular", {"width": 400.5}, "width"),
+        ("knopf", {"caption": 5}, "caption"),
+        ("knopf", {"foo": 1}, "neueren Fassung"),
+        ("formular", {"width": 10**30}, "zu groß"),
+    ],
+)
+def test_falscher_wert_oder_unbekannte_eigenschaft_heisst_beschaedigt(
+    tmp_path: Path, stelle: str, eigenschaften: dict, erwartet: str
+) -> None:
+    """Werte prüft erst das Bauen des Formulars. Ein falscher Typ oder
+    eine Eigenschaft aus einer neueren Fassung flog vorher als
+    `NatterPropertyError`, `NatterUnbekannteEigenschaftError` oder
+    `OverflowError` bis in die allgemeine Fehlermeldung durch."""
+    knopf = {"name": "b_ok", "type": "Button", "properties": {"caption": "OK"}}
+    formular = {"width": 400, "height": 300}
+    (formular if stelle == "formular" else knopf["properties"]).update(eigenschaften)
+    pfm = {
+        "format": "pfm/1",
+        "class": "Form1",
+        "type": "Form",
+        "properties": formular,
+        "children": [knopf],
+    }
+    pfad = tmp_path / "u_main.pfm"
+    pfad.write_text(json.dumps(pfm), encoding="utf-8")
+
+    with pytest.raises(PfmBeschaedigt, match=erwartet):
+        formular_fuer_designer_laden(pfad)

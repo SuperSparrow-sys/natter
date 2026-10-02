@@ -52,7 +52,25 @@ def test_falsch_geschriebenes_main_wird_gezeigt(tmp_path: Path) -> None:
     fund = projekt_pruefen(projekt)[0]
 
     assert fund.zeile == 4
-    assert "Hier heißt sie Main" in fund.was
+    assert "Steht sie dort als Main" in fund.pruefe
+
+
+def test_im_pruefungsmodus_nennt_die_meldung_den_richtigen_namen_nicht(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Im Prüfungsmodus sagt eine Meldung nur, was falsch ist. Der
+    richtige Name stand aber im Teil „Was“ und blieb deshalb stehen."""
+    projekt = _konsole(
+        tmp_path / "p", '# Kopf\n\n\ndef Main():\n    print("x")\n'
+    )
+    monkeypatch.setattr(
+        "ide.run.pruefung.pruefungsmodus_laeuft", lambda: True
+    )
+
+    fund = projekt_pruefen(projekt)[0]
+
+    assert "Main" not in fund.was
+    assert "Main" not in str(fund)
 
 
 def test_ein_fehlender_name_in_einer_eigenen_unit(tmp_path: Path) -> None:
@@ -201,3 +219,22 @@ def test_die_zeile_im_panel_nennt_keine_regel(tmp_path: Path) -> None:
 
     assert "invalid-syntax" not in str(fund)
     assert "invalid-syntax" in fund.regel
+
+
+@pytest.mark.parametrize(
+    ("zeile", "erwartet"),
+    [
+        ("    if 3 > 2\n        print(1)\n", "fehlt der Doppelpunkt"),
+        ("    print('Hallo)\n", "nicht wieder geschlossen"),
+    ],
+)
+def test_doppelpunkt_und_anfuehrungszeichen_bekommen_die_genaue_meldung(
+    tmp_path: Path, zeile: str, erwartet: str
+) -> None:
+    """Vor dem Start kam für beide nur die allgemeine Meldung, obwohl
+    der Fehlerkatalog es genauer weiß."""
+    projekt = _konsole(tmp_path / "p", "def main():\n" + zeile)
+
+    funde = [f for f in projekt_pruefen(projekt) if f.blockiert]
+
+    assert erwartet in funde[0].was

@@ -43,6 +43,35 @@ def test_handshake_gelingt_und_der_debuggee_endet_mit_code_0(tmp_path: Path) -> 
     assert client.prozess.returncode == 0
 
 
+def test_projektdateien_wie_random_py_stoeren_den_debugger_nicht(
+    tmp_path: Path,
+) -> None:
+    """Eine `random.py` oder `string.py` im Projektordner ersetzte das
+    gleichnamige Modul, solange debugpy lud, und der Debugger kam nach
+    drei Versuchen zu je 30 Sekunden nicht hoch. Das Programm findet
+    seine eigenen Dateien trotzdem."""
+    for name in ("random.py", "string.py", "queue.py"):
+        (tmp_path / name).write_text(
+            "raise SystemExit('falsches Modul')\n", encoding="utf-8"
+        )
+    (tmp_path / "u_hilfe.py").write_text("WERT = 'ja'\n", encoding="utf-8")
+    skript = _skript_schreiben(
+        tmp_path,
+        "from pathlib import Path\n"
+        "import u_hilfe\n"
+        "Path('lief.txt').write_text(u_hilfe.WERT)\n",
+    )
+    client = DapClient()
+    try:
+        client.starten(skript, arbeitsordner=tmp_path)
+        assert client.prozess is not None
+        client.prozess.wait(timeout=30)
+    finally:
+        client.beenden()
+
+    assert (tmp_path / "lief.txt").read_text() == "ja"
+
+
 def test_fehlerantwort_und_beenden_eines_laufenden_programms(tmp_path: Path) -> None:
     """Eine Anfrage, die debugpy nicht kennt, endet in `DapFehler`.
 

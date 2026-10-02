@@ -17,8 +17,9 @@ from pathlib import Path
 from typing import Any
 
 from ide import dateistand
-from ide.codegen.design import design_code_erzeugen
+from ide.codegen.design import PfmBeschaedigt, design_code_erzeugen
 from ide.schema import json_datei_lesen
+from pcl.errors import NatterUnbekannteEigenschaftError
 from pcl.form import Form
 
 
@@ -182,9 +183,33 @@ def unit_methoden_ergaenzen(klasse: type) -> None:
         setattr(klasse, name, platzhalter)
 
 
+#: Größer nimmt Qt keine Zahl für Größe, Lage oder Schrift. Eine
+#: größere stieg erst in der Ereignisschleife als `OverflowError`
+#: ohne Text aus, also nach dem Bauen des Formulars.
+_GROESSTE_ZAHL = 2**31 - 1
+
+
+def _zahlen_pruefen(eintrag: dict[str, Any], name: str) -> None:
+    """Löst `PfmBeschaedigt` aus, wenn eine ganze Zahl in den
+    Eigenschaften von `eintrag` oder seinen Kindern zu groß ist."""
+    for eigenschaft, wert in (eintrag.get("properties") or {}).items():
+        if (
+            isinstance(wert, int)
+            and not isinstance(wert, bool)
+            and abs(wert) > _GROESSTE_ZAHL
+        ):
+            raise PfmBeschaedigt(
+                f"Die Zahl bei {name}.{eigenschaft} ist zu groß."
+            )
+    for kind in eintrag.get("children") or []:
+        if isinstance(kind, dict):
+            _zahlen_pruefen(kind, str(kind.get("name", "?")))
+
+
 def formular_fuer_designer_laden(pfm_pfad: Path) -> Form:
     pfm_pfad = Path(pfm_pfad)
     pfm = json_datei_lesen(pfm_pfad)
+    _zahlen_pruefen(pfm, str(pfm.get("class", "Formular")))
     quelltext = design_code_erzeugen(pfm, pfm_pfad.name)
 
     namensraum: dict[str, Any] = {}
@@ -207,6 +232,22 @@ def formular_fuer_designer_laden(pfm_pfad: Path) -> Form:
     # erzeugte Code verknüpft die Ereignisse aus der `.pfm` und braucht
     # dafür die Platzhalter, auch für Methoden, die in der Unit fehlen
     # (Punkt 115). Der Abgleich nimmt sie danach aus der Klasse.
-    formular = vorschau_klasse()
+    #
+    # Werte prüft erst das Bauen: das Schema lässt unter `properties`
+    # jedes Objekt zu. Ein falscher Werttyp oder eine Eigenschaft, die
+    # diese Fassung nicht kennt (etwa aus einer neueren zu Hause),
+    # endete vorher in der allgemeinen Fehlermeldung statt in
+    # „beschädigt“.
+    try:
+        formular = vorschau_klasse()
+    except NatterUnbekannteEigenschaftError as fehler:
+        raise PfmBeschaedigt(
+            f"{fehler} Vielleicht stammt die Datei aus einer neueren "
+            "Fassung von Natter."
+        ) from fehler
+    except OverflowError as fehler:
+        raise PfmBeschaedigt("Eine Zahl darin ist zu groß.") from fehler
+    except (TypeError, ValueError) as fehler:
+        raise PfmBeschaedigt(str(fehler)) from fehler
     unit_methoden_ergaenzen(vorschau_klasse)
     return formular

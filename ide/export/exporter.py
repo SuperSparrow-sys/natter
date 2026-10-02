@@ -428,6 +428,12 @@ def exe_exportieren(
 
     befehl = [
         *python_befehl(),
+        # Ohne `-P` stünde der Projektordner (der Arbeitsordner) vor
+        # der Standardbibliothek, und eine `random.py` oder `json.py`
+        # der Schülerin liefe im Prozess von PyInstaller statt des
+        # Moduls. Das Programm selbst findet seine Units trotzdem:
+        # PyInstaller sucht im Ordner des Hauptskripts.
+        "-P",
         "-m",
         "PyInstaller",
         "--noconfirm",

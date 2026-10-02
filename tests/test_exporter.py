@@ -137,6 +137,9 @@ def test_baut_eine_einzige_exe(tmp_path: Path, pyinstaller) -> None:
     ergebnis = exe_exportieren(projekt)
 
     assert "--onefile" in pyinstaller[0]
+    # Ohne `-P` stand der Projektordner vor der Standardbibliothek, und
+    # eine `random.py` der Schülerin lief im Prozess von PyInstaller.
+    assert pyinstaller[0].index("-P") < pyinstaller[0].index("-m")
     assert ergebnis.erfolgreich
     assert ergebnis.ausgabe_pfad.suffix == ".exe"
     assert ergebnis.ausgabe_pfad.is_file()

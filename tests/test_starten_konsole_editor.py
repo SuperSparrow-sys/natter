@@ -59,7 +59,7 @@ def test_konsolenprogramm_bekommt_unter_dem_debugger_ein_fenster(tmp_path: Path)
 def test_gui_programm_bleibt_ohne_fenster(tmp_path: Path) -> None:
     befehl, optionen = debugpy_aufruf(5678, tmp_path / "main.py", tmp_path)
 
-    assert "-c" not in befehl
+    assert befehl[-1] == str(tmp_path / "main.py")
     if sys.platform == "win32":
         assert not optionen["creationflags"] & subprocess.CREATE_NEW_CONSOLE
 

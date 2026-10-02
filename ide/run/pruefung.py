@@ -93,7 +93,27 @@ _UEBERSETZUNGEN: dict[str, tuple[str, str]] = {
 #: Seit Punkt 291 kommt der Text eines Syntaxfehlers von Python selbst
 #: (`_syntaxfehler_von_python`), Ruffs Fassung nur noch, wenn Python
 #: den Quelltext annimmt. Die Stichwörter passen auf beide.
+#: Die beiden häufigsten Fehler der ersten Stunden, im Wortlaut des
+#: Fehlerkatalogs. Die Prüfung vor dem Start fängt sie ab, bevor der
+#: Fehlerkatalog sie je zu sehen bekommt; bis dahin kam nur die
+#: allgemeine Meldung. Python und Ruff schreiben sie verschieden.
+_DOPPELPUNKT = (
+    "Am Ende dieser Zeile fehlt der Doppelpunkt.",
+    "Jede Zeile, die einen Block eröffnet (if, else, while, for, def, "
+    "class), endet mit einem Doppelpunkt – ist er hier gesetzt?",
+)
+_ANFUEHRUNGSZEICHEN = (
+    "Ein Text wurde geöffnet, aber in derselben Zeile nicht wieder "
+    "geschlossen.",
+    "Stehen am Anfang und am Ende des Textes dieselben "
+    "Anführungszeichen?",
+)
+
 _SYNTAX_GENAUER: tuple[tuple[str, tuple[str, str]], ...] = (
+    ("expected ':'", _DOPPELPUNKT),
+    ("expected `:`", _DOPPELPUNKT),
+    ("unterminated string literal", _ANFUEHRUNGSZEICHEN),
+    ("missing closing quote", _ANFUEHRUNGSZEICHEN),
     (
         "was never closed",
         (
@@ -511,9 +531,12 @@ def _import_fund(
         f"{name}. {datei.name} ruft sie beim Start auf."
     )
     if aehnlich is not None:
-        meldung += (
-            f" Hier heißt sie {aehnlich.name}, und Groß- und "
-            "Kleinschreibung zählen."
+        # Der richtige Name gehört zur Hilfe, nicht zur Meldung: im
+        # Prüfungsmodus entfällt nur der Teil „Zu prüfen“, und dort
+        # stand er sonst weiter als fertige Lösung.
+        leitfrage = (
+            f"Steht sie dort als {aehnlich.name}, also mit anderer "
+            "Groß- und Kleinschreibung, die mitzählt?"
         )
     return RuffFund(
         datei=unit_datei,
