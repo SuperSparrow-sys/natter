@@ -376,17 +376,23 @@ def test_haeufige_sql_fehler_kommen_deutsch_an(
     db.connected = False
 
 
-def test_panel_und_pcl_nennen_mehrere_anweisungen_gleich(tmp_path: Path) -> None:
+def test_mehrere_anweisungen_meldet_pcl_und_das_panel_fuehrt_sie_aus(
+    tmp_path: Path,
+) -> None:
+    """Im Programm bleibt es bei einer Anweisung je Aufruf, mit
+    deutscher Meldung. Das Panel führt ein ganzes Arbeitsblatt der
+    Reihe nach aus und zeigt das Ergebnis der letzten."""
     db = SQLite3Connection(":memory:")
     with pytest.raises(NatterDatenbankError) as fehler:
         db.query("SELECT 1; SELECT 2")
     im_programm = _datenbankmeldung_eindeutschen(str(fehler.value))
+    assert "nur eine Anweisung auf einmal" in im_programm
 
     panel = _datei_panel(tmp_path)
     panel._verbinden()
     im_panel = _ausfuehren(panel, "SELECT 1; SELECT 2")
-    assert im_panel == im_programm
-    assert "nur eine Anweisung auf einmal" in im_panel
+    assert im_panel == "1 Zeile."
+    assert panel.ergebnis_tabelle.item(0, 0).text() == "2"
     panel.trennen()
 
 

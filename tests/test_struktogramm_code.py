@@ -837,3 +837,33 @@ def test_zaehlschleife_in_ueblicher_schreibweise_laeuft(
     assert ergebnis.nicht_uebernommen == []
     _pruefen(ergebnis)
     assert _ausfuehren(ergebnis, a=2, b=4) == erwartet
+
+
+@pytest.mark.parametrize("kopf", ["für jedes x in liste", "für jeden x in liste", "for x in liste"])
+def test_fuer_jedes_wird_zu_einer_schleife_ueber_die_liste(kopf: str) -> None:
+    """„für jedes x in liste“ fiel auf den Platzhalter `range(0)`
+    zurück: der Rumpf lief nie."""
+    ergebnis = als_python(
+        _diagramm(_block("count_loop", kopf, children=[_anweisung("print(x)")]))
+    )
+
+    assert _zeilen(ergebnis)[1:] == ["    for x in liste:", "        print(x)"]
+    _pruefen(ergebnis)
+
+
+def test_eingabe_und_ausgabe_werden_uebersetzt_und_annotationen_verworfen() -> None:
+    """„Eingabe: zahl“ und „Ausgabe: zahl“ sind für Python gültige
+    Annotationen ohne Wert. Sie standen wörtlich im Code und bewirkten
+    nichts; die Schleife lief dann endlos."""
+    ergebnis = als_python(
+        _diagramm(
+            _anweisung("Eingabe: zahl"),
+            _anweisung("Ausgabe: zahl"),
+            _anweisung("Ergebnis: summe"),
+        )
+    )
+
+    assert '    zahl = input("zahl? ")' in _zeilen(ergebnis)
+    assert "    print(zahl)" in _zeilen(ergebnis)
+    assert ergebnis.nicht_uebernommen == ["Ergebnis: summe"]
+    _pruefen(ergebnis)

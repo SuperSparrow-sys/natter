@@ -41,6 +41,7 @@ from PySide6.QtWidgets import (
 )
 
 from ide.shell.vervollstaendigung import nebenfaden_rechnet
+from pcl.sortieren import sortierschluessel
 from pcl.zahlen import zahl
 
 # `utf-8-sig` liest auch Dateien ohne BOM und nimmt eine vorhandene
@@ -304,7 +305,8 @@ def _sortierschluessel(
             else:
                 mit_zahl.append(nummer)
                 continue
-        schluessel.append(zelle)
+        # Wie ein Wörterbuch: „Ärger“ vor „Bauer“, „anna“ vor „Bauer“.
+        schluessel.append(sortierschluessel(zelle))
         mit_text.append(nummer)
     return schluessel, mit_zahl, mit_text, leer
 

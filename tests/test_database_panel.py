@@ -361,3 +361,54 @@ def test_csv_import_liest_den_dezimalpunkt_je_spalte(tmp_path: Path) -> None:
         (1.25, 13.405, 2.49, 2500.0),
         (2.375, 8.5, 0.99, 3.0),
     ]
+
+
+def test_mehrere_anweisungen_laufen_der_reihe_nach() -> None:
+    """Ein Arbeitsblatt mit CREATE und INSERT lief vorher gar nicht:
+    das Panel nahm nur eine Anweisung auf einmal. Ein Semikolon in
+    einem Text trennt nicht."""
+    panel = _verbunden()
+    panel._sql_eingabe.setPlainText(
+        "CREATE TABLE schueler (name TEXT);\n"
+        "INSERT INTO schueler VALUES ('An;na');\n"
+        "-- Kommentar\n"
+        "INSERT INTO schueler VALUES ('Ben');\n"
+        "SELECT name FROM schueler ORDER BY name;\n"
+    )
+    panel._sql_ausfuehren()
+
+    assert panel.ergebnis_tabelle.rowCount() == 2
+    assert panel.ergebnis_tabelle.item(0, 0).text() == "An;na"
+
+
+def test_eine_gescheiterte_anweisung_nennt_ihre_nummer() -> None:
+    panel = _verbunden()
+    panel._sql_eingabe.setPlainText(
+        "CREATE TABLE t (n INTEGER); INSERT INTO gibtsnicht VALUES (1);"
+        " INSERT INTO t VALUES (2);"
+    )
+    panel._sql_ausfuehren()
+
+    assert "Anweisung 2 von 3" in panel._status_label.text()
+    assert _abfragen(panel, "SELECT count(*) FROM t") == [(0,)]
+
+
+def test_nur_die_markierung_wird_ausgefuehrt() -> None:
+    from PySide6.QtGui import QTextCursor
+
+    panel = _verbunden()
+    panel._sql_eingabe.setPlainText(
+        "CREATE TABLE a (n INTEGER);\nCREATE TABLE b (n INTEGER);"
+    )
+    cursor = panel._sql_eingabe.textCursor()
+    cursor.setPosition(0)
+    cursor.movePosition(
+        QTextCursor.MoveOperation.EndOfLine, QTextCursor.MoveMode.KeepAnchor
+    )
+    panel._sql_eingabe.setTextCursor(cursor)
+    panel._sql_ausfuehren()
+
+    assert _abfragen(
+        panel, "SELECT name FROM sqlite_master WHERE type = 'table'"
+    ) == [("a",)]
+

@@ -285,6 +285,27 @@ def test_csvansicht_sortiert_zahlen_nach_wert(
     assert spalte(2) == ["1,75", "2,5", "3", "11,25", "fehlt"]
 
 
+def test_csvansicht_sortiert_text_wie_ein_woerterbuch(
+    tmp_path: Path, qtbot,  # noqa: ANN001
+) -> None:
+    """Umlaute standen hinter „Z“, kleine Anfangsbuchstaben hinter
+    allen großen."""
+    datei = tmp_path / "klasse.csv"
+    datei.write_text(
+        "Name\nZimmer\nÖzdemir\nanna\nBauer\nÄrger\nulla\n",
+        encoding="utf-8",
+    )
+    ansicht = CsvAnsicht(datei)
+    qtbot.addWidget(ansicht)
+    tabelle = ansicht.tabelle
+
+    tabelle.sortByColumn(0, Qt.SortOrder.AscendingOrder)
+
+    assert [
+        _zelle(ansicht, zeile, 0) for zeile in range(tabelle.model().rowCount())
+    ] == ["anna", "Ärger", "Bauer", "Özdemir", "ulla", "Zimmer"]
+
+
 def test_csvansicht_laedt_nach_aenderung_der_datei_neu(
     tmp_path: Path, qtbot,  # noqa: ANN001
 ) -> None:

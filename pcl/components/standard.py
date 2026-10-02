@@ -39,6 +39,7 @@ from PySide6.QtWidgets import (
 from pcl.control import Control
 from pcl.errors import NatterPropertyError, NatterZellenError
 from pcl.properties import ART_FARBE, Event, Prop, typ_beschreibung
+from pcl.sortieren import sortierschluessel
 from pcl.strings import Strings
 
 #: Innenabstand (links, oben, rechts, unten) der Optionsliste einer
@@ -510,7 +511,9 @@ class ListBox(Control):
         if self.sorted:
             # Still, sonst meldete das Umordnen sich selbst als
             # Änderung und landete wieder hier.
-            self._items.still_uebernehmen(builtins.sorted(self._items, key=str.casefold))
+            self._items.still_uebernehmen(
+                builtins.sorted(self._items, key=sortierschluessel)
+            )
         eintraege = list(self._items)
         widget.blockSignals(True)
         try:

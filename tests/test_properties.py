@@ -147,3 +147,25 @@ def test_ereignisse_helper_liefert_events() -> None:
     events = ereignisse(Beispielknopf)
     assert set(events) == {"on_click"}
     assert events["on_click"].doc == "Wird beim Klicken ausgelöst"
+
+
+@pytest.mark.parametrize(
+    ("komponente", "eigenschaft", "zu_klein"),
+    [("Timer", "interval", 0), ("StringGrid", "row_count", -1), ("StringGrid", "col_count", -1)],
+)
+def test_zu_kleine_zahlen_werden_abgelehnt(
+    komponente: str, eigenschaft: str, zu_klein: int
+) -> None:
+    """Ein negatives Intervall nahm der Timer hin und lief mit 1 ms;
+    eine Tabelle mit -1 Zeilen zeigte weiter zwei und meldete -1."""
+    import pcl
+    from pcl import Form
+
+    formular = Form()
+    objekt = getattr(pcl, komponente)(formular)
+    vorher = getattr(objekt, eigenschaft)
+
+    with pytest.raises(NatterPropertyError, match="ab"):
+        setattr(objekt, eigenschaft, zu_klein)
+
+    assert getattr(objekt, eigenschaft) == vorher

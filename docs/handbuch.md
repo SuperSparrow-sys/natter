@@ -686,19 +686,24 @@ nicht, fragt Natter, ob eine neue, leere Datenbank angelegt werden
 soll. Ohne Dateinamen verbindet das Panel nicht, denn eine Datenbank
 ohne Datei wäre beim Trennen samt ihren Tabellen verloren.
 
-Tabellen entstehen mit SQL im Eingabefeld und **Ausführen**. Das
-Panel führt eine Anweisung nach der anderen aus, also erst
+Tabellen entstehen mit SQL im Eingabefeld und **Ausführen**. Mehrere
+Anweisungen, jede mit einem Semikolon abgeschlossen, laufen der Reihe
+nach, etwa ein ganzes Arbeitsblatt auf einmal:
 
 ```sql
 CREATE TABLE schueler (
     id    INTEGER PRIMARY KEY AUTOINCREMENT,
     name  TEXT NOT NULL,
     note  INTEGER
-)
+);
+INSERT INTO schueler (name, note) VALUES ('Anna', 2), ('Ben', 1);
+SELECT * FROM schueler;
 ```
 
-dann `INSERT INTO schueler (name, note) VALUES ('Anna', 2), ('Ben', 1)`
-und zum Nachsehen `SELECT * FROM schueler`.
+Angezeigt wird das Ergebnis der letzten Anweisung. Scheitert eine,
+hält das Panel dort an und nennt ihre Nummer; die Anweisungen davor
+sind dann schon ausgeführt. Ist im Feld etwas markiert, läuft nur
+die Markierung.
 
 Links zeigt der Baum die Tabellen mit ihren Spalten, rechts steht das
 Ergebnis eines `SELECT`, darüber die Rückmeldung wie „2 Zeilen.“ oder

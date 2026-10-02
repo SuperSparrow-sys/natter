@@ -148,6 +148,31 @@ def _umwandler(
     return lambda wert: wert
 
 
+def anweisungen_trennen(sql: str) -> list[str]:
+    """Zerlegt `sql` in einzelne Anweisungen. Getrennt wird nur an
+    einem Semikolon, an dem `sqlite3.complete_statement` eine
+    Anweisung für vollständig hält - nicht in einem Text wie 'a;b'
+    und nicht mitten in einem CREATE TRIGGER. Was nach dem letzten
+    Semikolon übrig bleibt, ist die letzte Anweisung; leere fallen
+    weg."""
+    anweisungen: list[str] = []
+    anfang = 0
+    for stelle, zeichen in enumerate(sql):
+        if zeichen == ";" and sqlite3.complete_statement(
+            sql[anfang:stelle + 1]
+        ):
+            anweisungen.append(sql[anfang:stelle + 1])
+            anfang = stelle + 1
+    anweisungen.append(sql[anfang:])
+    return [a.strip() for a in anweisungen if _hat_inhalt(a)]
+
+
+def _hat_inhalt(anweisung: str) -> bool:
+    """Ob mehr als Leerraum, Semikolons und Kommentare darin steht."""
+    ohne = re.sub(r"--[^\n]*|/\*.*?\*/", "", anweisung, flags=re.S)
+    return bool(ohne.replace(";", "").strip())
+
+
 def bezeichner(name: str) -> str:
     """Setzt einen Tabellen- oder Spaltennamen in doppelte
     Anführungszeichen und verdoppelt jedes darin (Punkt 241). Ohne
@@ -1039,28 +1064,51 @@ class DatenbankPanel(QWidget):
         if self._verbindung is None:
             self._status_label.setText("Nicht verbunden.")
             return
-        sql = self._sql_eingabe.toPlainText()
+        # Ist etwas markiert, läuft nur das. Ein Arbeitsblatt mit einem
+        # CREATE und zwanzig INSERT lief vorher gar nicht: das Panel
+        # nahm nur eine Anweisung auf einmal.
+        cursor = self._sql_eingabe.textCursor()
+        sql = (
+            cursor.selectedText().replace("\u2029", "\n")
+            if cursor.hasSelection()
+            else self._sql_eingabe.toPlainText()
+        )
+        anweisungen = anweisungen_trennen(sql) or [sql]
         war_offen = self._transaktion_offen
-        try:
-            spalten, zeilen, mehr, gekuerzt, geaendert = self._abfrage(sql)
-        except _Abbruch as abbruch:
-            self._status_setzen(str(abbruch), war_offen)
-            return
-        except (NatterDatenbankError, sqlite3.Error) as fehler:
-            self._status_setzen(_fehlertext(fehler), war_offen)
-            return
-        except MemoryError:
-            self._status_setzen(
-                "Für dieses Ergebnis reicht der Arbeitsspeicher nicht. "
-                "Mit LIMIT oder weniger Spalten wird es kleiner.",
-                war_offen,
+        for nummer, anweisung in enumerate(anweisungen, start=1):
+            vorsatz = (
+                f"Anweisung {nummer} von {len(anweisungen)}: "
+                if len(anweisungen) > 1
+                else ""
             )
-            return
-        if self._verbindung is None:
-            return
+            try:
+                spalten, zeilen, mehr, gekuerzt, geaendert = self._abfrage(
+                    anweisung
+                )
+            except _Abbruch as abbruch:
+                self._status_setzen(vorsatz + str(abbruch), war_offen)
+                self._tabellenbaum_aktualisieren()
+                return
+            except (NatterDatenbankError, sqlite3.Error) as fehler:
+                self._status_setzen(vorsatz + _fehlertext(fehler), war_offen)
+                self._tabellenbaum_aktualisieren()
+                return
+            except MemoryError:
+                self._status_setzen(
+                    vorsatz
+                    + "Für dieses Ergebnis reicht der Arbeitsspeicher "
+                    "nicht. Mit LIMIT oder weniger Spalten wird es "
+                    "kleiner.",
+                    war_offen,
+                )
+                return
+            if self._verbindung is None:
+                return
         self._ergebnis_anzeigen(spalten, zeilen)
         if not spalten:
-            if geaendert >= 0:
+            if len(anweisungen) > 1:
+                status = f"{len(anweisungen)} Anweisungen ausgeführt."
+            elif geaendert >= 0:
                 status = (
                     "1 Zeile geändert." if geaendert == 1
                     else f"{_ganzzahl(geaendert)} Zeilen geändert."

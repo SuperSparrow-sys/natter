@@ -363,8 +363,8 @@ Eine Tabelle mit Zellen aus Text.
 
 | Eigenschaft | Typ | Standardwert | Kategorie | Hilfetext |
 |---|---|---|---|---|
-| row_count | int | 5 | Daten | Anzahl der Zeilen |
-| col_count | int | 5 | Daten | Anzahl der Spalten |
+| row_count | int | 5 | Daten | Anzahl der Zeilen, ab 0 |
+| col_count | int | 5 | Daten | Anzahl der Spalten, ab 0 |
 | cells\[spalte, zeile\] | str | "" | – | Inhalt einer Zelle |
 | col_titles | `Strings` | leer | Daten | Die Spaltenköpfe, einer je Zeile; leer = Spaltennummern |
 | default_col_width | int | 100 | Layout | Breite der Spalten in Pixeln, sofern col_widths nichts anderes sagt |
@@ -638,7 +638,7 @@ im laufenden Programm ist er nicht zu sehen.
 | Eigenschaft | Typ | Standardwert | Kategorie | Hilfetext |
 |---|---|---|---|---|
 | enabled | bool | True | Verhalten | Legt fest, ob der Zeitgeber läuft |
-| interval | int | 1000 | Verhalten | Abstand zwischen zwei Auslösungen in Millisekunden |
+| interval | int | 1000 | Verhalten | Abstand zwischen zwei Auslösungen in Millisekunden, ab 1 |
 
 | Ereignis | Signatur | Auslöser |
 |---|---|---|

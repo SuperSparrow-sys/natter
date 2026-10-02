@@ -275,8 +275,12 @@ class StringGrid(Control):
     einer einzelnen Spalte, `default_col_width` die aller übrigen.
     """
 
-    row_count = Prop(int, 5, kategorie="Daten", doc="Anzahl der Zeilen")
-    col_count = Prop(int, 5, kategorie="Daten", doc="Anzahl der Spalten")
+    row_count = Prop(
+        int, 5, kategorie="Daten", doc="Anzahl der Zeilen, ab 0", minimum=0
+    )
+    col_count = Prop(
+        int, 5, kategorie="Daten", doc="Anzahl der Spalten, ab 0", minimum=0
+    )
     default_col_width = Prop(
         int,
         100,

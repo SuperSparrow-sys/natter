@@ -61,7 +61,22 @@ _SCHLEIFENZUSATZ = re.compile(
 #: Kopf einer Zählschleife, wie ihn der Vorgabetext „für i von 1 bis
 #: n“ vormacht. Bis Punkt 284 wurde daraus `for _ in range(0):`, weil
 #: das Ganze kein Python ist, und der Rumpf lief nie.
-_FUER = re.compile(r"^(?:für|fuer|for)\s+(?P<rest>.+)$", re.IGNORECASE)
+#: „für“ am Anfang eines Schleifenkopfs, auch „für jedes x in liste“:
+#: das Wort davor fällt nur weg, wenn danach „Name in …“ folgt. Ein
+#: Name „jede“ in „for jede in liste“ bleibt so stehen.
+_FUER = re.compile(
+    r"^(?:für|fuer|for)\s+(?:(?:jedes|jede|jeden|jeder)\s+(?=\w+\s+in\s))?"
+    r"(?P<rest>.+)$",
+    re.IGNORECASE,
+)
+
+#: „Eingabe: zahl“ und „Ausgabe: zahl“, wie Ein- und Ausgabe im
+#: Struktogramm üblicherweise geschrieben werden. Für Python ist das
+#: eine Annotation ohne Wert: gültig, aber ohne jede Wirkung.
+_EIN_AUSGABE = re.compile(
+    r"^\s*(?P<art>eingabe|ausgabe)\s*:\s*(?P<rest>.+?)\s*$",
+    re.IGNORECASE,
+)
 _VON_BIS = re.compile(
     r"^(?P<name>\w+)\s*(?:\s(?:von|from)\s|:?=)\s*(?P<von>.+?)"
     r"\s+(?:bis|to)\s+(?P<bis>.+?)"
@@ -320,7 +335,15 @@ class _Schreiber:
         if text.strip() in ("break", "continue"):
             self._springen(text.strip(), tiefe)
             return
-        if not _ist_anweisung(text, self.in_schleife):
+        ein_aus = (
+            _EIN_AUSGABE.match(text) if "\n" not in text.strip() else None
+        )
+        if ein_aus is not None:
+            text = _ein_ausgabe_als_python(ein_aus) or text
+        if _nur_annotation(text) or not _ist_anweisung(text, self.in_schleife):
+            # Eine Annotation ohne Wert („Ergebnis: summe“) ließe
+            # Python gelten; sie bewirkte im Programm aber nichts, und
+            # die Schülerin hielte die Zeile für übersetzt.
             self.verworfen(text, tiefe)
             return
         anfang = len(self.zeilen)
@@ -538,6 +561,31 @@ def _einzeilig(roh: Any) -> str:
     """Kopftexte werden in eine Zeile gezogen: ein Umbruch mitten in
     einer Bedingung würde die Einrückung der Ausgabe zerreißen."""
     return " ".join(str(roh or "").split())
+
+
+def _ein_ausgabe_als_python(treffer: re.Match[str]) -> str | None:
+    """„Eingabe: zahl“ als `zahl = input("zahl? ")`, „Ausgabe: zahl“
+    als `print(zahl)` - oder `None`, wenn hinter dem Doppelpunkt kein
+    Name bzw. kein Ausdruck steht."""
+    rest = treffer.group("rest")
+    if treffer.group("art").lower() == "eingabe":
+        if not rest.isidentifier() or keyword.iskeyword(rest):
+            return None
+        return f'{rest} = input("{rest}? ")'
+    if not _ist_ausdruck(rest):
+        return None
+    return f"print({rest})"
+
+
+def _nur_annotation(quelltext: str) -> bool:
+    """Ob `quelltext` nur aus einer Annotation ohne Wert besteht."""
+    try:
+        baum = ast.parse(textwrap.dedent(str(quelltext)))
+    except (SyntaxError, ValueError):
+        return False
+    return len(baum.body) == 1 and (
+        isinstance(baum.body[0], ast.AnnAssign) and baum.body[0].value is None
+    )
 
 
 def _ist_anweisung(quelltext: str, in_schleife: bool = True) -> bool:

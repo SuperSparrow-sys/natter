@@ -59,6 +59,13 @@ def test_sorted_ordnet_die_eintraege_und_haelt_sie_geordnet() -> None:
     assert angezeigt == list(liste.items)
 
 
+def test_sorted_ordnet_umlaute_wie_ein_woerterbuch() -> None:
+    """Mit `str.casefold` standen „Ärger“ und „Özdemir“ hinter „Zimmer“."""
+    liste = _liste("Zimmer", "Özdemir", "anna", "Bauer", "Ärger", "ulla")
+    liste.sorted = True
+    assert list(liste.items) == ["anna", "Ärger", "Bauer", "Özdemir", "ulla", "Zimmer"]
+
+
 def test_ohne_sorted_bleibt_die_reihenfolge() -> None:
     liste = _liste("b", "a")
     assert list(liste.items) == ["b", "a"]

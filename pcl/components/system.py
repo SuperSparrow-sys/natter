@@ -90,7 +90,8 @@ class Timer(Control):
         int,
         1000,
         kategorie="Verhalten",
-        doc="Abstand zwischen zwei Auslösungen in Millisekunden",
+        doc="Abstand zwischen zwei Auslösungen in Millisekunden, ab 1",
+        minimum=1,
     )
 
     on_timer = Event(doc="Wird nach jeweils `interval` Millisekunden ausgelöst")

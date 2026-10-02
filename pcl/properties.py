@@ -128,6 +128,7 @@ class Prop:
         doc: str = "",
         werte: tuple[Any, ...] = (),
         art: str = "",
+        minimum: float | None = None,
     ) -> None:
         self.typ = typ
         self.standardwert = standardwert
@@ -142,6 +143,11 @@ class Prop:
         #: nicht sagt: `ART_FARBE` für eine Farbe als Text. Leer heißt
         #: die gewöhnliche Zelle für den Typ.
         self.art = art
+        #: Der kleinste erlaubte Wert einer Zahl, oder `None`. Ohne
+        #: Grenze nahm `Timer.interval = -100` jeder hin, Qt lief
+        #: dann aber mit 1 ms, und ein Spiel, das sein Intervall
+        #: schrittweise verkleinert, raste ohne Meldung los.
+        self.minimum = minimum
         self.name: str | None = None
 
     def __set_name__(self, owner: type, name: str) -> None:
@@ -169,6 +175,16 @@ class Prop:
             raise NatterPropertyError(
                 f"{type(instance).__name__}.{self.name} kennt den Wert "
                 f"{wert!r} nicht. Möglich sind: {erlaubt}."
+            )
+        if self.minimum is not None and wert < self.minimum:
+            grenze = (
+                int(self.minimum)
+                if float(self.minimum).is_integer()
+                else self.minimum
+            )
+            raise NatterPropertyError(
+                f"{type(instance).__name__}.{self.name} erwartet einen "
+                f"Wert ab {grenze}, erhalten wurde {wert}."
             )
         instance.__dict__[self._speicher_name()] = wert
         # Live-Wirkung (Abschnitt 5.0): Unterklassen mit Qt-Anbindung
