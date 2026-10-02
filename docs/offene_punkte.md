@@ -7,12 +7,12 @@ ganze Vorgeschichte der früheren Punkte stehen, damit sich bei einem
 ähnlichen Fehler nachlesen lässt, was schon geprüft wurde.
 
 Die Nummern laufen durch und werden nicht neu vergeben. Der nächste
-Punkt bekommt die **468**.
+Punkt bekommt die **469**.
 
 ## Ein neuer Punkt
 
 ```markdown
-## 468. Kurz, was nicht stimmt
+## 469. Kurz, was nicht stimmt
 
 **Gemeldet:** Datum, wo es auffiel (Fenster, Menü, Beispielprojekt),
 Natter-Version.

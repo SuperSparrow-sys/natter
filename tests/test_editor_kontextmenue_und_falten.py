@@ -143,6 +143,31 @@ def test_das_kontextmenue_sagt_wiederholen_wie_das_menue(
     assert "Wiederherstellen" not in namen
 
 
+def test_ein_programm_im_selben_prozess_ueberschreibt_das_wort_nicht(
+    qtbot, monkeypatch
+) -> None:  # noqa: ANN001
+    """Lief vorher in demselben Prozess ein `pcl.Application`, etwa in
+    einem anderen Test, setzte `pcl` Qts Übersetzung ein zweites Mal
+    davor, und das Kontextmenü hieß wieder „Wiederherstellen“. Im CI
+    schlug das je nach Verteilung der Testdateien an."""
+    from PySide6.QtWidgets import QApplication
+
+    import pcl.application as anwendung
+
+    monkeypatch.setattr(anwendung, "_UEBERSETZER", [])
+    anwendung._qt_deutsch_laden(QApplication.instance())
+    feld = QLineEdit()
+    qtbot.addWidget(feld)
+
+    namen = [
+        a.text().split("\t")[0].replace("&", "")
+        for a in feld.createStandardContextMenu().actions()
+    ]
+
+    assert "Wiederholen" in namen
+    assert anwendung._UEBERSETZER == []
+
+
 def test_jede_taste_im_kontextmenue_steht_so_in_der_uebersicht(
     qtbot, hauptfenster
 ) -> None:  # noqa: ANN001

@@ -26,6 +26,10 @@ from pcl.theme import NATTER_SYMBOL
 #: Texte fallen ohne Meldung ins Englische zurück.
 _UEBERSETZER: list[QTranslator] = []
 
+#: Qt-Eigenschaft der Anwendung, die die IDE setzt, wenn sie Qts
+#: deutsche Texte samt eigenen Wörtern eingerichtet hat.
+UEBERSETZT_EIGENSCHAFT = "natter_deutsch"
+
 #: Unter dieser Kennung führt Windows ein Programm in der Taskleiste,
 #: getrennt von der IDE mit ihrer Kennung `Natter.IDE` (Punkt 416).
 ANWENDUNGS_KENNUNG = "Natter.Programm"
@@ -41,7 +45,11 @@ def _qt_deutsch_laden(app: QApplication) -> None:
     neben PySide6; dort legt PyInstaller die Dateien in einer
     exportierten Exe ab. Fehlen sie, bleiben die Texte englisch.
     """
-    if _UEBERSETZER:
+    # Hat die IDE im selben Prozess ihre Übersetzung schon eingerichtet
+    # (`ide/deutsch.py`), bleibt es dabei. Ein zweiter Satz käme nach
+    # ihr dran, würde zuerst gefragt und überginge ihre eigenen Wörter:
+    # aus „Wiederholen“ wurde wieder „Wiederherstellen“ (Punkt 440).
+    if _UEBERSETZER or app.property(UEBERSETZT_EIGENSCHAFT):
         return
     ordner = [
         QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath),

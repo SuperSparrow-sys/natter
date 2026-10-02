@@ -26,6 +26,8 @@ from __future__ import annotations
 from PySide6.QtCore import QLibraryInfo, QLocale, QTranslator
 from PySide6.QtWidgets import QApplication
 
+from pcl.application import UEBERSETZT_EIGENSCHAFT
+
 #: Hält die Übersetzer am Leben, solange das Programm läuft.
 _UEBERSETZER: list[QTranslator] = []
 
@@ -125,4 +127,7 @@ def deutsch_einschalten(app: QApplication | None = None) -> int:
         ersetzer = _Ersetzer()
         app.installTranslator(ersetzer)
         _ERSETZER.append(ersetzer)
+        # Damit ein `pcl.Application` im selben Prozess, etwa in der
+        # Vorschau oder einem Test, keinen zweiten Satz davorsetzt.
+        app.setProperty(UEBERSETZT_EIGENSCHAFT, True)
     return len(_UEBERSETZER)

@@ -12686,3 +12686,17 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 
 **Behoben (2. Oktober 2026, in 0.4.3).** `_panel_schrift_anpassen` (`ide/shell/hauptfenster.py`) setzt die Schrift auch für „Variablen“, „Überwachen“, „Aufrufstapel“ und jede offene Hilfeseite; eine neu geöffnete Hilfeseite bekommt sie gleich mit. Die Statuszeile sagt nach Strg+Plus „Panels und Hilfeseiten wachsen mit“. Das Handbuch, Abschnitt 6 „Schrift am Beamer zu klein“, nennt die neuen Teile. Test: `test_strg_plus_vergroessert_hilfeseite_und_variablen` in `tests/test_hilfe_f1_und_suche.py` (Schrift der Hilfeseite, ihres Dokuments und des Panels „Variablen“ nach viermal Strg+Plus größer).
 
+---
+
+## 468. „Wiederholen“ im Kontextmenü hängt davon ab, ob vorher ein Programm im selben Prozess lief ~~(erledigt)~~
+
+**Gemeldet:** 2. Oktober 2026, CI-Lauf 37059180737 auf GitHub, Entwicklungsstand `a1e2465`.
+
+**Beobachtet:** Im CI scheiterten `test_das_kontextmenue_sagt_wiederholen_wie_das_menue` (alle drei Felder) und `test_jede_taste_im_kontextmenue_steht_so_in_der_uebersicht`: das Kontextmenü hieß „Wiederherstellen (Strg+Y)“ statt „Wiederholen“. Die Läufe davor und danach waren grün; es hing davon ab, welche Testdateien `pytest-xdist` in denselben Prozess legte.
+
+**Ursache:** nachgewiesen. `_qt_deutsch_laden` in `pcl/application.py` richtet beim ersten `pcl.Application` Qts deutsche Übersetzung ein, unabhängig davon, ob die IDE das im selben Prozess schon getan hat. Qt fragt den zuletzt eingerichteten Übersetzer zuerst; der zweite Satz ging deshalb vor den `_Ersetzer` aus Punkt 440 (`ide/deutsch.py`), und Qts „Wiederherstellen“ setzte sich wieder durch. In Natter selbst trifft das die Vorschau, sobald darin ein `pcl.Application` entsteht.
+
+**Zu tun:** `pcl` richtet keinen zweiten Satz ein, wenn die IDE ihre Übersetzung schon eingerichtet hat. Erledigt, wenn ein Test nach `_qt_deutsch_laden` im Prozess der IDE weiter „Wiederholen“ findet.
+
+**Behoben (2. Oktober 2026, in 0.4.3).** `deutsch_einschalten` (`ide/deutsch.py`) setzt nach dem Einrichten die Qt-Eigenschaft `natter_deutsch` an der Anwendung (`UEBERSETZT_EIGENSCHAFT` in `pcl/application.py`); `_qt_deutsch_laden` richtet dann keinen zweiten Satz ein. Ein Schülerprogramm in seinem eigenen Prozess lädt die Übersetzung weiter selbst. Test: `test_ein_programm_im_selben_prozess_ueberschreibt_das_wort_nicht` in `tests/test_editor_kontextmenue_und_falten.py`; mit `pcl/application.py` aus `HEAD` scheitert er.
+
