@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 #: Steht auf dem Startbild. Von Hand gepflegt und nicht über
 #: `importlib.metadata` gelesen: die Paketangaben nachzuschlagen dauert
 #: länger als das Bild, das sie zeigen soll.
-VERSION = "0.4.2"
+VERSION = "0.4.3"
 
 #: Unter dieser Kennung führt Windows die IDE in der Taskleiste. Die
 #: Verknüpfungen im Startmenü und auf dem Schreibtisch tragen dieselbe
