@@ -8581,6 +8581,12 @@ class HauptFenster(QMainWindow):
         0.3.6 zwei Programme."""
         if self._lade_beginn is None:
             return False
+        # Ein kurzes Konsolenprogramm kann fertig sein, bevor der Takt
+        # der Ladeanzeige seine erste Ausgabe bemerkt hat. Es lädt
+        # dann nicht mehr, es wartet nur noch auf die Eingabetaste.
+        if self._programm_wartet_nur_noch():
+            self._ladeanzeige_beenden()
+            return False
         sekunden = int(time.monotonic() - self._lade_beginn)
         name = self.projekt.name if self.projekt is not None else "Das Programm"
         self.statusBar().showMessage(

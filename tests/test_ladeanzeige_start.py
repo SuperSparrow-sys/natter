@@ -207,6 +207,13 @@ def test_ein_fertiges_konsolenprogramm_haelt_den_naechsten_start_nicht_auf(
     assert fenster.laufender_prozess is not None
     erster.wait(timeout=10)
 
+    # Sofort nach dem Ende, bevor die Ladeanzeige die erste Ausgabe
+    # bemerkt hat: hieß „wird noch geladen“, und nichts startete.
+    zweiter = fenster.laufender_prozess
+    qtbot.waitUntil(fenster._programm_wartet_nur_noch, timeout=60_000)
+    fenster._projekt_starten_aktion()
+    assert fenster.laufender_prozess is not zweiter
+
 
 def test_ein_laufendes_konsolenprogramm_wird_weiter_abgelehnt(
     hauptfenster, qtbot, tmp_path: Path
