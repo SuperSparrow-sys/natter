@@ -129,22 +129,37 @@ def _spalte_lesen(texte: list[str], pd: Any) -> Any:
         # der fehlende Werte kennt; `int64` kann das nicht.
         typ = "Int64" if None in ganz else "int64"
         return pd.array(ganz, dtype=typ)
+    # Was ein Punkt bedeutet, entscheidet die ganze Spalte: neben
+    # „2.49“ ist „1.250“ 1,25 und nicht 1250.
+    from pcl.zahlen import PunktInSpalte
+
+    punkt = PunktInSpalte()
+    for t in gefuellt:
+        punkt.sehen(t)
+    if punkt.ergebnis is None:
+        return texte
     werte: list[float | None] = []
     for t in texte:
         if not t.strip():
             werte.append(None)
             continue
         try:
-            werte.append(_zelle_lesen(t.strip()))
+            werte.append(
+                _zelle_lesen(t.strip(), dezimalpunkt=punkt.ergebnis)
+            )
         except ValueError:
             return texte
     return pd.array(werte, dtype="float64")
 
 
-def _zelle_lesen(zelltext: str) -> float:
+def _zelle_lesen(zelltext: str, *, dezimalpunkt: bool = False) -> float:
     """Die Zahl in einer Zelle, auch in der Schreibweise „2,5 · 10^21“,
-    die `zahl()` nicht kennt."""
-    from pcl.zahlen import zahl
+    die `zahl()` nicht kennt. Mit `dezimalpunkt` ist jeder Punkt ein
+    Dezimalpunkt (siehe `pcl.zahlen.PunktInSpalte`)."""
+    from pcl.zahlen import zahl, zahl_mit_dezimalpunkt
+
+    if dezimalpunkt:
+        return zahl_mit_dezimalpunkt(zelltext)
 
     treffer = _ZEHNERPOTENZ.fullmatch(zelltext)
     if treffer:

@@ -2593,9 +2593,15 @@ class DesignerCanvas(QObject):
         # Eine Unit mit Syntaxfehler kann `libcst` nicht umschreiben.
         # Gemeldet wird das vorher, mit der Zeile, statt mit einem
         # `ParserSyntaxError` in der allgemeinen Fehlermeldung
-        # (Punkt 141). Geändert ist dann noch nichts.
+        # (Punkt 141). Geändert ist dann noch nichts. Geprüft werden
+        # auch die offenen Editoren: eine ungespeicherte, angefangene
+        # Zeile dort ließ sonst das Einfügen in den Editor scheitern,
+        # nachdem Datei und `.pfm` die Methode schon hatten.
         meldung = self._syntaxfehler_melden(
-            [quelltext],
+            [
+                quelltext,
+                *(e.toPlainText() for e in self._offene_unit_editoren()),
+            ],
             "Die Methode lässt sich erst anlegen, wenn er behoben ist.",
         )
         if meldung is not None:

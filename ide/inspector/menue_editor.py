@@ -112,8 +112,15 @@ def menue_methode_anlegen(canvas: Any, methodenname: str) -> bool:
     quelltext = canvas._unit_lesen_oder_melden(folge)
     if quelltext is None:
         return False
+    # Auch die offenen Editoren: eine ungespeicherte, angefangene
+    # Zeile dort ließ sonst das spätere Einfügen in den Editor
+    # scheitern, nachdem die Datei die Methode schon hatte.
     meldung = canvas._syntaxfehler_melden(
-        [quelltext], "Die Methode lässt sich erst anlegen, wenn er behoben ist."
+        [
+            quelltext,
+            *(e.toPlainText() for e in canvas._offene_unit_editoren()),
+        ],
+        "Die Methode lässt sich erst anlegen, wenn er behoben ist.",
     )
     if meldung is not None:
         canvas._meldung_zeigen(meldung)

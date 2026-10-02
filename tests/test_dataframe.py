@@ -175,3 +175,21 @@ def test_to_dataframe_laesst_fuehrende_nullen_und_grosse_zahlen_heil() -> None:
     assert zurueck["anzahl"].sum() == 7
     assert list(zurueck["gross"]) == [2.5e21, 1.0]
     assert list(zurueck["nummer"]) == [1234567890123456789, 1]
+
+
+def test_to_dataframe_liest_den_dezimalpunkt_je_spalte() -> None:
+    """Wie beim CSV-Import: neben „2.49“ ist „1.250“ 1,25."""
+    formular = _Formular()
+    grid = formular.sg_tabelle
+    grid.col_count = 2
+    grid.row_count = 4
+    for zeile, (preis, tausend) in enumerate(
+        [("preis", "tausend"), ("1.250", "1.000"), ("2.49", "2.500"), ("0.99", "3")]
+    ):
+        grid.cells[0, zeile] = preis
+        grid.cells[1, zeile] = tausend
+
+    df = grid.to_dataframe()
+
+    assert df["preis"].tolist() == [1.25, 2.49, 0.99]
+    assert df["tausend"].tolist() == [1000, 2500, 3]

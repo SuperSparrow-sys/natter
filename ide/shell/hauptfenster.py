@@ -6807,6 +6807,8 @@ class HauptFenster(QMainWindow):
         ließ sich keine der vorherigen Änderungen mehr zurücknehmen
         (Punkt 248).
         """
+        from libcst import ParserSyntaxError
+
         from ide.codegen.ereignis import handler_methode_einfuegen
         from ide.designer.canvas import editortext_ersetzen
 
@@ -6820,16 +6822,25 @@ class HauptFenster(QMainWindow):
         if editor is not None:
             text = editor.toPlainText()
             if not re.search(rf"^\s*def {re.escape(methode)}\(", text, re.M):
+                neu: str | None
                 if editor.document().isModified():
-                    neu = handler_methode_einfuegen(
-                        text, klassenname, methode, parameter
-                    )
+                    # Der Designer prüft den Editortext vorher; kommt
+                    # trotzdem ein Syntaxfehler an, bleibt der Editor,
+                    # wie er ist, statt in der allgemeinen
+                    # Fehlermeldung zu enden.
+                    try:
+                        neu = handler_methode_einfuegen(
+                            text, klassenname, methode, parameter
+                        )
+                    except ParserSyntaxError:
+                        neu = None
                 else:
                     neu = unit.read_text(encoding="utf-8-sig")
                 # Behält den Stand von „geändert“ bei: eine ungespeicherte
                 # Unit bleibt ungespeichert, eine gespeicherte stimmt
                 # danach wieder mit der Datei überein.
-                editortext_ersetzen(editor, neu)
+                if neu is not None:
+                    editortext_ersetzen(editor, neu)
         editor = self.datei_oeffnen(unit)
         if editor is None:
             return
@@ -6842,8 +6853,6 @@ class HauptFenster(QMainWindow):
             # dem Start verspricht (Punkt 290). Bis dahin tat er nichts.
             # Eine Unit mit Syntaxfehler lässt sich nicht umschreiben;
             # die Prüfung vor dem Start nennt ihn.
-            from libcst import ParserSyntaxError
-
             try:
                 neu = handler_methode_einfuegen(
                     text, klassenname, methode, parameter

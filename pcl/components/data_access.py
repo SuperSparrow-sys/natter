@@ -341,6 +341,24 @@ class SQLite3Connection(Komponente):
                     self._meldung_fehlende_tabelle(fehler)
                 ) from fehler
             raise NatterDatenbankError(f"SQL-Fehler: {fehler}") from fehler
+        except OverflowError as fehler:
+            # Eine Zahl über 64 Bit scheitert erst beim Binden des
+            # Platzhalters, nachdem Python die Transaktion schon
+            # geöffnet hat - und ist keine `sqlite3.Error`. Ohne das
+            # Zurückrollen hier blieb die Transaktion offen, und jede
+            # weitere Anweisung galt als Teil von ihr und ging beim
+            # Programmende verloren.
+            if not war_offen and verbindung.in_transaction:
+                verbindung.rollback()
+            raise NatterDatenbankError(
+                "Die Zahl ist zu groß für eine Datenbankspalte "
+                "(höchstens 9.223.372.036.854.775.807). Größere Zahlen "
+                "lassen sich als Text speichern, etwa mit str(zahl)."
+            ) from fehler
+        except BaseException:
+            if not war_offen and verbindung.in_transaction:
+                verbindung.rollback()
+            raise
         return cursor
 
     def _meldung_fehlende_tabelle(self, fehler: sqlite3.Error) -> str:

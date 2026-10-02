@@ -136,6 +136,36 @@ def test_methode_anlegen_bei_syntaxfehler_meldet_und_aendert_nichts(
     assert not canvas.kommandos.kann_rueckgaengig
 
 
+def test_methode_anlegen_bei_kaputtem_editor_meldet_und_aendert_nichts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Die Datei ist in Ordnung, im Editor steht aber ungespeichert
+    eine angefangene Zeile. Geprüft wurde nur die Datei: sie und die
+    `.pfm` bekamen die Methode, das Einfügen in den Editor scheiterte
+    danach mit der allgemeinen Fehlermeldung."""
+    from PySide6.QtWidgets import QPlainTextEdit
+
+    canvas = _projekt(tmp_path, [_knopf("b_ok", 16)], "    pass\n")
+    editor = QPlainTextEdit()
+    editor.setProperty("pfad", str(tmp_path / "u_main.py"))
+    editor.setPlainText(_KOPF + "    def x(self):\n        self.x = \n")
+    meldungen: list[str] = []
+    monkeypatch.setattr(
+        "ide.designer.canvas.QMessageBox.warning",
+        lambda _eltern, _titel, text, *a: meldungen.append(text),
+    )
+    pfm_vorher = (tmp_path / "u_main.pfm").read_text(encoding="utf-8")
+
+    ergebnis = canvas.ereignis_handler_erzeugen(canvas.formular.b_ok)
+
+    assert ergebnis is None
+    assert len(meldungen) == 1
+    assert "einen Syntaxfehler" in meldungen[0]
+    assert (tmp_path / "u_main.pfm").read_text(encoding="utf-8") == pfm_vorher
+    assert _unit(tmp_path) == _KOPF + "    pass\n"
+    editor.deleteLater()
+
+
 def test_rueckgaengig_bei_inzwischen_kaputter_unit_bleibt_stimmig(tmp_path: Path) -> None:
     """Bekommt die Unit nach dem Umbenennen einen Syntaxfehler, nimmt
     Strg+Z den Namen der Komponente zurück und lässt die Methode, wie

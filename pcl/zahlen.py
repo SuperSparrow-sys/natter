@@ -72,6 +72,54 @@ def zahl(eingabe: str) -> float:
     return wert
 
 
+class PunktInSpalte:
+    """Entscheidet für eine ganze Spalte (CSV-Import, `StringGrid`),
+    was ein Punkt bedeutet - nicht Zelle für Zelle wie `zahl`.
+
+    Für eine einzelne Eingabe ist „1.250“ die Zahl 1250. In einer
+    Spalte, in der auch „2.49“ oder „0.125“ steht, ist der Punkt aber
+    erkennbar das Dezimalzeichen, wie in Dateien aus englischem Excel
+    oder `pandas.to_csv`. Zelle für Zelle gelesen wurde dort aus jedem
+    Wert mit genau drei Nachkommastellen still eine Tausenderzahl.
+
+    Die Werte kommen einzeln über `sehen`, damit große Dateien nicht
+    ganz im Speicher liegen müssen. `ergebnis` ist danach:
+
+    - ``True``: der Punkt ist das Dezimalzeichen; die Spalte wird mit
+      `zahl_mit_dezimalpunkt` gelesen.
+    - ``False``: nichts spricht dafür; es gilt `zahl`.
+    - ``None``: widersprüchlich („2.5“ neben „1.234.567“); die Spalte
+      bleibt Text, statt geraten zu werden.
+    """
+
+    def __init__(self) -> None:
+        self._komma = False
+        self._dezimal = False
+        self._mehrere = False
+
+    def sehen(self, wert: str) -> None:
+        bereinigt = wert.strip().replace(" ", "")
+        if "," in bereinigt:
+            self._komma = True
+        if bereinigt.count(".") > 1:
+            self._mehrere = True
+        elif "." in bereinigt and not _TAUSENDERPUNKTE.fullmatch(bereinigt):
+            self._dezimal = True
+
+    @property
+    def ergebnis(self) -> bool | None:
+        if not self._dezimal or self._komma:
+            return False
+        return None if self._mehrere else True
+
+
+def zahl_mit_dezimalpunkt(eingabe: str) -> float:
+    """Wie `zahl`, aber jeder Punkt ist ein Dezimalpunkt: „1.250“
+    ergibt 1.25. Nur für Spalten, für die `PunktInSpalte` das so
+    entschieden hat."""
+    return zahl(eingabe.replace(".", ","))
+
+
 def text(wert: float, stellen: int | None = None) -> str:
     """Schreibt eine Zahl als Text mit Dezimalkomma.
 

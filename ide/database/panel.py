@@ -52,7 +52,7 @@ from ide.viewers.csv_ansicht import csv_erkennen
 from pcl import SQLite3Connection
 from pcl.errors import NatterDatenbankError
 from pcl.fehlerkatalog import _datenbankmeldung_eindeutschen
-from pcl.zahlen import zahl
+from pcl.zahlen import PunktInSpalte, zahl, zahl_mit_dezimalpunkt
 
 #: So viele Zeilen zeigt das Panel höchstens an. Eine rekursive
 #: Abfrage ohne Abbruchbedingung liefert sonst Zeilen ohne Ende, und
@@ -133,14 +133,18 @@ def _spaltentyp(bisher: str | None, wert: str) -> str | None:
     return "INTEGER"
 
 
-def _umwandler(typ: str) -> Callable[[str], Any]:
+def _umwandler(
+    typ: str, dezimalpunkt: bool = False
+) -> Callable[[str], Any]:
     """Wandelt ein Feld für eine Spalte vom Typ `typ` um. In
     Zahlenspalten wird ein leeres Feld NULL, in Textspalten bleibt
-    es der leere Text."""
+    es der leere Text. Mit `dezimalpunkt` ist jeder Punkt in der
+    Spalte ein Dezimalpunkt (siehe `PunktInSpalte`)."""
     if typ == "INTEGER":
         return lambda wert: int(wert) if wert.strip() else None
     if typ == "REAL":
-        return lambda wert: zahl(wert) if wert.strip() else None
+        lesen = zahl_mit_dezimalpunkt if dezimalpunkt else zahl
+        return lambda wert: lesen(wert) if wert.strip() else None
     return lambda wert: wert
 
 
@@ -1269,12 +1273,13 @@ class DatenbankPanel(QWidget):
                 "Der Import wurde abgebrochen. Die Datenbank ist "
                 "unverändert.",
             ) as verbindung:
-                typen = self._spaltentypen(
+                typen, dezimalpunkte = self._spaltentypen(
                     pfad, delimiter, encoding, len(kopf)
                 )
                 self._csv_einlesen(
                     verbindung, leser, kopf, tabellenname, hilfsname,
                     ersetzen=ersetzen, dateiname=pfad.name, typen=typen,
+                    dezimalpunkte=dezimalpunkte,
                 )
         self._tabellenbaum_aktualisieren()
         return tabellenname
@@ -1290,12 +1295,17 @@ class DatenbankPanel(QWidget):
         ersetzen: bool,
         dateiname: str,
         typen: list[str],
+        dezimalpunkte: list[bool] | None = None,
     ) -> None:
         spalten_sql = ", ".join(
             f"{bezeichner(spalte)} {typ}"
             for spalte, typ in zip(kopf, typen, strict=True)
         )
-        umwandler = [_umwandler(typ) for typ in typen]
+        dezimalpunkte = dezimalpunkte or [False] * len(typen)
+        umwandler = [
+            _umwandler(typ, punkt)
+            for typ, punkt in zip(typen, dezimalpunkte, strict=True)
+        ]
         platzhalter = ", ".join("?" for _ in kopf)
         einfuegen = (
             f"INSERT INTO {bezeichner(hilfsname)} VALUES ({platzhalter})"
@@ -1357,24 +1367,35 @@ class DatenbankPanel(QWidget):
 
     def _spaltentypen(
         self, pfad: Path, delimiter: str, encoding: str, anzahl: int
-    ) -> list[str]:
+    ) -> tuple[list[str], list[bool]]:
         """Liest `pfad` einmal ganz und liefert je Spalte INTEGER,
-        REAL oder TEXT (siehe `_spaltentyp`). Eine Spalte ohne einen
-        einzigen Wert bleibt TEXT. Felder hinter der letzten Spalte
-        zählen nicht, die meldet erst `_csv_einlesen`."""
+        REAL oder TEXT (siehe `_spaltentyp`) und ob der Punkt in ihr
+        das Dezimalzeichen ist (siehe `PunktInSpalte`). Eine Spalte
+        ohne einen einzigen Wert bleibt TEXT, eine Zahlenspalte mit
+        widersprüchlichen Punkten ebenso. Felder hinter der letzten
+        Spalte zählen nicht, die meldet erst `_csv_einlesen`."""
         typen: list[str | None] = [None] * anzahl
+        punkte = [PunktInSpalte() for _ in range(anzahl)]
         with open(pfad, encoding=encoding, newline="") as datei:
             leser = csv.reader(datei, delimiter=delimiter)
             next(leser, None)
             for nummer, zeile in enumerate(leser, start=1):
                 for index, wert in enumerate(zeile[:anzahl]):
                     typen[index] = _spaltentyp(typen[index], wert)
+                    punkte[index].sehen(wert)
                 if nummer % ZEILEN_JE_STAPEL == 0:
                     self._zwischenstand(
                         f"„{pfad.name}“ wird geprüft … "
                         f"{_ganzzahl(nummer)} Zeilen"
                     )
-        return [typ or "TEXT" for typ in typen]
+        ergebnis: list[str] = []
+        dezimalpunkte: list[bool] = []
+        for typ, punkt in zip(typen, punkte, strict=True):
+            if typ in ("INTEGER", "REAL") and punkt.ergebnis is None:
+                typ = "TEXT"
+            ergebnis.append(typ or "TEXT")
+            dezimalpunkte.append(typ == "REAL" and bool(punkt.ergebnis))
+        return ergebnis, dezimalpunkte
 
     @staticmethod
     def _spalten_pruefen(kopf: list[str]) -> None:

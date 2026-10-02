@@ -335,3 +335,29 @@ def test_csv_import_erkennt_leere_und_gemischte_spalten(
         (None, -3.0, "acht", "04109", "", "1"),
         (-4, 1234.5, "9", "10115", "", "2"),
     ]
+
+
+def test_csv_import_liest_den_dezimalpunkt_je_spalte(tmp_path: Path) -> None:
+    """Neben „2.49“ ist „1.250“ eine Kommazahl und nicht 1250. Zelle
+    für Zelle gelesen wurde jeder Wert mit drei Nachkommastellen still
+    zur Tausenderzahl. Eine Spalte nur mit Tausenderpunkten bleibt,
+    wie sie war; widersprüchliche Punkte ergeben Text."""
+    panel = _verbunden()
+    csv_datei = tmp_path / "masse.csv"
+    csv_datei.write_text(
+        "laenge;breite;preis;tausend;wirr\n"
+        "0.125;52.520;1.299;1.000;2.5\n"
+        "1.250;13.405;2.49;2.500;1.234.567\n"
+        "2.375;8.5;0.99;3;1\n",
+        encoding="utf-8",
+    )
+    panel.csv_importieren(csv_datei)
+
+    assert [
+        zeile[2] for zeile in _abfragen(panel, "PRAGMA table_info(masse)")
+    ] == ["REAL", "REAL", "REAL", "REAL", "TEXT"]
+    assert _abfragen(panel, "SELECT laenge, breite, preis, tausend FROM masse") == [
+        (0.125, 52.52, 1.299, 1000.0),
+        (1.25, 13.405, 2.49, 2500.0),
+        (2.375, 8.5, 0.99, 3.0),
+    ]

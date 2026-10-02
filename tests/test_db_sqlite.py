@@ -175,6 +175,24 @@ def test_gescheitertes_execute_laesst_keine_transaktion_offen(
     assert zweite.execute("INSERT INTO x VALUES (2)") == 1
 
 
+def test_zu_grosse_zahl_laesst_keine_transaktion_offen(tmp_path) -> None:
+    """Eine Zahl über 64 Bit scheitert beim Binden mit `OverflowError`,
+    nicht mit einer `sqlite3.Error`. Danach blieb die Transaktion offen,
+    und alles Weitere ging beim Schließen verloren."""
+    pfad = tmp_path / "daten.sqlite"
+    erste = SQLite3Connection(pfad)
+    erste.execute("CREATE TABLE x (w TEXT, s INTEGER)")
+    with pytest.raises(NatterDatenbankError, match="zu groß"):
+        erste.execute("INSERT INTO x VALUES (:w, :s)", w="gross", s=2**70)
+
+    assert not erste.verbindung.in_transaction
+    erste.execute("INSERT INTO x VALUES ('danach', 1)")
+    erste.connected = False
+    zweite = SQLite3Connection(pfad)
+    zweite.verbindung.execute("PRAGMA busy_timeout = 0")
+    assert zweite.query("SELECT w FROM x") == [{"w": "danach"}]
+
+
 def test_gescheitertes_execute_laesst_eine_eigene_transaktion_stehen() -> None:
     """Wer an der Verbindung selbst eine Transaktion begonnen hat,
     entscheidet selbst über `commit()` oder `rollback()`."""
