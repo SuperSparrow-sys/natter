@@ -116,6 +116,43 @@ bei der Entwicklung von Natter eingesetzt, nicht in der fertigen IDE selbst
   werden nie von Hand geändert. Änderungen erfolgen ausschließlich über den
   Generator (`ide/codegen/`).
 
+## Wissensgraph
+
+Für die Arbeit an Natter liegt in `graphify-out/` ein Wissensgraph des
+Codes: Module, Klassen, Funktionen und wer wen aufruft, gewonnen mit
+[graphify](https://github.com/safishamsi/graphify) aus der Syntax des
+Quelltexts, ohne Sprachmodell und ohne Netz. Er ist ein Werkzeug der
+Entwicklung, kein Teil der IDE, und wird nicht eingecheckt.
+
+- Wer verstehen will, wie Teile zusammenhängen, fragt zuerst den
+  Graphen, statt Dateien der Reihe nach zu lesen:
+  `graphify query "<Frage>"`, `graphify path "<A>" "<B>"`,
+  `graphify explain "<Name>"`, `graphify affected "<Name>"` (wer
+  von einer Änderung betroffen ist). Die Antworten sind ein kleiner
+  Ausschnitt statt ganzer Dateien. `graphify-out/GRAPH_REPORT.md`
+  nur für den Überblick über die ganze Architektur.
+- Zum Ändern einer bestimmten Stelle wird die Datei weiterhin selbst
+  gelesen - der Graph sagt, wo etwas steht, nicht, was genau dort
+  steht.
+- Aktuell hält ihn `tools/graph_aktualisieren.sh`, ohne dass jemand
+  daran denken muss: am Ende jeder Antwort von Claude Code (Hook
+  `Stop` in `.claude/settings.json`) und nach jedem Commit, Checkout
+  und Merge (Git-Hooks), also auch nach dem Bau, dessen Schritt 12
+  die Versionsnummer committet. Das Skript vergleicht einen
+  Fingerabdruck aller Python-Dateien und kehrt ohne Änderung nach
+  rund 0,3 Sekunden zurück; nur bei einer Änderung rechnet graphify
+  im Hintergrund neu (gut 10 Sekunden, nie zwei Läufe zugleich). Das
+  Protokoll des letzten Laufs steht in `graphify-out/letzter_lauf.log`.
+- Einrichten auf einem neuen Rechner:
+  `uv tool install graphifyy`, `graphify update .` und
+  `bash tools/graph_aktualisieren.sh --einrichten` für die Git-Hooks.
+  Fehlt graphify oder `graphify-out/`, etwa in den Arbeitsbäumen unter
+  `.claude/worktrees`, tun die Hooks nichts.
+- Der Graph enthält nur Code und ohne `tests/` (`.graphifyignore`):
+  die Tests sind zwei Drittel aller Python-Dateien und verdrängten in
+  jeder Antwort den Code, nach dem gefragt war. Dokumente, Hilfeseiten,
+  `.pfm`-Dateien und Tests werden wie bisher durchsucht.
+
 ## Schnittstellen zuerst
 
 - `schemas/*.schema.json`, das `Prop`/`Event`-System, das Aktionsregister und

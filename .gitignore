@@ -89,3 +89,8 @@ tools/signieren/manifest-privat.pem
 
 # Sperrdatei eines offenen Projekts (ide/project/sperre.py)
 .natter-sperre
+
+# Wissensgraph für die Entwicklung (AGENTS.md, „Wissensgraph"). Er
+# entsteht aus dem Code und wird nach jeder Änderung neu berechnet -
+# eingecheckt wäre er nach dem nächsten Commit schon veraltet.
+/graphify-out/

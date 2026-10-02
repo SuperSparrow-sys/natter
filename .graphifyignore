@@ -1,0 +1,5 @@
+# Was graphify nicht in den Wissensgraphen aufnimmt (AGENTS.md,
+# „Wissensgraph"). Die Tests sind zwei Drittel aller Python-Dateien
+# und füllten jede Antwort von `graphify query` mit Testhelfern statt
+# mit dem Code, nach dem gefragt war.
+tests/
