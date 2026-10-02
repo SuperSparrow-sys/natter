@@ -225,6 +225,10 @@ class HilfeAnsicht(QTextBrowser):
         self.setReadOnly(True)
         self.document().setDocumentMargin(20)
         self._markdown = ""
+        self._inhaltsverzeichnis = False
+        #: Dunkles Design, wie es das Hauptfenster vorgibt, oder `None`:
+        #: dann gilt die eigene Hintergrundfarbe (`_ist_dunkel`).
+        self.dunkel: bool | None = None
         self._rand = -1
         self._unten = 0
         self._abschnitte: list[tuple[int, str, str]] = []
@@ -375,6 +379,7 @@ class HilfeAnsicht(QTextBrowser):
         und Codeblöcke sind danach alle noch da.
         """
         self._markdown = text
+        self._inhaltsverzeichnis = inhaltsverzeichnis
         zwischen = QTextDocument()
         zwischen.setMarkdown(text)
         # Sprungziele an den Überschriften: für das Inhaltsverzeichnis
@@ -391,10 +396,27 @@ class HilfeAnsicht(QTextBrowser):
         self._breite_begrenzen()
 
     def _ist_dunkel(self) -> bool:
-        """Dunkles Thema? Gefragt wird die eigene Hintergrundfarbe und
-        nicht die Einstellung: die Ansicht kennt die Einstellungen der
-        IDE nicht, und ihre Farbe hat sie von dort ohnehin schon."""
+        """Dunkles Thema? Vorrang hat, was das Hauptfenster über
+        `dunkel` vorgibt. Das dunkle Design von Natter kommt allein aus
+        dem Stylesheet, die Palette bleibt hell; nach ihr gefragt,
+        standen die Codeblöcke im dunklen Design auf hellgrauen
+        Streifen in hellgrauer Schrift (Punkt 460). Ohne Vorgabe, etwa
+        allein in einem Test, gilt die eigene Hintergrundfarbe."""
+        if self.dunkel is not None:
+            return self.dunkel
         return self.palette().base().color().lightness() < 128
+
+    def thema_setzen(self, dunkel: bool) -> None:
+        """Nach „Ansicht → Design“: setzt die Seite im neuen Design
+        neu, an derselben Stelle."""
+        if dunkel == self.dunkel:
+            return
+        self.dunkel = dunkel
+        if not self._markdown:
+            return
+        stelle = self.verticalScrollBar().value()
+        self.markdown_setzen(self._markdown, self._inhaltsverzeichnis)
+        self.verticalScrollBar().setValue(stelle)
 
     def resizeEvent(self, ereignis) -> None:  # noqa: N802 - Qt-Name
         super().resizeEvent(ereignis)

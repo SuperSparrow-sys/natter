@@ -369,9 +369,9 @@ Das steht auch oben in der neu angelegten Unit.
 
 Beim Anlegen wird zwischen zwei Vorlagen gewählt:
 
-- **GUI-Projekt** — ein Fenster mit Komponenten. Ein- und Ausgabe
+- **GUI-Anwendung** — ein Fenster mit Komponenten. Ein- und Ausgabe
   laufen über die Oberfläche.
-- **Konsolenprojekt** — läuft in einem schwarzen Fenster mit `print()`
+- **Konsolenanwendung** — läuft in einem schwarzen Fenster mit `print()`
   und `input()`, wie ein klassisches Einsteigerprogramm.
 
 Beide bestehen aus einer `main.py`, die nur startet, und einer
@@ -416,7 +416,28 @@ Natter bringt einen Diagramm-Editor mit für
 - **Entscheidungstabellen**,
 - **Use-Case-, Aktivitäts-, Zustands- und Sequenzdiagramme** (UML).
 
-Angelegt wird ein Diagramm über „Datei → Neues Diagramm …“.
+Angelegt wird ein Diagramm über „Datei → Neues Diagramm …“. Im
+Diagramm-Editor öffnet `F1` diesen Abschnitt.
+
+**Ein Struktogramm zeichnen.** Links steht die Palette mit den
+Blöcken: Anweisung, Verzweigung, Schleifen, Unterprogrammaufruf,
+Aussprung und die Auswahlen. Ein Klick auf einen Block in der Palette und danach ein
+Klick auf eine Einfügestelle im Struktogramm setzt ihn dorthin. Die
+Einfügestellen liegen zwischen den Blöcken und in den leeren Feldern
+einer Verzweigung oder Schleife; ein Block, der in eine Schleife oder
+einen Zweig gesetzt wird, steht damit in ihr. So entsteht die
+Verschachtelung, Block für Block. Ein Doppelklick auf einen Block
+beschriftet ihn: eine Anweisung wie `summe = summe + i`, eine
+Bedingung wie `x > 0` oder ein Schleifenkopf wie `für i von 1 bis 10`.
+Ein Block lässt sich mit der Maus an eine andere Einfügestelle ziehen,
+`Entf` löscht ihn samt Inhalt.
+
+**Ein Klassendiagramm zeichnen.** Eine Klasse aus der Palette
+anklicken und dann auf die Zeichenfläche klicken. Name, Attribute und
+Operationen stehen im Eigenschaften-Dialog: Doppelklick auf die Klasse
+oder Rechtsklick und „Eigenschaften …“. Für eine Beziehung die
+Verbindungsart in der Palette wählen (etwa Assoziation oder
+Vererbung) und von Klasse zu Klasse ziehen.
 
 Für eine Auswahl mit mehr als zwei Wegen gibt es im Struktogramm zwei
 Blöcke:

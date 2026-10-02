@@ -5,9 +5,17 @@ Programm.
 
 ## 1. Ein Projekt anlegen
 
-**Projekt → Neues Projekt …**, oder auf dem Startbild „Neues Projekt …".
+**Projekt → Neues Projekt …**, oder auf der Startseite „Neues
+Projekt …". Dort gibt es zwei Vorlagen:
 
-Im Projekt-Explorer links stehen genau zwei Dinge:
+* **GUI-Anwendung** – ein Fenster mit Knöpfen, Eingabefeldern und
+  Beschriftungen. Darum geht es ab hier in den Abschnitten 1 bis 3.
+* **Konsolenanwendung** – ein Programm im schwarzen Fenster mit
+  `print()` und `input()`. Wie das geht, steht gleich unten unter
+  „Ein Konsolenprogramm“.
+
+Bei einer GUI-Anwendung stehen im Projekt-Explorer links genau zwei
+Dinge:
 
 | Eintrag | Wofür |
 |---|---|
@@ -22,6 +30,26 @@ anzeigen**.
 
 `u_main.pfm` hält fest, wie das Fenster aussieht; `u_main.py` hält
 fest, was es tut. Deshalb zwei Dateien.
+
+### Ein Konsolenprogramm
+
+Bei einer Konsolenanwendung steht im Projekt-Explorer nur
+**Units › u_main.py**. Ein Formular gibt es nicht, deshalb fehlen auch
+Komponentenpalette und Objektinspektor. Das Programm steht in der
+Funktion `main()` und läuft dort von oben nach unten:
+
+```python
+def main():
+    name = input("Name: ")
+    print("Hallo,", name)
+```
+
+`print(...)` schreibt eine Zeile ins schwarze Fenster, `input(...)`
+wartet, bis etwas eingetippt und die Eingabetaste gedrückt ist. Jede
+Zeile des Programms ist um eine Stufe eingerückt, damit sie zu `main()`
+gehört. **F5** startet es (Abschnitt 4): das schwarze Fenster geht auf,
+und am Ende wartet es auf die Eingabetaste, damit die Ausgabe lesbar
+bleibt. Die Abschnitte 4 und 5 gelten für beide Vorlagen.
 
 ## 2. Das Formular bauen
 

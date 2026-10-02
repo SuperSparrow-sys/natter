@@ -146,3 +146,19 @@ def test_handbuch_nennt_projekt_schliessen(qtbot) -> None:
 
     text = " ".join(_abschnitt(HANDBUCH, "### Zurück zur Startseite").split())
     assert f"Projekt → {eintrag}" in text
+
+
+def test_erste_schritte_nennt_beide_vorlagen_wie_der_dialog() -> None:
+    """„Erste Schritte“ beschrieb nur das Fensterprogramm; wer mit einem
+    Konsolenprogramm anfing, fand sein Projekt nicht wieder. Die Namen
+    der Vorlagen stehen so da wie im Dialog „Neues Projekt“."""
+    from ide.project.neu_dialog import _VORLAGEN_ANZEIGE
+
+    text = (WURZEL / "docs" / "erste_schritte.md").read_text(encoding="utf-8")
+    handbuch = (WURZEL / "docs" / "handbuch.md").read_text(encoding="utf-8")
+    for name in _VORLAGEN_ANZEIGE.values():
+        assert f"**{name}**" in text, name
+        assert f"**{name}**" in handbuch, name
+    assert "input(" in text and "def main():" in text
+    assert "Startbild" not in text
+

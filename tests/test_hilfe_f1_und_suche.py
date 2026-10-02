@@ -76,10 +76,24 @@ def _timer_im_editor(fenster, ziel: Path) -> None:  # noqa: ANN001
     editor.setTextCursor(cursor)
 
 
+def _eigenschaft_im_editor(fenster, ziel: Path) -> None:  # noqa: ANN001
+    """F1 auf `caption` in `self.l_ergebnis.caption`: führte bis Punkt
+    461 zum Handbuch beim Kapitel „Einrichten“."""
+    editor = fenster.datei_oeffnen(ziel / "u_main.py")
+    text = editor.toPlainText()
+    cursor = editor.textCursor()
+    cursor.setPosition(text.index("self.l_ergebnis.caption") + 18)
+    editor.setTextCursor(cursor)
+
+
 @pytest.mark.parametrize(
     ("vorbereiten", "abschnitt"),
-    [(_button_waehlen, "Button"), (_timer_im_editor, "Timer")],
-    ids=["designer_button", "editor_timer"],
+    [
+        (_button_waehlen, "Button"),
+        (_timer_im_editor, "Timer"),
+        (_eigenschaft_im_editor, "Label"),
+    ],
+    ids=["designer_button", "editor_timer", "editor_eigenschaft"],
 )
 def test_f1_oeffnet_die_referenz_beim_abschnitt(
     fenster_mit_beispiel, vorbereiten, abschnitt: str
@@ -97,6 +111,8 @@ def test_f1_oeffnet_die_referenz_beim_abschnitt(
 
 
 def test_f1_ohne_komponente_oeffnet_das_handbuch(hauptfenster) -> None:
+    hauptfenster.resize(1280, 720)
+    hauptfenster.show()
     aktion = hauptfenster.aktionen["hilfe.zur_auswahl"].qaction
     assert aktion.shortcut().toString() == "F1"
     assert aktion in hauptfenster.menue("Hilfe").actions()
@@ -108,6 +124,23 @@ def test_f1_ohne_komponente_oeffnet_das_handbuch(hauptfenster) -> None:
 
     index = hauptfenster.editor_tabs.currentIndex()
     assert hauptfenster.editor_tabs.tabText(index) == "Handbuch"
+    ansicht = hauptfenster.editor_tabs.currentWidget()
+    assert _oberster_block(ansicht).startswith("3.")
+
+
+def test_die_hilfe_folgt_dem_dunklen_design(hauptfenster) -> None:
+    """Das dunkle Design kommt aus dem Stylesheet, die Palette bleibt
+    hell. Die Hilfe fragte die Palette, und Codeblöcke standen im
+    dunklen Design auf hellgrauen Streifen (Punkt 460). Ein Wechsel bei
+    offener Seite setzt sie neu."""
+    hauptfenster._design_wechseln("dark")
+    hauptfenster._erste_schritte_aktion()
+    ansicht = hauptfenster.editor_tabs.currentWidget()
+    assert isinstance(ansicht, HilfeAnsicht)
+    assert "#2b3136" in ansicht.document().defaultStyleSheet()
+
+    hauptfenster._design_wechseln("light")
+    assert "#f2f4f6" in ansicht.document().defaultStyleSheet()
 
 
 def test_strg_f_sucht_in_der_referenz(hauptfenster, qtbot) -> None:
@@ -134,4 +167,29 @@ def test_strg_f_sucht_in_der_referenz(hauptfenster, qtbot) -> None:
     ansicht.suchfeld.setText("gibt es in der Referenz nicht")
     assert not ansicht.weitersuchen()
     assert ansicht.suchhinweis.text() == "Nicht gefunden"
+
+
+def test_f1_im_diagramm_editor_oeffnet_das_handbuch_bei_den_diagrammen(
+    hauptfenster, tmp_path: Path
+) -> None:
+    """F1 tat im Diagramm-Editor nichts, und die Kurzhilfe verwies auf
+    einen Abschnitt, der das Zeichnen nicht erklärt (Punkt 463)."""
+    from ide.diagramm.neu import diagramm_erzeugen
+
+    hauptfenster.resize(1280, 720)
+    hauptfenster.show()
+    pfad = tmp_path / "ablauf.pdiag"
+    diagramm_erzeugen("struktogramm", pfad, "ablauf").speichern()
+    fenster = hauptfenster.diagramm_oeffnen(pfad)
+    aktion = fenster.aktionen["Hilfe/Hilfe zum Zeichnen"]
+    assert aktion.shortcut().toString() == "F1"
+
+    aktion.trigger()
+
+    ansicht = hauptfenster.editor_tabs.currentWidget()
+    assert isinstance(ansicht, HilfeAnsicht)
+    assert _oberster_block(ansicht).startswith("3.4 Modellieren")
+    text = ansicht.toPlainText()
+    assert "Einfügestelle" in text and "Verschachtelung" in text
+    fenster.close()
 

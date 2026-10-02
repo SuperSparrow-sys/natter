@@ -2105,6 +2105,12 @@ class HauptFenster(QMainWindow):
             Aktion(
                 "ansicht.formular_code",
                 "Formular und Code wechseln",
+                # Das Menü steht dabei, damit Übersicht und
+                # Befehlspalette den Eintrag unter „Ansicht“ führen
+                # (Punkt 466). Eingehängt wird er trotzdem von Hand,
+                # als erster Eintrag: `an_hauptfenster_anhaengen` ist
+                # an dieser Stelle schon gelaufen.
+                menue="Ansicht",
                 tastenkuerzel="Shift+F12",
                 callback=self._formular_code_umschalten,
             )
@@ -3787,6 +3793,7 @@ class HauptFenster(QMainWindow):
                 return widget
 
         ansicht = HilfeAnsicht()
+        ansicht.dunkel = theme_aufloesen(self._design_thema) == "dark"
         ansicht.markdown_setzen(markdown, inhaltsverzeichnis)
         index = self.editor_tabs.addTab(ansicht, titel)
         self.editor_tabs.setCurrentIndex(index)
@@ -5799,6 +5806,8 @@ class HauptFenster(QMainWindow):
             editor = self.editor_tabs.widget(index)
             if isinstance(editor, QuelltextEditor):
                 editor.thema_setzen(aufgeloest)
+            elif isinstance(editor, HilfeAnsicht):
+                editor.thema_setzen(aufgeloest == "dark")
 
         # Symbole neu laden: ein `QIcon` merkt sich seine Farben. Ohne
         # das behielt die Werkzeugleiste nach dem Umschalten die alten
@@ -6685,7 +6694,12 @@ class HauptFenster(QMainWindow):
         Editor unter dem Cursor steht. Sonst das Handbuch."""
         klassen = self._klassen_zur_auswahl()
         if not klassen:
-            self._handbuch_aktion()
+            # Nicht das Handbuch von oben: dort steht zuerst, wie die
+            # Systembetreuung Natter einrichtet (Punkt 461).
+            if self._handbuch_aktion():
+                ansicht = self.editor_tabs.currentWidget()
+                if isinstance(ansicht, HilfeAnsicht):
+                    ansicht.zu_abschnitt("3. Was Natter kann")
             return
         if not self._komponenten_referenz_aktion():
             return
@@ -6716,7 +6730,45 @@ class HauptFenster(QMainWindow):
         wort = cursor.selectedText()
         if wort and isinstance(getattr(pcl, wort, None), type):
             return [wort]
+        # `self.b_ok.caption`: Klassennamen stehen kaum je in der Unit,
+        # wohl aber Komponentennamen und ihre Eigenschaften. F1 auf
+        # `b_ok` oder `caption` führt zur Klasse der Komponente.
+        zeile = cursor.block().text()
+        spalte = cursor.selectionStart() - cursor.block().position()
+        for treffer in re.finditer(r"self\.(\w+)(?:\.(\w+))?", zeile):
+            if treffer.start(1) <= spalte <= treffer.end(2 if treffer.group(2) else 1):
+                typ = self._komponententyp(treffer.group(1))
+                if typ is not None:
+                    return [typ]
         return []
+
+    def _komponententyp(self, name: str) -> str | None:
+        """Der Typ der Komponente `name` aus den Formularen des
+        Projekts, etwa „Button“ für `b_ok`."""
+        if self.projekt is None:
+            return None
+
+        def suchen(knoten: dict) -> str | None:
+            for kind in knoten.get("children") or []:
+                if not isinstance(kind, dict):
+                    continue
+                if kind.get("name") == name:
+                    return kind.get("type")
+                gefunden = suchen(kind)
+                if gefunden:
+                    return gefunden
+            return None
+
+        for formular in self.projekt.formulare():
+            try:
+                daten = json.loads(formular.read_text(encoding="utf-8-sig"))
+            except (OSError, ValueError):
+                continue
+            if isinstance(daten, dict):
+                typ = suchen(daten)
+                if typ:
+                    return typ
+        return None
 
     def _ueber_aktion(self) -> None:
         QMessageBox.about(
@@ -6811,6 +6863,7 @@ class HauptFenster(QMainWindow):
         # Editor. Der Diagramm-Editor kennt das Hauptfenster nicht, er
         # meldet nur, was er geschrieben hat.
         fenster.datei_geschrieben.connect(self._erzeugte_datei_uebernehmen)
+        fenster.handbuch_zeigen = self._handbuch_bei_den_diagrammen
         # Nur austragen, wenn noch dieses Fenster eingetragen ist. Nach
         # dem Neuladen steht unter demselben Pfad schon das neue.
         fenster.destroyed.connect(
@@ -6820,6 +6873,17 @@ class HauptFenster(QMainWindow):
         self._offene_diagramme[schluessel] = fenster
         fenster.show()
         return fenster
+
+    def _handbuch_bei_den_diagrammen(self) -> None:
+        """F1 im Diagramm-Editor (Punkt 463): das Handbuch beim
+        Abschnitt „Modellieren“, mit dem Hauptfenster nach vorn."""
+        if not self._handbuch_aktion():
+            return
+        ansicht = self.editor_tabs.currentWidget()
+        if isinstance(ansicht, HilfeAnsicht):
+            ansicht.zu_abschnitt("3.4 Modellieren")
+        self.raise_()
+        self.activateWindow()
 
     def _zur_methode_springen(
         self, unit: Path, klassenname: str, methode: str, parameter: tuple

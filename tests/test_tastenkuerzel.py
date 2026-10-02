@@ -307,3 +307,46 @@ def test_eine_fehlende_hilfeseite_sagt_wo_sie_liegen_muesste(
     meldung = fenster.statusBar().currentMessage()
     assert "docs/gibt_es_nicht.md" in meldung
     assert "neue Installation" in meldung
+
+
+def test_die_tasten_des_diagramm_editors_stehen_mit_drauf(
+    tmp_path: Path,
+) -> None:
+    """Die Übersicht kannte den Diagramm-Editor nicht (Punkt 466). Jede
+    Taste, die dort ein Menüeintrag trägt, steht auch in der Gruppe."""
+    from PySide6.QtGui import QKeySequence
+
+    from ide.diagramm.fenster import DiagrammFenster
+    from ide.diagramm.neu import diagramm_erzeugen
+    from ide.shell.tastenkuerzel import DIAGRAMMTASTEN
+
+    seite = als_markdown([])
+    assert "## Diagramm-Editor" in seite
+    assert "Strg+Umschalt+E" in seite
+
+    fenster = DiagrammFenster(
+        diagramm_erzeugen("class", tmp_path / "k.pdiag", "k")
+    )
+    belegt = {
+        aktion.shortcut().toString(QKeySequence.SequenceFormat.NativeText)
+        for aktion in fenster.aktionen.values()
+    }
+    for taste in ("F1", "Strg+Umschalt+E", "Strg+G", "Strg+1", "Strg+0", "Strg+D"):
+        assert taste in belegt, taste
+        assert taste in dict(DIAGRAMMTASTEN), taste
+    fenster.close()
+
+
+def test_formular_und_code_steht_unter_ansicht(einstellungen, qtbot) -> None:  # noqa: ANN001
+    """Umschalt+F12 stand in einer eigenen Gruppe „Ohne Menü“, obwohl
+    der Eintrag als erster im Menü „Ansicht“ steht."""
+    fenster = HauptFenster()
+    qtbot.addWidget(fenster)
+    gruppen = {g.titel: g for g in uebersicht(fenster.aktionen)}
+
+    assert "Ohne Menü" not in gruppen
+    assert "Formular und Code wechseln" in dict(
+        (name, taste) for taste, name in gruppen["Ansicht"].eintraege
+    )
+    assert fenster.menue("Ansicht").actions().count(fenster.formular_code_aktion) == 1
+

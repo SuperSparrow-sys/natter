@@ -16,6 +16,7 @@ ein Verhalten vorzutäuschen, das noch nicht existiert.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 from PySide6.QtCore import (
@@ -165,7 +166,7 @@ _MENUES: dict[str, tuple[tuple[str, bool], ...]] = {
         ("Schrift …", True),
         ("Stil übertragen", True),
     ),
-    "Hilfe": (("Über den Diagramm-Editor", True),),
+    "Hilfe": (("Hilfe zum Zeichnen", True), ("Über den Diagramm-Editor", True)),
 }
 
 #: Unter diesem Schlüssel steht die zuletzt benutzte Fenstergröße.
@@ -203,8 +204,8 @@ _HILFE_QUELLTEXT = (
     "Diagramm eine Vorlage in Python."
 )
 _HILFE_SCHLUSS = (
-    "Mehr steht im Hauptfenster unter „Hilfe → Erste Schritte“, "
-    "Abschnitt „Diagramme“."
+    "Mehr steht im Handbuch, Abschnitt 3.4 „Modellieren“: "
+    "„Hilfe → Hilfe zum Zeichnen“ (F1) öffnet es dort."
 )
 
 #: Einträge, die kein Befehl sind, sondern ein Untermenü aufmachen
@@ -295,6 +296,10 @@ class DiagrammFenster(QMainWindow):
     #: passierte nichts: die Schülerin musste ihre eben erzeugte
     #: Klasse selbst suchen.
     datei_geschrieben = Signal(Path)
+
+    #: Öffnet das Handbuch beim Abschnitt über Diagramme. Setzt das
+    #: Hauptfenster; der Diagramm-Editor kennt es nicht.
+    handbuch_zeigen: Callable[[], None] | None = None
 
     def __init__(self, diagramm: Diagramm) -> None:
         super().__init__()
@@ -718,6 +723,12 @@ class DiagrammFenster(QMainWindow):
         self.aktionen["Datei/Schließen"].triggered.connect(lambda: self.close())
         self.aktionen["Hilfe/Über den Diagramm-Editor"].triggered.connect(
             lambda: self.hilfe_zeigen()
+        )
+        # F1 galt nur im Hauptfenster; im Diagramm-Editor tat die
+        # Taste nichts (Punkt 463).
+        self.aktionen["Hilfe/Hilfe zum Zeichnen"].setShortcut("F1")
+        self.aktionen["Hilfe/Hilfe zum Zeichnen"].triggered.connect(
+            lambda: self._hilfe_zum_zeichnen()
         )
         self.aktionen["Bearbeiten/Als Bild kopieren"].triggered.connect(
             self.als_bild_kopieren
@@ -1358,6 +1369,15 @@ class DiagrammFenster(QMainWindow):
             absaetze.append(_HILFE_QUELLTEXT)
         absaetze.append(_HILFE_SCHLUSS)
         return "\n\n".join(absaetze)
+
+    def _hilfe_zum_zeichnen(self) -> None:
+        """F1: das Handbuch beim Abschnitt über Diagramme, im
+        Hauptfenster. Ohne Hauptfenster, etwa allein in einem Test,
+        die Kurzhilfe."""
+        if self.handbuch_zeigen is not None:
+            self.handbuch_zeigen()
+        else:
+            self.hilfe_zeigen()
 
     def hilfe_zeigen(self) -> None:
         """„Hilfe → Über den Diagramm-Editor“ (Punkt 308)."""

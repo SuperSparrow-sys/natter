@@ -113,4 +113,4 @@ def test_hilfe_im_diagramm_editor_zeigt_etwas(
     assert len(gezeigt) == 1
     titel, text = gezeigt[0]
     assert titel == "Über den Diagramm-Editor"
-    assert "Erste Schritte" in text
+    assert "Handbuch, Abschnitt 3.4" in text

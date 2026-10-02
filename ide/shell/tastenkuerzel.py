@@ -103,6 +103,24 @@ DESIGNERTASTEN = (
 )
 
 
+#: Die Tasten des Diagramm-Editors. Er ist ein eigenes Fenster mit
+#: eigenen Menüs, die Übersicht kannte nur die des Hauptfensters
+#: (Punkt 466), während „Erste Schritte“ Strg+Umschalt+E und Strg+G
+#: nannte.
+DIAGRAMMTASTEN = (
+    ("F1", "Handbuch beim Abschnitt über Diagramme"),
+    ("Strg+Umschalt+E", "Quelltext aus dem Diagramm erzeugen"),
+    ("F2", "Gewählte Form oder gewählten Block beschriften"),
+    ("Entf", "Gewählte Formen oder Blöcke löschen"),
+    ("Strg+D", "Duplizieren"),
+    ("Strg+G", "Gruppieren"),
+    ("Strg+Umschalt+G", "Gruppierung aufheben"),
+    ("Strg+1", "Alles anzeigen"),
+    ("Strg+0", "Zoom 100 %"),
+    ("+ / -", "Im Struktogramm einen Fall oder Strang dazu bzw. weg"),
+)
+
+
 def deutsche_taste(kuerzel: str) -> str:
     """Ein Kürzel so, wie es im Menü steht: „Strg+S“, nicht „Ctrl+S“.
 
@@ -180,5 +198,16 @@ def als_markdown(aktionen: Iterable) -> str:
         "| --- | --- |",
     ]
     zeilen += [f"| `{taste}` | {was} |" for taste, was in DESIGNERTASTEN]
+    zeilen.append("")
+
+    zeilen += [
+        "## Diagramm-Editor",
+        "",
+        "Diese Tasten gelten im eigenen Fenster des Diagramm-Editors.",
+        "",
+        "| Taste | Was passiert |",
+        "| --- | --- |",
+    ]
+    zeilen += [f"| `{taste}` | {was} |" for taste, was in DIAGRAMMTASTEN]
     zeilen.append("")
     return "\n".join(zeilen)
