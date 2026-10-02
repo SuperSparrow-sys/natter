@@ -583,6 +583,47 @@ README zeigt auf die neueste Fassung. Vor dem Entpacken die ZIP unter
 Nach jedem Bau kommt hier ein Eintrag dazu: Datum, Fassung, Größe,
 Signaturen, Dauer, und was der Lauf aufgedeckt hat, samt Irrweg.
 
+### 0.4.3 – 2. Oktober 2026
+
+`Natter-Setup.exe`, 276,6 MB, ZIP 277 MB, jede Binärdatei gültig
+signiert. Veröffentlicht als Release `v0.4.3`. 16,3 Minuten: pytest
+1:58 (5.178 Tests), `dist\Natter` 7:25, Installer 5:47. Enthält die
+Punkte 416 bis 440 aus den Runden nach 0.4.2 und die Punkte 441 bis
+468 aus einer Kontrollrunde.
+
+Die Kontrollrunde lief jedes Thema einmal, nicht im Kreis bis zur
+Ruhe. Durchsicht (6 Punkte), Sicherheit in zwei Teilen (3 und 4) und
+Benutzbarkeit in zwei Teilen (6 und 8) prüften Helfer in eigenen
+Arbeitsbäumen; sie orientierten sich über den Wissensgraphen
+(`graphify query --graph …`) statt Dateien der Reihe nach zu lesen und
+gaben ihre Befunde als Textblöcke zurück, die erst die Hauptsitzung
+nummerierte - so gab es keine Konflikte in `offene_punkte.md`.
+Leistung und Betrieb prüfte die Hauptsitzung selbst, gezielt: das
+Hauptfenster baut sich in 0,07 bis 0,13 s auf, Tippen am Ende einer
+Unit mit 5.000 Zeilen kostet im Median 4 ms (einmal 95 ms), 200.000
+CSV-Zeilen importiert das Panel in 0,95 s, ein Konsolenprogramm ist
+nach 0,22 s fertig. Dabei fiel ein Randfall von Punkt 455 auf (ein
+sofortiger Neustart hieß „wird noch geladen“), behoben in derselben
+Runde. Beim Betrieb nichts Neues. Ein CI-Lauf war zwischendurch rot,
+abhängig von der Verteilung der Testdateien: Punkt 468.
+
+Irrweg bei der Installation: Aus Git Bash heraus mit `timeout 600`
+und relativem `/LOG=` gestartet, kam das Setup nach zehn Minuten
+nicht zurück, schrieb kein Protokoll und hinterließ die alte Fassung.
+Über PowerShell mit `Start-Process -PassThru` und absolutem
+Protokollpfad lief dieselbe Datei in wenigen Minuten durch, Rückgabe 0;
+Windows führt „Natter 0.4.3“, `ide/main.py` hat `VERSION = "0.4.3"`.
+
+Geprüft an der installierten Fassung (`build\auswertung\043\`):
+erster Start über das Startmenü 19,2 s bis zum antwortenden
+Hauptfenster (0.4.2: 22,2 s), zweiter 1,2 s, dritter 1,7 s. Erster
+Programmstart des ObstSortierers 57,5 s (0.4.2: 75,8 s). Beim ersten
+Programmlauf nach der Installation zeigen beide Knöpfe der Taskleiste
+die Natter, und der Knopf der IDE heißt „Natter“ statt „Python“ -
+damit ist Punkt 416 nachgewiesen. Der Knopf des Programms heißt weiter
+„Python“ (Punkt 469). Nach dem Stopp blieb kein Prozess übrig; die
+Wache blieb ohne Befund.
+
 ### 0.4.2 – 29. September 2026
 
 `Natter-Setup.exe`, 276,4 MB, ZIP 277 MB, jede Binärdatei gültig
