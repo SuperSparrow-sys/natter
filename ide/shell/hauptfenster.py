@@ -1507,6 +1507,28 @@ class HauptFenster(QMainWindow):
                     callback=callback,
                 )
             )
+        # Die Befehle des Designers standen nur im Kontextmenü einer
+        # Komponente; in der Menüleiste und in „Befehl suchen …“ fehlten
+        # sie (Punkt 465). Ohne Tastenkürzel: Strg+D und Entf gehören
+        # im Editor anderen Befehlen, der Designer fängt sie selbst ab.
+        for aktion_id, name, callback in (
+            ("bearbeiten.duplizieren", "Duplizieren", self._designer_duplizieren),
+            ("bearbeiten.loeschen", "Löschen", self._designer_loeschen),
+            (
+                "bearbeiten.anordnen",
+                "Ausrichten, Raster und Tab-Reihenfolge …",
+                self._designer_anordnen,
+            ),
+        ):
+            self.aktionen.registrieren(
+                Aktion(
+                    aktion_id,
+                    name,
+                    menue="Bearbeiten",
+                    trennlinie_davor=aktion_id == "bearbeiten.duplizieren",
+                    callback=callback,
+                )
+            )
         self.aktionen.registrieren(
             Aktion(
                 "suchen.suchen",
@@ -2852,6 +2874,9 @@ class HauptFenster(QMainWindow):
             ("bearbeiten.kopieren", editor or flaeche),
             ("bearbeiten.einfuegen", editor or flaeche),
             ("bearbeiten.alles_auswaehlen", editor or flaeche),
+            ("bearbeiten.duplizieren", flaeche),
+            ("bearbeiten.loeschen", flaeche),
+            ("bearbeiten.anordnen", flaeche),
         ):
             self.aktionen[kennung].qaction.setEnabled(moeglich)
 
@@ -3797,6 +3822,7 @@ class HauptFenster(QMainWindow):
         ansicht.markdown_setzen(markdown, inhaltsverzeichnis)
         index = self.editor_tabs.addTab(ansicht, titel)
         self.editor_tabs.setCurrentIndex(index)
+        self._panel_schrift_anpassen()
         return ansicht
 
     def _hilfedatei_zeigen(
@@ -5592,6 +5618,26 @@ class HauptFenster(QMainWindow):
                 "In der Zwischenablage liegen keine Komponenten. Zuerst im Designer "
                 "welche auswählen und kopieren."
             )
+
+    def _designer_duplizieren(self) -> None:
+        if self._aktueller_canvas is not None:
+            self._aktueller_canvas.duplizieren()
+
+    def _designer_loeschen(self) -> None:
+        if self._aktueller_canvas is not None:
+            self._aktueller_canvas.loeschen()
+
+    def _designer_anordnen(self) -> None:
+        """Zeigt das Menü der gewählten Komponente mit Ausrichten,
+        Raster und Tab-Reihenfolge an ihrer Stelle - dieselben Einträge
+        wie bei der rechten Maustaste."""
+        canvas = self._aktueller_canvas
+        if canvas is None:
+            return
+        komponente = canvas.ausgewaehlte_komponente or canvas.formular
+        widget = komponente._qwidget
+        menue = canvas.kontextmenue_fuer(komponente)
+        menue.popup(widget.mapToGlobal(widget.rect().center()))
 
     def _bearbeiten_alles_auswaehlen(self) -> None:
         editor = self._aktueller_editor()
@@ -8179,7 +8225,18 @@ class HauptFenster(QMainWindow):
         self.ausgabe_zeile(f"{self.projekt.name} gestartet ({self.projekt.haupt_datei.name})")
         self.panels.setCurrentWidget(self.ausgabe_liste)
         self._laufzeit_uhr.start()
-        self.statusBar().showMessage(f"{self.projekt.name} gestartet")
+        if any(self._offene_breakpoints().values()):
+            # Das schlichte grüne Dreieck wird im Unterricht als
+            # „Start“ gelesen; ein gesetzter Haltepunkt schien dann
+            # kaputt (Punkt 464).
+            hinweis = (
+                "Ohne Debugger gestartet: Haltepunkte wirken nur mit "
+                "„Start → Starten“ (F5)."
+            )
+            self.ausgabe_zeile(hinweis)
+            self.statusBar().showMessage(f"{self.projekt.name} gestartet. {hinweis}")
+        else:
+            self.statusBar().showMessage(f"{self.projekt.name} gestartet")
         prozess = self.laufender_prozess
         self._ladeanzeige_starten(lambda: prozess, lademarke)
 
@@ -8637,6 +8694,24 @@ class HauptFenster(QMainWindow):
         groesse = max(7, self.oberflaeche_schriftgroesse() + abstand)
         for liste in (self.ausgabe_liste, self.meldungen_liste):
             liste.setStyleSheet(f"QListWidget {{ font-size: {groesse}pt; }}")
+        # Ebenso die Panels des Debuggers und offene Hilfeseiten: wer
+        # am Beamer eine Schleife im Debugger vorführt oder „Erste
+        # Schritte“ zeigt, bekam sonst genau die Teile nicht größer,
+        # auf die die Klasse schaut (Punkt 467).
+        for baum in (
+            self.variablen_baum, getattr(self, "ueberwachen_baum", None)
+        ):
+            if baum is not None:
+                baum.setStyleSheet(f"QTreeWidget {{ font-size: {groesse}pt; }}")
+        self.aufrufstapel_liste.setStyleSheet(
+            f"QListWidget {{ font-size: {groesse}pt; }}"
+        )
+        for index in range(self.editor_tabs.count()):
+            ansicht = self.editor_tabs.widget(index)
+            if isinstance(ansicht, HilfeAnsicht):
+                ansicht.setStyleSheet(
+                    f"HilfeAnsicht {{ font-size: {groesse}pt; }}"
+                )
 
     def _schriftgroesse_aktion(self, schritt: int) -> None:
         """„Ansicht → Schrift größer/kleiner/normal“ (Strg+Plus,
@@ -8648,7 +8723,7 @@ class HauptFenster(QMainWindow):
         self._editor_schriftgroesse_merken(groesse)
         self.statusBar().showMessage(
             f"Schriftgröße im Editor: {groesse} pt "
-            f"(„Ausgabe“ und „Meldungen“ wachsen mit)"
+            f"(Panels und Hilfeseiten wachsen mit)"
         )
 
     def ausgabe_vor_start_leeren(self) -> bool:

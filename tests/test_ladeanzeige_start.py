@@ -244,3 +244,28 @@ def test_eine_einzelne_datei_ohne_projekt_laesst_sich_starten(
     assert (tmp_path / "lief.txt").read_text() == "ja"
     assert sorted(p.name for p in tmp_path.iterdir()) == ["aufgabe.py", "lief.txt"]
 
+
+def test_strg_f5_mit_haltepunkt_sagt_dass_er_nicht_wirkt(
+    hauptfenster, qtbot, tmp_path: Path
+) -> None:  # noqa: ANN001
+    """Das schlichte grüne Dreieck startet ohne Debugger; ein gesetzter
+    Haltepunkt schien dann kaputt (Punkt 464). Die beiden Ordner der
+    Werkzeugleiste sind seither auch verschiedene Bilder."""
+    fenster = hauptfenster
+    fenster.projekt_oeffnen(
+        _projekt(tmp_path / "k", "x = 1\nprint(x)\n", typ="console")
+    )
+    editor = fenster.datei_oeffnen(tmp_path / "k" / "main.py")
+    editor.breakpoints = {1}
+
+    fenster._projekt_starten_aktion()
+
+    assert "Haltepunkte wirken nur" in fenster.statusBar().currentMessage()
+    oeffnen = fenster.aktionen["datei.oeffnen"].symbol
+    projekt = fenster.aktionen["projekt.oeffnen"].symbol
+    ordner = Path(__file__).resolve().parent.parent / "ide" / "assets" / "icons"
+    assert (ordner / f"{oeffnen}.svg").read_text(encoding="utf-8") != (
+        ordner / f"{projekt}.svg"
+    ).read_text(encoding="utf-8")
+    assert "Blatt" in (ordner / f"{oeffnen}.svg").read_text(encoding="utf-8")
+

@@ -97,7 +97,7 @@ DESIGNERTASTEN = (
     ("Pfeiltasten", "Ausgewählte Komponente um einen Rasterschritt verschieben"),
     ("Alt+Pfeil", "Um genau einen Bildpunkt verschieben, am Raster vorbei"),
     ("Umschalt+Pfeil", "Größe ändern statt verschieben"),
-    ("Strg+D", "Komponente verdoppeln"),
+    ("Strg+D", "Komponente duplizieren"),
     ("Entf", "Komponente löschen"),
     ("F2", "Menü-Editor öffnen, bei einem MainMenu oder PopupMenu"),
 )

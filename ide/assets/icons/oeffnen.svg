@@ -1,7 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-  <!-- Datei öffnen: aufgeklappter Ordner -->
-  <path d="M2.9 19.4V6.4a1 1 0 0 1 1-1h4.3l2 2h8.4a1 1 0 0 1 1 1v2.2H6.2z"
-        fill="#c98f1e" stroke="#c98f1e" stroke-width="1.2" stroke-linejoin="round"/>
-  <path d="M6.2 10.6h14.6l-3 8.8H2.9z"
-        fill="#f2b134" stroke="#c98f1e" stroke-width="1.2" stroke-linejoin="round"/>
+  <!-- Datei öffnen: ein Blatt, in das ein blauer Pfeil hineinführt.
+       Bis Punkt 464 war es ein Ordner, und neben „Projekt öffnen“ (ein
+       Ordner mit Blatt) ließen sich die beiden Knöpfe der
+       Werkzeugleiste nur über den Kurzhinweis unterscheiden. -->
+  <path d="M3.4 3.8a1 1 0 0 1 1-1h6.2l3.6 3.6v12.8a1 1 0 0 1-1 1H4.4a1 1 0 0 1-1-1z"
+        fill="#f7f9fa" stroke="#37474f" stroke-width="1.2" stroke-linejoin="round"/>
+  <path d="M10.6 2.8v3.6h3.6" fill="none" stroke="#37474f" stroke-width="1.2" stroke-linejoin="round"/>
+  <path d="M5.8 10.4h5.4M5.8 13h3.4" stroke="#7b8f9a" stroke-width="1" stroke-linecap="round"/>
+  <path d="M21.2 16.6H12.4" stroke="#0067c0" stroke-width="2" stroke-linecap="round"/>
+  <path d="M15.2 13.8l-2.8 2.8 2.8 2.8" fill="none" stroke="#0067c0" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

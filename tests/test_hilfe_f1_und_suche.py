@@ -193,3 +193,51 @@ def test_f1_im_diagramm_editor_oeffnet_das_handbuch_bei_den_diagrammen(
     assert "Einfügestelle" in text and "Verschachtelung" in text
     fenster.close()
 
+
+def test_befehl_suchen_findet_die_befehle_des_designers(fenster_mit_beispiel) -> None:
+    """Duplizieren, Löschen und Ausrichten gab es nur über die rechte
+    Maustaste; in der Menüleiste und in „Befehl suchen …“ fehlten sie
+    (Punkt 465). Ohne Designer vorn sind sie grau."""
+    from ide.shell.befehlspalette import Befehlspalette
+
+    fenster, ziel = fenster_mit_beispiel
+    assert not fenster.aktionen["bearbeiten.duplizieren"].qaction.isEnabled()
+    _button_waehlen(fenster, ziel)
+    for kennung in (
+        "bearbeiten.duplizieren", "bearbeiten.loeschen", "bearbeiten.anordnen"
+    ):
+        aktion = fenster.aktionen[kennung].qaction
+        assert aktion.isEnabled(), kennung
+        assert aktion in fenster.menue("Bearbeiten").actions()
+
+    palette = Befehlspalette(fenster.aktionen, fenster)
+    for suche in ("ausrichten", "duplizieren"):
+        palette.suchfeld.setText(suche)
+        assert palette.gefilterte_zeilen(), suche
+    palette.close()
+
+    canvas = fenster._aktueller_canvas
+    vorher = len(canvas.formular._qwidget.children())
+    fenster.aktionen["bearbeiten.duplizieren"].qaction.trigger()
+    assert len(canvas.formular._qwidget.children()) > vorher
+
+
+def test_strg_plus_vergroessert_hilfeseite_und_variablen(hauptfenster) -> None:
+    """Strg+Plus vergrößerte nur Editor, „Ausgabe“ und „Meldungen“;
+    eine Hilfeseite und das Panel „Variablen“ blieben bei 10 pt
+    (Punkt 467)."""
+    hauptfenster._erste_schritte_aktion()
+    ansicht = hauptfenster.editor_tabs.currentWidget()
+    assert isinstance(ansicht, HilfeAnsicht)
+    hilfe_vorher = ansicht.font().pointSizeF()
+    variablen_vorher = hauptfenster.variablen_baum.font().pointSizeF()
+
+    for _ in range(4):
+        hauptfenster._schriftgroesse_aktion(1)
+    QApplication.processEvents()
+
+    assert ansicht.font().pointSizeF() > hilfe_vorher
+    assert ansicht.document().defaultFont().pointSizeF() > hilfe_vorher
+    assert hauptfenster.variablen_baum.font().pointSizeF() > variablen_vorher
+    hauptfenster._schriftgroesse_aktion(0)
+

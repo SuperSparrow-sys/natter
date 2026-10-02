@@ -971,7 +971,7 @@ Die rechte Maustaste im Editor zeigt dieselben Befehle als Menü, dazu
 | `Alt+Pfeil` | um genau einen Bildpunkt verschieben |
 | `Umschalt+Pfeil` | Größe ändern |
 | `Entf` | Komponente löschen |
-| `Strg+D` | Komponente verdoppeln |
+| `Strg+D` | Komponente duplizieren |
 | `F2` | Menü-Editor öffnen, bei einem MainMenu oder PopupMenu |
 | Doppelklick | Ereignis-Methode anlegen und hinspringen |
 | `Strg`- oder `Umschalt`-Klick | weitere Komponente zur Auswahl nehmen oder herausnehmen |
@@ -1101,7 +1101,8 @@ halbe Stunde, nachdem Natter dort zuletzt lief.
 
 `Strg+Plus` vergrößert den Quelltext und zugleich die Panels
 „Ausgabe“ und „Meldungen“, also auch die Ausgabe eines laufenden
-Programms. Die ganze Oberfläche mit Menüs, Projekt-Explorer und
+Programms, dazu die Panels des Debuggers („Variablen“, „Überwachen“,
+„Aufrufstapel“) und offene Hilfeseiten wie „Erste Schritte“. Die ganze Oberfläche mit Menüs, Projekt-Explorer und
 Objektinspektor wird unter **Werkzeuge → Einstellungen … →
 Schriftgröße der Oberfläche** größer. Beide Einstellungen bleiben
 über einen Neustart hinweg erhalten.
