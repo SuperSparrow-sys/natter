@@ -7,7 +7,7 @@
         fill="#f7f9fa" stroke="#37474f" stroke-width="1.2" stroke-linejoin="round"/>
   <path d="M10.6 2.8v3.6h3.6" fill="none" stroke="#37474f" stroke-width="1.2" stroke-linejoin="round"/>
   <path d="M5.8 10.4h5.4M5.8 13h3.4" stroke="#7b8f9a" stroke-width="1" stroke-linecap="round"/>
-  <path d="M21.2 16.6H12.4" stroke="#0067c0" stroke-width="2" stroke-linecap="round"/>
+  <path d="M20.4 16.6H12.4" stroke="#0067c0" stroke-width="2" stroke-linecap="round"/>
   <path d="M15.2 13.8l-2.8 2.8 2.8 2.8" fill="none" stroke="#0067c0" stroke-width="2"
         stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
