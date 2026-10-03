@@ -46,6 +46,7 @@ from PySide6.QtWidgets import (
 
 from pcl.components.menus import (
     EINTRAG_VORGABE,
+    doppeltes_kuerzel,
     eintrag_vollstaendig,
     kuerzel_fehler,
 )
@@ -528,6 +529,11 @@ class MenueEditor(QDialog):
             if fehler is not None:
                 self._kuerzel_hinweis_zeigen(fehler)
                 return False
+        # Zwei Einträge mit derselben Taste lösten keinen aus (Punkt 633).
+        doppelt = doppeltes_kuerzel(self.entwurf)
+        if doppelt is not None:
+            self._kuerzel_hinweis_zeigen(doppelt)
+            return False
         self.ergebnis = copy.deepcopy(self.entwurf)
         self.uebernommen = True
         return True

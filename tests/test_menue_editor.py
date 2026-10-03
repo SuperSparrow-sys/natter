@@ -490,3 +490,16 @@ def test_sichtbar_landet_im_eintrag(qtbot) -> None:
     editor.feld_visible.setChecked(False)
 
     assert editor.entwurf[0]["children"][0]["visible"] is False
+
+
+
+def test_doppeltes_kuerzel_haelt_anwenden_auf(qtbot) -> None:
+    """Punkt 633: der Menü-Editor nahm zwei gleiche Kürzel an."""
+    editor = _editor(qtbot)
+    _waehlen(editor, 0, 0)
+    editor.feld_shortcut.setText("Strg+K")
+    _waehlen(editor, 0, 1)
+    editor.feld_shortcut.setText("Strg+K")
+
+    assert editor.anwenden() is False
+    assert "Strg+K" in editor.kuerzel_hinweis.text()

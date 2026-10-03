@@ -546,7 +546,13 @@ class Control(Komponente):
                 f"{type(self).__name__}.popup_menu erwartet ein PopupMenu, "
                 f"erhalten wurde {typ_beschreibung(type(menue))}."
             )
-        self._popup_menu = menue
+        vorher, self._popup_menu = self._popup_menu, menue
+        # Die Kürzel eines Klappmenüs hängen an seinen Komponenten; bei
+        # einer neuen Zuordnung melden beide Menüs sie neu an.
+        for klappmenue in {id(m): m for m in (vorher, menue) if m is not None}.values():
+            erneuern = getattr(klappmenue, "_menue_erneuern", None)
+            if callable(erneuern):
+                erneuern()
         if menue is None:
             self._qwidget.setContextMenuPolicy(Qt.ContextMenuPolicy.DefaultContextMenu)
             return

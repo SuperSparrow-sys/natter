@@ -389,6 +389,7 @@ class Chart(Control):
             x, y, color=self._naechste_farbe(), marker=marker,
             label=title or _OHNE_LEGENDE,
         )
+        self._ganzzahlige_x_achse(x)
         self._letzte_punkte = (x, y)
         self._nach_serie(title)
 
@@ -422,6 +423,7 @@ class Chart(Control):
         _gleich_lang(x, y, "add_scatter_series", "x-Werte", "y-Werte")
         self._beispiel_verwerfen()
         self._achse.scatter(x, y, color=self._naechste_farbe(), label=title or _OHNE_LEGENDE)
+        self._ganzzahlige_x_achse(x)
         self._letzte_punkte = (x, y)
         self._nach_serie(title)
 
@@ -443,6 +445,14 @@ class Chart(Control):
 
     def add_boxplot_series(self, werte: Any, *, title: str = "") -> None:
         """Kastengrafik einer Messreihe (Median, Quartile, Ausreißer)."""
+        # Wie bei den übrigen Reihen: Text mit Dezimalkomma wird Zahl,
+        # `None` wird deutsch abgelehnt. Bis dahin endete beides mit
+        # einem englischen Fehler aus numpy (Punkt 628).
+        werte = _zahlenliste(werte, "add_boxplot_series", "Die Werte")
+        if not werte:
+            raise NatterDatenError(
+                "add_boxplot_series: Eine Kastengrafik braucht mindestens einen Wert."
+            )
         self._beispiel_verwerfen()
         self._boxplot_zeichnen(werte, self._naechste_farbe())
         self._nach_serie(title)
@@ -678,6 +688,12 @@ class Chart(Control):
 
     def _regressionsdaten(self, x: Any, y: Any) -> tuple[Any, Any]:
         if x is not None and y is not None:
+            # Dieselbe Umwandlung wie bei der Punktwolke: Text mit
+            # Dezimalkomma wurde dort angenommen, hier abgelehnt
+            # (Punkt 635).
+            x = _zahlenliste(x, "add_regression", "Die x-Werte")
+            y = _zahlenliste(y, "add_regression", "Die y-Werte")
+            _gleich_lang(x, y, "add_regression", "x-Werte", "y-Werte")
             return x, y
         if x is not None or y is not None:
             raise NatterDatenError(
@@ -796,6 +812,24 @@ class Chart(Control):
         farbe = palette[self._serienanzahl % len(palette)]
         self._serienanzahl += 1
         return farbe
+
+    def _ganzzahlige_x_achse(self, x: list[Any]) -> None:
+        """Sind alle x-Werte ganze Zahlen, etwa Jahre, stehen an der
+        Achse nur ganze Zahlen. Aus „2020“, „2021“, „2022“ wurden sonst
+        Teilstriche wie „2019,75“ (Punkt 634)."""
+        from matplotlib.ticker import AutoLocator, MaxNLocator
+
+        zahlen = [
+            wert for wert in x
+            if isinstance(wert, (int, float)) and not isinstance(wert, bool)
+        ]
+        if not x or len(zahlen) != len(x):
+            # Kategorien wie Monatsnamen behalten ihre eigene Achse.
+            return
+        ganz = all(float(wert).is_integer() for wert in zahlen)
+        self._achse.xaxis.set_major_locator(
+            MaxNLocator(integer=True) if ganz else AutoLocator()
+        )
 
     def _dezimalkomma_anwenden(self) -> None:
         """Setzt den Komma-Formatter auf jede Achse, die gerade Zahlen

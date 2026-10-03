@@ -564,7 +564,9 @@ def test_aktualisieren_fuellt_auf_und_prueft() -> None:
         formular.mm_haupt.aktualisieren()
 
 
-@pytest.mark.parametrize("zweites", ["haupt", "klapp"])
+# Zwei Klappmenüs mit demselben Kürzel prüft seit Punkt 623
+# `test_gleiches_kuerzel_in_zwei_klappmenues_gilt_der_liste_mit_fokus`.
+@pytest.mark.parametrize("zweites", ["haupt"])
 def test_gleiches_kuerzel_in_zwei_menues_wirkt_einmal(qtbot, zweites: str) -> None:
     """Punkt 613: Entf im Hauptmenü und im Klappmenü (oder in zwei
     Klappmenüs) löste gar nichts mehr aus."""
@@ -587,6 +589,9 @@ def test_gleiches_kuerzel_in_zwei_menues_wirkt_einmal(qtbot, zweites: str) -> No
                 ]
             self.pm = PopupMenu(self)
             self.pm.entries = [{"caption": "Löschen", "shortcut": "Entf", "on_click": "klapp"}]
+            # Das Klappmenü hängt am Knopf mit dem Fokus; das Hauptmenü
+            # gewinnt trotzdem.
+            self.b_ziel.popup_menu = self.pm
 
         def haupt(self, sender) -> None:
             self.aufrufe.append("haupt")
@@ -676,3 +681,103 @@ def test_unsichtbarer_eintrag_fehlt_im_menue() -> None:
 
     sichtbar = [a.text() for a in klapp.menue().actions() if a.isVisible()]
     assert sichtbar == ["&B"]
+
+
+
+def _zwei_listen(qtbot, *, gleiches_menue: bool = False):  # noqa: ANN202
+    """Zwei Listen mit eigenem (oder gemeinsamem) Klappmenü, je ein
+    Eintrag „Löschen“ auf Entf, dazu ein Knopf."""
+    from pcl import ListBox
+
+    class _Listen(Form):
+        def create_components(self) -> None:
+            self.lb_a = ListBox(self)
+            self.lb_b = ListBox(self)
+            self.lb_b.left = 200
+            self.b_ok = Button(self)
+            self.b_ok.top = 200
+            self.pm_a = PopupMenu(self)
+            self.pm_a.entries = [
+                {"name": "mi_a", "caption": "Löschen", "shortcut": "Entf",
+                 "on_click": "loeschen_a"}
+            ]
+            self.lb_a.popup_menu = self.pm_a
+            if gleiches_menue:
+                self.lb_b.popup_menu = self.pm_a
+            else:
+                self.pm_b = PopupMenu(self)
+                self.pm_b.entries = [
+                    {"name": "mi_b", "caption": "Löschen", "shortcut": "Entf",
+                     "on_click": "loeschen_b"}
+                ]
+                self.lb_b.popup_menu = self.pm_b
+            self.aufrufe: list = []
+
+        def loeschen_a(self, sender) -> None:
+            self.aufrufe.append(("a", sender.popup_component))
+
+        def loeschen_b(self, sender) -> None:
+            self.aufrufe.append(("b", sender.popup_component))
+
+    formular = _Listen()
+    formular.show()
+    qtbot.waitExposed(formular._qwidget)
+    formular._qwidget.activateWindow()
+    qtbot.waitUntil(formular._qwidget.isActiveWindow, timeout=2000)
+    return formular
+
+
+def _entf(ziel) -> None:  # noqa: ANN001
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
+
+    ziel._qwidget.setFocus()
+    QApplication.processEvents()
+    QTest.keyClick(QApplication.focusWidget(), Qt.Key.Key_Delete)
+
+
+@pytest.mark.parametrize("fokus", ["lb_a", "lb_b"])
+def test_gleiches_kuerzel_in_zwei_klappmenues_gilt_der_liste_mit_fokus(
+    qtbot, fokus: str
+) -> None:
+    """Punkt 623: mit dem Fokus in `lb_b` rief Entf die Methode von
+    `pm_a` und löschte in der anderen Liste."""
+    formular = _zwei_listen(qtbot)
+
+    _entf(getattr(formular, fokus))
+
+    assert formular.aufrufe == [(fokus[-1], getattr(formular, fokus))]
+
+
+def test_popup_component_nach_kuerzel_und_ausserhalb(qtbot) -> None:
+    """Punkt 624: nach einem Rechtsklick an `lb_a` und Entf auf dem
+    Knopf blieb `popup_component` bei `lb_a`, und das Beispiel aus der
+    Referenz löschte dort. Jetzt wirkt das Kürzel nur an den Listen,
+    und die Komponente ist die, an der es gedrückt wurde."""
+    formular = _zwei_listen(qtbot, gleiches_menue=True)
+    formular.pm_a._aufgeklappt_an = formular.lb_a  # wie nach einem Rechtsklick
+
+    _entf(formular.b_ok)
+    assert formular.aufrufe == []
+
+    _entf(formular.lb_b)
+    assert formular.aufrufe == [("a", formular.lb_b)]
+    assert formular.pm_a.popup_component is formular.lb_b
+
+
+@pytest.mark.parametrize(
+    "eintraege",
+    [
+        [{"caption": "Eins", "shortcut": "Strg+K"}, {"caption": "Zwei", "shortcut": "Ctrl+K"}],
+        [{"caption": "&Datei", "children": [{"caption": "Eins", "shortcut": "Strg+K"}]},
+         {"caption": "&Hilfe", "children": [{"caption": "Zwei", "shortcut": "strg+k"}]}],
+    ],
+    ids=["oben", "untermenues"],
+)
+def test_doppeltes_kuerzel_im_selben_menue_wird_abgelehnt(eintraege) -> None:  # noqa: ANN001
+    """Punkt 633: zwei Einträge mit Strg+K lösten keinen aus, ohne
+    Hinweis."""
+    menue = MainMenu()
+    with pytest.raises(NatterPropertyError, match="steht bei „Eins“ und bei „Zwei“"):
+        menue.entries = eintraege
