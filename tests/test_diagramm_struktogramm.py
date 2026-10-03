@@ -361,9 +361,9 @@ def test_struktogramm_fenster_bekommt_die_blockpalette(fenster: DiagrammFenster)
 def test_formen_eintraege_sind_beim_struktogramm_ausgegraut(
     fenster: DiagrammFenster,
 ) -> None:
-    """Ehrlicher Zwischenstand: ein Struktogramm kennt keine Formen, also
-    auch kein Duplizieren und kein Übertragen von Füllfarben."""
-    assert fenster.aktionen["Bearbeiten/Duplizieren"].isEnabled() is False
+    """Ein Struktogramm kennt keine Formen, also kein Übertragen von
+    Füllfarben. Blöcke duplizieren geht seit Punkt 538."""
+    assert fenster.aktionen["Bearbeiten/Duplizieren"].isEnabled() is True
     assert fenster.aktionen["Format/Stil übertragen"].isEnabled() is False
     assert fenster.aktionen["Ansicht/Layout-Hinweise"].isEnabled() is False
 
@@ -602,3 +602,34 @@ def test_die_bedingung_bleibt_ueber_den_schraegen(qapp, bedingung: str) -> None:
     )
     text_unten = INNENABSTAND + texthoehe(bedingung, breite / 2)
     assert text_unten <= kasten.kopf.height() / 2
+
+
+def test_bloecke_lassen_sich_ueber_das_menue_kopieren_und_einfuegen(
+    fenster: DiagrammFenster,
+) -> None:
+    """Punkt 538: Bis 0.4.3 ging Kopieren nur mit Strg beim Ziehen;
+    Ausschneiden, Kopieren, Einfügen und Duplizieren waren grau."""
+    flaeche = fenster.zeichenflaeche
+    schleife = flaeche.block_einfuegen("while", Einfuegestelle(flaeche.wurzel, "children", 0))
+    flaeche.text_setzen(schleife, "i < 10")
+    flaeche.auswaehlen(schleife)
+    aktionen = fenster.aktionen
+
+    for pfad in ("Bearbeiten/Kopieren", "Bearbeiten/Einfügen", "Bearbeiten/Duplizieren"):
+        assert aktionen[pfad].isEnabled(), pfad
+    aktionen["Bearbeiten/Kopieren"].trigger()
+    aktionen["Bearbeiten/Einfügen"].trigger()
+    aktionen["Bearbeiten/Duplizieren"].trigger()
+
+    kinder = flaeche.wurzel["children"]
+    assert [k.get("text") for k in kinder] == ["i < 10"] * 3
+    assert len({k["id"] for k in alle_bloecke(flaeche.diagramm.daten)}) == len(
+        list(alle_bloecke(flaeche.diagramm.daten))
+    )
+
+    aktionen["Bearbeiten/Ausschneiden"].trigger()
+    assert len(flaeche.wurzel["children"]) == 2
+    flaeche.rueckgaengig()
+    flaeche.rueckgaengig()
+    flaeche.rueckgaengig()
+    assert len(flaeche.wurzel["children"]) == 1

@@ -435,7 +435,11 @@ beschriftet ihn: eine Anweisung wie `summe = summe + i` (auch
 `x > 0` oder ein Schleifenkopf wie `für i von 1 bis 10`; `für i von
 10 bis 1` zählt abwärts.
 Ein Block lässt sich mit der Maus an eine andere Einfügestelle ziehen,
-`Entf` löscht ihn samt Inhalt.
+mit gedrückter `Strg` entsteht dabei eine Kopie. `Strg+C`, `Strg+X`
+und `Strg+V` kopieren, schneiden aus und fügen hinter dem
+ausgewählten Block ein, auch in ein anderes Struktogramm; `Strg+D`
+setzt eine Kopie gleich dahinter. `Entf` löscht einen Block samt
+Inhalt.
 
 **Ein Klassendiagramm zeichnen.** Eine Klasse aus der Palette
 anklicken und dann auf die Zeichenfläche klicken. Name, Attribute und

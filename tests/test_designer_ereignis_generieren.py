@@ -118,7 +118,7 @@ def test_pfm_wird_mit_dem_verknuepften_ereignis_gespeichert(tmp_path: Path) -> N
     assert kind["events"] == {"on_click": "b_ein_click"}
 
 
-def test_rueckgaengig_entfernt_die_verknuepfung_aber_nicht_die_methode(tmp_path: Path) -> None:
+def test_rueckgaengig_entfernt_verknuepfung_und_leere_methode(tmp_path: Path) -> None:
     unit_pfad = _unit_datei_vorbereiten(tmp_path)
     formular = _Formular()
     canvas = DesignerCanvas(formular, pfm_pfad=tmp_path / "test.pfm")
@@ -127,7 +127,7 @@ def test_rueckgaengig_entfernt_die_verknuepfung_aber_nicht_die_methode(tmp_path:
     canvas.rueckgaengig()
 
     assert formular.b_ein.on_click is None
-    assert "def b_ein_click(self, sender):" in unit_pfad.read_text(encoding="utf-8")
+    assert "def b_ein_click(self, sender):" not in unit_pfad.read_text(encoding="utf-8")
 
 
 def test_echter_doppelklick_erzeugt_den_handler(tmp_path: Path) -> None:
@@ -263,3 +263,39 @@ def test_zweimal_dasselbe_ereignis_schreibt_nur_einmal(tmp_path: Path) -> None:
 
     assert erster == zweiter
     assert unit_pfad.read_text(encoding="utf-8") == nach_dem_ersten
+
+
+def test_rueckgaengig_und_loeschen_nehmen_die_leere_methode_mit(tmp_path: Path) -> None:
+    """Punkt 537: Bis 0.4.3 nahm Strg+Z nach einem Doppelklick nur die
+    Verknüpfung zurück, und auch nach dem Löschen der Komponente blieb
+    die leere Methode in der Unit stehen."""
+    unit = _unit_datei_vorbereiten(tmp_path)
+    formular = _Formular()
+    canvas = DesignerCanvas(formular, pfm_pfad=tmp_path / "test.pfm")
+
+    canvas.ereignis_handler_erzeugen(formular.b_ein)
+    assert "def b_ein_click" in unit.read_text(encoding="utf-8")
+    canvas.rueckgaengig()
+    assert unit.read_text(encoding="utf-8") == _STARTINHALT
+    canvas.wiederholen()
+    assert "def b_ein_click" in unit.read_text(encoding="utf-8")
+
+    canvas.loeschen(formular.b_ein)
+    assert unit.read_text(encoding="utf-8") == _STARTINHALT
+    canvas.rueckgaengig()
+    assert "def b_ein_click" in unit.read_text(encoding="utf-8")
+
+
+def test_eine_methode_mit_eigenem_code_bleibt_beim_loeschen(tmp_path: Path) -> None:
+    unit = _unit_datei_vorbereiten(tmp_path)
+    formular = _Formular()
+    canvas = DesignerCanvas(formular, pfm_pfad=tmp_path / "test.pfm")
+    canvas.ereignis_handler_erzeugen(formular.b_ein)
+    text = unit.read_text(encoding="utf-8").replace(
+        "# Hier steht, was passieren soll.", "print('eigener Code')"
+    )
+    unit.write_text(text, encoding="utf-8")
+
+    canvas.loeschen(formular.b_ein)
+
+    assert "print('eigener Code')" in unit.read_text(encoding="utf-8")

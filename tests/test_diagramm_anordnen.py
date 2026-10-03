@@ -662,7 +662,8 @@ def test_struktogramm_hat_kein_anordnen(tmp_path: Path) -> None:
     fenster = DiagrammFenster(diagramm_erzeugen("struktogramm", tmp_path / "s.pdiag", "s"))
 
     assert fenster.aktionen["Anordnen/Gruppieren"].isEnabled() is False
-    assert fenster.aktionen["Bearbeiten/Kopieren"].isEnabled() is False
+    # Blöcke kopieren geht seit Punkt 538.
+    assert fenster.aktionen["Bearbeiten/Kopieren"].isEnabled() is True
 
 
 def test_statusleiste_nennt_die_anzahl(tmp_path: Path) -> None:

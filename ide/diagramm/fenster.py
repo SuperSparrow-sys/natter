@@ -822,18 +822,31 @@ class DiagrammFenster(QMainWindow):
         """
         flaeche = self.zeichenflaeche
         if not hasattr(flaeche, "ausrichten"):
-            # Struktogramm und Entscheidungstabelle kennen keine Formen
+            # Struktogramm und Entscheidungstabelle kennen keine Formen.
+            # Blöcke eines Struktogramms lassen sich aber kopieren
+            # (Punkt 538).
+            kopierbar = hasattr(flaeche, "kopieren")
             for pfad, aktion in self.aktionen.items():
-                if pfad.startswith("Anordnen/") or pfad in (
+                if pfad.startswith("Anordnen/") or pfad == "Bearbeiten/Alles auswählen":
+                    aktion.setEnabled(False)
+                elif pfad in (
                     "Bearbeiten/Ausschneiden",
                     "Bearbeiten/Kopieren",
                     "Bearbeiten/Einfügen",
-                    "Bearbeiten/Alles auswählen",
                 ):
-                    aktion.setEnabled(False)
+                    aktion.setEnabled(kopierbar)
             for pfad, untermenue in self._menues.items():
                 if pfad.startswith("Anordnen/"):
                     untermenue.setEnabled(False)
+            if kopierbar:
+                for pfad, kuerzel, rueckruf in (
+                    ("Bearbeiten/Ausschneiden", "Ctrl+X", flaeche.ausschneiden),
+                    ("Bearbeiten/Kopieren", "Ctrl+C", flaeche.kopieren),
+                    ("Bearbeiten/Einfügen", "Ctrl+V", flaeche.einfuegen),
+                ):
+                    aktion = self.aktionen[pfad]
+                    aktion.setShortcut(kuerzel)
+                    aktion.triggered.connect(lambda *_, f=rueckruf: f())
             return
 
         for pfad, kuerzel, rueckruf in (

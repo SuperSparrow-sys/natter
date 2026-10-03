@@ -85,3 +85,17 @@ def test_die_pruefung_hinterlaesst_keinen_ruff_cache(tmp_path: Path, monkeypatch
 
     assert not (arbeitsordner / ".ruff_cache").exists()
     assert not (projekt.ordner / ".ruff_cache").exists()
+
+
+def test_eine_datei_mit_dem_namen_eines_moduls_ergibt_einen_hinweis(tmp_path: Path) -> None:
+    """Punkt 536: Eine hineinkopierte `random.py` verdeckt das Modul.
+    Das ist ein Hinweis und kein Grund, den Start zu verhindern."""
+    projekt = _projekt_schreiben(tmp_path, "print(1)\n")
+    (tmp_path / "random.py").write_text("x = 1\n", encoding="utf-8")
+
+    funde = [f for f in projekt_pruefen(projekt) if f.code == "natter-modulname"]
+
+    assert len(funde) == 1
+    assert funde[0].datei.name == "random.py"
+    assert not funde[0].blockiert
+    assert "u_random" in str(funde[0])

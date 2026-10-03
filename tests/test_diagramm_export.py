@@ -547,3 +547,16 @@ def test_die_aufloesung_wird_an_das_zeichnen_durchgereicht() -> None:
     ).read_text(encoding="utf-8")
 
     assert "aufloesung=drucker.resolution()" in quelle
+
+
+def test_eine_vorlagenklasse_zeigt_ihre_parameter(daten: dict) -> None:
+    """Punkt 539: `template` und `template_parameters` ließen sich im
+    Klassendialog einstellen, änderten das Bild aber nicht."""
+    vorher = als_bild(daten)
+    daten["shapes"][0]["template"] = True
+    daten["shapes"][0]["template_parameters"] = [{"name": "T"}]
+
+    nachher = als_bild(daten)
+
+    assert nachher != vorher
+    assert nachher.size() == vorher.size()

@@ -412,6 +412,38 @@ def _klasse_zeichnen(maler: QPainter, shape: dict, stil: Stil, kind: str) -> Non
         maler, rechteck, attribut_unten, methoden, stil, zeilenhoehe,
         kursiv=kursive_operationen(shape),
     )
+    _vorlagenparameter_zeichnen(maler, shape, stil, rechteck, gross)
+
+
+def _vorlagenparameter_zeichnen(
+    maler: QPainter, shape: dict, stil: Stil, rechteck: QRectF, gross: float
+) -> None:
+    """Die Parameter einer Vorlagenklasse (`Liste<T>`) in einem
+    gestrichelten Kästchen über der rechten oberen Ecke, wie in UML
+    üblich. Bis 0.4.3 ließen sie sich einstellen, waren im Diagramm
+    aber nirgends zu sehen (Punkt 539)."""
+    if not shape.get("template"):
+        return
+    namen = [
+        str(p.get("name") or "T").strip() or "T"
+        for p in shape.get("template_parameters") or []
+    ]
+    if not namen:
+        return
+    schrift = _namensschrift(fett=False, groesse=gross)
+    masse = QFontMetricsF(schrift)
+    text = ", ".join(namen)
+    breite = masse.horizontalAdvance(text) + 10
+    hoehe = masse.height() + 4
+    kasten = QRectF(rechteck.right() + 6 - breite, rechteck.top() - hoehe / 2, breite, hoehe)
+    stift = _stift(stil, randfarbe(shape, stil))
+    stift.setStyle(Qt.PenStyle.DashLine)
+    maler.setPen(stift)
+    maler.setBrush(QBrush(QColor(fuellfarbe(shape, stil))))
+    maler.drawRect(kasten)
+    maler.setFont(schrift)
+    maler.setPen(QColor(stil.text))
+    maler.drawText(kasten, Qt.AlignmentFlag.AlignCenter, text)
 
 
 def _zeilen_zeichnen(

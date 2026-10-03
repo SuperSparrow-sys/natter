@@ -176,7 +176,8 @@ def test_kontextmenue_an_einer_spalte(flaeche: StruktogrammCanvas) -> None:
     aktionen = {a.text(): a for a in menue.actions() if a.text()}
 
     assert list(aktionen) == [
-        "Fall beschriften …", "Fall hinzufügen", "Fall entfernen", "Beschriften …", "Löschen",
+        "Fall beschriften …", "Fall hinzufügen", "Fall entfernen", "Beschriften …",
+        "Ausschneiden", "Kopieren", "Duplizieren", "Einfügen", "Löschen",
         "Diagramm umbenennen …",
     ]
     aktionen["Fall entfernen"].trigger()

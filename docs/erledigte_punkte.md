@@ -13637,3 +13637,51 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** Designer und Zeitgeber deterministisch im Hauptfaden enden lassen.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** `DesignerCanvas` bekommt das Formular-Widget als Eltern und endet mit ihm, samt Schreib-Uhr; die Speicherbereinigung räumt danach nur noch die Python-Hülle ab. Die Uhr eines `Timer` auf einem Formular hängt am Symbol-Widget, und im Designer (`_entwurfsansicht`) läuft sie nicht; `enabled` bleibt dabei stehen (`Timer._darf_laufen`, auch in `Form._zeitgeber_schalten`). Zwei Notbehelfe aus der Fehlersuche (`--no-qt-log`, zusätzliches Abarbeiten in der Aufräum-Fixture) sind wieder entfernt. Gemessen im endgültigen Stand (Erfassung wieder an, ohne Notbehelfe): 0 von 60 Läufen; vorher waren es rund 10 von 60. Tests: `test_der_designer_stirbt_mit_seinem_formular_im_hauptfaden` in `tests/test_designer_canvas.py` (scheitert ohne die Änderung) und `test_im_designer_tickt_ein_zeitgeber_nicht_und_gehoert_dem_formular` in `tests/test_components_timer.py`.
+
+## 536. Eine Unit oder ein Formular darf heißen wie ein Python-Modul und verdeckt es ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Entwicklungsstand `fe45604`.
+
+**Beobachtet:** In `02_Zahlenraten` (Kopie) wird eine neue Unit über „⋮ → Umbenennen …“ in `random` umbenannt. Natter nimmt den Namen an („„u_neu1.py“ zu „random.py“ umbenannt“). Die Prüfung vor dem Start meldet nichts, und das Programm bricht beim Start ab: „AttributeError: module 'random' has no attribute 'randint' (consider renaming …random.py since it has the same name as the standard library module …)“. `import random` in `u_main.py` holt jetzt die eigene Datei. Dasselbe gilt für `math`, `time`, `string` und ebenso für `pcl`, womit jedes Formular-Projekt bricht. Im Unterricht liegen solche Namen nahe: eine Unit `random` für eine Übung mit Zufallszahlen. Punkt 445 hat dasselbe Problem nur für Debugger und Exe-Export gelöst; das Schülerprogramm selbst bleibt betroffen.
+
+**Ursache:** nachgewiesen. `_unit_umbenennen` (`ide/shell/hauptfenster.py`, um Zeile 3258) prüft nur `isidentifier()`, `keyword.iskeyword()` und die Endung `_design`; `_formularname_fehler` (um Zeile 2421) prüft für „Neues Formular …“ und das Umbenennen eines Formulars ebenso nur diese Punkte. `sys.stdlib_module_names` und die Namen installierter Pakete wie `pcl` werden nicht abgefragt, und `projekt_pruefen` (`ide/run/pruefung.py`) kennt keine Regel dafür.
+
+**Zu tun:** Beim Anlegen und Umbenennen von Units und Formularen einen Namen ablehnen, der ein Modul der Standardbibliothek oder ein mitgeliefertes Paket (`pcl`, `pandas`, `matplotlib` …) verdeckt, mit einem Satz, der den Grund nennt und einen Namen wie `u_random` vorschlägt; für eine von außen hineinkopierte Datei mit solchem Namen einen Hinweis in der Prüfung vor dem Start. Erledigt, wenn ein Test das Umbenennen in `random` und das Anlegen eines Formulars `math` abgelehnt sieht.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Berichtigung zum Befund: Formularnamen müssen mit `u_` beginnen und können deshalb kein Modul verdecken; betroffen war nur das Umbenennen einer Unit. `modul_verdeckt` (`ide/run/pruefung.py`) erkennt Module der Standardbibliothek (`sys.stdlib_module_names`) und alles, was sich importieren lässt (`importlib.util.find_spec`), also auch `pcl`, `pandas` und `matplotlib`. `_unit_umbenennen` lehnt solche Namen mit einer Meldung ab, die den Grund nennt und `u_<name>` vorschlägt. Eine von außen hineinkopierte Datei wie `random.py` ergibt in der Prüfung vor dem Start einen Hinweis (`natter-modulname`), der den Start nicht verhindert. Tests: `test_unit_umbenennen_lehnt_ungueltige_namen_ab` in `tests/test_explorer_unit_umbenennen_loeschen.py` um `random` und `pcl` erweitert, `test_eine_datei_mit_dem_namen_eines_moduls_ergibt_einen_hinweis` in `tests/test_pruefung.py`.
+
+## 537. Rückgängig nach dem Anlegen einer Ereignis-Methode lässt die leere Methode in der Unit stehen ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Entwicklungsstand `fe45604`.
+
+**Beobachtet:** Im Designer (Kopie von `03_Taschenrechner`) legt ein Doppelklick auf `l_titel` die Methode `l_titel_click` mit dem Rumpf „Hier steht, was passieren soll.“ in `u_main.py` an und verknüpft sie in der `.pfm`. Ein Strg+Z nimmt die Verknüpfung zurück, der Rückgängig-Stapel ist danach leer, die leere Methode steht aber weiter in der Unit. Ebenso bleibt die leere Methode stehen, wenn die Komponente danach gelöscht wird. Nach einer längeren Folge mit vollständigem Rückgängig ist die `.pfm` wieder wie vorher, die Unit nicht. So ein Rest stand bis zum 3. Oktober 2026 eingecheckt in `beispielprojekte/09_ObstSortierer/u_main.py` (`ch_streuung_click`, Punkt 531).
+
+**Ursache:** nachgewiesen. `ereignis_handler_erzeugen` (`ide/designer/canvas.py`, ab Zeile 2605) schreibt die Methode direkt in die Unit und legt auf den Stapel nur ein `EigenschaftKommando` für die Verknüpfung; das Rückgängigmachen kennt die geschriebene Methode nicht.
+
+**Zu tun:** Eine Methode, die der Designer gerade angelegt hat und deren Rumpf noch unverändert ist, beim Rückgängigmachen mit entfernen; beim Löschen einer Komponente leere, nicht mehr verknüpfte Methoden mit entfernen oder zumindest nennen. Selbst geschriebener Code bleibt immer stehen. Erledigt, wenn ein Test nach Doppelklick und Strg+Z die Unit unverändert findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Das Anlegen einer Methode ist jetzt ein `_MethodeAnlegenKommando` (`ide/designer/canvas.py`), das Verknüpfung und Methode zusammen zurücknimmt und wiederherstellt. Beim Löschen einer Komponente nimmt `_leere_methoden_entfernen` ihre Ereignis-Methoden über ein `_UnitTauschKommando` mit, wenn sie noch genau so leer sind, wie der Designer sie angelegt hat (`leere_handler_methode_entfernen` in `ide/codegen/ereignis.py` vergleicht mit dem Gerüst), keine andere Komponente sie benutzt und sie nirgends aufgerufen werden. Beides geschieht nur, solange Datei und offene Editoren genau den erwarteten Stand haben; geschriebener Code bleibt immer stehen, und Strg+Z bringt alles zurück. Tests: `test_rueckgaengig_und_loeschen_nehmen_die_leere_methode_mit`, `test_eine_methode_mit_eigenem_code_bleibt_beim_loeschen` und der angepasste `test_rueckgaengig_entfernt_verknuepfung_und_leere_methode` in `tests/test_designer_ereignis_generieren.py`.
+
+## 538. Struktogramm: Blöcke lassen sich nur mit Strg+Ziehen kopieren, das Menü bleibt grau ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Entwicklungsstand `fe45604`.
+
+**Beobachtet:** Im Struktogramm-Editor sind „Bearbeiten → Ausschneiden“, „Kopieren“, „Einfügen“ und „Duplizieren“ auch dann ausgegraut, wenn ein Block ausgewählt ist; Strg+C, Strg+V und Strg+D wirken nicht, das Kontextmenü eines Blocks bietet nur „Beschriften …“, „Löschen“ und die Befehle für Fälle und Stränge. Kopieren geht allein, indem der Block mit gedrückter Strg-Taste an eine andere Stelle gezogen wird. Das Handbuch, Abschnitt 3.4, nennt nur das Ziehen zum Verschieben. Wer eine Ausgabe oder eine ganze Schleife ein zweites Mal braucht, muss sie neu bauen.
+
+**Ursache:** nachgewiesen. `StruktogrammCanvas.block_kopieren` (`ide/diagramm/struktogramm_canvas.py`, Zeile 922) wird nur in `mouseReleaseEvent` (Zeile 1030) bei gedrückter Strg-Taste aufgerufen; `kontextmenue_fuer` (ab Zeile 748) und die Menüeinträge des Fensters verbinden Kopieren und Einfügen für diesen Diagrammtyp nicht. Probe: Block einfügen, auswählen, Menü „Bearbeiten“ öffnen: `Kopieren`, `Einfügen`, `Duplizieren` haben `isEnabled() == False`.
+
+**Zu tun:** Kopieren, Ausschneiden, Einfügen (an der gewählten Einfügestelle oder hinter dem ausgewählten Block) und Duplizieren für Blöcke anbieten, mit den üblichen Tastenkürzeln, und Strg+Ziehen im Handbuch nennen. Erledigt, wenn ein Test einen Block über Strg+C und Strg+V verdoppelt und Strg+Z das zurücknimmt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `StruktogrammCanvas` hat `kopieren`, `ausschneiden`, `einfuegen` und `duplizieren`; eingefügt wird hinter dem ausgewählten Block, ohne Auswahl am Ende, und die Ablage gilt für alle Struktogramme. Das Diagrammfenster verbindet die Menüeinträge samt `Strg+X`, `Strg+C`, `Strg+V` und `Strg+D`, sobald die Zeichenfläche sie kennt; das Kontextmenü eines Blocks bietet dieselben Befehle. Das Handbuch, Abschnitt 3.4, nennt sie und das Kopieren mit Strg beim Ziehen. Test: `test_bloecke_lassen_sich_ueber_das_menue_kopieren_und_einfuegen` in `tests/test_diagramm_struktogramm.py`; zwei Tests, die das alte Verhalten festhielten, sind angepasst.
+
+## 539. Klassendiagramm: Vorlagenparameter lassen sich einstellen, erscheinen aber nicht im Diagramm ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Entwicklungsstand `fe45604`.
+
+**Beobachtet:** Im Eigenschaften-Dialog einer Klasse lässt sich „Vorlagenklasse“ ankreuzen und ein Parameter wie `T` anlegen; gespeichert wird beides als `template` und `template_parameters`, und der Codeerzeuger verwendet es. Im gezeichneten Diagramm, im PNG- und im PDF-Export ändert sich dadurch nichts: Probe mit `als_bild` vor und nach dem Setzen von `template = True` und `template_parameters = [{"name": "T"}]` ergibt zwei gleiche Bilder (216 × 160). Wer eine Liste `Liste<T>` modelliert, sieht das im Diagramm nicht.
+
+**Ursache:** nachgewiesen. `ide/diagramm/zeichnen.py` und `ide/diagramm/uml_modell.py` lesen `template` und `template_parameters` nicht (`grep` ohne Treffer); nur `klassendialog.py` und `klassen_code.py` tun es.
+
+**Zu tun:** Die Parameter so zeichnen, wie es für Vorlagenklassen üblich ist (gestricheltes Kästchen an der rechten oberen Ecke der Klasse mit `T`), in Bild- und PDF-Export ebenso. Erledigt, wenn ein Test zwei verschiedene Bilder findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_vorlagenparameter_zeichnen` (`ide/diagramm/zeichnen.py`) zeichnet die Parameter in einem gestrichelten Kästchen über der rechten oberen Ecke der Klasse, in der Zeichenfläche wie in Bild- und PDF-Export; das Kästchen bleibt innerhalb des Exportrands. Test: `test_eine_vorlagenklasse_zeigt_ihre_parameter` in `tests/test_diagramm_export.py`.

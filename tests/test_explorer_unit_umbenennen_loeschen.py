@@ -177,13 +177,16 @@ def _umbenennen(fenster: HauptFenster, pfad: Path, name: str, monkeypatch) -> li
     return meldungen
 
 
-@pytest.mark.parametrize("name", ["mein konto", "u_konto_design", "2konto", "class"])
+@pytest.mark.parametrize(
+    "name", ["mein konto", "u_konto_design", "2konto", "class", "random", "pcl"]
+)
 def test_unit_umbenennen_lehnt_ungueltige_namen_ab(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str, hauptfenster
 ) -> None:
     """Punkt 154: „mein konto“ ließ sich nicht importieren, und
     „u_konto_design“ verschwand als vermeintlich erzeugte Datei aus
-    dem Explorer."""
+    dem Explorer. Punkt 536: „random“ und „pcl“ verdeckten das
+    gleichnamige Modul, und das Programm brach beim Start ab."""
     projekt = hauptfenster.projekt_oeffnen(_projekt_kopie(tmp_path) / "06_Kontoverwaltung.natter")
     unit_pfad = projekt.ordner / "u_konto.py"
 

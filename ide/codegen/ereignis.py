@@ -190,3 +190,43 @@ def handler_methode_einfuegen(
     einfueger = _MethodeAnhaengen(klassenname, methodenname, zusatz_parameter)
     geaendertes_modul = modul.visit(einfueger)
     return geaendertes_modul.code
+
+
+def leere_handler_methode_entfernen(
+    quelltext: str, klassenname: str, methodenname: str
+) -> str | None:
+    """Entfernt die Methode `methodenname` aus der Klasse
+    `klassenname`, wenn sie noch genau so dasteht, wie
+    `handler_methode_einfuegen` sie angelegt hat: mit dem Hinweis und
+    `pass` als einzigem Inhalt. Liefert den neuen Quelltext, oder
+    `None`, wenn es die Methode nicht gibt oder jemand etwas an ihr
+    geändert hat - dann bleibt sie stehen (Punkt 537)."""
+    modul = cst.parse_module(quelltext)
+    for anweisung in modul.body:
+        if not (
+            isinstance(anweisung, cst.ClassDef) and anweisung.name.value == klassenname
+        ):
+            continue
+        for glied in anweisung.body.body:
+            if not (
+                isinstance(glied, cst.FunctionDef) and glied.name.value == methodenname
+            ):
+                continue
+            parameter = tuple(
+                p.name.value for p in glied.params.params[2:]
+            )
+            geruest = _leere_handler_methode(methodenname, parameter)
+            if modul.code_for_node(glied.with_changes(leading_lines=[])) != (
+                modul.code_for_node(geruest.with_changes(leading_lines=[]))
+            ):
+                return None
+            neuer_rumpf = [g for g in anweisung.body.body if g is not glied]
+            if not neuer_rumpf:
+                # Wie vor dem ersten Doppelklick: eine leere Klasse
+                # braucht ein `pass`.
+                neuer_rumpf = [cst.SimpleStatementLine([cst.Pass()])]
+            neue_klasse = anweisung.with_changes(
+                body=anweisung.body.with_changes(body=neuer_rumpf)
+            )
+            return modul.deep_replace(anweisung, neue_klasse).code
+    return None

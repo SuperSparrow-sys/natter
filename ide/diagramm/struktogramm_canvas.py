@@ -14,6 +14,7 @@ Der Kommando-Stapel ist derselbe wie beim Klassendiagramm
 from __future__ import annotations
 
 import copy
+from dataclasses import replace
 from typing import Any
 
 from PySide6.QtCore import QPoint, QRectF, Qt, Signal
@@ -62,6 +63,10 @@ from ide.diagramm.struktogramm import (
 )
 from ide.diagramm.zoom import ZoomMischung
 from ide.kommando import Kommandostapel
+
+#: Der zuletzt kopierte Block, für alle Struktogramme gemeinsam: so
+#: lässt sich eine Schleife aus einem Diagramm in ein anderes bringen.
+_ABLAGE: dict[str, Any] | None = None
 
 #: Abstand des Struktogramms von der linken oberen Ecke der Fläche.
 VERSATZ = 24
@@ -793,8 +798,18 @@ class StruktogrammCanvas(ZoomMischung, QWidget):
             menue.addSeparator()
         aktion = menue.addAction("Beschriften …", lambda: self.bearbeiten(block))
         aktion.setEnabled(block is not None and block is not self.wurzel)
+        echt = block is not None and block is not self.wurzel
+        for text, befehl in (
+            ("Ausschneiden", self.ausschneiden),
+            ("Kopieren", self.kopieren),
+            ("Duplizieren", lambda: self.duplizieren(block)),
+        ):
+            aktion = menue.addAction(text, befehl)
+            aktion.setEnabled(echt)
+        aktion = menue.addAction("Einfügen", self.einfuegen)
+        aktion.setEnabled(_ABLAGE is not None)
         aktion = menue.addAction("Löschen", lambda: self.loeschen(block))
-        aktion.setEnabled(block is not None and block is not self.wurzel)
+        aktion.setEnabled(echt)
         menue.addSeparator()
         menue.addAction("Diagramm umbenennen …", self.umbenennen_fragen)
         return menue
@@ -931,6 +946,58 @@ class StruktogrammCanvas(ZoomMischung, QWidget):
         kopie = self._mit_neuen_kennungen(copy.deepcopy(block))
         self.kommandos.ausfuehren(_BaumKommando(ziel, kopie))
         self._nach_aenderung(kopie)
+        return kopie
+
+    # -- Kopieren und Einfügen (Punkt 538) ------------------------------
+
+    def _stelle_hinter(self, block: dict[str, Any] | None) -> Einfuegestelle:
+        """Die Lücke direkt hinter `block`, ohne Block das Ende."""
+        if block is not None and block is not self.wurzel:
+            stelle = stelle_von(self.diagramm.daten, block)
+            if stelle is not None:
+                return replace(stelle, index=stelle.index + 1)
+        kinder = self.wurzel.get("children") or []
+        return Einfuegestelle(self.wurzel, "children", len(kinder))
+
+    def kopieren(self) -> bool:
+        """Legt den ausgewählten Block samt Inhalt ab. Bis 0.4.3 ging
+        das nur mit Strg beim Ziehen, und die Menüeinträge blieben
+        grau."""
+        block = self.ausgewaehlter_block
+        if block is None or block is self.wurzel:
+            return False
+        global _ABLAGE
+        _ABLAGE = copy.deepcopy(block)
+        return True
+
+    def ausschneiden(self) -> bool:
+        block = self.ausgewaehlter_block
+        if not self.kopieren():
+            return False
+        self.loeschen(block)
+        return True
+
+    def einfuegen(self) -> bool:
+        """Setzt den abgelegten Block hinter den ausgewählten, ohne
+        Auswahl ans Ende - auch in einem anderen Struktogramm."""
+        if _ABLAGE is None:
+            return False
+        kopie = self._mit_neuen_kennungen(copy.deepcopy(_ABLAGE))
+        self.kommandos.ausfuehren(
+            _BaumKommando(self._stelle_hinter(self.ausgewaehlter_block), kopie)
+        )
+        self._nach_aenderung(kopie)
+        self.auswaehlen(kopie)
+        return True
+
+    def duplizieren(self, block: dict[str, Any] | None = None) -> dict[str, Any] | None:
+        """Eine Kopie des Blocks gleich dahinter (Strg+D)."""
+        block = block or self.ausgewaehlter_block
+        if block is None or block is self.wurzel:
+            return None
+        kopie = self.block_kopieren(block, self._stelle_hinter(block))
+        if kopie is not None:
+            self.auswaehlen(kopie)
         return kopie
 
     def _mit_neuen_kennungen(self, block: dict[str, Any]) -> dict[str, Any]:

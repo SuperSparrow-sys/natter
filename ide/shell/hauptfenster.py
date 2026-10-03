@@ -137,7 +137,7 @@ from ide.run.ladeanzeige import (
     lademarke_entfernen,
     lademarke_gesetzt,
 )
-from ide.run.pruefung import RuffFund
+from ide.run.pruefung import RuffFund, modul_verdeckt
 from ide.schema import (
     fehler_beschreiben,
     json_datei_lesen,
@@ -3267,6 +3267,14 @@ class HauptFenster(QMainWindow):
                 f"„{stamm}“ endet auf „_design“. So heißen die Dateien, die "
                 "Natter aus dem Designer erzeugt; eine Unit mit diesem Namen "
                 "wäre im Projekt-Explorer nicht mehr zu sehen."
+            )
+            return
+        if modul_verdeckt(stamm):
+            self._umbenennen_ablehnen(
+                f"„{stamm}“ heißt wie ein Modul, das Python schon mitbringt. "
+                f"Eine Unit mit diesem Namen verdeckt es: „import {stamm}“ "
+                f"holte dann die eigene Datei, und das Programm bricht ab. "
+                f"Ein anderer Name, etwa u_{stamm}, vermeidet das."
             )
             return
         ziel = pfad.parent / neuer_name

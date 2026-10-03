@@ -17,6 +17,7 @@ import ast
 import json
 import re
 import subprocess
+import sys
 import warnings
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -39,12 +40,14 @@ _AUSGEWAEHLTE_REGELN = "E9,F821,F401,F841"
 #: hinzugefügte Regel verhindert den Start, bis jemand bewusst
 #: entscheidet, dass sie es nicht soll. Der umgekehrte Weg würde eine
 #: neue, ernste Regel stillschweigend durchlassen (M12).
-NUR_HINWEIS = frozenset({"F401", "F841"})
+NUR_HINWEIS = frozenset({"F401", "F841", "natter-modulname"})
 
 #: Regeln, die Natter selbst prüft, weil sie mehr als eine Datei
 #: betreffen. Ihre `meldung` ist schon deutsch, und ihre Leitfrage
-#: steht im Fund. Beide verhindern den Start.
-EIGENE_REGELN = frozenset({"natter-import", "natter-ereignis"})
+#: steht im Fund. Import und Ereignis verhindern den Start; ein
+#: Dateiname, der ein Modul verdeckt, ist nur ein Hinweis, denn er
+#: stört erst, wenn das Programm das Modul importiert.
+EIGENE_REGELN = frozenset({"natter-import", "natter-ereignis", "natter-modulname"})
 
 #: Die Klammer in Pythons „'(' was never closed“.
 _KLAMMER_MUSTER = re.compile(r"'(.)' was never closed")
@@ -281,6 +284,7 @@ def projekt_pruefen(projekt: Projekt) -> list[RuffFund]:
     )
     funde.extend(_importe_pruefen(projekt))
     funde.extend(_ereignisse_pruefen(projekt))
+    funde.extend(_modulnamen_pruefen(projekt))
     return funde
 
 
@@ -432,6 +436,52 @@ def _oberste_namen(baum: ast.Module) -> set[str] | None:
     if "__getattr__" in namen:
         return None
     return namen
+
+
+def modul_verdeckt(name: str) -> bool:
+    """Ob eine Unit `name` ein Modul verdecken würde, das ein Programm
+    importieren kann: eines der Standardbibliothek oder ein
+    mitgeliefertes Paket wie `pcl`, `pandas` oder `matplotlib`.
+
+    Python sucht zuerst im Ordner des Programms. Eine Unit `random.py`
+    machte `import random` zur eigenen Datei, und `random.randint`
+    endete mit einem AttributeError (Punkt 536)."""
+    import importlib.util
+
+    if name in sys.stdlib_module_names:
+        return True
+    try:
+        return importlib.util.find_spec(name) is not None
+    except (ImportError, ValueError):
+        return False
+
+
+def _modulnamen_pruefen(projekt: Projekt) -> list[RuffFund]:
+    """Ein Hinweis zu jeder Datei im Projekt, die heißt wie ein Modul
+    von Python, etwa eine hineinkopierte `random.py`. Umbenennen in
+    Natter lässt solche Namen nicht zu (Punkt 536)."""
+    funde: list[RuffFund] = []
+    for datei in projekt.alle_python_dateien():
+        if datei == projekt.haupt_datei or not modul_verdeckt(datei.stem):
+            continue
+        funde.append(
+            RuffFund(
+                datei=datei,
+                zeile=1,
+                spalte=1,
+                code="natter-modulname",
+                meldung=(
+                    f"Die Datei heißt wie das Python-Modul „{datei.stem}“. "
+                    f"Ein „import {datei.stem}“ holt dann diese Datei statt "
+                    "des Moduls."
+                ),
+                leitfrage=(
+                    f"Wird „{datei.stem}“ irgendwo importiert? Dann die Datei "
+                    f"umbenennen, etwa in u_{datei.stem}."
+                ),
+            )
+        )
+    return funde
 
 
 def _importe_pruefen(projekt: Projekt) -> list[RuffFund]:

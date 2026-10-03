@@ -827,6 +827,70 @@ _MAUSEREIGNISSE = (
 )
 
 
+class _MethodeAnlegenKommando:
+    """Doppelklick auf eine Komponente: Methode in der Unit anlegen und
+    verknüpfen, als ein Rückgängig-Schritt.
+
+    Bis 0.4.3 kannte das Rückgängigmachen nur die Verknüpfung, und die
+    leere Methode blieb in der Unit stehen (Punkt 537). Entfernt wird
+    sie nur, solange Datei und offene Editoren noch genau den Stand
+    direkt nach dem Anlegen haben; was jemand inzwischen geschrieben
+    hat, bleibt stehen. Wiederholen legt sie auf demselben Weg wieder
+    an."""
+
+    def __init__(
+        self,
+        canvas: DesignerCanvas,
+        bindung: EigenschaftKommando,
+        vorher: str,
+        nachher: str,
+    ) -> None:
+        self._canvas = canvas
+        self._bindung = bindung
+        self._vorher = vorher
+        self._nachher = nachher
+        self._erster_lauf = True
+
+    def tun(self) -> None:
+        self._bindung.tun()
+        if self._erster_lauf:
+            # Die Unit ist schon geschrieben.
+            self._erster_lauf = False
+            return
+        self._unit_tauschen(self._vorher, self._nachher)
+
+    def rueckgaengig(self) -> None:
+        self._bindung.rueckgaengig()
+        self._unit_tauschen(self._nachher, self._vorher)
+
+    def _unit_tauschen(self, erwartet: str, neu: str) -> None:
+        _unit_tauschen(self._canvas, erwartet, neu)
+
+
+class _UnitTauschKommando:
+    """Ersetzt den Text der Unit, etwa ohne die leeren Methoden einer
+    gelöschten Komponente (Punkt 537). Wie bei
+    `_MethodeAnlegenKommando` nur, solange Datei und offene Editoren
+    genau den erwarteten Stand haben."""
+
+    def __init__(self, canvas: DesignerCanvas, vorher: str, nachher: str) -> None:
+        self._canvas = canvas
+        self._vorher = vorher
+        self._nachher = nachher
+
+    def tun(self) -> None:
+        _unit_tauschen(self._canvas, self._vorher, self._nachher)
+
+    def rueckgaengig(self) -> None:
+        _unit_tauschen(self._canvas, self._nachher, self._vorher)
+
+
+def _unit_tauschen(canvas: DesignerCanvas, erwartet: str, neu: str) -> None:
+    texte = canvas._unit_quelltexte()
+    if texte and all(text == erwartet for text in texte):
+        canvas._unit_schreiben(neu, "Die Unit bleibt deshalb, wie sie ist.")
+
+
 class _EscapeWache(QObject):
     """Beendet mit Escape den Platziermodus eines Designers, egal
     welches Widget gerade den Fokus hat. Hängt nur während des Modus an
@@ -2208,12 +2272,15 @@ class DesignerCanvas(QObject):
             ziele = [] if ziel is None or ziel is self.formular else [ziel]
         if not ziele or not self._loeschen_trotz_verwendung(ziele):
             return
+        aufraeumen = self._leere_methoden_entfernen(ziele)
         if komponente is None and len(self._mehrfach) > 1:
             kommandos = [
                 _LoeschenKommando(self, k, self._attributname(k))
                 for k in self._obenauf(self._mehrfach)
             ]
             self._mehrfach = []
+            if aufraeumen is not None:
+                kommandos.append(aufraeumen)
             self.kommandos.ausfuehren(_GruppenKommando(kommandos))
             self._auswaehlen(self.formular)
             self._nach_aenderung(self.formular)
@@ -2222,8 +2289,62 @@ class DesignerCanvas(QObject):
         if ziel is None or ziel is self.formular:
             return
         name = self._attributname(ziel)
-        self.kommandos.ausfuehren(_LoeschenKommando(self, ziel, name))
+        loeschen = _LoeschenKommando(self, ziel, name)
+        self.kommandos.ausfuehren(
+            loeschen if aufraeumen is None else _GruppenKommando([loeschen, aufraeumen])
+        )
         self._nach_aenderung(self.formular)
+
+    def _leere_methoden_entfernen(self, ziele: list[Any]) -> _UnitTauschKommando | None:
+        """Ein Kommando, das die Ereignis-Methoden der gelöschten
+        Komponenten aus der Unit nimmt, solange sie noch leer sind, wie
+        der Designer sie angelegt hat, und keine andere Komponente sie
+        benutzt. Bis 0.4.3 blieben sie stehen (Punkt 537); so ein Rest
+        stand eingecheckt in einem Beispielprojekt. Geschriebener Code
+        bleibt immer, und bei ungespeicherten Änderungen im Editor
+        wird nichts angefasst."""
+        if self.unit_pfad is None:
+            return None
+        texte = self._unit_quelltexte()
+        if not texte or any(text != texte[0] for text in texte):
+            return None
+        quelltext = texte[0]
+        geloescht: list[Any] = []
+        offen = list(ziele)
+        while offen:
+            k = offen.pop()
+            geloescht.append(k)
+            offen.extend(kind for _, kind in kind_komponenten(k))
+        bleibende = [
+            k
+            for k in vars(self.formular).values()
+            if isinstance(k, Control) and all(k is not g for g in geloescht)
+        ]
+
+        def methoden(komponenten: list[Any]) -> set[str]:
+            namen: set[str] = set()
+            for k in komponenten:
+                for ereignis in ereignisse(type(k)):
+                    handler = getattr(k, ereignis, None)
+                    if handler is not None and hasattr(handler, "__name__"):
+                        namen.add(handler.__name__)
+            return namen
+
+        from ide.codegen.ereignis import leere_handler_methode_entfernen
+
+        klassenname = type(self.formular).__name__
+        neu = quelltext
+        for name in sorted(methoden(geloescht) - methoden(bleibende)):
+            # Wird die Methode irgendwo aufgerufen, gehört sie nicht
+            # mehr nur zur Komponente.
+            if len(re.findall(rf"\b{re.escape(name)}\b", neu)) > 1:
+                continue
+            ohne = leere_handler_methode_entfernen(neu, klassenname, name)
+            if ohne is not None:
+                neu = ohne
+        if neu == quelltext:
+            return None
+        return _UnitTauschKommando(self, quelltext, neu)
 
     def duplizieren(self, komponente: Any = None) -> Any:
         """Eine Kopie von `komponente` im selben Behälter, ein
@@ -2681,7 +2802,12 @@ class DesignerCanvas(QObject):
         setattr(self.formular, methodenname, gebundene_methode)
 
         self.kommandos.ausfuehren(
-            EigenschaftKommando(komponente, {ereignis_name: gebundene_methode})
+            _MethodeAnlegenKommando(
+                self,
+                EigenschaftKommando(komponente, {ereignis_name: gebundene_methode}),
+                quelltext,
+                unit_lesen(self.unit_pfad),
+            )
         )
         self._nach_aenderung(komponente, sofort=True)
         self._methode_melden(methodenname, ereignis_name)
