@@ -939,3 +939,34 @@ def test_modellierter_konstruktor_bei_fremder_basisklasse() -> None:
     assert "        super().__init__()" in code
     namensraum = _ausfuehren("class Tier:\n    pass\n\n" + code)
     assert namensraum["Hund"]("Dackel").rasse == "Dackel"
+
+
+def test_uml_typen_werden_zu_python_typen() -> None:
+    """Punkt 483: „Integer“, „Real“, „String“ und „Boolean“ standen
+    unverändert im Code, und der Kopf der Datei verlangte, sie zu
+    importieren. Eine eigene Klasse bleibt, wie sie heißt."""
+    klasse = _klasse(
+        "Konto",
+        attributes=[
+            {"name": "stand", "type": "Real", "visibility": "public"},
+            {"name": "buchungen", "type": "list[Integer]", "visibility": "public"},
+            {"name": "inhaber", "type": "Person", "visibility": "public"},
+        ],
+        operations=[
+            {
+                "name": "gesperrt",
+                "visibility": "public",
+                "parameters": [{"name": "grund", "type": "String"}],
+                "type": "Boolean",
+            }
+        ],
+    )
+
+    code = diagramm_als_python({"shapes": [klasse]})
+
+    assert "stand: float" in code
+    assert "buchungen: list[int]" in code
+    assert "inhaber: Person" in code
+    assert "def gesperrt(self, grund: str) -> bool:" in code
+    assert "importiert werden: Person" in code
+    _gueltig(code)

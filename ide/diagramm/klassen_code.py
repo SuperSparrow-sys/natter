@@ -62,9 +62,32 @@ def _bezeichner(name: str, sichtbarkeit: str) -> str:
     return sauber
 
 
+#: Die einfachen Typen aus UML und dem Unterricht und ihr Name in
+#: Python (Punkt 483). Im Diagramm steht oft „Integer“ oder „String“;
+#: unverändert übernommen hieß es im Kopf der Datei, diese Typen
+#: müssten noch importiert werden, und ohne den Kopf brach der Code
+#: mit `NameError` ab.
+UML_TYPEN = {
+    "Integer": "int", "integer": "int", "Int": "int",
+    "Real": "float", "real": "float", "Double": "float",
+    "double": "float", "Float": "float",
+    "String": "str", "string": "str", "Char": "str", "char": "str",
+    "Boolean": "bool", "boolean": "bool", "Bool": "bool",
+    "Void": "None", "void": "None",
+}
+_UML_TYP = re.compile(r"\b(" + "|".join(UML_TYPEN) + r")\b")
+
+
+def python_typ(typ: str | None) -> str:
+    """Der Typ, wie er in Python heißt: „Integer“ wird `int`, auch in
+    `list[Integer]`. Alles andere bleibt, wie es dasteht."""
+    return _UML_TYP.sub(lambda t: UML_TYPEN[t[1]], str(typ or "").strip())
+
+
 def _mit_typ(name: str, typ: str | None) -> str:
     """Typangabe nur, wenn eine da ist – geraten wird nichts."""
-    return f"{name}: {typ.strip()}" if typ and typ.strip() else name
+    typ = python_typ(typ)
+    return f"{name}: {typ}" if typ else name
 
 
 def _docstring(text: str, tiefe: int) -> list[str]:
@@ -510,7 +533,7 @@ def _operation_zeilen(
         if stueck:
             argumente.append(stueck)
 
-    rueckgabe = str(operation.get("type") or "").strip()
+    rueckgabe = python_typ(operation.get("type"))
     kopf = f"{EINRUECKUNG}def {name}({', '.join(argumente)})"
     kopf += f" -> {rueckgabe}:" if rueckgabe else ":"
     zeilen.append(kopf)
@@ -708,10 +731,21 @@ def fremde_typen(daten: dict[str, Any], klassen: list[dict[str, Any]]) -> list[s
             kandidaten.append(operation.get("type"))
             kandidaten.extend(p.get("type") for p in operation.get("parameters") or [])
         for typ in kandidaten:
-            name = str(typ or "").strip()
-            if name and name not in eigene and name not in eingebaut and name not in gefunden:
-                gefunden.append(name)
+            # Name für Name: bei `list[Person]` fehlt `Person`, nicht
+            # der ganze Ausdruck. `Optional` und Co. kommen aus
+            # `typing` und zählen wie die eingebauten Typen.
+            for name in re.findall(r"[^\W\d]\w*", python_typ(typ)):
+                if (
+                    name not in eigene and name not in eingebaut
+                    and name not in _TYPING and name not in gefunden
+                ):
+                    gefunden.append(name)
     return gefunden
+
+
+#: Namen aus `typing`, die in Typangaben stehen dürfen, ohne dass das
+#: Diagramm sie beschreibt.
+_TYPING = {"Optional", "Union", "List", "Dict", "Set", "Tuple", "Callable"}
 
 
 def kopfzeilen(shapes: list[dict[str, Any]], daten: dict[str, Any] | None = None) -> list[str]:

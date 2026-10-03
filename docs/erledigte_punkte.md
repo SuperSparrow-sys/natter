@@ -12919,3 +12919,16 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** `_von_bis` zählt ohne Schrittweite abwärts (`range(10, 1 - 1, -1)`), wenn beide Grenzen ganze Zahlen sind und die erste größer ist (`_ganze_zahl`). Mit Ausdrücken als Grenzen, etwa „von 1 bis n“, bleibt es beim Aufwärtszählen, denn welche Grenze größer ist, steht erst zur Laufzeit fest. Test: `test_zaehlschleife_von_groesser_bis_kleiner_zaehlt_abwaerts` in `tests/test_struktogramm_code.py`; mit der Datei aus `HEAD` scheitert er.
 
+---
+
+## 483. Klassendiagramm: „Integer“, „Real“, „String“ und „Boolean“ landen unverändert im Code ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, dritte Durchsicht, Entwicklungsstand `de2f832`.
+
+**Beobachtet:** Eine Klasse „Konto“ mit den Attributen `kontostand: Real` und `inhaber: String` und der Operation `istGesperrt(): Boolean`, wie im Unterricht üblich notiert, ergibt `def __init__(self, inhaber: String, kontostand: Real = 0)` und `-> Boolean`. Der Kopf der erzeugten Datei sagt: „Diese Typen beschreibt das Diagramm nicht selbst und sie müssen noch importiert werden: Real, String, Boolean“. Importieren lassen sie sich nirgends. Eine einzelne Klasse ohne diesen Kopf bricht beim Ausführen mit `NameError: name 'Real' is not defined` ab. Ein zusammengesetzter Typ wie `list[Person]` stand außerdem als Ganzes in der Liste der fehlenden Typen.
+
+**Ursache:** nachgewiesen. `_mit_typ` und der Rückgabetyp in `_operation_zeilen` (`ide/diagramm/klassen_code.py`) übernehmen den Typtext wörtlich; der Eigenschaften-Dialog lässt den Typ frei eintippen. `fremde_typen` vergleicht den ganzen Typtext mit den eingebauten Namen.
+
+**Zu tun:** Die einfachen UML-Typen auf die Python-Typen abbilden, auch innerhalb zusammengesetzter Typen, und fehlende Typen Name für Name nennen. Erledigt, wenn ein Test `Real`, `list[Integer]`, `String` und `Boolean` als `float`, `list[int]`, `str` und `bool` findet und im Kopf nur die eigene Klasse `Person` als fehlend steht.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `python_typ` mit der Tabelle `UML_TYPEN` in `ide/diagramm/klassen_code.py` macht aus Integer/Int `int`, aus Real/Double/Float `float`, aus String/Char `str`, aus Boolean/Bool `bool` und aus Void `None`, auch in klein geschriebener Form und innerhalb von `list[…]`. Eine Klasse namens „Text“ oder „Zahl“ bleibt unberührt. `_mit_typ`, der Rückgabetyp und `fremde_typen` gehen über `python_typ`; `fremde_typen` prüft jeden Namen im Typ einzeln und übergeht die Namen aus `typing` wie `Optional`. Im Diagramm selbst bleibt die Schreibweise der Schülerin stehen. Test: `test_uml_typen_werden_zu_python_typen` in `tests/test_diagramm_klassen_code.py`; mit der Datei aus `HEAD` scheitert er.
