@@ -427,8 +427,10 @@ Einfügestellen liegen zwischen den Blöcken und in den leeren Feldern
 einer Verzweigung oder Schleife; ein Block, der in eine Schleife oder
 einen Zweig gesetzt wird, steht damit in ihr. So entsteht die
 Verschachtelung, Block für Block. Ein Doppelklick auf einen Block
-beschriftet ihn: eine Anweisung wie `summe = summe + i`, eine
-Bedingung wie `x > 0` oder ein Schleifenkopf wie `für i von 1 bis 10`.
+beschriftet ihn: eine Anweisung wie `summe = summe + i` (auch
+`summe ← summe + i` oder `summe := summe + i`), eine Bedingung wie
+`x > 0` oder ein Schleifenkopf wie `für i von 1 bis 10`; `für i von
+10 bis 1` zählt abwärts.
 Ein Block lässt sich mit der Maus an eine andere Einfügestelle ziehen,
 `Entf` löscht ihn samt Inhalt.
 

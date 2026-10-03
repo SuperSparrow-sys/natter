@@ -12889,3 +12889,33 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** Ein Eintrag für `None`, etwa „kein Wert (None)“, und in der Meldung der Hinweis, dass eine Funktion ohne `return` `None` liefert. Erledigt, wenn ein Test diese Meldung findet.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** `typ_beschreibung` (`pcl/properties.py`) beschreibt `type(None)` als „kein Wert (None)“, und `Prop.__set__` hängt bei `None` an: „Eine Funktion ohne return liefert None.“ Die Meldung lautet damit „Label.caption erwartet einen Text (str), erhalten wurde kein Wert (None). Eine Funktion ohne return liefert None.“ Test: `test_none_heisst_kein_wert` in `tests/test_pcl_werte_pruefen.py`; mit `pcl` aus `HEAD` scheitert er.
+
+---
+
+## 481. Struktogramm: Zuweisungen mit „←“ und „:=“ werden zu Kommentaren ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, zweite Durchsicht, Entwicklungsstand `5b20aa4`.
+
+**Beobachtet:** Die Anweisungen „x ← 5“ und „x := 5“, die übliche Schreibweise für eine Zuweisung im Struktogramm, erscheinen im erzeugten Code als `# x ← 5` und `# x := 5`, und die Meldung lautet „2 Zeilen konnten nicht übernommen werden.“ Im Countdown aus Punkt 456 („solange zahl > 0“ mit „zahl ← zahl - 1“) läuft die erzeugte Schleife deshalb endlos. Punkt 456 hat nur Ein- und Ausgabe übersetzt; die Zuweisung stand dort schon im Beispiel.
+
+**Ursache:** nachgewiesen. `_Schreiber` in `ide/diagramm/struktogramm_code.py` übernimmt nur, was `ast.parse` annimmt; `←` ist kein Python, und `x := 5` ist als Anweisung ohne Klammern ebenfalls ungültig.
+
+**Zu tun:** Eine Beschriftung der Form `Name ← Ausdruck` oder `Name := Ausdruck` wird zu `Name = Ausdruck`, wenn der Ausdruck Python ist. Erledigt, wenn ein Test „x ← 5“, „x := 5“ und den Countdown aus Punkt 456 als lauffähigen Code ohne nicht übernommene Zeilen findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_anweisung` in `ide/diagramm/struktogramm_code.py` erkennt eine einzeilige Beschriftung der Form `Ziel ← Ausdruck` oder `Ziel := Ausdruck` (`_ZUWEISUNG`; das Ziel darf Index und Attribut haben, etwa `liste[i]` oder `self.summe`) und schreibt sie als `Ziel = Ausdruck`, wenn das Ergebnis Python ist. Sonst bleibt sie wie bisher Kommentar und wird gezählt. `<-` gehört nicht dazu, weil `x <- 5` schon ein Vergleich ist. Der Countdown aus Punkt 456 ergibt damit lauffähigen Code. Vier ältere Tests nahmen `zustand := …` als Beispiel für Pseudocode; sie nehmen jetzt „erhöhe zustand um 1“ und ähnliche Sätze. Handbuch Abschnitt zum Diagramm-Editor nennt die Schreibweise. Test: `test_zuweisung_mit_pfeil_wird_python` in `tests/test_struktogramm_code.py` (führt den Countdown aus); mit der Datei aus `HEAD` scheitert er.
+
+
+---
+
+## 482. Struktogramm: „für i von 10 bis 1“ läuft nie ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, zweite Durchsicht, Entwicklungsstand `5b20aa4`.
+
+**Beobachtet:** Die Zählschleife „für i von 10 bis 1“ ergibt `for i in range(10, 1 + 1):`; der Rumpf läuft kein einziges Mal, ohne Hinweis. Wer im Struktogramm rückwärts zählt, schreibt es in dieser Form, eine Schrittweite steht selten dabei.
+
+**Ursache:** nachgewiesen. `_von_bis` in `ide/diagramm/struktogramm_code.py` setzt ohne Schrittweite immer aufwärts zählend `range(von, bis + 1)`.
+
+**Zu tun:** Sind beide Grenzen ganze Zahlen und `von` größer als `bis`, wird abwärts gezählt: `range(10, 1 - 1, -1)`. Mit Ausdrücken als Grenzen bleibt es beim Aufwärtszählen. Erledigt, wenn ein Test „von 10 bis 1“ zehn Durchläufe von 10 bis 1 ergibt und „von 1 bis n“ unverändert bleibt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_von_bis` zählt ohne Schrittweite abwärts (`range(10, 1 - 1, -1)`), wenn beide Grenzen ganze Zahlen sind und die erste größer ist (`_ganze_zahl`). Mit Ausdrücken als Grenzen, etwa „von 1 bis n“, bleibt es beim Aufwärtszählen, denn welche Grenze größer ist, steht erst zur Laufzeit fest. Test: `test_zaehlschleife_von_groesser_bis_kleiner_zaehlt_abwaerts` in `tests/test_struktogramm_code.py`; mit der Datei aus `HEAD` scheitert er.
+

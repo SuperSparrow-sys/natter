@@ -383,10 +383,10 @@ def test_ausschnitt_einer_schleife_nimmt_den_koerper_mit() -> None:
 
 
 def test_ausschnitt_aus_lauter_pseudocode_ist_trotzdem_gueltig() -> None:
-    block = _anweisung("zustand := zustand + 1")
+    block = _anweisung("erhöhe zustand um 1")
     ergebnis = als_python(_diagramm(block), block)
 
-    assert _zeilen(ergebnis) == ["# zustand := zustand + 1", "pass"]
+    assert _zeilen(ergebnis) == ["# erhöhe zustand um 1", "pass"]
     _pruefen(ergebnis, schnipsel=True)
 
 
@@ -396,23 +396,23 @@ def test_ausschnitt_aus_lauter_pseudocode_ist_trotzdem_gueltig() -> None:
 def test_pseudocode_wird_kommentar_und_gezaehlt() -> None:
     ergebnis = als_python(
         _diagramm(
-            _anweisung("zustand := zustand + 1"),
-            _anweisung("ausgabe := 'rot'"),
+            _anweisung("erhöhe zustand um 1"),
+            _anweisung("setze ausgabe auf rot"),
             _anweisung("x = 1"),
         )
     )
 
-    assert "    # zustand := zustand + 1" in _zeilen(ergebnis)
+    assert "    # erhöhe zustand um 1" in _zeilen(ergebnis)
     assert ergebnis.nicht_uebernommen == [
-        "zustand := zustand + 1",
-        "ausgabe := 'rot'",
+        "erhöhe zustand um 1",
+        "setze ausgabe auf rot",
     ]
     assert ergebnis.meldung() == "2 Zeilen konnten nicht übernommen werden."
     _pruefen(ergebnis)
 
 
 def test_eine_einzelne_zeile_wird_im_singular_gemeldet() -> None:
-    ergebnis = als_python(_diagramm(_anweisung("zustand := 1")))
+    ergebnis = als_python(_diagramm(_anweisung("setze zustand auf 1")))
 
     assert ergebnis.meldung() == "1 Zeile konnte nicht übernommen werden."
 
@@ -485,12 +485,12 @@ def test_leerer_schleifenkoerper_ergibt_pass() -> None:
 
 def test_zweig_aus_lauter_pseudocode_bekommt_auch_ein_pass() -> None:
     ergebnis = als_python(
-        _diagramm(_block("branch", "zaehler < 3", then=[_anweisung("zustand := 1")]))
+        _diagramm(_block("branch", "zaehler < 3", then=[_anweisung("setze zustand auf 1")]))
     )
 
     assert _zeilen(ergebnis)[1:] == [
         "    if zaehler < 3:",
-        "        # zustand := 1",
+        "        # setze zustand auf 1",
         "        pass",
     ]
     _pruefen(ergebnis)
@@ -867,3 +867,37 @@ def test_eingabe_und_ausgabe_werden_uebersetzt_und_annotationen_verworfen() -> N
     assert "    print(zahl)" in _zeilen(ergebnis)
     assert ergebnis.nicht_uebernommen == ["Ergebnis: summe"]
     _pruefen(ergebnis)
+
+
+def test_zuweisung_mit_pfeil_wird_python() -> None:
+    """Punkt 481: „zahl ← zahl - 1“ wurde zum Kommentar, und der
+    Countdown aus Punkt 456 lief endlos. „x <- 5“ bleibt, was es in
+    Python ist: ein Vergleich."""
+    ergebnis = als_python(_diagramm(
+        _anweisung("zahl := 3"),
+        _block("head_loop", "solange zahl > 0", children=[
+            _anweisung("spur.append(zahl)"),
+            _anweisung("zahl ← zahl - 1"),
+        ]),
+        _anweisung("liste[0] ← zahl"),
+    ))
+
+    assert ergebnis.nicht_uebernommen == []
+    liste = [None]
+    assert _ausfuehren(ergebnis, liste=liste) == [3, 2, 1]
+    assert liste == [0]
+
+
+def test_zaehlschleife_von_groesser_bis_kleiner_zaehlt_abwaerts() -> None:
+    """Punkt 482: „für i von 3 bis 1“ ergab `range(3, 2)` und lief
+    nie. „von 1 bis n“ zählt weiter aufwärts."""
+    ergebnis = als_python(_diagramm(
+        _block("count_loop", "für i von 3 bis 1", children=[
+            _anweisung("spur.append(i)"),
+        ]),
+        _block("count_loop", "für k von 1 bis n", children=[
+            _anweisung("spur.append(k)"),
+        ]),
+    ))
+
+    assert _ausfuehren(ergebnis, n=2) == [3, 2, 1, 1, 2]

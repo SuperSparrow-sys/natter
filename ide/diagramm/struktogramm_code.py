@@ -77,6 +77,14 @@ _EIN_AUSGABE = re.compile(
     r"^\s*(?P<art>eingabe|ausgabe)\s*:\s*(?P<rest>.+?)\s*$",
     re.IGNORECASE,
 )
+#: Eine Zuweisung, wie sie im Struktogramm geschrieben wird: „x ← 5“
+#: oder „x := 5“. Links ein Name, auch mit Index oder Attribut
+#: („liste[i] ← 0“, „self.summe := 0“). „<-“ gehört nicht dazu: „x <- 5“
+#: ist in Python schon ein Vergleich mit -5.
+_ZUWEISUNG = re.compile(
+    r"^\s*(?P<ziel>[^\W\d]\w*(?:\.\w+|\[[^\]]*\])*)"
+    r"\s*(?:←|:=)\s*(?P<wert>.+?)\s*$"
+)
 _VON_BIS = re.compile(
     r"^(?P<name>\w+)\s*(?:\s(?:von|from)\s|:?=)\s*(?P<von>.+?)"
     r"\s+(?:bis|to)\s+(?P<bis>.+?)"
@@ -340,6 +348,16 @@ class _Schreiber:
         )
         if ein_aus is not None:
             text = _ein_ausgabe_als_python(ein_aus) or text
+        # „zahl ← zahl - 1“ und „zahl := zahl - 1“ werden zu
+        # `zahl = zahl - 1` (Punkt 481). Als Kommentar übernommen lief
+        # ein Countdown sonst endlos.
+        zuweisung = (
+            _ZUWEISUNG.match(text) if "\n" not in text.strip() else None
+        )
+        if zuweisung is not None:
+            umgeschrieben = f"{zuweisung['ziel']} = {zuweisung['wert']}"
+            if _ist_anweisung(umgeschrieben, self.in_schleife):
+                text = umgeschrieben
         if _nur_annotation(text) or not _ist_anweisung(text, self.in_schleife):
             # Eine Annotation ohne Wert („Ergebnis: summe“) ließe
             # Python gelten; sie bewirkte im Programm aber nichts, und
@@ -768,10 +786,28 @@ def _von_bis(text: str) -> str | None:
         return None
     if not all(_ist_ausdruck(t) for t in (von, bis, schritt or "1")):
         return None
+    anfang, ende = _ganze_zahl(von), _ganze_zahl(bis)
+    if not schritt and anfang is not None and ende is not None:
+        # „i von 10 bis 1“ zählt abwärts. Mit `range(10, 2)` lief der
+        # Rumpf kein einziges Mal (Punkt 482). Nur bei festen Zahlen:
+        # bei „von 1 bis n“ steht erst zur Laufzeit fest, was größer ist.
+        if anfang > ende:
+            schritt = "-1"
     abwaerts = schritt.startswith("-")
     grenze = f"{_als_summand(bis)} {'-' if abwaerts else '+'} 1"
     argumente = [von, grenze] + ([schritt] if schritt else [])
     return f"{name} in range({', '.join(argumente)})"
+
+
+def _ganze_zahl(text: str) -> int | None:
+    """Der Wert, wenn `text` eine ganze Zahl ist, auch mit Minus."""
+    try:
+        wert = ast.literal_eval(text)
+    except (ValueError, SyntaxError, TypeError):
+        return None
+    if isinstance(wert, bool) or not isinstance(wert, int):
+        return None
+    return wert
 
 
 def _als_summand(ausdruck: str) -> str:
