@@ -3044,7 +3044,10 @@ class HauptFenster(QMainWindow):
         for ergebnis in ergebnisse:
             teile = ergebnis.id.split(".")
             modul = teile[0] if teile else ergebnis.id
-            klasse = teile[1] if len(teile) > 1 else ""
+            # Eine freie Testfunktion (`modul.test_x`, Punkt 508) hängt
+            # direkt am Modul; eine Klassenebene gibt es nur bei
+            # `modul.Klasse.methode`.
+            klasse = teile[1] if len(teile) > 2 else ""
             baum.setdefault(modul, {}).setdefault(klasse, []).append(ergebnis)
 
         for modul, klassen in sorted(baum.items()):

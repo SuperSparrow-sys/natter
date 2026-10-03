@@ -13254,3 +13254,17 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** „Datei → Speichern unter …“ für den Editor im aktiven Reiter, und die Meldung beim verweigerten Speichern bietet es an. Erledigt, wenn ein Test eine solche Klasse über die Meldung in eine eigene Datei speichert und der Reiter danach mit ihr weiterarbeitet.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** Neue Aktion `datei.speichern_unter` „Speichern unter …“ im Menü „Datei“ (`editor_speichern_unter`): Dialog im Ordner des offenen Projekts, sonst bei der Datei; danach trägt der Reiter Pfad und Namen der neuen Datei, gilt als gespeichert, und der Explorer frischt auf. `datei_schreiben_gemeldet` hat den neuen Parameter `unter`; `_editor_speichern` gibt ihn mit, und bei verweigertem Schreiben außerhalb eines Projekts fragt `_speichern_unter_anbieten` mit „Speichern unter …“ (vorgewählt) und „Abbrechen“. Die Vorlage der Lehrkraft bleibt unverändert. Handbuch Abschnitt 3.6 nennt den Weg. Test: `test_eine_klasse_aus_einem_ordner_nur_zum_lesen_laesst_sich_woanders_speichern` in `tests/test_hauptfenster_projekt.py`; mit der Datei aus `HEAD` scheitert er.
+
+---
+
+## 508. Testlauf: Testfunktionen mit `assert` werden übergangen, Meldungen sind englisch ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Weg der Lehrkraft (Klasse austeilen und mit Tests kontrollieren), Entwicklungsstand `dc6d6ef`.
+
+**Beobachtet:** Eine Lehrkraft teilt zu `konto.py` die Datei `test_konto_kurz.py` aus, mit `def test_einzahlen(): … assert k.stand == 5`, wie es in Python-Kursen üblich ist. „Projekt → Alle Tests ausführen“ liefert aus dieser Datei kein einziges Ergebnis und keinen Hinweis. Dieselben Tests als `unittest.TestCase` laufen, ein Fehlschlag heißt dort aber „-5 not greater than or equal to 0“. Ein nacktes `assert` hätte gar keine Meldung.
+
+**Ursache:** nachgewiesen. `ide/testrunner/harness.py` sammelt mit `unittest.TestLoader.discover`, das nur Unterklassen von `TestCase` kennt; `addFailure` übernimmt den Text von `unittest` und von `AssertionError` unverändert. Der Test-Explorer (`_tests_baum_befuellen`) setzt den zweiten Teil jeder Kennung als Klasse an.
+
+**Zu tun:** Freie Funktionen `test_…` als Tests ausführen, auch einzeln wiederholbar; die häufigsten Meldungen auf Deutsch; bei einem nackten `assert` die nicht erfüllte Zeile. Erledigt, wenn ein Test beide Stile mit deutschen Meldungen findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_Lader.loadTestsFromModule` hängt jede freie Funktion `test…` eines Testmoduls als `_Funktionstest` (`unittest.FunctionTestCase` mit der Kennung `modul.funktion`) an; `loadTestsFromName` erkennt eine solche Kennung für das gezielte Wiederholen. `meldung_eindeutschen` übersetzt die häufigsten Meldungen von `unittest` (größer, kleiner, True/False, enthalten, None, gleich); ein `AssertionError` ohne Text meldet „Nicht erfüllt: <Zeile>“. Der Test-Explorer hängt `modul.funktion` direkt ans Modul. Handbuch Abschnitt 3.7 nennt beide Stile und das Austeilen einer Testdatei. Tests: `test_freie_testfunktionen_laufen_mit_deutscher_meldung` in `tests/test_testrunner_ausfuehrung.py` (scheitert mit `ide/testrunner` aus `HEAD`) und `test_eine_freie_testfunktion_haengt_direkt_am_modul` in `tests/test_hauptfenster_testexplorer.py`.

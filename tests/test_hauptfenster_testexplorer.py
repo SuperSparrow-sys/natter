@@ -281,3 +281,24 @@ def test_export_schreibt_eine_gueltige_html_datei(
     assert "test_bestehend" in inhalt
     assert "Soll: 50" not in inhalt  # Soll/Ist stehen in eigenen Zellen, nicht als Text
     assert '<td class="mehrzeilig">50</td>' in inhalt
+
+
+def test_eine_freie_testfunktion_haengt_direkt_am_modul(hauptfenster) -> None:  # noqa: ANN001
+    """Punkt 508: `test_kurz.test_start` hat keine Klasse; ohne die
+    Unterscheidung stand der Name der Funktion als Klasse da und der
+    Test noch einmal darunter."""
+    from ide.testrunner.ausfuehrung import Testergebnis
+
+    hauptfenster._tests_baum_befuellen([
+        Testergebnis("test_kurz.test_start", "bestanden", 0.0),
+        Testergebnis("test_klasse.KontoTest.test_x", "bestanden", 0.0),
+    ])
+
+    baum = hauptfenster.tests_baum
+    module = {baum.topLevelItem(i).text(0): baum.topLevelItem(i)
+              for i in range(baum.topLevelItemCount())}
+    kurz = module["test_kurz"]
+    assert [kurz.child(i).text(0) for i in range(kurz.childCount())] == ["test_start"]
+    assert kurz.child(0).childCount() == 0
+    klasse = module["test_klasse"].child(0)
+    assert klasse.text(0) == "KontoTest" and klasse.child(0).text(0) == "test_x"

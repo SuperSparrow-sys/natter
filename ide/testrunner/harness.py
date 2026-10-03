@@ -153,6 +153,10 @@ class _StrukturiertesErgebnis(unittest.TestResult):
         # mit ihnen den Aufruf von assertEqual.
         nachricht = str(err[1])
         soll, ist = _soll_ist_extrahieren(nachricht, err[2])
+        if not nachricht.strip():
+            nachricht = _nackte_assert_meldung(err[2])
+        elif soll is None:
+            nachricht = meldung_eindeutschen(nachricht)
         super().addFailure(test, err)
         self.eintraege.append(
             {
@@ -213,6 +217,76 @@ def ladefehler_meldung(modul: str, text: str) -> str:
     return "\n\n".join(teile)
 
 
+#: Die häufigsten Meldungen von `unittest`, auf Deutsch (Punkt 508).
+#: Was hier nicht steht, bleibt, wie `unittest` es schreibt.
+_MELDUNGEN = (
+    (re.compile(r"^(.+) not greater than or equal to (.+)$", re.S),
+     "{0} ist nicht größer oder gleich {1}"),
+    (re.compile(r"^(.+) not greater than (.+)$", re.S), "{0} ist nicht größer als {1}"),
+    (re.compile(r"^(.+) not less than or equal to (.+)$", re.S),
+     "{0} ist nicht kleiner oder gleich {1}"),
+    (re.compile(r"^(.+) not less than (.+)$", re.S), "{0} ist nicht kleiner als {1}"),
+    (re.compile(r"^False is not true$"), "Erwartet wurde True, ergeben hat sich False"),
+    (re.compile(r"^True is not false$"), "Erwartet wurde False, ergeben hat sich True"),
+    (re.compile(r"^(.+) unexpectedly found in (.+)$", re.S),
+     "{0} steht in {1}, sollte es aber nicht"),
+    (re.compile(r"^(.+) not found in (.+)$", re.S), "{0} steht nicht in {1}"),
+    (re.compile(r"^unexpectedly None$"), "Ergeben hat sich None"),
+    (re.compile(r"^(.+) is not None$", re.S), "Erwartet wurde None, ergeben hat sich {0}"),
+    (re.compile(r"^(.+) == (.+)$", re.S), "{0} und {1} sind gleich, sollten es aber nicht sein"),
+)
+
+
+def meldung_eindeutschen(text: str) -> str:
+    """Eine Meldung von `unittest` auf Deutsch, sonst unverändert."""
+    erste, _, rest = text.partition(" : ")
+    for muster, vorlage in _MELDUNGEN:
+        treffer = muster.match(erste.strip())
+        if treffer:
+            deutsch = vorlage.format(*treffer.groups())
+            return f"{deutsch}: {rest}" if rest else deutsch
+    return text
+
+
+def _nackte_assert_meldung(tb) -> str:  # noqa: ANN001
+    """Für ein `assert` ohne eigenen Text: die Zeile, die nicht erfüllt
+    war. Python liefert dafür nur einen leeren `AssertionError`, und im
+    Test-Explorer stand nichts (Punkt 508)."""
+    import linecache
+
+    while tb is not None and tb.tb_next is not None:
+        tb = tb.tb_next
+    if tb is None:
+        return "Eine Bedingung im Test ist nicht erfüllt."
+    zeile = linecache.getline(tb.tb_frame.f_code.co_filename, tb.tb_lineno).strip()
+    return f"Nicht erfüllt: {zeile}" if zeile else "Eine Bedingung im Test ist nicht erfüllt."
+
+
+class _Funktionstest(unittest.FunctionTestCase):
+    """Eine freie Funktion `test_…` in einer Testdatei als Test, wie
+    `pytest` sie kennt (Punkt 508). `discover` sammelt nur Klassen,
+    die von `TestCase` erben; eine Datei aus lauter Funktionen mit
+    `assert` lief bis 0.4.3 ohne ein einziges Ergebnis und ohne
+    Hinweis."""
+
+    def id(self) -> str:
+        funktion = self._testFunc
+        return f"{funktion.__module__}.{funktion.__name__}"
+
+    def __str__(self) -> str:
+        return self.id()
+
+
+def _funktionen_des_moduls(modul: types.ModuleType) -> list[_Funktionstest]:
+    return [
+        _Funktionstest(wert)
+        for name, wert in vars(modul).items()
+        if name.startswith("test")
+        and isinstance(wert, types.FunctionType)
+        and wert.__module__ == modul.__name__
+    ]
+
+
 class _Lader(unittest.TestLoader):
     """Meldet jedes Testmodul vor dem Import und lässt die Module aus
     `auslassen` ganz weg.
@@ -231,6 +305,25 @@ class _Lader(unittest.TestLoader):
             return types.ModuleType(name)
         _melden({"laden": name})
         return super()._get_module_from_name(name)
+
+    def loadTestsFromModule(self, module, *args, **kwargs):  # noqa: ANN001, ANN201, N802
+        suite = super().loadTestsFromModule(module, *args, **kwargs)
+        suite.addTests(_funktionen_des_moduls(module))
+        return suite
+
+    def loadTestsFromName(self, name, module=None):  # noqa: ANN001, ANN201, N802
+        """Auch eine einzelne freie Testfunktion lässt sich gezielt
+        wiederholen; `unittest` riefe sie sonst als Fabrik auf."""
+        modulname, _, funktionsname = name.rpartition(".")
+        if modulname and funktionsname.startswith("test"):
+            try:
+                modul = self._get_module_from_name(modulname)
+            except ImportError:
+                modul = None
+            wert = getattr(modul, funktionsname, None) if modul else None
+            if isinstance(wert, types.FunctionType):
+                return self.suiteClass([_Funktionstest(wert)])
+        return super().loadTestsFromName(name, module)
 
 
 def _suite_erzeugen(

@@ -357,3 +357,43 @@ def test_unlesbares_ergebnis_wird_deutsch_gemeldet(tmp_path: Path) -> None:
         ("Testlauf", "fehler"),
     ]
     assert "ließ sich nicht lesen" in ergebnisse[1].nachricht
+
+
+def test_freie_testfunktionen_laufen_mit_deutscher_meldung(tmp_path: Path) -> None:
+    """Punkt 508: eine Testdatei der Lehrkraft aus lauter Funktionen
+    mit `assert`, wie `pytest` sie kennt, lief ohne ein einziges
+    Ergebnis. Ein nacktes `assert` meldet jetzt die Zeile, eine
+    Meldung von `unittest` steht auf Deutsch da, und ein einzelner
+    Funktionstest lässt sich gezielt wiederholen."""
+    (tmp_path / "konto.py").write_text(
+        "class Konto:\n"
+        "    def __init__(self):\n        self.stand = 0\n"
+        "    def abheben(self, betrag):\n        self.stand -= betrag\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "test_kurz.py").write_text(
+        "from konto import Konto\n\n"
+        "def test_start():\n    assert Konto().stand == 0\n\n"
+        "def test_nicht_ueberziehen():\n"
+        "    k = Konto()\n    k.abheben(5)\n    assert k.stand >= 0\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "test_klasse.py").write_text(
+        "import unittest\nfrom konto import Konto\n\n"
+        "class KontoTest(unittest.TestCase):\n"
+        "    def test_nicht_ueberziehen(self):\n"
+        "        k = Konto(); k.abheben(5); self.assertGreaterEqual(k.stand, 0)\n",
+        encoding="utf-8",
+    )
+
+    ergebnisse = {e.id: e for e in ausfuehren(tmp_path)}
+
+    assert ergebnisse["test_kurz.test_start"].status == "bestanden"
+    assert ergebnisse["test_kurz.test_nicht_ueberziehen"].nachricht == (
+        "Nicht erfüllt: assert k.stand >= 0"
+    )
+    assert ergebnisse["test_klasse.KontoTest.test_nicht_ueberziehen"].nachricht == (
+        "-5 ist nicht größer oder gleich 0"
+    )
+    einzeln = ausfuehren(tmp_path, ziel="test_kurz.test_start")
+    assert [(e.id, e.status) for e in einzeln] == [("test_kurz.test_start", "bestanden")]

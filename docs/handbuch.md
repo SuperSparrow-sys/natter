@@ -721,6 +721,13 @@ Ein Projekt kann Testdateien enthalten (**Datei → Neue Test-Unit**).
 besteht und was nicht. Die Ergebnisse lassen sich als HTML
 exportieren.
 
+Eine Testdatei heißt `test_…py`. Darin zählen Klassen mit
+`unittest.TestCase` wie in der Vorlage, aber auch einfache Funktionen
+`def test_…():` mit `assert`. So kann eine Lehrkraft zu einer Aufgabe
+eine Testdatei austeilen, die in den Projektordner kommt; der
+Testlauf zeigt dann, welche Anforderung die eigene Klasse schon
+erfüllt. Ist ein `assert` nicht erfüllt, steht die Zeile im Panel.
+
 In einem Konsolenprojekt steht das Programm in der Funktion `main()`
 von `u_main.py`, die `main.py` aufruft. Eine Testdatei kann deshalb
 mit `from u_main import verdoppeln` eine eigene Funktion prüfen, ohne
