@@ -344,7 +344,15 @@ def _fenster_des_tests_aufraeumen(request):
             fenster.deleteLater()
         except RuntimeError:
             pass
-    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    # Nicht nur die Löschungen: auch was das Löschen selbst noch
+    # anstößt, wird hier abgearbeitet, solange es nur die alten Fenster
+    # betrifft. Sonst lag es noch an, wenn pytest-qt beim Einrichten
+    # des nächsten Tests die Ereignisse abarbeitet - dann schon neben
+    # dem frisch gebauten Hauptfenster, und gelegentlich endete der
+    # Prozess dort mit einer Zugriffsverletzung (Punkt 534).
+    for _ in range(3):
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+        app.processEvents()
 
 
 @pytest.fixture(autouse=True)

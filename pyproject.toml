@@ -80,7 +80,17 @@ select = ["E", "F", "I", "UP", "B"]
 minversion = "8.0"
 testpaths = ["tests"]
 # Die Drucker-Tests sind standardmaessig abgewaehlt, siehe unten.
-addopts = ["-m", "not drucker"]
+#
+# --no-qt-log: pytest-qt haengt fuer jeden Test einen eigenen Handler fuer
+# Qt-Meldungen ein und setzt danach den vorigen wieder ein. Beim
+# Einrichten des naechsten Tests arbeitet es die Ereignisse ab, bevor
+# der neue Handler steht; kommt in diesem Moment eine Qt-Meldung aus dem
+# Abbau des vorigen Fensters (offscreen etwa "This plugin does not
+# support raise()"), endete der Prozess mit einer Zugriffsverletzung -
+# gezaehlt in tests/test_explorer_formular_diagramm_loeschen.py bei
+# rund jedem sechsten Lauf, mit --no-qt-log 0 von 40 (Punkt 534). Kein
+# Test braucht die Fixture qtlog.
+addopts = ["-m", "not drucker", "--no-qt-log"]
 markers = [
     # Der erste QPrinter eines Prozesses laesst Windows alle Drucker samt
     # Treibern durchsuchen. Das kostet auf einem Rechner mit einem nicht
