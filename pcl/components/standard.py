@@ -505,7 +505,8 @@ class ListBox(Control):
         hatte. Jetzt schweigt das Widget während des Aufbaus; gewählt
         bleibt dieselbe Nummer, in einer sortierten Liste derselbe
         Eintrag. `on_change` kommt nur, wenn es die Nummer nicht mehr
-        gibt und die Auswahl deshalb wegfällt.
+        gibt und die Auswahl deshalb wegfällt, oder wenn unter derselben
+        Nummer jetzt ein anderer Text steht.
 
         Für `multi_select` gilt dasselbe: in einer sortierten Liste
         werden die gewählten Texte wiedergefunden. Über die alten
@@ -542,7 +543,12 @@ class ListBox(Control):
                         widget.item(zeile).setSelected(True)
         finally:
             widget.blockSignals(False)
-        if neu != vorher:
+        # Dieselbe Nummer kann einen anderen Eintrag meinen: wer den
+        # ersten Eintrag löscht und die Liste neu zuweist, hat danach
+        # den bisher zweiten gewählt. Ohne Ereignis zeigte eine
+        # Vorschau daneben weiter den gelöschten Eintrag.
+        anderer_eintrag = neu >= 0 and eintraege[neu] != vorher_text
+        if neu != vorher or anderer_eintrag:
             self.__dict__["_prop_item_index"] = neu
             self._ereignis_ausloesen("on_change")
 
@@ -619,6 +625,7 @@ class ComboBox(Control):
         """
         widget = self._qwidget
         vorher = self.item_index
+        vorher_text = widget.currentText() if vorher >= 0 else None
         widget.blockSignals(True)
         try:
             widget.clear()
@@ -629,7 +636,9 @@ class ComboBox(Control):
             widget.blockSignals(False)
         neu = widget.currentIndex()
         self.__dict__["_prop_text"] = widget.currentText()
-        if neu != vorher:
+        # Wie bei der `ListBox`: dieselbe Nummer mit anderem Text ist
+        # eine andere Auswahl.
+        if neu != vorher or (neu >= 0 and widget.currentText() != vorher_text):
             self.__dict__["_prop_item_index"] = neu
             self._ereignis_ausloesen("on_change")
 

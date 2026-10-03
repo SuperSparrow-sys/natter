@@ -754,6 +754,10 @@ class FloatSpinEdit(Control):
         widget.setSingleStep(float(self.increment))
         widget.setValue(float(self.value))
         widget.valueChanged.connect(self._bei_wertaenderung)
+        # Nach dem Tippen in der festen Schreibweise: „2,5“ wird „2,50“.
+        widget.editingFinished.connect(
+            lambda: widget.lineEdit().setText(widget.textFromValue(widget.value()))
+        )
         return widget
 
     def _bei_wertaenderung(self, wert: float) -> None:
@@ -771,7 +775,11 @@ class FloatSpinEdit(Control):
             self._qwidget.setSingleStep(float(wert))
         elif name == "decimals":
             self._qwidget.setDecimals(wert)
-        elif name == "value":
+        elif name == "value" and float(wert) != self._qwidget.value():
+            # Nur bei einem anderen Wert: auch derselbe Wert schrieb das
+            # Feld neu. Beim Tippen kam jede Ziffer als Änderung hier
+            # an, aus „2“ wurde sofort „2,00“, und das Komma danach
+            # passte nicht mehr hinein - „2,5“ ließ sich nicht tippen.
             self._qwidget.setValue(float(wert))
         if name in ("minimum", "maximum", "increment", "decimals", "value"):
             # Auch minimum/maximum/increment werden zurückgelesen: eine
@@ -861,6 +869,8 @@ class ProgressBar(Control):
         widget.setValue(self.position)
         widget.setTextVisible(self.show_text)
         widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Deutsch mit Leerzeichen vor dem Prozentzeichen: „50 %“.
+        widget.setFormat("%p %")
         return widget
 
     def _bei_prop_aenderung(self, name: str, wert: Any) -> None:

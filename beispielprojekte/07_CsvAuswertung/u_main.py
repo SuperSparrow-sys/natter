@@ -14,26 +14,19 @@
 import csv
 from pathlib import Path
 
-from pcl import open_dialog, show_message
+from pcl import open_dialog, show_message, text, zahl
 from u_main_design import Form1Design
 
 DATEN = Path(__file__).parent / "daten" / "wetter.csv"
 SPALTEN = ("Monat", "Temperatur", "Niederschlag")
-
-
-def zahl(text: str) -> float:
-    """Macht aus deutschem Zahlentext eine Zahl: "2,4" -> 2.4."""
-    return float(text.replace(",", "."))
-
-
-def text(wert: float, stellen: int = 1) -> str:
-    """Und zurück: 2.4 -> "2,4". Die Gegenrichtung zu `zahl`."""
-    return f"{wert:.{stellen}f}".replace(".", ",")
+# Ohne diese Spalten lässt sich nichts auswerten.
+PFLICHT = ("Ort", *SPALTEN)
 
 
 class Form1(Form1Design):
     def form_create(self, sender) -> None:
         self.zeilen: list[dict[str, str]] = []
+        self.sg_tabelle.col_titles = SPALTEN
         self.datei_lesen(DATEN)
 
     # -- Lesen -----------------------------------------------------
@@ -50,17 +43,53 @@ class Form1(Form1Design):
             return
 
         # encoding und delimiter gehören beide dazu: eine deutsche CSV
-        # aus Excel ist meist Semikolon-getrennt.
-        with pfad.open(encoding="utf-8", newline="") as datei:
-            self.zeilen = list(csv.DictReader(datei, delimiter=";"))
+        # aus Excel ist meist Semikolon-getrennt. Ältere Excel-Fassungen
+        # speichern Umlaute nicht als UTF-8, sondern als cp1252.
+        try:
+            zeilen = self.zeilen_lesen(pfad, "utf-8-sig")
+        except UnicodeDecodeError:
+            zeilen = self.zeilen_lesen(pfad, "cp1252")
 
-        if not self.zeilen:
-            show_message("Die Datei enthält keine Daten.")
+        # Eine fremde Datei kann alles enthalten. Erst prüfen, dann
+        # übernehmen - sonst stünden halbe Daten in self.zeilen, und das
+        # Programm bräche beim ersten fehlenden Wert ab.
+        fehler = self.fehler_in(zeilen)
+        if fehler:
+            show_message(f"{pfad.name} lässt sich nicht auswerten: {fehler}")
             return
+        self.zeilen = zeilen
 
         orte = sorted({zeile["Ort"] for zeile in self.zeilen})
         self.cb_ort.items = orte
-        self.cb_ort.item_index = 0  # löst cb_ort_change aus
+        self.cb_ort.item_index = 0
+        # Ausdrücklich neu anzeigen: stand vorher derselbe Ort an erster
+        # Stelle, hat sich an der Auswahl nichts geändert, und
+        # cb_ort_change käme nicht von allein.
+        self.cb_ort_change(self.cb_ort)
+
+    def zeilen_lesen(self, pfad: Path, zeichensatz: str) -> list[dict[str, str]]:
+        with pfad.open(encoding=zeichensatz, newline="") as datei:
+            return list(csv.DictReader(datei, delimiter=";"))
+
+    def fehler_in(self, zeilen: list[dict[str, str]]) -> str:
+        """Was an den Zeilen nicht stimmt, als Satz - oder "", wenn
+        alles passt."""
+        if not zeilen:
+            return "Sie enthält keine Daten."
+        fehlend = [name for name in PFLICHT if name not in zeilen[0]]
+        if fehlend:
+            wie = "fehlt die Spalte" if len(fehlend) == 1 else "fehlen die Spalten"
+            return (
+                f"Es {wie} {', '.join(fehlend)}. Gebraucht werden "
+                f"{', '.join(PFLICHT)}, getrennt durch Semikolon."
+            )
+        for nummer, zeile in enumerate(zeilen, start=2):
+            for name in ("Temperatur", "Niederschlag"):
+                try:
+                    zahl(zeile[name] or "")
+                except ValueError:
+                    return f"In Zeile {nummer} ist {name} keine Zahl."
+        return ""
 
     def zeilen_fuer_ort(self) -> list[dict[str, str]]:
         ort = self.cb_ort.text
@@ -78,11 +107,8 @@ class Form1(Form1Design):
         self.auswerten(daten)
 
     def tabelle_fuellen(self, daten: list[dict[str, str]]) -> None:
-        self.sg_tabelle.row_count = len(daten) + 1
-        for spalte, titel in enumerate(SPALTEN):
-            self.sg_tabelle.cells[spalte, 0] = titel
-
-        for zeile_nr, zeile in enumerate(daten, start=1):
+        self.sg_tabelle.row_count = len(daten)
+        for zeile_nr, zeile in enumerate(daten):
             for spalte, titel in enumerate(SPALTEN):
                 self.sg_tabelle.cells[spalte, zeile_nr] = zeile[titel]
 
@@ -106,7 +132,7 @@ class Form1(Form1Design):
         regen = sum(zahl(zeile["Niederschlag"]) for zeile in daten)
 
         self.l_ergebnis.caption = (
-            f"{self.cb_ort.text}:  Mittelwert {text(mittel)} °C   |   "
+            f"{self.cb_ort.text}:  Mittelwert {text(mittel, 1)} °C   |   "
             f"wärmster Monat {waermster['Monat']} ({waermster['Temperatur']} °C)   |   "
             f"kältester Monat {kaeltester['Monat']} ({kaeltester['Temperatur']} °C)   |   "
             f"Niederschlag im Jahr {text(regen, 0)} mm"
@@ -142,7 +168,7 @@ class Form1(Form1Design):
                 schreiber.writerow(
                     {
                         "Ort": ort,
-                        "Mittelwert": text(sum(temperaturen) / len(temperaturen)),
+                        "Mittelwert": text(sum(temperaturen) / len(temperaturen), 1),
                         "Niederschlag": text(
                             sum(zahl(z["Niederschlag"]) for z in werte), 0
                         ),

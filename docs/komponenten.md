@@ -1420,6 +1420,11 @@ Eingabefeld für ein Feld des aktuellen Datensatzes.
 |---|---|
 | field | Name des gebundenen Feldes |
 
+Eine Änderung zeigen `DBGrid` und `DBText` an derselben Datenquelle
+sofort, sobald das Feld verlassen oder die Eingabetaste gedrückt wird.
+In die Datenbank kommt sie erst mit einer eigenen SQL-Anweisung, etwa in
+der Methode für `on_save` des `DBNavigator`.
+
 ## DBComboBox
 
 Auswahlliste mit den Werten einer Spalte.
@@ -1430,7 +1435,9 @@ Auswahlliste mit den Werten einer Spalte.
 
 ## DBNavigator
 
-Knöpfe zum Blättern durch die Datensätze und zum Bearbeiten.
+Knöpfe zum Blättern durch die Datensätze und zum Bearbeiten. Was
+„<<“, „<“, „>“, „>>“, „+“ und „-“ bedeuten, steht als Hinweis unter
+der Maus.
 
 | Ereignis | Bedeutung |
 |---|---|

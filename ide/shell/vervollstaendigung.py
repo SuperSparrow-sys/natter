@@ -461,6 +461,11 @@ def eigene_komponenten(quelltext: str) -> dict[str, str]:
     return dict(_KOMPONENTEN_MUSTER.findall(quelltext))
 
 
+#: Verweise der Entwicklung in `pcl`-Docstrings, etwa „(Abschnitt 5.1)“
+#: auf docs/bericht.md. Im Hinweis beim Tippen sagen sie niemandem etwas.
+_ENTWICKLER_VERWEIS = re.compile(r"\s*\((?:Abschnitt|Punkt|M\d)[^)]*\)")
+
+
 def _erklaerung(
     name: str,
     docstring: str,
@@ -468,9 +473,15 @@ def _erklaerung(
     *,
     modul: str = "",
     eigen: bool = True,
+    art: str = "",
 ) -> str:
     """Eine kurze deutsche Erklärung. Eine Liste aus nackten Namen
     hilft niemandem, der gerade erst anfängt.
+
+    Eine Funktion oder Klasse aus `pcl` erklärt ihr eigener Docstring,
+    der ist dort deutsch. Der Name allein führte sonst zu einer
+    gleichnamigen Eigenschaft: `text(` aus `pcl` kam mit dem Hilfetext
+    der Eigenschaft `Edit.text`, „Angezeigter bzw. ausgewählter Text“.
 
     Der Docstring zählt nur bei eigenem Code. Aus Python selbst und aus
     Bibliotheken kommt er auf Englisch; für die eingebauten Funktionen
@@ -481,6 +492,10 @@ def _erklaerung(
         return f"{komponenten[name]} auf diesem Formular"
     if name in SCHLUESSELWORT_HILFE:
         return SCHLUESSELWORT_HILFE[name]
+    if art in ("function", "class") and modul.split(".")[0] == "pcl":
+        erste_zeile = (docstring or "").strip().splitlines()
+        if erste_zeile:
+            return _ENTWICKLER_VERWEIS.sub("", erste_zeile[0]).strip()
     aus_pcl = _pcl_hilfetexte().get(name)
     if aus_pcl:
         return aus_pcl
@@ -519,7 +534,8 @@ def _vorschlag_aus(eintrag, komponenten: dict[str, str], pfad) -> Vorschlag:  # 
         name=eintrag.name,
         art=eintrag.type,
         erklaerung=_erklaerung(
-            eintrag.name, docstring, komponenten, modul=modul, eigen=eigen
+            eintrag.name, docstring, komponenten, modul=modul, eigen=eigen,
+            art=eintrag.type,
         ),
         signatur=signatur,
         rang=_rang(eintrag.name, eintrag.type, komponenten),
@@ -623,7 +639,9 @@ def parameterhilfe_anzeige(
     if pfeil and rueckgabe:
         zeile_oben += f" → {html.escape(rueckgabe)}"
 
-    erklaerung = _erklaerung(name, docstring, {}, modul=modul, eigen=eigen)
+    erklaerung = _erklaerung(
+        name, docstring, {}, modul=modul, eigen=eigen, art="function"
+    )
     if erklaerung:
         return f"{zeile_oben}<br><i>{html.escape(erklaerung)}</i>"
     return zeile_oben

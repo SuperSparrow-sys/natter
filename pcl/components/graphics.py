@@ -374,6 +374,7 @@ class _PaintBoxQWidget(QWidget):
     def __init__(self, eltern_widget: QWidget, paintbox: PaintBox) -> None:
         super().__init__(eltern_widget)
         self._paintbox = paintbox
+        self._gezeigt = False
 
     def paintEvent(self, event: Any) -> None:  # noqa: N802 (Qt-Konvention)
         maler = QPainter(self)
@@ -384,6 +385,17 @@ class _PaintBoxQWidget(QWidget):
     def resizeEvent(self, event: Any) -> None:  # noqa: N802 (Qt-Konvention)
         super().resizeEvent(event)
         self._paintbox._groesse_uebernehmen(self.width(), self.height())
+
+    def showEvent(self, event: Any) -> None:  # noqa: N802 (Qt-Konvention)
+        """`on_paint` beim ersten Anzeigen. Über die Größe allein kam
+        es nicht: der Designer schreibt `width` und `height` vor die
+        Zuweisung von `on_paint`, und beim Zeigen ändert sich die
+        Größe nicht mehr. Die Fläche blieb leer, bis das Fenster
+        größer gezogen wurde."""
+        super().showEvent(event)
+        if not self._gezeigt:
+            self._gezeigt = True
+            self._paintbox.repaint()
 
 
 class PaintBox(Control):

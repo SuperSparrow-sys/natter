@@ -25,8 +25,14 @@ def test_die_achsen_zeigen_0_5_mit_komma() -> None:
     assert not any("." in text for text in x_texte + y_texte)
 
 
-def test_kategorien_bleiben_beschriftet() -> None:
+@pytest.mark.parametrize("nach_clear", [False, True])
+def test_kategorien_bleiben_beschriftet(nach_clear: bool) -> None:
+    """Auch nach `clear()`: dort stand bis 0.4.3 unter den Monaten
+    der Wetterdaten aus Beispiel 07 die Zählung 0, 1, 2."""
     diagramm = Chart(Form())
+    if nach_clear:
+        diagramm.add_line_series([1, 2], [3, 4])
+        diagramm.clear()
     diagramm.add_bar_series(["Mo", "Di"], [1.5, 2.5])
     diagramm._figure.canvas.draw()
 

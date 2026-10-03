@@ -134,6 +134,17 @@ def test_file_not_found_nennt_den_pfad() -> None:
     assert "es_gibt_mich_nicht.txt" in meldung.was
 
 
+def test_ein_windows_pfad_steht_mit_einfachen_backslashes_da() -> None:
+    """Der Pfad steht so da, wie er im Explorer zu sehen ist, und
+    nicht in Pythons Schreibweise mit verdoppelten Backslashes."""
+    def f():
+        return open(r"C:\gibt\es\keine.txt", encoding="utf-8")
+
+    meldung = fehlermeldung_erzeugen(_ausloesen(f))
+
+    assert r"„C:\gibt\es\keine.txt“" in meldung.was
+
+
 def test_type_error() -> None:
     def f():
         return "text" + 1

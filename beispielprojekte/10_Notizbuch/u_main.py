@@ -15,7 +15,7 @@
 
 from pathlib import Path
 
-from pcl import ask_yes_no, open_dialog, save_dialog
+from pcl import ask_yes_no, open_dialog, save_dialog, show_message
 from u_info import FormInfo
 from u_main_design import Form1Design
 
@@ -37,15 +37,29 @@ class Form1(Form1Design):
     def status_zeigen(self) -> None:
         name = Path(self.dateiname).name if self.dateiname else "Neue Notiz"
         stern = " *" if self.geaendert else ""
-        self.l_status.caption = f"{name}{stern} - {len(self.m_text.lines)} Zeilen"
+        anzahl = len(self.m_text.lines)
+        wort = "Zeile" if anzahl == 1 else "Zeilen"
+        self.l_status.caption = f"{name}{stern} - {anzahl} {wort}"
 
     # -- Speichern und Laden ---------------------------------------
 
-    def speichern_unter(self, pfad: str) -> None:
-        self.m_text.lines.save_to_file(pfad)
+    def speichern_unter(self, pfad: str) -> bool:
+        """Liefert False, wenn sich die Datei nicht schreiben ließ."""
+        # Ein Ordner ohne Schreibrecht, ein voller USB-Stick, eine
+        # Datei, die ein anderes Programm offen hält: ohne try brach
+        # das Programm hier ab - und die Notiz war weg.
+        try:
+            self.m_text.lines.save_to_file(pfad)
+        except OSError:
+            show_message(
+                f"{Path(pfad).name} lässt sich dort nicht speichern. "
+                "Bitte einen anderen Ort wählen."
+            )
+            return False
         self.dateiname = pfad
         self.geaendert = False
         self.status_zeigen()
+        return True
 
     def speichern(self) -> bool:
         """Speichert die Notiz; liefert False, wenn abgebrochen wurde."""
@@ -53,9 +67,8 @@ class Form1(Form1Design):
             pfad = save_dialog("Notiz speichern", TEXTDATEIEN, "notiz.txt")
             if not pfad:
                 return False
-            self.dateiname = pfad
-        self.speichern_unter(self.dateiname)
-        return True
+            return self.speichern_unter(pfad)
+        return self.speichern_unter(self.dateiname)
 
     def vorher_sichern(self) -> bool:
         """Bietet an, ungespeicherte Änderungen zu sichern, bevor die
@@ -83,7 +96,11 @@ class Form1(Form1Design):
         pfad = open_dialog("Notiz öffnen", TEXTDATEIEN)
         if not pfad:
             return
-        self.m_text.lines.load_from_file(pfad)
+        try:
+            self.m_text.lines.load_from_file(pfad)
+        except OSError:
+            show_message(f"{Path(pfad).name} lässt sich nicht öffnen.")
+            return
         self.dateiname = pfad
         # Das Laden hat on_change ausgelöst; neu getippt ist aber noch
         # nichts.

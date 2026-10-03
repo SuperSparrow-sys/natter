@@ -12,21 +12,12 @@
 
 from pathlib import Path
 
-from pcl import open_dialog, show_message
+from pcl import open_dialog, show_message, text
 from u_main_design import Form1Design
 
 # Die Galerie startet nicht leer: die Kekse aus Stufe 4 liegen gleich
 # nebenan und geben etwas zum Anschauen, bevor eigene Bilder da sind.
 MITGELIEFERT = Path(__file__).parent.parent / "04_CookieKlicker" / "bilder"
-
-
-def text(wert: float, stellen: int = 1) -> str:
-    """Macht aus einer Zahl deutschen Text: 5.5 -> "5,5".
-
-    Python schreibt Kommazahlen mit Punkt. In einem deutschen
-    Programm gehört dort ein Komma hin.
-    """
-    return f"{wert:.{stellen}f}".replace(".", ",")
 
 
 class Form1(Form1Design):
@@ -87,8 +78,14 @@ class Form1(Form1Design):
             return
 
         pfad = self.bilder[nummer]
+        # Die Datei kann inzwischen gelöscht oder verschoben sein - die
+        # Liste merkt davon nichts.
+        if not pfad.is_file():
+            self.i_vorschau.picture.clear()
+            self.l_info.caption = f"{pfad.name} gibt es nicht mehr."
+            return
         self.i_vorschau.picture.load_from_file(str(pfad))
 
         # Dateigröße in Kilobyte, auf eine Stelle gerundet.
         groesse = pfad.stat().st_size / 1024
-        self.l_info.caption = f"{pfad.name}  -  {text(groesse)} kB\n{pfad.parent}"
+        self.l_info.caption = f"{pfad.name}  -  {text(groesse, 1)} kB\n{pfad.parent}"

@@ -119,10 +119,10 @@ def test_dbedit_eingabe_aendert_das_feld_im_query_puffer() -> None:
     formular.dbe_name._qwidget.editingFinished.emit()
 
     assert formular.abfrage.field_by_name("name").as_string == "Anna-Maria"
-    # DBGrid sieht die Änderung erst nach einer erneuten Benachrichtigung -
-    # DBEdit selbst löst keine automatische Neuzeichnung anderer Controls aus.
-    formular.ds_kunden.aktualisieren()
+    # Das DBGrid an derselben Datenquelle zeigt den neuen Wert sofort;
+    # bis 0.4.3 erst nach einem `aktualisieren()` von Hand.
     assert formular.dbg_kunden._qwidget.item(0, 0).text() == "Anna-Maria"
+    assert formular.dbn_kunden.knopf_erster.toolTip() == "Erster Datensatz"
 
 
 def test_dbcombobox_zeigt_die_lookup_spalte() -> None:

@@ -13457,3 +13457,159 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** Ein Datum in der Form TT.MM.JJJJ nach dem Kalender sortieren. Erledigt, wenn ein Test eine Datumsspalte sortiert.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** `_datumszahl` macht aus `15.12.2025` die Zahl 20251215, die wie eine Zahl einsortiert wird. Test: `test_csvansicht_sortiert_zahlen_nach_wert` in `tests/test_viewer_csv.py`, um eine Datumsspalte erweitert; mit `csv_ansicht.py` aus `HEAD` scheitert er.
+
+## 521. ListBox und ComboBox: ein anderer Eintrag unter derselben Nummer meldet sich nicht ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchgang durch die Beispielprojekte, `05_Bildergalerie` (Entwicklungsstand `65ac170`).
+
+**Beobachtet:** In der Bildergalerie steht das erste Bild gewählt, „Entfernen“ nimmt es aus der Liste. Danach ist `keks_bunt.png` markiert, Vorschau und Beschriftung zeigen aber weiter `keks_boese.png`, das gar nicht mehr in der Liste steht.
+
+**Ursache:** nachgewiesen. `ListBox._items_geaendert` (`pcl/components/standard.py`) behält beim Neuzuweisen der Einträge die Nummer und löst `on_change` nur aus, wenn sich die Nummer ändert. Nach dem Entfernen ist wieder Nummer 0 gewählt, dort steht aber ein anderer Eintrag. `ComboBox._items_geaendert` macht es genauso.
+
+**Zu tun:** `on_change` auch dann auslösen, wenn unter derselben Nummer ein anderer Text steht; ein angehängter Eintrag soll sich weiterhin nicht melden.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Beide vergleichen jetzt zusätzlich den Text unter der gewählten Nummer vor und nach dem Neuaufbau. Weil damit ein Neuladen mit demselben ersten Eintrag kein Ereignis mehr auslöst, ruft `07_CsvAuswertung` nach dem Laden `cb_ort_change` selbst auf. Tests: `test_neue_eintraege_unter_derselben_nummer_melden_sich` in `tests/test_components_listen.py` (ListBox und ComboBox), `test_die_galerie_zeigt_nach_dem_entfernen_das_neue_erste_bild` in `tests/test_beispiele_bedienen.py`.
+
+## 522. Diagramm: nach `clear()` stehen unter Kategorien die Zahlen 0, 1, 2 ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, `07_CsvAuswertung`, nach einem Wechsel des Orts.
+
+**Beobachtet:** Die x-Achse der Temperaturkurve zeigt 0 bis 11 statt „Jan“, „Feb“, „Mär“ … Beim allerersten Zeichnen stimmt sie; jeder Ortswechsel ruft `clear()` und zeichnet neu.
+
+**Ursache:** nachgewiesen. `Chart._dezimalkomma_anwenden` (`pcl/components/chart.py`) setzt nach `clear()` den Komma-Formatter auf die leere Achse. Damit gilt für matplotlib der Formatter nicht mehr als Standard (`isDefault_majfmt`), und eine anschließende Serie mit Texten bekommt den Kategorie-Formatter nicht.
+
+**Zu tun:** Den Komma-Formatter so setzen, dass matplotlib ihn bei Kategorien noch ersetzen darf.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Nach `set_major_formatter` steht `isDefault_majfmt` wieder auf wahr, wie matplotlib es für seine eigenen Locator hält. Test: `test_kategorien_bleiben_beschriftet` in `tests/test_chart_dezimalkomma.py`, parametrisiert mit und ohne vorheriges `clear()`; mit `chart.py` aus `HEAD` scheitert der Fall nach `clear()`.
+
+## 523. PaintBox: `on_paint` kommt beim ersten Anzeigen nicht ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Probe aller Komponenten im laufenden Programm.
+
+**Beobachtet:** Eine PaintBox, deren `on_paint` ein Rechteck zeichnet, bleibt nach dem Start weiß. Erst wenn sich ihre Größe ändert, erscheint das Rechteck. Die Komponenten-Referenz verspricht das Ereignis „beim ersten Anzeigen und nach jeder Größenänderung“.
+
+**Ursache:** nachgewiesen. `PaintBox` löst `on_paint` nur in `_groesse_uebernehmen` aus, also bei einer Größenänderung. Der Designer schreibt `width` und `height` vor die Zuweisung von `on_paint`; beim Zeigen ändert sich die Größe nicht mehr.
+
+**Zu tun:** `on_paint` beim ersten Zeigen der Fläche auslösen.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_PaintBoxQWidget.showEvent` löst beim ersten Zeigen einmal `repaint()` aus. Test: `test_on_paint_kommt_beim_ersten_anzeigen` in `tests/test_components_graphics.py` (Größe vor dem Ereignis wie im erzeugten Code, zweimal gezeigt, genau ein Aufruf).
+
+## 524. FloatSpinEdit: eine Kommazahl lässt sich nicht eintippen ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Probe aller Komponenten im laufenden Programm.
+
+**Beobachtet:** Wer im Feld „2,5“ tippt, bekommt 2,00: schon nach der „2“ steht „2,00“ im Feld, das Komma passt nicht mehr hinein, und die „5“ wäre eine dritte Nachkommastelle. „2.5“ ergibt 25. Dazu steht im Fortschrittsbalken „50%“ statt „50 %“.
+
+**Ursache:** nachgewiesen. Jede getippte Ziffer ändert den Wert; `_bei_wertaenderung` setzt `value`, und `_bei_prop_aenderung` ruft `setValue` auf, das den Text sofort in der festen Schreibweise neu schreibt. Der Balken nutzt Qts Standardformat `%p%`.
+
+**Zu tun:** Beim Tippen den Text in Ruhe lassen und erst danach in die feste Schreibweise bringen; den Balken deutsch beschriften.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `setValue` nur noch bei einem anderen Wert als im Feld; nach dem Bearbeiten (`editingFinished`) wird „2,5“ zu „2,50“. Der Fortschrittsbalken hat das Format `%p %`. Tests: `test_floatspinedit_nimmt_eine_getippte_kommazahl_an` und `test_progressbar_standardwerte_stehen_auch_im_widget` in `tests/test_components_werte.py`.
+
+## 525. DBEdit: DBGrid und DBText zeigen nach einer Änderung den alten Wert ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Probe der Datenbank-Controls mit DBGrid, DBText, DBEdit, DBComboBox und DBNavigator an einer Datenquelle.
+
+**Beobachtet:** Im DBEdit wird die Note 1,7 zu 1,3 geändert; das DBGrid daneben zeigt weiter 1,7, obwohl „Speichern“ schon 1,3 in die Datenbank schreibt. Die Knöpfe des DBNavigator heißen „<<“, „<“, „+“, „-“ und haben keinen Hinweis.
+
+**Ursache:** nachgewiesen. `DBEdit._bei_bearbeitung_beendet` (`pcl/components/data_controls.py`) ändert mit `set_field` nur den Puffer der Abfrage und benachrichtigt die Datenquelle nicht. Ein Test hielt das ausdrücklich so fest.
+
+**Zu tun:** Nach einer Änderung die übrigen Controls der Datenquelle auffrischen; den Knöpfen Hinweise geben.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Nach `set_field` folgt `aktualisieren()` an der Datenquelle; eine Eingabe, die den Wert nicht ändert, löst nichts aus. Die Knöpfe haben Hinweise wie „Erster Datensatz“ und „Einfügen“. `docs/komponenten.md` nennt beides. Test: `test_dbedit_eingabe_aendert_das_feld_im_query_puffer` in `tests/test_data_controls.py`, ohne das `aktualisieren()` von Hand.
+
+## 526. Debugger: „Überwachen“ zeigt Werte vom vorigen Halt, der Aufrufstapel wechselt die Werte nicht ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchgang durch den Debugger mit Funktion, bedingtem Haltepunkt, F11, Rücksprung, F10 und F4.
+
+**Beobachtet:** Nach F11 in eine Funktion stehen in „Überwachen“ noch eine Weile die Werte vom Halt davor, ohne Kennzeichnung, und ein Ausdruck wie `n` heißt dort „lässt sich hier nicht ausrechnen“, obwohl `n` in der Funktion existiert. Ein Klick auf den Aufrufer im Aufrufstapel springt im Editor dorthin, „Variablen“ und „Überwachen“ zeigen aber weiter die Werte der aufgerufenen Funktion.
+
+**Ursache:** nachgewiesen. `_ueberwachte_auswerten` (`ide/shell/hauptfenster.py`) schickt die Ausdrücke ab, lässt aber die alten Werte stehen, bis die Antworten da sind; das dauerte im Durchgang bis zu zwei Sekunden. `_bei_aufrufstapel_klick` rief nur `_zu_frame_springen` auf; alle Auswertungen nahmen fest den obersten Rahmen.
+
+**Zu tun:** Ausstehende Werte kennzeichnen; ein Klick im Aufrufstapel wählt den Rahmen für „Variablen“, „Überwachen“, den Wert unter der Maus und „Als Tabelle anzeigen“.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Ausstehende Werte stehen als „…“ da. `_gewaehlter_rahmen` merkt sich den angeklickten Eintrag, `_aktueller_frame` und `_aktueller_frame_ist_funktion` richten sich danach, und der Klick liest die Bereiche dieses Rahmens neu. Bei jedem neuen Halt gilt wieder der oberste. Test: `test_liste_aufklappen_globale_und_bedingter_haltepunkt` in `tests/test_debugger_variablen_ueberwachen.py`, um den Klick auf den Aufrufer erweitert, gegen echtes debugpy.
+
+## 527. Parameterhilfe: eine `pcl`-Funktion bekommt den Text einer gleichnamigen Eigenschaft ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Editor in `03_Taschenrechner`.
+
+**Beobachtet:** Beim Tippen von `text(` steht unter der richtigen Unterschrift „Angezeigter bzw. ausgewählter Text“, der Hilfetext von `Edit.text`. Bei `show_message(` steht „Zeigt eine Meldung in einem kleinen Fenster (Abschnitt 5.1).“, mit einem Verweis auf den Entwicklungsbericht.
+
+**Ursache:** nachgewiesen. `_erklaerung` (`ide/shell/vervollstaendigung.py`) sucht jeden Namen zuerst in den Hilfetexten der Komponenten-Eigenschaften, bevor der Docstring zählt. Der Docstring aus `pcl` kommt unverändert in die Anzeige.
+
+**Zu tun:** Funktionen und Klassen aus `pcl` mit der ersten Zeile ihres Docstrings erklären, ohne Verweise der Entwicklung.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_erklaerung` bekommt die Art des Namens; für eine Funktion oder Klasse aus `pcl` zählt die erste Docstring-Zeile, aus der `_ENTWICKLER_VERWEIS` Angaben wie „(Abschnitt 5.1)“ entfernt. Test: `test_eine_pcl_funktion_erklaert_ihr_eigener_docstring` in `tests/test_vervollstaendigung.py`.
+
+## 528. Meldungen: Pfade mit doppelten Backslashes, Zahlen mit Dezimalpunkt ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, `10_Notizbuch` (Speichern nach `C:\Windows\System32`) und Probe von `Sound`.
+
+**Beobachtet:** „Auf „C:\\Windows\\System32\\notiz_test.txt“ besteht kein Zugriff.“ Ebenso bei einer nicht gefundenen Datei. `Sound.volume = 2` meldet „zwischen 0.0 und 1.0, erhalten wurde 2“, `Sound("x.wav")` nennt den Pfad in Pythons Hochkommas.
+
+**Ursache:** nachgewiesen. `_file_not_found` und `_permission_error` in `pcl/fehlerkatalog.py` setzen `repr(exc.filename)` ein; `pcl/components/medien.py` schreibt Zahlen und Pfade mit Python-Schreibweise.
+
+**Zu tun:** Pfade so zeigen, wie sie im Explorer stehen; Zahlen mit Dezimalkomma.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Der Dateiname steht unverändert in „…“; die Meldungen von `Sound` nennen „0,0 und 1,0“, den erhaltenen Wert über `pcl.text` und Pfade in „…“. Test: `test_ein_windows_pfad_steht_mit_einfachen_backslashes_da` in `tests/test_fehlerkatalog.py`; `tests/test_fehlerkatalog_debugger_gleich.py` bestätigt, dass der Weg über den Debugger dieselbe Meldung liefert.
+
+## 529. Kontoverwaltung: „1.000“ wird ein Euro, Tabellen zeigen Zahlen als Spaltenköpfe ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, `06_Kontoverwaltung` und `07_CsvAuswertung`.
+
+**Beobachtet:** Ein Betrag „1.000“ bucht 1,00 Euro. „0,005“ meldet „0,01 Euro eingezahlt“, der Stand bleibt sichtbar gleich, gespeichert ist ein halber Cent. Über beiden Tabellen stehen die Spaltenköpfe 1, 2, 3 und links Zeilennummern, die eigene Überschrift steht als erste Datenzeile darunter; die Zellen lassen sich bearbeiten, ohne dass die Datenbank davon erfährt.
+
+**Ursache:** nachgewiesen. `betrag_holen` liest mit `float(text.replace(",", "."))` statt mit `pcl.zahl`. Die Beispiele nutzen `col_titles` und `read_only` nicht.
+
+**Zu tun:** Beträge mit `zahl` lesen und auf Cent prüfen; Überschriften in `col_titles`, Tabellen schreibgeschützt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `betrag_holen` und die Grenze in `b_filtern_click` lesen mit `zahl`; mehr als zwei Nachkommastellen ergeben „Höchstens zwei Stellen nach dem Komma.“. Beide Tabellen setzen `col_titles` und stehen im Designer auf `read_only` (über den Generator erzeugt). Tests: `test_ein_betrag_wird_gelesen_wie_er_gemeint_ist` in `tests/test_beispiel_eingaben_pruefen.py`, `test_die_csv_auswertung_zeigt_zu_jedem_ort_seine_daten` in `tests/test_beispiele_bedienen.py`.
+
+## 530. CSV-Auswertung: eine fremde Datei beendet das Programm ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, `07_CsvAuswertung`, „Andere CSV laden …“.
+
+**Beobachtet:** Eine mit Komma getrennte Datei, eine Datei aus einem älteren Excel (cp1252) und eine mit leerer Temperatur beenden das Programm jeweils mit einer Fehlermeldung; bei der ersten sind die bisherigen Daten schon überschrieben. Die mitgelieferten Daten schreiben „Muenchen“, „Koeln“ und „Maerz“.
+
+**Ursache:** nachgewiesen. `datei_lesen` liest nur UTF-8, übernimmt die Zeilen sofort und greift ohne Prüfung auf `zeile["Ort"]` und die Zahlen zu.
+
+**Zu tun:** Datei zuerst prüfen, dann übernehmen; cp1252 als Ersatz lesen; Umlaute in den Daten.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `datei_lesen` liest UTF-8 und sonst cp1252, `fehler_in` prüft Spalten und Zahlen und nennt den Fehler in einer Meldung; die alten Daten bleiben. `wetter.csv` schreibt München, Köln und März. Test: `test_die_csv_auswertung_prueft_eine_fremde_datei` in `tests/test_beispiele_bedienen.py` (drei Fälle).
+
+## 531. Obst-Sortierer: zehn Sekunden kein Fenster, und ein Rest im Quelltext ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, `09_ObstSortierer`.
+
+**Beobachtet:** Nach dem Start vergehen gut zehn Sekunden, bevor überhaupt ein Fenster erscheint. Am Ende von `u_main.py` steht eine leere Methode `ch_streuung_click` mit „Hier steht, was passieren soll.“, im Formular ist sie mit dem Diagramm verknüpft. Prozente stehen als „83%“.
+
+**Ursache:** nachgewiesen. `form_create` importiert scikit-learn und trainiert, bevor das Fenster gezeigt wird; der Import allein dauert mehrere Sekunden. Die Methode ist der Rest eines Doppelklicks im Designer, der mit 0.4.0 eingecheckt wurde.
+
+**Zu tun:** Fenster zuerst zeigen, danach lernen; den Rest entfernen; Prozent mit Leerzeichen.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Ein Zeitgeber `t_lernen` (50 ms) startet das Lernen nach dem ersten Zeigen und hält sich selbst an; bis dahin steht „Das Modell lernt gerade ...“, und `sortieren` wartet auf das Modell. Im Durchgang erscheint das Fenster nach rund einer Sekunde. Methode und Verknüpfung sind entfernt, `prozent()` schreibt „83 %“.
+
+## 532. Notizbuch: Speichern an einem gesperrten Ort verliert die Notiz ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, `10_Notizbuch`.
+
+**Beobachtet:** Speichern in einen Ordner ohne Schreibrecht beendet das Programm, die Notiz ist weg. Die Statuszeile sagt „1 Zeilen“.
+
+**Ursache:** nachgewiesen. `speichern_unter` und `mi_oeffnen_click` rufen `save_to_file` und `load_from_file` ohne `try` auf.
+
+**Zu tun:** Einen Fehler beim Schreiben oder Lesen melden und die Notiz behalten; „1 Zeile“.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Beide fangen `OSError` ab und sagen es mit `show_message`; `speichern_unter` liefert, ob es geklappt hat, und `vorher_sichern` lässt das Fenster offen, wenn nicht. Test: `test_notizbuch_behaelt_die_notiz_wenn_die_datei_sich_nicht_schreiben_laesst` in `tests/test_beispiele_notizbuch_malen.py`.
+
+## 533. Kleinigkeiten in den Beispielen 04, 05 und 08 ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchgang durch die Beispielprojekte.
+
+**Beobachtet:** `04_CookieKlicker` schreibt „1 Helfer backen jetzt mit.“ und „Dafür fehlen 1 Kekse.“. `05_Bildergalerie`, `07_CsvAuswertung` und `08_Regression` bringen je eine eigene Funktion `text()` mit, obwohl Stufe 3 `pcl.text` einführt; die eigene rundet mit Pythons `round`-Regel. In `08_Regression` heißt das Diagramm „Messwerte mit Ausgleichsgerade“, auch wenn eine Kurve darüber liegt. Eine aus der Galerie gelöschte Datei beendete das Programm beim Anklicken.
+
+**Ursache:** nachgewiesen, jeweils in `u_main.py` bzw. `u_main.pfm` des Beispiels.
+
+**Zu tun:** Einzahl richtig schreiben, `pcl.text` und `pcl.zahl` nutzen, Titel „Ausgleichskurve“, gelöschte Datei abfangen.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** So umgesetzt; der Titel über den Generator. Die vorhandenen Tests in `tests/test_beispiele_bedienen.py` laufen unverändert durch.

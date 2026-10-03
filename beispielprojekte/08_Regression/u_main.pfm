@@ -31,7 +31,7 @@
         "width": 560,
         "height": 440,
         "kind": "scatter",
-        "title": "Messwerte mit Ausgleichsgerade",
+        "title": "Messwerte mit Ausgleichskurve",
         "x_label": "Körpergröße in cm",
         "y_label": "Schuhgröße",
         "grid": true

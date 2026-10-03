@@ -36,9 +36,6 @@
         "y_label": "Breite in mm",
         "legend": true,
         "grid": true
-      },
-      "events": {
-        "on_click": "ch_streuung_click"
       }
     },
     {
@@ -168,6 +165,20 @@
         "width": 864,
         "height": 110,
         "caption": ""
+      }
+    },
+    {
+      "name": "t_lernen",
+      "type": "Timer",
+      "properties": {
+        "left": 860,
+        "top": 16,
+        "width": 32,
+        "height": 32,
+        "interval": 50
+      },
+      "events": {
+        "on_timer": "t_lernen_timer"
       }
     }
   ]

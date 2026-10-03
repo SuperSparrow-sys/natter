@@ -2,6 +2,8 @@
 Siehe PLAN.md (Git-Historie), M1 Schritt 6.
 """
 
+import pytest
+
 from pcl import ComboBox, Form, ListBox, Memo
 
 
@@ -137,3 +139,24 @@ def test_combobox_on_change_wirkt_auch_bei_zuweisung_im_code() -> None:
     formular.cb_mws.item_index = 2
 
     assert gesehen == ["c"]
+
+
+@pytest.mark.parametrize("name", ["lb_kurzwahl", "cb_mws"])
+def test_neue_eintraege_unter_derselben_nummer_melden_sich(name: str) -> None:
+    """Der erste Eintrag wird gelöscht und die Liste neu zugewiesen:
+    gewählt bleibt Nummer 0, aber dort steht jetzt ein anderer Text.
+    Das ist eine andere Auswahl; eine Vorschau daneben zeigte sonst
+    weiter den gelöschten Eintrag. Ein angehängter Eintrag ändert
+    nichts an der Auswahl und meldet sich nicht."""
+    formular = _Formular()
+    liste = getattr(formular, name)
+    liste.items = ["a", "b", "c"]
+    liste.item_index = 0
+    gemeldet: list[str] = []
+    liste.on_change = lambda sender: gemeldet.append(liste.items[liste.item_index])
+
+    liste.items = ["b", "c"]
+    liste.items.add("d")
+
+    assert liste.item_index == 0
+    assert gemeldet == ["b"]

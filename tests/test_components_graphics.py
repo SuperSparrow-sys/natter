@@ -238,6 +238,21 @@ def test_on_paint_wird_bei_groessenaenderung_ausgeloest() -> None:
     assert gerufen == [box]
 
 
+def test_on_paint_kommt_beim_ersten_anzeigen() -> None:
+    """Wie der Designer den Code schreibt: erst die Größe, dann das
+    Ereignis. Beim Zeigen ändert sich die Größe nicht mehr; die
+    Fläche blieb bis 0.4.3 leer, bis jemand das Fenster aufzog."""
+    formular, box = _flaeche()
+    gerufen: list[object] = []
+    box.on_paint = lambda sender: gerufen.append(sender)
+
+    formular.show()
+    formular._qwidget.hide()
+    formular.show()
+
+    assert gerufen == [box]
+
+
 def test_repaint_loest_on_paint_von_hand_aus() -> None:
     _formular, box = _flaeche()
     gerufen: list[object] = []

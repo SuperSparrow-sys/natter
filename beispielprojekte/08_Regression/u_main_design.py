@@ -33,7 +33,7 @@ class Form1Design(Form):
         self.ch_punkte.width = 560
         self.ch_punkte.height = 440
         self.ch_punkte.kind = "scatter"
-        self.ch_punkte.title = "Messwerte mit Ausgleichsgerade"
+        self.ch_punkte.title = "Messwerte mit Ausgleichskurve"
         self.ch_punkte.x_label = "Körpergröße in cm"
         self.ch_punkte.y_label = "Schuhgröße"
         self.ch_punkte.grid = True

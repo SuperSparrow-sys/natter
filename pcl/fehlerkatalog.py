@@ -1088,7 +1088,7 @@ def _file_not_found(exc: FileNotFoundError) -> tuple[str, str, str]:
     if exc.filename:
         return (
             "Datei nicht gefunden",
-            f"Die Datei {_in_deutsche_anfuehrungszeichen(repr(exc.filename))} "
+            f"Die Datei „{exc.filename}“ "
             "wurde nicht gefunden.",
             pruefe,
         )
@@ -1104,7 +1104,7 @@ def _permission_error(exc: PermissionError) -> tuple[str, str, str]:
     if exc.filename:
         return (
             "Kein Zugriff auf die Datei",
-            f"Auf {_in_deutsche_anfuehrungszeichen(repr(exc.filename))} besteht kein "
+            f"Auf „{exc.filename}“ besteht kein "
             "Zugriff.",
             pruefe,
         )

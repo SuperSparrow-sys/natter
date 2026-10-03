@@ -213,6 +213,26 @@ def test_trackbar_on_change_feuert() -> None:
     assert empfangen == [8]
 
 
+def test_floatspinedit_nimmt_eine_getippte_kommazahl_an() -> None:
+    """Jede Ziffer ist schon eine Wertänderung. Bis 0.4.3 schrieb
+    die das Feld sofort neu, aus „2“ wurde „2,00“, und das Komma
+    danach passte nicht mehr hinein: „2,5“ ergab 2,0."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    formular = _Formular()
+    formular.show()
+    feld = formular.fse_preis._qwidget
+    feld.setFocus()
+    feld.selectAll()
+
+    QTest.keyClicks(feld, "2,5")
+    QTest.keyClick(feld, Qt.Key.Key_Return)
+
+    assert formular.fse_preis.value == 2.5
+    assert feld.text() == "2,50"
+
+
 # -- ProgressBar -------------------------------------------------------
 
 
@@ -223,6 +243,8 @@ def test_progressbar_standardwerte_stehen_auch_im_widget() -> None:
     assert (balken.minimum, balken.maximum, balken.position) == (0, 100, 0)
     assert balken.show_text is True
     assert balken._qwidget.isTextVisible() is True
+    balken.position = 50
+    assert balken._qwidget.text() == "50 %"
     assert (balken.width, balken.height) == (150, 22)
 
 

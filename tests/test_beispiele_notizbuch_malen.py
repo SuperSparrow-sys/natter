@@ -96,6 +96,26 @@ def test_notizbuch_fragt_vor_neu_nach_dem_speichern(laden, monkeypatch) -> None:
     assert list(formular.m_text.lines) == []
 
 
+def test_notizbuch_behaelt_die_notiz_wenn_die_datei_sich_nicht_schreiben_laesst(
+    laden, monkeypatch, tmp_path
+) -> None:
+    """Ein Ordner ohne Schreibrecht beendete bis 0.4.3 das Programm,
+    und die Notiz war weg. Jetzt kommt eine Meldung, und sie bleibt
+    ungespeichert stehen."""
+    formular, _ = laden("10_Notizbuch")
+    gemeldet: list[str] = []
+    monkeypatch.setattr("u_main.show_message", gemeldet.append)
+    monkeypatch.setattr("u_main.save_dialog", lambda *args: str(tmp_path))
+    formular.m_text.lines = ["wichtig"]
+
+    assert formular.speichern() is False
+
+    assert "lässt sich dort nicht speichern" in gemeldet[0]
+    assert formular.geaendert
+    assert formular.dateiname == ""
+    assert list(formular.m_text.lines) == ["wichtig"]
+
+
 def test_notizbuch_bleibt_offen_wenn_das_speichern_abgebrochen_wird(
     laden, monkeypatch
 ) -> None:

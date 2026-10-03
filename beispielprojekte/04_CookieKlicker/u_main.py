@@ -97,7 +97,7 @@ class Form1(Form1Design):
 
     def b_teig_click(self, sender) -> None:
         if self.kekse < TEIG_PREIS:
-            self.l_hinweis.caption = f"Dafür fehlen {TEIG_PREIS - self.kekse} Kekse."
+            self.l_hinweis.caption = self.fehlen(TEIG_PREIS - self.kekse)
             return
         self.kekse -= TEIG_PREIS
         self.pro_klick += 1
@@ -106,14 +106,24 @@ class Form1(Form1Design):
 
     def b_helfer_click(self, sender) -> None:
         if self.kekse < HELFER_PREIS:
-            self.l_hinweis.caption = f"Dafür fehlen {HELFER_PREIS - self.kekse} Kekse."
+            self.l_hinweis.caption = self.fehlen(HELFER_PREIS - self.kekse)
             return
         self.kekse -= HELFER_PREIS
         self.helfer += 1
         # Sobald der erste Helfer da ist, darf der Zeitgeber laufen.
         self.t_helfer.enabled = True
-        self.l_hinweis.caption = f"{self.helfer} Helfer backen jetzt mit."
+        if self.helfer == 1:
+            self.l_hinweis.caption = "Ein Helfer backt jetzt mit."
+        else:
+            self.l_hinweis.caption = f"{self.helfer} Helfer backen jetzt mit."
         self.anzeigen()
+
+    def fehlen(self, anzahl: int) -> str:
+        """„Dafür fehlen 1 Kekse“ liest sich falsch - bei genau einem
+        heißt es „fehlt“ und „Keks“."""
+        if anzahl == 1:
+            return "Dafür fehlt 1 Keks."
+        return f"Dafür fehlen {anzahl} Kekse."
 
     def t_helfer_timer(self, sender) -> None:
         """Der Zeitgeber ruft das jede Sekunde auf."""

@@ -31,7 +31,8 @@
         "width": 480,
         "height": 380,
         "row_count": 1,
-        "col_count": 3
+        "col_count": 3,
+        "read_only": true
       }
     },
     {

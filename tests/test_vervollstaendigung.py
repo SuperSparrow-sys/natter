@@ -221,6 +221,25 @@ def test_die_parameterhilfe_nennt_die_erwarteten_parameter() -> None:
     assert "breite" in hilfe and "hoehe" in hilfe
 
 
+@pytest.mark.parametrize(
+    ("aufruf", "erwartet"),
+    [
+        ("from pcl import text\ntext(", "Schreibt eine Zahl als Text mit Dezimalkomma."),
+        ("from pcl import show_message\nshow_message(", "in einem kleinen Fenster.<"),
+    ],
+)
+def test_eine_pcl_funktion_erklaert_ihr_eigener_docstring(aufruf: str, erwartet: str) -> None:
+    """Nicht der Hilfetext einer gleichnamigen Eigenschaft
+    (`Edit.text`), und ohne Verweise der Entwicklung wie
+    „(Abschnitt 5.1)“."""
+    zeilen = aufruf.splitlines()
+
+    hilfe = parameterhilfe_anzeige(aufruf, len(zeilen), len(zeilen[-1]))
+
+    assert erwartet in hilfe
+    assert "Abschnitt" not in hilfe
+
+
 def test_ohne_klammer_gibt_es_keine_parameterhilfe() -> None:
     assert parameterhilfe("a = 1\n", 1, 5) == ""
 

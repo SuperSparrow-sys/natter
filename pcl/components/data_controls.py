@@ -298,7 +298,15 @@ class DBEdit(_DatenControl):
         if query is None or query.eof or not self.field:
             return
         alt = query.field_by_name(self.field).value
-        query.set_field(self.field, _eingabe_lesen(self._qwidget.text(), alt))
+        neu = _eingabe_lesen(self._qwidget.text(), alt)
+        if neu == alt:
+            return
+        query.set_field(self.field, neu)
+        # Die anderen Controls an derselben Quelle zeigen den neuen
+        # Wert. Ein `DBGrid` daneben zeigte sonst weiter den alten,
+        # obwohl „Speichern“ schon den neuen schreiben würde.
+        if self._data_source is not None:
+            self._data_source.aktualisieren()
 
 
 def _eingabe_lesen(eingabe: str, alt: Any) -> Any:
@@ -391,6 +399,16 @@ class DBComboBox(Control):
         return self._qwidget.currentIndex()
 
 
+_NAVIGATOR_HINWEISE = {
+    "<<": "Erster Datensatz",
+    "<": "Voriger Datensatz",
+    ">": "Nächster Datensatz",
+    ">>": "Letzter Datensatz",
+    "+": "Einfügen",
+    "-": "Löschen",
+}
+
+
 class DBNavigator(_DatenControl):
     """Knopfleiste zum Blättern durch die Datensätze und zum
     Bearbeiten. Qt-Basis: Leiste aus `QPushButton`, beschriftet mit
@@ -436,6 +454,8 @@ class DBNavigator(_DatenControl):
 
     def _knopf(self, layout: QHBoxLayout, text: str, handler: Any) -> QPushButton:
         knopf = QPushButton(text)
+        # Was „<<“ oder „+“ bedeutet, sagt der Hinweis unter der Maus.
+        knopf.setToolTip(_NAVIGATOR_HINWEISE.get(text, ""))
         knopf.clicked.connect(handler)
         layout.addWidget(knopf)
         return knopf

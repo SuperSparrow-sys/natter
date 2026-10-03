@@ -38,6 +38,7 @@ class Form1Design(Form):
         self.sg_konten.height = 380
         self.sg_konten.row_count = 1
         self.sg_konten.col_count = 3
+        self.sg_konten.read_only = True
 
         self.l_neues_konto = Label(self)
         self.l_neues_konto.left = 528

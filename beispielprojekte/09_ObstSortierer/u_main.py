@@ -32,10 +32,27 @@ MERKMALE = ("Gewicht", "Laenge", "Breite")
 BESCHRIFTUNG = {"Gewicht": "Gewicht", "Laenge": "Länge", "Breite": "Breite"}
 
 
+def prozent(anteil: float) -> str:
+    """0.59 -> "59 %". Auf Deutsch steht vor dem Prozentzeichen ein
+    Leerzeichen; Pythons `:.0%` schreibt es ohne."""
+    return f"{round(anteil * 100)} %"
+
+
 class Form1(Form1Design):
     def form_create(self, sender) -> None:
+        self.wald = None
         self.daten_lesen()
         self.streuung_zeichnen()
+        # Das Lernen braucht beim ersten Mal einige Sekunden, schon weil
+        # scikit-learn groß ist. Hier im form_create stünde so lange gar
+        # kein Fenster da. Deshalb erscheint zuerst das Fenster, und der
+        # Zeitgeber t_lernen startet das Lernen gleich danach.
+        self.l_training.caption = "Das Modell lernt gerade ..."
+        self.l_antwort.caption = ""
+
+    def t_lernen_timer(self, sender) -> None:
+        # Nur einmal: der Zeitgeber hält sich gleich selbst an.
+        self.t_lernen.enabled = False
         self.wald_trainieren()
         self.sortieren()
 
@@ -85,7 +102,7 @@ class Form1(Form1Design):
         self.l_training.caption = (
             f"Gelernt an {len(x_lernen)} Früchten,\n"
             f"geprüft an {len(x_pruefen)} zurückgehaltenen.\n"
-            f"Davon richtig erkannt: {treffer:.0%}"
+            f"Davon richtig erkannt: {prozent(treffer)}"
         )
 
         self.wichtigkeit_zeigen()
@@ -101,7 +118,7 @@ class Form1(Form1Design):
             key=lambda paar: paar[1],
             reverse=True,
         )
-        zeilen = [f"{BESCHRIFTUNG[name]}: {anteil:.0%}" for name, anteil in anteile]
+        zeilen = [f"{BESCHRIFTUNG[name]}: {prozent(anteil)}" for name, anteil in anteile]
         self.l_wichtigkeit.caption = "Worauf das Modell achtet:\n" + "\n".join(zeilen)
 
     # -- Vorhersagen -----------------------------------------------
@@ -110,6 +127,10 @@ class Form1(Form1Design):
         self.sortieren()
 
     def sortieren(self) -> None:
+        # Vor dem Ende des Lernens gibt es noch kein Modell, das fragen
+        # könnte.
+        if self.wald is None:
+            return
         frucht = [
             float(self.se_gewicht.value),
             float(self.se_laenge.value),
@@ -123,7 +144,7 @@ class Form1(Form1Design):
         anteile = self.wald.predict_proba([frucht])[0]
         sicherheit = max(anteile)
 
-        self.l_antwort.caption = f"Das ist:  {antwort}\nSicherheit: {sicherheit:.0%}"
+        self.l_antwort.caption = f"Das ist:  {antwort}\nSicherheit: {prozent(sicherheit)}"
 
         # Aus den Anteilen wird wieder die Anzahl der Bäume: "59 von
         # 100" sagt mehr darüber, wie die Antwort zustande kommt, als
@@ -140,7 +161,3 @@ class Form1(Form1Design):
             "und zwar die ähnlichste Sorte: ein Modell sagt nie „kenne ich "
             "nicht“, es sagt immer etwas."
         )
-    
-    def ch_streuung_click(self, sender):
-        # Hier steht, was passieren soll.
-        pass

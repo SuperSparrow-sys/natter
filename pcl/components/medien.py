@@ -25,6 +25,7 @@ from PySide6.QtWidgets import QTextBrowser, QWidget
 from pcl.control import Control
 from pcl.errors import NatterPropertyError
 from pcl.properties import Komponente, Prop
+from pcl.zahlen import text as _zahl_als_text
 
 
 class HtmlViewer(Control):
@@ -123,11 +124,12 @@ class Sound(Komponente):
     def volume(self, wert: float) -> None:
         if not isinstance(wert, int | float) or isinstance(wert, bool):
             raise NatterPropertyError(
-                "Sound.volume erwartet eine Kommazahl zwischen 0.0 und 1.0."
+                "Sound.volume erwartet eine Kommazahl zwischen 0,0 und 1,0."
             )
         if not 0.0 <= wert <= 1.0:
             raise NatterPropertyError(
-                f"Sound.volume erwartet einen Wert zwischen 0.0 und 1.0, erhalten wurde {wert}."
+                "Sound.volume erwartet einen Wert zwischen 0,0 und 1,0, erhalten "
+                f"wurde {_zahl_als_text(wert)}."
             )
         self._effekt.setVolume(float(wert))
 
@@ -140,11 +142,11 @@ class Sound(Komponente):
         datei = Path(pfad)
         if not datei.is_file():
             raise NatterPropertyError(
-                f"Sound.load_from_file: die Datei {pfad!r} gibt es nicht."
+                f"Sound.load_from_file: die Datei „{pfad}“ gibt es nicht."
             )
         if datei.suffix.lower() != ".wav":
             raise NatterPropertyError(
-                f"Sound spielt nur .wav-Dateien ab, {datei.name!r} ist keine. "
+                f"Sound spielt nur .wav-Dateien ab, „{datei.name}“ ist keine. "
                 "Ein Audioprogramm kann eine MP3 in eine .wav umwandeln."
             )
         self._pfad = str(datei)

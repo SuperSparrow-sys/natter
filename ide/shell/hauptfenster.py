@@ -1403,6 +1403,10 @@ class HauptFenster(QMainWindow):
         #: während eines Halts.
         self._faden_id: int | None = None
         self._letzter_aufrufstapel: list[dict] = []
+        #: Welcher Eintrag im Aufrufstapel gewählt ist; 0 ist die Stelle,
+        #: an der das Programm steht. „Variablen“ und „Überwachen“
+        #: zeigen die Werte dieses Rahmens.
+        self._gewaehlter_rahmen = 0
         #: Name der Variablen, für die gerade „Als Tabelle anzeigen“
         #: läuft (Abschnitt 11.6) - `None`, wenn keine Anfrage offen ist.
         self._tabellen_variable: str | None = None
@@ -9222,11 +9226,22 @@ class HauptFenster(QMainWindow):
         )
         menue.exec(self.ueberwachen_baum.viewport().mapToGlobal(punkt))
 
-    def _aktueller_frame(self) -> int | None:
+    def _gewaehlter_stapeleintrag(self) -> dict | None:
         stapel = getattr(self, "_letzter_aufrufstapel", None) or []
-        if self.debug_sitzung is None or self._aktueller_thread_id is None or not stapel:
+        if not stapel:
             return None
-        return stapel[0]["id"]
+        index = getattr(self, "_gewaehlter_rahmen", 0)
+        return stapel[index] if 0 <= index < len(stapel) else stapel[0]
+
+    def _aktueller_frame_oder_oben(self) -> int:
+        eintrag = self._gewaehlter_stapeleintrag() or self._letzter_aufrufstapel[0]
+        return eintrag["id"]
+
+    def _aktueller_frame(self) -> int | None:
+        eintrag = self._gewaehlter_stapeleintrag()
+        if self.debug_sitzung is None or self._aktueller_thread_id is None or eintrag is None:
+            return None
+        return eintrag["id"]
 
     def _ueberwachte_auswerten(self) -> None:
         frame = self._aktueller_frame()
@@ -9235,6 +9250,10 @@ class HauptFenster(QMainWindow):
             if frame is None:
                 eintrag.setText(1, "")
                 continue
+            # Die Antwort braucht beim ersten Ausdruck gut eine Sekunde.
+            # Bis dahin stand der Wert vom vorigen Halt da, als gälte er
+            # schon für diesen.
+            eintrag.setText(1, "…")
             self.debug_sitzung.auswerten_fuer(eintrag.text(0), frame, f"ueberwachen:{i}")
 
     def _wert_unter_maus_erfragen(self, name: str, punkt) -> None:  # noqa: ANN001
@@ -9518,6 +9537,7 @@ class HauptFenster(QMainWindow):
         self._faden_id = None
         self._startaktionen_pruefen()
         self._letzter_aufrufstapel = []
+        self._gewaehlter_rahmen = 0
         self.variablen_baum.clear()
         self.aufrufstapel_liste.clear()
 
@@ -9534,6 +9554,7 @@ class HauptFenster(QMainWindow):
         bei einem normalen Halt blieb der Cursor an seiner alten Stelle
         stehen (beim Durchspielen der Bedienung gefunden)."""
         self._letzter_aufrufstapel = stapel
+        self._gewaehlter_rahmen = 0
         self.aufrufstapel_liste.clear()
         for frame in stapel:
             quelle = frame.get("source", {}).get("path", "")
@@ -9547,7 +9568,18 @@ class HauptFenster(QMainWindow):
     def _bei_aufrufstapel_klick(self, eintrag: QListWidgetItem) -> None:
         index = self.aufrufstapel_liste.row(eintrag)
         if 0 <= index < len(self._letzter_aufrufstapel):
-            self._zu_frame_springen(self._letzter_aufrufstapel[index])
+            frame = self._letzter_aufrufstapel[index]
+            self._zu_frame_springen(frame)
+            # Auch die Werte dieses Rahmens: wer auf den Aufrufer klickt,
+            # will dessen Variablen sehen. Bis 0.4.3 sprang nur der
+            # Editor, „Variablen“ zeigte weiter die aufgerufene Funktion.
+            if index != self._gewaehlter_rahmen and self.debug_sitzung is not None:
+                self._gewaehlter_rahmen = index
+                self.debug_sitzung.bereiche_lesen(frame["id"])
+                # Bis die Werte dieses Rahmens da sind, gelten die
+                # stehenden nicht mehr.
+                for i in range(self.ueberwachen_baum.topLevelItemCount()):
+                    self.ueberwachen_baum.topLevelItem(i).setText(1, "…")
 
     def _zu_frame_springen(self, frame: dict) -> None:
         """Öffnet die Quelldatei eines DAP-Stapelrahmens (`aufrufstapel_
@@ -9582,8 +9614,8 @@ class HauptFenster(QMainWindow):
             self.debug_sitzung.variablen_lesen_fuer(globale["variablesReference"], "global")
 
     def _aktueller_frame_ist_funktion(self) -> bool:
-        stapel = getattr(self, "_letzter_aufrufstapel", None) or []
-        return bool(stapel) and stapel[0].get("name") != "<module>"
+        eintrag = self._gewaehlter_stapeleintrag()
+        return eintrag is not None and eintrag.get("name") != "<module>"
 
     def _debugger_variablen_bereit(self, variablen: list[dict]) -> None:
         self.variablen_baum.clear()
@@ -9660,7 +9692,7 @@ class HauptFenster(QMainWindow):
             )
             return
         self._tabellen_variable = name
-        self.debug_sitzung.auswerten(tabellen_ausdruck(name), self._letzter_aufrufstapel[0]["id"])
+        self.debug_sitzung.auswerten(tabellen_ausdruck(name), self._aktueller_frame_oder_oben())
 
     def _debugger_tabelle_bereit(self, antwort: dict) -> None:
         """Antwort auf `variable_als_tabelle_zeigen()` (DAP `evaluate`).

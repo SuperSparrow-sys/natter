@@ -204,8 +204,42 @@ def test_die_csv_auswertung_zeigt_zu_jedem_ort_seine_daten(beispiel) -> None:
 
         assert formular.l_ergebnis.caption.startswith(ort)
         eigene = [z for z in formular.zeilen if z["Ort"] == ort]
-        assert formular.sg_tabelle.row_count == len(eigene) + 1
-        assert formular.sg_tabelle.cells[0, 1] == eigene[0]["Monat"]
+        assert formular.sg_tabelle.row_count == len(eigene)
+        assert formular.sg_tabelle.cells[0, 0] == eigene[0]["Monat"]
+    assert list(formular.sg_tabelle.col_titles) == ["Monat", "Temperatur", "Niederschlag"]
+
+
+@pytest.mark.parametrize(
+    ("inhalt", "zeichensatz", "meldung"),
+    [
+        ("Monat,Ort,Temperatur\nJan,A,1.5\n", "utf-8", "fehlen die Spalten"),
+        ("Monat;Ort;Temperatur;Niederschlag\nJan;A;;40\n", "utf-8", "keine Zahl"),
+        ("Monat;Ort;Temperatur;Niederschlag\nJänner;Wien;0,5;40\n", "cp1252", ""),
+    ],
+)
+def test_die_csv_auswertung_prueft_eine_fremde_datei(
+    beispiel, monkeypatch, tmp_path, inhalt, zeichensatz, meldung  # noqa: ANN001
+) -> None:
+    """Eine Datei ohne die nötigen Spalten oder mit einem Wert, der
+    keine Zahl ist, beendete bis 0.4.3 das Programm. Jetzt kommt eine
+    Meldung, und die bisherigen Daten bleiben. Eine Datei aus einem
+    älteren Excel (cp1252) wird gelesen."""
+    modul, formular = beispiel("07_CsvAuswertung")
+    datei = tmp_path / "fremd.csv"
+    datei.write_bytes(inhalt.encode(zeichensatz))
+    gemeldet: list[str] = []
+    monkeypatch.setattr(modul, "show_message", gemeldet.append)
+    monkeypatch.setattr(modul, "open_dialog", lambda *_: str(datei))
+    vorher = formular.zeilen
+
+    formular.b_laden_click(formular)
+
+    if meldung:
+        assert meldung in gemeldet[0]
+        assert formular.zeilen is vorher
+    else:
+        assert gemeldet == []
+        assert formular.l_ergebnis.caption.startswith("Wien")
 
 
 def test_die_csv_auswertung_rechnet_deutsch(beispiel) -> None:
@@ -264,6 +298,20 @@ def test_die_galerie_nennt_die_dateigroesse_deutsch(beispiel) -> None:
     kopf = formular.l_info.caption.splitlines()[0]
 
     assert "," in kopf and "kB" in kopf
+
+
+def test_die_galerie_zeigt_nach_dem_entfernen_das_neue_erste_bild(beispiel) -> None:
+    """Das erste Bild wird entfernt; gewählt ist danach wieder Nummer 0,
+    jetzt das bisher zweite. Bis 0.4.3 blieb die Vorschau beim
+    entfernten Bild stehen."""
+    _modul, formular = beispiel("05_Bildergalerie")
+    formular.lb_bilder._qwidget.setCurrentRow(0)
+    zweites = formular.bilder[1].name
+
+    formular.b_entfernen_click(formular)
+
+    assert Path(formular.i_vorschau.picture.pfad).name == zweites
+    assert formular.l_info.caption.startswith(zweites)
 
 
 def test_die_galerie_ueberlebt_das_leerraeumen(beispiel) -> None:

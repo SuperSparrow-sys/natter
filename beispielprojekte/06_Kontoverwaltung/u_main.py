@@ -16,7 +16,7 @@
 import math
 from pathlib import Path
 
-from pcl import SQLite3Connection
+from pcl import SQLite3Connection, zahl
 from u_konto import Konto, NichtGenugGeld, euro
 from u_main_design import Form1Design
 
@@ -34,6 +34,13 @@ class Form1(Form1Design):
         # Eine Zeile: Datei auf, fertig. Gibt es die Datei noch nicht,
         # legt SQLite sie an.
         self.db = SQLite3Connection(DATENBANK)
+
+        # Die Überschriften stehen über der Tabelle und scrollen nicht
+        # mit weg. Bearbeiten lässt sich die Tabelle nicht (read_only im
+        # Objektinspektor): ein Kontostand ändert sich nur über die
+        # Knöpfe, sonst stünde in der Tabelle etwas anderes als in der
+        # Datenbank.
+        self.sg_konten.col_titles = SPALTEN
 
         self.tabelle_anlegen()
         self.konten_zeigen()
@@ -87,12 +94,8 @@ class Form1(Form1Design):
     def konten_zeigen(self, mindestens: float = 0.0) -> None:
         konten = self.konten_lesen(mindestens)
 
-        # Eine Zeile mehr als Konten: die erste ist die Überschrift.
-        self.sg_konten.row_count = len(konten) + 1
-        for spalte, titel in enumerate(SPALTEN):
-            self.sg_konten.cells[spalte, 0] = titel
-
-        for zeile, konto in enumerate(konten, start=1):
+        self.sg_konten.row_count = len(konten)
+        for zeile, konto in enumerate(konten):
             self.sg_konten.cells[0, zeile] = str(konto.nummer)
             self.sg_konten.cells[1, zeile] = konto.inhaber
             self.sg_konten.cells[2, zeile] = euro(konto.stand)
@@ -123,16 +126,22 @@ class Form1(Form1Design):
         return Konto(zeile["nummer"], zeile["inhaber"], zeile["stand"])
 
     def betrag_holen(self) -> float | None:
+        # zahl() aus pcl liest "12,50" und auch "1.000" als tausend.
+        # float() hätte aus "1.000" einen Euro gemacht.
         try:
-            betrag = float(self.e_betrag.text.replace(",", "."))
+            betrag = zahl(self.e_betrag.text)
         except ValueError:
             self.l_meldung.caption = "Der Betrag muss eine Zahl sein."
             return None
-        # float() nimmt auch "nan" (keine Zahl) und "inf" (unendlich)
-        # an. Beides ist kein Geldbetrag; isfinite() lässt nur echte
-        # Zahlen durch.
+        # "nan" (keine Zahl) und "inf" (unendlich) sind kein
+        # Geldbetrag; isfinite() lässt nur echte Zahlen durch.
         if not math.isfinite(betrag):
             self.l_meldung.caption = "Der Betrag muss eine Zahl sein."
+            return None
+        # Geld hat zwei Stellen nach dem Komma. Ein halber Cent würde
+        # gebucht, aber nie angezeigt.
+        if round(betrag, 2) != betrag:
+            self.l_meldung.caption = "Höchstens zwei Stellen nach dem Komma."
             return None
         return betrag
 
@@ -188,7 +197,7 @@ class Form1(Form1Design):
 
     def b_filtern_click(self, sender) -> None:
         try:
-            grenze = float(self.e_mindestens.text.replace(",", "."))
+            grenze = zahl(self.e_mindestens.text)
         except ValueError:
             self.l_meldung.caption = "Die Grenze muss eine Zahl sein."
             return

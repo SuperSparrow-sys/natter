@@ -55,6 +55,25 @@ def test_kein_endlicher_betrag_ergibt_eine_meldung(konten, betrag, knopf) -> Non
     assert zeile["stand"] == 0
 
 
+@pytest.mark.parametrize(
+    ("betrag", "stand", "meldung"),
+    [
+        ("1.000", 1000, "1000,00 Euro eingezahlt."),
+        ("12,50", 12.5, "12,50 Euro eingezahlt."),
+        ("0,005", 0, "Höchstens zwei Stellen nach dem Komma."),
+    ],
+)
+def test_ein_betrag_wird_gelesen_wie_er_gemeint_ist(konten, betrag, stand, meldung) -> None:
+    """„1.000“ ist tausend, nicht eins; und ein halber Cent wird nicht
+    gebucht, denn angezeigt würde er nie."""
+    konten.e_betrag.text = betrag
+    konten.b_einzahlen_click(konten)
+
+    assert konten.l_meldung.caption == meldung
+    zeile = konten.db.query_one("SELECT stand FROM konto WHERE nummer = 1")
+    assert zeile["stand"] == stand
+
+
 def test_eine_hochgestellte_zwei_als_kontonummer_ergibt_eine_meldung(konten) -> None:
     konten.e_nummer.text = "²"
     konten.e_betrag.text = "5"

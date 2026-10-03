@@ -1,5 +1,5 @@
 # Automatisch erzeugt aus u_main.pfm - nicht bearbeiten
-from pcl import Chart, Form, Label, SpinEdit
+from pcl import Chart, Form, Label, SpinEdit, Timer
 
 
 class Form1Design(Form):
@@ -16,6 +16,7 @@ class Form1Design(Form):
     se_breite: SpinEdit
     l_antwort: Label
     l_erklaerung: Label
+    t_lernen: Timer
 
     def create_components(self):
         self.caption = "Obst-Sortierer"
@@ -41,7 +42,6 @@ class Form1Design(Form):
         self.ch_streuung.y_label = "Breite in mm"
         self.ch_streuung.legend = True
         self.ch_streuung.grid = True
-        self.ch_streuung.on_click = self.ch_streuung_click
 
         self.l_training = Label(self)
         self.l_training.left = 588
@@ -121,3 +121,11 @@ class Form1Design(Form):
         self.l_erklaerung.width = 864
         self.l_erklaerung.height = 110
         self.l_erklaerung.caption = ""
+
+        self.t_lernen = Timer(self)
+        self.t_lernen.left = 860
+        self.t_lernen.top = 16
+        self.t_lernen.width = 32
+        self.t_lernen.height = 32
+        self.t_lernen.interval = 50
+        self.t_lernen.on_timer = self.t_lernen_timer

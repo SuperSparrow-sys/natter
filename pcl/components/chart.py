@@ -657,6 +657,11 @@ class Chart(Control):
         for achse in (self._achse.xaxis, self._achse.yaxis):
             if type(achse.get_major_formatter()) is ScalarFormatter:
                 achse.set_major_formatter(_komma_formatter())
+                # Weiter als Standard gelten lassen: matplotlib ersetzt
+                # nur einen Standard-Formatter, wenn danach eine Serie
+                # mit Texten kommt. Nach `clear()` stand sonst unter
+                # „Jan, Feb, Mär“ die Zählung 0, 1, 2.
+                achse.isDefault_majfmt = True
 
     def _neu_zeichnen(self) -> None:
         """Zeichnet neu – aber nur, solange es das Qt-Widget noch gibt.

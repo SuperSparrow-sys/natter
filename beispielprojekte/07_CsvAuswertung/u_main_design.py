@@ -58,6 +58,7 @@ class Form1Design(Form):
         self.sg_tabelle.height = 400
         self.sg_tabelle.row_count = 1
         self.sg_tabelle.col_count = 3
+        self.sg_tabelle.read_only = True
 
         self.ch_verlauf = Chart(self)
         self.ch_verlauf.left = 464

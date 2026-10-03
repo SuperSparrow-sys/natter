@@ -87,6 +87,23 @@ def test_liste_aufklappen_globale_und_bedingter_haltepunkt(qtbot, tmp_path: Path
             lambda: getattr(fenster, "letzter_hinweis", None) == ("ergebnis", "4"),
             timeout=DEBUG_ZEITGRENZE,
         )
+
+        # Ein Klick auf den Aufrufer im Aufrufstapel zeigt dessen Werte:
+        # „Variablen“ die des Hauptprogramms, und „ergebnis“ gibt es
+        # dort nicht. Bis 0.4.3 sprang nur der Editor.
+        aufrufer = fenster.aufrufstapel_liste.item(1)
+        fenster.aufrufstapel_liste.itemClicked.emit(aufrufer)
+        assert fenster.ueberwachen_baum.topLevelItem(0).text(1) == "…"
+        qtbot.waitUntil(
+            lambda: _eintrag(fenster.variablen_baum, "zahlen") is not None
+            and _eintrag(fenster.variablen_baum, "ergebnis") is None,
+            timeout=DEBUG_ZEITGRENZE,
+        )
+        qtbot.waitUntil(
+            lambda: fenster.ueberwachen_baum.topLevelItem(0).text(1)
+            == "(lässt sich hier nicht ausrechnen)",
+            timeout=DEBUG_ZEITGRENZE,
+        )
     finally:
         if fenster.debug_sitzung is not None:
             fenster._debugger_stoppen_aktion()
