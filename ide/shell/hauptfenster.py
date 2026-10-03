@@ -299,6 +299,29 @@ _WEGGEFALLEN_ROLLE = Qt.ItemDataRole.UserRole + 20
 _AUSDRUCK_ROLLE = Qt.ItemDataRole.UserRole + 21
 
 
+#: Markiert die Gruppe „Globale Variablen“ im Panel „Variablen“.
+_GLOBAL_ROLLE = Qt.ItemDataRole.UserRole + 22
+
+
+def _im_globalen_namensraum(eintrag: QTreeWidgetItem, ausdruck: str) -> str:
+    """Ein Ausdruck unter „Globale Variablen“ greift über `globals()` auf
+    die globale Variable zu.
+
+    debugpy nennt dort als `evaluateName` nur den Namen, und ausgewertet
+    wird im angehaltenen Frame: ein Parameter `werte` überdeckte so die
+    globale Liste `werte` (Punkt 632)."""
+    oberster = eintrag
+    while oberster.parent() is not None and not oberster.parent().data(0, _GLOBAL_ROLLE):
+        oberster = oberster.parent()
+    if oberster.parent() is None:
+        return ausdruck
+    name = oberster.text(0)
+    rest = ausdruck[len(name):]
+    if not ausdruck.startswith(name) or (rest and (rest[0].isalnum() or rest[0] == "_")):
+        return ausdruck
+    return f"globals()[{name!r}]{rest}"
+
+
 def _ausdruck_von(eintrag: QTreeWidgetItem) -> str:
     """Der Ausdruck einer Zeile im Panel „Variablen“, oder leer. Eine
     Zeile ganz oben ohne gemerkten Ausdruck ist die Variable selbst."""
@@ -7647,21 +7670,29 @@ class HauptFenster(QMainWindow):
         Datei."""
         breakpoints = set(editor.breakpoints)
         bedingungen = dict(editor.bedingungen)
+        zuordnung = self._zeilen_zur_datei(editor)
+        if zuordnung is None:
+            return breakpoints, bedingungen
+        return haltepunkte_zuordnen(breakpoints, bedingungen, zuordnung)
+
+    def _zeilen_zur_datei(self, editor: QuelltextEditor) -> dict[int, int] | None:
+        """Zeile im Editor -> Zeile der Datei auf der Platte, oder `None`,
+        wenn beide gleich sind oder sich die Datei nicht lesen lässt.
+
+        Verglichen wird mit dem Inhalt der Datei, nicht mit dem
+        Geändert-Merker: während einer Änderung meldet sich der Editor,
+        bevor Qt den Merker setzt."""
         pfad = editor.property(_PFAD_EIGENSCHAFT)
         if not pfad:
-            return breakpoints, bedingungen
-        # Verglichen wird mit dem Inhalt der Datei, nicht mit dem
-        # Geändert-Merker: während einer Änderung meldet sich der
-        # Editor, bevor Qt den Merker setzt.
+            return None
         try:
             datei = Path(pfad).read_text(encoding="utf-8-sig")
         except (OSError, UnicodeDecodeError):
-            return breakpoints, bedingungen
+            return None
         text = editor.toPlainText()
         if datei == text:
-            return breakpoints, bedingungen
-        zuordnung = zeilen_zuordnen(text.split("\n"), datei.split("\n"))
-        return haltepunkte_zuordnen(breakpoints, bedingungen, zuordnung)
+            return None
+        return zeilen_zuordnen(text.split("\n"), datei.split("\n"))
 
     def _gemerkte_haltepunkte_nehmen(
         self, pfad: Path
@@ -9527,6 +9558,8 @@ class HauptFenster(QMainWindow):
                 eltern.data(0, Qt.ItemDataRole.UserRole) is None
             )
             ausdruck = variable.get("evaluateName") or (variable["name"] if oben else None)
+            if ausdruck:
+                ausdruck = _im_globalen_namensraum(eintrag, ausdruck)
             eintrag.setData(0, _AUSDRUCK_ROLLE, ausdruck or "")
             referenz = variable.get("variablesReference") or 0
             if referenz:
@@ -9548,6 +9581,7 @@ class HauptFenster(QMainWindow):
             gruppe = QTreeWidgetItem(self.variablen_baum, ["Globale Variablen", ""])
             # Die Überschrift ist keine Variable (Punkt 612).
             gruppe.setData(0, _AUSDRUCK_ROLLE, "")
+            gruppe.setData(0, _GLOBAL_ROLLE, True)
             self._variablen_eintraege(gruppe, eintraege)
         elif zweck.startswith("kind:"):
             eintrag = self._variablen_zu_laden.pop(zweck, None)
@@ -10021,7 +10055,25 @@ class HauptFenster(QMainWindow):
                 "Projekts."
             )
             return
-        zeile = editor.textCursor().blockNumber() + 1
+        # Wie bei Haltepunkten: auf einer Leer- oder Kommentarzeile kann
+        # Python nicht halten, und während eines Halts zählen die Zeilen
+        # der geladenen Datei, nicht die des geänderten Textes. Bis
+        # 0.4.3 hielt das Programm eine Anweisung zu früh (Punkt 631).
+        zeile = editor.anweisungszeile(editor.textCursor().blockNumber() + 1)
+        # Vor dem Start wird gespeichert; umgerechnet wird nur während
+        # einer laufenden Sitzung.
+        zuordnung = (
+            self._zeilen_zur_datei(editor) if self.debug_sitzung is not None else None
+        )
+        if zuordnung is not None:
+            folgende = [z for z in sorted(zuordnung) if z >= zeile]
+            if not folgende:
+                self.statusBar().showMessage(
+                    "Die Zeile steht noch nicht in der gespeicherten Datei; "
+                    "das laufende Programm kennt sie nicht."
+                )
+                return
+            zeile = zuordnung[folgende[0]]
         if self.debug_sitzung is None:
             self._mit_debugger_starten(halten_bei=(Path(pfad), zeile))
             return
