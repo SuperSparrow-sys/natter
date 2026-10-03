@@ -177,6 +177,7 @@ class _StrukturiertesErgebnis(unittest.TestResult):
 
     def addFailure(self, test: unittest.TestCase, err) -> None:
         nachricht, soll, ist = self._fehlschlag_aufbereiten(err)
+        ort = _ort_im_projekt(err[2])
         super().addFailure(test, err)
         self.eintraege.append(
             {
@@ -186,6 +187,7 @@ class _StrukturiertesErgebnis(unittest.TestResult):
                 "nachricht": nachricht,
                 "soll": soll,
                 "ist": ist,
+                "ort": ort,
             }
         )
 
@@ -204,7 +206,7 @@ class _StrukturiertesErgebnis(unittest.TestResult):
             nachricht, soll, ist = self._fehlschlag_aufbereiten(err)
             status = "fehlgeschlagen"
         else:
-            nachricht, soll, ist = str(err[1]), None, None
+            nachricht, soll, ist = _ausnahme_meldung(err[1]), None, None
             status = "fehler"
         super().addSubTest(test, subtest, err)
         beschreibung = subtest._subDescription().strip("() ") or "ohne Parameter"
@@ -269,20 +271,26 @@ class _StrukturiertesErgebnis(unittest.TestResult):
         )
 
     def addError(self, test: unittest.TestCase, err) -> None:
+        # Vor super().addError(): dort kürzt TestResult den Traceback.
+        ort = _ort_im_projekt(err[2])
         super().addError(test, err)
         test_id = test.id()
-        nachricht = str(err[1])
         # Eine Testdatei, die sich nicht importieren lässt, meldet
         # unittest als Test "unittest.loader._FailedTest.<modul>" mit
         # englischem Text. Im Test-Explorer soll stattdessen die Datei
         # stehen und auf Deutsch, was passiert ist.
         if type(test).__name__ == "_FailedTest":
             test_id = test._testMethodName
-            nachricht = ladefehler_meldung(test_id, nachricht)
+            nachricht = ladefehler_meldung(test_id, str(err[1]))
+            ort = None
         elif type(test).__name__ == "_ErrorHolder":
             test_id, nachricht = _vorbereitung_gescheitert(
-                test.description, nachricht
+                test.description, _ausnahme_meldung(err[1])
             )
+        else:
+            # Fehlerart und deutscher Text statt nur „'NoneType' object
+            # has no attribute 'foo'“ (Punkt 661).
+            nachricht = _ausnahme_meldung(err[1])
         self.eintraege.append(
             {
                 "id": test_id,
@@ -291,6 +299,7 @@ class _StrukturiertesErgebnis(unittest.TestResult):
                 "nachricht": nachricht,
                 "soll": None,
                 "ist": None,
+                "ort": ort,
             }
         )
 
@@ -382,6 +391,48 @@ def meldung_eindeutschen(text: str) -> str:
             deutsch = vorlage.format(*treffer.groups())
             return f"{deutsch}: {rest}" if rest else deutsch
     return text
+
+
+def _ausnahme_meldung(fehler: BaseException) -> str:
+    """Fehlerart und Text einer Ausnahme, der Text auf Deutsch aus dem
+    Fehlerkatalog, wenn er sie kennt: „AttributeError: None hat kein
+    Attribut foo …“ statt nur „'NoneType' object has no attribute
+    'foo'“ (Punkt 661)."""
+    art = type(fehler).__name__
+    text = str(fehler)
+    try:
+        from pcl.fehlerkatalog import fehlermeldung_erzeugen
+
+        meldung = fehlermeldung_erzeugen(fehler)
+    except Exception:
+        meldung = None
+    if meldung is not None and meldung.was:
+        text = meldung.was
+    return f"{art}: {text}" if text else art
+
+
+def _ort_im_projekt(tb) -> str | None:  # noqa: ANN001
+    """Datei und Zeile der letzten Stelle im Traceback, die im
+    Projektordner liegt (der Testlauf startet dort), oder `None`. Bei
+    einer Ausnahme ist das die Zeile im eigenen Code, bei einem
+    Fehlschlag die Zeile im Test."""
+    from pathlib import Path
+
+    try:
+        ordner = Path.cwd().resolve()
+    except OSError:
+        return None
+    eigene = Path(__file__).resolve()
+    ort = None
+    while tb is not None:
+        try:
+            datei = Path(tb.tb_frame.f_code.co_filename).resolve()
+        except (OSError, ValueError):
+            datei = None
+        if datei is not None and datei != eigene and datei.is_relative_to(ordner):
+            ort = f"{datei.relative_to(ordner).as_posix()}, Zeile {tb.tb_lineno}"
+        tb = tb.tb_next
+    return ort
 
 
 def _nackte_assert_meldung(tb) -> str:  # noqa: ANN001

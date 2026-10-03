@@ -759,7 +759,13 @@ Eine Testdatei heißt `test_…py`. Darin zählen Klassen mit
 `def test_…():` mit `assert`. So kann eine Lehrkraft zu einer Aufgabe
 eine Testdatei austeilen, die in den Projektordner kommt; der
 Testlauf zeigt dann, welche Anforderung die eigene Klasse schon
-erfüllt. Ist ein `assert` nicht erfüllt, steht die Zeile im Panel.
+erfüllt. Ein Klick auf einen nicht bestandenen Test zeigt in der
+Statuszeile, woran es lag: Soll und Ist, den eigenen Text aus
+`assertEqual(…, "…")`, bei einem nicht erfüllten `assert` die Zeile
+selbst und bei einem Fehler im Programm Fehlerart und Ort, etwa
+„rechnen.py, Zeile 2“. Derselbe Text steht als Hinweis über der
+Zeile, wenn der Mauszeiger darauf ruht; ein Doppelklick führt den
+Test noch einmal aus.
 
 In einem Konsolenprojekt steht das Programm in der Funktion `main()`
 von `u_main.py`, die `main.py` aufruft. Eine Testdatei kann deshalb
