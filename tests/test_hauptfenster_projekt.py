@@ -103,7 +103,11 @@ def test_doppelklick_mit_der_maus_oeffnet_die_unit(
     `QTest.mouseDClick` allein taugt dafür nicht: es schickt nur das
     Doppelklick-Ereignis ohne das Drücken davor, und Qt übergeht
     einen Doppelklick auf einen Eintrag, der vorher nicht gedrückt
-    wurde."""
+    wurde.
+
+    Danach liegt der Fokus im Editor, nicht mehr im Explorer
+    (Punkt 472): wer nach dem Doppelklick lostippt, schreibt in die
+    Unit."""
     import shutil
 
     from PySide6.QtCore import QEvent
@@ -122,6 +126,7 @@ def test_doppelklick_mit_der_maus_oeffnet_die_unit(
         rechteck = baum.visualItemRect(eintrag)
         pos = rechteck.center()
         pos.setX(rechteck.left() + 20)
+        baum.setFocus()
         _maus(flaeche, QEvent.Type.MouseButtonPress, pos)
         _maus(flaeche, QEvent.Type.MouseButtonRelease, pos)
         hauptfenster._sperre_uhr.timeout.emit()
@@ -132,6 +137,9 @@ def test_doppelklick_mit_der_maus_oeffnet_die_unit(
 
         assert tabs.count() == i + 1
         assert tabs.tabText(tabs.currentIndex()) == eintrag.text(0)
+        # Das Widget, das den Fokus hat, sobald das Fenster aktiv ist;
+        # offscreen wird kein Fenster aktiv.
+        assert hauptfenster.focusWidget() is tabs.currentWidget()
 
 
 def test_aenderung_markiert_den_tab_und_speichern_entfernt_die_markierung(

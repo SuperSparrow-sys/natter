@@ -17,7 +17,12 @@ from collections.abc import Callable
 from typing import Any
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QComboBox, QTableWidget, QTableWidgetItem
+from PySide6.QtWidgets import (
+    QComboBox,
+    QHeaderView,
+    QTableWidget,
+    QTableWidgetItem,
+)
 
 from pcl.control import EREIGNIS_PARAMETER
 from pcl.properties import ereignisse
@@ -90,6 +95,17 @@ class EreignisseTabelle(QTableWidget):
     def __init__(self) -> None:
         super().__init__(0, 2)
         self.setHorizontalHeaderLabels(["Ereignis", "Handler"])
+        # Wie in der Eigenschaftentabelle: ohne Zeilennummern, und die
+        # Auswahl füllt den Rest der Breite. Bis 0.4.3 stand links eine
+        # Spalte mit Nummern, die Auswahl endete mitten im Dock, und
+        # die Namen waren abgeschnitten - „on_mouse_m…“ ließ offen, ob
+        # move oder ein anderes Maus-Ereignis gemeint war.
+        self.verticalHeader().setVisible(False)
+        kopf = self.horizontalHeader()
+        kopf.setStretchLastSection(True)
+        kopf.setSectionResizeMode(
+            _SPALTE_NAME, QHeaderView.ResizeMode.Interactive
+        )
         self._komponente: Any = None
         self._formular: Any = None
         self._bei_aenderung: Callable[[Any, str, Any, Any], None] | None = None
@@ -199,6 +215,9 @@ class EreignisseTabelle(QTableWidget):
                     name, passende_methoden(formular, name, nachladen=False)
                 ),
             )
+        # Die Namen ganz lesbar; `setStretchLastSection` gibt der
+        # Auswahl, was übrig bleibt.
+        self.resizeColumnToContents(_SPALTE_NAME)
 
     def _auswahl_erzeugen(self, ereignis_name: str, methoden: list[str]) -> QComboBox:
         auswahl = QComboBox()

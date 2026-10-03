@@ -30,15 +30,35 @@ def test_zeigt_alle_ereignisse_der_komponente() -> None:
 
     # Seit M15 hat jede sichtbare Komponente die fünf Maus-Ereignisse
     # (vorher stand hier nur `on_click` des Buttons), seit Punkt 54
-    # dazu die Tastatur.
+    # dazu die Tastatur, seit Punkt 470 Kommen und Gehen der Maus.
     assert gezeigt == [
         "on_click",
         "on_double_click",
         "on_key_press",
         "on_mouse_down",
+        "on_mouse_enter",
+        "on_mouse_leave",
         "on_mouse_move",
         "on_mouse_up",
     ]
+
+
+def test_die_namen_stehen_ganz_da_und_ohne_nummern() -> None:
+    """Punkt 471: in einem schmalen Dock stand „on_mouse_m…“, und links
+    davon kostete eine Spalte mit Zeilennummern Platz."""
+    formular = _Formular()
+    tabelle = EreignisseTabelle()
+    tabelle.resize(220, 300)
+
+    tabelle.anzeigen(formular.b_ein, formular)
+
+    metrik = tabelle.fontMetrics()
+    breiteste = max(
+        metrik.horizontalAdvance(tabelle.item(z, 0).text())
+        for z in range(tabelle.rowCount())
+    )
+    assert not tabelle.verticalHeader().isVisible()
+    assert tabelle.columnWidth(0) >= breiteste
 
 
 def test_dropdown_enthaelt_nur_passende_methoden() -> None:

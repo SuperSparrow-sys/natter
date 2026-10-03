@@ -1063,10 +1063,10 @@ Startseite steht vorn.
 
 ### Ungespeicherter Text nach Abmelden oder Absturz
 
-Solange in einem Projekt etwas ungespeichert ist, legt Natter alle
-zwei Minuten eine Sicherung in den Projektordner, dazu noch einmal
-unmittelbar vor der Frage nach dem Speichern beim Abmelden oder
-Herunterfahren. Die Datei heißt wie das Projekt mit der Endung
+Solange in einem Projekt etwas ungespeichert ist, legt Natter eine
+Sicherung in den Projektordner: wenige Sekunden nach jeder Änderung
+an einer Unit, alle zwei Minuten und noch einmal unmittelbar vor der
+Frage nach dem Speichern beim Abmelden oder Herunterfahren. Die Datei heißt wie das Projekt mit der Endung
 `.natter-sicherung`, etwa `Ampel.natter-sicherung`, und enthält den
 ungespeicherten Text jeder geänderten Unit und jedes geänderten
 Diagramms. Wird gespeichert oder verworfen, verschwindet sie wieder,
@@ -1076,8 +1076,9 @@ Liegt beim Öffnen eines Projekts noch eine Sicherung darin, etwa
 weil bei Windows „Trotzdem abmelden“ gewählt wurde oder der Rechner
 ausgegangen ist, nennt Natter die betroffenen Dateien und die Uhrzeit
 der Sicherung. **Wiederherstellen** öffnet sie mit dem gesicherten
-Text als ungespeicherte Änderung; auf die Platte kommt er erst mit
-**Speichern**, und `Strg+Z` holt den Stand der Datei zurück.
+Text als ungespeicherte Änderung, mit dem Cursor an der ersten
+geretteten Stelle; auf die Platte kommt er erst mit **Speichern**,
+und `Strg+Z` holt den Stand der Datei zurück.
 **Verwerfen** löscht die Sicherung. Wurde eine Datei nach der
 Sicherung noch anderswo geändert, steht das in der Frage, und
 **Speichern** fragt vor dem Überschreiben nach.

@@ -246,6 +246,18 @@ class _MausFilter(QObject):
                 self._gedrueckt = False
             elif ereignis.button() == Qt.MouseButton.LeftButton:
                 self._control._ereignis_ausloesen("on_double_click")
+        elif art in (QEvent.Type.Enter, QEvent.Type.Leave):
+            # Nur am äußeren Widget. Wandert die Maus innerhalb der
+            # Komponente auf ein inneres Widget, etwa den Anzeigebereich
+            # einer ListBox, bekommt das äußere kein Leave - Qt meldet
+            # das Verlassen erst, wenn der Zeiger die ganze Komponente
+            # verlassen hat. So kommt ein Hervorheben beim Darüberfahren
+            # mit genau einem Paar aus enter und leave aus.
+            if objekt is self._control._qwidget:
+                self._control._ereignis_ausloesen(
+                    "on_mouse_enter" if art == QEvent.Type.Enter
+                    else "on_mouse_leave"
+                )
         elif art == QEvent.Type.KeyPress and _bekommt_taste(objekt):
             if self._schon_gemeldet(objekt, ereignis):
                 return False
@@ -411,6 +423,12 @@ class Control(Komponente):
     )
     on_mouse_up = Event(
         doc="Wird beim Loslassen der Maustaste ausgelöst; bekommt x und y dazu"
+    )
+    on_mouse_enter = Event(
+        doc="Wird ausgelöst, wenn die Maus auf die Komponente kommt"
+    )
+    on_mouse_leave = Event(
+        doc="Wird ausgelöst, wenn die Maus die Komponente wieder verlässt"
     )
     on_key_press = Event(
         doc="Wird bei einem Tastendruck ausgelöst, solange die Komponente "

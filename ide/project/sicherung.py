@@ -4,8 +4,9 @@ Beim Abmelden fragt Natter, ob gespeichert werden soll. Windows wartet
 darauf nur wenige Sekunden und bietet dann „Trotzdem abmelden“ an.
 Wer das drückt, etwa am Stundenende, verlor bis 0.4.0 jeden
 ungespeicherten Text. Natter legt deshalb vor der Frage, und
-außerdem alle zwei Minuten, solange etwas ungespeichert ist, eine
-Sicherung in den Projektordner:
+außerdem wenige Sekunden nach jeder Änderung an einer Unit und alle
+zwei Minuten, solange etwas ungespeichert ist, eine Sicherung in den
+Projektordner:
 
     Ampel.natter-sicherung
 

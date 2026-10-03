@@ -47,6 +47,8 @@ noch einmal.
 | on_mouse_down | (self, sender, x, y) | Maustaste gedrückt |
 | on_mouse_move | (self, sender, x, y) | Maus bewegt |
 | on_mouse_up | (self, sender, x, y) | Maustaste losgelassen |
+| on_mouse_enter | (self, sender) | Maus kommt auf die Komponente |
+| on_mouse_leave | (self, sender) | Maus verlässt die Komponente |
 | on_key_press | (self, sender, taste) | Tastendruck, solange die Komponente den Fokus hat |
 
 Genaueres steht unter „Die Maus“, „Die Tastatur“ und „Ein- und
@@ -985,6 +987,8 @@ besteht: auf den Einträgen einer `ListBox`, im Eingabefeld eines
 | on_mouse_down | Maustaste gedrückt | `sender`, `x`, `y` |
 | on_mouse_move | Maus bewegt | `sender`, `x`, `y` |
 | on_mouse_up | Maustaste losgelassen | `sender`, `x`, `y` |
+| on_mouse_enter | Maus kommt auf die Komponente | `sender` |
+| on_mouse_leave | Maus verlässt die Komponente | `sender` |
 
 `x` und `y` zählen ab der linken oberen Ecke der Komponente, nicht ab
 der des Fensters. Wer nur wissen will, dass geklickt wurde, nimmt
@@ -994,6 +998,18 @@ Die rechte Maustaste löst kein `on_click` aus, sie gehört dem
 Klappmenü (`popup_menu`). `on_mouse_down` und `on_mouse_up` kommen
 bei jeder Taste. Wer auf der Komponente drückt und die Maus
 daneben loslässt, hat nicht geklickt.
+
+`on_mouse_enter` und `on_mouse_leave` kommen genau einmal, wenn die
+Maus auf die Komponente kommt und wenn sie sie wieder verlässt. Damit
+lässt sich etwas hervorheben, solange die Maus darüber steht:
+
+```python
+def l_hilfe_mouse_enter(self, sender):
+    self.l_hilfe.font.bold = True
+
+def l_hilfe_mouse_leave(self, sender):
+    self.l_hilfe.font.bold = False
+```
 
 Damit lässt sich malen:
 

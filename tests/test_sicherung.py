@@ -2,9 +2,10 @@
 
 Beim Abmelden fragt Natter nach dem Speichern, und Windows bietet
 nach wenigen Sekunden „Trotzdem abmelden“ an. Damit der Text dabei
-nicht verloren geht, legt Natter vor der Frage und alle zwei Minuten
-eine Sicherung `<Projektname>.natter-sicherung` in den Projektordner
-und bietet sie beim nächsten Öffnen an.
+nicht verloren geht, legt Natter vor der Frage, kurz nach jeder
+Änderung und alle zwei Minuten eine Sicherung
+`<Projektname>.natter-sicherung` in den Projektordner und bietet sie
+beim nächsten Öffnen an.
 
 `commitDataRequest` lässt sich nur mit einem echten
 `QSessionManager` senden; die Tests rufen den Empfänger mit einer
@@ -168,6 +169,8 @@ def test_naechstes_oeffnen_bietet_die_sicherung_an(
     editor = danach._aktueller_editor()
     assert editor.toPlainText() == "a = 42\n"
     assert editor.document().isModified()
+    # Der Cursor steht an der ersten geretteten Stelle (Punkt 474).
+    assert editor.textCursor().position() == len("a = ")
     assert danach.editor_tabs.tabText(danach.editor_tabs.currentIndex()) == (
         "main.py ●"
     )
@@ -317,6 +320,21 @@ def test_uhr_sichert_und_speichern_raeumt_auf(
     assert _gesichert(tmp_path) == {"main.py": "a = 42\n"}
     assert fenster._editor_speichern(fenster._aktueller_editor())
     assert not (tmp_path / "T.natter-sicherung").exists()
+
+
+def test_eine_pause_nach_dem_tippen_sichert(
+    fenster: HauptFenster, tmp_path: Path,
+) -> None:
+    """Punkt 473: die Sicherung kommt wenige Sekunden nach der letzten
+    Änderung, nicht erst mit dem nächsten Takt der Uhr. An der
+    installierten 0.4.3 fehlte sie nach einem Beenden über den
+    Task-Manager 15 Sekunden nach dem Tippen ganz."""
+    bald = fenster._sicherung_bald
+    assert bald.isActive() and bald.interval() == 5000
+
+    bald.timeout.emit()
+
+    assert _gesichert(tmp_path) == {"main.py": "a = 42\n"}
 
 
 def test_projekt_schliessen_mit_verwerfen_raeumt_auf(

@@ -12716,3 +12716,73 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 
 **Nachgewiesen (2. Oktober 2026, 0.4.3).** Am ersten Programmlauf nach der Installation von 0.4.3 zeigen beide Knöpfe der Taskleiste die Natter (`build\auswertung\043\03_e_taskleiste_knopf1_lupe.png` und `…knopf2_lupe.png`), und der Knopf der IDE heißt über UI Automation „Natter – 1 aktives Fenster“ statt „Python“. Der Knopf des Programms heißt weiter „Python“; das ist Punkt 469.
 
+
+---
+
+## 470. Für das Darüberfahren mit der Maus gibt es kein Ereignis ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Schülerweg an der installierten Fassung 0.4.3 (`build\auswertung\044s\`, `b_ereignisse.json`, Bild `A_ereignisse_lupe.png`).
+
+**Beobachtet:** Der Reiter „Ereignisse“ eines Buttons bietet `on_click`, `on_double_click`, `on_key_press`, `on_mouse_down`, `on_mouse_move` und `on_mouse_up`. Klick und Mausbewegung kommen im laufenden Programm an („Maus bei 12, 5“, dann „Geklickt“). Ein Ereignis für das Kommen und Gehen der Maus fehlt: Nachdem die Maus den Knopf verlassen hatte, stand im Label weiter „Geklickt“. Ein Hervorheben beim Darüberfahren lässt sich damit nicht bauen, weil `on_mouse_move` nicht sagt, wann die Maus wieder weg ist.
+
+**Ursache:** nachgewiesen. `_MausFilter` in `pcl/control.py` wertet nur Drücken, Bewegen, Loslassen und Doppelklick aus (`_MAUS_ARTEN`); `QEvent.Enter` und `QEvent.Leave` gehen ungenutzt durch.
+
+**Zu tun:** `on_mouse_enter` und `on_mouse_leave` an jeder sichtbaren Komponente, je genau einmal beim Kommen und Gehen. Erledigt, wenn sie im Reiter „Ereignisse“ stehen und ein Test beide an jeder sichtbaren Komponente auslöst.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `Control` hat die Ereignisse `on_mouse_enter` und `on_mouse_leave` mit der Signatur `(self, sender)`, und `MAUS_EREIGNISSE` in `pcl/properties.py` führt sie, damit sie bei Zeitgeber und Menüs fehlen. `_MausFilter` löst sie bei `Enter` und `Leave` aus, aber nur am äußeren Widget: wandert die Maus innerhalb einer `ListBox` auf den Anzeigebereich, meldet Qt dem äußeren Widget kein Verlassen. Der Doppelklick im Reiter „Ereignisse“ legt `button_mouse_enter(self, sender)` an, ohne Änderung am Designer. `docs/komponenten.md` nennt beide in den Tabellen der Ereignisse, mit einem Beispiel zum Hervorheben. Tests: `test_die_maus_meldet_kommen_und_gehen` in `tests/test_maus_ereignisse.py` (jede sichtbare Komponente und `ListBox`, ein Leave am inneren Widget zählt nicht), `test_zeigt_alle_ereignisse_der_komponente` in `tests/test_ereignisse_tabelle.py`.
+
+---
+
+## 471. Im Reiter „Ereignisse“ sind die Namen abgeschnitten ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Schülerweg an der installierten Fassung 0.4.3 (`build\auswertung\044s\bilder\A_ereignisse_lupe.png`).
+
+**Beobachtet:** Im Objektinspektor bei Standardbreite stehen „on_double_cli…“, „on_mouse_do…“ und „on_mouse_m…“. Ob `on_mouse_move` oder `on_mouse_down` gemeint ist, sieht man erst am Tooltip. Links steht eine Spalte mit Zeilennummern 1 bis 6, die Auswahl rechts ist abgeschnitten, und unten erscheint eine waagerechte Bildlaufleiste.
+
+**Ursache:** nachgewiesen. `EreignisseTabelle` (`ide/inspector/ereignisse_tabelle.py`) lässt Zeilennummern und Spaltenbreiten auf Qts Vorgaben. Die Eigenschaftentabelle daneben blendet die Nummern seit M15 aus und streckt die letzte Spalte.
+
+**Zu tun:** Wie in der Eigenschaftentabelle: ohne Zeilennummern, die Namensspalte so breit wie der längste Name, die Auswahl füllt den Rest. Erledigt, wenn ein Test die volle Breite der Namen prüft.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `EreignisseTabelle` blendet die Zeilennummern aus, streckt die Spalte „Handler“ und passt die Spalte „Ereignis“ nach jedem Aufbau mit `resizeColumnToContents` an die Namen an; von Hand verstellen lässt sie sich weiter. Test: `test_die_namen_stehen_ganz_da_und_ohne_nummern` in `tests/test_ereignisse_tabelle.py`; mit der Datei aus `HEAD` scheitert er.
+
+---
+
+## 472. Nach dem Öffnen aus dem Projekt-Explorer bleibt der Fokus im Explorer ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Schülerweg an der installierten Fassung 0.4.3 (`build\auswertung\044s\c_fokus.json`, Bild `C_probe.png`).
+
+**Beobachtet:** Nach einem Doppelklick oder der Eingabetaste auf `u_main.py` im Projekt-Explorer öffnet sich der Reiter, der Tastaturfokus bleibt aber auf dem Eintrag im Explorer (UI Automation: `TreeItem u_main.py`). Getippter Text landete nicht in der Unit; Strg+Ende und Eingabetaste wirkten im Baum, und die Statusleiste blieb bei „Zeile 1, Spalte 1“. Dasselbe beim Formular.
+
+**Ursache:** nachgewiesen. `_bei_explorer_doppelklick` in `ide/shell/hauptfenster.py` öffnet die Datei über `oeffnen()` und setzt den Fokus nirgends; `datei_oeffnen` macht den Reiter nur zum aktuellen.
+
+**Zu tun:** Nach dem Öffnen aus dem Explorer bekommt die geöffnete Seite den Fokus. Erledigt, wenn ein Test mit echten Mausereignissen den Editor als Fokus-Widget des Fensters findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_bei_explorer_doppelklick` gibt nach `oeffnen()` dem aktuellen Reiter den Fokus. „Datei → Öffnen …“ und die Sprünge aus Suche und Meldungen setzten ihn schon vorher selbst. Test: `test_doppelklick_mit_der_maus_oeffnet_die_unit` in `tests/test_hauptfenster_projekt.py` prüft nach jedem Doppelklick, dass `focusWidget()` des Hauptfensters der neue Editor ist; mit `hauptfenster.py` aus `HEAD` scheitert er.
+
+---
+
+## 473. Die Sicherung ungespeicherter Änderungen kommt erst nach bis zu zwei Minuten ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Schülerweg an der installierten Fassung 0.4.3 (`build\auswertung\044s\c_kurz.json`, `c_lang.json`).
+
+**Beobachtet:** Eine Zeile in `u_main.py` getippt, nicht gespeichert, Natter nach 15 Sekunden hart beendet (wie über den Task-Manager oder bei einem Absturz): Im Projektordner lag keine `Ereignisprobe.natter-sicherung`, beim nächsten Öffnen kam keine Frage, die Zeile war verloren. Mit 130 Sekunden Wartezeit entstand die Sicherung nach 113 Sekunden, und das Wiederherstellen klappte. Das Schließen mit „Verwerfen“ entfernte Sicherung und Sperrdatei richtig, und nach „Abbrechen“ blieb die Sicherung erhalten.
+
+**Ursache:** nachgewiesen. Außer vor der Frage beim Abmelden schreibt nur `_sicherung_uhr` (`_SICHERUNG_TAKT_MS`, zwei Minuten) die Sicherung. Die Uhr läuft unabhängig von Änderungen, und was kurz nach einem Schlag getippt wird, steht bis zum nächsten nirgends.
+
+**Zu tun:** Die Sicherung wenige Sekunden nach der letzten Änderung schreiben. Erledigt, wenn ein Test zeigt, dass eine Änderung im Editor die Sicherung ohne Uhrschlag auslöst.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Eine zweite, einmalige Uhr `_sicherung_bald` (`_SICHERUNG_NACH_AENDERUNG_MS`, fünf Sekunden) startet bei jeder Änderung eines Editors neu (`contentsChanged`) und schreibt die Sicherung, sobald fünf Sekunden lang nichts getippt wurde. Unveränderter Inhalt wird wie bisher nicht neu geschrieben. Der Zwei-Minuten-Takt bleibt für Diagramme, die keinen Editor haben. Handbuch Abschnitt 6 und der Kopf von `ide/project/sicherung.py` nennen das. Test: `test_eine_pause_nach_dem_tippen_sichert` in `tests/test_sicherung.py`; mit `hauptfenster.py` aus `HEAD` scheitert er.
+
+---
+
+## 474. Nach dem Wiederherstellen steht der Cursor in Zeile 1 ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Schülerweg an der installierten Fassung 0.4.3 (`build\auswertung\044s\bilder\C_lang_nach_wiederherstellen.png`).
+
+**Beobachtet:** Nach „Wiederherstellen“ ist `u_main.py` als geändert markiert, der Cursor steht aber in Zeile 1, Spalte 1. Die gerettete Zeile am Ende der Unit (Zeile 53) ist nicht zu sehen, und nichts zeigt, was zurückgekommen ist.
+
+**Ursache:** nachgewiesen. `_gesichert_oeffnen` in `ide/shell/hauptfenster.py` setzt den Cursor nach dem Einsetzen fest auf Position 0.
+
+**Zu tun:** Den Cursor an die erste Stelle setzen, an der der gerettete Text von der Datei abweicht, und sie sichtbar machen. Erledigt, wenn ein Test die Position prüft.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_gesichert_oeffnen` vergleicht den Text der Datei mit dem geretteten, setzt den Cursor auf die erste abweichende Stelle und holt sie mit `centerCursor` in die Mitte des Editors. Test: `test_naechstes_oeffnen_bietet_die_sicherung_an[wiederherstellen]` in `tests/test_sicherung.py` prüft die Position; mit `hauptfenster.py` aus `HEAD` scheitert er.

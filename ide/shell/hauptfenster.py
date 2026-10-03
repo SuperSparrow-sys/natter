@@ -272,9 +272,16 @@ _WEGGEFALLEN_ROLLE = Qt.ItemDataRole.UserRole + 20
 _LADE_TAKT_MS = 250
 
 #: So oft wird ungespeicherter Text in die Sicherung des Projekts
-#: geschrieben (Punkt 344). Stürzt der Rechner ab oder fällt der Strom
-#: aus, fehlen höchstens die letzten zwei Minuten.
+#: geschrieben (Punkt 344), auch wenn gerade niemand tippt.
 _SICHERUNG_TAKT_MS = 2 * 60 * 1000
+
+#: So lange nach der letzten Änderung in einem Editor kommt der Text
+#: in die Sicherung (Punkt 473). Mit dem Takt allein stand er dort bis
+#: zu zwei Minuten lang nicht: wer in der Zeit Natter über den
+#: Task-Manager beendete oder den Rechner ausschaltete, verlor alles,
+#: was seit dem letzten Speichern getippt war. Fünf Sekunden Pause
+#: reichen, um nicht bei jedem Tastendruck zu schreiben.
+_SICHERUNG_NACH_AENDERUNG_MS = 5000
 
 #: Nach so vielen Sekunden ohne Fenster und ohne Ausgabe gibt die
 #: Ladeanzeige auf. Das Programm läuft dann zwar, zeigt aber nichts -
@@ -1161,6 +1168,10 @@ class HauptFenster(QMainWindow):
         self._sicherung_uhr.setInterval(_SICHERUNG_TAKT_MS)
         self._sicherung_uhr.timeout.connect(self._sicherung_uhr_schlaegt)
         self._sicherung_uhr.start()
+        self._sicherung_bald = QTimer(self)
+        self._sicherung_bald.setSingleShot(True)
+        self._sicherung_bald.setInterval(_SICHERUNG_NACH_AENDERUNG_MS)
+        self._sicherung_bald.timeout.connect(self._sicherung_uhr_schlaegt)
         # Beim Abmelden und Herunterfahren ruft Qt 6 kein `closeEvent`
         # auf, sondern sendet nur diese beiden Signale (Punkt 338).
         self._sitzung_verbunden = False
@@ -5157,6 +5168,9 @@ class HauptFenster(QMainWindow):
         editor.document().modificationChanged.connect(
             lambda geaendert, editor=editor: self._aenderung_markieren(editor, geaendert)
         )
+        # Jede Änderung schiebt die Sicherung um ein paar Sekunden
+        # hinaus; sie kommt, sobald eine Pause eintritt (Punkt 473).
+        editor.document().contentsChanged.connect(self._sicherung_bald.start)
         index = self.editor_tabs.addTab(editor, pfad.name)
         self.editor_tabs.setCurrentIndex(index)
         return editor
@@ -6342,6 +6356,7 @@ class HauptFenster(QMainWindow):
         # jetzt bietet ein anderes Fenster den Anteil dieses Fensters
         # beim Öffnen an.
         self._sicherung_uhr.stop()
+        self._sicherung_bald.stop()
         sicherung.fenster_geschlossen(self._sicherung_herkunft)
         # Die Frage ist beantwortet; die Diagrammfenster schließen mit,
         # ohne noch einmal selbst zu fragen.
@@ -6645,13 +6660,28 @@ class HauptFenster(QMainWindow):
         editor = self.datei_oeffnen(ziel)
         if editor is None:
             return
+        vorher = editor.toPlainText()
         cursor = QTextCursor(editor.document())
         cursor.select(QTextCursor.SelectionType.Document)
         cursor.beginEditBlock()
         cursor.insertText(eintrag.text)
         cursor.endEditBlock()
-        cursor.setPosition(0)
+        # Der Cursor steht dort, wo der gerettete Text von der Datei
+        # abweicht (Punkt 474). Bis 0.4.3 stand er in Zeile 1, und wer
+        # die Änderung am Ende einer langen Unit gemacht hatte, sah
+        # nach dem Wiederherstellen nichts davon.
+        erste = next(
+            (
+                i for i, (alt, neu) in enumerate(
+                    zip(vorher, eintrag.text, strict=False)
+                )
+                if alt != neu
+            ),
+            min(len(vorher), len(eintrag.text)),
+        )
+        cursor.setPosition(min(erste, len(editor.toPlainText())))
         editor.setTextCursor(cursor)
+        editor.centerCursor()
         if eintrag.stand:
             editor.setProperty(dateistand.EIGENSCHAFT, eintrag.stand)
 
@@ -8023,6 +8053,13 @@ class HauptFenster(QMainWindow):
         if pfad is None:
             return
         self.oeffnen(Path(pfad))
+        # Der Fokus geht in die geöffnete Datei (Punkt 472). Er blieb
+        # bis 0.4.3 im Explorer: wer nach dem Doppelklick auf eine Unit
+        # lostippte, schrieb nicht in den Editor, sondern sprang im
+        # Explorer von Eintrag zu Eintrag.
+        seite = self.editor_tabs.currentWidget()
+        if seite is not None:
+            seite.setFocus()
 
     def oeffnen(self, pfad: Path) -> None:
         """Öffnet `pfad` in der Ansicht, die dazu passt – Designer,

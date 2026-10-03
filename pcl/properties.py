@@ -216,6 +216,8 @@ MAUS_EREIGNISSE: tuple[str, ...] = (
     "on_mouse_down",
     "on_mouse_move",
     "on_mouse_up",
+    "on_mouse_enter",
+    "on_mouse_leave",
 )
 
 #: Das Tastatur-Ereignis, das `Control` und `Form` mitbringen. Getrennt
@@ -497,7 +499,7 @@ def ereignisse(cls: type) -> dict[str, Event]:
     laufenden Programm gar nicht da ist (`nur_im_designer`: Zeitgeber,
     Hauptmenü, Klappmenü). Sie erben sie von `Control` wie jede andere,
     aber weder Maus noch Tastatur erreichen sie - im Objektinspektor
-    stünden sechs Zeilen, von denen keine je auslöst.
+    stünden acht Zeilen, von denen keine je auslöst.
     """
     ergebnis: dict[str, Event] = {}
     for klasse in reversed(cls.__mro__):

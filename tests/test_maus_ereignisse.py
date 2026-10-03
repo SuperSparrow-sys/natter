@@ -16,8 +16,8 @@ from __future__ import annotations
 
 import pytest
 from PySide6.QtCore import QEvent, QPointF, Qt
-from PySide6.QtGui import QMouseEvent
-from PySide6.QtWidgets import QApplication
+from PySide6.QtGui import QEnterEvent, QMouseEvent
+from PySide6.QtWidgets import QApplication, QWidget
 
 from pcl import (
     Button,
@@ -125,6 +125,34 @@ def test_doppelklick_loest_on_double_click_aus(formular, typ) -> None:
     _maus(komponente._qwidget, QEvent.Type.MouseButtonDblClick)
 
     assert gerufen == [komponente]
+
+
+def test_die_maus_meldet_kommen_und_gehen(formular) -> None:
+    """`on_mouse_enter` und `on_mouse_leave` an jeder sichtbaren
+    Komponente, je genau einmal. Ohne sie ließ sich nichts
+    hervorheben, solange die Maus darüber steht: `on_mouse_move` sagt
+    nicht, wann die Maus wieder weg ist.
+
+    Ein Enter am inneren Widget allein (der Anzeigebereich der
+    `ListBox`) zählt nicht; Qt meldet es dem äußeren ohnehin mit."""
+    from pcl import ListBox
+
+    fehler = []
+    for typ in (*SICHTBARE, ListBox):
+        komponente = _komponente(formular, typ)
+        rufe: list[str] = []
+        komponente.on_mouse_enter = lambda s, r=rufe: r.append("enter")
+        komponente.on_mouse_leave = lambda s, r=rufe: r.append("leave")
+        for inneres in komponente._qwidget.findChildren(QWidget):
+            QApplication.sendEvent(inneres, QEvent(QEvent.Type.Leave))
+        QApplication.sendEvent(
+            komponente._qwidget,
+            QEnterEvent(QPointF(3, 3), QPointF(3, 3), QPointF(3, 3)),
+        )
+        QApplication.sendEvent(komponente._qwidget, QEvent(QEvent.Type.Leave))
+        if rufe != ["enter", "leave"]:
+            fehler.append(f"{typ.__name__}: {rufe}")
+    assert not fehler
 
 
 # -- Feinheiten ---------------------------------------------------------
