@@ -917,3 +917,58 @@ def test_der_konsolenhaken_meldet_fehler_deutsch_und_wartet(tmp_path: Path) -> N
     assert "ZeroDivisionError" in ergebnis.stderr or "durch null" in ergebnis.stderr.lower()
     assert "Traceback (most recent call last)" not in ergebnis.stderr
     assert ergebnis.returncode != 0
+
+
+def test_der_konsolenhaken_importiert_weder_pcl_noch_qt() -> None:
+    """Punkt 629: `from pcl.fehleranzeige import …` im Haken zog über
+    PyInstallers Importanalyse PySide6 und pcl in jede Konsolen-Exe."""
+    import ast
+
+    from ide.export.exporter import _KONSOLEN_HOOK
+
+    importiert = set()
+    for knoten in ast.walk(ast.parse(_KONSOLEN_HOOK)):
+        if isinstance(knoten, ast.Import):
+            importiert |= {n.name.split(".")[0] for n in knoten.names}
+        elif isinstance(knoten, ast.ImportFrom):
+            importiert.add((knoten.module or "").split(".")[0])
+    assert importiert <= {"atexit", "sys", "importlib", "os", "traceback"}
+
+
+@pytest.mark.parametrize(
+    ("quelltext", "ohne_qt"),
+    [("print('hallo')\n", True), ("from pcl import zahl\nprint(zahl('1'))\n", False)],
+)
+def test_konsolenprogramm_ohne_pcl_laesst_qt_draussen(
+    tmp_path: Path, pyinstaller, quelltext: str, ohne_qt: bool
+) -> None:
+    """Punkt 629: ein Konsolenprogramm ohne `pcl` bekommt weder `pcl`
+    noch PySide6; eines mit `pcl` behält beides."""
+    projekt = _projekt(tmp_path)
+    (projekt.ordner / "main.py").write_text(quelltext, encoding="utf-8")
+
+    exe_exportieren(projekt)
+
+    weg = _ausgeschlossen(pyinstaller[0]) & {"pcl", "PySide6", "shiboken6"}
+    assert weg == ({"pcl", "PySide6", "shiboken6"} if ohne_qt else set())
+
+
+def test_der_konsolenhaken_meldet_ohne_pcl_ort_und_fehler(tmp_path: Path) -> None:
+    """Punkt 629: ohne geladenes pcl meldet der Haken selbst, deutsch
+    und ohne den englischen Traceback."""
+    from ide.export.exporter import _KONSOLEN_HOOK
+
+    skript = tmp_path / "start.py"
+    skript.write_text(
+        _KONSOLEN_HOOK + "\ndef teile(a):\n    return a / 0\nteile(1)\n",
+        encoding="utf-8",
+    )
+    ergebnis = subprocess.run(
+        [sys.executable, "-I", str(skript)], capture_output=True, text=True,
+        encoding="utf-8", errors="replace", input="", timeout=60,
+    )
+
+    assert "Wo: start.py, Zeile" in ergebnis.stderr
+    assert "Was: ZeroDivisionError" in ergebnis.stderr
+    assert "aufgerufen aus start.py" in ergebnis.stderr
+    assert "Traceback" not in ergebnis.stderr

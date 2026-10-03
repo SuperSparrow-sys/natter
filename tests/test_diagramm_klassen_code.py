@@ -194,15 +194,23 @@ def test_klassenweite_operation_wird_statisch() -> None:
     _gueltig(code)
 
 
-def test_anfrage_ohne_parameter_wird_eigenschaft() -> None:
+@pytest.mark.parametrize("parameter", [[], [{"name": "nummer"}]])
+def test_eine_anfrage_wird_mit_klammern_aufgerufen(parameter: list) -> None:
+    """Punkt 630: eine Anfrage ohne Parameter wurde `@property`, das
+    Diagramm zeigt sie aber mit Klammern, und `k.getStand()` scheiterte."""
     klasse = _klasse(
-        operations=[{"name": "zustand", "type": "int", "query": True, "parameters": []}]
+        "Konto",
+        operations=[{"name": "getStand", "type": "float", "query": True,
+                     "parameters": parameter}],
     )
 
     code = klasse_als_python(klasse)
 
-    assert "@property" in code
+    assert "@property" not in code
     _gueltig(code)
+    konto = _ausfuehren(code)["Konto"]()
+    argumente = [1] if parameter else []
+    konto.getStand(*argumente)  # mit Klammern aufrufbar
 
 
 def test_anfrage_mit_parameter_bleibt_methode() -> None:

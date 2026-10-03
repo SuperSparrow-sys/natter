@@ -470,7 +470,10 @@ zunächst „ja“ und „nein“; ein Doppelklick auf eine der beiden
 Beschriftungen ändert sie.
 
 Aus einem Klassendiagramm kann Natter das Gerüst der Klassen erzeugen,
-aus einem Struktogramm das Gerüst einer Funktion. Aus einer
+aus einem Struktogramm das Gerüst einer Funktion. Jede Operation wird
+eine Methode und wird mit Klammern aufgerufen, auch eine „Anfrage“:
+aus „+getStand(): float“ wird `def getStand(self) -> float`, der
+Aufruf lautet `konto.getStand()`. Aus einer
 Fallauswahl wird dabei `match`/`case`, aus einer Mehrfachauswahl mit
 Bedingungen eine Kette aus `if`, `elif` und `else`. „Eingabe: zahl“
 wird zu `input(…)`, und wo `zahl` im Struktogramm wie eine Zahl benutzt

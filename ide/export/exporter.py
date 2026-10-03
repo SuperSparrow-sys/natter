@@ -100,6 +100,13 @@ _OPTIONALE_PAKETE: dict[str, tuple[str, ...]] = {
     "openpyxl": ("openpyxl", "xlsx"),
     "sqlalchemy": ("sqlalchemy",),
     "PIL": ("PIL", "Pillow"),
+    # Ein Konsolenprogramm ohne `pcl` braucht weder `pcl` noch Qt. Bis
+    # Punkt 629 kamen sie über den Konsolenhaken in jede Konsolen-Exe;
+    # stehen sie hier, bleiben sie draußen, wenn das Projekt sie
+    # nirgends nennt. Ein Fensterprogramm nennt `pcl` immer.
+    "pcl": ("pcl",),
+    "PySide6": ("pcl", "PySide6"),
+    "shiboken6": ("pcl", "PySide6", "shiboken6"),
     # Werkzeuge der IDE. `pcl` fasst sie nie an, sie liegen nur in
     # derselben Python-Umgebung.
     "debugpy": ("debugpy",),
@@ -197,15 +204,39 @@ import sys
 
 
 def _natter_fehler(art, wert, spur):
-    try:
-        from pcl.fehleranzeige import fehlertext
+    # pcl nur, wenn das Programm es schon geladen hat, und ohne import-
+    # Anweisung: PyInstaller verfolgt die Importe eines Laufzeithakens,
+    # und `from pcl ...` zog PySide6 in jede Konsolen-Exe (Punkt 629).
+    if "pcl" in sys.modules:
+        try:
+            import importlib
 
-        print(fehlertext(art, wert, spur), file=sys.stderr)
-    except Exception:
-        import traceback
+            anzeige = importlib.import_module("pcl.fehleranzeige")
+            print(anzeige.fehlertext(art, wert, spur), file=sys.stderr)
+            return
+        except Exception:
+            pass
+    # Ohne pcl eine knappe deutsche Meldung: wo, was, und über welche
+    # Aufrufe es dorthin ging - ohne den englischen Traceback.
+    import os
+    import traceback
 
-        print("Das Programm ist mit einem Fehler beendet worden:", file=sys.stderr)
-        traceback.print_exception(art, wert, spur)
+    print("Das Programm ist mit einem Fehler beendet worden.", file=sys.stderr)
+    stellen = traceback.extract_tb(spur) if spur is not None else []
+    if stellen:
+        letzte = stellen[-1]
+        print(
+            f"Wo: {os.path.basename(letzte.filename)}, Zeile {letzte.lineno}"
+            + (f": {letzte.line}" if letzte.line else ""),
+            file=sys.stderr,
+        )
+    print(f"Was: {art.__name__}: {wert}", file=sys.stderr)
+    for stelle in reversed(stellen[:-1]):
+        print(
+            f"  aufgerufen aus {os.path.basename(stelle.filename)}, "
+            f"Zeile {stelle.lineno} ({stelle.name})",
+            file=sys.stderr,
+        )
 
 
 def _natter_warten():

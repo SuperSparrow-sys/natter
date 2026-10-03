@@ -357,6 +357,11 @@ class KlassenDialog(QDialog):
         self.operation_vererbung = _auswahl(VERERBUNGSARTEN, VERERBUNG_TEXT)
         self.operation_klassenbereich = QCheckBox("Klassen-Gültigkeitsbereich")
         self.operation_anfrage = QCheckBox("Anfrage")
+        self.operation_anfrage.setToolTip(
+            "Liefert nur einen Wert und ändert das Objekt nicht. Im Code "
+            "eine gewöhnliche Methode, aufgerufen mit Klammern, etwa "
+            "konto.getStand()"
+        )
 
         self.operationsdaten = QGroupBox("Operationsdaten")
         links = QFormLayout()

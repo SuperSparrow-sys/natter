@@ -560,14 +560,14 @@ def _operation_zeilen(
 
     parameter = [p for p in operation.get("parameters") or []]
     klassenweit = bool(operation.get("class_scope"))
-    # „Anfrage“ ohne Parameter ist im Python-Sinn eine Eigenschaft.
-    eigenschaft = bool(operation.get("query")) and not parameter and not klassenweit
+    # Eine „Anfrage“ bleibt eine gewöhnliche Methode. Bis 0.4.3 wurde
+    # sie ohne Parameter zu `@property`; das Diagramm zeigt sie aber mit
+    # Klammern, „+getStand(): float“, und `k.getStand()` endete dann mit
+    # „'float' object is not callable“ (Punkt 630).
 
     zeilen: list[str] = []
     if klassenweit:
         zeilen.append(f"{EINRUECKUNG}@staticmethod")
-    elif eigenschaft:
-        zeilen.append(f"{EINRUECKUNG}@property")
 
     argumente = [] if klassenweit else ["self"]
     for p in parameter:
