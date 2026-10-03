@@ -124,7 +124,11 @@ _OPTIONALE_PAKETE: dict[str, tuple[str, ...]] = {
 #: deshalb auch die Pakete drin, die hier bei ihm stehen.
 _BRAUCHT: dict[str, tuple[str, ...]] = {
     "pandas": ("numpy",),
-    "matplotlib": ("numpy", "PIL"),
+    # `plt.show()` braucht ein Fenster-Backend. Tcl/Tk liefert Natter
+    # nicht mit, also zeigt matplotlib seine Fenster über Qt; ohne
+    # PySide6 wählte es „agg“, und ein Konsolenprogramm zeigte kein
+    # Diagramm mehr (Punkt 638).
+    "matplotlib": ("numpy", "PIL", "PySide6", "shiboken6"),
     "scipy": ("numpy",),
     "sklearn": ("numpy", "scipy", "joblib"),
 }
@@ -202,36 +206,49 @@ if getattr(sys, "frozen", False):
 _KONSOLEN_HOOK = """import atexit
 import sys
 
+PROJEKT = []
+
 
 def _natter_fehler(art, wert, spur):
-    # pcl nur, wenn das Programm es schon geladen hat, und ohne import-
-    # Anweisung: PyInstaller verfolgt die Importe eines Laufzeithakens,
-    # und `from pcl ...` zog PySide6 in jede Konsolen-Exe (Punkt 629).
-    if "pcl" in sys.modules:
-        try:
-            import importlib
+    # Ohne import-Anweisung: PyInstaller verfolgt die Importe eines
+    # Laufzeithakens, und `from pcl ...` zog PySide6 in jede
+    # Konsolen-Exe (Punkt 629). Geladen wird die Fassung des
+    # Fehlerkatalogs ohne Qt, die der Export mitgibt (Punkt 650); hat
+    # das Programm selbst pcl geladen, die aus pcl.
+    import importlib
 
-            anzeige = importlib.import_module("pcl.fehleranzeige")
-            print(anzeige.fehlertext(art, wert, spur), file=sys.stderr)
-            return
+    for name in ("pcl.fehlerkatalog", "natter_fehlerkatalog.fehlerkatalog"):
+        if name.startswith("pcl.") and "pcl" not in sys.modules:
+            continue
+        try:
+            if name.startswith("natter_"):
+                eigen = importlib.import_module("natter_fehlerkatalog.eigener_code")
+                eigen.PROJEKT.update(PROJEKT)
+            katalog = importlib.import_module(name)
+            wert.__traceback__ = spur
+            meldung = katalog.fehlermeldung_erzeugen(wert)
         except Exception:
-            pass
-    # Ohne pcl eine knappe deutsche Meldung: wo, was, und über welche
-    # Aufrufe es dorthin ging - ohne den englischen Traceback.
+            continue
+        if meldung is not None:
+            print(meldung.als_text(), file=sys.stderr)
+            return
+    # Ohne Katalog eine knappe deutsche Meldung: wo im Programm, was,
+    # und über welche Aufrufe es dorthin ging.
     import os
     import traceback
 
     print("Das Programm ist mit einem Fehler beendet worden.", file=sys.stderr)
     stellen = traceback.extract_tb(spur) if spur is not None else []
-    if stellen:
-        letzte = stellen[-1]
+    eigene = [s for s in stellen if os.path.basename(s.filename) in PROJEKT]
+    if eigene or stellen:
+        letzte = (eigene or stellen)[-1]
         print(
             f"Wo: {os.path.basename(letzte.filename)}, Zeile {letzte.lineno}"
             + (f": {letzte.line}" if letzte.line else ""),
             file=sys.stderr,
         )
     print(f"Was: {art.__name__}: {wert}", file=sys.stderr)
-    for stelle in reversed(stellen[:-1]):
+    for stelle in reversed((eigene or stellen)[:-1]):
         print(
             f"  aufgerufen aus {os.path.basename(stelle.filename)}, "
             f"Zeile {stelle.lineno} ({stelle.name})",
@@ -250,6 +267,75 @@ def _natter_warten():
 sys.excepthook = _natter_fehler
 atexit.register(_natter_warten)
 """
+
+#: Name des Pakets, in dem der Export den Fehlerkatalog ohne Qt mitgibt.
+FEHLERKATALOG_PAKET = "natter_fehlerkatalog"
+
+#: Ersatz für die Teile von pcl, die der Fehlerkatalog nebenbei braucht
+#: und die Qt laden würden. In einer Konsolen-Exe läuft keine
+#: Qt-Anwendung und keine Prüfung.
+_OHNE_QT = """class QApplication:
+    @staticmethod
+    def instance():
+        return None
+
+
+def laeuft(*_args, **_kwargs):
+    return False
+"""
+
+#: Welche Dateien eigener Code sind. In der Exe tragen alle Module
+#: kurze Dateinamen; maßgeblich sind deshalb die Namen der Dateien des
+#: Projekts, die der Haken einträgt.
+_EIGENER_CODE = """from pathlib import Path
+
+PROJEKT = set()
+
+
+def ist_eigener_code(dateiname):
+    if dateiname.startswith("<"):
+        return False
+    return Path(dateiname).name in PROJEKT
+"""
+
+
+def konsolen_haken(projekt_dateien: list[str]) -> str:
+    """Der Laufzeithaken für Konsolenprogramme mit den Namen der
+    Python-Dateien des Projekts: an ihnen erkennt er die Stelle im
+    eigenen Programm."""
+    return _KONSOLEN_HOOK.replace(
+        "PROJEKT = []", f"PROJEKT = {sorted(set(projekt_dateien))!r}", 1
+    )
+
+
+def fehlerkatalog_ohne_qt(ziel: Path) -> Path:
+    """Legt unter `ziel` das Paket `natter_fehlerkatalog` an: der
+    Fehlerkatalog aus pcl, aber ohne `pcl/__init__.py`, das Qt lädt.
+
+    Bis Punkt 629 kam die deutsche Meldung über `pcl.fehleranzeige` in
+    jede Konsolen-Exe und mit ihr PySide6 (27 MB für „Hallo Welt“).
+    Seitdem meldete der Haken ohne pcl englisch und nannte die Zeile in
+    der Bibliothek (Punkt 650). Die Kopie zieht nur die Standard-
+    bibliothek nach. Liefert den Ordner für `--paths`."""
+    paket = Path(ziel) / FEHLERKATALOG_PAKET
+    paket.mkdir(parents=True, exist_ok=True)
+    quelle = Path(pcl.__file__).resolve().parent
+    katalog = (quelle / "fehlerkatalog.py").read_text(encoding="utf-8")
+    katalog = katalog.replace(
+        "from PySide6.QtWidgets import QApplication",
+        f"from {FEHLERKATALOG_PAKET}._ohne_qt import QApplication",
+    ).replace(
+        "from pcl.pruefungsmodus import laeuft",
+        f"from {FEHLERKATALOG_PAKET}._ohne_qt import laeuft",
+    ).replace("from pcl.", f"from {FEHLERKATALOG_PAKET}.")
+    (paket / "__init__.py").write_text("", encoding="utf-8")
+    (paket / "fehlerkatalog.py").write_text(katalog, encoding="utf-8")
+    (paket / "errors.py").write_text(
+        (quelle / "errors.py").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (paket / "eigener_code.py").write_text(_EIGENER_CODE, encoding="utf-8")
+    (paket / "_ohne_qt.py").write_text(_OHNE_QT, encoding="utf-8")
+    return Path(ziel)
 
 
 def arbeitsordner_haken(daten: list[str]) -> str:
@@ -682,8 +768,16 @@ def _exe_bauen(
     befehl += ["--runtime-hook", str(haken)]
     if projekt.typ not in _GUI_PROJEKTTYPEN:
         konsole = spec_pfad / "natter_konsole.py"
-        konsole.write_text(_KONSOLEN_HOOK, encoding="utf-8")
-        befehl += ["--runtime-hook", str(konsole)]
+        konsole.write_text(
+            konsolen_haken([d.name for d in projekt.ordner.glob("*.py")]),
+            encoding="utf-8",
+        )
+        befehl += [
+            "--runtime-hook", str(konsole),
+            "--paths", str(fehlerkatalog_ohne_qt(spec_pfad / "mitgegeben")),
+            "--hidden-import", f"{FEHLERKATALOG_PAKET}.fehlerkatalog",
+            "--hidden-import", f"{FEHLERKATALOG_PAKET}.eigener_code",
+        ]
 
     for paket in _ueberfluessige_pakete(projekt):
         befehl += ["--exclude-module", paket]

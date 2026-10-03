@@ -401,3 +401,32 @@ def test_ein_syntaxfehler_in_einer_unit_haelt_den_export_auf(
     assert lauf is None or not lauf.isRunning()
     assert "keine Exe erstellt" in hauptfenster.statusBar().currentMessage()
     assert hauptfenster.meldungen_liste.count() >= 1
+
+
+def test_eine_testdatei_mit_fehlender_funktion_haelt_den_export_nicht_auf(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, hauptfenster, qtbot
+) -> None:
+    """Punkt 646: eine Testdatei der Lehrkraft, die eine noch nicht
+    geschriebene Funktion importiert, hielt Start und Export auf."""
+    ordner = _projekt_kopie(tmp_path)
+    (ordner / "test_aufgabe.py").write_text(
+        "import unittest\nfrom u_main import verdoppeln\n", encoding="utf-8"
+    )
+    hauptfenster.projekt_oeffnen(ordner / "04_CookieKlicker.natter")
+    ausgabe = tmp_path / "dist" / "04_CookieKlicker.exe"
+    ausgabe.parent.mkdir(parents=True)
+    ausgabe.write_bytes(b"MZ")
+    aufgerufen = []
+
+    def exportieren(projekt, **_):  # noqa: ANN001, ANN003, ANN202
+        aufgerufen.append(projekt)
+        return ExportErgebnis(True, ausgabe, "Signiert.")
+
+    monkeypatch.setattr("ide.shell.hauptfenster.exe_exportieren", exportieren)
+    monkeypatch.setattr("ide.shell.hauptfenster.sys.platform", "nicht-win32")
+
+    assert hauptfenster._vorstart_pruefung_blockiert() is False
+    hauptfenster._als_exe_exportieren_aktion()
+    _abwarten(hauptfenster, qtbot)
+
+    assert len(aufgerufen) == 1

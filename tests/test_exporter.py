@@ -15,6 +15,7 @@ ZIP.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -972,3 +973,76 @@ def test_der_konsolenhaken_meldet_ohne_pcl_ort_und_fehler(tmp_path: Path) -> Non
     assert "Was: ZeroDivisionError" in ergebnis.stderr
     assert "aufgerufen aus start.py" in ergebnis.stderr
     assert "Traceback" not in ergebnis.stderr
+
+
+def test_konsolenprogramm_mit_pyplot_behaelt_qt(tmp_path: Path, pyinstaller) -> None:
+    """Punkt 638: seit Punkt 629 blieb PySide6 draußen, und
+    `plt.show()` zeigte in der Exe kein Fenster mehr."""
+    projekt = _projekt(tmp_path)
+    (projekt.ordner / "main.py").write_text(
+        "import matplotlib.pyplot as plt\nplt.plot([1, 2])\nplt.show()\n",
+        encoding="utf-8",
+    )
+
+    exe_exportieren(projekt)
+
+    assert not _ausgeschlossen(pyinstaller[0]) & {"PySide6", "shiboken6", "matplotlib"}
+
+
+def test_konsolen_exe_bekommt_den_fehlerkatalog_ohne_qt(tmp_path: Path, pyinstaller) -> None:
+    """Punkt 650: der Fehlerkatalog geht als eigenes Paket ohne
+    `pcl/__init__.py` mit, das Qt lädt."""
+    projekt = _projekt(tmp_path)
+    (projekt.ordner / "main.py").write_text("print('hallo')\n", encoding="utf-8")
+
+    exe_exportieren(projekt)
+
+    from ide.export.exporter import fehlerkatalog_ohne_qt
+
+    befehl = pyinstaller[0]
+    assert "natter_fehlerkatalog.fehlerkatalog" in befehl
+    assert "--paths" in befehl
+    # Der Zwischenordner des Exports ist danach aufgeräumt; der Inhalt
+    # des Pakets wird deshalb hier noch einmal erzeugt.
+    ort = fehlerkatalog_ohne_qt(tmp_path / "katalog")
+    katalog = (ort / "natter_fehlerkatalog" / "fehlerkatalog.py").read_text(encoding="utf-8")
+    assert "from pcl" not in katalog
+    assert "PySide6" not in katalog
+
+
+@pytest.mark.parametrize(
+    ("programm", "erwartet", "zeile"),
+    [
+        ('x = 1\nx = int("abc")\n', "nicht als ganze Zahl lesen", 2),
+        ("import random\nrandom.choice([])\n", "IndexError", 2),
+    ],
+)
+def test_der_konsolenhaken_meldet_mit_katalog_deutsch_und_die_zeile_im_projekt(
+    tmp_path: Path, programm: str, erwartet: str, zeile: int
+) -> None:
+    """Punkt 650: ohne pcl meldete der Haken englisch und nannte bei
+    `random.choice([])` die Zeile in `random.py`. Qt wird dabei nicht
+    geladen."""
+    from ide.export.exporter import fehlerkatalog_ohne_qt, konsolen_haken
+
+    (tmp_path / "main.py").write_text(programm, encoding="utf-8")
+    ort = fehlerkatalog_ohne_qt(tmp_path / "mitgegeben")
+    lauf = (
+        "import atexit, runpy, sys\n"
+        f"sys.path.insert(0, {str(ort)!r})\n"
+        "sys.modules['pcl'] = None\n"
+        "atexit.register(lambda: print('MIT QT' if 'PySide6' in sys.modules"
+        " else 'OHNE QT'))\n"
+        f"exec(compile({konsolen_haken(['main.py'])!r}, 'haken', 'exec'))\n"
+        "runpy.run_path('main.py', run_name='__main__')\n"
+    )
+    ergebnis = subprocess.run(
+        [sys.executable, "-I", "-c", lauf], cwd=tmp_path, capture_output=True,
+        text=True, encoding="utf-8", errors="replace", input="", timeout=60,
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+    )
+
+    assert erwartet in ergebnis.stderr
+    assert f"main.py, Zeile {zeile}" in ergebnis.stderr
+    assert "random.py" not in ergebnis.stderr
+    assert "OHNE QT" in ergebnis.stdout

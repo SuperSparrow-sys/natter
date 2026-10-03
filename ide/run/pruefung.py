@@ -184,6 +184,12 @@ _UNBEKANNT = (
 )
 
 
+def ist_testdatei(datei: Path) -> bool:
+    """Ob `datei` eine Testdatei ist, wie der Test-Explorer sie sucht."""
+    datei = Path(datei)
+    return datei.suffix == ".py" and datei.name.startswith("test_")
+
+
 @dataclass(frozen=True)
 class RuffFund:
     datei: Path
@@ -220,7 +226,16 @@ class RuffFund:
         unbekannten Namen gar nicht erst zu starten: das Programm würde
         ohnehin abstürzen, und der Fehlerkatalog sagt vorher mehr dazu
         als ein Absturz danach.
+
+        Ein Fund in einer Testdatei (`test_*.py`) ist immer nur ein
+        Hinweis: sie gehört zum Test-Explorer, nicht zum Programm, und
+        landet nicht in der Exe. Eine Testdatei der Lehrkraft, die eine
+        noch nicht geschriebene Funktion importiert, hielt sonst Start
+        und Export auf, gerade solange die Aufgabe nicht fertig war
+        (Punkt 646).
         """
+        if ist_testdatei(self.datei):
+            return False
         return self.code not in NUR_HINWEIS
 
     def _vorlage(self) -> tuple[str, str]:

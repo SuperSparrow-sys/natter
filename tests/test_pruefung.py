@@ -205,3 +205,18 @@ def test_datei_ohne_utf8(tmp_path: Path, mit_angabe: bool) -> None:
     assert len(funde) == 1
     assert funde[0].blockiert is not mit_angabe
     assert "UTF-8" in funde[0].was
+
+
+def test_funde_in_einer_testdatei_blockieren_nicht(tmp_path: Path) -> None:
+    """Punkt 646: der Fund in der Testdatei bleibt sichtbar, hält den
+    Start aber nicht auf."""
+    projekt = _projekt_schreiben(tmp_path, "def f() -> int:\n    return 1\n")
+    (tmp_path / "u_main.py").write_text("x = 1\n", encoding="utf-8")
+    (tmp_path / "test_aufgabe.py").write_text(
+        "from u_main import verdoppeln\n", encoding="utf-8"
+    )
+
+    funde = projekt_pruefen(projekt)
+
+    assert any(f.datei.name == "test_aufgabe.py" for f in funde)
+    assert not any(f.blockiert for f in funde)
