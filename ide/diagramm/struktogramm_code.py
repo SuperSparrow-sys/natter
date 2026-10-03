@@ -677,8 +677,31 @@ class _Schreiber:
 
 def _einzeilig(roh: Any) -> str:
     """Kopftexte werden in eine Zeile gezogen: ein Umbruch mitten in
-    einer Bedingung würde die Einrückung der Ausgabe zerreißen."""
-    return " ".join(str(roh or "").split())
+    einer Bedingung würde die Einrückung der Ausgabe zerreißen.
+
+    Ein Kommentar mit „#“ fällt dabei weg. Er stand sonst vor dem
+    Doppelpunkt, den der Kopf angehängt bekommt, und aus „x > 0 #
+    positiv“ wurde `if x > 0 # positiv:` (Punkt 636)."""
+    zeilen = [_ohne_kommentar(zeile) for zeile in str(roh or "").splitlines()]
+    return " ".join(" ".join(zeilen).split())
+
+
+def _ohne_kommentar(zeile: str) -> str:
+    """`zeile` ohne einen Kommentar mit „#“. Ein „#“ in einem Text in
+    Anführungszeichen bleibt; lässt sich die Zeile nicht zerlegen,
+    bleibt sie, wie sie ist."""
+    if "#" not in zeile:
+        return zeile
+    import io
+    import tokenize
+
+    try:
+        for token in tokenize.generate_tokens(io.StringIO(zeile).readline):
+            if token.type == tokenize.COMMENT:
+                return zeile[: token.start[1]].rstrip()
+    except (tokenize.TokenError, SyntaxError, IndentationError):
+        pass
+    return zeile
 
 
 def _ein_ausgabe_als_python(
@@ -864,21 +887,40 @@ def _nur_ein_name(code: str) -> bool:
 
 def _als_ganzzahl_benutzt(wurzel: dict[str, Any]) -> set[str]:
     """Die Namen, die als Grenze einer Zählschleife stehen („für i von
-    1 bis n“). `range` braucht ganze Zahlen."""
+    1 bis n“) oder in `range(…)`. `range` braucht ganze Zahlen.
+
+    Gesucht wird „von“, „bis“ und „schrittweite“ nur in den Köpfen
+    von Zählschleifen. In allen Texten traf „bis“ auch die Fußschleife
+    „wiederhole bis betrag > 0“, und die Eingabe „2,5“ endete mit
+    einem ValueError (Punkt 627)."""
+    zaehlkoepfe = list(_zaehlkoepfe(wurzel))
     texte = list(_texte(wurzel))
     namen = {name for text in texte for name in _NAME.findall(text)}
-    return {
-        name
-        for name in namen
-        if any(
-            re.search(
-                rf"\b(?:von|bis|schrittweite|range\()\s*{re.escape(name)}\b",
-                text,
-                re.IGNORECASE,
-            )
-            for text in texte
-        )
-    }
+    gefunden = set()
+    for name in namen:
+        n = re.escape(name)
+        grenze = re.compile(rf"\b(?:von|bis|schrittweite)\s*{n}\b", re.IGNORECASE)
+        bereich = re.compile(rf"\brange\([^)]*(?<![\w.]){n}\b")
+        if any(grenze.search(kopf) for kopf in zaehlkoepfe) or any(
+            bereich.search(text) for text in texte
+        ):
+            gefunden.add(name)
+    return gefunden
+
+
+def _zaehlkoepfe(knoten: Any) -> Iterator[str]:
+    """Die Kopftexte aller Zählschleifen unter `knoten`."""
+    if isinstance(knoten, list):
+        for eintrag in knoten:
+            yield from _zaehlkoepfe(eintrag)
+        return
+    if not isinstance(knoten, dict):
+        return
+    if knoten.get("kind") == "count_loop":
+        yield str(knoten.get("text", ""))
+    for wert in knoten.values():
+        if isinstance(wert, list | dict):
+            yield from _zaehlkoepfe(wert)
 
 
 def _als_zahl_benutzt(wurzel: dict[str, Any]) -> set[str]:
@@ -907,7 +949,71 @@ def _als_zahl_benutzt(wurzel: dict[str, Any]) -> set[str]:
             for zeile in zeilen
         ):
             gefunden.add(name)
-    return gefunden
+    return _zahlen_weitergeben(gefunden, namen, texte, zeilen)
+
+
+#: Was einer Zuweisung eine Zahl als Wert gibt: eine Zahl, auch mit
+#: Vorzeichen oder Komma, oder ein Aufruf, der eine Zahl liefert.
+_ZAHLWERT = re.compile(
+    r"\s*(?:-?\d+(?:[.,]\d+)?|(?:random\.)?(?:randint|randrange|uniform|random)\("
+    r"|int\(|float\(|zahl\(|len\(|round\(|abs\()"
+)
+
+
+def _zahlen_weitergeben(
+    gefunden: set[str], namen: set[str], texte: list[str], zeilen: list[str]
+) -> set[str]:
+    """Erweitert `gefunden` um die Namen, die eine Zahl als Wert
+    bekommen („geheim ← 42“, „wurf ← randint(1, 6)“), die als
+    Laufvariable einer Zählschleife zählen, und um jeden Namen, der
+    mit einem dieser Namen verglichen oder verrechnet wird - so lange,
+    bis nichts mehr dazukommt.
+
+    Bis Punkt 622 zählte ein Vergleich nur mit einer Ziffer: aus
+    „geheim ← 42“, „Eingabe: tipp“ und „solange tipp != geheim“ wurde
+    `tipp = input(…)`, und die Schleife endete auch bei der richtigen
+    Eingabe nie."""
+    zahlen = set(gefunden)
+    for zeile in zeilen:
+        zuweisung = re.match(r"\s*(\w+)\s*(?:=(?!=)|←|:=)(.*)$", zeile)
+        if zuweisung and _ZAHLWERT.match(zuweisung.group(2)):
+            zahlen.add(zuweisung.group(1))
+        laufvariable = re.match(
+            r"\s*(?:(?:für|fuer|for)\s+)?(\w+)\s+(?:von|=)\s*-?\d", zeile, re.IGNORECASE
+        )
+        if laufvariable:
+            zahlen.add(laufvariable.group(1))
+    operator = r"(?:==|!=|<=|>=|=(?!=)|<|>|[-*/%+])"
+    while True:
+        neu = set()
+        for name in namen - zahlen:
+            n = re.escape(name)
+            for andere in zahlen:
+                a = re.escape(andere)
+                paar = re.compile(
+                    rf"(?<![\w.]){n}\s*{operator}\s*{a}(?![\w(])"
+                    rf"|(?<![\w.]){a}\s*{operator}\s*{n}(?![\w(])"
+                )
+                if any(
+                    paar.search(zeile) and not re.search("[\"']", zeile)
+                    for zeile in zeilen
+                ):
+                    neu.add(name)
+                    break
+            else:
+                # Eine Zuweisung, deren Wert eine Zahl enthält:
+                # „rest ← betrag - preis“.
+                for zeile in zeilen:
+                    zuweisung = re.match(rf"\s*{n}\s*(?:=(?!=)|←|:=)(.*)$", zeile)
+                    if zuweisung and not re.search("[\"']", zeile) and any(
+                        re.search(rf"(?<![\w.]){re.escape(z)}(?![\w(])", zuweisung.group(1))
+                        for z in zahlen
+                    ) and re.search(r"[-*/%+]", zuweisung.group(1)):
+                        neu.add(name)
+                        break
+        if not neu:
+            return zahlen
+        zahlen |= neu
 
 
 def _fallauswahl_mit_zahlen(knoten: Any) -> Iterator[str]:
@@ -925,12 +1031,21 @@ def _fallauswahl_mit_zahlen(knoten: Any) -> Iterator[str]:
             for fall in knoten.get("cases") or []
         ]
         if kopf.isidentifier() and any(
-            _zahlenliste(etikett) for etikett in etiketten
+            _zahlenliste(etikett) or _vergleich_mit_zahl(etikett)
+            for etikett in etiketten
         ):
             yield kopf
     for wert in knoten.values():
         if isinstance(wert, list | dict):
             yield from _fallauswahl_mit_zahlen(wert)
+
+
+def _vergleich_mit_zahl(etikett: str) -> bool:
+    """Ob die Fallbeschriftung mit einem Vergleich gegen eine Zahl
+    beginnt („< 0“, „= 0“, „>= 18“). Der Kopf darüber ist dann eine
+    Zahl; bis Punkt 626 blieb die Eingabe Text, und „< 0“ endete mit
+    einem TypeError."""
+    return bool(re.match(r"\s*(?:<=|>=|==|!=|<|>|=)\s*-?\d", etikett))
 
 
 def _zahlenliste(etikett: str) -> bool:

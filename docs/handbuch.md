@@ -477,7 +477,11 @@ Aufruf lautet `konto.getStand()`. Aus einer
 Fallauswahl wird dabei `match`/`case`, aus einer Mehrfachauswahl mit
 Bedingungen eine Kette aus `if`, `elif` und `else`. „Eingabe: zahl“
 wird zu `input(…)`, und wo `zahl` im Struktogramm wie eine Zahl benutzt
-wird, gleich zu einer Zahl, auch mit Komma eingetippt; „x ← 1“ wird zu
+wird, gleich zu einer Zahl, auch mit Komma eingetippt. Das gilt auch für
+einen Vergleich mit einer Variablen, die selbst eine Zahl ist, etwa
+„solange tipp != geheim“ nach „geheim ← 42“, und für eine Fallauswahl
+mit Fällen wie „< 0“. Ein Kommentar mit „#“ in einer Bedingung fällt im
+Code weg. „x ← 1“ wird zu
 `x = 1`, „wahr“ und „falsch“ zu `True` und `False`. Was kein Python
 ist, steht als Kommentar im Code, und über dem Code steht, wie viele
 Zeilen das sind. Jedes Diagramm lässt

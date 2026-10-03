@@ -1154,3 +1154,103 @@ def test_komma_in_der_zaehlschleife(kopf: str, erwartet: list | None) -> None:
     else:
         assert _ausfuehren(ergebnis) == erwartet
         assert ergebnis.anzahl == 0
+
+
+def _programm_mit_eingaben(monkeypatch, ergebnis: Ergebnis, *eingaben: str) -> list:  # noqa: ANN001
+    """Führt das erzeugte Programm mit diesen Eingaben aus."""
+    import builtins
+
+    rest = iter(eingaben)
+    monkeypatch.setattr(builtins, "input", lambda _frage="": next(rest))
+    return _ausfuehren(ergebnis)
+
+
+@pytest.mark.parametrize("schleife", [True, False], ids=["solange", "verzweigung"])
+def test_zahlenraten_vergleicht_mit_einem_namen_der_eine_zahl_ist(
+    monkeypatch, schleife: bool
+) -> None:  # noqa: ANN001
+    """Punkt 622: „tipp != geheim“ mit „geheim ← 42“ verglich Text mit
+    einer Zahl, und die Schleife endete auch bei 42 nie."""
+    if schleife:
+        ergebnis = als_python(_diagramm(
+            _anweisung("geheim ← 42"),
+            _anweisung("Eingabe: tipp"),
+            _block("head_loop", "solange tipp != geheim", children=[
+                _anweisung("spur.append('falsch')"),
+                _anweisung("Eingabe: tipp"),
+            ]),
+            _anweisung("spur.append('richtig')"),
+        ))
+        assert _programm_mit_eingaben(monkeypatch, ergebnis, "10", "42") == ["falsch", "richtig"]
+    else:
+        ergebnis = als_python(_diagramm(
+            _anweisung("geheim ← randint(1, 1)"),
+            _anweisung("Eingabe: tipp"),
+            _block("branch", "tipp == geheim?",
+                   then=[_anweisung("spur.append('richtig')")],
+                   **{"else": [_anweisung("spur.append('falsch')")]}),
+        ))
+        from random import randint
+
+        assert "float(input" in ergebnis.text
+        spur = []
+        import builtins
+
+        monkeypatch.setattr(builtins, "input", lambda _frage="": "1")
+        raum = {"spur": spur, "randint": randint}
+        exec(ergebnis.text, raum)
+        raum["ampel_zeichnen"]()
+        assert spur == ["richtig"]
+
+
+@pytest.mark.parametrize(
+    ("eingabe", "erwartet"), [("-3", "negativ"), ("0", "null"), ("2,5", "positiv")]
+)
+def test_fallauswahl_mit_vergleichen_macht_den_kopf_zur_zahl(
+    monkeypatch, eingabe: str, erwartet: str
+) -> None:  # noqa: ANN001
+    """Punkt 626: Fälle wie „< 0“ ließen die Eingabe Text, der Lauf
+    endete mit einem TypeError."""
+    ergebnis = als_python(_diagramm(
+        _anweisung("Eingabe: x"),
+        _block("multi_branch", "x", cases=[
+            {"label": "< 0", "children": [_anweisung("spur.append('negativ')")]},
+            {"label": "= 0", "children": [_anweisung("spur.append('null')")]},
+            {"label": "sonst", "children": [_anweisung("spur.append('positiv')")]},
+        ]),
+    ))
+    assert _programm_mit_eingaben(monkeypatch, ergebnis, eingabe) == [erwartet]
+
+
+def test_fussschleife_mit_bis_bleibt_kommazahl(monkeypatch) -> None:  # noqa: ANN001
+    """Punkt 627: „wiederhole bis betrag > 0“ ergab `int(input(…))`,
+    und „2,5“ endete mit einem ValueError."""
+    ergebnis = als_python(_diagramm(
+        _block("foot_loop", "wiederhole bis betrag > 0", children=[
+            _anweisung("Eingabe: betrag"),
+        ]),
+        _anweisung("spur.append(betrag)"),
+    ))
+    assert "int(input" not in ergebnis.text
+    assert _programm_mit_eingaben(monkeypatch, ergebnis, "-1", "2,5") == [2.5]
+
+
+@pytest.mark.parametrize(
+    "block",
+    [
+        _block("branch", "x > 0 # positiv", then=[_anweisung("pass")]),
+        _block("head_loop", "solange x > 5 # zu groß", children=[_anweisung("x = x - 1")]),
+        _block("foot_loop", "wiederhole bis x < 3 # klein", children=[_anweisung("x = x - 1")]),
+        _block("multi_branch", "x", cases=[
+            {"label": "1 # eins", "children": [_anweisung("pass")]},
+            {"label": "sonst", "children": [_anweisung("pass")]},
+        ]),
+    ],
+    ids=["verzweigung", "kopfschleife", "fussschleife", "fallauswahl"],
+)
+def test_ein_kommentar_im_kopf_ergibt_gueltigen_code(block: dict) -> None:
+    """Punkt 636: aus „x > 0 # positiv“ wurde `if x > 0 # positiv:`."""
+    ergebnis = als_python(_diagramm(_anweisung("x = 9"), block))
+    _pruefen(ergebnis)
+    assert ergebnis.anzahl == 0
+    _ausfuehren(ergebnis)
