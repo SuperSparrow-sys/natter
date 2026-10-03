@@ -458,3 +458,26 @@ def test_tabelle_laesst_sich_als_pdf_exportieren(
 
     assert pfad.read_bytes().startswith(b"%PDF")
     assert pfad.stat().st_size > 1000
+
+
+def test_eine_lange_bedingung_bricht_um_statt_abgeschnitten_zu_werden() -> None:
+    """Punkt 499: „Hat die Person einen gültigen Schülerausweis oder
+    Studierendenausweis dabei?“ endete mitten im Wort. Die Zeile wird
+    höher, und die Zellen der Regeln wachsen mit."""
+    from ide.diagramm.tabelle import ZEILENHOEHE, tabellengroesse, zeilenhoehe, zellen
+
+    kurz = {"text": "Alter unter 18?", "values": ["J"]}
+    lang = {
+        "text": "Hat die Person einen gültigen Schülerausweis oder "
+        "Studierendenausweis dabei?",
+        "values": ["N"],
+    }
+    daten = {"conditions": [kurz, lang], "actions": []}
+
+    assert zeilenhoehe(kurz) == ZEILENHOEHE
+    assert zeilenhoehe(lang) > ZEILENHOEHE
+    regelzelle = [z for z in zellen(daten) if z.zeile == 1 and z.spalte == 0][0]
+    assert regelzelle.rechteck.height() == zeilenhoehe(lang)
+    assert tabellengroesse(daten)[1] > tabellengroesse(
+        {"conditions": [kurz, kurz], "actions": []}
+    )[1]

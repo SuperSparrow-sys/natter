@@ -13142,3 +13142,17 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** Höhe aus der Schrift, Schriftfarbe nach Helligkeit des Hintergrunds. Erledigt, wenn ein Bild bei 150 % beide Aufschriften ganz und lesbar zeigt.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** `FarbKnopf` ohne feste Höhe, mit etwas Innenabstand und mit weißer Schrift auf dunklem, schwarzer auf hellem Grund (`QColor.lightness`). Am Bild des Panels bei 150 % geprüft.
+
+---
+
+## 499. Entscheidungstabelle: eine lange Bedingung endet mitten im Wort ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht Entscheidungstabelle aus Schülersicht, Entwicklungsstand `dece42e`.
+
+**Beobachtet:** Tabelle „kino“ mit vier Regeln. Die Bedingung „Hat die Person einen gültigen Schülerausweis oder Studierendenausweis dabei?“ steht auf dem Bildschirm und im PNG-Export als „Hat die Person einen gültigen Schülerausweis oder Studier“, ohne Umbruch und ohne Hinweis. Ausschreiben ist im Unterricht aber üblich. Bedingungen und Aktionen anlegen, Zellen per Klick schalten (J, N, *, X), Regeln hinzufügen, Rückgängig über 25 Schritte, Speichern und Neuladen arbeiten richtig.
+
+**Ursache:** nachgewiesen. `tabellengroesse`, `zellen` und `tabelle_zeichnen` in `ide/diagramm/tabelle.py` geben jeder Zeile die feste Höhe `ZEILENHOEHE` und zeichnen den Text einzeilig.
+
+**Zu tun:** Text umbrechen und die Zeile samt ihren Regelzellen mitwachsen lassen. Erledigt, wenn ein Test eine lange Bedingung höher findet als eine kurze und das Bild den ganzen Text zeigt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Neue Funktion `zeilenhoehe` misst den umbrochenen Text in der Breite der Textspalte (`QFontMetricsF`, `TextWordWrap`), mindestens `ZEILENHOEHE`. Größe, Zellen für Klick und Auswahl und das Zeichnen verwenden sie; der Text wird umbrochen gezeichnet. Bildschirm, PNG, SVG und PDF benutzen denselben Code. Am exportierten Bild geprüft. Test: `test_eine_lange_bedingung_bricht_um_statt_abgeschnitten_zu_werden` in `tests/test_diagramm_tabelle.py`; mit der Datei aus `HEAD` scheitert er.

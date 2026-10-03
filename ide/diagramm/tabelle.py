@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen
+from PySide6.QtGui import QBrush, QColor, QFont, QFontMetricsF, QPainter, QPen
 
 from ide.diagramm.stil import Stil
 
@@ -73,11 +73,28 @@ def _schrift(groesse: int = 9, fett: bool = False) -> QFont:
     return schrift
 
 
+def zeilenhoehe(zeile: dict[str, Any]) -> float:
+    """Die Höhe einer Zeile: eine Textzeile, oder mehr, wenn die
+    Beschriftung umbricht.
+
+    Bis 0.4.3 hatte jede Zeile dieselbe Höhe, und eine lange Bedingung
+    endete mitten im Wort, auf dem Bildschirm wie in der Abgabe
+    (Punkt 499)."""
+    text = str(zeile.get("text", ""))
+    if not text:
+        return ZEILENHOEHE
+    rahmen = QFontMetricsF(_schrift()).boundingRect(
+        QRectF(0, 0, TEXTSPALTE - 2 * INNENABSTAND, 10_000),
+        int(Qt.TextFlag.TextWordWrap),
+        text,
+    )
+    return max(ZEILENHOEHE, rahmen.height() + INNENABSTAND)
+
+
 def tabellengroesse(daten: dict[str, Any]) -> tuple[float, float]:
-    bedingungen = daten.get("conditions") or []
-    aktionen = daten.get("actions") or []
+    zeilen = [*(daten.get("conditions") or []), *(daten.get("actions") or [])]
     breite = TEXTSPALTE + max(1, regelanzahl(daten)) * REGELSPALTE
-    hoehe = 2 * KOPFHOEHE + (len(bedingungen) + len(aktionen)) * ZEILENHOEHE
+    hoehe = 2 * KOPFHOEHE + sum(zeilenhoehe(zeile) for zeile in zeilen)
     return breite, hoehe
 
 
@@ -90,9 +107,10 @@ def zellen(daten: dict[str, Any], x: float = 0, y: float = 0) -> list[Zelle]:
 
     for teil in ("conditions", "actions"):
         oben += KOPFHOEHE  # Überschriftenzeile
-        for nummer, _ in enumerate(daten.get(teil) or []):
+        for nummer, zeile in enumerate(daten.get(teil) or []):
+            hoehe = zeilenhoehe(zeile)
             ergebnis.append(
-                Zelle(teil, nummer, -1, QRectF(x, oben, TEXTSPALTE, ZEILENHOEHE))
+                Zelle(teil, nummer, -1, QRectF(x, oben, TEXTSPALTE, hoehe))
             )
             for spalte in range(spalten):
                 ergebnis.append(
@@ -104,11 +122,11 @@ def zellen(daten: dict[str, Any], x: float = 0, y: float = 0) -> list[Zelle]:
                             x + TEXTSPALTE + spalte * REGELSPALTE,
                             oben,
                             REGELSPALTE,
-                            ZEILENHOEHE,
+                            hoehe,
                         ),
                     )
                 )
-            oben += ZEILENHOEHE
+            oben += hoehe
     return ergebnis
 
 
@@ -172,22 +190,27 @@ def tabelle_zeichnen(
         oben += KOPFHOEHE
 
         for zeile in daten.get(teil) or []:
+            hoehe_zeile = zeilenhoehe(zeile)
             maler.setPen(QColor(stil.text))
             maler.setFont(_schrift())
             maler.drawText(
-                QRectF(x + INNENABSTAND, oben, TEXTSPALTE - 2 * INNENABSTAND, ZEILENHOEHE),
-                int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
+                QRectF(x + INNENABSTAND, oben, TEXTSPALTE - 2 * INNENABSTAND, hoehe_zeile),
+                int(
+                    Qt.AlignmentFlag.AlignLeft
+                    | Qt.AlignmentFlag.AlignVCenter
+                    | Qt.TextFlag.TextWordWrap
+                ),
                 str(zeile.get("text", "")),
             )
             for spalte in range(spalten):
                 maler.drawText(
                     QRectF(
-                        x + TEXTSPALTE + spalte * REGELSPALTE, oben, REGELSPALTE, ZEILENHOEHE
+                        x + TEXTSPALTE + spalte * REGELSPALTE, oben, REGELSPALTE, hoehe_zeile
                     ),
                     int(Qt.AlignmentFlag.AlignCenter),
                     wert(zeile, spalte),
                 )
-            oben += ZEILENHOEHE
+            oben += hoehe_zeile
             maler.setPen(_stift(stil))
             trennlinie = QRectF(x, oben, breite, 0)
             maler.drawLine(trennlinie.topLeft(), trennlinie.topRight())
