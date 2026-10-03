@@ -130,3 +130,26 @@ def test_timer_prueft_typen_und_unbekannte_eigenschaften() -> None:
         zeitgeber.interval = "schnell"
     with pytest.raises(NatterUnbekannteEigenschaftError):
         zeitgeber.intervall = 100
+
+
+def test_im_designer_tickt_ein_zeitgeber_nicht_und_gehoert_dem_formular() -> None:
+    """Punkt 534: Die Uhr eines Zeitgebers auf einem Formular hatte
+    keine Eltern und lief im Designer los. Gehörte sie Python, konnte
+    die Speicherbereinigung sie in einem Nebenfaden abräumen, und Qt
+    behielt den Timer angemeldet. Jetzt hängt sie am Symbol-Widget,
+    und im Designer läuft sie nicht - `enabled` bleibt dabei stehen."""
+    from pathlib import Path
+
+    from ide.designer.laden import formular_fuer_designer_laden
+
+    pfm = Path(__file__).parent.parent / "beispielprojekte" / "09_ObstSortierer" / "u_main.pfm"
+    formular = formular_fuer_designer_laden(pfm)
+    zeitgeber = formular.t_lernen
+
+    assert zeitgeber.enabled
+    assert not zeitgeber._qtimer.isActive()
+    assert zeitgeber._qtimer.parent() is zeitgeber._qwidget
+
+    zeitgeber.enabled = False
+    zeitgeber.enabled = True
+    assert not zeitgeber._qtimer.isActive()

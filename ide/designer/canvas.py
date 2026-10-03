@@ -849,7 +849,16 @@ class _EscapeWache(QObject):
 
 class DesignerCanvas(QObject):
     def __init__(self, formular: Form, pfm_pfad: Path | None = None) -> None:
-        super().__init__()
+        # Das Formular-Widget als Eltern: der Designer lebt und stirbt
+        # mit seinem Formular, im Hauptfaden. Ohne Eltern gehörte er
+        # Python, und weil das Hauptfenster ihn über Lambdas festhält,
+        # räumte ihn erst die Speicherbereinigung ab - in irgendeinem
+        # Python-Faden, etwa dem Lesefaden von jedi. Dort konnte Qt
+        # die laufende Schreib-Uhr nicht abmelden, und sie feuerte
+        # danach in freigegebenen Speicher: Natter stürzte ab (Punkt
+        # 534, am Speicherabbild nachgewiesen: Timer mit 400 ms in
+        # `QEventDispatcherWin32Private::sendTimerEvent`).
+        super().__init__(formular._qwidget)
         self.formular = formular
         self.pfm_pfad = Path(pfm_pfad) if pfm_pfad is not None else None
         # Namenskonvention aus Abschnitt 4.1: u_main.pfm <-> u_main.py

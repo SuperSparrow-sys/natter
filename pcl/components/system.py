@@ -104,6 +104,13 @@ class Timer(Control):
         self._qtimer.setInterval(self.interval)
         self._qtimer.timeout.connect(self._bei_zeitpunkt)
         super().__init__(parent)
+        # Auf einem Formular gehört die Uhr dem Symbol-Widget und endet
+        # mit dem Formular im Hauptfaden. Ohne Eltern gehörte sie Python;
+        # räumte die Speicherbereinigung sie in einem anderen Faden ab,
+        # blieb sie bei Qt angemeldet und feuerte in freigegebenen
+        # Speicher (Punkt 534, dort an der Schreib-Uhr des Designers).
+        if self._qwidget is not None and self._qwidget.parent() is not None:
+            self._qtimer.setParent(self._qwidget)
         # Das Formular hält seine Timer an, wenn es geschlossen wird,
         # und lässt sie beim nächsten `show()` wieder laufen.
         formular = self._formular()
@@ -111,8 +118,15 @@ class Timer(Control):
             liste = formular.__dict__.get("_zeitgeber")
             if liste is not None:
                 liste.append(self)
-        if self.enabled:
+        if self._darf_laufen():
             self._qtimer.start()
+
+    def _darf_laufen(self) -> bool:
+        """Ob die Uhr ticken soll. Im Designer nie: dort ist ein
+        Zeitgeber nur das Symbol, das man anklickt, und `enabled`
+        beschreibt das spätere Programm."""
+        formular = self._formular()
+        return self.enabled and not getattr(formular, "_entwurfsansicht", False)
 
     def _qwidget_erzeugen(self, eltern_widget: QWidget | None) -> QWidget:
         return _ZeitgeberSymbol(eltern_widget)
@@ -129,7 +143,7 @@ class Timer(Control):
             # Zeit verwerfen.
             self._qtimer.setInterval(wert)
         elif name == "enabled":
-            if wert:
+            if self._darf_laufen():
                 self._qtimer.start()
             else:
                 self._qtimer.stop()

@@ -129,3 +129,34 @@ def test_formular_theme_stylesheet_bleibt_beim_erzeugen_erhalten() -> None:
 
     assert "#1e1e1e" in formular._qwidget.styleSheet()  # Theme-Farbe weiterhin da
     assert urspruenglich in formular._qwidget.styleSheet()
+
+
+def test_der_designer_stirbt_mit_seinem_formular_im_hauptfaden() -> None:
+    """Punkt 534: Der Designer gehörte Python und hing, wie im
+    Hauptfenster, über einen Beobachter an sich selbst. Abgeräumt hat
+    ihn dann die Speicherbereinigung, auch in einem Nebenfaden; dort
+    blieb seine laufende Schreib-Uhr bei Qt angemeldet und feuerte in
+    freigegebenen Speicher. Jetzt gehört er dem Formular-Widget und
+    geht mit ihm, samt Uhr."""
+    import gc
+    import threading
+
+    import shiboken6
+    from PySide6.QtCore import QCoreApplication, QEvent
+
+    formular = _Formular()
+    canvas = DesignerCanvas(formular)
+    # Ein Zyklus wie im Hauptfenster, wo Lambdas den Designer halten.
+    canvas._zyklus = canvas
+    canvas.komponente_platzieren(Label, 50, 50)
+    assert canvas._schreib_uhr.isActive()
+
+    formular._qwidget.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+
+    assert not shiboken6.isValid(canvas)
+    del canvas, formular
+    faden = threading.Thread(target=gc.collect)
+    faden.start()
+    faden.join()
+    QCoreApplication.processEvents()

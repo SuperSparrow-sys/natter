@@ -648,7 +648,7 @@ im laufenden Programm ist er nicht zu sehen.
 
 Ein Doppelklick auf die Uhr legt die Methode für `on_timer` an. Ein
 frisch erzeugter Zeitgeber läuft sofort los; `enabled = False` hält
-ihn an. Im Code geht es auch:
+ihn an. Im Designer läuft er nie, dort ist er nur das Symbol. Im Code geht es auch:
 
 ```python
 self.t_ampel = Timer(self)

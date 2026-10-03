@@ -484,7 +484,7 @@ class Form(Komponente):
         for zeitgeber in alle:
             if not an:
                 zeitgeber._qtimer.stop()
-            elif zeitgeber.enabled and not zeitgeber._qtimer.isActive():
+            elif zeitgeber._darf_laufen() and not zeitgeber._qtimer.isActive():
                 zeitgeber._qtimer.start()
 
     def close(self) -> None:
