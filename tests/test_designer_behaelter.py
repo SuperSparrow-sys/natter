@@ -253,3 +253,22 @@ def test_ein_formular_ohne_behaelter_verhaelt_sich_wie_bisher() -> None:
 
     assert [name for name, _ in kind_komponenten(formular)] == ["b_ein", "l_text"]
     assert formular.b_ein.eltern is formular
+
+
+@pytest.mark.parametrize("art", ["MainMenu", "PopupMenu", "Timer"])
+def test_menues_und_zeitgeber_landen_nie_in_einem_behaelter(
+    canvas: DesignerCanvas, art: str
+) -> None:
+    """Punkt 593: ein Menü über einem Panel wurde dessen Kind, und das
+    erzeugte Programm fand die Methoden des Formulars nicht."""
+    import pcl
+
+    panel = canvas.komponente_platzieren(Panel, 40, 40)
+    panel.width, panel.height = 200, 150
+    symbol = canvas.komponente_platzieren(getattr(pcl, art), 60, 70)
+
+    assert symbol.eltern is canvas.formular
+    canvas.jetzt_schreiben()
+    pfm = json.loads((canvas._pfad / "u_main.pfm").read_text("utf-8"))
+    code = design_code_erzeugen(pfm, "u_main.pfm")
+    assert f"{art}(self)" in code

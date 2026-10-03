@@ -120,11 +120,79 @@ def _trennzeichen_erkennen(datei: Path) -> str:
     return haeufigstes if kopfzeile.count(haeufigstes) else ","
 
 
-def _ist_positiv(wert: Any) -> bool:
+def _als_liste(werte: Any, methode: str, was: str) -> list[Any]:
+    if isinstance(werte, (str, bytes)) or werte is None:
+        raise NatterDatenError(
+            f"{methode}: {was} müssen eine Liste sein, erhalten wurde "
+            f"{type(werte).__name__}."
+        )
     try:
-        return float(wert) > 0
-    except (TypeError, ValueError):
-        return False
+        return list(werte)
+    except TypeError:
+        raise NatterDatenError(
+            f"{methode}: {was} müssen eine Liste sein, erhalten wurde "
+            f"{type(werte).__name__}."
+        ) from None
+
+
+def _zahlenliste(werte: Any, methode: str, was: str) -> list[float]:
+    """`werte` als Kommazahlen. Text wie aus `Edit.text` wird wie mit
+    `pcl.zahl` gelesen, auch mit Dezimalkomma. Bis 0.4.3 zeichnete
+    matplotlib Text still als Kategorien, und `None` endete englisch
+    (Punkt 598)."""
+    from pcl.zahlen import zahl
+
+    ergebnis = []
+    for nummer, wert in enumerate(_als_liste(werte, methode, was), start=1):
+        if isinstance(wert, str):
+            try:
+                ergebnis.append(zahl(wert))
+            except Exception:
+                raise NatterDatenError(
+                    f"{methode}: {was} müssen Zahlen sein. Der {nummer}. Wert "
+                    f"„{wert}“ ist keine Zahl."
+                ) from None
+            continue
+        if wert is None or isinstance(wert, bool):
+            raise NatterDatenError(
+                f"{methode}: {was} müssen Zahlen sein. Der {nummer}. Wert ist "
+                f"{wert!r}."
+            )
+        try:
+            ergebnis.append(float(wert))
+        except (TypeError, ValueError):
+            raise NatterDatenError(
+                f"{methode}: {was} müssen Zahlen sein. Der {nummer}. Wert ist "
+                f"{wert!r}."
+            ) from None
+    return ergebnis
+
+
+def _zahlen_wenn_moeglich(werte: list[Any]) -> list[Any]:
+    """x-Werte als Zahlen, wenn alle welche sind - sonst bleiben sie,
+    was sie sind, etwa Monatsnamen als Kategorien."""
+    from pcl.zahlen import zahl
+
+    zahlen = []
+    for wert in werte:
+        if isinstance(wert, str):
+            try:
+                zahlen.append(zahl(wert))
+            except Exception:
+                return werte
+        elif isinstance(wert, (int, float)) and not isinstance(wert, bool):
+            zahlen.append(wert)
+        else:
+            return werte
+    return zahlen
+
+
+def _gleich_lang(a: list[Any], b: list[Any], methode: str, name_a: str, name_b: str) -> None:
+    if len(a) != len(b):
+        raise NatterDatenError(
+            f"{methode}: {len(a)} {name_a}, aber {len(b)} {name_b}. Zu jedem "
+            "Wert gehört genau einer aus der anderen Liste."
+        )
 
 
 def _deutsche_zahl_oder_nichts(wert: Any) -> float | None:
@@ -268,6 +336,12 @@ class Chart(Control):
         # aktualisierung den per Aufruf gesetzten Titel wieder löschen
         # würde (der Prop ist im Normalfall leer).
         self._serientitel = ""
+        #: Wie viele Serien einen Titel mitbrachten. Nur bei genau einer
+        #: wird er zur Überschrift; bei mehreren gehören die Titel in die
+        #: Legende (Punkt 621).
+        self._serientitel_anzahl = 0
+        #: Ob ein Neuzeichnen schon eingeplant ist (Punkt 614).
+        self._zeichnen_geplant = False
         self._beispiel_sichtbar = False
         # Einziger Datenweg (M10, Abschnitt 7): load_csv/load_query/
         # load_grid enden alle hier, Diagramm und Regression wissen
@@ -294,6 +368,9 @@ class Chart(Control):
         return canvas
 
     def add_bar_series(self, kategorien: Any, werte: Any, *, title: str = "") -> None:
+        kategorien = _als_liste(kategorien, "add_bar_series", "Die Kategorien")
+        werte = _zahlenliste(werte, "add_bar_series", "Die Werte")
+        _gleich_lang(kategorien, werte, "add_bar_series", "Kategorien", "Werte")
         self._beispiel_verwerfen()
         self._achse.bar(
             kategorien, werte, color=self._naechste_farbe(), label=title or _OHNE_LEGENDE
@@ -301,14 +378,30 @@ class Chart(Control):
         self._nach_serie(title)
 
     def add_line_series(self, x: Any, y: Any, *, title: str = "") -> None:
+        x = _zahlen_wenn_moeglich(_als_liste(x, "add_line_series", "Die x-Werte"))
+        y = _zahlenliste(y, "add_line_series", "Die y-Werte")
+        _gleich_lang(x, y, "add_line_series", "x-Werte", "y-Werte")
         self._beispiel_verwerfen()
-        self._achse.plot(x, y, color=self._naechste_farbe(), label=title or _OHNE_LEGENDE)
+        # Ein einzelner Punkt ist als Linie unsichtbar; mit Marker ist
+        # er zu sehen (Punkt 621).
+        marker = "o" if len(y) == 1 else None
+        self._achse.plot(
+            x, y, color=self._naechste_farbe(), marker=marker,
+            label=title or _OHNE_LEGENDE,
+        )
         self._letzte_punkte = (x, y)
         self._nach_serie(title)
 
     def add_pie_series(self, labels: Any, werte: Any, *, title: str = "") -> None:
-        liste = list(werte)
-        if not any(_ist_positiv(wert) for wert in liste):
+        labels = _als_liste(labels, "add_pie_series", "Die Beschriftungen")
+        liste = _zahlenliste(werte, "add_pie_series", "Die Werte")
+        _gleich_lang(labels, liste, "add_pie_series", "Beschriftungen", "Werte")
+        if any(wert < 0 for wert in liste):
+            raise NatterDatenError(
+                "add_pie_series: Ein Kreisdiagramm kann keine negativen Werte "
+                "zeigen; ein Stück lässt sich nicht kleiner als nichts zeichnen."
+            )
+        if not any(wert > 0 for wert in liste):
             # matplotlib meldete englisch „All wedge sizes are zero“
             # (Punkt 592).
             raise NatterDatenError(
@@ -324,6 +417,9 @@ class Chart(Control):
         self._nach_serie(title)
 
     def add_scatter_series(self, x: Any, y: Any, *, title: str = "") -> None:
+        x = _zahlen_wenn_moeglich(_als_liste(x, "add_scatter_series", "Die x-Werte"))
+        y = _zahlenliste(y, "add_scatter_series", "Die y-Werte")
+        _gleich_lang(x, y, "add_scatter_series", "x-Werte", "y-Werte")
         self._beispiel_verwerfen()
         self._achse.scatter(x, y, color=self._naechste_farbe(), label=title or _OHNE_LEGENDE)
         self._letzte_punkte = (x, y)
@@ -333,6 +429,12 @@ class Chart(Control):
         """Häufigkeitsverteilung einer einzelnen Messreihe – anders als
         `add_bar_series` bekommt die Methode rohe Einzelwerte und zählt
         selbst, wie oft sie in welchen Bereich fallen."""
+        werte = _zahlenliste(werte, "add_histogram_series", "Die Werte")
+        if isinstance(bins, bool) or not isinstance(bins, int) or bins < 1:
+            raise NatterDatenError(
+                f"add_histogram_series: bins ist die Zahl der Bereiche und muss "
+                f"eine ganze Zahl ab 1 sein, erhalten wurde {bins!r}."
+            )
         self._beispiel_verwerfen()
         self._achse.hist(
             werte, bins=bins, color=self._naechste_farbe(), label=title or _OHNE_LEGENDE
@@ -619,6 +721,7 @@ class Chart(Control):
         self._achse.clear()
         self._serienanzahl = 0
         self._serientitel = ""
+        self._serientitel_anzahl = 0
         self._letzte_punkte = None
         # Kein Zurückfallen auf die Beispieldaten: `clear()` ruft nur
         # Programmcode auf, und der meint ein leeres Diagramm.
@@ -715,17 +818,34 @@ class Chart(Control):
                 achse.isDefault_majfmt = True
 
     def _neu_zeichnen(self) -> None:
-        """Zeichnet neu – aber nur, solange es das Qt-Widget noch gibt.
+        """Plant ein Neuzeichnen für den nächsten Durchlauf der
+        Ereignisschleife ein.
 
-        `draw_idle()` merkt sich das Neuzeichnen und führt es erst im
-        nächsten Durchlauf der Ereignisschleife aus. Ist das Formular
-        bis dahin geschlossen, ist das C++-Objekt der Leinwand weg und
+        Bis 0.4.3 zeichnete jedes `clear()` und jede neue Reihe sofort:
+        `clear()` mit einer Reihe kostete gut 200 ms, und ein Diagramm
+        mit Zeitgeber schaffte nur vier Bilder in der Sekunde
+        (Punkt 614). Jetzt wird gebündelt und einmal gezeichnet.
+
+        Nicht über matplotlibs `draw_idle()`: ist das Formular bis
+        dahin geschlossen, ist das C++-Objekt der Leinwand weg, und
         matplotlib bricht mit `RuntimeError: libshiboken: Internal C++
-        object (FigureCanvasQTAgg) already deleted` ab – als Traceback
-        auf der Konsole, mitten im Programm einer Schülerin. Deshalb
-        wird hier direkt gezeichnet: die Diagramme sind klein, und ein
-        nicht eingeplantes Neuzeichnen kann auch nicht zu spät kommen.
-        """
+        object (FigureCanvasQTAgg) already deleted` ab. `_jetzt_zeichnen`
+        fragt vorher, ob es das Widget noch gibt.
+
+        Den Komma-Formatter bekommt die Achse sofort: er kostet nichts,
+        und wer selbst `canvas.draw()` ruft, sieht dann schon Kommas."""
+        self._dezimalkomma_anwenden()
+        if self._zeichnen_geplant:
+            return
+        self._zeichnen_geplant = True
+        from PySide6.QtCore import QTimer
+
+        QTimer.singleShot(0, self._jetzt_zeichnen)
+
+    def _jetzt_zeichnen(self) -> None:
+        """Zeichnet sofort – aber nur, solange es das Qt-Widget noch
+        gibt."""
+        self._zeichnen_geplant = False
         if isValid(self._qwidget):
             self._dezimalkomma_anwenden()
             self._qwidget.draw()
@@ -835,7 +955,10 @@ class Chart(Control):
 
     def _nach_serie(self, title: str) -> None:
         if title:
-            self._serientitel = title
+            self._serientitel_anzahl += 1
+            # Zwei Reihen „Jungen“ und „Mädchen“ ergaben sonst die
+            # Überschrift „Mädchen“ (Punkt 621).
+            self._serientitel = title if self._serientitel_anzahl == 1 else ""
         self._beschriftung_anwenden()
         self._neu_zeichnen()
 

@@ -353,6 +353,11 @@ Eine Auswahlliste zum Aufklappen.
 |---|---|---|
 | on_change | (self, sender) | ein anderer Eintrag wird ausgewählt |
 
+Werden `items` gefüllt, solange nichts ausgewählt ist, steht danach
+der erste Eintrag da (`item_index` 0), wie bei jeder Aufklappliste;
+`item_index = -1` hebt die Auswahl wieder auf. Fällt der gewählte
+Eintrag beim Neufüllen weg, wird es -1.
+
 `item_index` und `text` halten sich gegenseitig auf dem gleichen Stand.
 Ein `text`, der nicht in `items` steht, lässt die Auswahl, wie sie
 ist; `text` liefert danach den Eintrag, der tatsächlich zu sehen ist.
@@ -686,8 +691,9 @@ Ein Eintrag hat diese Felder:
 |---|---|
 | `name` | Bezeichner im Quelltext, z. B. `mi_datei_beenden` |
 | `caption` | Was dasteht. Ein `&` macht den nächsten Buchstaben zum Zugriffsbuchstaben (`&Datei` → Alt+D) |
-| `shortcut` | Tastenkürzel, deutsch geschrieben: `Strg+Q`, `Strg+Umschalt+S`, `Strg+Ende`, `Strg+Bild auf`. Ein Kürzel, das sich nicht umsetzen lässt, lehnt das Menü mit einer Meldung ab |
+| `shortcut` | Tastenkürzel, deutsch geschrieben: `Strg+Q`, `Strg+Umschalt+S`, `Strg+Ende`, `Strg+Bild auf`, `Alt+Pfeil links`, `Druck`. Ein Kürzel, das sich nicht umsetzen lässt, lehnt das Menü mit einer Meldung ab |
 | `enabled` | Ob der Eintrag anklickbar ist |
+| `visible` | Ob der Eintrag im Menü steht |
 | `checkable` | Macht den Eintrag zu einem Umschalter wie „Raster anzeigen“ |
 | `checked` | Ob das Häkchen gesetzt ist. Ein Klick schreibt den neuen Zustand hierher zurück, bevor `on_click` läuft: `self.mm_haupt.eintrag("mi_raster")["checked"]` |
 | `separator` | Eine Trennlinie – ohne Beschriftung und ohne Ereignis |
@@ -752,7 +758,30 @@ self.sg_tabelle.popup_menu = self.pm_tabelle
 wieder weg. Dasselbe Klappmenü darf an mehreren Komponenten hängen.
 
 Ein Tastenkürzel eines Eintrags wirkt wie bei `MainMenu` im ganzen
-Fenster, auch solange das Klappmenü zu ist.
+Fenster, auch solange das Klappmenü zu ist. Trägt das Hauptmenü oder
+ein anderes Klappmenü dasselbe Kürzel, gilt es dort: eine Taste löst
+immer genau einen Eintrag aus.
+
+Hängt ein Klappmenü an mehreren Komponenten, sagt `popup_component`,
+an welcher es aufging; bei einem Tastenkürzel ist es die Komponente mit
+dem Fokus, wenn ihr dieses Klappmenü zugeordnet ist:
+
+```python
+def mi_loeschen_click(self, sender):
+    liste = sender.popup_component
+    if liste is not None and liste.item_index >= 0:
+        del liste.items[liste.item_index]
+```
+
+Eine Gruppe, in der genau ein Eintrag angekreuzt ist, gibt es nicht
+fertig; die Methode kreuzt dazu die übrigen ab:
+
+```python
+def mi_gross_click(self, sender):
+    for name in ("mi_klein", "mi_gross"):
+        self.mm_haupt.eintrag(name)["checked"] = name == "mi_gross"
+    self.mm_haupt.aktualisieren()
+```
 
 ## GroupBox
 
@@ -837,7 +866,19 @@ Methoden zum Zeichnen: `add_bar_series(kategorien, werte, *, title="")`,
 `add_scatter_series(x, y, *, title="")`,
 `add_histogram_series(werte, *, bins=10, title="")`,
 `add_boxplot_series(werte, *, title="")`, `clear()`. Alle nehmen Listen
-und pandas-Serien entgegen.
+und pandas-Serien entgegen. Werte als Text, etwa aus `Edit.text`,
+werden wie mit `zahl()` gelesen, auch mit Dezimalkomma; ungleich lange
+Listen, fehlende Werte (`None`) und negative Stücke eines
+Kreisdiagramms lehnt das Diagramm mit einer Meldung ab. Ein `title`
+einer Reihe steht in der Legende; bringt nur eine Reihe einen Titel
+mit und ist die Eigenschaft `title` leer, wird er zur Überschrift.
+
+`kind` bestimmt, wie geladene Daten (`load_*`) und die Vorschau
+gezeichnet werden; Reihen aus `add_*_series` haben ihre Art schon im
+Namen. Die Achsenbereiche wählt das Diagramm selbst aus den Daten.
+Neu gezeichnet wird im nächsten Durchlauf der Ereignisschleife, einmal
+für alle Änderungen dazwischen; ein `clear()` mit neuen Reihen im
+Zeitgeber kostet so nur ein Zeichnen.
 
 Methoden zum Laden von Daten:
 
@@ -887,14 +928,36 @@ Feld gar nicht erst an.
 |---|---|---|
 | on_change | (self, sender) | jede Änderung des Textes |
 
-In der Maske steht `0` für eine Ziffer (Pflicht), `9` für eine Ziffer
-(freiwillig), `A` für einen Buchstaben (Pflicht) und `N` für einen
-Buchstaben oder eine Ziffer. Alles andere steht fest da.
+Die Zeichen der Maske:
+
+| Zeichen | Bedeutung |
+|---|---|
+| `0` / `9` | Ziffer, Pflicht / freiwillig |
+| `D` / `d` | Ziffer 1 bis 9, Pflicht / freiwillig |
+| `A` / `a` | Buchstabe, Pflicht / freiwillig |
+| `N` / `n` | Buchstabe oder Ziffer, Pflicht / freiwillig |
+| `X` / `x` | beliebiges Zeichen außer Leerzeichen, Pflicht / freiwillig |
+| `H` / `h` | Hexadezimalziffer, Pflicht / freiwillig |
+| `B` / `b` | 0 oder 1, Pflicht / freiwillig |
+| `#` | Ziffer, Plus oder Minus, freiwillig |
+| `>` / `<` / `!` | ab hier Großbuchstaben / Kleinbuchstaben / wieder wie getippt |
+| `;` | danach steht das Füllzeichen für leere Stellen |
+| `\` | das nächste Zeichen steht fest da |
+
+Alles andere steht fest da. Kommt eines der Zeichen in festem Text
+vor, bekommt es einen Rückstrich davor. In „Datum: “ sind `D` und `a`
+Maskenzeichen, daraus wird `\D\atum: `, am einfachsten als Rohtext
+mit `r` davor:
 
 ```python
-self.me_plz.mask = "00000"            # 12345
-self.me_datum.mask = "00.00.0000"     # 20.09.2026
+self.me_plz.mask = "00000"                     # 12345
+self.me_datum.mask = "00.00.0000"              # 20.09.2026
+self.me_datum.mask = r"\D\atum: 00.00.0000"    # Datum: 20.09.2026
 ```
+
+Ein leeres Feld liefert `""`, auch wenn die Maske feste Zeichen
+enthält. `on_change` kommt nur, wenn sich der Text wirklich ändert, nicht
+bei einem abgelehnten Zeichen.
 
 ## DateEdit
 

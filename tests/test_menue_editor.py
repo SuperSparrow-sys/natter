@@ -478,3 +478,15 @@ def test_ankreuzbar_abwaehlen_nimmt_das_haekchen_mit(qtbot) -> None:
     assert not editor.feld_checked.isEnabled()
     eintrag = editor.entwurf[0]["children"][0]
     assert (eintrag["checkable"], eintrag["checked"]) == (False, False)
+
+
+def test_sichtbar_landet_im_eintrag(qtbot) -> None:
+    """Punkt 621: Menüeinträge kannten kein `visible`; im Editor heißt
+    es „Sichtbar“."""
+    editor = _editor(qtbot)
+    _waehlen(editor, 0, 0)
+    assert editor.feld_visible.isChecked()
+
+    editor.feld_visible.setChecked(False)
+
+    assert editor.entwurf[0]["children"][0]["visible"] is False
