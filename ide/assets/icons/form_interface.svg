@@ -1,8 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-  <!-- Interface: der angebotene Kreis am Stiel ueber dem Kasten - die Schreibweise, die im Unterricht Lollipop heisst. -->
-  <rect x="4.6" y="14.6" width="14.8" height="6.4" rx="1.5" fill="#f7f9fa"
+  <!-- Interface: ein Klassenkasten mit gruenem Namensfach und dem Kreis am Stiel rechts daneben - die Schreibweise, die im Unterricht Lollipop heisst. Seitlich statt oben, weil Kreis ueber Kasten in kleiner Groesse wie ein Maennchen aussah. -->
+  <rect x="2.6" y="5.1" width="12" height="13.8" rx="2" fill="#f7f9fa"/>
+  <path d="M2.6 7.1a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2.6H2.6Z" fill="#1e8e3e"/>
+  <path d="M5.2 7.4h5.6" stroke="#ffffff" stroke-width="1" stroke-linecap="round"/>
+  <path d="M4.9 12.6h7.6M4.9 14.4h5.6M4.9 16.2h6.8"
+        stroke="#7b8f9a" stroke-width="1" stroke-linecap="round"/>
+  <rect x="2.6" y="5.1" width="12" height="13.8" rx="2" fill="none"
         stroke="#37474f" stroke-width="1.2"/>
-  <path d="M12 10.8v4" fill="none" stroke="#37474f" stroke-width="1.5" stroke-linecap="round"/>
-  <circle cx="12" cy="7.1" r="3.8" fill="#0067c0" stroke="#004c8c" stroke-width="1.2"/>
-  <path d="M7 17.8h6.6" stroke="#7b8f9a" stroke-width="1" stroke-linecap="round"/>
+  <path d="M14.6 12h2.2" stroke="#37474f" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="19" cy="12" r="2.2" fill="#f7f9fa" stroke="#14682c" stroke-width="1.5"/>
 </svg>

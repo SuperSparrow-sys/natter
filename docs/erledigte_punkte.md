@@ -13114,3 +13114,31 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** Bei einer ausgewählten Klasse im Panel ein Knopf, der den Eigenschaften-Dialog öffnet. Erledigt, wenn ein Test den Knopf bei einer Klasse sichtbar und bei einer Notiz verborgen findet und der Klick den Dialog öffnet.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** Neuer Knopf „Attribute und Operationen …“ oben im Panel, sichtbar bei Klassen, abstrakten Klassen und Interfaces (`ist_klasse`); er ruft `DiagrammCanvas.eigenschaften_bearbeiten` auf, denselben Weg wie der Doppelklick, und sein Tooltip nennt den Doppelklick. Test: `test_bei_einer_klasse_fuehrt_ein_knopf_zu_den_attributen` in `tests/test_diagramm_eigenschaften.py`; mit der Datei aus `HEAD` scheitert er.
+
+---
+
+## 497. Klassendiagramm: das Symbol „Interface“ sieht aus wie ein Männchen ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht Diagramm-Editor an der echten Oberfläche, Entwicklungsstand `6576feb` (Bild `build\auswertung\044s\bilder\F_Klassendiagramm_platziert.png`).
+
+**Beobachtet:** In der Palette des Klassendiagramms trägt „Interface“ einen blauen Kreis auf einem Stiel über einem flachen Kasten. In Palettengröße liest sich das als Kopf und Körper, also wie der Akteur aus dem Use-Case-Diagramm, und nicht wie eine Form aus der Familie von „Klasse“ und „Abstrakte Klasse“ darüber.
+
+**Ursache:** nachgewiesen. `ide/assets/icons/form_interface.svg` setzt den Lollipop über einen niedrigen Kasten.
+
+**Zu tun:** Ein Symbol in der Gestalt der Klassensymbole mit dem Lollipop seitlich. Erledigt, wenn die Palette ein unterscheidbares Symbol zeigt und `tests/test_assets_symbole.py` grün ist.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Neues `form_interface.svg`: Klassenkasten mit grünem Namensfach (Palette „gruen“) und dem Kreis am Stiel rechts daneben, in Farben der Symbolpalette und mit dem Rand des Symbolrasters. Am Bild der Palette bei 150 % geprüft; `tests/test_assets_symbole.py` grün.
+
+---
+
+## 498. Diagramm-Editor: „(Stilvorlage)“ auf den Farbknöpfen ist abgeschnitten und auf dunklem Grund kaum lesbar ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht Diagramm-Editor an der echten Oberfläche, Entwicklungsstand `6576feb` (Bild wie Punkt 497).
+
+**Beobachtet:** Im Panel „Eigenschaften“ einer Form stehen die Knöpfe „Füllung“ und „Linie“ mit der Aufschrift „(Stilvorlage)“. Bei 150 % Skalierung ist die Schrift unten abgeschnitten; auf dem dunklen Knopf „Linie“ steht sie dunkel auf Dunkelgrau.
+
+**Ursache:** nachgewiesen. `FarbKnopf` (`ide/diagramm/eigenschaften.py`) hat eine feste Höhe von 22 Pixeln und setzt nur die Hintergrundfarbe, nicht die Schriftfarbe.
+
+**Zu tun:** Höhe aus der Schrift, Schriftfarbe nach Helligkeit des Hintergrunds. Erledigt, wenn ein Bild bei 150 % beide Aufschriften ganz und lesbar zeigt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `FarbKnopf` ohne feste Höhe, mit etwas Innenabstand und mit weißer Schrift auf dunklem, schwarzer auf hellem Grund (`QColor.lightness`). Am Bild des Panels bei 150 % geprüft.

@@ -63,7 +63,6 @@ class FarbKnopf(QPushButton):
     def __init__(self) -> None:
         super().__init__()
         self.farbe: str | None = None
-        self.setFixedHeight(22)
 
     def farbe_zeigen(self, farbe: str, eigen: bool) -> None:
         self.farbe = farbe if eigen else None
@@ -72,8 +71,14 @@ class FarbKnopf(QPushButton):
         # Kind*. Als der Farbdialog noch an diesem Knopf hing, bekam
         # dadurch jede Beschriftung und jeder Knopf darin einen grauen
         # Rahmen - der Dialog sah aus, als wäre er abgeschaltet.
+        # Ohne feste Höhe und mit einer Schriftfarbe, die sich vom
+        # Hintergrund abhebt. Mit 22 Pixeln Höhe war „(Stilvorlage)“
+        # bei 150 % Skalierung unten abgeschnitten, und auf der dunklen
+        # Linienfarbe stand dunkle Schrift (Punkt 498).
+        schrift = "#ffffff" if QColor(farbe).lightness() < 128 else "#000000"
         self.setStyleSheet(
-            f"QPushButton {{ background-color: {farbe}; border: 1px solid #808080; }}"
+            f"QPushButton {{ background-color: {farbe}; color: {schrift}; "
+            "border: 1px solid #808080; padding: 2px 6px; }"
         )
         self.setText("" if eigen else "(Stilvorlage)")
 
