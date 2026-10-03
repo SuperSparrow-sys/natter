@@ -1092,7 +1092,7 @@ class DiagrammFenster(QMainWindow):
         meldung = struktogramm_als_python(self.diagramm.daten, auswahl).meldung()
         if not meldung:
             return ""
-        return f"{meldung} Sie stehen als Kommentar im Code."
+        return meldung
 
     def ungueltige_namen(self, umfang: str = "alles") -> list[str]:
         """Namen, die kein Python sind; nur im Klassendiagramm."""

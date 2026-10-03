@@ -112,6 +112,21 @@ AUSSPRUENGE = {
 }
 
 
+#: Liest eine Zahl ein, mit Komma oder Punkt: „8“ wird die ganze Zahl
+#: 8, „2,5“ die Kommazahl 2.5. Steht vor dem Unterprogramm, sobald eine
+#: Eingabe als Zahl gelesen wird (Punkt 643). Mit `float(…)` allein
+#: wurde aus 3 + 5 „8.0“, und ein Listenindex endete mit `TypeError`.
+ZAHL_LESEN = [
+    "def zahl_lesen(frage):",
+    '    """Liest eine Zahl ein: „8“ wird 8, „2,5“ wird 2.5."""',
+    '    text = input(frage).strip().replace(",", ".")',
+    "    wert = float(text)",
+    '    if wert.is_integer() and "." not in text:',
+    "        return int(wert)",
+    "    return wert",
+]
+
+
 @dataclass
 class Ergebnis:
     """Erzeugter Quelltext samt der Zeilen, die kein Python waren."""
@@ -129,8 +144,14 @@ class Ergebnis:
         if not self.nicht_uebernommen:
             return ""
         if self.anzahl == 1:
-            return "1 Zeile konnte nicht übernommen werden."
-        return f"{self.anzahl} Zeilen konnten nicht übernommen werden."
+            return (
+                "1 Zeile konnte nicht übernommen werden und steht als "
+                "Kommentar im Code."
+            )
+        return (
+            f"{self.anzahl} Zeilen konnten nicht übernommen werden und "
+            "stehen als Kommentar im Code."
+        )
 
 
 def als_python(daten: dict[str, Any], block: dict[str, Any] | None = None) -> Ergebnis:
@@ -147,8 +168,10 @@ def als_python(daten: dict[str, Any], block: dict[str, Any] | None = None) -> Er
     # Schleife ist und was nicht.
     schreiber = _Schreiber(in_schleife=block is not None)
     wurzel = block if block is not None else (daten.get("root") or {})
-    schreiber.zahlnamen = _als_zahl_benutzt(wurzel)
-    schreiber.ganzzahlnamen = _als_ganzzahl_benutzt(wurzel)
+    # Eine Eingabe, die als Zahl dient, liest `zahl_lesen` - als ganze
+    # Zahl, wenn sie eine ist, sonst als Kommazahl (Punkt 643). Die
+    # Grenzen einer Zählschleife gehören deshalb einfach dazu.
+    schreiber.zahlnamen = _als_zahl_benutzt(wurzel) | _als_ganzzahl_benutzt(wurzel)
     schreiber.zugewiesen = _zugewiesene_namen(wurzel)
     # Ein Schnipsel wird in fremden Code eingefügt; dort können Namen
     # einen Wert haben, die das Struktogramm nicht kennt.
@@ -163,7 +186,10 @@ def als_python(daten: dict[str, Any], block: dict[str, Any] | None = None) -> Er
         schreiber.zeile(f"def {funktionsname(daten.get('name'))}():", 0)
         schreiber.koerper(_bloecke_von(daten.get("root") or {}), 1)
         schreiber.uebersetzbar_machen()
-    return Ergebnis("\n".join(schreiber.zeilen) + "\n", schreiber.nicht_uebernommen)
+    zeilen = schreiber.zeilen
+    if schreiber.zahl_lesen:
+        zeilen = [*ZAHL_LESEN, "", *([""] if block is None else []), *zeilen]
+    return Ergebnis("\n".join(zeilen) + "\n", schreiber.nicht_uebernommen)
 
 
 def funktionsname(roh: Any) -> str:
@@ -211,9 +237,8 @@ class _Schreiber:
         #: Namen, die im Struktogramm wie Zahlen benutzt werden; ihre
         #: Eingabe wird zur Zahl (Punkt 579).
         self.zahlnamen: set[str] = set()
-        #: ... und die als Grenze einer Zählschleife ganze Zahlen sein
-        #: müssen.
-        self.ganzzahlnamen: set[str] = set()
+        #: Ob eine Eingabe `zahl_lesen` braucht (Punkt 643).
+        self.zahl_lesen = False
         #: Namen, die im Struktogramm einen Wert bekommen (Punkt 581).
         self.zugewiesen: set[str] = set()
         #: Ob Namen ohne Wert als Pseudocode gelten (Punkt 602).
@@ -362,6 +387,7 @@ class _Schreiber:
         if text.strip() in ("break", "continue"):
             self._springen(text.strip(), tiefe)
             return
+        text = "\n".join(_kommazahlen(zeile) for zeile in text.split("\n"))
         zeilen = [z for z in textwrap.dedent(text).splitlines() if z.strip()]
         if len(zeilen) > 1 and self._zeilenweise(text, zeilen):
             # Ein Block aus mehreren Zeilen wie „Eingabe: a“ und
@@ -375,10 +401,10 @@ class _Schreiber:
             _EIN_AUSGABE.match(text) if "\n" not in text.strip() else None
         )
         if ein_aus is not None:
-            text = (
-                _ein_ausgabe_als_python(ein_aus, self.zahlnamen, self.ganzzahlnamen)
-                or text
-            )
+            uebersetzt = _ein_ausgabe_als_python(ein_aus, self.zahlnamen)
+            if uebersetzt is not None:
+                text = uebersetzt
+                self.zahl_lesen = self.zahl_lesen or "zahl_lesen(" in uebersetzt
         # „zahl ← zahl - 1“ und „zahl := zahl - 1“ werden zu
         # `zahl = zahl - 1` (Punkt 481). Als Kommentar übernommen lief
         # ein Countdown sonst endlos.
@@ -496,7 +522,8 @@ class _Schreiber:
         self.zeile("while True:", tiefe)
         # Hier ist `True` der sichere Platzhalter: eine Fußschleife, die
         # nie abbricht, wäre schlimmer als eine, die einmal läuft.
-        vorab = _bedingungstext(block.get("text", ""), abbruch=True) or "True"
+        vorab = _bedingungstext(block.get("text", ""), abbruch=True)
+        vorab = _wahrheitswerte(vorab, self.zugewiesen) if vorab else "True"
         with self.in_einer_schleife(fussbedingung=vorab):
             self.folge(block.get("children") or [], tiefe + 1)
         bedingung = self.bedingung(
@@ -574,8 +601,12 @@ class _Schreiber:
         """Ein Fall wie „rot“ unter dem Kopf `farbe` meint den Text
         „rot“, nicht eine Variable `rot`, die es nicht gibt. Bis
         Punkt 602 entstand `farbe == rot` und beim Lauf `NameError`.
-        Ein Name, der im Struktogramm einen Wert bekommt, eingebaut ist
-        oder ganz in Großbuchstaben steht, bleibt ein Name."""
+        Ein Name, der im Struktogramm einen Wert bekommt oder eingebaut
+        ist, bleibt ein Name. Großbuchstaben allein machen keinen Namen:
+        „J“ und „N“ sind die Texte einer Ja/Nein-Abfrage (Punkt 642).
+        „wahr“ und „falsch“ werden `True` und `False` (Punkt 641)."""
+        if etikett.lower() in _WAHRHEITSWERTE and etikett not in self.zugewiesen:
+            return _WAHRHEITSWERTE[etikett.lower()]
         if (
             not self.namen_pruefen
             or not etikett.isidentifier()
@@ -583,7 +614,6 @@ class _Schreiber:
             or etikett.lower() in SONST
             or etikett in self.zugewiesen
             or etikett in _EINGEBAUT
-            or etikett.isupper()
         ):
             return etikett
         return repr(etikett)
@@ -640,7 +670,14 @@ class _Schreiber:
                 self.zeile("else:", tiefe)
             else:
                 schluessel = "if" if nummer == 0 else "elif"
-                vergleich = self._vergleich(ausdruck, etikett, gueltig, tiefe)
+                vergleich = _wahrheitswerte(
+                    self._vergleich(ausdruck, etikett, gueltig, tiefe), self.zugewiesen
+                )
+                if not _ist_kopf(vergleich):
+                    # Kein Kopf darf Code ergeben, der sich nicht
+                    # übersetzen lässt (Punkt 637).
+                    self.verworfen(etikett, tiefe)
+                    vergleich = PLATZHALTER_BEDINGUNG
                 self.zeile(f"{schluessel} {vergleich}:", tiefe)
             self.koerper(fall.get("children") or [], tiefe + 1)
 
@@ -683,7 +720,51 @@ def _einzeilig(roh: Any) -> str:
     Doppelpunkt, den der Kopf angehängt bekommt, und aus „x > 0 #
     positiv“ wurde `if x > 0 # positiv:` (Punkt 636)."""
     zeilen = [_ohne_kommentar(zeile) for zeile in str(roh or "").splitlines()]
-    return " ".join(" ".join(zeilen).split())
+    return _kommazahlen(" ".join(" ".join(zeilen).split()))
+
+
+#: Eine Kommazahl wie „2,5“: genau ein Komma zwischen zwei Ziffernfolgen,
+#: nicht Teil eines Namens und nicht Teil einer Aufzählung wie „1,2,3“.
+_KOMMAZAHL = re.compile(r"(?<![\w.,])\d+,\d+(?![\w,])")
+
+
+def _kommazahlen(text: str) -> str:
+    """Schreibt Kommazahlen mit Punkt: „x > 2,5“ wird `x > 2.5`.
+
+    Python las „2,5“ als zwei Werte. Hinter `if` ergab das einen
+    Syntaxfehler, „preis ← 2,5“ ein Tupel, und „Ausgabe: 2,5 * x“ gab
+    „2 10“ aus (Punkt 637). Umgeschrieben wird nur außerhalb von
+    Klammern und Texten in Anführungszeichen und nur, wenn die Ziffern
+    direkt am Komma stehen: in `randint(1,6)` trennt das Komma zwei
+    Werte, „1, 2“ mit Leerzeichen bleibt eine Aufzählung."""
+    if "," not in text:
+        return text
+    offen = []
+    tiefe = 0
+    zeichen_davor = None
+    for zeichen in text:
+        if zeichen_davor in ("'", '"'):
+            offen.append(False)
+            if zeichen == zeichen_davor:
+                zeichen_davor = None
+            continue
+        offen.append(tiefe == 0)
+        if zeichen in ("'", '"'):
+            zeichen_davor = zeichen
+        elif zeichen in "([{":
+            tiefe += 1
+        elif zeichen in ")]}":
+            tiefe = max(0, tiefe - 1)
+    teile = []
+    ende = 0
+    for treffer in _KOMMAZAHL.finditer(text):
+        komma = text.index(",", treffer.start())
+        if not offen[komma]:
+            continue
+        teile.append(text[ende:komma] + ".")
+        ende = komma + 1
+    teile.append(text[ende:])
+    return "".join(teile)
 
 
 def _ohne_kommentar(zeile: str) -> str:
@@ -707,25 +788,22 @@ def _ohne_kommentar(zeile: str) -> str:
 def _ein_ausgabe_als_python(
     treffer: re.Match[str],
     zahlnamen: set[str] | None = None,
-    ganzzahlnamen: set[str] | None = None,
 ) -> str | None:
     """„Eingabe: zahl“ als `zahl = input("zahl? ")`, „Ausgabe: zahl“
     als `print(zahl)` - oder `None`, wenn hinter dem Doppelpunkt kein
     Name bzw. kein Ausdruck steht.
 
     Wird der Name anderswo im Struktogramm wie eine Zahl benutzt
-    (`zahl > 0`, `zahl * 2`), wird die Eingabe zur Kommazahl, auch mit
-    deutschem Komma. Aus „Eingabe: zahl“ und „zahl > 0?“ entstand
-    sonst Code, der beim Vergleich mit `TypeError` abbrach
-    (Punkt 579)."""
+    (`zahl > 0`, `zahl * 2`), liest `zahl_lesen` die Eingabe als Zahl,
+    auch mit deutschem Komma: „8“ als ganze Zahl, „2,5“ als Kommazahl.
+    Aus „Eingabe: zahl“ und „zahl > 0?“ entstand sonst Code, der beim
+    Vergleich mit `TypeError` abbrach (Punkte 579 und 643)."""
     rest = treffer.group("rest")
     if treffer.group("art").lower() == "eingabe":
         if not rest.isidentifier() or keyword.iskeyword(rest):
             return None
-        if ganzzahlnamen and rest in ganzzahlnamen:
-            return f'{rest} = int(input("{rest}? "))'
         if zahlnamen and rest in zahlnamen:
-            return f'{rest} = float(input("{rest}? ").replace(",", "."))'
+            return f'{rest} = zahl_lesen("{rest}? ")'
         return f'{rest} = input("{rest}? ")'
     if not _ist_ausdruck(rest):
         return None
@@ -750,10 +828,15 @@ _NAME = re.compile(r"[A-Za-z_ÄÖÜäöüß][\wÄÖÜäöüß]*")
 def _zugewiesene_namen(wurzel: dict[str, Any]) -> set[str]:
     """Die Namen, die im Struktogramm einen Wert bekommen: hinter
     „Eingabe:“, vor einer Zuweisung und als Laufvariable einer
-    Zählschleife („für i von 1 bis 10“, „für jedes x in liste“)."""
+    Zählschleife („für i von 1 bis 10“, „für jedes x in liste“).
+
+    Bei „Vorname, Nachname = name.split()“ zählen beide Namen, ebenso
+    bei „für a, b in paare“. Bis Punkt 640 zählte nur der erste, und
+    „Ausgabe: Nachname“ wurde als Pseudocode zum Kommentar."""
     namen = set()
     for text in _texte(wurzel):
         for zeile in text.splitlines():
+            namen |= _ziele_einer_zeile(zeile)
             treffer = re.match(
                 r"\s*(?:eingabe\s*:\s*(\w+)|(\w+)\s*(?:=(?!=)|←|:=)"
                 r"|(?:(?:für|fuer|for)\s+(?:(?:jedes|jede|jeden|jeder)\s+)?)?"
@@ -764,6 +847,31 @@ def _zugewiesene_namen(wurzel: dict[str, Any]) -> set[str]:
             if treffer:
                 namen.add(treffer.group(1) or treffer.group(2) or treffer.group(3))
     return namen
+
+
+def _ziele_einer_zeile(zeile: str) -> set[str]:
+    """Die Namen, die `zeile` als Python einen Wert gibt, auch mehrere
+    bei einer Tupel-Zuweisung oder einer Zählschleife mit „für a, b in
+    …“."""
+    namen = set()
+    fuer = re.match(
+        r"\s*(?:für|fuer|for)\s+(?:(?:jedes|jede|jeden|jeder)\s+)?(.+?)\s+in\s",
+        zeile,
+        re.IGNORECASE,
+    )
+    if fuer:
+        namen |= {
+            teil.strip() for teil in fuer.group(1).split(",")
+            if teil.strip().isidentifier()
+        }
+    try:
+        baum = ast.parse(re.sub(r"←|:=", "=", zeile).strip())
+    except (SyntaxError, ValueError):
+        return namen
+    return namen | {
+        knoten.id for knoten in ast.walk(baum)
+        if isinstance(knoten, ast.Name) and isinstance(knoten.ctx, ast.Store)
+    }
 
 
 #: „wahr“ und „falsch“, wie im Struktogramm üblich geschrieben.
@@ -836,6 +944,13 @@ def _unbekannte_namen(code: str, bekannt: set[str]) -> list[str]:
     } | {
         knoten.value.id for knoten in ast.walk(baum)
         if isinstance(knoten, ast.Attribute) and isinstance(knoten.value, ast.Name)
+    } | {
+        # Hinter `raise` steht eine Ausnahmeklasse des Programms wie
+        # „NichtGenugGeld“, kein Hauptwort (Punkt 640).
+        name.id
+        for knoten in ast.walk(baum) if isinstance(knoten, ast.Raise)
+        for teil in (knoten.exc, knoten.cause) if teil is not None
+        for name in ast.walk(teil) if isinstance(name, ast.Name)
     }
     unbekannt = []
     for knoten in ast.walk(baum):
@@ -1129,11 +1244,23 @@ def _bedingungstext(roh: Any, abbruch: bool | None = None) -> str | None:
 
 
 def _als_ausdruck(text: str) -> str | None:
-    """Der Text als Python-Ausdruck, notfalls mit `==` statt eines
-    einzelnen `=`; `None`, wenn beides nicht geht."""
-    if _ist_ausdruck(text):
+    """Der Text als Kopf einer Bedingung, notfalls mit `==` statt eines
+    einzelnen `=`; `None`, wenn beides nicht geht. „x > 2, 5“ ist für
+    Python ein Tupel und als Ausdruck gültig, hinter `if` aber nicht
+    (Punkt 637)."""
+    if _ist_ausdruck(text) and _ist_kopf(text):
         return text
-    return _gleichheit(text)
+    gleich = _gleichheit(text)
+    return gleich if gleich is not None and _ist_kopf(gleich) else None
+
+
+def _ist_kopf(text: str) -> bool:
+    """Ob `text` hinter `if` oder `while` stehen kann."""
+    try:
+        ast.parse(f"if {text}:\n{STUFE}pass")
+    except (SyntaxError, ValueError):
+        return False
+    return True
 
 
 def _unausgefuellt(rest: str) -> bool:
