@@ -424,7 +424,8 @@ Blöcken: Anweisung, Verzweigung, Schleifen, Unterprogrammaufruf,
 Aussprung und die Auswahlen. Ein Klick auf einen Block in der Palette und danach ein
 Klick auf eine Einfügestelle im Struktogramm setzt ihn dorthin. Die
 Einfügestellen liegen zwischen den Blöcken und in den leeren Feldern
-einer Verzweigung oder Schleife; ein Block, der in eine Schleife oder
+einer Verzweigung oder Schleife; ein Klick unter das Struktogramm
+hängt den Block hinten an, auch beim ersten Block; ein Block, der in eine Schleife oder
 einen Zweig gesetzt wird, steht damit in ihr. So entsteht die
 Verschachtelung, Block für Block. Ein Doppelklick auf einen Block
 beschriftet ihn: eine Anweisung wie `summe = summe + i` (auch

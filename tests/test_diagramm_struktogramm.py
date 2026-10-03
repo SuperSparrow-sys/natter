@@ -558,3 +558,27 @@ def test_alle_blockarten_lassen_sich_zeichnen(flaeche: StruktogrammCanvas) -> No
         for y in range(0, 900, 5)
     }
     assert len(farben) > 1
+
+
+def test_klick_unter_das_struktogramm_haengt_den_block_an(
+    flaeche: StruktogrammCanvas,
+) -> None:
+    """Punkt 495: ein leeres Struktogramm ist nur sein Kopf. Ein Klick
+    in die freie Fläche darunter beendete den Einfügemodus, ohne dass
+    ein Block entstand. Auch unter dem letzten Block hängt ein Klick
+    jetzt hinten an; daneben bleibt er ohne Wirkung."""
+    from ide.diagramm.struktogramm_canvas import VERSATZ
+
+    wurzel = flaeche._layout_erneuern().rechteck
+    unten = wurzel.bottom() + VERSATZ + 200
+    mitte = wurzel.center().x() + VERSATZ
+
+    for text in ("erste", "zweite"):
+        flaeche.einfuegemodus_setzen("statement")
+        flaeche.mousePressEvent(_klick(mitte, unten))
+        flaeche.text_setzen(flaeche.wurzel["children"][-1], text)
+
+    assert [b["text"] for b in flaeche.wurzel["children"]] == ["erste", "zweite"]
+    flaeche.einfuegemodus_setzen("statement")
+    flaeche.mousePressEvent(_klick(wurzel.right() + VERSATZ + 300, unten))
+    assert len(flaeche.wurzel["children"]) == 2

@@ -13086,3 +13086,17 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** Zwei Verbindungen zwischen denselben Formen ohne Knickpunkte leicht gegeneinander versetzt zeichnen, etwa je eine Linienbreite zur eigenen linken Seite, ohne das Dateiformat zu ändern. Erledigt, wenn im Bild einer Ampel mit Hin- und Rückweg zwei getrennte Pfeile zu sehen sind und ein Test den Abstand der beiden Linien prüft.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** `gegenlaeufige_markieren` in `ide/diagramm/zeichnen.py` sucht vor jedem Zeichnen (`DiagrammCanvas.paintEvent`) und vor jedem Export (`inhaltsbereich`, `diagramm_zeichnen` in `ide/diagramm/export.py`) Verbindungen ohne Knickpunkte, die dieselben zwei Formen verbinden, und merkt an jeder einen Versatz von `ZWILLINGSABSTAND` (12) als flüchtigen Schlüssel `_versatz`. `verbindungs_punkte` rückt solche Linien zur eigenen linken Seite; Hin- und Rückweg landen so auf verschiedenen Seiten, ohne dass die Funktion von der anderen Verbindung wissen muss. Treffer, Beschriftungen und Anfasser nutzen dieselben Punkte. `Diagramm.speichern` (`ide/diagramm/datei.py`) schreibt Schlüssel mit Unterstrich nicht in die Datei (`_ohne_fluechtiges`); das Dateiformat bleibt `pdiag/1`. Am Bild einer Ampel mit Hin- und Rückweg geprüft. Test: `test_hin_und_rueckweg_liegen_nebeneinander` in `tests/test_diagramm_verbindungen.py`; mit `ide/diagramm` aus `HEAD` scheitert er.
+
+---
+
+## 495. Struktogramm: der erste Block lässt sich nicht in die leere Fläche setzen ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht Diagramm-Editor an der echten Oberfläche (Entwicklungsstand `5bb632d`, Skript `build\auswertung\044s\f_diagramm_gui.py`, Bild `F_Struktogramm_platziert.png`).
+
+**Beobachtet:** „Datei → Neues Diagramm …“, Struktogramm „ablauf“. Das Fenster zeigt nur den Kopf „ablauf“ und darunter freie Fläche. In der Palette „Anweisung“ angeklickt, dann in die Fläche unter dem Kopf geklickt: kein Block, der Mauszeiger ist wieder ein Pfeil, in der Statusleiste steht weiter „0 Blöcke“, ohne Hinweis. Dasselbe bei einem Klick ein Stück unter den letzten Block. Im Klassendiagramm entsteht die Klasse auf denselben Weg sofort.
+
+**Ursache:** nachgewiesen. Bei einem leeren Struktogramm ist die einzige Einfügestelle das Rechteck der Wurzel, also der schmale Kopf. `stelle_bei` in `ide/diagramm/struktogramm_canvas.py` nimmt nur Stellen in der Nähe des Klicks, und `mousePressEvent` beendet den Einfügemodus auch ohne Treffer.
+
+**Zu tun:** Ein Klick unter das Struktogramm, in seiner Breite, hängt den Block hinten an. Erledigt, wenn ein Test zwei Blöcke so nacheinander anlegt und ein Klick daneben nichts anlegt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `stelle_bei` liefert, wenn keine Einfügestelle in der Nähe liegt, für einen Punkt unterhalb des Struktogramms in dessen Breite die Stelle am Ende der Wurzel. Die Vorschau beim Bewegen der Maus nutzt dieselbe Funktion und zeigt die Stelle an. An der echten Oberfläche nachgeprüft: der Klick in die freie Fläche legt die Anweisung an, und sie steht nach `Strg+S` in der Datei. Handbuch, Abschnitt Diagramm-Editor, nennt es. Test: `test_klick_unter_das_struktogramm_haengt_den_block_an` in `tests/test_diagramm_struktogramm.py`; mit der Datei aus `HEAD` scheitert er.

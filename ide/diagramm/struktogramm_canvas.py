@@ -401,7 +401,19 @@ class StruktogrammCanvas(ZoomMischung, QWidget):
                 continue
             if beste is None or abstand < beste[0]:
                 beste = (abstand, stelle)
-        return beste[1] if beste else None
+        if beste is not None:
+            return beste[1]
+        # Unter dem Struktogramm, in seiner Breite: ans Ende (Punkt 495).
+        # Ein leeres Struktogramm besteht nur aus seinem Kopf, und ein
+        # Klick in die freie Fläche darunter beendete bis 0.4.3 den
+        # Einfügemodus, ohne dass ein Block entstand oder ein Wort dazu
+        # kam.
+        wurzel = (self._layout or self._layout_erneuern()).rechteck
+        if wurzel.left() <= punkt_x <= wurzel.right() and punkt_y > wurzel.bottom():
+            return Einfuegestelle(
+                self.wurzel, "children", len(self.wurzel.get("children") or [])
+            )
+        return None
 
     def block_einfuegen(self, art: str, stelle: Einfuegestelle) -> dict[str, Any]:
         block = neuer_block(self.diagramm.daten, art)
