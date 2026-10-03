@@ -484,14 +484,20 @@ Kommazahl 2.5, so dass eine eingelesene Zahl auch als Listenindex
 taugt. Als Zahl gilt auch ein Vergleich mit einer Variablen, die selbst
 eine Zahl ist, etwa „solange tipp != geheim“ nach „geheim ← 42“, eine
 Fallauswahl mit Fällen wie „< 0“ und ein Index einer Liste wie
-„liste[i]“ nach „liste ← [1, 2, 3]“. In Bedingungen werden „und“,
-„oder“ und „nicht“ zu `and`, `or` und `not`. Kommazahlen wie „x > 2,5“ oder
+„liste[i]“ nach „liste ← [1, 2, 3]“. Ebenso eine Eingabe, die mit
+einem Element einer Zahlenliste verglichen („liste[i] = gesucht“), mit
+„in“ darin gesucht oder mit `append` in eine Liste eingelesen wird,
+deren Elemente verrechnet oder verglichen werden. In Bedingungen werden
+„und“, „oder“ und „nicht“ zu `and`, `or` und `not`, wenn jeder Name
+darin im Struktogramm einen Wert bekommt; „nicht fertig“ ohne Wert für
+`fertig` bleibt Kommentar. Kommazahlen wie „x > 2,5“ oder
 „preis ← 2,5“ werden mit Punkt geschrieben; in Klammern wie bei
 `randint(1,6)` und mit Leerzeichen wie bei „1, 2“ trennt das Komma
 dagegen zwei Werte. Ein Kommentar mit „#“ in einer Bedingung fällt im
 Code weg. „x ← 1“ wird zu `x = 1`, „wahr“ und „falsch“ zu `True` und
-`False`, auch als Fall einer Fallauswahl. Ein Fall wie „J“ oder „rot“,
-der im Struktogramm keinen Wert bekommt, ist ein Text. Was kein Python
+`False`, auch als Fall einer Fallauswahl. Ein Fall wie „J“, „rot“ oder
+„nicht bestanden“, der im Struktogramm keinen Wert bekommt, ist ein
+Text. Was kein Python
 ist, steht als Kommentar im Code, und über dem Code steht, wie viele
 Zeilen das sind. Jedes Diagramm lässt
 sich als PNG, SVG oder PDF exportieren, etwa für ein Arbeitsblatt

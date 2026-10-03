@@ -1524,3 +1524,112 @@ def test_ein_text_als_schluessel_eines_woerterbuchs_bleibt_text(monkeypatch) -> 
     monkeypatch.setattr(builtins, "input", lambda _frage="": "Anna")
 
     assert _ausfuehren(ergebnis) == [123]
+
+
+def _mit_eingaben(monkeypatch, *eingaben: str) -> None:  # noqa: ANN001
+    import builtins
+
+    folge = iter(eingaben)
+    monkeypatch.setattr(builtins, "input", lambda _frage="": next(folge))
+
+
+@pytest.mark.parametrize(
+    ("eingabe", "erwartet"),
+    [("nicht bestanden", ["B"]), ("bestanden", ["A"]), ("krank", ["C"])],
+)
+def test_fall_aus_woertern_ohne_wert_ist_ein_text(
+    monkeypatch, eingabe: str, erwartet: list
+) -> None:  # noqa: ANN001
+    """Punkt 658: aus dem Fall „nicht bestanden“ wurde `not bestanden`,
+    und die Eingabe „nicht bestanden“ endete mit NameError."""
+    ergebnis = als_python(_diagramm(
+        _anweisung("Eingabe: status"),
+        _block("case_of", "status", cases=[
+            {"label": "bestanden", "children": [_anweisung("spur.append('A')")]},
+            {"label": "nicht bestanden", "children": [_anweisung("spur.append('B')")]},
+            {"label": "sonst", "children": [_anweisung("spur.append('C')")]},
+        ]),
+    ))
+    _mit_eingaben(monkeypatch, eingabe)
+
+    assert _ausfuehren(ergebnis) == erwartet
+    assert ergebnis.anzahl == 0
+
+
+@pytest.mark.parametrize(
+    ("bloecke", "eingaben", "gezaehlt", "erwartet"),
+    [
+        # Ohne Zuweisung an `fertig` ist „nicht fertig“ Pseudocode.
+        ([_block("branch", "nicht fertig", then=[_anweisung("spur.append('A')")],
+                 **{"else": [_anweisung("spur.append('B')")]})], [], 1, ["B"]),
+        # Mit Zuweisung bleibt es `not fertig`.
+        ([_anweisung("fertig ← falsch"),
+          _block("branch", "nicht fertig", then=[_anweisung("spur.append('A')")],
+                 **{"else": [_anweisung("spur.append('B')")]})], [], 0, ["A"]),
+        ([_anweisung("Eingabe: x"),
+          _block("branch", "x > 0 und gerade", then=[_anweisung("spur.append('A')")],
+                 **{"else": [_anweisung("spur.append('B')")]})], ["4"], 1, ["B"]),
+        ([_block("foot_loop", "bis nicht weiter",
+                 children=[_anweisung("spur.append(1)")])], [], 1, [1]),
+    ],
+    ids=["ohne_wert", "mit_wert", "und_ohne_wert", "fussschleife"],
+)
+def test_logikwoerter_mit_namen_ohne_wert_werden_kommentar(
+    monkeypatch, bloecke: list, eingaben: list, gezaehlt: int, erwartet: list
+) -> None:  # noqa: ANN001
+    """Punkt 658: „nicht fertig“ und „x > 0 und gerade“ ohne Wert für
+    `fertig` und `gerade` ergaben Code, der mit NameError abbrach, und
+    über dem Code stand, alles sei übernommen."""
+    ergebnis = als_python(_diagramm(*bloecke))
+    _mit_eingaben(monkeypatch, *eingaben)
+
+    assert _ausfuehren(ergebnis) == erwartet
+    assert ergebnis.anzahl == gezaehlt
+
+
+@pytest.mark.parametrize(
+    ("bloecke", "eingaben", "erwartet"),
+    [
+        ([_anweisung("liste ← [3, 7, 5]"), _anweisung("Eingabe: gesucht"),
+          _anweisung("stelle ← -1"),
+          _block("count_loop", "für i von 0 bis 2", children=[
+              _block("branch", "liste[i] = gesucht",
+                     then=[_anweisung("stelle ← i")])]),
+          _anweisung("spur.append(stelle)")], ["5"], [2]),
+        ([_anweisung("zahlen ← [3, 7, 5]"), _anweisung("Eingabe: x"),
+          _block("branch", "x in zahlen", then=[_anweisung("spur.append('drin')")],
+                 **{"else": [_anweisung("spur.append('nicht drin')")]})],
+         ["7"], ["drin"]),
+        ([_anweisung("liste ← []"),
+          _block("count_loop", "für i von 1 bis 3", children=[
+              _anweisung("Eingabe: z"), _anweisung("liste.append(z)")]),
+          _anweisung("maximum ← liste[0]"),
+          _block("count_loop", "für i von 1 bis len(liste) - 1", children=[
+              _block("branch", "liste[i] > maximum",
+                     then=[_anweisung("maximum ← liste[i]")])]),
+          _anweisung("spur.append(maximum)")], ["9", "10", "3"], [10]),
+        ([_anweisung("liste ← []"), _anweisung("summe ← 0"),
+          _block("count_loop", "für i von 1 bis 3", children=[
+              _anweisung("Eingabe: z"), _anweisung("liste.append(z)")]),
+          _block("count_loop", "für i von 0 bis 2", children=[
+              _anweisung("summe ← summe + liste[i]")]),
+          _anweisung("spur.append(summe)")], ["9", "10", "3"], [22]),
+        # Eine Liste aus Texten bleibt Text.
+        ([_anweisung("namen ← []"),
+          _block("count_loop", "für i von 1 bis 2", children=[
+              _anweisung("Eingabe: name"), _anweisung("namen.append(name)")]),
+          _anweisung("spur.append(namen)")], ["Anna", "Ben"], [["Anna", "Ben"]]),
+    ],
+    ids=["lineare_suche", "in_liste", "maximum", "summe", "textliste"],
+)
+def test_eingaben_in_und_aus_zahlenlisten_sind_zahlen(
+    monkeypatch, bloecke: list, eingaben: list, erwartet: list
+) -> None:  # noqa: ANN001
+    """Punkt 659: eine Eingabe, die mit Elementen einer Zahlenliste
+    verglichen, in ihr gesucht oder in sie eingelesen wird, blieb Text:
+    die Suche fand nichts, das Maximum von 9, 10, 3 war 9, die Summe
+    brach mit TypeError ab."""
+    ergebnis = als_python(_diagramm(*bloecke))
+    _mit_eingaben(monkeypatch, *eingaben)
+
+    assert _ausfuehren(ergebnis) == erwartet

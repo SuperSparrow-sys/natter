@@ -322,6 +322,19 @@ class _Schreiber:
         if self.anweisungen == vorher:
             self.zeile("pass", tiefe)
 
+    def _logik_ohne_wert(self, roh: Any, ausdruck: str) -> bool:
+        """Ob ein Kopf mit „und“, „oder“ oder „nicht“ nach der Übersetzung
+        einen Namen liest, der im Struktogramm keinen Wert bekommt.
+        „nicht fertig“ ohne Zuweisung an `fertig` ist dann Pseudocode,
+        kein `not fertig`, das mit NameError abbräche (Punkt 658). Nur
+        im ganzen Struktogramm: in einem Schnipsel kommen Werte von
+        außen, wie bei `_unbekannte_namen`."""
+        return (
+            self.namen_pruefen
+            and _hat_logikwort(_einzeilig(roh, logik=False))
+            and bool(_namen_ohne_wert(ausdruck, self.zugewiesen))
+        )
+
     def bedingung(
         self,
         roh: str,
@@ -339,7 +352,9 @@ class _Schreiber:
         Schleife ist es `None`."""
         text = _bedingungstext(roh, abbruch)
         if text is not None:
-            return _wahrheitswerte(text, self.zugewiesen)
+            text = _wahrheitswerte(text, self.zugewiesen)
+            if not self._logik_ohne_wert(roh, text):
+                return text
         self.verworfen(roh, tiefe)
         return platzhalter
 
@@ -524,6 +539,8 @@ class _Schreiber:
         # nie abbricht, wäre schlimmer als eine, die einmal läuft.
         vorab = _bedingungstext(block.get("text", ""), abbruch=True)
         vorab = _wahrheitswerte(vorab, self.zugewiesen) if vorab else "True"
+        if self._logik_ohne_wert(block.get("text", ""), vorab):
+            vorab = "True"
         with self.in_einer_schleife(fussbedingung=vorab):
             self.folge(block.get("children") or [], tiefe + 1)
         bedingung = self.bedingung(
@@ -579,10 +596,7 @@ class _Schreiber:
         if sonst:
             faelle = [f for f in faelle if f is not sonst[0]] + [sonst[0]]
         ausdruck = _einzeilig(block.get("text", ""))
-        etiketten = [
-            self._fall_als_text(_einzeilig(str(fall.get("label", ""))))
-            for fall in faelle
-        ]
+        etiketten = [self._fall_beschriftung(fall) for fall in faelle]
         muster = [
             etikett
             for nummer, etikett in enumerate(etiketten)
@@ -596,6 +610,22 @@ class _Schreiber:
             self._match(faelle, etiketten, ausdruck, tiefe)
         else:
             self._wenn_kette(faelle, etiketten, ausdruck, tiefe)
+
+    def _fall_beschriftung(self, fall: dict[str, Any]) -> str:
+        """Die Beschriftung eines Falls als Python. Ein Fall aus Wörtern
+        mit „und“, „oder“ oder „nicht“, dessen Namen im Struktogramm
+        keinen Wert bekommen, ist ein Text wie „nicht bestanden“; aus ihm
+        wurde sonst `not bestanden` und beim Lauf NameError (Punkt 658)."""
+        roh = _einzeilig(str(fall.get("label", "")), logik=False)
+        etikett = _logikwoerter(roh)
+        if (
+            self.namen_pruefen
+            and etikett != roh
+            and all(wort.isidentifier() for wort in roh.split())
+            and _namen_ohne_wert(etikett, self.zugewiesen)
+        ):
+            return repr(roh)
+        return self._fall_als_text(etikett)
 
     def _fall_als_text(self, etikett: str) -> str:
         """Ein Fall wie „rot“ unter dem Kopf `farbe` meint den Text
@@ -673,9 +703,12 @@ class _Schreiber:
                 vergleich = _wahrheitswerte(
                     self._vergleich(ausdruck, etikett, gueltig, tiefe), self.zugewiesen
                 )
-                if not _ist_kopf(vergleich):
+                if not _ist_kopf(vergleich) or self._logik_ohne_wert(
+                    fall.get("label", ""), vergleich
+                ):
                     # Kein Kopf darf Code ergeben, der sich nicht
-                    # übersetzen lässt (Punkt 637).
+                    # übersetzen lässt (Punkt 637) oder mit NameError
+                    # abbricht (Punkt 658).
                     self.verworfen(etikett, tiefe)
                     vergleich = PLATZHALTER_BEDINGUNG
                 self.zeile(f"{schluessel} {vergleich}:", tiefe)
@@ -712,7 +745,7 @@ class _Schreiber:
 # -- Prüfungen -----------------------------------------------------------
 
 
-def _einzeilig(roh: Any) -> str:
+def _einzeilig(roh: Any, logik: bool = True) -> str:
     """Kopftexte werden in eine Zeile gezogen: ein Umbruch mitten in
     einer Bedingung würde die Einrückung der Ausgabe zerreißen.
 
@@ -720,7 +753,8 @@ def _einzeilig(roh: Any) -> str:
     Doppelpunkt, den der Kopf angehängt bekommt, und aus „x > 0 #
     positiv“ wurde `if x > 0 # positiv:` (Punkt 636)."""
     zeilen = [_ohne_kommentar(zeile) for zeile in str(roh or "").splitlines()]
-    return _logikwoerter(_kommazahlen(" ".join(" ".join(zeilen).split())))
+    text = _kommazahlen(" ".join(" ".join(zeilen).split()))
+    return _logikwoerter(text) if logik else text
 
 
 #: „und“, „oder“ und „nicht“, wie im Struktogramm üblich geschrieben.
@@ -952,6 +986,35 @@ def _wahrheitswerte(code: str, zugewiesen: set[str]) -> str:
 _EINGEBAUT = frozenset(dir(builtins)) | {"self"}
 
 
+def _hat_logikwort(text: str) -> bool:
+    """Ob „und“, „oder“ oder „nicht“ als Wort in `text` steht."""
+    return bool(re.search(r"\b(?:und|oder|nicht)\b", text, re.IGNORECASE))
+
+
+def _namen_ohne_wert(ausdruck: str, bekannt: set[str]) -> list[str]:
+    """Die Namen, die `ausdruck` als Wert liest, die im Struktogramm aber
+    nirgends einen Wert bekommen und auch nicht eingebaut sind. Namen,
+    die aufgerufen werden oder vor einem Punkt stehen, zählen nicht:
+    das sind Funktionen und Objekte des Programms."""
+    try:
+        baum = ast.parse(ausdruck, mode="eval")
+    except (SyntaxError, ValueError):
+        return []
+    ausgenommen = {
+        knoten.func.id for knoten in ast.walk(baum)
+        if isinstance(knoten, ast.Call) and isinstance(knoten.func, ast.Name)
+    } | {
+        knoten.value.id for knoten in ast.walk(baum)
+        if isinstance(knoten, ast.Attribute) and isinstance(knoten.value, ast.Name)
+    }
+    return [
+        knoten.id for knoten in ast.walk(baum)
+        if isinstance(knoten, ast.Name) and isinstance(knoten.ctx, ast.Load)
+        and knoten.id not in bekannt and knoten.id not in _EINGEBAUT
+        and knoten.id not in ausgenommen
+    ]
+
+
 def _unbekannte_namen(code: str, bekannt: set[str]) -> list[str]:
     """Die großgeschriebenen Namen in `code`, die als Wert benutzt
     werden, im Struktogramm aber nirgends einen Wert bekommen und auch
@@ -1140,11 +1203,22 @@ def _zahlen_weitergeben(
     Bis Punkt 622 zählte ein Vergleich nur mit einer Ziffer: aus
     „geheim ← 42“, „Eingabe: tipp“ und „solange tipp != geheim“ wurde
     `tipp = input(…)`, und die Schleife endete auch bei der richtigen
-    Eingabe nie."""
+    Eingabe nie.
+
+    Eine Liste zählt dabei wie eine Zahl, wenn sie mit Zahlen angelegt
+    wird („liste ← [3, 7, 5]“) oder ihre Elemente verrechnet oder
+    verglichen werden; ein Element `liste[i]` steht dann für eine Zahl.
+    Ein Name, der mit einem Element verglichen, mit `in` in ihr gesucht
+    oder mit `append` in sie eingefügt wird, ist dann ebenfalls eine
+    Zahl. Bis Punkt 659 fand eine lineare Suche die eingegebene Zahl
+    nie, und das Maximum eingelesener Zahlen wurde als Text bestimmt."""
     zahlen = set(gefunden)
     for zeile in zeilen:
         zuweisung = re.match(r"\s*(\w+)\s*(?:=(?!=)|←|:=)(.*)$", zeile)
-        if zuweisung and _ZAHLWERT.match(zuweisung.group(2)):
+        if zuweisung and (
+            _ZAHLWERT.match(zuweisung.group(2))
+            or re.match(r"\s*\[\s*-?\d", zuweisung.group(2))
+        ):
             zahlen.add(zuweisung.group(1))
         laufvariable = re.match(
             r"\s*(?:(?:für|fuer|for)\s+)?(\w+)\s+(?:von|=)\s*-?\d", zeile, re.IGNORECASE
@@ -1152,6 +1226,8 @@ def _zahlen_weitergeben(
         if laufvariable:
             zahlen.add(laufvariable.group(1))
     operator = r"(?:==|!=|<=|>=|=(?!=)|<|>|[-*/%+])"
+    # Ein Name oder ein Element von ihm: `liste` oder `liste[i]`.
+    element = r"(?:\s*\[[^\]]*\])?"
     while True:
         neu = set()
         for name in namen - zahlen:
@@ -1159,8 +1235,11 @@ def _zahlen_weitergeben(
             for andere in zahlen:
                 a = re.escape(andere)
                 paar = re.compile(
-                    rf"(?<![\w.]){n}\s*{operator}\s*{a}(?![\w(])"
-                    rf"|(?<![\w.]){a}\s*{operator}\s*{n}(?![\w(])"
+                    rf"(?<![\w.]){n}{element}\s*{operator}\s*{a}{element}(?![\w(\[])"
+                    rf"|(?<![\w.]){a}{element}\s*{operator}\s*{n}{element}(?![\w(\[])"
+                    rf"|(?<![\w.]){n}\s+in\s+{a}(?![\w(\[])"
+                    rf"|(?<![\w.]){a}\.append\(\s*{n}\s*\)"
+                    rf"|(?<![\w.]){n}\.append\(\s*{a}\s*\)"
                 )
                 if any(
                     paar.search(zeile) and not re.search("[\"']", zeile)
