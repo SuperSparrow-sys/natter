@@ -482,7 +482,12 @@ dem erzeugten Unterprogramm: was eine Zahl ist, liest sie als Zahl,
 „8“ als ganze Zahl 8 und „2,5“ als Kommazahl 2.5, alles andere bleibt
 Text. So taugt eine eingelesene Zahl zum Rechnen, zum Vergleichen und
 als Listenindex, und ein eingelesener Name bleibt ein Name. Eine
-Postleitzahl wie „01067“ wird dabei zur Zahl 1067. In Bedingungen werden
+Behandelt das Struktogramm einen Namen ausdrücklich als Text, bleibt
+seine Eingabe Text: verglichen mit einem Text in Anführungszeichen wie
+„pin = "0815"“ oder „wahl = "1"“, Zeichen für Zeichen durchlaufen,
+mit „[ ]“ gelesen oder mit `len()` gemessen. Ohne solchen Hinweis
+wird eine Postleitzahl wie „01067“ zur Zahl 1067. Fälle wie „+“ oder
+„:“ in einer Fallauswahl sind die eingegebenen Zeichen. In Bedingungen werden
 „und“, „oder“ und „nicht“ zu `and`, `or` und `not`, wenn jeder Name
 darin im Struktogramm einen Wert bekommt; „nicht fertig“ ohne Wert für
 `fertig` bleibt Kommentar. Kommazahlen wie „x > 2,5“ oder

@@ -182,6 +182,7 @@ def als_python(daten: dict[str, Any], block: dict[str, Any] | None = None) -> Er
     schreiber = _Schreiber(in_schleife=block is not None)
     wurzel = block if block is not None else (daten.get("root") or {})
     schreiber.zugewiesen = _zugewiesene_namen(wurzel)
+    schreiber.textnamen = _als_text_benutzt(wurzel)
     # Ein Schnipsel wird in fremden Code eingefügt; dort können Namen
     # einen Wert haben, die das Struktogramm nicht kennt.
     schreiber.namen_pruefen = block is None
@@ -243,10 +244,11 @@ class _Schreiber:
         #: Übersetzen des Ganzen an einer davon, wird sie nachträglich
         #: zum Kommentar.
         self.uebernommen: list[tuple[int, int, int]] = []
-        #: Namen, die im Struktogramm wie Zahlen benutzt werden; ihre
-        #: Eingabe wird zur Zahl (Punkt 579).
         #: Ob eine „Eingabe:“ vorkommt und `eingabe_lesen` braucht.
         self.eingabe_lesen = False
+        #: Namen, die das Struktogramm ausdrücklich als Text behandelt;
+        #: ihre Eingabe bleibt Text (Punkt 666).
+        self.textnamen: set[str] = set()
         #: Namen, die im Struktogramm einen Wert bekommen (Punkt 581).
         self.zugewiesen: set[str] = set()
         #: Ob Namen ohne Wert als Pseudocode gelten (Punkt 602).
@@ -424,7 +426,7 @@ class _Schreiber:
             _EIN_AUSGABE.match(text) if "\n" not in text.strip() else None
         )
         if ein_aus is not None:
-            uebersetzt = _ein_ausgabe_als_python(ein_aus)
+            uebersetzt = _ein_ausgabe_als_python(ein_aus, self.textnamen)
             if uebersetzt is not None:
                 text = uebersetzt
                 self.eingabe_lesen = (
@@ -647,6 +649,10 @@ class _Schreiber:
         „wahr“ und „falsch“ werden `True` und `False` (Punkt 641)."""
         if etikett.lower() in _WAHRHEITSWERTE and etikett not in self.zugewiesen:
             return _WAHRHEITSWERTE[etikett.lower()]
+        if self.namen_pruefen and etikett in _RECHENZEICHEN:
+            # „+“, „-“, „*“, „:“ als Fälle eines Taschenrechners meinen
+            # das eingegebene Zeichen; sonst entstand `if False` (Punkt 667).
+            return repr(etikett)
         if (
             not self.namen_pruefen
             or not etikett.isidentifier()
@@ -864,15 +870,21 @@ def _ohne_kommentar(zeile: str) -> str:
     return zeile
 
 
-def _ein_ausgabe_als_python(treffer: re.Match[str]) -> str | None:
+def _ein_ausgabe_als_python(
+    treffer: re.Match[str], textnamen: set[str] | None = None
+) -> str | None:
     """„Eingabe: zahl“ als `zahl = eingabe_lesen("zahl? ")`,
     „Ausgabe: zahl“ als `print(zahl)` - oder `None`, wenn hinter dem
     Doppelpunkt kein Name bzw. kein Ausdruck steht. Ob die Eingabe Zahl
-    oder Text ist, entscheidet `eingabe_lesen` beim Lauf."""
+    oder Text ist, entscheidet `eingabe_lesen` beim Lauf - außer das
+    Struktogramm behandelt den Namen ausdrücklich als Text, etwa „pin =
+    "0815"“; dann bleibt es bei `input(…)` (Punkt 666)."""
     rest = treffer.group("rest")
     if treffer.group("art").lower() == "eingabe":
         if not rest.isidentifier() or keyword.iskeyword(rest):
             return None
+        if textnamen and rest in textnamen:
+            return f'{rest} = input("{rest}? ")'
         return f'{rest} = eingabe_lesen("{rest}? ")'
     if not _ist_ausdruck(rest):
         return None
@@ -892,6 +904,87 @@ def _texte(knoten: Any) -> Iterator[str]:
 
 
 _NAME = re.compile(r"[A-Za-z_ÄÖÜäöüß][\wÄÖÜäöüß]*")
+
+
+#: Ein Text in Anführungszeichen.
+_TEXT = r"(?:\"[^\"]*\"|'[^']*')"
+
+#: Textmethoden, an denen ein Name als Text zu erkennen ist.
+_TEXTMETHODEN = (
+    "lower", "upper", "strip", "isdigit", "isalpha", "count", "find",
+    "replace", "split", "startswith", "endswith", "capitalize",
+)
+
+
+def _als_text_benutzt(wurzel: dict[str, Any]) -> set[str]:
+    """Die Namen, die das Struktogramm ausdrücklich als Text behandelt.
+
+    Eine Ziffernfolge kann Text sein: eine PIN „0815“, eine Menüwahl
+    „1“, eine Binärzahl, deren Ziffern einzeln gelesen werden. Als
+    Text gilt ein Name, der mit einem Text in Anführungszeichen
+    verglichen oder belegt wird, der durchlaufen („für jedes z in
+    zahl“), indiziert oder geschnitten („zahl[i]“, „wort[::-1]“), mit
+    `len()` gemessen oder mit einer Textmethode benutzt wird, der als
+    Kopf einer Fallauswahl mit Textfällen steht oder der mit einem
+    solchen Namen verglichen oder gleichgesetzt wird. Bis Punkt 666
+    wurde jede Ziffernfolge zur Zahl, und eine PIN-Abfrage endete nie.
+    Anführungszeichen sind eindeutiger als jede Regel, die Zahlen
+    errät; deshalb geht die Erkennung nur in diese Richtung."""
+    texte = [zeile for text in _texte(wurzel) for zeile in text.splitlines()]
+    namen = {name for zeile in texte for name in _NAME.findall(zeile)}
+    gefunden: set[str] = set()
+    methoden = "|".join(_TEXTMETHODEN)
+    for name in namen:
+        n = re.escape(name)
+        muster = (
+            rf"(?<![\w.]){n}\s*(?:==|!=|=|←|:=)\s*{_TEXT}",
+            rf"{_TEXT}\s*(?:==|!=|=)\s*{n}(?![\w(])",
+            rf"{_TEXT}\s+in\s+{n}(?![\w(])",
+            rf"\bin\s+{n}\s*:?\s*$",
+            rf"(?<![\w.]){n}\s*\[",
+            rf"\blen\(\s*{n}\s*\)",
+            rf"(?<![\w.]){n}\.(?:{methoden})\(",
+        )
+        if any(re.search(m, zeile) for m in muster for zeile in texte):
+            gefunden.add(name)
+    gefunden |= _kopf_mit_textfaellen(wurzel)
+    # Weitergeben über Vergleiche und einfache Zuweisungen zwischen
+    # Namen: „pin != geheim“ nach „geheim ← "1234"“.
+    paare = [
+        (a, b)
+        for zeile in texte
+        for a, b in re.findall(
+            r"(?<![\w.])([^\W\d]\w*)\s*(?:==|!=|=|←|:=)\s*([^\W\d]\w*)(?![\w(.\[])",
+            zeile,
+        )
+    ]
+    geaendert = True
+    while geaendert:
+        geaendert = False
+        for a, b in paare:
+            if (a in gefunden) != (b in gefunden):
+                gefunden |= {a, b}
+                geaendert = True
+    return gefunden
+
+
+def _kopf_mit_textfaellen(knoten: Any) -> set[str]:
+    """Die Köpfe von Fallauswahlen mit einem Fall in Anführungszeichen."""
+    gefunden: set[str] = set()
+    if isinstance(knoten, dict):
+        if knoten.get("kind") in MEHRFACH:
+            kopf = str(knoten.get("text", "")).strip()
+            faelle = [str(f.get("label", "")) for f in knoten.get("cases") or []]
+            if kopf.isidentifier() and any(
+                re.fullmatch(rf"\s*{_TEXT}(?:\s*,\s*{_TEXT})*\s*", f) for f in faelle
+            ):
+                gefunden.add(kopf)
+        for wert in knoten.values():
+            gefunden |= _kopf_mit_textfaellen(wert)
+    elif isinstance(knoten, list):
+        for wert in knoten:
+            gefunden |= _kopf_mit_textfaellen(wert)
+    return gefunden
 
 
 def _zugewiesene_namen(wurzel: dict[str, Any]) -> set[str]:
@@ -942,6 +1035,9 @@ def _ziele_einer_zeile(zeile: str) -> set[str]:
         if isinstance(knoten, ast.Name) and isinstance(knoten.ctx, ast.Store)
     }
 
+
+#: Rechenzeichen, die als Fall einer Fallauswahl ein Text sind.
+_RECHENZEICHEN = {"+", "-", "*", "/", ":", "x", "^", "%"}
 
 #: „wahr“ und „falsch“, wie im Struktogramm üblich geschrieben.
 _WAHRHEITSWERTE = {"wahr": "True", "falsch": "False"}

@@ -1728,3 +1728,49 @@ def test_eingabe_lesen_entscheidet_beim_lauf(
         [_anweisung("Eingabe: x"), _anweisung("spur.append(x)")], [eingabe], monkeypatch
     )
     assert gelesen == [erwartet] and type(gelesen[0]) is type(erwartet)
+
+
+@pytest.mark.parametrize(
+    ("bloecke", "eingaben", "erwartet"),
+    [
+        ([_anweisung('geheim ← "1234"'), _anweisung("Eingabe: pin"),
+          _block("head_loop", "solange pin != geheim", children=[_anweisung("Eingabe: pin")]),
+          _anweisung('spur.append("offen")')], ["0000", "1234"], ["offen"]),
+        ([_anweisung("Eingabe: pin"),
+          _block("branch", 'pin = "0815"', then=[_anweisung('spur.append("richtig")')],
+                 **{"else": [_anweisung('spur.append("falsch")')]})], ["0815"], ["richtig"]),
+        ([_block("foot_loop", 'wiederhole bis wahl = "0"', children=[
+            _anweisung("Eingabe: wahl"), _anweisung("spur.append(wahl)")])],
+         ["1", "0"], ["1", "0"]),
+        ([_anweisung("Eingabe: zahl"), _anweisung("summe ← 0"),
+          _block("count_loop", "für jedes z in zahl", children=[
+              _anweisung("summe ← summe + int(z)")]),
+          _anweisung("spur.append(summe)")], ["1011"], [3]),
+        ([_anweisung("Eingabe: wort"),
+          _block("branch", "wort = wort[::-1]", then=[_anweisung('spur.append("ja")')],
+                 **{"else": []})], ["12321"], ["ja"]),
+        ([_anweisung("Eingabe: z"), _anweisung("spur.append(z * 2)")], ["21"], [42]),
+    ],
+    ids=["pin_mit_name", "pin_direkt", "menue", "quersumme", "palindrom", "zahl_bleibt_zahl"],
+)
+def test_ziffern_als_text_wo_das_struktogramm_text_meint(
+    monkeypatch, bloecke: list, eingaben: list, erwartet: list
+) -> None:  # noqa: ANN001
+    """Punkt 666: jede eingetippte Ziffernfolge wurde Zahl; die PIN-Abfrage
+    endete nie, die Quersumme brach ab. Wo das Struktogramm einen Namen
+    ausdrücklich als Text behandelt, bleibt die Eingabe Text."""
+    assert _laufen(bloecke, eingaben, monkeypatch) == erwartet
+
+
+def test_taschenrechner_mit_rechenzeichen_als_faellen(monkeypatch) -> None:  # noqa: ANN001
+    """Punkt 667: Fälle wie „+“ wurden zu `if False`."""
+    faelle = [
+        {"label": "+", "children": [_anweisung("spur.append(a + b)")]},
+        {"label": "-", "children": [_anweisung("spur.append(a - b)")]},
+        {"label": ":", "children": [_anweisung("spur.append(a / b)")]},
+        {"label": "sonst", "children": [_anweisung('spur.append("?")')]},
+    ]
+    bloecke = [_anweisung("Eingabe: a"), _anweisung("Eingabe: zeichen"), _anweisung("Eingabe: b"),
+               _block("multi_branch", "zeichen", cases=faelle)]
+    assert _laufen(bloecke, ["6", "-", "2"], monkeypatch) == [4]
+    assert _laufen(bloecke, ["6", ":", "2"], monkeypatch) == [3.0]
