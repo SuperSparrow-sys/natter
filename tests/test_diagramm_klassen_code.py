@@ -999,3 +999,105 @@ def test_kreis_und_doppelter_name_werden_gemeldet(fall: str) -> None:
 
     erwartet = "von sich selbst" if fall == "kreis" else "2-mal vor"
     assert any(erwartet in m for m in meldungen), meldungen
+
+
+# -- Punkte 605, 606, 607, 619 ---------------------------------------------
+
+
+@pytest.mark.parametrize("realisierung_zuerst", [True, False])
+def test_vererbung_und_realisierung_zugleich(realisierung_zuerst: bool) -> None:
+    """Punkt 605: war die Realisierung zuerst gezogen, reichte `Vogel`
+    seine Werte an das Interface weiter, und `Vogel("Tweety", 0.2)`
+    scheiterte."""
+    tier = _klasse("Tier", id="s1", attributes=[{"name": "name", "type": "str"}])
+    fliegend = _klasse("Fliegend", id="s2")
+    vogel = _klasse(
+        "Vogel", id="s3", attributes=[{"name": "spannweite", "type": "float"}]
+    )
+    erben = {"id": "c1", "kind": "generalization", "from": "s3", "to": "s1"}
+    umsetzen = {"id": "c2", "kind": "realization", "from": "s3", "to": "s2"}
+    verbindungen = [umsetzen, erben] if realisierung_zuerst else [erben, umsetzen]
+    daten = _diagramm(tier, fliegend, vogel, verbindungen=verbindungen)
+
+    code = diagramm_als_python(daten)
+    namensraum = _ausfuehren(code)
+    tweety = namensraum["Vogel"]("Tweety", 0.2)
+
+    assert "class Vogel(Tier, Fliegend):" in code
+    assert (tweety.name, tweety.spannweite) == ("Tweety", 0.2)
+
+
+def test_modellierter_konstruktor_setzt_startwerte() -> None:
+    """Punkt 606: `-stand: float = 0` fehlte im modellierten
+    Konstruktor `__init__(inhaber)`."""
+    konto = _klasse(
+        "Konto",
+        attributes=[
+            {"name": "inhaber", "type": "str", "visibility": "private"},
+            {"name": "stand", "type": "float", "value": "0", "visibility": "private"},
+        ],
+        operations=[
+            {"name": "__init__", "parameters": [{"name": "inhaber", "type": "str"}]}
+        ],
+    )
+    namensraum = _ausfuehren(klasse_als_python(konto, _diagramm(konto)))
+
+    assert vars(namensraum["Konto"]("Anna")) == {
+        "_Konto__inhaber": "Anna",
+        "_Konto__stand": 0,
+    }
+
+
+@pytest.mark.parametrize(
+    ("sichtbarkeit", "gemeldet"), [("public", True), ("private", False)]
+)
+def test_anfrage_mit_dem_namen_eines_attributs(sichtbarkeit: str, gemeldet: bool) -> None:
+    """Punkt 607: das öffentliche Attribut `alter` und die Anfrage
+    `alter()` verdeckten sich; mit privatem Attribut ist es der übliche
+    Lesezugang."""
+    from ide.diagramm.klassen_code import ungueltige_namen
+
+    person = _klasse(
+        "Person",
+        attributes=[{"name": "alter", "type": "int", "visibility": sichtbarkeit}],
+        operations=[{"name": "alter", "type": "int", "query": True, "parameters": []}],
+    )
+    meldungen = ungueltige_namen(_diagramm(person))
+
+    assert any("heißt im Code genauso" in m for m in meldungen) is gemeldet
+    if not gemeldet:
+        namensraum = _ausfuehren(klasse_als_python(person, _diagramm(person)))
+        namensraum["Person"](3)  # lässt sich anlegen
+
+
+@pytest.mark.parametrize(
+    ("beschriftung", "attribut"),
+    [("-motor 1", "motor"), ("", "motor"), ("*", "motor_liste")],
+)
+def test_gerichtete_assoziation_wird_ein_attribut(beschriftung: str, attribut: str) -> None:
+    """Punkt 619: `Auto` → `Motor` als gerichtete Assoziation ergab zwei
+    Klassen ohne Verbindung."""
+    auto = _klasse("Auto", id="s1")
+    motor = _klasse("Motor", id="s2")
+    daten = _diagramm(
+        auto,
+        motor,
+        verbindungen=[
+            {
+                "id": "c1",
+                "kind": "directed_association",
+                "from": "s1",
+                "to": "s2",
+                "labels": {"to": beschriftung},
+            }
+        ],
+    )
+
+    namensraum = _ausfuehren(diagramm_als_python(daten))
+    if attribut.endswith("_liste"):
+        wagen = namensraum["Auto"]()
+        assert getattr(wagen, attribut) == []
+    else:
+        teil = namensraum["Motor"]()
+        wagen = namensraum["Auto"](teil)
+        assert getattr(wagen, attribut) is teil

@@ -34,12 +34,25 @@ EINRUECKUNG = "    "
 #: gezogene Vererbung kam nie im Klassenkopf an.
 VERERBUNGSARTEN = ("inheritance", "generalization", "realization", "implements")
 
+#: Die Arten davon, die ein Interface umsetzen statt von einer Klasse
+#: zu erben. Sie stehen im Klassenkopf hinten (Punkt 605).
+REALISIERUNGSARTEN = ("realization", "implements")
+
 #: Aggregation und Komposition sagen „hat ein“, nicht „ist ein“. Das
 #: Ganze, die Seite mit der Raute, bekommt ein Attribut mit dem Typ
 #: des Teils (`_teilattribute`). Bis Punkt 182 stand das nur in diesem
 #: Kommentar, und aus `Auto` ◆→ `Motor` wurden zwei Klassen ohne
 #: jede Verbindung.
 TEILEARTEN = ("aggregation", "composition")
+
+#: Verbindungsarten, aus denen an der Quelle ein Attribut wird. Neben
+#: Aggregation und Komposition gehört die gerichtete Assoziation dazu:
+#: `Auto` → `Motor` mit dem Rollennamen „motor“ heißt „ein Auto kennt
+#: seinen Motor“, und genau das ist im Code ein Attribut. Bis Punkt 619
+#: entstanden daraus zwei Klassen ohne Verbindung. Eine Assoziation
+#: ohne Pfeil bleibt außen vor: welche Seite die andere kennt, sagt sie
+#: nicht.
+ATTRIBUTARTEN = (*TEILEARTEN, "directed_association")
 
 #: Aufrufe, die ein neues, veränderliches Objekt liefern.
 _VERAENDERLICHE_AUFRUFE = ("list", "dict", "set", "bytearray")
@@ -118,9 +131,16 @@ def _docstring(text: str, tiefe: int) -> list[str]:
 def _basisklassen(daten: dict[str, Any], shape: dict[str, Any]) -> list[str]:
     """Basisklassen aus den Verbindungen: eine Verallgemeinerung oder
     Realisierung, die von dieser Klasse ausgeht, zeigt auf die
-    Basisklasse."""
+    Basisklasse.
+
+    Vererbungen kommen vor Realisierungen, gleich in welcher Reihenfolge
+    sie gezogen wurden. Für den Konstruktor zählt die erste Basisklasse;
+    war die Realisierung zuerst gezogen, reichte `Vogel` seine Werte an
+    das Interface `Fliegend` statt an `Tier` weiter, und das Objekt ließ
+    sich nicht anlegen (Punkt 605)."""
     formen = {f.get("id"): f for f in daten.get("shapes") or []}
-    namen = []
+    erben: list[str] = []
+    umsetzen: list[str] = []
     for verbindung in daten.get("connectors") or []:
         if verbindung.get("kind") not in VERERBUNGSARTEN:
             continue
@@ -128,8 +148,11 @@ def _basisklassen(daten: dict[str, Any], shape: dict[str, Any]) -> list[str]:
             continue
         ziel = formen.get(verbindung.get("to"))
         if ziel is not None and formname(ziel):
-            namen.append(formname(ziel))
-    return namen
+            if verbindung.get("kind") in REALISIERUNGSARTEN:
+                umsetzen.append(formname(ziel))
+            else:
+                erben.append(formname(ziel))
+    return erben + umsetzen
 
 
 #: Ein Parameter des Konstruktors: Name, Text in der Signatur und ob
@@ -168,7 +191,8 @@ def _ist_vielfach(wort: str) -> bool:
 def _teilattribute(
     daten: dict[str, Any], shape: dict[str, Any]
 ) -> list[dict[str, Any]]:
-    """Attribute aus Aggregation und Komposition (Punkt 182).
+    """Attribute aus Aggregation, Komposition (Punkt 182) und gerichteter
+    Assoziation (Punkt 619).
 
     Die Raute sitzt am Ganzen, also an der Quelle der Verbindung. Das
     Ganze bekommt ein Attribut mit dem Typ des Teils. Der Name kommt
@@ -187,7 +211,7 @@ def _teilattribute(
     typen = " ".join(str(a.get("type") or "") for a in eigene)
     ergebnis: list[dict[str, Any]] = []
     for verbindung in daten.get("connectors") or []:
-        if verbindung.get("kind") not in TEILEARTEN:
+        if verbindung.get("kind") not in ATTRIBUTARTEN:
             continue
         if verbindung.get("from") != shape.get("id"):
             continue
@@ -435,19 +459,35 @@ def _zuweisungen_fuer_init(
     Parameter, dessen Name zu einem Attribut passt. Alles andere
     bleibt dem Schüler - hier soll keine Logik entstehen, nur das,
     was er ohnehin abschreiben müsste.
+
+    Ein Attribut mit Startwert, das kein Parameter ist, bekommt diesen
+    Startwert: aus `-stand: float = 0` und `__init__(inhaber)` wird
+    `self.__stand = 0`. Bis Punkt 606 fehlte die Zeile, und jede
+    Methode, die den Kontostand las, brach mit `AttributeError` ab.
     """
+    instanz = [
+        a for a in _instanzattribute(shape, daten)
+        if str(a.get("name", "")).strip()
+    ]
     felder = {
-        str(a.get("name", "")).lstrip("_"): _bezeichner(
+        str(a.get("name", "")).strip().lstrip("_"): _bezeichner(
             str(a.get("name", "")), a.get("visibility", "public")
         )
-        for a in _instanzattribute(shape, daten)
-        if str(a.get("name", "")).strip()
+        for a in instanz
     }
     zeilen = []
+    belegt = set()
     for parameter in operation.get("parameters") or []:
         roh = str(parameter.get("name", "")).strip().lstrip("_")
         if roh in felder:
             zeilen.append(f"{EINRUECKUNG * 2}self.{felder[roh]} = {roh}")
+            belegt.add(roh)
+    for attribut in instanz:
+        roh = str(attribut.get("name", "")).strip().lstrip("_")
+        wert = str(attribut.get("value") or "").strip()
+        if roh in belegt or not wert:
+            continue
+        zeilen.append(f"{EINRUECKUNG * 2}self.{felder[roh]} = {wert}")
     return zeilen
 
 
@@ -678,6 +718,8 @@ def ungueltige_namen(
                         "ans Ende."
                     )
     meldungen.extend(_doppelte_und_kreise(daten, klassen))
+    for klasse in klassen:
+        meldungen.extend(_gleichnamige_operationen(klasse, daten))
     # Übersetzt wird erst, wenn alle Angaben für sich stimmen. Seit
     # Punkt 149 reicht eine Unterklasse die Parameter ihrer
     # Basisklasse weiter, und ein falscher Name dort erschiene sonst
@@ -688,6 +730,39 @@ def ungueltige_namen(
         fehler = _uebersetzungsfehler(klasse_als_python(klasse, daten))
         if fehler:
             meldungen.append(f"{formname(klasse)}: {fehler}")
+    return meldungen
+
+
+def _gleichnamige_operationen(
+    klasse: dict[str, Any], daten: dict[str, Any]
+) -> list[str]:
+    """Eine Operation, die im Code genauso heißt wie ein Attribut.
+
+    Aus dem öffentlichen Attribut `alter` und der Anfrage `alter()`
+    entstanden `self.alter = alter` im Konstruktor und `@property def
+    alter`, und `Person(3)` scheiterte an der Eigenschaft ohne Setter;
+    bei einer gewöhnlichen Methode verdeckte das Attribut sie, und
+    `p.alter()` brach ab (Punkt 607). Das übliche Muster ist ein
+    privates Attribut `-alter` mit der öffentlichen Anfrage `alter()`:
+    dort heißen sie im Code `__alter` und `alter` und vertragen sich.
+    """
+    felder = {
+        _bezeichner(str(a.get("name", "")), a.get("visibility", "public"))
+        for a in _instanzattribute(klasse, daten)
+        if str(a.get("name", "")).strip()
+    }
+    meldungen = []
+    for operation in operationen(klasse):
+        name = _bezeichner(
+            str(operation.get("name", "")), operation.get("visibility", "public")
+        )
+        if name and name != "__init__" and name in felder:
+            meldungen.append(
+                f"{formname(klasse)}: Die Operation „{name}“ heißt im Code "
+                "genauso wie ein Attribut, und eines verdeckt das andere. "
+                "Das Attribut privat machen, dann ist die Anfrage der "
+                "Lesezugang, oder eines von beiden umbenennen."
+            )
     return meldungen
 
 
