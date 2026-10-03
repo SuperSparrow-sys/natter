@@ -1008,7 +1008,8 @@ Kopie des Ordners, etwa für eine Klasse, hat deshalb keine.
 | `Tab` bei markierten Zeilen | alle um eine Ebene einrücken |
 | `Umschalt+Tab` | um eine Ebene ausrücken |
 | Klick links im Zeilenrand | Haltepunkt setzen oder entfernen |
-| Klick rechts im Zeilenrand | Klasse oder Funktion zuklappen |
+| Klick auf das Dreieck rechts im Zeilenrand | Klasse oder Funktion zuklappen |
+| Rechte Maustaste im Zeilenrand | Menü für Haltepunkt und Bedingung |
 
 Die rechte Maustaste im Editor zeigt dieselben Befehle als Menü, dazu
 „Alles zuklappen“ und „Alles aufklappen“. Beides steht auch im Menü

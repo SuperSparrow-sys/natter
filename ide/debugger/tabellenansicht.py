@@ -49,14 +49,31 @@ MAX_ZELLENTEXT = 300
 #: braucht. 20 000 lässt dafür genug Luft (Punkt 574).
 MAX_TEXTLAENGE = 20000
 
+#: Höchstens so viele Spalten. Eine Liste von Listen mit 8000 Spalten
+#: überschritt sonst die Grenze von debugpy schon mit der ersten Zeile
+#: (Punkt 615).
+MAX_SPALTEN = 50
+
 _KONVERTER_QUELLTEXT = '''
-def natter_tabelle(wert, max_zeilen, max_zellentext, max_textlaenge=20000):
+def natter_tabelle(wert, max_zeilen, max_zellentext, max_textlaenge=20000, max_spalten=50):
     """Wandelt `wert` in {"spalten", "zeilen", "gesamt", "art"} um.
-    Liefert None, wenn der Wert keine sinnvolle Tabelle ergibt."""
+    Liefert None, wenn der Wert keine sinnvolle Tabelle ergibt.
+
+    Zahlen kommen als {"zahl": wert}, damit die Anzeige nach dem
+    Zahlwert sortieren und mit Dezimalkomma schreiben kann."""
+    import numbers as _zahlen
 
     def text(einzelwert):
         if einzelwert is None:
             return ""
+        if (
+            isinstance(einzelwert, _zahlen.Real)
+            and not isinstance(einzelwert, bool)
+            and einzelwert == einzelwert
+        ):
+            if isinstance(einzelwert, _zahlen.Integral):
+                return {"zahl": int(einzelwert)}
+            return {"zahl": float(einzelwert)}
         try:
             gewandelt = str(einzelwert)
         except Exception:
@@ -71,19 +88,25 @@ def natter_tabelle(wert, max_zeilen, max_zellentext, max_textlaenge=20000):
         # sprang dann von Zeile 83 auf 157 (Punkt 574). Die ersten
         # Zeilen bleiben zusammenhängend, `gesamt` nennt alle.
         import json as _json
+        spalten_gesamt = len(spalten)
+        spalten = list(spalten)[:max_spalten]
         fertige = []
         laenge = 0
         for zeile in zeilen:
-            texte = [text(zelle) for zelle in zeile]
+            texte = [text(zelle) for zelle in list(zeile)[:max_spalten]]
             laenge += len(_json.dumps(texte))
             if fertige and laenge > max_textlaenge:
                 break
             fertige.append(texte)
         return {
-            "spalten": [text(spalte) for spalte in spalten],
+            "spalten": [
+                str(spalte["zahl"]) if isinstance(spalte, dict) else str(text(spalte))
+                for spalte in spalten
+            ],
             "zeilen": fertige,
             "gesamt": gesamt,
             "art": art,
+            "spalten_gesamt": spalten_gesamt,
         }
 
     # pandas DataFrame - an den Attributen erkannt, nicht per import
@@ -150,6 +173,24 @@ class TabellenFehler(ValueError):
     """Der Wert lässt sich nicht als Tabelle darstellen."""
 
 
+class Zahlzelle(str):
+    """Eine Zelle mit einer Zahl. Als Text mit Dezimalkomma, in `wert`
+    die Zahl selbst, nach der die Anzeige sortiert."""
+
+    wert: float
+
+    def __new__(cls, wert: float) -> Zahlzelle:
+        zelle = super().__new__(cls, str(wert).replace(".", ","))
+        zelle.wert = wert
+        return zelle
+
+
+def _zelle(roh: Any) -> str:
+    if isinstance(roh, dict) and "zahl" in roh:
+        return Zahlzelle(roh["zahl"])
+    return str(roh)
+
+
 @dataclass
 class Tabelle:
     """Das Ergebnis einer Umwandlung, fertig für `QTableWidget`."""
@@ -161,6 +202,8 @@ class Tabelle:
     gesamt: int = 0
     #: Menschenlesbare Art des Werts, z. B. "DataFrame".
     art: str = ""
+    #: Spalten im Original; mehr als `len(spalten)`, wenn gekürzt wurde.
+    spalten_gesamt: int = 0
 
     @property
     def gekuerzt(self) -> bool:
@@ -183,11 +226,13 @@ def tabelle_aus_wert(
 
 
 def _tabelle_aus_dict(ergebnis: dict[str, Any]) -> Tabelle:
+    spalten = [str(spalte) for spalte in ergebnis["spalten"]]
     return Tabelle(
-        spalten=list(ergebnis["spalten"]),
-        zeilen=[list(zeile) for zeile in ergebnis["zeilen"]],
+        spalten=spalten,
+        zeilen=[[_zelle(zelle) for zelle in zeile] for zeile in ergebnis["zeilen"]],
         gesamt=int(ergebnis["gesamt"]),
         art=str(ergebnis["art"]),
+        spalten_gesamt=int(ergebnis.get("spalten_gesamt", len(spalten))),
     )
 
 
@@ -211,6 +256,10 @@ def tabellen_ausdruck(
     )
 
 
+#: Ab dieser Länge gilt eine unlesbare Antwort als von debugpy gekürzt.
+_LANGE_ANTWORT = 2000
+
+
 def tabelle_aus_antwort(antwort: str) -> Tabelle:
     """Wertet die Antwort von DAP `evaluate` auf `tabellen_ausdruck()`
     aus. `debugpy` liefert den `repr` des Rückgabewerts, also einen
@@ -231,6 +280,14 @@ def tabelle_aus_antwort(antwort: str) -> Tabelle:
         # Der rohe Antworttext bleibt stehen - er ist das Einzige, was
         # hier weiterhilft, wenn es doch einmal passiert. Davor steht
         # jetzt, was zu tun ist.
+        if len(antwort) > _LANGE_ANTWORT:
+            # Eine sehr lange Antwort hat debugpy gekürzt; Neustarten hilft
+            # dann nicht, und die ganze Antwort stand bis 0.4.3 mit rund
+            # 65 000 Zeichen in der Statuszeile (Punkt 615).
+            raise TabellenFehler(
+                "Der Wert ist zu groß für die Anzeige als Tabelle. Einen "
+                "Ausschnitt anzeigen lassen, etwa  daten[:50] ."
+            ) from fehler
         raise TabellenFehler(
             "Der Debugger hat auf diese Anfrage anders geantwortet als "
             "erwartet. Das Programm über „Start → Stopp“ beenden und noch "

@@ -128,6 +128,16 @@ def test_umschalt_tab_rueckt_aus(editor: QuelltextEditor) -> None:
     assert editor.toPlainText() == "a = 1\n    b = 2\nc = 3\n"
 
 
+def test_umschalt_tab_rueckt_auch_einen_tabulator_aus(editor: QuelltextEditor) -> None:
+    """Punkt 621: gezählt wurden nur Leerzeichen."""
+    editor.setPlainText("\t\ta = 1\n\tb = 2\n")
+    _markieren(editor, 0, 1)
+
+    QTest.keyClick(editor, Qt.Key.Key_Backtab, Qt.KeyboardModifier.ShiftModifier)
+
+    assert editor.toPlainText() == "\ta = 1\nb = 2\n"
+
+
 def test_umschalt_tab_ohne_markierung_betrifft_die_zeile(editor: QuelltextEditor) -> None:
     editor.setPlainText("x = 1\n    y = 2\n")
     cursor = editor.textCursor()
