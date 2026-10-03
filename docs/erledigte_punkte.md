@@ -13198,3 +13198,31 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** Pfeile als Symbole, Feld und Knopf in eigenen Zeilen, „Abbrechen“, deutsche Sichtbarkeit, erster Eintrag ausgewählt, gesperrte Felder erkennbar. Erledigt, wenn der Durchlauf keine Befunde meldet und Tests die Punkte festhalten.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** Menü-Editor: Pfeile aus `QStyle.StandardPixmap.SP_ArrowUp`/`SP_ArrowDown` mit Tooltip und zugänglichem Namen, ohne feste Breite; „Methode anlegen“ in eigener Zeile unter „Beim Anklicken“; „Abbrechen“ statt „Schließen“. Klassendialog: Sichtbarkeit „öffentlich (+)“, „privat (−)“, „geschützt (#)“, „Paket (~)“ mit dem Zeichen, das im Diagramm steht; beim Öffnen ist in jeder nicht leeren Liste der erste Eintrag ausgewählt. IDE-Stylesheet: gesperrte Eingabefelder mit grauem Grund und gedämpfter Schrift. Der Durchlauf meldet danach keine Befunde. Tests: `test_der_dialog_zeigt_gleich_den_ersten_eintrag_auf_deutsch` in `tests/test_diagramm_klassendialog.py` und `test_abbrechen_statt_schliessen_und_platz_fuer_die_methode` in `tests/test_menue_editor.py`; mit den Dateien aus `HEAD` scheitern beide.
+
+---
+
+## 503. Projekt-Explorer: eine hineinkopierte Klasse erscheint erst nach erneutem Öffnen ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Weg der Lehrkraft (Aufgaben über einen Ordner austeilen), Probe mit dem Hauptfenster, Entwicklungsstand `8266e7f`.
+
+**Beobachtet:** Die Lehrkraft legt `konto.py` mit einer Klasse `Konto` in einen Austauschordner, die Schülerin kopiert sie im Windows-Explorer in ihr offenes Projekt und wechselt zurück zu Natter. Der Projekt-Explorer zeigt weiter nur `u_main.py`; `konto.py` erscheint erst nach „Projekt öffnen“. Eingebunden mit `from konto import Konto` läuft sie, und sie geht in die Abgabe-ZIP mit.
+
+**Ursache:** nachgewiesen. `HauptFenster.changeEvent` lädt beim Aktivieren nur geänderte Editoren neu; den Projektordner liest nur `projekt_anzeigen` ein, und das läuft beim Öffnen und nach Natters eigenen Änderungen.
+
+**Zu tun:** Beim Zurückwechseln zu Natter den Projektordner neu einlesen, ohne den Baum ohne Not neu zu bauen. Erledigt, wenn ein Test eine hineinkopierte Datei nach dem Auffrischen im Explorer findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `ProjektExplorer.auffrischen` (`ide/shell/explorer.py`) vergleicht die Dateien des Projekts mit den angezeigten Einträgen und baut den Baum nur bei einem Unterschied neu, mit derselben Auswahl wie vorher. `HauptFenster.changeEvent` ruft es auf, sobald das Fenster aktiv wird. Test: `test_eine_hineinkopierte_klasse_und_ein_diagramm_erscheinen` in `tests/test_hauptfenster_projekt.py`; mit den Dateien aus `HEAD` scheitert er.
+
+---
+
+## 504. Projekt-Explorer: ein Diagramm neben `u_main.py` erscheint nirgends ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Weg der Lehrkraft, Probe wie Punkt 503.
+
+**Beobachtet:** Die Lehrkraft verteilt `bank.pdiag`, die Schülerin kopiert es neben `u_main.py` in ihr Projekt. Es steht weder unter „Diagramme“ noch unter „Dateien“, geht aber in die Abgabe-ZIP mit. Über „Datei → Öffnen …“ lässt es sich öffnen, ändern und unter `diagramme/` speichern; das Original der Lehrkraft bleibt dabei unverändert, und „Quelltext → Erzeugen …“ legt aus dem Klassendiagramm eine Unit im Projekt an.
+
+**Ursache:** nachgewiesen. `Projekt.diagramme` (`ide/project/projekt.py`) liest nur den Unterordner `diagramme/`, und `weitere_dateien` lässt `.pdiag` aus.
+
+**Zu tun:** Diagramme auch aus dem Projektordner selbst zeigen. Erledigt, wenn ein Test ein solches Diagramm unter „Diagramme“ findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `Projekt.diagramme` liefert die Diagramme aus `diagramme/` und dahinter die aus dem Projektordner. „Neues Diagramm …“ legt weiter unter `diagramme/` an; Umbenennen und Löschen arbeiten mit dem Pfad der Datei und gelten für beide Orte. Test wie Punkt 503.

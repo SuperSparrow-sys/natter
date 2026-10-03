@@ -105,6 +105,45 @@ class ProjektExplorer(QTreeWidget):
             gruppe.takeChildren()
             gruppe.setHidden(True)
 
+    def angezeigte_pfade(self) -> list[str]:
+        """Die Pfade aller Einträge, in der Reihenfolge des Baums."""
+        return [
+            str(gruppe.child(i).data(0, PFAD_ROLLE))
+            for gruppe in self._gruppen()
+            for i in range(gruppe.childCount())
+        ]
+
+    def auffrischen(self, projekt: Projekt) -> bool:
+        """Liest den Projektordner neu ein, wenn dort Dateien dazu
+        gekommen oder verschwunden sind, und behält die Auswahl.
+        Liefert, ob sich etwas geändert hat.
+
+        Eine Klasse oder ein Diagramm, das jemand im Windows-Explorer
+        in den offenen Projektordner kopiert, erschien bis 0.4.3 erst
+        nach erneutem Öffnen des Projekts (Punkt 503)."""
+        erwartet = [
+            str(pfad)
+            for pfad in (
+                *projekt.formulare(),
+                *projekt.units(),
+                *projekt.diagramme(),
+                *projekt.weitere_dateien(),
+            )
+        ]
+        if sorted(erwartet) == sorted(self.angezeigte_pfade()):
+            return False
+        ausgewaehlt = self.currentItem()
+        ausgewaehlter_pfad = (
+            ausgewaehlt.data(0, PFAD_ROLLE) if ausgewaehlt is not None else None
+        )
+        self.projekt_anzeigen(projekt)
+        if ausgewaehlter_pfad is not None:
+            for gruppe in self._gruppen():
+                for i in range(gruppe.childCount()):
+                    if gruppe.child(i).data(0, PFAD_ROLLE) == ausgewaehlter_pfad:
+                        self.setCurrentItem(gruppe.child(i))
+        return True
+
     def projekt_anzeigen(self, projekt: Projekt) -> None:
         self.formulare_gruppe.takeChildren()
         self.units_gruppe.takeChildren()

@@ -5341,6 +5341,10 @@ class HauptFenster(QMainWindow):
             and self.isActiveWindow()
         ):
             self._von_aussen_geaenderte_neu_laden()
+            # Was inzwischen im Projektordner dazugekommen ist, etwa eine
+            # Klasse der Lehrkraft (Punkt 503).
+            if self.projekt is not None and self.projekt.ordner.is_dir():
+                self.explorer.auffrischen(self.projekt)
 
     def _ungespeicherte_editoren(self) -> list[QPlainTextEdit]:
         editoren = []

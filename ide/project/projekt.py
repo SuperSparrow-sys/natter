@@ -319,11 +319,16 @@ class Projekt:
         return sorted(ergebnis, key=lambda p: str(p.relative_to(self.ordner)).lower())
 
     def diagramme(self) -> list[Path]:
-        """Alle Diagramme (`.pdiag`) im Unterordner `diagramme/`
-        (Abschnitt 13.1 – anders als Formulare/Units liegen sie nicht
-        im Projektwurzelordner)."""
+        """Alle Diagramme (`.pdiag`): die im Unterordner `diagramme/`
+        (Abschnitt 13.1), wohin „Neues Diagramm …“ sie legt, und die
+        im Projektordner selbst.
+
+        Ein Diagramm, das eine Lehrkraft verteilt und eine Schülerin
+        neben `u_main.py` kopiert, erschien bis 0.4.3 nirgends im
+        Projekt-Explorer, obwohl es in der Abgabe mitging (Punkt 504)."""
         ordner = self.diagramm_ordner
-        return sorted(ordner.glob("*.pdiag")) if ordner.is_dir() else []
+        unten = sorted(ordner.glob("*.pdiag")) if ordner.is_dir() else []
+        return [*unten, *sorted(self.ordner.glob("*.pdiag"))]
 
     @property
     def diagramm_ordner(self) -> Path:

@@ -162,3 +162,38 @@ def test_aenderung_markiert_den_tab_und_speichern_entfernt_die_markierung(
 
     assert fenster.editor_tabs.tabText(0) == "test.txt"
     assert pfad.read_text(encoding="utf-8") == "ursprünglich geändert"
+
+
+def test_eine_hineinkopierte_klasse_und_ein_diagramm_erscheinen(
+    hauptfenster, tmp_path: Path
+) -> None:
+    """Punkte 503 und 504: eine Klasse, die die Lehrkraft verteilt und
+    die im Windows-Explorer in den offenen Projektordner kopiert wird,
+    erschien erst nach erneutem Öffnen; ein Diagramm neben `u_main.py`
+    erschien nie. Ohne Änderung wird der Baum nicht neu gebaut."""
+    import shutil
+
+    ordner = tmp_path / "06_Kontoverwaltung"
+    shutil.copytree(_AMPEL_ORDNER, ordner)
+    hauptfenster.projekt_oeffnen(ordner)
+    assert hauptfenster.explorer.auffrischen(hauptfenster.projekt) is False
+
+    (ordner / "konto_lehrkraft.py").write_text("class K:\n    pass\n", encoding="utf-8")
+    (ordner / "aufgabe.pdiag").write_text(
+        '{"format": "pdiag/1", "type": "class", "name": "aufgabe", '
+        '"page": {"size": "A4", "orientation": "landscape"}, '
+        '"style": "modern-light", "shapes": [], "connectors": []}',
+        encoding="utf-8",
+    )
+    assert hauptfenster.explorer.auffrischen(hauptfenster.projekt) is True
+
+    units = [
+        hauptfenster.explorer.units_gruppe.child(i).text(0)
+        for i in range(hauptfenster.explorer.units_gruppe.childCount())
+    ]
+    diagramme = [
+        hauptfenster.explorer.diagramme_gruppe.child(i).text(0)
+        for i in range(hauptfenster.explorer.diagramme_gruppe.childCount())
+    ]
+    assert "konto_lehrkraft.py" in units
+    assert "aufgabe" in diagramme
