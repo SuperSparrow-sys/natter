@@ -14329,3 +14329,397 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** Leeres MaskEdit als `""` liefern, leeres Kreisdiagramm mit deutscher Meldung, Tausenderpunkte wie `pcl.zahlen.zahl` lesen, die Referenz zum Achsenabschnitt berichtigen. Erledigt, wenn je ein Test die Fälle festhält.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** Ein leeres `MaskEdit` liefert `""` (`_ohne_leere_maske` in `pcl/components/eingaben.py`), ein Kreisdiagramm ohne Wert über 0 meldet sich deutsch, `_als_zahlen` liest im dritten Anlauf wie `pcl.zahl` auch Tausenderpunkte (`pcl/components/chart.py`), und `docs/komponenten.md` nennt den Achsenabschnitt der logarithmischen Regression als Wert bei `x = 1`. Tests: `test_ein_leeres_maskedit_liefert_leeren_text` in `tests/test_pcl_werte_pruefen.py`, `test_leeres_kreisdiagramm_meldet_sich_deutsch` und `test_tausenderpunkte_in_der_csv` in `tests/test_chart_dezimalkomma.py`.
+
+## 593. Ein Hauptmenü oder Klappmenü auf einem Panel oder einer GroupBox: das Programm startet nicht ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d.
+
+**Beobachtet:** Liegt ein `MainMenu` oder `PopupMenu` auf einem Behälter statt auf dem Formular, bricht das Programm beim Zuweisen der Einträge ab: „Der Menüeintrag „X“ soll beim Anklicken die Methode 'mi_x' aufrufen, aber Panel hat keine Methode mit diesem Namen.“ Die Methode steht im Formular, wo sie hingehört. Probe offscreen: Formular mit `self.p = Panel(self)`, `MainMenu(self.p)` (ebenso `PopupMenu(self.p)`) und `entries = [{"caption": "X", "on_click": "mi_x"}]`, `mi_x` als Methode des Formulars.
+
+**Ursache:** nachgewiesen für die Laufzeit. `pcl/components/menus.py` Zeile 388 hält den unmittelbaren Elternteil für das Formular (`self._formular = parent`), `_handler_pruefen` (Zeilen 455-466) sucht die Methode dort. Im Designer nimmt `_behaelter_bei` (`ide/designer/canvas.py` ab Zeile 1741) jede abgelegte Komponente in den innersten Behälter auf, auch die Menüsymbole, und `ide/codegen/design.py` (Zeilen 404-407) erzeugt daraus `MainMenu(self.p_panel)`. Vermutet: Der Designer selbst prüft die Einträge ebenfalls gegen den Behälter.
+
+**Zu tun:** Das Formular über die Elternkette bis zur `Form` bestimmen und im Designer Symbole mit `nur_im_designer` nie in einen Behälter legen (`_behaelter_bei`, `_behaelter_fuer`). Erledigt, wenn ein Test ein Menü auf einem Panel ablegt und das erzeugte Programm startet und die Methode aufruft.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_Menue.__init__` (`pcl/components/menus.py`) bestimmt das Formular über die Elternkette, durch Behälter hindurch; ein Menü auf einem Panel findet damit die Methoden des Formulars. Der Designer legt Komponenten mit `nur_im_designer` (Menüs, Zeitgeber) nie in einen Behälter, weder beim Ablegen noch beim Verschieben (`_behaelter_fuer` in `ide/designer/canvas.py`). Tests: `test_ein_menue_auf_einem_panel_findet_die_methoden_des_formulars` in `tests/test_components_menus.py`, `test_menues_und_zeitgeber_landen_nie_in_einem_behaelter` in `tests/test_designer_behaelter.py`.
+
+## 594. Der Exe-Export prüft das Projekt nicht: ein Syntaxfehler in einer Unit ergibt eine Exe ohne diese Unit ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d.
+
+**Beobachtet:** Steht in `u_main.py` ein Syntaxfehler, baut der Export weiter und meldet „Exe erstellt“. PyInstaller bricht nur bei einem Syntaxfehler im Startskript `main.py` ab; eine fehlerhafte Unit wird als `InvalidSourceModule` still weggelassen (Quelltext von PyInstaller 6.22.3: `depend/analysis.py` Zeilen 281-288, `lib/modulegraph/modulegraph.py` Zeilen 1958-1964, `compat.py` Zeilen 652-656). Vermutet, weil nicht gebaut wurde: die Exe endet beim Empfänger mit `ModuleNotFoundError: u_main`.
+
+**Ursache:** nachgewiesen. `_als_exe_exportieren_aktion` (`ide/shell/hauptfenster.py` Zeilen 2715-2748) speichert nur alle Dateien und ruft die Prüfung vor dem Start (`projekt_pruefen`) nicht auf.
+
+**Zu tun:** Vor dem Export `projekt_pruefen` laufen lassen und bei blockierenden Funden nicht exportieren, mit den Funden im Panel „Meldungen“. Erledigt, wenn ein Test den Export mit einem Syntaxfehler in einer Unit aufhält.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_als_exe_exportieren_aktion` (`ide/shell/hauptfenster.py`) ruft vor dem Export dieselbe Prüfung wie vor dem Start auf (`_vorstart_pruefung_blockiert(fuer_export=True)`, ohne die Frage nach einer offenen Transaktion); ein blockierender Fund hält den Export auf, die Funde stehen im Panel „Meldungen“, und die Statuszeile sagt, dass keine Exe erstellt wurde. Test: `test_ein_syntaxfehler_in_einer_unit_haelt_den_export_auf` in `tests/test_hauptfenster_exe_export.py`.
+
+## 595. Haltepunkte stehen nach „Verwerfen“ auf der falschen Zeile oder sind weg ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d. Bezug: Punkt 419.
+
+**Beobachtet:** Datei mit drei Zeilen, Haltepunkt auf Zeile 3. Darüber zwei Zeilen eingefügt, nicht gespeichert, Reiter geschlossen und „Verwerfen“ gewählt. Die Datei hat weiter drei Zeilen, der gemerkte Haltepunkt steht auf Zeile 5. Nach dem Wiederöffnen ist er fort (Probe mit Hauptfenster: im Editor `[5]`, nach dem Wiederöffnen `[]`). Liegt die gewanderte Zeile innerhalb der Datei, steht er auf einer fremden Anweisung.
+
+**Ursache:** nachgewiesen. `_haltepunkte_merken` (`ide/shell/hauptfenster.py` ab Zeile 7599, aufgerufen in `_tab_schliessen` Zeile 7590) merkt die Zeilen aus dem Editor, auch wenn dessen Text verworfen wird; ebenso `_haltepunkte_ablegen` (ab Zeile 7632) beim Schließen von Projekt und Natter.
+
+**Zu tun:** Beim Laden und Speichern den Stand der Haltepunkte festhalten, der zur Datei passt, und nach „Verwerfen“ diesen merken. Erledigt, wenn ein Test den Ablauf oben durchläuft und den Haltepunkt nach dem Wiederöffnen auf Zeile 3 findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_haltepunkte_zur_datei` (`ide/shell/hauptfenster.py`) überträgt Haltepunkte zeilenweise auf den Stand der Datei, wenn der Editortext davon abweicht (`zeilen_zuordnen`, `haltepunkte_zuordnen` in `ide/shell/quelltexteditor.py`, über `difflib`); beim Schließen eines Reiters, des Projekts und von Natter wird dieser Stand gemerkt, nach „Verwerfen“ steht der Haltepunkt also auf der Zeile der Datei. Test: `test_nach_verwerfen_steht_der_haltepunkt_auf_der_zeile_der_datei` in `tests/test_haltepunkte_und_reiter.py`.
+
+## 596. Rückgängig führt Haltepunkte in drei Fällen nicht richtig zurück ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d. Bezug: Punkt 580.
+
+**Beobachtet:** Proben mit `QuelltextEditor` offscreen:
+- Haltepunkte auf 2 und 5, Funktion ab Zeile 4 zugeklappt, Strg+D. Nach Strg+Z bleibt nur `[2]`, nach Strg+Y nur `[5]`; erwartet war jeweils `[2, 5]`.
+- Haltepunkt auf Zeile 3, Zeile 2 mit Alt+Pfeil runter verschoben, dann „Rückgängig“ aus dem Kontextmenü des Editors: der Text ist zurück, der Haltepunkt bleibt auf Zeile 2 und steht damit auf einer anderen Anweisung. Mit Strg+Z stimmt es.
+- Eine Zeile mit Haltepunkt gelöscht und mit Strg+Z zurückgeholt: die Zeile ist wieder da, der Haltepunkt nicht.
+
+**Ursache:** nachgewiesen. `undo`/`redo` (`ide/shell/quelltexteditor.py` Zeilen 573-590) wenden die gemerkte Zuordnung auf Haltepunkte an, die `_breakpoints_nachfuehren` (Zeilen 455-487) während `super().undo()` schon verschoben und teils verworfen hat. Das Kontextmenü kommt aus `createStandardContextMenu()` (Zeile 1679) und ruft Qts eigenes Rückgängig an diesen Methoden vorbei. Haltepunkte gelöschter Zeilen werden nirgends gemerkt.
+
+**Zu tun:** Den Stand vor dem Rückgängigmachen sichern und die Zuordnung darauf anwenden, die Einträge Rückgängig und Wiederholen im Kontextmenü auf `self.undo`/`self.redo` legen und Haltepunkte gelöschter Zeilen je Schritt merken. Erledigt, wenn ein Test die drei Abläufe prüft.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `QuelltextEditor` merkt Haltepunkte und Bedingungen je Zahl der Rückgängig-Schritte vor jeder Änderung und vor jedem Rückgängig oder Wiederholen, und `undo`/`redo` (`_schritt_mit_haltepunkten`) stellen den zugehörigen Stand her; das ersetzt die Zeilenzuordnung aus Punkt 580 und bringt auch Haltepunkte gelöschter Zeilen und gefalteter Funktionen zurück. Rückgängig und Wiederholen im Kontextmenü laufen über diese Methoden. Tests: `test_strg_d_auf_gefalteter_funktion_rueckgaengig_und_wiederholen`, `test_rueckgaengig_aus_dem_kontextmenue_nimmt_den_haltepunkt_mit` und `test_eine_geloeschte_zeile_bringt_ihren_haltepunkt_zurueck` in `tests/test_editor_haltepunkte_wandern.py`.
+
+## 597. `MainMenu.aktualisieren()` nach einem angehängten Eintrag endet mit `KeyError` ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d.
+
+**Beobachtet:** `docs/komponenten.md` empfiehlt für Änderungen zur Laufzeit `eintrag()` und danach `aktualisieren()`. Nach `mm.eintrag("mi_datei")["children"].append({"name": "mi_neu", "caption": "Neu"})` und `mm.aktualisieren()` bricht das Programm mit `KeyError: 'separator'` ab, die Menüleiste ist dann schon geleert und nur halb neu aufgebaut. Ein über denselben Weg gesetztes Kürzel `"Strg+Bla"` wird still angenommen, steht im Menü und wirkt nie.
+
+**Ursache:** nachgewiesen. `aktualisieren` (`pcl/components/menus.py` Zeilen 422-426) baut neu, ohne die Einträge mit `eintrag_vollstaendig` aufzufüllen oder mit `eintraege_pruefen` zu prüfen; Zeilen 470 und 473 greifen auf `eintrag["separator"]` und `eintrag["children"]` zu.
+
+**Zu tun:** In `aktualisieren()` zuerst prüfen und die Einträge an Ort und Stelle auffüllen, damit Verweise aus `eintrag()` gültig bleiben. Erledigt, wenn ein Test einen knappen Eintrag anhängt, `aktualisieren()` aufruft und ihn im Menü findet, und ein ungültiges Kürzel mit deutscher Meldung abgelehnt wird.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `aktualisieren()` (`pcl/components/menus.py`) prüft die Einträge zuerst und füllt sie an Ort und Stelle auf (`_auffuellen`); Verweise aus `eintrag()` bleiben gültig, und ein unbrauchbares Kürzel wird deutsch abgelehnt, bevor die Leiste abgebaut ist. Test: `test_aktualisieren_fuellt_auf_und_prueft` in `tests/test_components_menus.py`.
+
+## 598. `Chart`: häufige Eingabefehler enden englisch oder ergeben still ein falsches Diagramm ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d. Bezug: Punkt 592 (dort nur das leere Kreisdiagramm).
+
+**Beobachtet:** Proben offscreen:
+- `add_line_series` mit ungleich langen Listen: „ValueError: x and y must have same first dimension…“; ebenso `add_scatter_series` („x and y must be the same size“).
+- `add_bar_series` mit `None` darin: `TypeError: unsupported operand…`.
+- Kreisdiagramm mit einem negativen Stück: „Wedge sizes 'x' must be non negative values“; zu wenige Beschriftungen: „'labels' must be of length 'x'“; Werte als Text `["3", "1"]`: `UFuncTypeError` aus numpy.
+- Histogramm mit `bins=0`: englischer `ValueError`.
+- Werte als Text, wie sie aus `Edit.text` kommen: `add_line_series([1, 2, 3], ["10", "9", "100"])` zeichnet ohne Meldung eine Kategorienachse in der Reihenfolge 10, 9, 100.
+
+**Ursache:** nachgewiesen. Die Methoden `add_*_series` (`pcl/components/chart.py` Zeilen 303-345) reichen die Werte ungeprüft an matplotlib weiter; nur geladene Daten laufen über `_als_zahlen`. Die Prüfung des Kreisdiagramms (Zeilen 309-322) fragt nur nach einem Wert über 0, und `_ist_positiv("3")` lässt Text durch.
+
+**Zu tun:** Eine gemeinsame Vorprüfung in den `add_*`-Methoden: gleiche Länge, nur Zahlen (Text über `pcl.zahl` umwandeln oder deutsch melden), keine negativen Stücke, `bins` ab 1. Erledigt, wenn ein Test jeden Fall oben mit deutscher Meldung oder richtigem Diagramm prüft.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Die `add_*_series`-Methoden (`pcl/components/chart.py`) prüfen ihre Eingaben vorab (gleiche Länge, nur Zahlen, Text wie mit `pcl.zahl` gelesen, kein `None`, keine negativen Kreisstücke, passend viele Beschriftungen, `bins` ab 1) und melden Verstöße deutsch. Die Werte eines Boxplots bleiben ungeprüft; matplotlib meldet dort selbst. Tests: `test_eingabefehler_der_reihen_kommen_deutsch` und `test_werte_als_text_werden_zahlen` in `tests/test_chart_dezimalkomma.py`.
+
+## 599. Ist `powershell.exe` gesperrt, meldet der Export „fehlgeschlagen“, obwohl die Exe gebaut ist ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d.
+
+**Beobachtet:** `docs/handbuch.md` (Abschnitt AppLocker, Zeilen 209-210): „Ist `powershell.exe` für Schülerkonten gesperrt, entsteht beim Export trotzdem eine Exe, nur ohne Signatur.“ Probe mit einem Ersatz für `subprocess.run`, der wie eine gesperrte PowerShell `OSError` (WinError 1260) bzw. `FileNotFoundError` auslöst: die Ausnahme kommt aus `signieren_wenn_moeglich` heraus, das Hauptfenster meldet „Exe-Export fehlgeschlagen: [WinError 1260] …“ und öffnet den Ordner nicht, obwohl die Exe in `dist` liegt.
+
+**Ursache:** nachgewiesen. `_powershell` (`ide/export/signatur.py` ab Zeile 131) fängt nur `subprocess.TimeoutExpired`; `exe_exportieren` (`ide/export/exporter.py` Zeile 604) fängt nichts.
+
+**Zu tun:** Ein `OSError` beim Start von PowerShell wie eine misslungene Signatur behandeln („Exe erstellt, ohne Signatur“ mit Grund). Erledigt, wenn ein Test mit diesem Ersatz die Exe als erstellt und unsigniert gemeldet findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_powershell` (`ide/export/signatur.py`) macht aus einem `OSError` beim Start von PowerShell `PowerShellFehlt`; `signieren_wenn_moeglich` liefert dann eine unsignierte Exe mit dem Grund, und `exe_exportieren` (`ide/export/exporter.py`) behandelt jeden `OSError` beim Signieren als „Ohne Signatur“, die Exe gilt als erstellt. Test: `test_eine_gesperrte_powershell_ergibt_eine_unsignierte_exe` in `tests/test_export_signatur.py`.
+
+## 600. Der PDF-Export schneidet Formen links und oben ab und lässt Inhalt im Druckrand stehen ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d. Bezug: Punkt 568, der nur Inhalt rechts und unten jenseits der Seite einpasst.
+
+**Beobachtet:**
+- Ein Klick in den linken Seitenrand des Klassendiagramms (x = 20) legt die Klasse bei x = −72 an. `pdf_passt_auf_seite` sagt `True`, das PDF wird unverkleinert geschrieben, 72 der 184 Punkte Breite fehlen; die Statuszeile meldet „Exportiert nach …“.
+- Formen zwischen Satzspiegel und Blattkante kommen unverkleinert ins PDF, bei y = 2 mit 0,4 mm Rand. Ein Struktogramm aus 37 Anweisungen gilt als passend und hat unten 4,9 mm Rand, obwohl `RAND_MM = 10` gilt.
+
+**Ursache:** nachgewiesen. `pdf_passt_auf_seite` (`ide/diagramm/export.py` Zeilen 316-325) vergleicht nur rechte und untere Kante mit dem Blatt, nicht linke und obere Kante und nicht den Satzspiegel. `form_platzieren` (`ide/diagramm/canvas.py` Zeile 364) setzt die Mitte der Form auf den Klickpunkt, ohne einen Klick im Seitenrand zu korrigieren.
+
+**Zu tun:** Gegen den Satzspiegel an allen vier Seiten prüfen und sonst einpassen, bei Struktogramm und Entscheidungstabelle die Ränder mitrechnen. Erledigt, wenn ein Test eine Form bei negativem x und eine im Druckrand exportiert und alles innerhalb des Satzspiegels findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `pdf_passt_auf_seite` (`ide/diagramm/export.py`) vergleicht den Inhalt an allen vier Seiten mit dem Satzspiegel; passt er nicht, setzt `als_pdf` ihn über `auf_seite_zeichnen` in den Satzspiegel, und die Statuszeile sagt es. Test: `test_pdf_bleibt_im_satzspiegel` in `tests/test_diagramm_export.py`.
+
+## 601. Struktogramm-Code: eine Eingabe bleibt Text, wenn sie mit `!=`, `=`, in einer Fallauswahl oder mit `+` benutzt wird ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d. Bezug: Punkt 579, der nur Vergleiche mit `<`, `>`, `==` und Rechnungen mit `-`, `*`, `/`, `%` abdeckt.
+
+**Beobachtet:** Proben mit `ide/diagramm/struktogramm_code.py`, der erzeugte Code ausgeführt:
+- „Eingabe: z“ und „z != 0?“ ergeben `z = input("z? ")` und `if z != 0:`. Bei der Eingabe 0 kommt „nicht null“.
+- „Eingabe: z“ und „z = 0?“ ergeben `if z == 0:`, das nie gilt.
+- „Eingabe: note“ und eine Fallauswahl mit Kopf `note` und den Fällen 1, 2, sonst, genau das Beispiel aus `docs/handbuch.md` Abschnitt 3.4, ergeben `match note:` mit `case 1:`; bei der Eingabe 1 läuft der Sonst-Fall.
+- „summe ← 0“, in einer Zählschleife „Eingabe: zahl“ und „summe ← summe + zahl“: `TypeError: unsupported operand type(s) for +: 'int' and 'str'`.
+- „Eingabe: a“, „Eingabe: b“, „Ausgabe: a + b“ gibt bei 3 und 5 „35“ aus.
+
+Keiner dieser Fälle erscheint als „nicht übernommen“.
+
+**Ursache:** nachgewiesen. `_als_zahl_benutzt` (Zeilen 689-703) erkennt nur `<`, `>`, `<=`, `>=`, `-`, `*`, `/`, `%` und `==` vor einer Ziffer; `!=` fehlt, das einzelne `=` wird erst später in `_gleichheit` zu `==`, Fallbeschriftungen werden nicht angesehen, und `+` zählt absichtlich nicht.
+
+**Zu tun:** Auch `!=`, ein einzelnes `=` vor einer Zahl, Zahlen als Fälle einer Fallauswahl über den Namen im Kopf und eine Summe mit einem Namen, der anderswo eine Zahl ist (oder mit 0 beginnt), als Zahlgebrauch werten. Erledigt, wenn ein Test jeden Fall oben ausführt und das erwartete Ergebnis erhält.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_als_zahl_benutzt` (`ide/diagramm/struktogramm_code.py`) zählt auch `!=`, ein einzelnes `=` vor einer Zahl, Zahlen als Fälle einer Fallauswahl über den Namen im Kopf (`_fallauswahl_mit_zahlen`, `_zahlenliste`) und eine Summe mit `+` ohne Text in Anführungszeichen in derselben Zeile als Zahlgebrauch; „"Hallo " + name“ bleibt Text. Tests: `test_eingaben_werden_zahlen_wo_sie_wie_zahlen_benutzt_werden` und `test_ein_text_mit_plus_bleibt_text` in `tests/test_struktogramm_code.py`.
+
+## 602. Struktogramm-Code: Pseudocode, der zufällig Python ist, landet unverändert im Code ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d.
+
+**Beobachtet:**
+- Ein neuer Anweisungsblock trägt „Anweisung“; daraus wird die Zeile `Anweisung`, beim Lauf `NameError`. Ebenso „Initialisierung“ oder „fertig ← falsch“ (`fertig = falsch`).
+- Im Beispielprojekt `06_Kontoverwaltung` enthält `konto_abheben.pdiag` zweimal den Aussprung „Ende (Abbruch)“. Der erzeugte Code (Kopie in `%TEMP%`, geladen mit `Diagramm.laden`) enthält zweimal `Ende (Abbruch)`, also den Aufruf einer Funktion `Ende`; ausgeführt `NameError: name 'Ende' is not defined`.
+- Eine Fallauswahl mit Kopf `farbe` und Fällen „rot“, „grün“ ergibt `if farbe == rot:`.
+
+In allen Fällen meldet die Übersetzung „alles übernommen“ (`nicht_uebernommen` leer).
+
+**Ursache:** nachgewiesen. `_anweisung` und `_aussprung` (`ide/diagramm/struktogramm_code.py` Zeilen 348-397) übernehmen alles, was `compile()` annimmt. Ein einzelner Name und ein Aufruf sind gültiges Python. Für Bedingungen gibt es mit `_unausgefuellt` eine Ausnahme für den Vorgabetext „Bedingung“, für „Anweisung“ und „Unterprogramm()“ nicht.
+
+**Zu tun:** Eine Anweisung, die nur aus einem Namen besteht, sowie Namen und Aufrufe, die im Struktogramm nirgends einen Wert bekommen und keine eingebauten Namen sind, wie Pseudocode behandeln: Kommentar und Zählung. Einen Aussprung, der nicht `return …` ist und nicht in `AUSSPRUENGE` steht, als Aussprung mit Kommentar übersetzen. Den Vorgabetext „Anweisung“ wie „Bedingung“ als unausgefüllt werten. Erledigt, wenn ein Test die Fälle oben und das Beispiel `konto_abheben` ohne `NameError` beim Übersetzen findet und die Zeilen gezählt sind.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_anweisung` (`ide/diagramm/struktogramm_code.py`) macht über `_pseudocode` einen bloßen Namen, die unveränderte Vorgabe „Unterprogramm()“ und im ganzen Struktogramm einen großgeschriebenen Namen, der nie einen Wert bekommt (`_unbekannte_namen`, etwa „Anweisung“), zum Kommentar und zählt ihn. Kleingeschriebene Namen ohne Wert (`return summe`, `x = 1 / n`) bleiben bewusst Python: solche Werte kommen bei einem Schnipsel oft von außen, und sie als Pseudocode zu verwerfen zerstörte übliche Bruchstücke. Ein Aussprung wird nur als `return`, `break`, `continue`, `raise` oder `sys.exit` übernommen (`_ist_aussprung`), „Ende (Abbruch)“ wird Kommentar mit `break`; „wahr“/„falsch“ werden `True`/`False` (`_wahrheitswerte`), ein Fall wie „rot“ ohne Wert wird der Text `'rot'` (`_fall_als_text`). Bestehender Test `test_mehrfachauswahl_ohne_einfache_werte_wird_zur_wenn_kette` legt seine Werte jetzt vorher an. Tests: `test_pseudocode_der_zufaellig_python_ist_wird_kommentar`, `test_wahr_falsch_und_texte_als_faelle` und `test_beispiel_konto_abheben_laeuft_ohne_name_error` in `tests/test_struktogramm_code.py`.
+
+## 603. Struktogramm-Code: mehrzeilige Blöcke werden nicht übersetzt, „Eingabe:“ darin bleibt wirkungslos ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d. Bezug: Punkt 456 (gilt nur für einzeilige Blöcke) und Punkt 481.
+
+**Beobachtet:** Ein Anweisungsblock mit den zwei Zeilen „Eingabe: a“ und „Eingabe: b“ ergibt wörtlich `Eingabe: a` und `Eingabe: b` im Code: zwei Annotationen ohne Wirkung, gezählt als übernommen. Ein Block mit „x ← 1“ und „y ← 2“ wird ganz zum Kommentar, ebenso „x = 1“ und „y ← 2“ zusammen, obwohl jede Zeile für sich übersetzt würde.
+
+**Ursache:** nachgewiesen. `_anweisung` (`ide/diagramm/struktogramm_code.py` Zeilen 358-372) wendet Ein-/Ausgabe und Zuweisung nur an, wenn der Text keinen Zeilenumbruch hat; `_nur_annotation` (Zeile 706) erkennt nur einen Text aus genau einer Anweisung.
+
+**Zu tun:** Mehrzeilige Blöcke Zeile für Zeile übersetzen und jede Annotation ohne Wert verwerfen. Erledigt, wenn ein Test die drei Blöcke oben in `a = input(…)`, `b = input(…)`, `x = 1`, `y = 2` übersetzt findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_anweisung` übersetzt einen mehrzeiligen Block ohne eingerückte Zeilen Zeile für Zeile, wenn er als Ganzes kein Python ist oder eine Zeile Ein-/Ausgabe, Pfeil-Zuweisung oder Annotation ohne Wert ist (`_zeilenweise` in `ide/diagramm/struktogramm_code.py`); ein eingerückter Python-Block bleibt zusammen. Test: `test_mehrzeilige_bloecke_werden_zeilenweise_uebersetzt` in `tests/test_struktogramm_code.py`.
+
+## 604. Struktogramm-Code: ein Komma in der Zählschleife ergibt einen falschen Bereich oder einen `TypeError` ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d.
+
+**Beobachtet:**
+- „für i von 1 bis 10, Schrittweite 2“ ergibt `range(1, (10,) + 1, 2)`, beim Lauf `TypeError`.
+- „für i von 0,5 bis 2“ ergibt `range(0,5, 2 + 1)`: die Schleife läuft mit 0 und 3.
+- „für i von 1 bis 2,5“ ergibt `range(1, (2,5) + 1)`, „i von 1 bis 10 schritt 0,5“ `range(1, 10 + 1, 0,5)`; beides `TypeError`.
+
+Keine dieser Zeilen gilt als nicht übernommen.
+
+**Ursache:** nachgewiesen. `_von_bis` (`ide/diagramm/struktogramm_code.py` Zeilen 884-911) prüft Anfang, Ende und Schrittweite mit `_ist_ausdruck`, das auch ein Tupel annimmt; das Dezimalkomma und ein Komma vor „Schrittweite“ werden so zu Tupeln oder zusätzlichen Argumenten.
+
+**Zu tun:** Ein Komma vor „Schrittweite“ zulassen und Tupel als Grenze oder Schrittweite ablehnen (Kommentar und Zählung). Erledigt, wenn ein Test die vier Köpfe oben prüft.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_VON_BIS` erlaubt ein Komma vor „Schrittweite“, und `_von_bis` prüft Grenzen und Schrittweite mit `_ist_grenze`, das Tupel und Kommazahlen ablehnt; „von 0,5 bis 2“ wird Kommentar und gezählt (`ide/diagramm/struktogramm_code.py`). Test: `test_komma_in_der_zaehlschleife` in `tests/test_struktogramm_code.py`.
+
+## 605. Klassen-Code: mit Realisierung und Vererbung zugleich lässt sich die Klasse nicht anlegen ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d. Bezug: Punkt 149.
+
+**Beobachtet:** `Vogel` mit dem Attribut `spannweite` realisiert das Interface `Fliegend` und erbt von `Tier` (Attribut `name`); die Realisierung ist zuerst gezogen. Erzeugt wird `class Vogel(Fliegend, Tier):` mit `def __init__(self, spannweite: float)` und `super().__init__()`. `Vogel("Tweety", 0.2)` scheitert an zu vielen Argumenten, `Vogel(0.2)` mit „Tier.__init__() missing 1 required positional argument: 'name'“. `ungueltige_namen` meldet nichts.
+
+**Ursache:** nachgewiesen. `_basisform` (`ide/diagramm/klassen_code.py` ab Zeile 299) nimmt für den Konstruktor die erste Basisklasse aus `_basisklassen`, die Realisierungen mitzählt (`VERERBUNGSARTEN`, Zeile 35). Die Reihenfolge hängt davon ab, welche Verbindung zuerst gezogen wurde.
+
+**Zu tun:** Für die Parameter des Konstruktors die erste Basisklasse nehmen, die kein Interface ist (Vererbung vor Realisierung), und Interfaces im Klassenkopf hinten anstellen. Erledigt, wenn ein Test das Beispiel oben in beiden Zeichenreihenfolgen mit `Vogel("Tweety", 0.2)` ausführt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_basisklassen` (`ide/diagramm/klassen_code.py`) stellt Vererbungen vor Realisierungen (`REALISIERUNGSARTEN`), gleich in welcher Reihenfolge die Verbindungen gezogen wurden. Damit steht im Klassenkopf `class Vogel(Tier, Fliegend):`, und der Konstruktor reicht seine Werte an `Tier` weiter statt an das Interface. Test: `test_vererbung_und_realisierung_zugleich` (beide Zeichenreihenfolgen) in `tests/test_diagramm_klassen_code.py`.
+
+## 606. Klassen-Code: ein modellierter Konstruktor lässt Attribute mit Startwert weg ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d.
+
+**Beobachtet:** `Konto` mit `-inhaber: str`, `-stand: float = 0` und der Operation `__init__(inhaber: str)` ergibt einen Konstruktor, der nur `self.__inhaber = inhaber` setzt. `vars(Konto("Anna"))` ist `{'_Konto__inhaber': 'Anna'}`; jede Methode, die `self.__stand` liest, bricht mit `AttributeError` ab. Das ist das übliche Muster: der Kontostand beginnt bei 0 und wird nicht übergeben.
+
+**Ursache:** nachgewiesen. `_zuweisungen_fuer_init` (`ide/diagramm/klassen_code.py` ab Zeile 418) weist nur Attribute zu, die als Parameter vorkommen; ein Startwert ohne Parameter geht verloren.
+
+**Zu tun:** Instanzattribute mit Startwert, die nicht Parameter sind, als `self.__stand = 0` in den modellierten Konstruktor schreiben. Erledigt, wenn ein Test das Beispiel oben erzeugt und `stand` am neuen Objekt findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_zuweisungen_fuer_init` (`ide/diagramm/klassen_code.py`) schreibt im modellierten Konstruktor jedes Instanzattribut mit Startwert, das kein Parameter ist, als Zuweisung dieses Startwerts, etwa `self.__stand = 0`. Test: `test_modellierter_konstruktor_setzt_startwerte` in `tests/test_diagramm_klassen_code.py`.
+
+## 607. Klassen-Code: eine Anfrage mit dem Namen eines öffentlichen Attributs verhindert das Anlegen ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d.
+
+**Beobachtet:** `Person` mit dem öffentlichen Attribut `alter` und der Anfrage (Häkchen „Anfrage“) `alter(): int` ergibt `self.alter = alter` im Konstruktor und `@property def alter`. `Person(3)` scheitert mit „property 'alter' of 'Person' object has no setter“. `ungueltige_namen` meldet nichts.
+
+**Ursache:** nachgewiesen. `_operation_zeilen` (`ide/diagramm/klassen_code.py` Zeile 524) macht eine Anfrage ohne Parameter zur Eigenschaft, ohne auf gleichnamige Attribute zu achten.
+
+**Zu tun:** Den Namenskonflikt in `ungueltige_namen` melden oder in diesem Fall keine Eigenschaft erzeugen. Erledigt, wenn ein Test den Fall oben prüft.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `ungueltige_namen` meldet über `_gleichnamige_operationen` (`ide/diagramm/klassen_code.py`) eine Operation, die im Code genauso heißt wie ein öffentliches Attribut, mit dem Rat, das Attribut privat zu machen oder umzubenennen; ein privates Attribut mit gleichnamiger Anfrage bleibt der übliche Lesezugang. Test: `test_anfrage_mit_dem_namen_eines_attributs` in `tests/test_diagramm_klassen_code.py`.
+
+## 608. Die Prüfung vor dem Start blockiert lauffähige Programme: Stern-Import, `try … except ImportError`, Dateien ohne UTF-8 ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d.
+
+**Beobachtet:** Proben mit `ide/run/pruefung.py` auf Kopien in `%TEMP%`:
+- `from u_rechnen import *` in `u_main.py` blockiert den Start: „Aus der Unit u_rechnen wird * importiert, aber in u_rechnen.py gibt es keine Funktion, Klasse oder Variable dieses Namens“; aus `main.py` kommt dazu der Rat „Steht in u_main.py eine Zeile „def *():““.
+- `try: from u_daten import extra` mit `except ImportError: extra = None` blockiert ebenso, und ein Name, der über `global` in einer beim Import aufgerufenen Funktion entsteht.
+- Eine `u_main.py` in Windows-1252 blockiert mit der englischen Meldung „stream did not contain valid UTF-8“ (ruff `E902`), auch mit der Kopfzeile `# -*- coding: cp1252 -*-`, mit der Python die Datei ausführt. Im Editor lässt sich die Datei nicht öffnen, in Natter gibt es also keinen Weg, das zu beheben.
+
+**Ursache:** nachgewiesen. `_importe_pruefen` (`ide/run/pruefung.py` Zeilen 556-580) prüft jeden Namen aus `knoten.names`, auch `*`, und beachtet kein umschließendes `try`; `_oberste_namen` (Zeilen 444-468) sieht keine `global`-Namen. Für `E902` gibt es keine Übersetzung in `_UEBERSETZUNGEN` (Zeilen 184-187) und keine Ausnahme.
+
+**Zu tun:** `*` überspringen, Importe in einem `try` mit `except ImportError` oder `ModuleNotFoundError` nicht prüfen, `global`-Namen mitzählen oder dann schweigen; für `E902` eine deutsche Meldung und bei gültiger Kodierungsangabe und erfolgreichem `compile()` nicht blockieren. Erledigt, wenn ein Test jeden Fall startet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_importe_pruefen` (`ide/run/pruefung.py`) überspringt Stern-Importe und Importe in einem `try`, das `ImportError` oder allgemeiner abfängt (`_abgefangene_importe`); `_oberste_namen` zählt Namen aus `global` mit; `_kodierung_pruefen` macht aus ruffs `E902` bei einer Datei mit gültiger Kodierungsangabe den nicht blockierenden Hinweis `natter-kodierung`, sonst eine deutsche Meldung. Tests: `test_lauffaehige_programme_werden_nicht_aufgehalten` und `test_datei_ohne_utf8` in `tests/test_pruefung.py`.
+
+## 609. Eine exportierte Konsolen-Exe schließt ihr Fenster sofort, auch nach einem Fehler ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d.
+
+**Beobachtet:** In Natter hält eine Hülle das Konsolenfenster offen („Programm beendet. Eingabetaste zum Schließen …“) und zeigt Fehler deutsch. Die exportierte Exe eines Konsolenprojekts baut `main.py` direkt: per Doppelklick gestartet verschwindet das Fenster mit der letzten Ausgabe, bei „01 Begrüßung“ also mit der Antwort, und ein Fehler erscheint als englischer Traceback, der ebenso sofort weg ist.
+
+**Ursache:** nachgewiesen. `exe_exportieren` (`ide/export/exporter.py` Zeile 536) übergibt `projekt.haupt_datei`; nur für GUI-Projekte gibt es einen eigenen Zweig (`--windowed`, Zeilen 530-531). Die Hülle `_KONSOLEN_HUELLE` (`ide/run/starter.py` Zeilen 34-110) gilt nur beim Start aus Natter.
+
+**Zu tun:** Für Konsolenprojekte ein erzeugtes Startskript bauen, das `main.py` mit derselben Pause und derselben deutschen Fehlermeldung ausführt. Erledigt, wenn ein Test das Startskript eines Konsolenexports prüft.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Konsolenprojekte bekommen beim Exe-Export den Laufzeithaken `natter_konsole.py` (`_KONSOLEN_HOOK` in `ide/export/exporter.py`): er meldet einen unbehandelten Fehler wie in Natter und wartet am Ende auf die Eingabetaste, solange die Eingabe eine Konsole ist. Geprüft ist der Haken als Skript, nicht in einer gebauten Exe. Tests: `test_konsolenprogramm_bekommt_den_konsolenhaken` und `test_der_konsolenhaken_meldet_fehler_deutsch_und_wartet` in `tests/test_exporter.py`.
+
+## 610. Haltepunkte wandern falsch, wenn eine Änderung mitten in einer Zeile beginnt ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d. Bezug: Punkt 119.
+
+**Beobachtet:** Proben mit `QuelltextEditor` offscreen:
+- Haltepunkt auf `    b = 2`, die Schreibmarke hinter dem Einzug, Eingabetaste: der Haltepunkt bleibt auf der neuen, leeren Zeile, die Anweisung rutscht ohne ihn eine Zeile tiefer.
+- Beim Neuladen einer von außen geänderten Datei (`_editor_neu_laden`, `ide/shell/hauptfenster.py` Zeile 5521) und beim Einfügen einer Ereignismethode beginnt der Unterschied oft mitten in einer Zeile; ein Haltepunkt auf `x = 1` stand danach auf `x = 0`, einer auf `c = 3` war nach dem Entfernen der Zeile davor weg.
+
+**Ursache:** nachgewiesen. `_breakpoints_nachfuehren` (`ide/shell/quelltexteditor.py` Zeilen 455-487) zählt nur den Unterschied der Zeilenzahl und lässt die Zeile stehen, wenn die Änderung nicht am Zeilenanfang beginnt, auch wenn links davon nur Einzug steht. `editortext_ersetzen` (`ide/designer/canvas.py` Zeilen 544-583) ersetzt einen zeichengenauen Unterschied.
+
+**Zu tun:** Eine Änderung, vor der in der Zeile nur Leerraum steht, wie eine am Zeilenanfang behandeln; beim Ersetzen von außen auf ganze Zeilen ausrichten (etwa zeilenweise mit `difflib`). Erledigt, wenn ein Test die Fälle oben prüft.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_breakpoints_nachfuehren` (`ide/shell/quelltexteditor.py`) behandelt eine Änderung, vor der in der Zeile nur Einzug steht, wie eine am Zeilenanfang; `editortext_ersetzen` (`ide/designer/canvas.py`) überträgt Haltepunkte nach dem Ersetzen über `haltepunkte_nach_ersetzen` zeilenweise. Tests: `test_eingabetaste_und_der_haltepunkt` und `test_ersetzen_von_aussen_haelt_den_haltepunkt_an_der_anweisung` in `tests/test_editor_haltepunkte_wandern.py`.
+
+## 611. Ein Haltepunkt auf einer Leer- oder Kommentarzeile hält eine Anweisung zu früh ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d.
+
+**Beobachtet:** Haltepunkte auf Zeile 3 (leer) und Zeile 4 (`# Kommentar`) einer Funktion; Zeile 5 ist `a = 1`. Mit echtem debugpy antwortet `setBreakpoints` mit `'line': 2` für beide, und das Programm hält in Zeile 2, bevor die vorige Anweisung gelaufen ist. Der rote Punkt im Editor bleibt auf Zeile 3 und 4.
+
+**Ursache:** nachgewiesen. Die verlegte Zeile aus der Antwort gibt `ide/debugger/dap_client.py` (Zeilen 711-737) zurück, `ide/shell/hauptfenster.py` (Zeilen 9313-9321) verwirft sie.
+
+**Zu tun:** Die Zeile aus der Antwort übernehmen und den Punkt im Editor dorthin setzen, oder Haltepunkte auf Leer- und Kommentarzeilen gleich auf die nächste Anweisung legen. Erledigt, wenn ein Test einen Haltepunkt auf einer Leerzeile setzt und Editor und Halt übereinstimmen.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Ein neuer Haltepunkt oder eine Bedingung auf einer Leer- oder Kommentarzeile landet auf der nächsten Anweisung (`anweisungszeile` in `ide/shell/quelltexteditor.py`); dorthin gewanderte Haltepunkte legt `haltepunkte_auf_anweisungen` vor dem Weitergeben an debugpy um, beim Start und während einer Sitzung. Tests: `test_editor_legt_den_haltepunkt_auf_die_naechste_anweisung`, `test_gewanderter_haltepunkt_kommt_auf_die_anweisung` und `test_editor_und_halt_stimmen_ueberein` in `tests/test_haltepunkt_auf_leerzeile.py`.
+
+## 612. „Als Tabelle anzeigen“ an einer aufgeklappten Variablen zeigt fremde Daten oder nichts ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d.
+
+**Beobachtet:** Mit echtem debugpy: das Kind `werte` eines Objekts `p` wird als globale Variable `werte` ausgewertet (dort ein Text, Meldung „lässt sich nicht als Tabelle anzeigen“); die erste Zeile `0` einer Matrix ergibt dieselbe Meldung; ein Kind mit dem Anzeigenamen `[0]` zeigt die Liste `[0]`. Tabellen verschachtelter Daten, etwa eine Zeile einer Matrix oder eine Liste in einem Objekt, sind so nicht zu erreichen.
+
+**Ursache:** nachgewiesen. `variable_als_tabelle_zeigen(eintrag.text(0))` (`ide/shell/hauptfenster.py` Zeilen 1128 und 9820) wertet den angezeigten Namen aus; `evaluateName` aus der Antwort von debugpy (`p.werte`, `matrix[0]`) wird nicht gespeichert (`grep evaluateName ide/shell/hauptfenster.py` findet nichts).
+
+**Zu tun:** `evaluateName` am Eintrag ablegen und auswerten; ohne ihn den Eintrag nicht anbieten. Erledigt, wenn ein Test eine Matrixzeile und ein Attribut als Tabelle öffnet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_variablen_eintraege` (`ide/shell/hauptfenster.py`) legt den `evaluateName` aus der Antwort von debugpy am Eintrag ab; Doppelklick und Kontextmenü werten diesen Ausdruck aus, ein Eintrag ohne Ausdruck und die Überschrift „Globale Variablen“ bieten nichts an. Tests: `test_das_panel_wertet_den_ausdruck_des_eintrags_aus`, `test_die_gruppe_globale_variablen_ist_keine_variable` und `test_matrixzeile_und_attribut_als_tabelle` in `tests/test_variablen_als_tabelle.py`.
+
+## 613. Gleiches Tastenkürzel in Hauptmenü und Klappmenü: die Taste tut nichts mehr ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d. Bezug: Punkt 591, seit dem die Kürzel eines Klappmenüs im ganzen Fenster gelten.
+
+**Beobachtet:** „Bearbeiten → Löschen“ mit `Entf` im `MainMenu` und „Löschen“ mit `Entf` in einem `PopupMenu` desselben Formulars, ein übliches Muster. Ein Druck auf Entf löst keine der beiden Methoden aus (Probe: Aufrufe `[]`); ohne das Klappmenü ruft er die des Hauptmenüs (`['haupt']`). Ebenso bei zwei Klappmenüs mit demselben Kürzel. `docs/komponenten.md` (Zeile 754) verspricht, das Kürzel wirke „wie bei MainMenu im ganzen Fenster“.
+
+**Ursache:** nachgewiesen. `PopupMenu._menue_erneuern` (`pcl/components/menus.py` Zeilen 585-594) meldet seine Kürzel als Fensterkürzel an, ohne die des Hauptmenüs zu kennen; Qt hält ein doppeltes Kürzel für mehrdeutig und löst nichts aus.
+
+**Zu tun:** Doppelte Kürzel innerhalb eines Formulars beim Zuweisen mit deutscher Meldung ablehnen oder nur einmal anmelden. Erledigt, wenn ein Test den Fall oben prüft.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `PopupMenu._menue_erneuern` meldet ein Kürzel nicht ein zweites Mal an, wenn es schon das Hauptmenü oder ein anderes Klappmenü desselben Formulars trägt; nach jedem Neuaufbau des Hauptmenüs werden die Klappmenüs neu abgeglichen (`pcl/components/menus.py`). `docs/komponenten.md` beschreibt das. Test: `test_gleiches_kuerzel_in_zwei_menues_wirkt_einmal` in `tests/test_components_menus.py`.
+
+## 614. `Chart`: jedes `clear()` und jede neue Reihe zeichnet sofort neu, ein Diagramm per Zeitgeber wird zäh ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d.
+
+**Beobachtet:** Offscreen gemessen: `draw()` allein 34 ms, `clear()` 63 ms, `clear()` mit `add_line_series` aus 10 Punkten 227 ms, hundertmal hintereinander 35,8 s. Mehr als vier bis fünf Aktualisierungen in der Sekunde schafft ein Diagramm mit Zeitgeber nicht, jede weitere Reihe kostet einen vollen Durchgang. Ein Balkendiagramm mit 2000 Kategorien als Text hält die Oberfläche 29,8 s an.
+
+**Ursache:** nachgewiesen. `_neu_zeichnen` (`pcl/components/chart.py` Zeilen 717-731) ruft `draw()` direkt, aufgerufen aus `clear()` (Zeile 628) und nach jeder Reihe (Zeile 840).
+
+**Zu tun:** Das Neuzeichnen bündeln, etwa mit `QTimer.singleShot(0, …)` und einer Prüfung, ob das Widget noch besteht. Erledigt, wenn ein Test `clear()` mit einer Reihe in einem Bruchteil der heutigen Zeit misst.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_neu_zeichnen` (`pcl/components/chart.py`) plant das Zeichnen per `QTimer.singleShot(0, …)` ein und bündelt alle Änderungen eines Durchlaufs. Test: `test_clear_und_reihe_zeichnen_gebuendelt` in `tests/test_chart_dezimalkomma.py`.
+
+## 615. Debugger-Tabellenansicht: Zahlen werden als Text sortiert, eine sehr breite Tabelle scheitert unverständlich ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d. Bezug: Punkt 574.
+
+**Beobachtet:**
+- Sortieren nach einer Zahlenspalte ergibt 10, 100, 2.25, 3.5, 9; selbst die Spalte „#“ steht als 0, 1, 10, 11, 2. Kommazahlen erscheinen mit Punkt („3.5“), anders als in jeder anderen Anzeige von Natter. Die CSV-Ansicht sortiert dagegen nach Zahlwert.
+- Eine Liste von Listen mit 8000 Spalten überschreitet die Antwortgrenze von debugpy; die Meldung rät zu „Start → Stopp … neu starten“, was nicht hilft, und hängt die ganze Rohantwort an: rund 65 700 Zeichen in der Statuszeile.
+
+**Ursache:** nachgewiesen. `ide/viewers/tabellen_ansicht.py` Zeilen 37-43 legt jede Zelle als `QTableWidgetItem(str(zelle))` an, `ide/debugger/tabellenansicht.py` Zeilen 57-66 macht jeden Wert mit `str` zu Text. Die Grenze in `fertig` (Zeilen 68-87) zählt nur Zeilen, nicht Spalten, und übernimmt die erste Zeile immer.
+
+**Zu tun:** Zahlen mit Typ übertragen, nach Zahlwert sortieren (`pcl.sortieren.sortierschluessel`) und mit Dezimalkomma zeigen; auch die Spaltenzahl begrenzen und die Rohantwort in der Meldung kürzen. Erledigt, wenn ein Test beides prüft.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Der Umwandler (`ide/debugger/tabellenansicht.py`) überträgt Zahlen als `Zahlzelle` mit Dezimalkomma in der Anzeige und Zahlwert zum Sortieren, begrenzt auf `MAX_SPALTEN = 50` Spalten und meldet die Gesamtzahl; die Tabellenansicht sortiert Zahlen nach Wert vor Text und Text deutsch, und eine unlesbare lange Antwort ergibt eine kurze Meldung. Tests: `test_zahlen_werden_nach_ihrem_wert_sortiert`, `test_text_wird_deutsch_sortiert_und_steht_hinter_zahlen`, `test_eine_sehr_breite_tabelle_wird_auf_die_ersten_spalten_begrenzt` und `test_eine_gekuerzte_antwort_ergibt_eine_kurze_meldung` in `tests/test_tabellenansicht_zahlen.py`.
+
+## 616. Exe-Export: vorige Exe gelöscht, Semikolon im Namen, fremde Dateien in der Exe ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d.
+
+**Beobachtet:**
+- Scheitert ein Export oder wird er abgebrochen (Natter während des Exports geschlossen), ist `dist\<Name>.exe` danach weg, auch wenn sie vom letzten erfolgreichen Export stammt (`ide/export/exporter.py` Zeilen 569-578: `exe_pfad.unlink(missing_ok=True)` bei Rückgabe ungleich 0).
+- Ein Semikolon in einem Datei- oder Ordnernamen, unter Windows erlaubt (`Noten; 7a.csv`, Ordner `Info;Kurs`), lässt PyInstaller mit „Wrong syntax, should be --add-data=SOURCE:DEST“ abbrechen: `--add-data` wird mit `os.pathsep` zusammengesetzt (Zeilen 512, 518, 521). Nachweis: `SourceDestAction` von PyInstaller direkt aufgerufen.
+- Alles im Projektordner außer Quelltext geht als Daten in die Exe und wird bei jedem Start neben sie kopiert, auch `Testergebnisse.html` aus dem HTML-Export der Tests und `Thumbs.db`/`desktop.ini` (`_daten_dateien_des_projekts`, Zeilen 262-278). Bleiben `_pyinstaller_build` oder `_pyinstaller_spec` liegen, weil `rmtree(…, ignore_errors=True)` (Zeilen 565-566) still scheitert, erscheinen sie unter den weiteren Dateien des Projekts und kommen in die Abgabe-ZIP (Probe: `weitere_dateien` mit `_pyinstaller_build\Projekt\base_library.zip`).
+
+**Ursache:** jeweils an der genannten Stelle nachgewiesen.
+
+**Zu tun:** Nur eine in diesem Lauf geschriebene Exe löschen, die Daten über eine erzeugte `.spec` mit `datas` statt über die Befehlszeile übergeben, Testberichte, `Thumbs.db` und `desktop.ini` ausschließen und die Zwischenordner nach `%TEMP%` legen oder ausschließen. Erledigt, wenn ein Test zu jedem Fall besteht.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `exe_exportieren` (`ide/export/exporter.py`) legt die Zwischenordner von PyInstaller unter %TEMP% an, entfernt nach einem Fehlschlag nur eine Exe, die dieser Lauf geschrieben hat, gibt Dateien mit `;` oder `:` im Pfad gesammelt in einem eigenen Ordner mit (`_sicher_fuer_befehlszeile`) und lässt `Thumbs.db`, `desktop.ini` und Testprotokolle aus (erkannt an der Angabe `Natter-Testprotokoll`, die `ide/testrunner/html_export.py` jetzt schreibt). Tests: `test_nach_einem_fehlschlag_bleibt_die_vorige_exe`, `test_semikolon_im_namen_bricht_den_export_nicht_ab`, `test_testprotokoll_und_windows_dateien_bleiben_draussen` und `test_zwischenstaende_liegen_nicht_im_projektordner` in `tests/test_exporter.py`.
+
+## 617. Struktogramm: die Zahl der nicht übernommenen Zeilen erscheint nirgends ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d.
+
+**Beobachtet:** Der Modulkommentar von `ide/diagramm/struktogramm_code.py` verspricht, dass „sofort zu sehen ist, was von Hand nachzuziehen ist“, und `Ergebnis.meldung()` liefert den Satz „2 Zeilen konnten nicht übernommen werden.“ für den Kopf des Ausgabefensters. Weder das Fenster „Quelltext“ noch das Schreiben in eine Datei zeigt diesen Satz; die Kommentare im Code sind der einzige Hinweis.
+
+**Ursache:** nachgewiesen. `DiagrammFenster.quelltext_code` (`ide/diagramm/fenster.py` Zeile 1080) gibt nur `.text` weiter; `grep -rn "meldung()" ide` findet keinen Aufruf von `Ergebnis.meldung`, nur Tests in `tests/test_struktogramm_code.py`.
+
+**Zu tun:** Die Meldung im Codefenster über dem Text und beim Schreiben in die Datei in der Statuszeile zeigen. Erledigt, wenn ein Test das Codefenster für ein Struktogramm mit Pseudocode öffnet und den Satz findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `DiagrammFenster.quelltext_hinweis` (`ide/diagramm/fenster.py`) bildet aus `Ergebnis.meldung()` einen Satz, den `quelltext_erzeugen` im Codefenster über dem Text (`CodeFenster.hinweis` in `ide/diagramm/codefenster.py`) und nach „In eine Datei schreiben“ in der Statuszeile zeigt; `docs/handbuch.md` beschreibt die Übersetzung und den Hinweis. Test: `test_nicht_uebernommene_zeilen_werden_genannt` in `tests/test_diagramm_codefenster.py`.
+
+## 618. MaskEdit: die Referenz nennt nur einen Teil der Maskenzeichen, fester Text wird zerstückelt ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d. Bezug: Punkt 592.
+
+**Beobachtet:** `docs/komponenten.md` (Zeilen 891-893) sagt nach der Liste der Platzhalter „Alles andere steht fest da“. Qt liest aber auch `a n X x D d H h B b # > < ! \ ;` als Steuerzeichen. Die Maske „Datum: 00.00.0000“ zeigt `'  tum:   .  .    '`, „KD-0000“ zeigt `'K -    '`.
+
+**Ursache:** nachgewiesen. `pcl/components/eingaben.py` reicht die Maske an `QLineEdit.setInputMask` weiter; Referenz, Docstring (Zeilen 71-73) und Hilfetext der Eigenschaft (Zeile 95) nennen die übrigen Zeichen und das Maskieren mit `\` nicht.
+
+**Zu tun:** Alle Sonderzeichen und `\` in der Referenz nennen, mit einem Beispiel mit festem Text. Erledigt, wenn die Referenz das beschreibt und ein Test die Maske `Datum: 00.00.0000` in der dort gezeigten Schreibweise prüft.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `docs/komponenten.md` (MaskEdit) nennt alle Maskenzeichen und das Maskieren mit Rückstrich; der Docstring von `MaskEdit` verweist darauf. Test: `test_maske_mit_festem_text_wie_in_der_referenz` in `tests/test_pcl_werte_pruefen.py`.
+
+## 619. Klassen-Code: eine gerichtete Assoziation wird kein Attribut ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d. Bezug: Punkt 182.
+
+**Beobachtet:** `Auto` → `Motor` als „Gerichtete Assoziation“ aus der Palette, am Ziel die Beschriftung „-motor 1“. Der erzeugte Code enthält zwei leere Klassen. Mit Aggregation oder Komposition entsteht `self.motor = motor`. Im Unterricht ist die gerichtete Assoziation mit Rollenname die übliche Form für „kennt ein“, und genau sie wird im Code zu einem Attribut.
+
+**Ursache:** nachgewiesen. `TEILEARTEN` (`ide/diagramm/klassen_code.py` Zeile 42) enthält nur `aggregation` und `composition`; `directed_association` aus `ide/diagramm/formen.py` (Zeile 123) kommt in `klassen_code.py` nicht vor.
+
+**Zu tun:** Eine gerichtete Assoziation an der Quelle wie ein Teil behandeln (Name aus dem Rollennamen am Ziel, Liste bei Vielfachheit) oder in Handbuch und Codefenster sagen, dass sie nicht übersetzt wird. Erledigt, wenn ein Test das Beispiel oben prüft.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Die gerichtete Assoziation gehört zu `ATTRIBUTARTEN` (`ide/diagramm/klassen_code.py`) und wird in `_teilattribute` wie Aggregation und Komposition behandelt: die Quelle bekommt ein Attribut mit dem Rollennamen am Ziel oder dem Klassennamen in Kleinbuchstaben, bei einer Vielfachheit eine anfangs leere Liste. Eine Assoziation ohne Pfeil bleibt unübersetzt, weil sie nicht sagt, welche Seite die andere kennt. Test: `test_gerichtete_assoziation_wird_ein_attribut` in `tests/test_diagramm_klassen_code.py`.
+
+## 620. Klappmenü: die Methode erfährt nicht, an welcher Komponente das Menü aufging ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d.
+
+**Beobachtet:** `docs/komponenten.md` (Zeile 752) erlaubt dasselbe Klappmenü an mehreren Komponenten. Ein gemeinsames „Löschen“ für zwei ListBoxen lässt sich trotzdem nicht schreiben: `sender` ist immer das Klappmenü, und welche ListBox angeklickt wurde, steht nirgends.
+
+**Ursache:** nachgewiesen. `pcl/components/menus.py` Zeile 501 ruft die Methode mit dem Menü als Absender; `aufklappen` (Zeilen 603-607) merkt sich die Komponente nicht.
+
+**Zu tun:** Die Komponente beim Aufklappen als Eigenschaft des Klappmenüs ablegen und in der Referenz beschreiben. Erledigt, wenn ein Test das Menü an zwei Komponenten aufklappt und jeweils die richtige findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Neue Eigenschaft `PopupMenu.popup_component` (`pcl/components/menus.py`), gesetzt beim Aufklappen und bei einem Tastenkürzel auf die Komponente mit dem Fokus, wenn ihr das Klappmenü zugeordnet ist; `docs/komponenten.md` zeigt ein gemeinsames „Löschen“ für zwei Listen. Test: `test_klappmenue_kennt_die_komponente_an_der_es_aufging` in `tests/test_components_menus.py`.
+
+## 621. Kleinere Abweichungen in Menüs, Chart, Auswahllisten und Editor ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Stand 2376f1d.
+
+**Beobachtet:**
+- `kuerzel_fehler` nimmt „Strg+S, Bla“ an; Qt macht daraus eine Folge mit `Key_unknown`, das Kürzel wirkt nie (`pcl/components/menus.py` Zeilen 151-156). Pfeiltasten und „Druck“ fehlen in `_TASTENNAMEN`.
+- Jeder Rechtsklick auf eine Komponente mit Klappmenü legt ein neues `QMenu` an, das nie freigegeben wird (nach 30 Klicks 30 Kinder, Zeilen 563-564); jedes `MainMenu.aktualisieren()` lässt die alten Untermenüs an der Leiste hängen (nach 50 Aufrufen 55, Zeilen 475 und 542-543).
+- Menüeinträge kennen weder `visible` noch eine Gruppe, in der genau ein Eintrag angekreuzt ist (`EINTRAG_VORGABE`, Zeilen 67-77).
+- `Chart`: eine Linienreihe aus einem Punkt ist unsichtbar (kein Marker, `chart.py` Zeile 305); der `title` einer Reihe wird zur Überschrift des ganzen Diagramms (zwei Reihen „Jungen“ und „Mädchen“ ergeben die Überschrift „Mädchen“, Zeilen 836-839); `kind` wirkt nicht auf Reihen aus `add_*_series`; Achsenbereiche lassen sich nicht festlegen.
+- `ComboBox` wählt beim Füllen von `items` Eintrag 0, die Referenz (`docs/komponenten.md` Zeile 349) nennt -1 als Vorgabe; `RadioGroup` meldet kein `on_change`, wenn sich der Text der gewählten Option durch `items.insert(0, …)` ändert, die ComboBox schon (`pcl/components/standard.py` Zeilen 953-961 und 646).
+- `MaskEdit` meldet `on_change` bei abgelehnten Zeichen und bei der Rücktaste über leere Stellen, und beim Wechsel der Maske mit dem Text samt festen Zeichen (`pcl/components/eingaben.py` Zeilen 105-129).
+- Umschalt+Tab rückt eine Zeile mit Tabulator-Einzug nicht aus (`ide/shell/quelltexteditor.py` Zeile 1307 zählt mit `lstrip(" ")` nur Leerzeichen).
+- `docs/handbuch.md` (Zeile 1006) und `ide/shell/tastenkuerzel.py` (Zeile 83) nennen „Klick rechts im Zeilenrand“ für das Zuklappen; ein Rechtsklick in den Rand öffnet aber das Menü für Haltepunkte und Bedingungen, das in keiner Übersicht steht.
+- Vermutet, nur am Code: Wer während eines Halts eine Zeile oberhalb eines Haltepunkts einfügt, schickt die neue Zeilennummer sofort an debugpy (`hauptfenster.py` Zeilen 9313-9321), das laufende Programm hat aber den alten Stand geladen und hält an einer anderen Anweisung.
+
+**Ursache:** jeweils an der genannten Stelle nachgewiesen, außer dem letzten Punkt.
+
+**Zu tun:** Jede Abweichung beheben oder in der Referenz beschreiben. Erledigt, wenn zu jedem Punkt ein Test oder ein Satz in der Referenz besteht.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Alle Unterpunkte bearbeitet. Kürzelprüfung: `kuerzel_fehler` (`pcl/components/menus.py`) lehnt eine Folge mit einer unbekannten Taste ab, etwa „Strg+S, Bla“; „Pfeil links/rechts/hoch/runter“ und „Druck“ sind bekannt (`test_kuerzel_folgen_und_weitere_tastennamen`). Leck bei QMenu: `MainMenu._menue_erneuern` und `PopupMenu.menue()`/`aufklappen` geben alte Menüs frei (`test_keine_alten_menues_bleiben_haengen`). `visible`: neues Feld im Menüeintrag, im Menü-Editor „Sichtbar“ (`test_unsichtbarer_eintrag_fehlt_im_menue`, `test_sichtbar_landet_im_eintrag`); eine fertige Gruppe mit genau einem angekreuzten Eintrag gibt es bewusst nicht, `docs/komponenten.md` zeigt, wie die Methode das erledigt. Chart: eine Linienreihe aus einem Punkt bekommt einen Marker, ein Reihentitel wird nur bei genau einer betitelten Reihe zur Überschrift (`test_ein_einzelner_punkt_und_mehrere_titel`); feste Achsenbereiche gibt es weiterhin nicht, die Referenz sagt das. ComboBox-Vorauswahl: Referenz berichtigt. RadioGroup: `_wechsel_melden` vergleicht auch den Text (`test_radiogroup_meldet_eine_andere_option_unter_derselben_nummer`). MaskEdit-`on_change` nur bei echter Änderung (`test_maskedit_meldet_nur_echte_aenderungen`). Tests in `tests/test_components_menus.py`, `tests/test_menue_editor.py`, `tests/test_chart_dezimalkomma.py` und `tests/test_pcl_werte_pruefen.py`. Editor: `einruecken` (`ide/shell/quelltexteditor.py`) zählt einen führenden Tabulator als eine Ebene (`test_umschalt_tab_rueckt_auch_einen_tabulator_aus` in `tests/test_starten_konsole_editor.py`); `docs/handbuch.md` und `ide/shell/tastenkuerzel.py` beschreiben den Zeilenrand richtig (Dreieck zum Zuklappen, rechte Maustaste für Haltepunkt und Bedingung). Haltepunkte während eines Halts: `_breakpoints_weitergeben` gibt debugpy die Zeilen der geladenen Datei weiter, eine darüber eingefügte Zeile verschiebt den Haltepunkt im Programm nicht mehr (`test_eine_zeile_waehrend_des_halts_aendert_den_haltepunkt_nicht` in `tests/test_haltepunkte_und_reiter.py`).

@@ -87,8 +87,9 @@ _UEBERSETZUNGEN: dict[str, tuple[str, str]] = {
     "E902": (
         "Die Datei ist nicht in UTF-8 gespeichert, und Python kann sie so "
         "nicht lesen.",
-        "Mit einem anderen Editor als UTF-8 speichern, oder in die erste "
-        "Zeile „# -*- coding: cp1252 -*-“ schreiben.",
+        "Wurde die Datei mit einem anderen Programm gespeichert, das sie "
+        "dort als UTF-8 speichern kann? Oder hilft in der ersten Zeile "
+        "„# -*- coding: cp1252 -*-“?",
     ),
     "invalid-syntax": (
         "Python versteht diese Zeile nicht.",
