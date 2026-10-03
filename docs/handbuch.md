@@ -472,7 +472,12 @@ Beschriftungen ändert sie.
 Aus einem Klassendiagramm kann Natter das Gerüst der Klassen erzeugen,
 aus einem Struktogramm das Gerüst einer Funktion. Aus einer
 Fallauswahl wird dabei `match`/`case`, aus einer Mehrfachauswahl mit
-Bedingungen eine Kette aus `if`, `elif` und `else`. Jedes Diagramm lässt
+Bedingungen eine Kette aus `if`, `elif` und `else`. „Eingabe: zahl“
+wird zu `input(…)`, und wo `zahl` im Struktogramm wie eine Zahl benutzt
+wird, gleich zu einer Zahl, auch mit Komma eingetippt; „x ← 1“ wird zu
+`x = 1`, „wahr“ und „falsch“ zu `True` und `False`. Was kein Python
+ist, steht als Kommentar im Code, und über dem Code steht, wie viele
+Zeilen das sind. Jedes Diagramm lässt
 sich als PNG, SVG oder PDF exportieren, etwa für ein Arbeitsblatt
 oder eine Abgabe. Blattgröße (A3, A4, A5) und Hoch- oder Querformat
 für PDF und Druck stehen unter „Datei → Seite einrichten …“.

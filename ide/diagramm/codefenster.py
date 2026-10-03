@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QFormLayout,
     QHBoxLayout,
+    QLabel,
     QMessageBox,
     QPushButton,
     QVBoxLayout,
@@ -108,6 +109,7 @@ class CodeFenster(QDialog):
         titel: str,
         eltern: QWidget | None = None,
         vorschlag: Path | None = None,
+        hinweis: str = "",
     ) -> None:
         super().__init__(eltern)
         self.setWindowTitle(titel)
@@ -144,6 +146,11 @@ class CodeFenster(QDialog):
         knopfreihe.addWidget(self.schliessen_knopf)
 
         layout = QVBoxLayout(self)
+        #: Über dem Text, was nicht übernommen werden konnte (Punkt 617).
+        self.hinweis = QLabel(hinweis)
+        self.hinweis.setWordWrap(True)
+        self.hinweis.setVisible(bool(hinweis))
+        layout.addWidget(self.hinweis)
         layout.addWidget(self.ansicht)
         layout.addLayout(knopfreihe)
         # Nicht größer als der Bildschirm, in der zuletzt benutzten

@@ -173,3 +173,27 @@ def test_getroffene_wahl_wird_gemerkt() -> None:
     spaeter = CodeOptionenDialog()
 
     assert spaeter.ziel.currentData() == "datei"
+
+
+@pytest.mark.parametrize("ziel", ["fenster", "datei"])
+def test_nicht_uebernommene_zeilen_werden_genannt(tmp_path: Path, ziel: str) -> None:
+    """Punkt 617: der Satz „1 Zeile konnte nicht übernommen werden.“
+    erschien weder im Codefenster noch nach dem Schreiben in eine
+    Datei."""
+    fenster = DiagrammFenster(
+        diagramm_erzeugen("struktogramm", tmp_path / "s.pdiag", "ampel_zeichnen")
+    )
+    fenster.diagramm.daten["root"]["children"] = [
+        {"id": "b1", "kind": "statement", "text": "rechne das Ergebnis aus"},
+        {"id": "b2", "kind": "statement", "text": "x = 1"},
+    ]
+
+    ergebnis = fenster.quelltext_erzeugen(ziel, "alles", tmp_path / "u_s.py")
+
+    satz = "1 Zeile konnte nicht übernommen werden."
+    if ziel == "fenster":
+        assert isinstance(ergebnis, CodeFenster)
+        assert satz in ergebnis.hinweis.text()
+        assert not ergebnis.hinweis.isHidden()
+    else:
+        assert satz in fenster.statusBar().currentMessage()

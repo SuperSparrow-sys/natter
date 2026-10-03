@@ -1080,6 +1080,20 @@ class DiagrammFenster(QMainWindow):
             return struktogramm_als_python(self.diagramm.daten, auswahl).text
         return diagramm_als_python(self.diagramm.daten, auswahl)
 
+    def quelltext_hinweis(self, umfang: str = "alles") -> str:
+        """Wie viele Zeilen eines Struktogramms nicht übernommen wurden,
+        als Satz, oder leer. Bis Punkt 617 zeigte das niemand an; die
+        Kommentare im Code waren der einzige Hinweis."""
+        if self.diagramm.typ != "struktogramm":
+            return ""
+        auswahl = None
+        if umfang == "auswahl":
+            auswahl = getattr(self.zeichenflaeche, "ausgewaehlter_block", None)
+        meldung = struktogramm_als_python(self.diagramm.daten, auswahl).meldung()
+        if not meldung:
+            return ""
+        return f"{meldung} Sie stehen als Kommentar im Code."
+
     def ungueltige_namen(self, umfang: str = "alles") -> list[str]:
         """Namen, die kein Python sind; nur im Klassendiagramm."""
         if self.diagramm.typ != "class":
@@ -1128,6 +1142,7 @@ class DiagrammFenster(QMainWindow):
         if not quelltext.strip():
             self.statusBar().showMessage("Nichts zu erzeugen.", 3000)
             return None
+        hinweis = self.quelltext_hinweis(umfang)
 
         if ziel == "datei":
             vorschlag = pfad or self._vorschlag_fuer_unit()
@@ -1135,7 +1150,14 @@ class DiagrammFenster(QMainWindow):
                 quelltext, vorschlag, self, fragen=pfad is None
             )
             if geschrieben is not None:
-                self.statusBar().showMessage(f"Geschrieben: {geschrieben.name}", 4000)
+                if hinweis:
+                    self.statusBar().showMessage(
+                        f"Geschrieben: {geschrieben.name}. {hinweis}"
+                    )
+                else:
+                    self.statusBar().showMessage(
+                        f"Geschrieben: {geschrieben.name}", 4000
+                    )
                 self.datei_geschrieben.emit(geschrieben)
             return geschrieben
 
@@ -1144,6 +1166,7 @@ class DiagrammFenster(QMainWindow):
             f"Quelltext – {self.diagramm.pfad.stem}",
             self,
             vorschlag=self._vorschlag_fuer_unit(),
+            hinweis=hinweis,
         )
         # „Speichern unter …" im Fenster geht denselben Weg wie
         # „Quelltext → Erzeugen … → in Datei".
