@@ -13072,3 +13072,17 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** Eine neue Nachricht kommt unter die bisher unterste; die erste unter Kopf oder Figur der Lebenslinien. Erledigt, wenn ein Test drei Nachrichten mit steigender Höhe findet, die erste unterhalb des Männchens.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** `verbindung_erstellen` setzt bei waagerechten Nachrichten `y` auf die Höhe der bisher untersten Nachricht plus `NACHRICHTENABSTAND` (40). `nachrichtenhoehe` nimmt für den Akteur das Männchen samt Namen als Kopf (`_lebenslinienkopf`). Am Bild geprüft: vier Nachrichten untereinander, jede mit lesbarer Beschriftung. Test: `test_jede_neue_nachricht_steht_unter_der_vorigen` in `tests/test_diagramm_aktivitaet_sequenz.py`; mit `ide/diagramm` aus `HEAD` scheitert er.
+
+---
+
+## 492. Diagramm: Hin- und Rückweg zwischen zwei Formen liegen übereinander ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht Diagramm-Editor aus Schülersicht, Entwicklungsstand `ee342d5`.
+
+**Beobachtet:** Zustandsdiagramm einer Ampel mit den Übergängen Rot → Grün und Grün → Rot, Aktivitätsdiagramm mit Verzweigung → „Wasser nachfüllen“ und zurück. Beide Linien liegen genau aufeinander und sehen aus wie ein einziger Doppelpfeil; Beschriftungen an beiden Übergängen würden sich überdecken. Ein Doppelklick auf eine der Linien setzt einen Knickpunkt und trennt sie, darauf kommt aber niemand ohne Hinweis.
+
+**Ursache:** nachgewiesen. `verbindungs_punkte` in `ide/diagramm/zeichnen.py` zieht jede Verbindung ohne Knickpunkte vom Rand der Quelle zum Rand des Ziels auf der Linie zwischen den Mittelpunkten. Von einer gegenläufigen Verbindung weiß die Funktion nichts; sie wird an acht Stellen aufgerufen (Zeichnen, Treffer, Beschriftungen, Export).
+
+**Zu tun:** Zwei Verbindungen zwischen denselben Formen ohne Knickpunkte leicht gegeneinander versetzt zeichnen, etwa je eine Linienbreite zur eigenen linken Seite, ohne das Dateiformat zu ändern. Erledigt, wenn im Bild einer Ampel mit Hin- und Rückweg zwei getrennte Pfeile zu sehen sind und ein Test den Abstand der beiden Linien prüft.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `gegenlaeufige_markieren` in `ide/diagramm/zeichnen.py` sucht vor jedem Zeichnen (`DiagrammCanvas.paintEvent`) und vor jedem Export (`inhaltsbereich`, `diagramm_zeichnen` in `ide/diagramm/export.py`) Verbindungen ohne Knickpunkte, die dieselben zwei Formen verbinden, und merkt an jeder einen Versatz von `ZWILLINGSABSTAND` (12) als flüchtigen Schlüssel `_versatz`. `verbindungs_punkte` rückt solche Linien zur eigenen linken Seite; Hin- und Rückweg landen so auf verschiedenen Seiten, ohne dass die Funktion von der anderen Verbindung wissen muss. Treffer, Beschriftungen und Anfasser nutzen dieselben Punkte. `Diagramm.speichern` (`ide/diagramm/datei.py`) schreibt Schlüssel mit Unterstrich nicht in die Datei (`_ohne_fluechtiges`); das Dateiformat bleibt `pdiag/1`. Am Bild einer Ampel mit Hin- und Rückweg geprüft. Test: `test_hin_und_rueckweg_liegen_nebeneinander` in `tests/test_diagramm_verbindungen.py`; mit `ide/diagramm` aus `HEAD` scheitert er.

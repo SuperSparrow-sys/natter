@@ -36,6 +36,7 @@ from ide.diagramm.zeichnen import (
     beschriftungs_rechtecke,
     form_rechteck,
     form_zeichnen,
+    gegenlaeufige_markieren,
     verbindung_zeichnen,
     verbindungs_punkte,
     verbindungsbeschriftungen_zeichnen,
@@ -88,6 +89,7 @@ def inhaltsbereich(daten: dict[str, Any]) -> QRectF:
     # 159). Lief eine Verbindung über einen Knickpunkt neben den
     # Formen, fehlte der Umweg im Bild, und die Linie sah abgerissen
     # aus.
+    gegenlaeufige_markieren(daten.get("connectors") or [])
     for verbindung in daten.get("connectors") or []:
         quelle = _form_mit_id(daten, verbindung.get("from"))
         ziel = _form_mit_id(daten, verbindung.get("to"))
@@ -114,6 +116,7 @@ def diagramm_zeichnen(maler: QPainter, daten: dict[str, Any]) -> None:
         return
 
     verbindungen = daten.get("connectors") or []
+    gegenlaeufige_markieren(verbindungen)
 
     for verbindung in verbindungen:
         quelle = _form_mit_id(daten, verbindung.get("from"))

@@ -318,3 +318,28 @@ def test_uml_notation_je_art() -> None:
     assert verbindungs_art("realization").gestrichelt is True
     assert verbindungs_art("dependency").spitze_am_ziel == "offen"
     assert verbindungs_art("association").spitze_am_ziel == "keine"
+
+
+def test_hin_und_rueckweg_liegen_nebeneinander(canvas: DiagrammCanvas) -> None:
+    """Punkt 492: Rot → Grün und Grün → Rot lagen aufeinander und
+    sahen aus wie ein Doppelpfeil. Eine einzelne Verbindung bleibt auf
+    der Mittellinie, und der Versatz kommt nicht in die Datei."""
+    import json
+
+    from ide.diagramm.zeichnen import gegenlaeufige_markieren, verbindungs_punkte
+
+    a, b = _zwei_klassen(canvas)
+    hin = canvas.verbindung_erstellen("association", a, b)
+    gegenlaeufige_markieren(canvas.verbindungen)
+    allein = verbindungs_punkte(hin, a, b)
+    rueck = canvas.verbindung_erstellen("association", b, a)
+    gegenlaeufige_markieren(canvas.verbindungen)
+
+    p_hin = verbindungs_punkte(hin, a, b)
+    p_rueck = verbindungs_punkte(rueck, b, a)
+    assert abs(allein[0].y() - (a["y"] + a["h"] / 2)) < 0.5
+    assert abs(p_hin[0].y() - p_rueck[-1].y()) >= 10
+    canvas.diagramm.speichern()
+    assert "_versatz" not in json.dumps(
+        json.loads(canvas.diagramm.pfad.read_text(encoding="utf-8"))
+    )

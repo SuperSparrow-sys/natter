@@ -81,6 +81,23 @@ class Diagramm:
         ziel.parent.mkdir(parents=True, exist_ok=True)
         atomar_schreiben(
             ziel,
-            json.dumps(self.daten, indent=2, ensure_ascii=False) + "\n",
+            json.dumps(_ohne_fluechtiges(self.daten), indent=2, ensure_ascii=False)
+            + "\n",
         )
         self.pfad = ziel
+
+
+def _ohne_fluechtiges(wert: Any) -> Any:
+    """Die Daten ohne Schlüssel, die mit Unterstrich beginnen. Sie
+    gelten nur für die Anzeige, etwa der Versatz gegenläufiger
+    Verbindungen (`zeichnen.gegenlaeufige_markieren`), und gehören
+    nicht in die Datei."""
+    if isinstance(wert, dict):
+        return {
+            k: _ohne_fluechtiges(v)
+            for k, v in wert.items()
+            if not str(k).startswith("_")
+        }
+    if isinstance(wert, list):
+        return [_ohne_fluechtiges(v) for v in wert]
+    return wert

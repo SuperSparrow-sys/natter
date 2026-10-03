@@ -64,6 +64,7 @@ from ide.diagramm.zeichnen import (
     endanfasser_zeichnen,
     form_rechteck,
     form_zeichnen,
+    gegenlaeufige_markieren,
     knickpunkt_bei,
     knickpunkte_zeichnen,
     mindestbreite,
@@ -1897,6 +1898,7 @@ class DiagrammCanvas(ZoomMischung, QWidget):
     # -- Zeichnen -------------------------------------------------------
 
     def paintEvent(self, ereignis: QPaintEvent) -> None:
+        gegenlaeufige_markieren(self.verbindungen)
         stil = stil_zu_namen(self.diagramm.stil)
         maler = QPainter(self)
         maler.fillRect(self.rect(), QColor(stil.hintergrund))

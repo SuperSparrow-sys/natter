@@ -1001,6 +1001,49 @@ def _lebenslinienkopf(form: dict[str, Any]) -> float:
 #: Wie weit eine Schleife rechts aus der Form herausragt.
 SCHLEIFENWEITE = 32.0
 
+#: Wie weit zwei Verbindungen zwischen denselben Formen auseinander
+#: liegen (Punkt 492).
+ZWILLINGSABSTAND = 12.0
+
+
+def gegenlaeufige_markieren(verbindungen: list[dict[str, Any]]) -> None:
+    """Merkt an Verbindungen, die eine zweite zwischen denselben zwei
+    Formen haben, wie weit sie zur Seite rücken (`_versatz`).
+
+    Hin- und Rückweg, etwa Rot → Grün und Grün → Rot, lagen bis 0.4.3
+    genau aufeinander und sahen aus wie ein Doppelpfeil (Punkt 492).
+    Der Schlüssel ist flüchtig: er wird vor jedem Zeichnen neu
+    gesetzt, und `Diagramm.speichern` schreibt Schlüssel mit
+    Unterstrich nicht in die Datei. Verbindungen mit Knickpunkten,
+    Schleifen und Nachrichten bleiben, wie sie sind."""
+    from ide.diagramm.formen import verbindungs_art
+
+    gruppen: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for verbindung in verbindungen:
+        verbindung.pop("_versatz", None)
+        von, nach = str(verbindung.get("from")), str(verbindung.get("to"))
+        if von == nach or verbindung.get("waypoints"):
+            continue
+        try:
+            if verbindungs_art(verbindung["kind"]).waagerecht:
+                continue
+        except (KeyError, ValueError):
+            continue
+        gruppen.setdefault(tuple(sorted((von, nach))), []).append(verbindung)
+    for (erste, _zweite), gruppe in gruppen.items():
+        if len(gruppe) < 2:
+            continue
+        mitte = (len(gruppe) - 1) / 2
+        for nummer, verbindung in enumerate(gruppe):
+            versatz = (nummer - mitte) * ZWILLINGSABSTAND
+            # Gemessen in der Richtung von der kleineren Kennung zur
+            # größeren; eine Verbindung in Gegenrichtung dreht das
+            # Vorzeichen um, weil `verbindungs_punkte` zur eigenen
+            # linken Seite versetzt.
+            if str(verbindung.get("from")) != erste:
+                versatz = -versatz
+            verbindung["_versatz"] = versatz
+
 
 def verbindungs_punkte(
     verbindung: dict[str, Any], quelle: dict[str, Any], ziel: dict[str, Any]
@@ -1047,6 +1090,13 @@ def verbindungs_punkte(
     letzter_blick = zwischen[-1] if zwischen else quell_rechteck.center()
     start = _rand_punkt(quell_rechteck, erster_blick)
     ende = _rand_punkt(ziel_rechteck, letzter_blick)
+    versatz = float(verbindung.get("_versatz") or 0.0)
+    if versatz and not zwischen:
+        dx, dy = ende.x() - start.x(), ende.y() - start.y()
+        laenge = (dx * dx + dy * dy) ** 0.5
+        if laenge:
+            seite = QPointF(dy / laenge * versatz, -dx / laenge * versatz)
+            start, ende = start + seite, ende + seite
     return [start, *zwischen, ende]
 
 
