@@ -57,12 +57,13 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 import pcl
-from ide.export.signatur import signieren_wenn_moeglich
+from ide.export.signatur import SignaturErgebnis, signieren_wenn_moeglich
 from ide.project import Projekt
 from ide.project.projekt import (
     dateien_im_ordner,
@@ -183,6 +184,43 @@ if getattr(sys, "frozen", False):
 """
 
 
+#: Laufzeithaken für Konsolenprogramme (Punkt 609). In Natter hält eine
+#: Hülle das Fenster offen und zeigt einen Fehler deutsch
+#: (`ide/run/starter.py`). Die Exe baute `main.py` direkt: per
+#: Doppelklick gestartet verschwand das Fenster mit der letzten Ausgabe,
+#: und ein Fehler erschien als englischer Traceback, der ebenso sofort
+#: weg war. Der Haken läuft vor `main.py`, meldet einen Fehler wie in
+#: Natter und wartet am Ende auf die Eingabetaste, solange die Eingabe
+#: eine Konsole ist.
+_KONSOLEN_HOOK = """import atexit
+import sys
+
+
+def _natter_fehler(art, wert, spur):
+    try:
+        from pcl.fehleranzeige import fehlertext
+
+        print(fehlertext(art, wert, spur), file=sys.stderr)
+    except Exception:
+        import traceback
+
+        print("Das Programm ist mit einem Fehler beendet worden:", file=sys.stderr)
+        traceback.print_exception(art, wert, spur)
+
+
+def _natter_warten():
+    try:
+        if sys.stdin is not None and sys.stdin.isatty():
+            input("\\nProgramm beendet. Eingabetaste zum Schließen ...")
+    except (EOFError, KeyboardInterrupt, OSError, RuntimeError):
+        pass
+
+
+sys.excepthook = _natter_fehler
+atexit.register(_natter_warten)
+"""
+
+
 def arbeitsordner_haken(daten: list[str]) -> str:
     """Der Laufzeithaken mit den Namen der Dateien und Ordner, die der
     Export mitgibt."""
@@ -275,7 +313,31 @@ def _daten_dateien_des_projekts(projekt: Projekt) -> list[Path]:
         # noch im Projektordner liegt, gehört nicht in die Exe
         # (Punkt 586).
         and not p.name.lower().endswith(" quelltext.pdf")
+        and not _nur_fuer_natter_oder_windows(p)
     )
+
+
+#: Dateien, die Windows selbst in Ordnern anlegt.
+_WINDOWS_DATEIEN = {"thumbs.db", "desktop.ini"}
+
+#: Woran ein Testprotokoll aus „Testergebnisse als HTML exportieren“ zu
+#: erkennen ist (`ide/testrunner/html_export.py`).
+TESTPROTOKOLL_MARKE = b'content="Natter-Testprotokoll"'
+
+
+def _nur_fuer_natter_oder_windows(pfad: Path) -> bool:
+    """Ob `pfad` ein Testprotokoll oder eine Verwaltungsdatei von Windows
+    ist. Beides kam bis 0.4.3 in die Exe und wurde bei jedem Start neben
+    sie kopiert (Punkt 616)."""
+    if pfad.name.lower() in _WINDOWS_DATEIEN:
+        return True
+    if pfad.suffix.lower() not in (".html", ".htm"):
+        return False
+    try:
+        with open(pfad, "rb") as datei:
+            return TESTPROTOKOLL_MARKE in datei.read(2048)
+    except OSError:
+        return False
 
 
 def _symbol_des_projekts(projekt: Projekt) -> Path | None:
@@ -374,6 +436,16 @@ def _ueberfluessige_pakete(projekt: Projekt) -> list[str]:
     return [paket for paket in _OPTIONALE_PAKETE if paket not in gebraucht]
 
 
+def _dateistand(pfad: Path) -> tuple[int, int] | None:
+    """Änderungszeit und Größe, oder `None`, wenn es die Datei nicht
+    gibt."""
+    try:
+        stand = pfad.stat()
+    except OSError:
+        return None
+    return stand.st_mtime_ns, stand.st_size
+
+
 def _laeuft_noch(exe_pfad: Path) -> str | None:
     """Prüft, ob die Ziel-Exe gerade läuft. Liefert eine deutsche
     Meldung, wenn ja, sonst `None`.
@@ -469,8 +541,42 @@ def exe_exportieren(
     (Punkt 350).
     """
     dist_pfad = ziel_ordner if ziel_ordner is not None else projekt.ordner / "dist"
-    arbeits_pfad = projekt.ordner / "_pyinstaller_build"
-    spec_pfad = projekt.ordner / "_pyinstaller_spec"
+    # Die Zwischenstände von PyInstaller liegen in einem eigenen Ordner
+    # unter %TEMP%. Im Projektordner blieben sie liegen, wenn das
+    # Aufräumen still scheiterte, und kamen dann mit in die Abgabe-ZIP
+    # (Punkt 616).
+    zwischen = Path(tempfile.mkdtemp(prefix="natter_export_"))
+    arbeits_pfad = zwischen / "build"
+    spec_pfad = zwischen / "spec"
+    try:
+        return _exe_bauen(
+            projekt, dist_pfad, arbeits_pfad, spec_pfad, zwischen / "daten",
+            fortschritt, prozess_gestartet, vor_dem_anlegen,
+        )
+    finally:
+        shutil.rmtree(zwischen, ignore_errors=True)
+
+
+def _sicher_fuer_befehlszeile(pfad: Path) -> bool:
+    """Ob `pfad` in `--add-data` stehen darf. PyInstaller trennt Quelle
+    und Ziel an `;` und `:`, ein Laufwerksbuchstabe ausgenommen; ein
+    Name wie „Noten; 7a.csv“ brach den Export ab (Punkt 616)."""
+    rest = str(pfad)
+    if len(rest) >= 2 and rest[1] == ":":
+        rest = rest[2:]
+    return ";" not in rest and ":" not in rest
+
+
+def _exe_bauen(
+    projekt: Projekt,
+    dist_pfad: Path,
+    arbeits_pfad: Path,
+    spec_pfad: Path,
+    bereitstellung: Path,
+    fortschritt: Callable[[int, str], None] | None,
+    prozess_gestartet: Callable[[subprocess.Popen], None] | None,
+    vor_dem_anlegen: Callable[[], None] | None,
+) -> ExportErgebnis:
 
     abgelehnt = _pfade_ausserhalb(projekt, dist_pfad)
     if abgelehnt is not None:
@@ -506,24 +612,47 @@ def exe_exportieren(
     ]
 
     mitgegeben: list[str] = []
+    # Was sich nicht in `--add-data` schreiben lässt, wird mit seinem
+    # Namen in einen eigenen Ordner kopiert, und der geht als Ganzes mit.
+    bereitgestellt = False
+
+    def bereitstellen(quelle: Path, ziel: Path) -> None:
+        nonlocal bereitgestellt
+        nach = bereitstellung / ziel
+        nach.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(quelle, nach)
+        bereitgestellt = True
+
     for ordner in _daten_ordner_des_projekts(projekt):
         mitgegeben.append(ordner.name)
-        if not enthaelt_verknuepfung(ordner):
+        if not enthaelt_verknuepfung(ordner) and _sicher_fuer_befehlszeile(ordner):
             befehl += ["--add-data", f"{ordner}{os.pathsep}{ordner.name}"]
             continue
         # PyInstaller folgte einer Junction darin und nähme fremde
         # Dateien mit (Punkt 252). Dann einzeln, ohne die Verknüpfung.
         for datei in dateien_im_ordner(ordner):
             ziel = Path(ordner.name, *datei.relative_to(ordner).parent.parts)
-            befehl += ["--add-data", f"{datei}{os.pathsep}{ziel}"]
+            if _sicher_fuer_befehlszeile(datei) and _sicher_fuer_befehlszeile(ziel):
+                befehl += ["--add-data", f"{datei}{os.pathsep}{ziel}"]
+            else:
+                bereitstellen(datei, ziel / datei.name)
     for datei in _daten_dateien_des_projekts(projekt):
         mitgegeben.append(datei.name)
-        befehl += ["--add-data", f"{datei}{os.pathsep}."]
+        if _sicher_fuer_befehlszeile(datei):
+            befehl += ["--add-data", f"{datei}{os.pathsep}."]
+        else:
+            bereitstellen(datei, Path(datei.name))
+    if bereitgestellt:
+        befehl += ["--add-data", f"{bereitstellung}{os.pathsep}."]
 
     spec_pfad.mkdir(parents=True, exist_ok=True)
     haken = spec_pfad / "natter_arbeitsordner.py"
     haken.write_text(arbeitsordner_haken(mitgegeben), encoding="utf-8")
     befehl += ["--runtime-hook", str(haken)]
+    if projekt.typ not in _GUI_PROJEKTTYPEN:
+        konsole = spec_pfad / "natter_konsole.py"
+        konsole.write_text(_KONSOLEN_HOOK, encoding="utf-8")
+        befehl += ["--runtime-hook", str(konsole)]
 
     for paket in _ueberfluessige_pakete(projekt):
         befehl += ["--exclude-module", paket]
@@ -534,6 +663,12 @@ def exe_exportieren(
     if symbol is not None:
         befehl += ["--icon", str(symbol)]
     befehl.append(str(projekt.haupt_datei))
+
+    exe_pfad = dist_pfad / f"{projekt.name}.exe"
+    # Nur eine Exe aus diesem Lauf wird nach einem Fehlschlag entfernt;
+    # die des letzten gelungenen Exports blieb sonst nicht stehen
+    # (Punkt 616).
+    vorher = _dateistand(exe_pfad)
 
     melder = _Fortschritt(fortschritt)
     melder(5, "PyInstaller wird gestartet …")
@@ -562,14 +697,10 @@ def exe_exportieren(
     rueckgabe = lauf.wait()
     protokoll = "".join(zeilen)
 
-    shutil.rmtree(arbeits_pfad, ignore_errors=True)
-    shutil.rmtree(spec_pfad, ignore_errors=True)
-
-    exe_pfad = dist_pfad / f"{projekt.name}.exe"
-
     if rueckgabe != 0:
         try:
-            exe_pfad.unlink(missing_ok=True)
+            if _dateistand(exe_pfad) not in (None, vorher):
+                exe_pfad.unlink(missing_ok=True)
         except OSError as fehler:
             # Aufräumen ist eine Höflichkeit, kein Selbstzweck. Ist die
             # Datei gesperrt, weil das Programm noch läuft, flog hier
@@ -601,9 +732,14 @@ def exe_exportieren(
     # exportierbar, und es beglaubigt nur, was auf diesem Rechner
     # gebaut wurde. Zurücknehmen lässt es sich in der
     # Zertifikatsverwaltung unter „Natter Programme dieses Rechners".
-    signatur = signieren_wenn_moeglich(
-        exe_pfad, anlegen=True, vor_dem_anlegen=vor_dem_anlegen
-    )
+    try:
+        signatur = signieren_wenn_moeglich(
+            exe_pfad, anlegen=True, vor_dem_anlegen=vor_dem_anlegen
+        )
+    except OSError as fehler:
+        # Die Exe ist fertig; ein Fehler beim Signieren macht aus ihr
+        # keinen gescheiterten Export (Punkt 599).
+        signatur = SignaturErgebnis(False, f"Ohne Signatur: {fehler}")
     protokoll += f"\n{signatur.grund}"
 
     melder(100, "Fertig.")

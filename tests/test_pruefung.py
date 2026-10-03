@@ -159,3 +159,49 @@ def test_modul_verdeckt_fuehrt_nichts_aus() -> None:
     sys.modules.pop("this", None)
     assert modul_verdeckt("this.x") is False
     assert "this" not in sys.modules
+
+
+_LAUFFAEHIG = {
+    "stern": {
+        "u_rechnen.py": "def doppelt(x):\n    return 2 * x\n",
+        "u_main.py": "from u_rechnen import *\n\nprint(doppelt(2))\n",
+    },
+    "try_import": {
+        "u_daten.py": "WERT = 1\n",
+        "u_main.py": (
+            "try:\n    from u_daten import extra\n"
+            "except ImportError:\n    extra = None\nprint(extra)\n"
+        ),
+    },
+    "global": {
+        "u_daten.py": "def anlegen():\n    global ZAHL\n    ZAHL = 3\n\n\nanlegen()\n",
+        "u_main.py": "from u_daten import ZAHL\n\nprint(ZAHL)\n",
+    },
+}
+
+
+@pytest.mark.parametrize("fall", sorted(_LAUFFAEHIG))
+def test_lauffaehige_programme_werden_nicht_aufgehalten(tmp_path: Path, fall: str) -> None:
+    """Punkt 608: Stern-Import, ein abgefangener Import und ein Name aus
+    `global` blockierten den Start, obwohl das Programm läuft."""
+    projekt = _projekt_schreiben(tmp_path, "import u_main  # noqa: F401\n")
+    for name, inhalt in _LAUFFAEHIG[fall].items():
+        (tmp_path / name).write_text(inhalt, encoding="utf-8")
+
+    assert [f for f in projekt_pruefen(projekt) if f.blockiert] == []
+
+
+@pytest.mark.parametrize("mit_angabe", [True, False])
+def test_datei_ohne_utf8(tmp_path: Path, mit_angabe: bool) -> None:
+    """Punkt 608: eine Datei in cp1252 blockierte mit der englischen
+    Meldung von ruff, auch mit einer Kodierungsangabe, mit der Python
+    sie ausführt."""
+    projekt = _projekt_schreiben(tmp_path, "print(1)\n")
+    kopf = "# -*- coding: cp1252 -*-\n" if mit_angabe else ""
+    (tmp_path / "u_alt.py").write_bytes((kopf + "text = 'Größe'\n").encode("cp1252"))
+
+    funde = [f for f in projekt_pruefen(projekt) if f.datei.name == "u_alt.py"]
+
+    assert len(funde) == 1
+    assert funde[0].blockiert is not mit_angabe
+    assert "UTF-8" in funde[0].was
