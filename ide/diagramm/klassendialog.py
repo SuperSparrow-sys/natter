@@ -53,11 +53,14 @@ from ide.diagramm.uml_modell import (
 
 #: Deutsche Beschriftungen für die Auswahllisten. Intern bleiben die
 #: englischen Schlüssel, weil sie so in der `.pdiag` stehen.
+#: Bis 0.4.3 standen hier trotz des Kommentars die englischen Wörter
+#: „Public“, „Private“ (Punkt 502). Das Zeichen dahinter ist das, was
+#: im Diagramm vor dem Namen steht.
 SICHTBARKEIT_TEXT = {
-    "public": "Public",
-    "private": "Private",
-    "protected": "Protected",
-    "implementation": "Implementation",
+    "public": "öffentlich (+)",
+    "private": "privat (−)",
+    "protected": "geschützt (#)",
+    "implementation": "Paket (~)",
 }
 VERERBUNG_TEXT = {"abstract": "Abstrakt", "virtual": "Virtuell", "leaf": "Endgültig"}
 RICHTUNG_TEXT = {
@@ -169,6 +172,12 @@ class KlassenDialog(QDialog):
         self._breite_geprueft = False
 
         self._anzeigen()
+        # Den ersten Eintrag gleich auswählen. Sonst stand „+f()“ in der
+        # Liste, die Felder darunter waren leer und gesperrt, und ein
+        # Klick hinein tat nichts (Punkt 502).
+        for liste in (self.attributliste, self.operationsliste, self.vorlagenliste):
+            if liste.liste.count() and liste.liste.currentRow() < 0:
+                liste.liste.setCurrentRow(0)
 
     def showEvent(self, ereignis) -> None:  # noqa: ANN001, N802
         """Beim ersten Zeigen mindestens so breit wie die breiteste

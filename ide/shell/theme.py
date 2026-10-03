@@ -391,6 +391,13 @@ QLineEdit, QPlainTextEdit, QComboBox {{
 QLineEdit:focus, QPlainTextEdit:focus, QComboBox:focus {{
     border: 1px solid {farben["focus"]};
 }}
+/* Gesperrte Felder sehen gesperrt aus. Ohne diese Regel glich ein
+   gesperrtes Feld einem freien, und ein Klick hinein tat scheinbar
+   grundlos nichts (Punkt 502). */
+QLineEdit:disabled, QPlainTextEdit:disabled, QComboBox:disabled {{
+    background-color: {farben["surface"]};
+    color: {farben["text_muted"]};
+}}
 
 QScrollBar:vertical {{
     background: transparent;

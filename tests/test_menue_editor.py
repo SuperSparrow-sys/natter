@@ -424,3 +424,19 @@ def test_der_erzeugte_code_laeuft_wirklich(tmp_path) -> None:
     formular.show()
 
     assert [a.text() for a in formular._menueleiste.actions()] == ["&Datei"]
+
+
+def test_abbrechen_statt_schliessen_und_platz_fuer_die_methode() -> None:
+    """Punkt 502: „Schließen“ ließ offen, ob der Entwurf verloren geht,
+    und neben „Methode anlegen“ blieb für den Namen der Methode nur ein
+    winziges Feld."""
+    from ide.inspector.menue_editor import MenueEditor
+
+    editor = MenueEditor([{"caption": "Datei"}])
+
+    texte = [k.text().replace("&", "") for k in editor.knoepfe.buttons()]
+    assert "Abbrechen" in texte and "Schließen" not in texte
+    assert editor.hoch_knopf.text() == "" and not editor.hoch_knopf.icon().isNull()
+    zeile, _ = editor.eintragsdaten.layout().getWidgetPosition(editor.feld_on_click)
+    knopfzeile, _ = editor.eintragsdaten.layout().getWidgetPosition(editor.anlegen_knopf)
+    assert knopfzeile == zeile + 1

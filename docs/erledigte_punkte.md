@@ -13184,3 +13184,17 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** Regeln für Kästchen und Optionsfelder im IDE-Stylesheet. Erledigt, wenn ein Bild in hellem und dunklem Thema angekreuzte, leere, gewählte und nicht gewählte Felder einheitlich zeigt.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** Neue Regeln in `ide_qss_erzeugen`: Kasten bzw. Kreis mit Rand in `text_muted`, angekreuzt mit Akzentfarbe und weißem Haken (`ide/assets/qss/haken.svg`), gewählt als Ring in der Akzentfarbe. Der Haken liegt nicht unter `icons`, weil er kein Symbol der Palette ist, sondern eine Einlage im Kästchen; die Rasterregeln der Symbole gelten für ihn nicht. Am Bild in hell und dunkel bei 150 % geprüft. Test: `test_angekreuzte_kaestchen_behalten_im_ide_thema_ihren_kasten` in `tests/test_assets_symbole.py`; mit der Datei aus `HEAD` scheitert er.
+
+---
+
+## 502. Dialoge: Pfeilknöpfe, enge Felder, „Schließen“, englische Sichtbarkeit und gesperrte Felder ohne Kennzeichen ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchlauf über alle Dialoge der IDE mit deren Stylesheet bei 150 % und 10 bzw. 12 pt (Skript in `%TEMP%`, Bilder angesehen), Entwicklungsstand `79886f9`.
+
+**Beobachtet:** Im Menü-Editor erscheinen die Knöpfe „▲“ und „▼“ als kleine, kaum erkennbare Klötzchen und sind schmaler als ihr Inhalt; neben „Methode anlegen“ bleibt für den Namen der Methode („Beim Anklicken“) nur ein winziges Feld; der Knopf zum Verwerfen heißt „Schließen“, obwohl Punkt 309 genau das im Klassendialog in „Abbrechen“ geändert hat. Im Klassendialog heißt die Sichtbarkeit „Public“, „Private“, „Protected“, „Implementation“, obwohl der Kommentar darüber deutsche Beschriftungen ankündigt. Steht dort eine Operation in der Liste, sind die Felder darunter leer und gesperrt, bis sie angeklickt wird; gesperrte Eingabefelder sehen im IDE-Stylesheet aus wie freie, und ein Klick hinein tut scheinbar grundlos nichts. Die übrigen elf Dialoge zeigen keinen abgeschnittenen Text.
+
+**Ursache:** nachgewiesen. `MenueEditor` (`ide/inspector/menue_editor.py`) setzt die Pfeile als Schriftzeichen mit fester Breite 32, legt Feld und Knopf in eine Zeile und benennt den Rückweg „&Schließen“. `SICHTBARKEIT_TEXT` in `ide/diagramm/klassendialog.py` enthält die englischen Wörter. `KlassenDialog` wählt beim Öffnen keinen Eintrag. `ide_qss_erzeugen` hat für `QLineEdit`, `QPlainTextEdit` und `QComboBox` keine Regel für `:disabled`.
+
+**Zu tun:** Pfeile als Symbole, Feld und Knopf in eigenen Zeilen, „Abbrechen“, deutsche Sichtbarkeit, erster Eintrag ausgewählt, gesperrte Felder erkennbar. Erledigt, wenn der Durchlauf keine Befunde meldet und Tests die Punkte festhalten.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Menü-Editor: Pfeile aus `QStyle.StandardPixmap.SP_ArrowUp`/`SP_ArrowDown` mit Tooltip und zugänglichem Namen, ohne feste Breite; „Methode anlegen“ in eigener Zeile unter „Beim Anklicken“; „Abbrechen“ statt „Schließen“. Klassendialog: Sichtbarkeit „öffentlich (+)“, „privat (−)“, „geschützt (#)“, „Paket (~)“ mit dem Zeichen, das im Diagramm steht; beim Öffnen ist in jeder nicht leeren Liste der erste Eintrag ausgewählt. IDE-Stylesheet: gesperrte Eingabefelder mit grauem Grund und gedämpfter Schrift. Der Durchlauf meldet danach keine Befunde. Tests: `test_der_dialog_zeigt_gleich_den_ersten_eintrag_auf_deutsch` in `tests/test_diagramm_klassendialog.py` und `test_abbrechen_statt_schliessen_und_platz_fuer_die_methode` in `tests/test_menue_editor.py`; mit den Dateien aus `HEAD` scheitern beide.

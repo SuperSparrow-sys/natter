@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QStyle,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -172,10 +173,21 @@ class MenueEditor(QDialog):
         self.unter_knopf = QPushButton("&Untereintrag")
         self.trenner_knopf = QPushButton("&Trennlinie")
         self.loeschen_knopf = QPushButton("&Löschen")
-        self.hoch_knopf = QPushButton("▲")
-        self.runter_knopf = QPushButton("▼")
-        for knopf in (self.hoch_knopf, self.runter_knopf):
-            knopf.setFixedWidth(32)
+        # Pfeile als Symbole des Stils statt als Zeichen „▲“ und „▼“:
+        # die zeichnete die Schrift als kleine, kaum erkennbare
+        # Klötzchen, und die feste Breite von 32 Pixeln war bei 150 %
+        # zu schmal (Punkt 502).
+        stil = self.style()
+        self.hoch_knopf = QPushButton(
+            stil.standardIcon(QStyle.StandardPixmap.SP_ArrowUp), ""
+        )
+        self.runter_knopf = QPushButton(
+            stil.standardIcon(QStyle.StandardPixmap.SP_ArrowDown), ""
+        )
+        self.hoch_knopf.setToolTip("Eintrag nach oben schieben")
+        self.runter_knopf.setToolTip("Eintrag nach unten schieben")
+        self.hoch_knopf.setAccessibleName("Nach oben")
+        self.runter_knopf.setAccessibleName("Nach unten")
 
         knopfreihe = QHBoxLayout()
         for knopf in (
@@ -208,29 +220,30 @@ class MenueEditor(QDialog):
         )
         self.anlegen_knopf.setEnabled(methode_anlegen is not None)
         self.anlegen_knopf.clicked.connect(self.methode_anlegen)
-        klick_zeile = QHBoxLayout()
-        klick_zeile.setContentsMargins(0, 0, 0, 0)
-        klick_zeile.addWidget(self.feld_on_click, 1)
-        klick_zeile.addWidget(self.anlegen_knopf)
 
         self.eintragsdaten = QGroupBox("Eintragsdaten")
         formular = QFormLayout(self.eintragsdaten)
         formular.addRow("Name:", self.feld_name)
         formular.addRow("Beschriftung:", self.feld_caption)
         formular.addRow("Tastenkürzel:", self.feld_shortcut)
-        formular.addRow("Beim Anklicken:", klick_zeile)
+        # Der Knopf in eigener Zeile: neben ihm blieb für den Namen der
+        # Methode nur ein winziges Feld (Punkt 502).
+        formular.addRow("Beim Anklicken:", self.feld_on_click)
+        formular.addRow("", self.anlegen_knopf)
         formular.addRow(self.feld_enabled)
         formular.addRow(self.feld_checked)
 
         self.knoepfe = QDialogButtonBox()
-        self.schliessen_knopf = self.knoepfe.addButton(
-            "&Schließen", QDialogButtonBox.ButtonRole.RejectRole
+        # „Abbrechen“ wie im Klassendialog (Punkt 309): bei „Schließen“
+        # blieb offen, ob die Änderungen verloren gehen (Punkt 502).
+        self.abbrechen_knopf = self.knoepfe.addButton(
+            "Abbrechen", QDialogButtonBox.ButtonRole.RejectRole
         )
         self.anwenden_knopf = self.knoepfe.addButton(
             "&Anwenden", QDialogButtonBox.ButtonRole.ApplyRole
         )
         self.ok_knopf = self.knoepfe.addButton("&OK", QDialogButtonBox.ButtonRole.AcceptRole)
-        self.schliessen_knopf.clicked.connect(self.reject)
+        self.abbrechen_knopf.clicked.connect(self.reject)
         self.anwenden_knopf.clicked.connect(self.anwenden)
         self.ok_knopf.clicked.connect(self._ok)
 

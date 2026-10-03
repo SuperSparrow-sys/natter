@@ -353,3 +353,23 @@ def test_der_dialog_ist_so_breit_wie_seine_breiteste_seite(qtbot) -> None:  # no
             <= dialog.width()
         ), dialog.reiter.tabText(i)
     dialog.close()
+
+
+def test_der_dialog_zeigt_gleich_den_ersten_eintrag_auf_deutsch() -> None:
+    """Punkt 502: die Felder unter einer gefüllten Liste waren leer und
+    gesperrt, bis jemand einen Eintrag anklickte, und die Sichtbarkeit
+    hieß „Public“."""
+    from ide.diagramm.klassendialog import KlassenDialog
+
+    dialog = KlassenDialog(
+        {"id": "s1", "kind": "class", "x": 0, "y": 0, "w": 184, "h": 128,
+         "name": "Konto",
+         "attributes": [{"name": "stand", "visibility": "private"}],
+         "operations": [{"name": "abheben", "visibility": "public", "parameters": []}]},
+    )
+
+    assert dialog.operation_name.text() == "abheben"
+    assert dialog.operationsdaten.isEnabled()
+    assert dialog.attribut_name.text() == "stand"
+    assert dialog.attribut_sichtbarkeit.currentText() == "privat (−)"
+    assert dialog.operation_sichtbarkeit.currentText() == "öffentlich (+)"
