@@ -501,6 +501,23 @@ def _gleiche_datei(a: str | Path, b: str | Path) -> bool:
     )
 
 
+def _dateischluessel(pfad: str | Path) -> str:
+    """Ein Pfad als Schlüssel, unter dem `_gleiche_datei` gleiche
+    Dateien gleich ablegt."""
+    return os.path.normcase(os.path.abspath(pfad))
+
+
+def _python_texte(dateien: list[Path]) -> dict[str, str]:
+    """Der Inhalt jeder lesbaren Datei, unter `_dateischluessel`."""
+    texte: dict[str, str] = {}
+    for datei in dateien:
+        try:
+            texte[_dateischluessel(datei)] = datei.read_text(encoding="utf-8-sig")
+        except (OSError, UnicodeDecodeError):
+            continue
+    return texte
+
+
 def _dateiname_fehler(name: str) -> str | None:
     """Warum `name` nicht als Dateiname taugt, oder `None`.
 
@@ -1454,6 +1471,9 @@ class HauptFenster(QMainWindow):
         self._fuer_konsole_verborgen: set[str] = set(verborgen or [])
 
         self._letzte_testergebnisse: list[Testergebnis] = []
+        #: Der Text jeder Python-Datei beim Start der Debug-Sitzung, gegen
+        #: den Haltepunkt-Zeilen umgerechnet werden (Punkt 645).
+        self._geladene_texte: dict[str, str] = {}
         self.debug_sitzung: DebugSitzung | None = None
         self._aktueller_thread_id: int | None = None
         #: Faden des Schülerprogramms, auch wenn es gerade läuft - für
@@ -7657,7 +7677,7 @@ class HauptFenster(QMainWindow):
             self._gemerkte_haltepunkte.pop(str(pfad), None)
 
     def _haltepunkte_zur_datei(
-        self, editor: QuelltextEditor
+        self, editor: QuelltextEditor, geladen: bool = False
     ) -> tuple[set[int], dict[int, str]]:
         """Die Haltepunkte eines Editors, bezogen auf die Datei auf der
         Platte.
@@ -7667,28 +7687,43 @@ class HauptFenster(QMainWindow):
         Zeilen darüber eingefügt, und der Haltepunkt stand nach dem
         Wiederöffnen zwei Zeilen zu tief oder hinter dem Dateiende
         (Punkt 595). Übertragen wird dann zeilenweise auf den Stand der
-        Datei."""
+        Datei. Mit `geladen` gilt der Stand, den das laufende Programm
+        beim Start geladen hat (Punkt 645)."""
         breakpoints = set(editor.breakpoints)
         bedingungen = dict(editor.bedingungen)
-        zuordnung = self._zeilen_zur_datei(editor)
+        zuordnung = self._zeilen_zur_datei(editor, geladen)
         if zuordnung is None:
             return breakpoints, bedingungen
         return haltepunkte_zuordnen(breakpoints, bedingungen, zuordnung)
 
-    def _zeilen_zur_datei(self, editor: QuelltextEditor) -> dict[int, int] | None:
+    def _zeilen_zur_datei(
+        self, editor: QuelltextEditor, geladen: bool = False
+    ) -> dict[int, int] | None:
         """Zeile im Editor -> Zeile der Datei auf der Platte, oder `None`,
         wenn beide gleich sind oder sich die Datei nicht lesen lässt.
 
         Verglichen wird mit dem Inhalt der Datei, nicht mit dem
         Geändert-Merker: während einer Änderung meldet sich der Editor,
-        bevor Qt den Merker setzt."""
+        bevor Qt den Merker setzt.
+
+        Mit `geladen` wird während einer Debug-Sitzung mit dem Text
+        verglichen, den das Programm beim Start geladen hat. Nach Strg+S
+        im Halt waren Editor und Datei gleich, das Programm kannte aber
+        noch die alten Zeilen, und debugpy bekam eine Zeile zu viel
+        (Punkt 645)."""
         pfad = editor.property(_PFAD_EIGENSCHAFT)
         if not pfad:
             return None
-        try:
-            datei = Path(pfad).read_text(encoding="utf-8-sig")
-        except (OSError, UnicodeDecodeError):
-            return None
+        datei = (
+            self._geladene_texte.get(_dateischluessel(pfad))
+            if geladen and self.debug_sitzung is not None
+            else None
+        )
+        if datei is None:
+            try:
+                datei = Path(pfad).read_text(encoding="utf-8-sig")
+            except (OSError, UnicodeDecodeError):
+                return None
         text = editor.toPlainText()
         if datei == text:
             return None
@@ -9424,7 +9459,7 @@ class HauptFenster(QMainWindow):
             # neue Nummer und hielt an einer anderen Anweisung
             # (Punkt 621). Auf einer neuen, noch nicht gespeicherten
             # Zeile kann das Programm nicht halten.
-            zeilen, bedingungen = self._haltepunkte_zur_datei(editor)
+            zeilen, bedingungen = self._haltepunkte_zur_datei(editor, geladen=True)
             self.debug_sitzung.breakpoints_setzen(
                 Path(pfad), sorted(zeilen), bedingungen
             )
@@ -9663,6 +9698,8 @@ class HauptFenster(QMainWindow):
         self._aktueller_thread_id = None
         self._faden_id = None
 
+        # Der Stand, den das Programm gleich lädt (Punkt 645).
+        self._geladene_texte = _python_texte(self.projekt.alle_python_dateien())
         self.debug_sitzung = DebugSitzung(self)
         self._startaktionen_pruefen()
         self.debug_sitzung.faden_bekannt.connect(self._debugger_faden_bekannt)
@@ -10063,7 +10100,9 @@ class HauptFenster(QMainWindow):
         # Vor dem Start wird gespeichert; umgerechnet wird nur während
         # einer laufenden Sitzung.
         zuordnung = (
-            self._zeilen_zur_datei(editor) if self.debug_sitzung is not None else None
+            self._zeilen_zur_datei(editor, geladen=True)
+            if self.debug_sitzung is not None
+            else None
         )
         if zuordnung is not None:
             folgende = [z for z in sorted(zuordnung) if z >= zeile]

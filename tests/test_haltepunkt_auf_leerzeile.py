@@ -74,3 +74,70 @@ def test_editor_und_halt_stimmen_ueberein(qtbot, tmp_path: Path) -> None:  # noq
 
     assert feld.breakpoints == {5}
     assert stapel[0]["line"] == 5
+
+
+#: Punkt 644: Zeilen ohne eigenen Code. Je Fall: Quelltext, Zeile, auf
+#: die geklickt wird, und die Anweisung, an der Editor und Programm
+#: halten sollen.
+_OHNE_CODE = {
+    "if_else": (
+        "n = 1\nif n > 3:\n    a = 'gross'\nelse:\n    a = 'klein'\nende = a\n",
+        4, 5,
+    ),
+    "for_else": (
+        "summe = 0\nfor i in range(3):\n    summe += i\nelse:\n    fertig = True\n",
+        4, 5,
+    ),
+    "finally": (
+        "try:\n    x = 1\nfinally:\n    y = 2\n",
+        3, 4,
+    ),
+    "docstring": (
+        "def f():\n    \"\"\"Doku.\"\"\"\n    return 1\n\n\nf()\n",
+        2, 3,
+    ),
+}
+
+
+@pytest.mark.parametrize("fall", list(_OHNE_CODE))
+def test_zeile_ohne_code_haelt_an_der_naechsten_anweisung(
+    qtbot, tmp_path: Path, fall: str  # noqa: ANN001
+) -> None:
+    """Punkt 644: auf `else:`, `finally:` und einem Docstring hielt das
+    Programm an der falschen Stelle, beim `if` sogar im falschen
+    Zweig."""
+    quelltext, geklickt, erwartet = _OHNE_CODE[fall]
+    skript = tmp_path / "ziel.py"
+    skript.write_text(quelltext, encoding="utf-8")
+    feld = QuelltextEditor()
+    qtbot.addWidget(feld)
+    feld.setPlainText(quelltext)
+    feld.breakpoint_umschalten(geklickt)
+    assert feld.breakpoints == {erwartet}
+
+    client = DapClient()
+    try:
+        client.starten(
+            skript, arbeitsordner=tmp_path,
+            anfangs_breakpoints={skript: sorted(feld.breakpoints)},
+        )
+        ereignis = client.angehalten_abwarten()
+        stapel = client.aufrufstapel_lesen(ereignis["threadId"])
+    finally:
+        client.beenden()
+
+    assert stapel[0]["line"] == erwartet
+
+
+def test_klick_auf_eine_leerzeile_entfernt_keinen_haltepunkt(qtbot) -> None:  # noqa: ANN001
+    """Punkt 651: ein Klick links neben einer Leerzeile entfernte den
+    Haltepunkt der Zeile darunter."""
+    feld = QuelltextEditor()
+    qtbot.addWidget(feld)
+    feld.setPlainText("a = 1\n\nb = 2\n")
+    feld.breakpoint_umschalten(3)
+
+    feld.breakpoint_umschalten(2)
+    assert feld.breakpoints == {3}
+    feld.breakpoint_umschalten(3)
+    assert feld.breakpoints == set()
