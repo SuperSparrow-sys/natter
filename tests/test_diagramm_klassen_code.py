@@ -1132,3 +1132,35 @@ def test_assoziation_null_bis_eins_ist_ein_optionaler_parameter() -> None:
 
     assert erster.naechster is None
     assert zweiter.naechster is erster
+
+
+@pytest.mark.parametrize("konstruktor", ["modelliert", "erzeugt"])
+def test_kommazahl_als_startwert_und_standardwert(konstruktor: str) -> None:
+    """Punkt 654: „0,5“ ergab im modellierten Konstruktor still das
+    Tupel `(0, 5)`. Startwerte und Standardwerte mit Komma werden wie
+    im Struktogramm zur Kommazahl; eine Liste bleibt eine Liste."""
+    operationen = [
+        {"name": "verzinsen", "parameters": [
+            {"name": "faktor", "type": "float", "default": "1,5"},
+        ]},
+    ]
+    if konstruktor == "modelliert":
+        operationen.append(
+            {"name": "__init__", "parameters": [{"name": "inhaber", "type": "str"}]}
+        )
+    konto = _klasse(
+        "Konto",
+        attributes=[
+            {"name": "inhaber", "type": "str", "visibility": "private"},
+            {"name": "zins", "type": "float", "value": "0,5", "visibility": "private"},
+            {"name": "werte", "type": "list", "value": "[1, 2]", "visibility": "private"},
+        ],
+        operations=operationen,
+    )
+    code = klasse_als_python(konto, _diagramm(konto))
+    namensraum = _ausfuehren(code)
+
+    objekt = namensraum["Konto"]("Anna")
+    assert objekt._Konto__zins == 0.5
+    assert objekt._Konto__werte == [1, 2]
+    assert "faktor: float = 1.5" in code
