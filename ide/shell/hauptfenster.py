@@ -160,7 +160,12 @@ from ide.shell.hintergrund import (
     AusgabeLeser,
     Hintergrundarbeit,
 )
-from ide.shell.quelltexteditor import SCHRIFTART_OPTIONEN, QuelltextEditor
+from ide.shell.quelltexteditor import (
+    SCHRIFTART_OPTIONEN,
+    QuelltextEditor,
+    haltepunkte_zuordnen,
+    zeilen_zuordnen,
+)
 from ide.shell.schnellauswahl import SchnellAuswahl
 from ide.shell.startbild import (
     DateiGesperrt,
@@ -287,6 +292,20 @@ TRANSAKTION_EINTRAG = "Offene Transaktion im Datenbank-Panel"
 #: Rolle der Hinweiszeile über weggefallene Ausgabezeilen; ihr Wert
 #: ist die Zahl der weggefallenen Zeilen.
 _WEGGEFALLEN_ROLLE = Qt.ItemDataRole.UserRole + 20
+
+#: Der Ausdruck, mit dem sich eine Zeile im Panel „Variablen“ im
+#: Programm auswerten lässt: `evaluateName` von debugpy, etwa `p.werte`
+#: oder `matrix[0]` (Punkt 612).
+_AUSDRUCK_ROLLE = Qt.ItemDataRole.UserRole + 21
+
+
+def _ausdruck_von(eintrag: QTreeWidgetItem) -> str:
+    """Der Ausdruck einer Zeile im Panel „Variablen“, oder leer. Eine
+    Zeile ganz oben ohne gemerkten Ausdruck ist die Variable selbst."""
+    ausdruck = eintrag.data(0, _AUSDRUCK_ROLLE)
+    if ausdruck is None and eintrag.parent() is None:
+        return eintrag.text(0)
+    return str(ausdruck or "")
 
 #: Takt der Ladeanzeige nach dem Start (Punkt 271). Eine Abfrage der
 #: Fenster kostet wenige Millisekunden; viermal in der Sekunde reicht,
@@ -1125,7 +1144,7 @@ class HauptFenster(QMainWindow):
         self.variablen_baum.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.variablen_baum.customContextMenuRequested.connect(self._variablen_menue_zeigen)
         self.variablen_baum.itemActivated.connect(
-            lambda eintrag, _spalte: self.variable_als_tabelle_zeigen(eintrag.text(0))
+            lambda eintrag, _spalte: self._eintrag_als_tabelle_zeigen(eintrag)
         )
         # Aufklappen von Listen und Objekten (Punkt 99): die Kinder
         # werden erst beim Aufklappen beim Debugger erfragt.
@@ -7606,12 +7625,41 @@ class HauptFenster(QMainWindow):
         pfad = editor.property(_PFAD_EIGENSCHAFT)
         if not pfad:
             return
-        if editor.breakpoints:
-            self._gemerkte_haltepunkte[str(pfad)] = (
-                set(editor.breakpoints), dict(editor.bedingungen)
-            )
+        breakpoints, bedingungen = self._haltepunkte_zur_datei(editor)
+        if breakpoints:
+            self._gemerkte_haltepunkte[str(pfad)] = (breakpoints, bedingungen)
         else:
             self._gemerkte_haltepunkte.pop(str(pfad), None)
+
+    def _haltepunkte_zur_datei(
+        self, editor: QuelltextEditor
+    ) -> tuple[set[int], dict[int, str]]:
+        """Die Haltepunkte eines Editors, bezogen auf die Datei auf der
+        Platte.
+
+        Ist der Text geändert, aber nicht gespeichert - etwa nach
+        „Verwerfen“ -, passen die Zeilen im Editor nicht zur Datei: zwei
+        Zeilen darüber eingefügt, und der Haltepunkt stand nach dem
+        Wiederöffnen zwei Zeilen zu tief oder hinter dem Dateiende
+        (Punkt 595). Übertragen wird dann zeilenweise auf den Stand der
+        Datei."""
+        breakpoints = set(editor.breakpoints)
+        bedingungen = dict(editor.bedingungen)
+        pfad = editor.property(_PFAD_EIGENSCHAFT)
+        if not pfad:
+            return breakpoints, bedingungen
+        # Verglichen wird mit dem Inhalt der Datei, nicht mit dem
+        # Geändert-Merker: während einer Änderung meldet sich der
+        # Editor, bevor Qt den Merker setzt.
+        try:
+            datei = Path(pfad).read_text(encoding="utf-8-sig")
+        except (OSError, UnicodeDecodeError):
+            return breakpoints, bedingungen
+        text = editor.toPlainText()
+        if datei == text:
+            return breakpoints, bedingungen
+        zuordnung = zeilen_zuordnen(text.split("\n"), datei.split("\n"))
+        return haltepunkte_zuordnen(breakpoints, bedingungen, zuordnung)
 
     def _gemerkte_haltepunkte_nehmen(
         self, pfad: Path
@@ -7646,9 +7694,7 @@ class HauptFenster(QMainWindow):
                 continue
             pfad = editor.property(_PFAD_EIGENSCHAFT)
             if pfad:
-                stand[str(pfad)] = (
-                    set(editor.breakpoints), dict(editor.bedingungen)
-                )
+                stand[str(pfad)] = self._haltepunkte_zur_datei(editor)
         try:
             haltepunkte_speichern(
                 self._design_einstellungen,
@@ -9316,8 +9362,20 @@ class HauptFenster(QMainWindow):
         Bis 0.3.5 bekam debugpy nur die Haltepunkte vom Start."""
         pfad = editor.property(_PFAD_EIGENSCHAFT)
         if self.debug_sitzung is not None and pfad:
+            # Ein Haltepunkt, der auf eine Leer- oder Kommentarzeile
+            # gewandert ist, kommt auf die nächste Anweisung; die
+            # Änderung meldet sich selbst noch einmal (Punkt 611).
+            if editor.haltepunkte_auf_anweisungen():
+                return
+            # Das laufende Programm hat den Stand der Datei geladen. Ist
+            # der Text seitdem geändert, gelten die Zeilen der Datei:
+            # eine Zeile darüber eingefügt, und debugpy bekam sonst die
+            # neue Nummer und hielt an einer anderen Anweisung
+            # (Punkt 621). Auf einer neuen, noch nicht gespeicherten
+            # Zeile kann das Programm nicht halten.
+            zeilen, bedingungen = self._haltepunkte_zur_datei(editor)
             self.debug_sitzung.breakpoints_setzen(
-                Path(pfad), sorted(editor.breakpoints), dict(editor.bedingungen)
+                Path(pfad), sorted(zeilen), bedingungen
             )
 
     def _offene_bedingungen(self) -> dict[Path, dict[int, str]]:
@@ -9438,6 +9496,18 @@ class HauptFenster(QMainWindow):
             if variable.get("name") in _DEBUGPY_GRUPPEN:
                 continue
             eintrag = QTreeWidgetItem(eltern, [variable["name"], str(variable.get("value"))])
+            # Ausgewertet wird `evaluateName`, nicht der angezeigte Name:
+            # das Kind `werte` eines Objekts `p` ergab sonst die globale
+            # Variable `werte`, und eine Zeile `0` einer Matrix die Zahl 0
+            # (Punkt 612). Ohne `evaluateName` gilt der Name nur ganz
+            # oben, wo er die Variable selbst ist.
+            # Ganz oben heißt: im Baum selbst oder in der Gruppe
+            # „Globale Variablen“, die keinen Verweis auf Kinder trägt.
+            oben = not isinstance(eltern, QTreeWidgetItem) or (
+                eltern.data(0, Qt.ItemDataRole.UserRole) is None
+            )
+            ausdruck = variable.get("evaluateName") or (variable["name"] if oben else None)
+            eintrag.setData(0, _AUSDRUCK_ROLLE, ausdruck or "")
             referenz = variable.get("variablesReference") or 0
             if referenz:
                 eintrag.setData(0, Qt.ItemDataRole.UserRole, referenz)
@@ -9456,6 +9526,8 @@ class HauptFenster(QMainWindow):
             if not eintraege:
                 return
             gruppe = QTreeWidgetItem(self.variablen_baum, ["Globale Variablen", ""])
+            # Die Überschrift ist keine Variable (Punkt 612).
+            gruppe.setData(0, _AUSDRUCK_ROLLE, "")
             self._variablen_eintraege(gruppe, eintraege)
         elif zweck.startswith("kind:"):
             eintrag = self._variablen_zu_laden.pop(zweck, None)
@@ -9497,6 +9569,7 @@ class HauptFenster(QMainWindow):
             if isinstance(editor, QuelltextEditor) and editor.breakpoints:
                 pfad = editor.property(_PFAD_EIGENSCHAFT)
                 if pfad:
+                    editor.haltepunkte_auf_anweisungen()
                     ergebnis[Path(pfad)] = sorted(editor.breakpoints)
         return ergebnis
 
@@ -9812,14 +9885,22 @@ class HauptFenster(QMainWindow):
         kann, ohne ein Menü zu öffnen, das auf einen Klick wartet.
         """
         eintrag = self.variablen_baum.itemAt(punkt)
-        if eintrag is None:
+        if eintrag is None or not _ausdruck_von(eintrag):
             return None
         menue = QMenu(self.variablen_baum)
         aktion = menue.addAction("Als Tabelle anzeigen")
         aktion.triggered.connect(
-            lambda *_: self.variable_als_tabelle_zeigen(eintrag.text(0))
+            lambda *_: self._eintrag_als_tabelle_zeigen(eintrag)
         )
         return menue
+
+    def _eintrag_als_tabelle_zeigen(self, eintrag: QTreeWidgetItem) -> None:
+        """Zeigt die Zeile des Panels als Tabelle, über ihren Ausdruck.
+        Eine Zeile ohne Ausdruck, etwa die Überschrift „Globale
+        Variablen“, bleibt ohne Wirkung."""
+        ausdruck = _ausdruck_von(eintrag)
+        if ausdruck:
+            self.variable_als_tabelle_zeigen(ausdruck)
 
     def _variablen_menue_zeigen(self, punkt) -> None:
         menue = self.variablen_kontextmenue_fuer(punkt)

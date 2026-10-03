@@ -151,6 +151,31 @@ def test_haltepunkt_waehrend_des_debuggens_setzen(
             hauptfenster._debugger_stoppen_aktion()
 
 
+def test_eine_zeile_waehrend_des_halts_aendert_den_haltepunkt_nicht(
+    qtbot, tmp_path: Path, hauptfenster
+) -> None:  # noqa: ANN001
+    """Punkt 621: eine Zeile oberhalb eines Haltepunkts eingefügt, und
+    debugpy bekam die neue Nummer, obwohl das Programm den alten Stand
+    geladen hat. Weitergegeben wird die Zeile der Datei."""
+    main = _projekt(hauptfenster, tmp_path, "a = 1\nb = 2\nc = 3\nd = 4\n")
+    editor = hauptfenster.datei_oeffnen(main)
+    editor.breakpoint_umschalten(1)
+    editor.breakpoint_umschalten(3)
+
+    hauptfenster._projekt_mit_debugger_starten_aktion()
+    try:
+        qtbot.waitUntil(
+            lambda: hauptfenster._aktueller_thread_id is not None, timeout=DEBUG_ZEITGRENZE
+        )
+        _cursor_auf(editor, 2).insertText("x = 0\n")
+        assert editor.breakpoints == {1, 4}
+        qtbot.wait(300)
+        assert hauptfenster.debug_sitzung.client.gesetzte_breakpoints(main) == [1, 3]
+    finally:
+        if hauptfenster.debug_sitzung is not None:
+            hauptfenster._debugger_stoppen_aktion()
+
+
 # -- 419 -----------------------------------------------------------------
 
 
@@ -247,3 +272,28 @@ def test_kopie_des_projektordners_hat_keine_haltepunkte(
     # Das Original hat seine Haltepunkte behalten.
     hauptfenster.projekt_oeffnen(main.parent / "t.natter")
     assert hauptfenster._offene_breakpoints() == {main: [2]}
+
+
+def test_nach_verwerfen_steht_der_haltepunkt_auf_der_zeile_der_datei(
+    qtbot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, hauptfenster  # noqa: ANN001
+) -> None:
+    """Punkt 595: zwei Zeilen darüber eingefügt, nicht gespeichert,
+    „Verwerfen“ - der gemerkte Haltepunkt stand auf Zeile 5 einer Datei
+    mit drei Zeilen und war nach dem Wiederöffnen fort."""
+    main = _projekt(hauptfenster, tmp_path, "a = 1\nb = 2\nc = 3\n")
+    editor = hauptfenster.datei_oeffnen(main)
+    editor.breakpoint_umschalten(3)
+    editor.bedingung_setzen(3, "c > 0")
+    _cursor_auf(editor, 1).insertText("x = 0\ny = 0\n")
+    assert editor.breakpoints == {5}
+    monkeypatch.setattr(
+        HauptFenster, "_reiter_schliessen_fragen",
+        lambda self: QMessageBox.StandardButton.Discard,
+    )
+
+    hauptfenster._tab_schliessen(hauptfenster.editor_tabs.indexOf(editor))
+    wieder = hauptfenster.datei_oeffnen(main)
+
+    assert wieder.toPlainText() == "a = 1\nb = 2\nc = 3\n"
+    assert wieder.breakpoints == {3}
+    assert wieder.bedingungen == {3: "c > 0"}

@@ -11,6 +11,7 @@ regelbasiert statt über eine vollständige Grammatik.
 
 from __future__ import annotations
 
+import difflib
 import re
 from pathlib import Path
 
@@ -282,6 +283,35 @@ class _ZeilenNummernRand(QWidget):
             menue.exec(event.globalPos())
 
 
+def zeilen_zuordnen(alt: list[str], neu: list[str]) -> dict[int, int]:
+    """Welche Zeile (ab 1) des alten Textes welcher des neuen entspricht.
+
+    Gleiche Zeilen werden über `difflib` einander zugeordnet, geänderte
+    Abschnitte gleicher Länge Zeile für Zeile; gelöschte Zeilen fehlen.
+    Damit wandern Haltepunkte mit ihrer Anweisung, wenn ein Text als
+    Ganzes ersetzt wird - beim Neuladen einer von außen geänderten
+    Datei, beim Einfügen einer Ereignismethode und beim Verwerfen
+    ungespeicherter Änderungen (Punkte 595 und 610)."""
+    zuordnung: dict[int, int] = {}
+    vergleich = difflib.SequenceMatcher(a=alt, b=neu, autojunk=False)
+    for art, a1, a2, b1, b2 in vergleich.get_opcodes():
+        if art == "equal" or (art == "replace" and a2 - a1 == b2 - b1):
+            for versatz in range(a2 - a1):
+                zuordnung[a1 + versatz + 1] = b1 + versatz + 1
+    return zuordnung
+
+
+def haltepunkte_zuordnen(
+    breakpoints: set[int],
+    bedingungen: dict[int, str],
+    zuordnung: dict[int, int],
+) -> tuple[set[int], dict[int, str]]:
+    """Haltepunkte und Bedingungen über eine Zuordnung aus
+    `zeilen_zuordnen`; was keine Entsprechung hat, fällt weg."""
+    neu = {zuordnung[z] for z in breakpoints if z in zuordnung}
+    return neu, {zuordnung[z]: b for z, b in bedingungen.items() if z in zuordnung}
+
+
 class QuelltextEditor(QPlainTextEdit):
     breakpoint_umgeschaltet = Signal(int, bool)  # (Zeile ab 1, jetzt gesetzt?)
     #: Die Menge der Haltepunkte hat sich geändert, durch Umschalten
@@ -397,12 +427,14 @@ class QuelltextEditor(QPlainTextEdit):
         self._haltemarkierung: list[QTextEdit.ExtraSelection] = []
         self._zeilen_vorher = 1
         self.document().contentsChange.connect(self._breakpoints_nachfuehren)
-        #: Zeilenzuordnung (alt -> neu) der Schritte, die den ganzen Text
-        #: umstellen, je Zahl der Rückgängig-Schritte danach. Mit ihr
-        #: wandern Haltepunkte beim Rückgängigmachen und Wiederholen
-        #: zurück bzw. wieder mit (Punkt 580).
-        self._umordnungen: dict[int, dict[int, int]] = {}
-        self.document().undoCommandAdded.connect(self._umordnungen_kuerzen)
+        #: Haltepunkte und Bedingungen je Stand des Rückgängig-Stapels,
+        #: geführt über die Zahl der Rückgängig-Schritte. Rückgängig und
+        #: Wiederholen stellen den Stand wieder her, der zu dieser Zahl
+        #: gehörte (Punkte 580 und 596): auch Haltepunkte gelöschter
+        #: Zeilen und solche in zugeklappten Funktionen.
+        self._haltepunkt_staende: dict[int, tuple[set[int], dict[int, str]]] = {}
+        self._schritte_vorher = 0
+        self._im_rueckgaengig = False
 
         #: Zugeklappte Klassen und Funktionen, je Kopfzeile (M11, 2.3)
         self._gefaltet: set[int] = set()
@@ -423,9 +455,43 @@ class QuelltextEditor(QPlainTextEdit):
             + self.fontMetrics().horizontalAdvance("9") * stellen
         )
 
+    def anweisungszeile(self, zeile: int) -> int:
+        """Die erste Zeile ab `zeile`, in der eine Anweisung steht - nicht
+        leer und nicht nur ein Kommentar. Gibt es keine mehr, bleibt es
+        bei `zeile`.
+
+        Auf einer Leer- oder Kommentarzeile kann Python nicht halten.
+        debugpy legte einen solchen Haltepunkt bis 0.4.3 auf eine
+        Anweisung davor, der rote Punkt blieb, wo er war, und das
+        Programm hielt zu früh (Punkt 611)."""
+        dokument = self.document()
+        for nummer in range(zeile, dokument.blockCount() + 1):
+            text = dokument.findBlockByNumber(nummer - 1).text().strip()
+            if text and not text.startswith("#"):
+                return nummer
+        return zeile
+
+    def haltepunkte_auf_anweisungen(self) -> bool:
+        """Legt Haltepunkte auf Leer- und Kommentarzeilen auf die nächste
+        Anweisung. Gibt zurück, ob sich etwas geändert hat."""
+        zuordnung = {z: self.anweisungszeile(z) for z in self.breakpoints}
+        if all(alt == neu for alt, neu in zuordnung.items()):
+            return False
+        self.bedingungen = {
+            zuordnung.get(z, z): b for z, b in self.bedingungen.items()
+        }
+        self.breakpoints = set(zuordnung.values())
+        self._rand.update()
+        self.breakpoints_geaendert.emit()
+        return True
+
     def breakpoint_umschalten(self, zeile: int) -> None:
         """Setzt/entfernt einen Breakpoint bei `zeile` (ab 1) und meldet
-        die Änderung über `breakpoint_umgeschaltet`."""
+        die Änderung über `breakpoint_umgeschaltet`. Ein neuer
+        Haltepunkt auf einer Leer- oder Kommentarzeile landet auf der
+        nächsten Anweisung."""
+        if zeile not in self.breakpoints:
+            zeile = self.anweisungszeile(zeile)
         if zeile in self.breakpoints:
             self.breakpoints.discard(zeile)
             self.bedingungen.pop(zeile, None)
@@ -452,6 +518,23 @@ class QuelltextEditor(QPlainTextEdit):
         self._rand.update()
         self.breakpoints_geaendert.emit()
 
+    def haltepunkte_nach_ersetzen(
+        self,
+        alte_zeilen: list[str],
+        breakpoints: set[int],
+        bedingungen: dict[int, str],
+    ) -> None:
+        """Nach dem Ersetzen des ganzen Textes: Haltepunkte von
+        `alte_zeilen` auf den jetzigen Text übertragen (Punkt 610)."""
+        zuordnung = zeilen_zuordnen(alte_zeilen, self.toPlainText().split("\n"))
+        neu, neue_bedingungen = haltepunkte_zuordnen(breakpoints, bedingungen, zuordnung)
+        if (neu, neue_bedingungen) == (self.breakpoints, self.bedingungen):
+            return
+        self.breakpoints = neu
+        self.bedingungen = neue_bedingungen
+        self._rand.update()
+        self.breakpoints_geaendert.emit()
+
     def _breakpoints_nachfuehren(self, position: int, _entfernt: int, _dazu: int) -> None:
         """Haltepunkte wandern mit ihrer Zeile (Punkt 119). Bis 0.3.5
         waren sie feste Zeilennummern: zwei Zeilen darüber eingefügt,
@@ -461,14 +544,28 @@ class QuelltextEditor(QPlainTextEdit):
         Zeile selbst mit; beginnt sie mitten in der Zeile, bleibt die
         Zeile stehen und erst die folgenden wandern. Gelöschte Zeilen
         nehmen ihre Haltepunkte mit."""
-        zeilen = self.document().blockCount()
+        dokument = self.document()
+        if not self._im_rueckgaengig:
+            # Der Stand vor dieser Änderung gehört zur bisherigen Zahl
+            # der Rückgängig-Schritte; ein Rückgängig dorthin stellt
+            # ihn wieder her.
+            self._haltepunkt_staende[self._schritte_vorher] = (
+                set(self.breakpoints), dict(self.bedingungen)
+            )
+            self._schritte_vorher = dokument.availableUndoSteps()
+        zeilen = dokument.blockCount()
         unterschied = zeilen - self._zeilen_vorher
         self._zeilen_vorher = zeilen
         if not unterschied or not self.breakpoints:
             return
-        block = self.document().findBlock(position)
+        block = dokument.findBlock(position)
         erste = block.blockNumber() + 1
-        am_anfang = position == block.position()
+        # Steht links von der Änderung nur Einzug, wandert die Zeile
+        # mit: die Eingabetaste hinter dem Einzug von `    b = 2`
+        # schiebt `b = 2` nach unten, und der Haltepunkt gehört zu ihr
+        # (Punkt 610).
+        davor = block.text()[: position - block.position()]
+        am_anfang = not davor.strip()
         ab = erste if am_anfang else erste + 1
         # alte Zeile -> neue Zeile; wer fehlt, lag in gelöschten Zeilen
         zuordnung: dict[int, int] = {}
@@ -491,6 +588,8 @@ class QuelltextEditor(QPlainTextEdit):
         dieser Zeile nur, wenn die Bedingung wahr ist. Leer heißt:
         immer halten. Setzt den Haltepunkt, falls noch keiner da ist."""
         bedingung = bedingung.strip()
+        if zeile not in self.breakpoints:
+            zeile = self.anweisungszeile(zeile)
         if zeile not in self.breakpoints:
             self.breakpoints.add(zeile)
             self.breakpoint_umgeschaltet.emit(zeile, True)
@@ -553,41 +652,45 @@ class QuelltextEditor(QPlainTextEdit):
         if bereich.contains(self.viewport().rect()):
             self._breite_aktualisieren()
 
-    def _umordnungen_kuerzen(self) -> None:
-        """Ein neuer Schritt macht alle gemerkten Schritte ab seiner
-        Nummer ungültig: der Wiederholen-Stapel ist damit leer."""
-        schritte = self.document().availableUndoSteps()
-        for nummer in [n for n in self._umordnungen if n >= schritte]:
-            del self._umordnungen[nummer]
+    def _schritt_mit_haltepunkten(self, schritt) -> None:  # noqa: ANN001
+        """Führt Rückgängig oder Wiederholen aus und stellt danach die
+        Haltepunkte her, die zu diesem Stand gehören.
 
-    def _haltepunkte_umordnen(self, zuordnung: dict[int, int]) -> None:
-        breakpoints = {zuordnung.get(z, z) for z in self.breakpoints}
-        bedingungen = {zuordnung.get(z, z): b for z, b in self.bedingungen.items()}
+        Vorher wird der jetzige Stand unter der jetzigen Zahl der
+        Schritte gemerkt; so findet ein späteres Wiederholen ihn
+        wieder. Fehlt ein gemerkter Stand, bleibt es bei dem, was
+        `_breakpoints_nachfuehren` beim Zurücknehmen gerechnet hat."""
+        dokument = self.document()
+        vorher = dokument.availableUndoSteps()
+        self._haltepunkt_staende[vorher] = (
+            set(self.breakpoints), dict(self.bedingungen)
+        )
+        self._im_rueckgaengig = True
+        try:
+            schritt()
+        finally:
+            self._im_rueckgaengig = False
+        nachher = dokument.availableUndoSteps()
+        self._schritte_vorher = nachher
+        stand = self._haltepunkt_staende.get(nachher)
+        if nachher == vorher or stand is None:
+            return
+        breakpoints, bedingungen = stand
+        letzte = dokument.blockCount()
+        breakpoints = {z for z in breakpoints if 1 <= z <= letzte}
+        bedingungen = {z: b for z, b in bedingungen.items() if z in breakpoints}
         if (breakpoints, bedingungen) == (self.breakpoints, self.bedingungen):
             return
-        self.breakpoints = breakpoints
-        self.bedingungen = bedingungen
+        self.breakpoints = set(breakpoints)
+        self.bedingungen = dict(bedingungen)
         self._rand.update()
         self.breakpoints_geaendert.emit()
 
     def undo(self) -> None:
-        dokument = self.document()
-        vorher = dokument.availableUndoSteps()
-        zuordnung = self._umordnungen.get(vorher)
-        super().undo()
-        # Die Zahl zählt einzelne Befehle, nicht Bearbeitungsblöcke;
-        # geprüft wird nur, dass wirklich etwas zurückgenommen wurde.
-        if zuordnung and dokument.availableUndoSteps() < vorher:
-            self._haltepunkte_umordnen({neu: alt for alt, neu in zuordnung.items()})
+        self._schritt_mit_haltepunkten(super().undo)
 
     def redo(self) -> None:
-        dokument = self.document()
-        vorher = dokument.availableUndoSteps()
-        super().redo()
-        nachher = dokument.availableUndoSteps()
-        zuordnung = self._umordnungen.get(nachher)
-        if zuordnung and nachher > vorher:
-            self._haltepunkte_umordnen(zuordnung)
+        self._schritt_mit_haltepunkten(super().redo)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         """Automatischer Einzug (Gewünscht: „was
@@ -1304,11 +1407,17 @@ class QuelltextEditor(QPlainTextEdit):
             zeile = QTextCursor(block)
             if aus:
                 text = block.text()
-                weg = len(text) - len(text.lstrip(" "))
+                # Ein Tabulator ist eine Ebene. Gezählt wurden nur
+                # Leerzeichen, und eine Zeile aus einer fremden Datei mit
+                # Tabulator-Einzug rückte nicht aus (Punkt 621).
+                if text.startswith("\t"):
+                    weg = 1
+                else:
+                    weg = min(len(text) - len(text.lstrip(" ")), len(_EINZUG))
                 zeile.movePosition(
                     QTextCursor.MoveOperation.Right,
                     QTextCursor.MoveMode.KeepAnchor,
-                    min(weg, len(_EINZUG)),
+                    weg,
                 )
                 zeile.removeSelectedText()
             elif block.text().strip():
@@ -1435,7 +1544,6 @@ class QuelltextEditor(QPlainTextEdit):
         cursor.select(cursor.SelectionType.Document)
         cursor.insertText("\n".join(zeilen))
         cursor.endEditBlock()
-        self._umordnungen[dokument.availableUndoSteps()] = dict(zuordnung)
 
         self._gefaltet = gefaltet
         self._alles_sichtbar_machen()
@@ -1677,6 +1785,16 @@ class QuelltextEditor(QPlainTextEdit):
         `contextMenuEvent`, damit ein Test jeden Eintrag auslösen kann,
         ohne ein Menü zu öffnen, das auf einen Klick wartet."""
         menue = self.createStandardContextMenu()
+        # Rückgängig und Wiederholen über die eigenen Methoden, damit
+        # die Haltepunkte mitgehen; Qts Einträge riefen am Editor
+        # vorbei (Punkt 596).
+        for aktion in menue.actions():
+            eigene = {"edit-undo": self.undo, "edit-redo": self.redo}.get(
+                aktion.objectName()
+            )
+            if eigene is not None:
+                aktion.triggered.disconnect()
+                aktion.triggered.connect(lambda _=False, e=eigene: e())
         menue.addSeparator()
         # (Text, Rückruf, ändert den Text?) - was den Text ändert, ist
         # in einer schreibgeschützten Datei grau.

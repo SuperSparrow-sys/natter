@@ -555,6 +555,15 @@ def editortext_ersetzen(editor: QPlainTextEdit, text: str) -> None:
     alt = editor.toPlainText()
     if alt == text:
         return
+    # Haltepunkte über ganze Zeilen nachführen: der Unterschied beginnt
+    # oft mitten in einer Zeile, und zeilenweise gezählt landete ein
+    # Haltepunkt auf der Zeile davor oder fiel weg (Punkt 610).
+    haltepunkte = getattr(editor, "breakpoints", None)
+    vorher = (
+        (set(haltepunkte), dict(getattr(editor, "bedingungen", {})))
+        if haltepunkte is not None
+        else None
+    )
     geaendert = editor.document().isModified()
     stelle = editor.textCursor().position()
     anfang = 0
@@ -581,6 +590,8 @@ def editortext_ersetzen(editor: QPlainTextEdit, text: str) -> None:
     cursor.setPosition(min(stelle, _utf16_laenge(text)))
     editor.setTextCursor(cursor)
     editor.document().setModified(geaendert)
+    if vorher is not None and hasattr(editor, "haltepunkte_nach_ersetzen"):
+        editor.haltepunkte_nach_ersetzen(alt.split("\n"), *vorher)
 
 
 class _UmbenennenKommando:

@@ -19,7 +19,27 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ide.debugger.tabellenansicht import Tabelle
+from ide.debugger.tabellenansicht import Tabelle, Zahlzelle
+from pcl.sortieren import sortierschluessel
+
+
+class _Zelle(QTableWidgetItem):
+    """Eine Zelle, die nach dem Zahlwert sortiert, wenn sie eine Zahl
+    trägt, sonst nach deutscher Schreibweise. Zahlen stehen vor Text.
+    Als Text sortiert stand 10 vor 2 und selbst die Spalte „#“ als
+    0, 1, 10, 11, 2 (Punkt 615)."""
+
+    def __init__(self, zelle: str) -> None:
+        super().__init__(str(zelle))
+        if isinstance(zelle, Zahlzelle):
+            self._schluessel = (0, zelle.wert, "")
+        else:
+            self._schluessel = (1, 0, sortierschluessel(str(zelle)))
+
+    def __lt__(self, anderes: QTableWidgetItem) -> bool:
+        if isinstance(anderes, _Zelle):
+            return self._schluessel < anderes._schluessel
+        return super().__lt__(anderes)
 
 
 class TabellenAnsicht(QDialog):
@@ -36,9 +56,7 @@ class TabellenAnsicht(QDialog):
         self._tabelle.setRowCount(len(tabelle.zeilen))
         for zeilen_nummer, zeile in enumerate(tabelle.zeilen):
             for spalten_nummer, zelle in enumerate(zeile):
-                self._tabelle.setItem(
-                    zeilen_nummer, spalten_nummer, QTableWidgetItem(str(zelle))
-                )
+                self._tabelle.setItem(zeilen_nummer, spalten_nummer, _Zelle(zelle))
         self._tabelle.setSortingEnabled(True)
         # Beim Bildschirmfoto gefunden: neben der Spalte „index“ bzw.
         # „#“ zählte Qts eigene Zeilenleiste ein zweites Mal mit (0,1,2
@@ -80,13 +98,19 @@ class TabellenAnsicht(QDialog):
 
     @classmethod
     def _beschreibung(cls, name: str, tabelle: Tabelle) -> str:
+        spalten = max(tabelle.spalten_gesamt, len(tabelle.spalten))
         text = (
             f"{name} ({tabelle.art}): "
             f"{cls._anzahl(tabelle.gesamt, 'Zeile', 'Zeilen')}, "
-            f"{cls._anzahl(len(tabelle.spalten), 'Spalte', 'Spalten')}"
+            f"{cls._anzahl(spalten, 'Spalte', 'Spalten')}"
         )
         if tabelle.gekuerzt:
-            text += f" – angezeigt werden die ersten {len(tabelle.zeilen)}."
+            text += f" – angezeigt werden die ersten {len(tabelle.zeilen)}"
+            if spalten > len(tabelle.spalten):
+                text += f" mit den ersten {len(tabelle.spalten)} Spalten"
+            text += "."
+        elif spalten > len(tabelle.spalten):
+            text += f" – angezeigt werden die ersten {len(tabelle.spalten)} Spalten."
         return text
 
     def _filtern(self, text: str) -> None:
