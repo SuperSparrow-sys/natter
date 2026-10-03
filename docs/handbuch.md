@@ -493,7 +493,8 @@ darin im Struktogramm einen Wert bekommt; „nicht fertig“ ohne Wert für
 `fertig` bleibt Kommentar. Kommazahlen wie „x > 2,5“ oder
 „preis ← 2,5“ werden mit Punkt geschrieben; in Klammern wie bei
 `randint(1,6)` und mit Leerzeichen wie bei „1, 2“ trennt das Komma
-dagegen zwei Werte. Ein Kommentar mit „#“ in einer Bedingung fällt im
+dagegen zwei Werte. „≠“, „≤“ und „≥“ werden zu `!=`, `<=` und `>=`,
+„mod“ und „div“ zwischen zwei Werten zu `%` und `//`. Ein Kommentar mit „#“ in einer Bedingung fällt im
 Code weg. „x ← 1“ wird zu `x = 1`, „wahr“ und „falsch“ zu `True` und
 `False`, auch als Fall einer Fallauswahl. Ein Fall wie „J“, „rot“ oder
 „nicht bestanden“, der im Struktogramm keinen Wert bekommt, ist ein

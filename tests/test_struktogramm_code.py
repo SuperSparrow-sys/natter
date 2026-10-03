@@ -1774,3 +1774,20 @@ def test_taschenrechner_mit_rechenzeichen_als_faellen(monkeypatch) -> None:  # n
                _block("multi_branch", "zeichen", cases=faelle)]
     assert _laufen(bloecke, ["6", "-", "2"], monkeypatch) == [4]
     assert _laufen(bloecke, ["6", ":", "2"], monkeypatch) == [3.0]
+
+
+def test_mod_div_und_vergleichszeichen(monkeypatch) -> None:  # noqa: ANN001
+    """„jahr mod 4 = 0“ und „jahr % 100 ≠ 0“ wurden Kommentar mit
+    `if False`; im Unterricht sind beide Schreibweisen üblich."""
+    bloecke = [
+        _anweisung("Eingabe: jahr"),
+        _block("branch", "jahr mod 4 = 0 und jahr mod 100 ≠ 0 oder jahr mod 400 = 0",
+               then=[_anweisung('spur.append("Schaltjahr")')],
+               **{"else": [_anweisung('spur.append("kein")')]}),
+        _anweisung("rest ← jahr div 100"),
+        _block("branch", "rest ≥ 20", then=[_anweisung("spur.append(rest)")], **{"else": []}),
+        _anweisung('spur.append("a ≠ b")'),
+    ]
+    assert als_python(_diagramm(*bloecke)).anzahl == 0
+    assert _laufen(bloecke, ["2024"], monkeypatch) == ["Schaltjahr", 20, "a ≠ b"]
+    assert _laufen(bloecke, ["1900"], monkeypatch) == ["kein", "a ≠ b"]

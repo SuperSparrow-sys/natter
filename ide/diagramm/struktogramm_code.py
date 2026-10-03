@@ -412,7 +412,9 @@ class _Schreiber:
         if text.strip() in ("break", "continue"):
             self._springen(text.strip(), tiefe)
             return
-        text = "\n".join(_kommazahlen(zeile) for zeile in text.split("\n"))
+        text = "\n".join(
+            _rechenzeichen(_kommazahlen(zeile)) for zeile in text.split("\n")
+        )
         zeilen = [z for z in textwrap.dedent(text).splitlines() if z.strip()]
         if len(zeilen) > 1 and self._zeilenweise(text, zeilen):
             # Ein Block aus mehreren Zeilen wie „Eingabe: a“ und
@@ -769,7 +771,7 @@ def _einzeilig(roh: Any, logik: bool = True) -> str:
     Doppelpunkt, den der Kopf angehängt bekommt, und aus „x > 0 #
     positiv“ wurde `if x > 0 # positiv:` (Punkt 636)."""
     zeilen = [_ohne_kommentar(zeile) for zeile in str(roh or "").splitlines()]
-    text = _kommazahlen(" ".join(" ".join(zeilen).split()))
+    text = _rechenzeichen(_kommazahlen(" ".join(" ".join(zeilen).split())))
     return _logikwoerter(text) if logik else text
 
 
@@ -811,6 +813,27 @@ def _logikwoerter(text: str) -> str:
 #: Eine Kommazahl wie „2,5“: genau ein Komma zwischen zwei Ziffernfolgen,
 #: nicht Teil eines Namens und nicht Teil einer Aufzählung wie „1,2,3“.
 _KOMMAZAHL = re.compile(r"(?<![\w.,])\d+,\d+(?![\w,])")
+
+
+#: Zeichen und Wörter, die im Struktogramm üblich sind, als Python.
+_ZEICHEN = {"≠": "!=", "≤": "<=", "≥": ">="}
+_RECHENWOERTER = re.compile(r"(?<=[\w)\]])\s+(mod|div)\s+(?=[\w(])", re.IGNORECASE)
+
+
+def _rechenzeichen(text: str) -> str:
+    """Schreibt „≠“, „≤“, „≥“ als `!=`, `<=`, `>=` und „mod“, „div“
+    zwischen zwei Werten als `%`, `//`, außerhalb von Texten in
+    Anführungszeichen. „jahr mod 4 = 0“ wurde sonst Kommentar mit
+    `if False` (Durchsicht vor 0.4.4)."""
+    teile = re.split(r"(\"[^\"]*\"|'[^']*')", text)
+    for nummer in range(0, len(teile), 2):
+        teil = teile[nummer]
+        for zeichen, ersatz in _ZEICHEN.items():
+            teil = teil.replace(zeichen, ersatz)
+        teile[nummer] = _RECHENWOERTER.sub(
+            lambda t: " % " if t.group(1).lower() == "mod" else " // ", teil
+        )
+    return "".join(teile)
 
 
 def _kommazahlen(text: str) -> str:
