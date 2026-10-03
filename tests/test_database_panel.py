@@ -412,3 +412,48 @@ def test_nur_die_markierung_wird_ausgefuehrt() -> None:
         panel, "SELECT name FROM sqlite_master WHERE type = 'table'"
     ) == [("a",)]
 
+
+
+def test_ein_sql_fehler_leert_das_ergebnis_und_nennt_den_punkt() -> None:
+    """Punkt 510: nach einem Fehler stand das Ergebnis der vorigen
+    Abfrage weiter in der Tabelle, als wäre es das der fehlerhaften.
+    Punkt 512: an einer Kommazahl wie `2,0` nannte die Meldung nur
+    das Komma."""
+    panel = _verbunden()
+    panel._sql_eingabe.setPlainText(
+        "CREATE TABLE noten (note REAL); INSERT INTO noten VALUES (1.3)"
+    )
+    panel._sql_ausfuehren()
+    panel._sql_eingabe.setPlainText("SELECT * FROM noten")
+    panel._sql_ausfuehren()
+    assert panel.ergebnis_tabelle.rowCount() == 1
+
+    panel._sql_eingabe.setPlainText("SELECT * FROM noten WHERE note < 2,0")
+    panel._sql_ausfuehren()
+
+    assert panel.ergebnis_tabelle.rowCount() == 0
+    assert panel.ergebnis_tabelle.columnCount() == 0
+    assert "etwa 2.5 statt 2,5" in panel._status_label.text()
+
+
+def test_csv_export_schreibt_kommazahlen_mit_komma(tmp_path: Path) -> None:
+    """Punkt 511: die Datei trennt mit Semikolon wie eine deutsche
+    Tabellenkalkulation, die Zahlen standen aber mit Punkt darin. Der
+    Import liest das Komma wieder als Zahl."""
+    panel = _verbunden()
+    panel._sql_eingabe.setPlainText(
+        "CREATE TABLE noten (name TEXT, note REAL);"
+        "INSERT INTO noten VALUES ('Jörg', 2.5)"
+    )
+    panel._sql_ausfuehren()
+    ziel = tmp_path / "noten.csv"
+
+    panel.tabelle_als_csv_exportieren("noten", ziel)
+    name = panel.csv_importieren(ziel)
+
+    assert ziel.read_text(encoding="utf-8-sig").splitlines() == [
+        "name;note", "Jörg;2,5"
+    ]
+    assert panel._roh().execute(f"SELECT note FROM {name}").fetchall() == [
+        (2.5,)
+    ]

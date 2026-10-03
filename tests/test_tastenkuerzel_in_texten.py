@@ -1,9 +1,10 @@
 """Jedes Tastenkürzel in einem gelesenen Text muss es geben.
 
 Punkt 11 der offenen Punkte. Im allerersten Beispielprogramm stand
-„Drücke F9, um das Programm zu starten." - F9 tut in Natter nichts,
-gestartet wird mit F5. Eine Schülerin, die dem Kommentar folgt,
-drückt eine Taste ohne Wirkung und weiß nicht, woran es liegt.
+„Drücke F9, um das Programm zu starten." - F9 startete in Natter
+nichts (heute setzt es einen Haltepunkt), gestartet wird mit F5.
+Eine Schülerin, die dem Kommentar folgt, drückt eine Taste ohne die
+erwartete Wirkung und weiß nicht, woran es liegt.
 
 Die meisten Texte lassen sich nicht maschinell prüfen. Ein
 Tastenkürzel schon: es steht entweder im Aktionsregister, ist eine
@@ -146,7 +147,7 @@ def test_die_liste_der_texte_stimmt() -> None:
 
 def test_es_gibt_ueberhaupt_kuerzel_zu_pruefen(erlaubt: set[str]) -> None:
     assert "F5" in erlaubt, "Das Startkürzel fehlt - dann prüft der Test nichts."
-    assert "F9" not in erlaubt, "F9 ist in Natter nicht belegt."
+    assert "F8" not in erlaubt, "F8 ist in Natter nicht belegt."
 
 
 @pytest.mark.parametrize("pfad", TEXTE, ids=lambda p: f"{p.parent.name}/{p.name}")

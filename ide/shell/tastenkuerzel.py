@@ -81,7 +81,7 @@ EDITORTASTEN = (
     ("Umschalt+Tab", "Markierte Zeilen oder die Zeile um eine Ebene ausrücken"),
     ("Rücktaste im Einzug", "Eine ganze Einrückungsebene zurück"),
     ("Klick rechts im Zeilenrand", "Klasse oder Funktion zuklappen"),
-    ("Klick links im Zeilenrand", "Haltepunkt setzen oder entfernen"),
+    ("Klick links im Zeilenrand", "Haltepunkt setzen oder entfernen, wie F9"),
 )
 
 #: Was nur im Designer gilt. Bis September 2026 stand keine dieser

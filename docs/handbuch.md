@@ -403,9 +403,11 @@ aktiven Reiter als Konsolenprogramm, etwa eine Aufgabe, die als
 einzelne Datei ausgeteilt wurde. Den Debugger und die Prüfung vor dem
 Start gibt es dabei nicht; dafür braucht es ein Projekt.
 
-Im Debugger lässt sich Zeile für Zeile durchgehen (`F11` hinein,
-`F10` darüber hinweg), und im Panel **Variablen** ist zu sehen, was
-gerade in welcher Variablen steht.
+Einen Haltepunkt setzt ein Klick links in den Zeilenrand oder `F9`
+in der Zeile des Cursors. Im Debugger lässt sich Zeile für Zeile
+durchgehen (`F11` hinein, `F10` darüber hinweg), und im Panel
+**Variablen** ist zu sehen, was gerade in welcher Variablen steht. Die
+Zeile, in der das Programm gerade hält, ist gelb hinterlegt.
 
 ### 3.4 Modellieren
 
@@ -772,7 +774,11 @@ Links zeigt der Baum die Tabellen mit ihren Spalten, rechts steht das
 Ergebnis eines `SELECT`, darüber die Rückmeldung wie „2 Zeilen.“ oder
 eine Fehlermeldung. Die Knöpfe unter dem Baum übernehmen eine
 CSV-Datei als Tabelle und speichern die im Baum gewählte Tabelle als
-CSV oder als SQL-Datei. **Trennen** gibt die Datei wieder frei; solange
+CSV oder als SQL-Datei. Die CSV-Datei trennt mit Semikolon und
+schreibt Kommazahlen mit Komma, so wie eine deutsche
+Tabellenkalkulation sie liest. In einer SQL-Anweisung selbst steht
+eine Kommazahl dagegen mit Punkt: `WHERE note < 2.5`.
+**Trennen** gibt die Datei wieder frei; solange
 das Panel verbunden ist, lässt Windows sie weder löschen noch
 umbenennen.
 
@@ -953,9 +959,10 @@ Diagramm-Editor gilt dasselbe für seine eigenen Menüs.
 
 | Taste | Was passiert |
 |---|---|
-| `F5` | Starten |
+| `F5` | Starten; steht das Programm an einem Haltepunkt: Fortsetzen |
 | `Strg+F5` | Starten ohne Debugger |
 | `Umschalt+F5` | Stopp |
+| `F9` | Haltepunkt in der Zeile des Cursors setzen oder entfernen |
 | `F11` | Einzelschritt — in die Funktion hinein |
 | `F10` | Prozedurschritt — über die Funktion hinweg |
 | `Umschalt+F11` | Ausführen bis Rücksprung |

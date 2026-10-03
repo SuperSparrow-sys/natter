@@ -207,12 +207,29 @@ def _sql_literal(wert: Any) -> str:
 
 def _csv_wert(wert: Any) -> Any:
     """Ein Wert für den CSV-Export: Binärdaten als Hexadezimaltext
-    statt als `b'…'` (Punkt 242)."""
+    statt als `b'…'` (Punkt 242), Kommazahlen mit Dezimalkomma
+    (Punkt 511). Die Datei trennt mit Semikolon wie eine deutsche
+    Tabellenkalkulation; dort wurde aus `2.5` ein Datum oder Text.
+    Der Import des Panels liest das Komma wieder als Zahl."""
     if wert is None:
         return ""
     if isinstance(wert, (bytes, bytearray, memoryview)):
         return bytes(wert).hex().upper()
+    if isinstance(wert, float):
+        return repr(wert).replace(".", ",")
     return wert
+
+
+def _kommazahl_hinweis(text: str, anweisung: str) -> str:
+    """Hängt einen Hinweis an, wenn eine SQL-Anweisung an einem Komma
+    scheitert, das in einer Kommazahl steht (Punkt 512). `2,0` liest
+    SQL als zwei Werte, und die Meldung allein nannte nur das Komma."""
+    if "„,“" in text and re.search(r"\d,\d", anweisung):
+        return (
+            f"{text}. In SQL steht in einer Kommazahl ein Punkt, "
+            "etwa 2.5 statt 2,5"
+        )
+    return text
 
 
 def _anzeigetext(wert: Any) -> str:
@@ -1090,7 +1107,12 @@ class DatenbankPanel(QWidget):
                 self._tabellenbaum_aktualisieren()
                 return
             except (NatterDatenbankError, sqlite3.Error) as fehler:
-                self._status_setzen(vorsatz + _fehlertext(fehler), war_offen)
+                # Die Tabelle leeren: bis 0.4.3 blieb das Ergebnis der
+                # vorigen Abfrage stehen und sah aus wie das Ergebnis
+                # der fehlerhaften (Punkt 510).
+                self._ergebnis_anzeigen([], [])
+                text = _kommazahl_hinweis(_fehlertext(fehler), anweisung)
+                self._status_setzen(vorsatz + text, war_offen)
                 self._tabellenbaum_aktualisieren()
                 return
             except MemoryError:

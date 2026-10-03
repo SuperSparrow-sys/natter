@@ -44,6 +44,15 @@ def _halt_zeile(fenster: HauptFenster) -> int:
     return fenster._aktueller_editor().textCursor().blockNumber() + 1
 
 
+def _variable(fenster: HauptFenster, name: str) -> str | None:
+    baum = fenster.variablen_baum
+    for i in range(baum.topLevelItemCount()):
+        eintrag = baum.topLevelItem(i)
+        if eintrag.text(0) == name:
+            return eintrag.text(1)
+    return None
+
+
 def test_pause_haelt_eine_endlosschleife_an(qtbot, tmp_path: Path) -> None:  # noqa: ANN001
     fenster = HauptFenster()
     qtbot.addWidget(fenster)
@@ -132,3 +141,50 @@ def test_ausfuehren_bis_cursor_vor_dem_start_und_aus_einem_halt(
     finally:
         if fenster.debug_sitzung is not None:
             fenster._debugger_stoppen_aktion()
+
+
+def test_f9_setzt_haltepunkt_und_f5_setzt_einen_halt_fort(
+    qtbot, tmp_path: Path, hauptfenster: HauptFenster  # noqa: ANN001
+) -> None:
+    """Punkt 508: F9 setzt und entfernt den Haltepunkt in der Zeile
+    des Cursors, und F5 setzt ein angehaltenes Programm fort, statt
+    nach einem Neustart zu fragen. Die Schleife hält zweimal in
+    derselben Zeile; ein Neustart wäre an `i` zu erkennen. Punkt 509:
+    die Haltezeile ist eigens markiert, bis das Programm endet."""
+    fenster = hauptfenster
+    main = _projekt(
+        fenster, tmp_path, "for i in range(2):\n    x = i\nfertig = True\n"
+    )
+    editor = fenster.datei_oeffnen(main)
+    assert fenster.aktionen["start.haltepunkt"].qaction.shortcut().toString() == "F9"
+    _cursor_in_zeile(editor, 2)
+    fenster.aktionen["start.haltepunkt"].qaction.trigger()
+    assert editor.breakpoints == {2}
+
+    starten = fenster.aktionen["start.mit_debugger"].qaction
+    assert starten.shortcut().toString() == "F5"
+    starten.trigger()
+    qtbot.waitUntil(
+        lambda: fenster._aktueller_thread_id is not None, timeout=DEBUG_ZEITGRENZE
+    )
+    sitzung = fenster.debug_sitzung
+    # Punkt 509: die Haltezeile bleibt markiert, auch wenn der Cursor
+    # woanders hinwandert.
+    qtbot.waitUntil(lambda: editor.haltezeile == 2, timeout=DEBUG_ZEITGRENZE)
+    _cursor_in_zeile(editor, 3)
+    assert editor.haltezeile == 2
+
+    starten.trigger()
+    qtbot.waitUntil(
+        lambda: fenster._aktueller_thread_id is not None
+        and fenster.debug_sitzung is sitzung
+        and _variable(fenster, "i") == "1",
+        timeout=DEBUG_ZEITGRENZE,
+    )
+
+    _cursor_in_zeile(editor, 2)
+    fenster.aktionen["start.haltepunkt"].qaction.trigger()
+    assert editor.breakpoints == set()
+    starten.trigger()
+    qtbot.waitUntil(lambda: fenster.debug_sitzung is None, timeout=DEBUG_ZEITGRENZE)
+    assert editor.haltezeile is None

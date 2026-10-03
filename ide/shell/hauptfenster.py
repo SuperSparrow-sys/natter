@@ -2044,6 +2044,15 @@ class HauptFenster(QMainWindow):
             qaktion.setToolTip(f"{qaktion.toolTip()} - {unterschied}")
         self.aktionen.registrieren(
             Aktion(
+                "start.haltepunkt",
+                "Haltepunkt setzen/entfernen",
+                menue="Start",
+                tastenkuerzel="F9",
+                callback=self._haltepunkt_umschalten_aktion,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
                 "start.bis_cursor",
                 "Ausführen bis Cursor",
                 menue="Start",
@@ -2848,6 +2857,8 @@ class HauptFenster(QMainWindow):
         """
         laeuft = self.debug_sitzung is not None
         angehalten = laeuft and self._aktueller_thread_id is not None
+        if not angehalten:
+            self._haltezeile_zeigen(None)
         # „Pause“ gilt, solange das Programm läuft und nicht schon hält -
         # auch in einer Endlosschleife, die nie an einem Haltepunkt
         # vorbeikam (Punkt 56). Die Schrittbefehle gelten nur im Halt.
@@ -9186,7 +9197,15 @@ class HauptFenster(QMainWindow):
         übernommen.
 
         Ohne Parameter: `QAction.triggered` reicht sonst sein
-        `checked`-Flag als ersten Wert hinein."""
+        `checked`-Flag als ersten Wert hinein.
+
+        Steht das Programm an einem Haltepunkt, setzt F5 es fort, wie
+        in den verbreiteten Entwicklungsumgebungen (Punkt 508). Bis
+        0.4.3 meldete F5 dort nur, das Programm laufe bereits, und
+        „Fortsetzen“ hatte kein Tastenkürzel."""
+        if self.debug_sitzung is not None and self._aktueller_thread_id is not None:
+            self._debugger_fortsetzen_aktion()
+            return
         self._mit_debugger_starten()
 
     def _mit_debugger_starten(self, halten_bei: tuple[Path, int] | None = None) -> None:
@@ -9245,6 +9264,26 @@ class HauptFenster(QMainWindow):
         if self._faden_id is None:
             self._faden_id = faden_id
             self._startaktionen_pruefen()
+
+    def _haltezeile_zeigen(self, frame: dict | None) -> None:
+        """Markiert die Zeile des obersten Stapelrahmens gelb und nimmt
+        die Markierung aus allen anderen Editoren (Punkt 509). Ohne
+        Rahmen verschwindet sie überall."""
+        ziel = None
+        if frame is not None:
+            quelle = frame.get("source", {}).get("path", "")
+            ziel = Path(quelle).resolve() if quelle else None
+        for index in range(self.editor_tabs.count()):
+            widget = self._tab_inhalt(self.editor_tabs.widget(index))
+            if not isinstance(widget, QuelltextEditor):
+                continue
+            pfad = widget.property(_PFAD_EIGENSCHAFT)
+            treffer = (
+                ziel is not None and pfad and Path(pfad).resolve() == ziel
+            )
+            zeile = frame["line"] if treffer else None
+            if widget.haltezeile != zeile:
+                widget.haltezeile_setzen(zeile)
 
     def _editoren_halt_melden(self, haelt: bool) -> None:
         for index in range(self.editor_tabs.count()):
@@ -9372,6 +9411,7 @@ class HauptFenster(QMainWindow):
         if stapel and self.debug_sitzung is not None:
             self.debug_sitzung.bereiche_lesen(stapel[0]["id"])
             self._zu_frame_springen(stapel[0])
+            self._haltezeile_zeigen(stapel[0])
 
     def _bei_aufrufstapel_klick(self, eintrag: QListWidgetItem) -> None:
         index = self.aufrufstapel_liste.row(eintrag)
@@ -9529,6 +9569,22 @@ class HauptFenster(QMainWindow):
         faden = self._weiterlaufen()
         if faden is not None:
             self.debug_sitzung.fortsetzen(faden)
+
+    def _haltepunkt_umschalten_aktion(self) -> None:
+        """„Start → Haltepunkt setzen/entfernen“ (F9) für die Zeile, in
+        der der Cursor steht (Punkt 508).
+
+        Bis 0.4.3 ging das nur mit einem Mausklick in den Zeilenrand.
+        Wer mit der Tastatur arbeitet, kam an keinen Haltepunkt, und F9,
+        das Kürzel dafür in den verbreiteten Entwicklungsumgebungen, tat
+        nichts."""
+        editor = self._aktueller_editor()
+        if not isinstance(editor, QuelltextEditor):
+            self.statusBar().showMessage(
+                "Ein Haltepunkt braucht einen Cursor in einer Python-Datei."
+            )
+            return
+        editor.breakpoint_umschalten(editor.textCursor().blockNumber() + 1)
 
     def _debugger_bis_cursor_aktion(self) -> None:
         """„Start → Ausführen bis Cursor“ (F4, Punkt 78): läuft bis zur

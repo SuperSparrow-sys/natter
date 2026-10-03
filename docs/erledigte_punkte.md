@@ -13268,3 +13268,73 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** Freie Funktionen `test_…` als Tests ausführen, auch einzeln wiederholbar; die häufigsten Meldungen auf Deutsch; bei einem nackten `assert` die nicht erfüllte Zeile. Erledigt, wenn ein Test beide Stile mit deutschen Meldungen findet.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** `_Lader.loadTestsFromModule` hängt jede freie Funktion `test…` eines Testmoduls als `_Funktionstest` (`unittest.FunctionTestCase` mit der Kennung `modul.funktion`) an; `loadTestsFromName` erkennt eine solche Kennung für das gezielte Wiederholen. `meldung_eindeutschen` übersetzt die häufigsten Meldungen von `unittest` (größer, kleiner, True/False, enthalten, None, gleich); ein `AssertionError` ohne Text meldet „Nicht erfüllt: <Zeile>“. Der Test-Explorer hängt `modul.funktion` direkt ans Modul. Handbuch Abschnitt 3.7 nennt beide Stile und das Austeilen einer Testdatei. Tests: `test_freie_testfunktionen_laufen_mit_deutscher_meldung` in `tests/test_testrunner_ausfuehrung.py` (scheitert mit `ide/testrunner` aus `HEAD`) und `test_eine_freie_testfunktion_haengt_direkt_am_modul` in `tests/test_hauptfenster_testexplorer.py`.
+
+---
+
+## 508. F9 setzt keinen Haltepunkt, F5 im Halt fragt nach einem Neustart ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Debugger an der Oberfläche (Entwicklungsstand `47db4c4`).
+
+**Beobachtet:** Einen Haltepunkt gab es nur über einen Mausklick in den Zeilenrand; F9 tat nichts, und im Menü „Start“ stand kein Eintrag dafür. Stand das Programm an einem Haltepunkt, startete F5 nicht weiter, sondern behandelte den Druck wie einen neuen Start. Fortsetzen ging nur über das Menü.
+
+**Ursache:** nachgewiesen. `ide/shell/hauptfenster.py` registrierte keine Aktion für Haltepunkte, und `_projekt_mit_debugger_starten_aktion` prüfte nicht, ob eine Sitzung gerade hält.
+
+**Zu tun:** F9 schaltet den Haltepunkt in der Zeile des Cursors um, F5 setzt einen Halt fort. Erledigt, wenn ein Test beides an einem echten Lauf zeigt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Neue Aktion `start.haltepunkt` „Haltepunkt setzen/entfernen“ (F9) im Menü „Start“; sie schaltet über `breakpoint_umschalten` die Zeile des Cursors um, außerhalb einer Python-Datei steht ein Hinweis in der Statuszeile. `_projekt_mit_debugger_starten_aktion` ruft bei einer angehaltenen Sitzung `_debugger_fortsetzen_aktion` auf. Handbuch (Abschnitt 3.3 und Tastenkürzel) und die Kürzelliste nennen F9. Test: `test_f9_setzt_haltepunkt_und_f5_setzt_einen_halt_fort` in `tests/test_debugger_pause_und_cursor.py`; mit `hauptfenster.py` aus `HEAD` scheitert er, ebenso ohne den Fortsetzen-Zweig allein.
+
+---
+
+## 509. Die Zeile, in der das Programm hält, ist nicht eigens markiert ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Debugger an der Oberfläche (Entwicklungsstand `47db4c4`).
+
+**Beobachtet:** Hält das Programm, springt der Cursor in die Haltezeile, die hellblau hinterlegt ist wie jede Cursorzeile. Klickt man im Halt in eine andere Zeile, um etwas nachzusehen, ist nicht mehr zu erkennen, wo das Programm steht.
+
+**Ursache:** nachgewiesen. `_debugger_aufrufstapel_bereit` setzt nur den Textcursor; `QuelltextEditor` kennt keine Markierung für eine Haltezeile.
+
+**Zu tun:** Die Haltezeile eigens markieren, unabhängig vom Cursor, bis das Programm weiterläuft oder endet. Erledigt, wenn ein Test die Markierung nach einem Cursorwechsel noch findet und nach dem Ende nicht mehr.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `QuelltextEditor.haltezeile_setzen` legt eine gelbe Hinterlegung über die ganze Zeile (Farbe `haltezeile` je Thema), die über der Cursorzeile liegt. `HauptFenster._haltezeile_zeigen` setzt sie beim Halt im Editor der Datei des obersten Stapelrahmens und nimmt sie überall weg, sobald `_startaktionen_pruefen` kein Halten mehr sieht. Handbuch Abschnitt 3.3 erwähnt die gelbe Zeile. Test: derselbe wie bei Punkt 508; ohne den Aufruf in `_debugger_aufrufstapel_bereit` scheitert er.
+
+---
+
+## 510. Datenbank-Panel: nach einem SQL-Fehler bleibt das alte Ergebnis stehen ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Datenbank-Panel aus Schülersicht (Entwicklungsstand `47db4c4`).
+
+**Beobachtet:** Nach `SELECT AVG(note) AS schnitt FROM noten` steht „schnitt 1,9“ in der Tabelle. Danach liefert `SELEKT * FROM noten` „SQL-Fehler: die SQL-Anweisung lässt sich ab „SELEKT“ nicht mehr lesen“, die Tabelle zeigt aber weiter „schnitt 1,9“, als wäre das das Ergebnis der fehlerhaften Abfrage.
+
+**Ursache:** nachgewiesen. `DatenbankPanel._sql_ausfuehren` setzt im Fehlerzweig nur die Statuszeile; `_ergebnis_anzeigen` läuft erst nach Erfolg.
+
+**Zu tun:** Bei einem Fehler die Ergebnistabelle leeren. Erledigt, wenn ein Test nach einem Fehler eine leere Tabelle findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Der Fehlerzweig ruft `_ergebnis_anzeigen([], [])` auf. Test: `test_ein_sql_fehler_leert_das_ergebnis_und_nennt_den_punkt` in `tests/test_database_panel.py`; mit `panel.py` aus `HEAD` scheitert er.
+
+---
+
+## 511. Datenbank-Panel: der CSV-Export schreibt Kommazahlen mit Punkt ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Datenbank-Panel aus Schülersicht (Entwicklungsstand `47db4c4`).
+
+**Beobachtet:** „Als CSV exportieren“ schreibt `Jörg;Mathe;2.5`. Die Datei trennt mit Semikolon für eine deutsche Tabellenkalkulation, die dort `2.5` als Datum oder Text liest; im Panel selbst steht dieselbe Zahl als „2,5“.
+
+**Ursache:** nachgewiesen. `_csv_wert` in `ide/database/panel.py` gibt Kommazahlen unverändert an `csv.writer` weiter.
+
+**Zu tun:** Kommazahlen mit Dezimalkomma schreiben, ohne dass der eigene Import sie danach als Text liest. Erledigt, wenn ein Test Export und erneuten Import einer Kommazahl prüft.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_csv_wert` schreibt `float` als `repr` mit Komma; der Import erkennt das Komma wie bisher als Dezimalzeichen. Das Handbuch nennt im Abschnitt zum Datenbank-Panel beide Schreibweisen (CSV mit Komma, SQL mit Punkt). Test: `test_csv_export_schreibt_kommazahlen_mit_komma` in `tests/test_database_panel.py`; mit `panel.py` aus `HEAD` scheitert er.
+
+---
+
+## 512. Datenbank-Panel: eine Kommazahl in SQL ergibt eine Meldung ohne Hinweis ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Datenbank-Panel aus Schülersicht (Entwicklungsstand `47db4c4`).
+
+**Beobachtet:** `SELECT name FROM noten WHERE note < 2,0` meldet „SQL-Fehler: die SQL-Anweisung lässt sich ab „,“ nicht mehr lesen“. Dass in SQL ein Dezimalpunkt steht, während Natter Zahlen sonst überall mit Komma zeigt, sagt die Meldung nicht.
+
+**Ursache:** nachgewiesen. Die Meldung kommt aus dem Fehlerkatalog und kennt die Anweisung nicht.
+
+**Zu tun:** Scheitert eine Anweisung an einem Komma zwischen zwei Ziffern, auf den Punkt hinweisen. Erledigt, wenn ein Test den Hinweis findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_kommazahl_hinweis` hängt „In SQL steht in einer Kommazahl ein Punkt, etwa 2.5 statt 2,5“ an, wenn die Meldung das Komma nennt und die Anweisung eine Ziffernfolge mit Komma enthält. Test: derselbe wie bei Punkt 510.

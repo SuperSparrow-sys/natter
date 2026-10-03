@@ -145,9 +145,9 @@ _KOPF_MUSTER = re.compile(r"^[ \t]*(class|async def|def)\b")
 # beim bisherigen, etwas kräftigeren Grauton (kein VS-Code-Feedback dazu).
 _RAND_FARBEN = {
     "light": {"hintergrund": "#f0f0f0", "zeilennummer": "#8a8a8a", "aktuelle_zeile": "#eaf2fc",
-              "klammerpaar": "#c6dcf5"},
+              "klammerpaar": "#c6dcf5", "haltezeile": "#fff3a0"},
     "dark": {"hintergrund": "#252526", "zeilennummer": "#858585", "aktuelle_zeile": "#2a2d2e",
-             "klammerpaar": "#3b5570"},
+             "klammerpaar": "#3b5570", "haltezeile": "#4d4a1c"},
 }
 
 #: Klammerpaare für die Hervorhebung am Cursor (Punkt 103).
@@ -390,6 +390,10 @@ class QuelltextEditor(QPlainTextEdit):
         #: Ob das Programm gerade hält - dann zeigt der Hinweis über
         #: einem Namen dessen Wert. Setzt das Hauptfenster.
         self.debugger_haelt = False
+        #: Die Zeile, in der das Programm gerade hält, oder None. Setzt
+        #: das Hauptfenster (Punkt 509).
+        self.haltezeile: int | None = None
+        self._haltemarkierung: list[QTextEdit.ExtraSelection] = []
         self._zeilen_vorher = 1
         self.document().contentsChange.connect(self._breakpoints_nachfuehren)
 
@@ -1121,9 +1125,33 @@ class QuelltextEditor(QPlainTextEdit):
             and QToolTip.text() == self.letzte_parameterhilfe
         )
 
+    def haltezeile_setzen(self, zeile: int | None) -> None:
+        """Hinterlegt die Zeile, in der das Programm hält, gelb
+        (Punkt 509).
+
+        Bis 0.4.3 stand dort nur der Cursor, hellblau wie in jeder
+        anderen Zeile. Wer im Halt woanders hinklickte, um etwas
+        nachzusehen, wusste danach nicht mehr, wo das Programm stand.
+        Die gelbe Zeile bleibt, bis das Programm weiterläuft, und liegt
+        über der Cursorzeile."""
+        self.haltezeile = zeile
+        self._haltemarkierung = []
+        block = self.document().findBlockByNumber((zeile or 0) - 1)
+        if zeile is not None and block.isValid():
+            auswahl = QTextEdit.ExtraSelection()
+            auswahl.format.setBackground(QColor(self._rand_farben["haltezeile"]))
+            auswahl.format.setProperty(QTextFormat.Property.FullWidthSelection, True)
+            auswahl.cursor = QTextCursor(block)
+            self._haltemarkierung = [auswahl]
+        self._markierungen_setzen()
+
     def _markierungen_setzen(self) -> None:
         self.setExtraSelections(
-            [*self._fundmarkierungen, *self._zeilenmarkierung]
+            [
+                *self._fundmarkierungen,
+                *self._zeilenmarkierung,
+                *self._haltemarkierung,
+            ]
         )
 
     def event(self, ereignis) -> bool:
