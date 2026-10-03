@@ -19,7 +19,7 @@
 ; "Kompletter Bau".)
 
 #define MyAppName "Natter"
-#define MyAppVersion "0.4.3"
+#define MyAppVersion "0.4.4"
 #define MyAppPublisher "Natter-Projekt"
 #define MyAppExeName "Natter.exe"
 #define MyAppIcon "..\ide\assets\icons\app.ico"
