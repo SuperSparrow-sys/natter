@@ -31,7 +31,8 @@ def zahl(eingabe: str) -> float:
 
     Leerzeichen am Rand zählen nicht. Stehen Punkt und Komma
     zugleich darin, ist der Punkt die Tausendertrennung: „1.234,5“
-    ergibt 1234.5. Ohne Komma gilt der Punkt ebenfalls als
+    ergibt 1234.5. Steht ein Punkt hinter dem Komma, wie im
+    englischen „1,234.5“, ist das keine Zahl. Ohne Komma gilt der Punkt ebenfalls als
     Tausendertrennung, wenn er Dreiergruppen abteilt und die Zahl
     vorn nicht mit 0 beginnt: „1.000“ ergibt 1000, „1.234.567“
     1234567. Sonst ist er ein Dezimalpunkt: „2.5“ ergibt 2.5,
@@ -54,6 +55,15 @@ def zahl(eingabe: str) -> float:
         )
     bereinigt = eingabe.strip().replace(" ", "")
     if "," in bereinigt and "." in bereinigt:
+        if bereinigt.rfind(".") > bereinigt.rfind(","):
+            # „1,234.5“ ist englisch geschrieben: Komma als
+            # Tausendertrennung, Punkt als Dezimalzeichen. Gelesen
+            # wurde daraus still 1,2345 (Punkt 479).
+            raise NatterZahlError(
+                f"„{eingabe.strip()}“ ist keine Zahl in deutscher "
+                "Schreibweise. Das Komma trennt die Nachkommastellen, "
+                "zum Beispiel 1234,5 oder 1.234,5."
+            )
         bereinigt = bereinigt.replace(".", "")
     elif _TAUSENDERPUNKTE.fullmatch(bereinigt):
         bereinigt = bereinigt.replace(".", "")

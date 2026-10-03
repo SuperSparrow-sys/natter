@@ -168,7 +168,7 @@ class Label(Control):
         str,
         "",
         kategorie="Darstellung",
-        doc="Hintergrundfarbe als #RRGGBB (nur bei transparent=False)",
+        doc="Hintergrundfarbe als #RRGGBB; schaltet transparent aus",
         art=ART_FARBE,
     )
     transparent = Prop(
@@ -197,6 +197,13 @@ class Label(Control):
             self._qwidget.setAlignment(_ausrichtung(wert))
         elif name == "word_wrap":
             self._qwidget.setWordWrap(wert)
+        elif name == "color" and wert and self.transparent:
+            # Eine Farbe zeigt sich nur ohne `transparent`. Bis 0.4.3
+            # blieb ein Label nach ``color = "#ff0000"`` durchsichtig,
+            # und die Farbe erschien nirgends (Punkt 478). Wer es
+            # danach wieder durchsichtig haben will, setzt
+            # `transparent` zurück.
+            self.transparent = False
         elif name in ("color", "transparent"):
             self._eigenes_qss_anwenden()
 
@@ -435,7 +442,9 @@ class ListBox(Control):
     on_change = Event(doc="Wird ausgelöst, wenn ein anderer Eintrag ausgewählt wird")
 
     def __init__(self, parent: Control) -> None:
-        self._items = Strings(self._items_geaendert, self._eintrag_angehaengt)
+        self._items = Strings(
+            self._items_geaendert, self._eintrag_angehaengt, auswahlliste=True
+        )
         super().__init__(parent)
 
     @property
@@ -581,7 +590,9 @@ class ComboBox(Control):
     on_change = Event(doc="Wird ausgelöst, wenn ein anderer Eintrag ausgewählt wird")
 
     def __init__(self, parent: Control) -> None:
-        self._items = Strings(self._items_geaendert, self._eintrag_angehaengt)
+        self._items = Strings(
+            self._items_geaendert, self._eintrag_angehaengt, auswahlliste=True
+        )
         super().__init__(parent)
 
     @property
@@ -648,6 +659,11 @@ class ComboBox(Control):
         super()._bei_prop_aenderung(name, wert)
         if name == "item_index":
             self._qwidget.setCurrentIndex(wert)
+            # Wie bei der `ListBox`: was Qt nicht wählen kann, etwa -2,
+            # bleibt nicht stehen. Sonst ergab ``items[item_index]``
+            # einen Eintrag, obwohl keiner gewählt war (Punkt 476).
+            if self._qwidget.currentIndex() != wert:
+                self.__dict__["_prop_item_index"] = self._qwidget.currentIndex()
         elif name == "text":
             self._qwidget.setCurrentText(wert)
             # Einen Text, der nicht in der Liste steht, übergeht Qt.
@@ -867,7 +883,7 @@ class RadioGroup(Control):
     on_change = Event(doc="Wird beim Wechsel der Auswahl ausgelöst")
 
     def __init__(self, parent: Control) -> None:
-        self._items = Strings(self._items_geaendert)
+        self._items = Strings(self._items_geaendert, auswahlliste=True)
         self._optionen: list[QRadioButton] = []
         # Während `_optionen_neu_aufbauen()` löst jedes erzeugte und jedes
         # gelöschte Optionsfeld ein `toggled` aus. Ohne diese Sperre

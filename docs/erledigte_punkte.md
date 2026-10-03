@@ -12800,3 +12800,92 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** Der Kennung einen Anzeigenamen geben, etwa über einen Eintrag `HKCU\Software\Classes\AppUserModelId\Natter.Programm` (`DisplayName`, `IconUri`), den das Setup schreibt und die Deinstallation entfernt. Erledigt, wenn ein Bildschirmfoto der Taskleiste beim Programmlauf einen Knopf mit einem Namen zeigt, der zu Natter gehört.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** Die vermutete Lösung trug nicht: ein Eintrag `HKCU\Software\Classes\AppUserModelId\Natter.Programm` mit `DisplayName` und `IconUri` ließ den Knopf an der installierten 0.4.3 bei „Python – 1 aktives Fenster“ (`build\auswertung\044s\469\probe.py`). Windows nimmt den Namen stattdessen aus drei Eigenschaften am Fenster, `RelaunchDisplayNameResource`, `RelaunchIconResource` und `RelaunchCommand`, und nur alle drei zusammen; gelesen werden sie, wenn der Knopf entsteht. Das neue Modul `pcl/taskleiste.py` setzt sie über `SHGetPropertyStoreForWindow` mit ctypes (die Installation bringt kein pywin32 mit): Name „Natter-Programm“, Symbol und Befehl aus der `Natter.exe` der Installation. `Form.show` ruft das beim ersten Zeigen eines eigenen Fensters auf. Es geschieht nur, wenn `pcl.Application` die Kennung `Natter.Programm` gesetzt hat und die Installation gefunden wird; in der IDE, im Entwicklungsbaum und in einer exportierten Exe bleibt alles wie bisher. Nachweis an der echten Taskleiste: ein `pcl`-Programm mit der installierten Python und dem neuen `pcl` erscheint als „Natter-Programm – 1 aktives Fenster“ mit der Natter. Tests in `tests/test_taskleiste.py`: `test_ein_formular_wird_vor_dem_zeigen_benannt` (vor dem Zeigen, nur einmal) und `test_ohne_eigene_kennung_bleibt_das_fenster_unberuehrt`. Am ersten Programmlauf nach der Installation von 0.4.4 noch einmal per Bildschirmfoto bestätigen.
+
+---
+
+## 475. Ohne Auswahl liefert `items[item_index]` still den letzten Eintrag ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Entwicklungsstand `58d8df5`.
+
+**Beobachtet:** Ist in einer `ListBox`, `ComboBox` oder `RadioGroup` nichts gewählt, ist `item_index` gleich -1. Die übliche Zeile `self.l_x.caption = self.lb_x.items[self.lb_x.item_index]` zeigt dann den letzten Eintrag an, ohne Fehler: bei den Einträgen a, b, c steht „c“ da, obwohl niemand etwas gewählt hat. Seit Punkt 166 gilt das auch für einen zu großen Index, der jetzt -1 wird; vorher endete er wenigstens mit einem `IndexError`.
+
+**Ursache:** nachgewiesen. `Strings.__getitem__` (`pcl/strings.py`) reicht den Index an die Python-Liste weiter, und dort zählt -1 vom Ende. Probe: `k.items = ["a", "b", "c"]; k.item_index = 5; k.items[k.item_index]` ergibt `'c'` für alle drei Komponenten.
+
+**Zu tun:** `Strings` lehnt einen negativen Index mit einer deutschen Meldung ab, die bei -1 sagt, dass nichts ausgewählt ist. Erledigt, wenn ein Test für alle drei Komponenten ohne Auswahl die Meldung statt des letzten Eintrags bekommt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `Strings` hat den Schalter `auswahlliste`, den `ListBox`, `ComboBox` und `RadioGroup` für ihre `items` setzen. Dort lehnt das Lesen einen negativen Index mit `NatterEintragError` ab (neu in `pcl/errors.py`, Unterklasse von `IndexError`, damit `except IndexError` ihn weiter fängt und die Fehleranzeige den deutschen Text übernimmt). Bei -1 heißt die Meldung „Einen Eintrag -1 gibt es nicht. item_index ist -1, solange in der Liste nichts ausgewählt ist.“ Ein zu großer Index meldet jetzt auf Deutsch, wie viele Einträge es gibt, statt „list index out of range“. In `Memo.lines` bleibt `lines[-1]` die letzte Zeile, wie bei einer Liste; dort bedeutet -1 nichts anderes. Test: `test_ohne_auswahl_gibt_es_keinen_eintrag` in `tests/test_pcl_werte_pruefen.py`; mit `pcl` aus `HEAD` scheitert er.
+
+
+---
+
+## 476. `ComboBox.item_index` behält negative Werte außer -1 ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Entwicklungsstand `58d8df5`.
+
+**Beobachtet:** `cb.item_index = -2` bei den Einträgen a, b, c: angezeigt wird keine Auswahl, `cb.item_index` liest aber -2, und `cb.items[cb.item_index]` ergibt „b“. `ListBox` und `RadioGroup` setzen denselben Wert auf -1.
+
+**Ursache:** nachgewiesen. `ComboBox._bei_prop_aenderung` (`pcl/components/standard.py`, Abschnitt `item_index`) ruft nur `setCurrentIndex` auf und liest die tatsächliche Auswahl nicht zurück, anders als die `ListBox` seit Punkt 166.
+
+**Zu tun:** Nach `setCurrentIndex` den tatsächlichen Index übernehmen. Erledigt, wenn ein Test für `-2` den Wert -1 liest.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `ComboBox._bei_prop_aenderung` liest nach `setCurrentIndex` den tatsächlichen Index zurück, wie die `ListBox` seit Punkt 166. Stehen blieb -2 nur, wenn vorher schon nichts gewählt war: dann schickt Qt kein `currentIndexChanged`, über das der Wert sonst zurückkam. Test: `test_combobox_behaelt_keinen_ungueltigen_index` in `tests/test_pcl_werte_pruefen.py`; mit `pcl` aus `HEAD` scheitert er.
+
+
+---
+
+## 477. Farben werden im Code nicht geprüft ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Entwicklungsstand `58d8df5`.
+
+**Beobachtet:** `self.l_x.color = "rot"`, `"blau"`, `"ff0000"` oder `"#12"` wird ohne Meldung angenommen und bewirkt nichts. Ebenso bei `Edit.color`, `Panel.color`, der Farbe des Formulars und `Shape.brush.color`. `self.l_x.font.color = "rot"` dagegen meldet „„rot“ ist keine Farbe. Erwartet wird #RRGGBB, z. B. #e53935 für Rot.“, und der Objektinspektor lehnt ungültige Farben ebenfalls ab.
+
+**Ursache:** nachgewiesen. Ein `Prop` mit `art=ART_FARBE` (`pcl/properties.py`) prüft nur den Typ `str`; die Prüfung mit `QColor.isValidColorName` steht nur in `Font.color` (`pcl/font.py`) und in `EigenschaftenTabelle` (`ide/inspector/eigenschaften_tabelle.py`). Ungültige Farben übergeht Qt im Stylesheet ohne Meldung.
+
+**Zu tun:** Jede Farbeigenschaft prüft beim Setzen wie `font.color` und meldet eine ungültige Farbe auf Deutsch. Erledigt, wenn ein Test für jede Farbeigenschaft „rot“ mit dieser Meldung ablehnt und „#ff0000“ annimmt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Neue Funktion `farbe_pruefen` in `pcl/properties.py`: ein nicht leerer Text, den `QColor.isValidColorName` nicht kennt, ergibt „„rot“ ist keine Farbe. Erwartet wird #RRGGBB, z. B. #e53935 für Rot.“, mit Komponente und Eigenschaft davor. `Prop.__set__` ruft sie für jede Eigenschaft mit `art=ART_FARBE` auf, `Shape.brush.color` ebenfalls. Englische Namen, die Qt kennt („red“), gehen weiter durch. Alle `.pfm` der Beispielprojekte enthalten nur gültige Farben, die Rundlauf-Tests der Beispiele sind grün. Test: `test_eine_farbe_wird_geprueft` in `tests/test_pcl_werte_pruefen.py` (Label, Edit, Panel, Formular, Shape.brush); mit `pcl` aus `HEAD` scheitert er.
+
+
+---
+
+## 478. `Label.color` zeigt nichts, solange `transparent` gilt ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Entwicklungsstand `58d8df5`.
+
+**Beobachtet:** Ein Label ist von Haus aus durchsichtig. `self.l_x.color = "#ff0000"` im Code oder eine Farbe im Objektinspektor ändert deshalb nichts; erst `transparent = False` dazu zeigt den Hintergrund. Der Hinweis steht nur im Tooltip der Eigenschaft („nur bei transparent=False“).
+
+**Ursache:** nachgewiesen. `Label._qss_teile` (`pcl/components/standard.py`) setzt den Hintergrund nur bei `not self.transparent and self.color`.
+
+**Zu tun:** Eine gesetzte Farbe schaltet `transparent` aus, im Code wie im Objektinspektor; `transparent = True` danach macht das Label wieder durchsichtig. Erledigt, wenn ein Test nach `color = "#ff0000"` den Hintergrund im Stylesheet findet und `docs/komponenten.md` das beschreibt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `Label._bei_prop_aenderung` schaltet `transparent` aus, sobald eine nicht leere Farbe gesetzt wird, im Code wie über den Objektinspektor. `transparent = True` danach macht das Label wieder durchsichtig, die Farbe bleibt gespeichert. Tooltip der Eigenschaft und `docs/komponenten.md` sagen „Hintergrundfarbe als #RRGGBB; eine Farbe schaltet `transparent` aus“. Test: `test_eine_farbe_macht_ein_label_undurchsichtig` in `tests/test_pcl_werte_pruefen.py`; mit `pcl` aus `HEAD` scheitert er.
+
+
+---
+
+## 479. `zahl("1,234.5")` ergibt 1,2345 ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Entwicklungsstand `58d8df5`.
+
+**Beobachtet:** Eine englisch geschriebene Zahl mit Komma als Tausendertrennung und Punkt als Dezimalzeichen wird still als 1,2345 gelesen. Erwartet wäre 1234,5 oder eine Meldung, dass die Schreibweise nicht eindeutig ist.
+
+**Ursache:** nachgewiesen. `zahl` (`pcl/zahlen.py`) entfernt bei Punkt und Komma zugleich immer die Punkte, ohne auf ihre Reihenfolge zu sehen.
+
+**Zu tun:** Steht der Punkt hinter dem letzten Komma, ist die Zahl keine deutsche Schreibweise; `zahl` meldet das. Erledigt, wenn ein Test „1,234.5“ mit Meldung ablehnt und „1.234,5“ weiter 1234,5 ergibt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `zahl` (`pcl/zahlen.py`) meldet bei Punkt und Komma zugleich einen `NatterZahlError`, wenn der letzte Punkt hinter dem letzten Komma steht: „„1,234.5“ ist keine Zahl in deutscher Schreibweise. Das Komma trennt die Nachkommastellen, zum Beispiel 1234,5 oder 1.234,5.“ „1.234,5“ ergibt weiter 1234,5. Der CSV-Import im Datenbank-Panel (`_zahlenart` in `ide/database/panel.py`) fängt den Fehler und legt eine Spalte mit solchen Werten als Text an statt mit falschen Zahlen. Docstring und `docs/komponenten.md` nennen den Fall. Test: `test_englische_schreibweise_ist_keine_zahl` in `tests/test_pcl_werte_pruefen.py`; mit `pcl` aus `HEAD` scheitert er.
+
+
+---
+
+## 480. Die Meldung zu `None` lautet „ein NoneType (NoneType)“ ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Entwicklungsstand `58d8df5`.
+
+**Beobachtet:** `self.l_x.caption = None`, etwa das Ergebnis einer Funktion ohne `return`, meldet „Label.caption erwartet einen Text (str), erhalten wurde ein NoneType (NoneType).“ Wer Python gerade lernt, kennt `NoneType` nicht und erfährt nicht, dass nichts zurückgegeben wurde.
+
+**Ursache:** nachgewiesen. `_TYPNAMEN` in `pcl/properties.py` hat keinen Eintrag für `type(None)`; `typ_beschreibung` fällt auf den Namen der Klasse zurück.
+
+**Zu tun:** Ein Eintrag für `None`, etwa „kein Wert (None)“, und in der Meldung der Hinweis, dass eine Funktion ohne `return` `None` liefert. Erledigt, wenn ein Test diese Meldung findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `typ_beschreibung` (`pcl/properties.py`) beschreibt `type(None)` als „kein Wert (None)“, und `Prop.__set__` hängt bei `None` an: „Eine Funktion ohne return liefert None.“ Die Meldung lautet damit „Label.caption erwartet einen Text (str), erhalten wurde kein Wert (None). Eine Funktion ohne return liefert None.“ Test: `test_none_heisst_kein_wert` in `tests/test_pcl_werte_pruefen.py`; mit `pcl` aus `HEAD` scheitert er.

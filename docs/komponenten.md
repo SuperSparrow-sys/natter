@@ -212,7 +212,7 @@ Ein Text auf dem Formular.
 | Eigenschaft | Typ | Standardwert | Kategorie | Hilfetext |
 |---|---|---|---|---|
 | caption | str | "Label1" | Darstellung | Anzeigetext |
-| color | str | "" | Darstellung | Hintergrundfarbe als #RRGGBB (nur bei transparent=False) |
+| color | str | "" | Darstellung | Hintergrundfarbe als #RRGGBB; eine Farbe schaltet `transparent` aus |
 | transparent | bool | True | Darstellung | Wenn wahr, kein eigener Hintergrund |
 | word_wrap | bool | True | Darstellung | Wenn wahr, bricht zu langer Text um |
 | alignment | str | "left" | Darstellung | Ausrichtung des Textes: left (links), center (mittig) oder right (rechts) |
@@ -1221,7 +1221,7 @@ dem Dezimalpunkt. Zwei Funktionen aus `pcl` übernehmen das Umwandeln:
 
 | Funktion | Bedeutung |
 |---|---|
-| `zahl(text)` | liest eine Zahl aus einem Text, mit Komma oder Punkt („2,5“ ergibt 2.5, „1.234,5“ ergibt 1234.5). Punkte zwischen Dreiergruppen sind Tausendertrennung: „1.000“ ergibt 1000, „1.234.567“ ergibt 1234567. Sonst ist der Punkt ein Dezimalpunkt: „2.5“ ergibt 2.5, „0.500“ ergibt 0.5. Ist der Text keine Zahl, kommt ein `ValueError` mit deutscher Meldung |
+| `zahl(text)` | liest eine Zahl aus einem Text, mit Komma oder Punkt („2,5“ ergibt 2.5, „1.234,5“ ergibt 1234.5). Punkte zwischen Dreiergruppen sind Tausendertrennung: „1.000“ ergibt 1000, „1.234.567“ ergibt 1234567. Sonst ist der Punkt ein Dezimalpunkt: „2.5“ ergibt 2.5, „0.500“ ergibt 0.5. Das englische „1,234.5“ mit Punkt hinter dem Komma ist keine Zahl. Ist der Text keine Zahl, kommt ein `ValueError` mit deutscher Meldung |
 | `text(zahl, stellen=None)` | schreibt eine Zahl mit Komma; ohne `stellen` so kurz wie möglich („3“, „0,3“), mit `stellen` genau so viele Nachkommastellen („2,50“). Gerundet wird wie in der Schule, bei einer 5 aufwärts: `text(2.5, 0)` ergibt „3“, `text(0.125, 2)` „0,13“. Ohne `stellen` erscheint kein „e“: `text(0.00001)` ergibt „0,00001“; erst ab 10^21 und unter 10^-10 steht eine Zehnerpotenz da („2,5 · 10^21“) |
 
 ```python

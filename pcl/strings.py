@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
 
-from pcl.errors import NatterPropertyError
+from pcl.errors import NatterEintragError, NatterPropertyError
 from pcl.properties import typ_beschreibung
 
 
@@ -27,6 +27,8 @@ class Strings:
         self,
         bei_aenderung: Callable[[], None] | None = None,
         bei_anhaengen: Callable[[str], None] | None = None,
+        *,
+        auswahlliste: bool = False,
     ) -> None:
         """`bei_aenderung` baut die Anzeige der Komponente neu auf.
         `bei_anhaengen` bekommt nur die neue Zeile, wenn `add` sie ans
@@ -35,8 +37,16 @@ class Strings:
         Ohne den zweiten Weg schrieb jedes `add` den ganzen Inhalt neu
         ins Widget. 4000 Zeilen in einer Schleife dauerten in einem
         `Memo` 30 Sekunden, in denen das Programm stand.
+
+        `auswahlliste` gilt für die Einträge einer Komponente mit
+        `item_index` (`ListBox`, `ComboBox`, `RadioGroup`). Dort lehnt
+        das Lesen einen negativen Index ab (Punkt 475): -1 heißt dort
+        „nichts ausgewählt“, und `items[self.lb_x.item_index]` gab
+        ohne Auswahl still den letzten Eintrag zurück. In `Memo.lines`
+        bleibt `lines[-1]` die letzte Zeile, wie bei einer Liste.
         """
         self._zeilen: list[str] = []
+        self._auswahlliste = auswahlliste
         self._bei_aenderung = bei_aenderung
         self._bei_anhaengen = bei_anhaengen
 
@@ -193,7 +203,31 @@ gelb"`` in acht einzelne Einträge – einen
         return len(self._zeilen)
 
     def __getitem__(self, index: int) -> str:
-        return self._zeilen[index]
+        if isinstance(index, slice):
+            return self._zeilen[index]
+        if self._auswahlliste and isinstance(index, int) and index < 0:
+            if index == -1:
+                raise NatterEintragError(
+                    "Einen Eintrag -1 gibt es nicht. item_index ist -1, "
+                    "solange in der Liste nichts ausgewählt ist."
+                )
+            raise NatterEintragError(
+                f"Einen Eintrag {index} gibt es nicht. Die Einträge "
+                "zählen ab 0."
+            )
+        try:
+            return self._zeilen[index]
+        except IndexError:
+            raise NatterEintragError(self._ausserhalb(index)) from None
+
+    def _ausserhalb(self, index: int) -> str:
+        anzahl = len(self._zeilen)
+        if not anzahl:
+            return f"Einen Eintrag {index} gibt es nicht, die Liste ist leer."
+        return (
+            f"Einen Eintrag {index} gibt es nicht, die Liste hat "
+            f"{anzahl} Einträge (0 bis {anzahl - 1})."
+        )
 
     def __setitem__(self, index: int | slice, wert: str | Iterable[str]) -> None:
         # Erst prüfen, dann ändern: sonst stand eine Zahl schon in der

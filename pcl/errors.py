@@ -69,6 +69,14 @@ class NatterZellenError(IndexError):
     Fehler ist wie ein zu großer Listenindex."""
 
 
+class NatterEintragError(IndexError):
+    """Einen Eintrag mit dieser Nummer gibt es in `items` nicht, etwa
+    ``items[self.lb_x.item_index]``, wenn nichts ausgewählt ist
+    (Punkt 475). Basis `IndexError` wie bei einer Liste; der eigene
+    Name sorgt dafür, dass die Fehleranzeige den deutschen Text
+    übernimmt."""
+
+
 class NatterZahlError(ValueError):
     """Ein Text ist keine Zahl (`pcl.zahl("abc")`).
 

@@ -47,6 +47,7 @@ from pcl.properties import (
     STANDARD_BRUSH_FARBE,
     Event,
     Prop,
+    farbe_pruefen,
     typ_beschreibung,
 )
 from pcl.strings import Strings
@@ -81,6 +82,7 @@ class Brush:
                 f"Shape.brush.color erwartet {typ_beschreibung(str, akkusativ=True)}, "
                 f"erhalten wurde {typ_beschreibung(type(wert))}."
             )
+        farbe_pruefen("Shape.brush.color", wert)
         self._farbe = wert
         self._besitzer._qwidget.update()
 

@@ -37,11 +37,30 @@ def typ_beschreibung(typ: type, *, akkusativ: bool = False) -> str:
     """„ein Text (str)“, mit `akkusativ=True` „einen Text (str)“ für
     die Stelle nach „erwartet“. Ein unbekannter Typ bekommt „ein“ in
     beiden Fällen; sein Geschlecht ist nicht bekannt."""
+    if typ is type(None):
+        # „ein NoneType (NoneType)“ sagte niemandem etwas (Punkt 480).
+        return "kein Wert (None)"
     name, nominativ, akk = _TYPNAMEN.get(
         typ, (typ.__name__, "ein", "ein")
     )
     artikel = akk if akkusativ else nominativ
     return f"{artikel} {name} ({typ.__name__})"
+
+
+def farbe_pruefen(wer: str, wert: str) -> None:
+    """Lehnt einen Text ab, der keine Farbe ist (Punkt 477). Leer ist
+    erlaubt und heißt „Farbe des Farbschemas“.
+
+    Qt übergeht eine ungültige Farbe ohne Meldung; aus „rot“ wurde
+    nichts, und niemand wusste, warum. Die Namen, die Qt kennt
+    („red“, „white“), gehen durch, deutsche nicht."""
+    from PySide6.QtGui import QColor
+
+    if wert and not QColor.isValidColorName(wert):
+        raise NatterPropertyError(
+            f"{wer}: „{wert}“ ist keine Farbe. Erwartet wird #RRGGBB, "
+            "z. B. #e53935 für Rot."
+        )
 
 
 #: Wie Datum und Uhrzeit in der Oberfläche stehen: deutsch.
@@ -163,10 +182,16 @@ class Prop:
 
     def __set__(self, instance: object, wert: Any) -> None:
         if not self._passt_typ(wert):
+            # `None` kommt meist aus einer Funktion ohne `return`; das
+            # steht gleich dabei (Punkt 480).
+            zusatz = (
+                " Eine Funktion ohne return liefert None."
+                if wert is None else ""
+            )
             raise NatterPropertyError(
                 f"{type(instance).__name__}.{self.name} erwartet "
                 f"{typ_beschreibung(self.typ, akkusativ=True)}, "
-                f"erhalten wurde {typ_beschreibung(type(wert))}."
+                f"erhalten wurde {typ_beschreibung(type(wert))}.{zusatz}"
             )
         if self.werte and wert not in self.werte:
             # Bis Punkt 59 zeichnete `shape = "kreis"` stillschweigend
@@ -176,6 +201,8 @@ class Prop:
                 f"{type(instance).__name__}.{self.name} kennt den Wert "
                 f"{wert!r} nicht. Möglich sind: {erlaubt}."
             )
+        if self.art == ART_FARBE:
+            farbe_pruefen(f"{type(instance).__name__}.{self.name}", wert)
         if self.minimum is not None and wert < self.minimum:
             grenze = (
                 int(self.minimum)
