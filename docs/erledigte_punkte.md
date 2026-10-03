@@ -13257,7 +13257,7 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 
 ---
 
-## 508. Testlauf: Testfunktionen mit `assert` werden übergangen, Meldungen sind englisch ~~(erledigt)~~
+## 507. Testlauf: Testfunktionen mit `assert` werden übergangen, Meldungen sind englisch ~~(erledigt)~~
 
 **Gemeldet:** 3. Oktober 2026, Weg der Lehrkraft (Klasse austeilen und mit Tests kontrollieren), Entwicklungsstand `dc6d6ef`.
 

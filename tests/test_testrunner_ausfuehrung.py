@@ -360,7 +360,7 @@ def test_unlesbares_ergebnis_wird_deutsch_gemeldet(tmp_path: Path) -> None:
 
 
 def test_freie_testfunktionen_laufen_mit_deutscher_meldung(tmp_path: Path) -> None:
-    """Punkt 508: eine Testdatei der Lehrkraft aus lauter Funktionen
+    """Punkt 507: eine Testdatei der Lehrkraft aus lauter Funktionen
     mit `assert`, wie `pytest` sie kennt, lief ohne ein einziges
     Ergebnis. Ein nacktes `assert` meldet jetzt die Zeile, eine
     Meldung von `unittest` steht auf Deutsch da, und ein einzelner

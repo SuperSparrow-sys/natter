@@ -284,7 +284,7 @@ def test_export_schreibt_eine_gueltige_html_datei(
 
 
 def test_eine_freie_testfunktion_haengt_direkt_am_modul(hauptfenster) -> None:  # noqa: ANN001
-    """Punkt 508: `test_kurz.test_start` hat keine Klasse; ohne die
+    """Punkt 507: `test_kurz.test_start` hat keine Klasse; ohne die
     Unterscheidung stand der Name der Funktion als Klasse da und der
     Test noch einmal darunter."""
     from ide.testrunner.ausfuehrung import Testergebnis

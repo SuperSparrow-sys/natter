@@ -217,7 +217,7 @@ def ladefehler_meldung(modul: str, text: str) -> str:
     return "\n\n".join(teile)
 
 
-#: Die häufigsten Meldungen von `unittest`, auf Deutsch (Punkt 508).
+#: Die häufigsten Meldungen von `unittest`, auf Deutsch (Punkt 507).
 #: Was hier nicht steht, bleibt, wie `unittest` es schreibt.
 _MELDUNGEN = (
     (re.compile(r"^(.+) not greater than or equal to (.+)$", re.S),
@@ -251,7 +251,7 @@ def meldung_eindeutschen(text: str) -> str:
 def _nackte_assert_meldung(tb) -> str:  # noqa: ANN001
     """Für ein `assert` ohne eigenen Text: die Zeile, die nicht erfüllt
     war. Python liefert dafür nur einen leeren `AssertionError`, und im
-    Test-Explorer stand nichts (Punkt 508)."""
+    Test-Explorer stand nichts (Punkt 507)."""
     import linecache
 
     while tb is not None and tb.tb_next is not None:
@@ -264,7 +264,7 @@ def _nackte_assert_meldung(tb) -> str:  # noqa: ANN001
 
 class _Funktionstest(unittest.FunctionTestCase):
     """Eine freie Funktion `test_…` in einer Testdatei als Test, wie
-    `pytest` sie kennt (Punkt 508). `discover` sammelt nur Klassen,
+    `pytest` sie kennt (Punkt 507). `discover` sammelt nur Klassen,
     die von `TestCase` erben; eine Datei aus lauter Funktionen mit
     `assert` lief bis 0.4.3 ohne ein einziges Ergebnis und ohne
     Hinweis."""
