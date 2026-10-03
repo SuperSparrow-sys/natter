@@ -370,3 +370,17 @@ def test_schreibgeschuetzte_datei_meldet_sich_deutsch(tmp_path: Path) -> None:
 
     assert "schreibgeschützt" in status
     assert "readonly" not in status
+
+
+def test_import_einer_datei_mit_sqlite_im_namen(tmp_path: Path) -> None:
+    """Punkt 566: der Import von `sqlite_daten.csv` scheiterte, weil
+    SQLite Namen mit „sqlite_“ vorn für sich behält."""
+    datei = tmp_path / "sqlite_daten.csv"
+    datei.write_text("name;punkte\nAnna;12\n", encoding="utf-8")
+    panel = _verbunden()
+
+    name = panel.csv_importieren(datei)
+
+    assert name == "daten"
+    assert _roh(panel).execute("SELECT name FROM daten").fetchall() == [("Anna",)]
+    panel.trennen()

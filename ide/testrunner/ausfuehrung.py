@@ -35,6 +35,11 @@ _STANDARD_ZEITLIMIT = 60.0
 _QT_OHNE_ANWENDUNG = "Must construct a QApplication"
 
 
+#: Die Zustände, die als nicht bestanden zählen. Ein übersprungener
+#: Test ist weder bestanden noch gescheitert (Punkt 555).
+NICHT_BESTANDEN = ("fehlgeschlagen", "fehler")
+
+
 @dataclass(frozen=True)
 class Testergebnis:
     # Reiner Namenszufall mit pytests Standard-Sammelmuster ("Test*") -
@@ -42,7 +47,7 @@ class Testergebnis:
     __test__ = False
 
     id: str
-    status: str  # "bestanden" | "fehlgeschlagen" | "fehler"
+    status: str  # "bestanden" | "fehlgeschlagen" | "fehler" | "übersprungen"
     dauer: float
     nachricht: str | None = None
     soll: str | None = None

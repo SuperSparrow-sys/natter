@@ -132,14 +132,30 @@ class _StrukturiertesErgebnis(unittest.TestResult):
         super().__init__()
         self.eintraege: list[dict] = _Eintraege()
         self._start: dict[unittest.TestCase, float] = {}
+        # Gescheiterte Teilfälle eines Tests, gesammelt bis stopTest:
+        # ein gemeldeter Eintrag lässt sich nicht mehr ändern.
+        self._teilfaelle: dict[str, dict] = {}
 
     def startTest(self, test: unittest.TestCase) -> None:
         super().startTest(test)
         _melden({"start": test.id(), "modul": type(test).__module__})
         self._start[test] = time.perf_counter()
 
+    def stopTest(self, test: unittest.TestCase) -> None:
+        eintrag = self._teilfaelle.pop(test.id(), None)
+        if eintrag is not None:
+            eintrag["dauer"] = self._dauer(test)
+            self.eintraege.append(eintrag)
+        super().stopTest(test)
+
     def _dauer(self, test: unittest.TestCase) -> float:
-        return time.perf_counter() - self._start.get(test, time.perf_counter())
+        # Ohne startTest (Fehler in setUpClass, Punkt 556) gibt es
+        # keinen Anfang; der Vorgabewert von get() wurde früher vor
+        # dem Minuend gelesen und ergab „-0,000“.
+        start = self._start.get(test)
+        if start is None:
+            return 0.0
+        return max(0.0, time.perf_counter() - start)
 
     def addSuccess(self, test: unittest.TestCase) -> None:
         super().addSuccess(test)
@@ -147,7 +163,7 @@ class _StrukturiertesErgebnis(unittest.TestResult):
             {"id": test.id(), "status": "bestanden", "dauer": self._dauer(test)}
         )
 
-    def addFailure(self, test: unittest.TestCase, err) -> None:
+    def _fehlschlag_aufbereiten(self, err) -> tuple[str, str | None, str | None]:
         # Vor super().addFailure(): TestResult schneidet dort beim
         # Aufbereiten die Rahmen aus unittest vom Traceback ab, und
         # mit ihnen den Aufruf von assertEqual.
@@ -157,6 +173,10 @@ class _StrukturiertesErgebnis(unittest.TestResult):
             nachricht = _nackte_assert_meldung(err[2])
         elif soll is None:
             nachricht = meldung_eindeutschen(nachricht)
+        return nachricht, soll, ist
+
+    def addFailure(self, test: unittest.TestCase, err) -> None:
+        nachricht, soll, ist = self._fehlschlag_aufbereiten(err)
         super().addFailure(test, err)
         self.eintraege.append(
             {
@@ -166,6 +186,85 @@ class _StrukturiertesErgebnis(unittest.TestResult):
                 "nachricht": nachricht,
                 "soll": soll,
                 "ist": ist,
+            }
+        )
+
+    def addSubTest(self, test: unittest.TestCase, subtest, err) -> None:
+        """Ein Teilfall aus `with self.subTest(...)`.
+
+        Scheitert ein Teilfall, ruft unittest für den Test selbst kein
+        addSuccess und kein addFailure mehr auf; ohne diese Methode
+        fehlte der Test im Ergebnis ganz (Punkt 555). Alle gescheiterten
+        Teilfälle eines Tests landen in einem Eintrag, mit ihren
+        Parametern vorn in der Meldung."""
+        if err is None:
+            super().addSubTest(test, subtest, err)
+            return
+        if issubclass(err[0], test.failureException):
+            nachricht, soll, ist = self._fehlschlag_aufbereiten(err)
+            status = "fehlgeschlagen"
+        else:
+            nachricht, soll, ist = str(err[1]), None, None
+            status = "fehler"
+        super().addSubTest(test, subtest, err)
+        beschreibung = subtest._subDescription().strip("() ") or "ohne Parameter"
+        zeile = f"Teilfall {beschreibung}: {nachricht}"
+        eintrag = self._teilfaelle.get(test.id())
+        if eintrag is None:
+            self._teilfaelle[test.id()] = {
+                "id": test.id(),
+                "status": status,
+                "dauer": 0.0,
+                "nachricht": zeile,
+                "soll": soll,
+                "ist": ist,
+            }
+            return
+        eintrag["nachricht"] = f"{eintrag['nachricht']}\n{zeile}"
+        if status == "fehler":
+            eintrag["status"] = "fehler"
+        # Soll und Ist gibt es nur für einen einzigen Fall.
+        eintrag["soll"] = eintrag["ist"] = None
+
+    def addSkip(self, test: unittest.TestCase, reason: str) -> None:
+        super().addSkip(test, reason)
+        self.eintraege.append(
+            {
+                "id": test.id(),
+                "status": "übersprungen",
+                "dauer": self._dauer(test),
+                "nachricht": f"Übersprungen: {reason}" if reason else "Übersprungen",
+                "soll": None,
+                "ist": None,
+            }
+        )
+
+    def addExpectedFailure(self, test: unittest.TestCase, err) -> None:
+        super().addExpectedFailure(test, err)
+        self.eintraege.append(
+            {
+                "id": test.id(),
+                "status": "bestanden",
+                "dauer": self._dauer(test),
+                "nachricht": "Scheitert wie erwartet (expectedFailure).",
+                "soll": None,
+                "ist": None,
+            }
+        )
+
+    def addUnexpectedSuccess(self, test: unittest.TestCase) -> None:
+        super().addUnexpectedSuccess(test)
+        self.eintraege.append(
+            {
+                "id": test.id(),
+                "status": "fehlgeschlagen",
+                "dauer": self._dauer(test),
+                "nachricht": (
+                    "Der Test ist mit expectedFailure als scheiternd "
+                    "markiert, besteht aber."
+                ),
+                "soll": None,
+                "ist": None,
             }
         )
 
@@ -180,6 +279,10 @@ class _StrukturiertesErgebnis(unittest.TestResult):
         if type(test).__name__ == "_FailedTest":
             test_id = test._testMethodName
             nachricht = ladefehler_meldung(test_id, nachricht)
+        elif type(test).__name__ == "_ErrorHolder":
+            test_id, nachricht = _vorbereitung_gescheitert(
+                test.description, nachricht
+            )
         self.eintraege.append(
             {
                 "id": test_id,
@@ -190,6 +293,29 @@ class _StrukturiertesErgebnis(unittest.TestResult):
                 "ist": None,
             }
         )
+
+
+_VORBEREITUNG = {
+    "setUpClass": "Die Vorbereitung der Klasse {} (setUpClass) ist gescheitert",
+    "tearDownClass": "Das Aufräumen nach der Klasse {} (tearDownClass) ist gescheitert",
+    "setUpModule": "Die Vorbereitung des Moduls {} (setUpModule) ist gescheitert",
+    "tearDownModule": "Das Aufräumen nach dem Modul {} (tearDownModule) ist gescheitert",
+}
+
+
+def _vorbereitung_gescheitert(beschreibung: str, nachricht: str) -> tuple[str, str]:
+    """ID und Meldung für einen Fehler in setUpClass und Verwandten.
+
+    unittest meldet ihn als `_ErrorHolder` mit der Beschreibung
+    „setUpClass (test_b.T)“. Als ID übernommen zerlegte der Baum sie an
+    den Punkten in ein Modul „setUpClass (test_b“ und einen Test „T)“
+    (Punkt 556). Gemeldet wird deshalb die Klasse bzw. das Modul."""
+    treffer = re.fullmatch(r"(\w+) \((.+)\)", beschreibung)
+    if treffer is None or treffer.group(1) not in _VORBEREITUNG:
+        return beschreibung, nachricht
+    art, ziel = treffer.groups()
+    name = ziel.rsplit(".", 1)[-1]
+    return ziel, f"{_VORBEREITUNG[art].format(name)}: {nachricht}"
 
 
 def _pruefung_laeuft() -> bool:

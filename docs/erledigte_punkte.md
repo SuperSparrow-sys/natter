@@ -13685,3 +13685,327 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** Die Parameter so zeichnen, wie es für Vorlagenklassen üblich ist (gestricheltes Kästchen an der rechten oberen Ecke der Klasse mit `T`), in Bild- und PDF-Export ebenso. Erledigt, wenn ein Test zwei verschiedene Bilder findet.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** `_vorlagenparameter_zeichnen` (`ide/diagramm/zeichnen.py`) zeichnet die Parameter in einem gestrichelten Kästchen über der rechten oberen Ecke der Klasse, in der Zeichenfläche wie in Bild- und PDF-Export; das Kästchen bleibt innerhalb des Exportrands. Test: `test_eine_vorlagenklasse_zeigt_ihre_parameter` in `tests/test_diagramm_export.py`.
+
+## 540. Eine Ausnahme im Schülerprogramm unter dem Debugger lässt die IDE beliebige Module importieren ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Sicherheitsprüfung, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** Hält der Debugger an einer unbehandelten Ausnahme, importiert die IDE das Modul, das in der `exceptionId` der DAP-Antwort steht, in ihrem eigenen Prozess. Den Namen bestimmt das Schülerprogramm über `__qualname__` seiner Ausnahmeklasse. Eine Klasse namens `this.Fehler` ließ die IDE „The Zen of Python“ drucken; ein Modul, das beim Import `sys.exit` ruft (`jsonschema.__main__`), beendete die IDE ohne Meldung und ohne Frage nach ungespeicherten Änderungen.
+
+**Ursache:** nachgewiesen. `_exception_klasse_aufloesen` (`pcl/fehlerkatalog.py`, um Zeile 1744) ruft `importlib.import_module` mit dem Namen aus der Antwort, aufgerufen über `fehlermeldung_aus_dap_erzeugen` aus `_debugger_exceptioninfo_bereit` im Hauptfaden.
+
+**Zu tun:** Nichts importieren: nur eingebaute Ausnahmen und Klassen aus Modulen nachschlagen, die schon in `sys.modules` stehen. Erledigt, wenn ein Test mit einer `exceptionId` auf ein nicht geladenes Modul zeigt, dass es danach nicht in `sys.modules` steht.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_exception_klasse_aufloesen` (`pcl/fehlerkatalog.py`) importiert nichts mehr: es schlägt eingebaute Ausnahmen nach und Klassen aus Modulen, die schon in `sys.modules` stehen; alles andere bekommt die allgemeine Meldung. Test: `test_eine_ausnahme_aus_einem_ungeladenen_modul_importiert_nichts` in `tests/test_fehlerkatalog_dap.py`.
+
+## 541. Eine SVG-Datei im Projekt lässt die IDE Dateien außerhalb des Projekts und auf Netzpfaden lesen ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Sicherheitsprüfung, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** Bilder lädt der Designer nur aus dem Projektordner (Punkt 334). Eine SVG darin darf aber auf beliebige Pfade verweisen, auch `..`, absolute und UNC-Pfade, und Qt lädt sie. Eine `.pfm` mit `picture: assets/bild.svg`, deren SVG auf `\\localhost\c$\…\aussen.png` zeigte, zeigte nach dem Laden das Bild hinter dem Netzpfad. Schon das Öffnen eines fremden Formulars baut so eine SMB-Verbindung samt Anmeldung auf.
+
+**Ursache:** nachgewiesen. `.svg` steht in `BILD_ENDUNGEN` (`ide/designer/bilder.py`); `_im_projektordner` (`pcl/components/additional.py`) prüft nur den Pfad der SVG selbst. Geladen wird über `QPixmap`/`QIcon`.
+
+**Zu tun:** Eine SVG im IDE-Prozess nur ohne externe Verweise darstellen, Verweise vor dem Rendern entfernen. Erledigt, wenn ein Test eine SVG mit Verweis nach außen ohne dieses Bild darstellt und auf den Pfad nicht zugegriffen wird.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Neues Modul `pcl/bilddatei.py`: `svg_ohne_verweise` entfernt aus einer SVG vor dem Rendern alle Verweise nach außen (`href`, `url(…)`, `DOCTYPE` mit Entitäten, `xml-stylesheet`, `@import`), `bild_laden` lädt jedes Bild über diesen Weg. Benutzt von `Picture`, dem Fenstersymbol eines Formulars, dem Designer und der Bildvorschau. Tests: `test_eine_svg_zeigt_nur_was_in_ihr_steht` und `test_auch_netzpfade_stylesheets_und_entitaeten_fallen_weg` in `tests/test_bilddatei.py`.
+
+## 542. Der Port von debugpy nimmt Verbindungen ohne Kennung an ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Sicherheitsprüfung, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** debugpy wartet auf 127.0.0.1 an einem freien Port ohne Kennung; eine fremde Verbindung bekam auf `initialize` eine Antwort. Auf einem Rechner mit mehreren Sitzungen (Terminalserver) könnte ein anderes Konto sich verbinden, bevor die IDE es tut, und über den Debugger Code im Konto der Schülerin ausführen. Dieser Teil ist vermutet.
+
+**Ursache:** nachgewiesen für den offenen Port: `ide/debugger/dap_client.py`, `_freien_port_finden` und `--listen <port> --wait-for-client`.
+
+**Zu tun:** Die IDE lauscht, und debugpy verbindet sich zu ihr (`--connect`), oder die Verbindung wird an eine Kennung gebunden. Erledigt, wenn eine fremde Verbindung keine Sitzung bekommt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Natter startet den Adapter von debugpy selbst und spricht mit ihm über dessen Standardein- und -ausgabe (`_Leitung`, `adapter_aufruf` in `ide/debugger/dap_client.py`); für die IDE lauscht kein Port mehr. Das Programm startet erst, wenn der Adapter mit `debugpyWaitingForServer` seinen Port nennt, verbindet sich mit `--connect` und weist sich mit einer Kennung aus, die Natter für jeden Start neu erzeugt und dem Adapter über die Umgebung gibt. Eine Verbindung ohne sie weist der Adapter ab. Tests: `test_eine_fremde_verbindung_bekommt_keine_sitzung`, `test_ein_gescheiterter_versuch_fuehrt_zu_einem_zweiten` und `test_ein_fehlstart_laesst_keinen_debugpy_prozess_zurueck` in `tests/test_dap_client.py`.
+
+## 543. Der Paketname aus „Pakete → Paket installieren …“ geht ungeprüft an pip ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Sicherheitsprüfung, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** Eine Eingabe, die mit `-` beginnt, liest pip als Schalter, etwa als Anforderungsdatei mit eigenem Paketverzeichnis über HTTP; Adressen und lokale Pfade gehen als Quelle durch.
+
+**Ursache:** nachgewiesen. `ide/env/pakete.py` (Name als letztes Argument von `pip install`) und `_paket_installieren_aktion` in `ide/shell/hauptfenster.py` ohne Prüfung.
+
+**Zu tun:** Nur Paketnamen nach PEP 508, wahlweise mit Version, annehmen, `--` vor den Namen setzen. Erledigt, wenn ein Test `-r…`, `--index-url=…`, `C:\…` und `https://…` deutsch ablehnt, ohne pip zu starten.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `paketname_fehler` (`ide/env/pakete.py`) nimmt nur Paketnamen nach PEP 508 an, wahlweise mit Extras und Versionsangabe; `paket_installieren` prüft das und setzt `--` vor den Namen, und das Menü meldet einen ungültigen Namen deutsch, ohne pip zu starten. Tests: `test_ein_ungueltiger_paketname_startet_pip_nicht` und `test_gueltige_paketnamen_werden_angenommen` in `tests/test_env_pakete.py`.
+
+## 544. Prüfungsmodus: Datenbank-Panel und Testlauf geben weiter Lösungshinweise ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** Laut Handbuch, Abschnitt 4, sagen Meldungen im Modus nicht, woran es liegen könnte. Das Datenbank-Panel hängt bei SQL-Fehlern weiter „In SQL steht in einer Kommazahl ein Punkt …“ an, der Testlauf weiter Hinweise zu `main()` und `Application()`.
+
+**Ursache:** nachgewiesen. `ide/database/panel.py` (`_kommazahl_hinweis`), `ide/testrunner/harness.py` (`_EINGABE_HINWEIS`), `ide/testrunner/ausfuehrung.py`; keine Abfrage von `pcl.pruefungsmodus.laeuft()`.
+
+**Zu tun:** Die Hinweise im Modus weglassen. Erledigt, wenn ein SQL-Fehler mit `2.5` im Modus ohne Hinweis erscheint.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Im Prüfungsmodus lassen `_kommazahl_hinweis` (`ide/database/panel.py`), der Eingabehinweis im Testlauf (`ide/testrunner/harness.py`) und der Hinweis auf Qt (`ide/testrunner/ausfuehrung.py`) ihre Lösungshinweise weg. Test: `test_ein_sql_fehler_leert_das_ergebnis_und_nennt_den_punkt` in `tests/test_database_panel.py`.
+
+## 545. F12 öffnet die erzeugte `_design.py` zum Bearbeiten, Änderungen darin gehen verloren ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** In `u_main.py` steht der Cursor auf `self.e_zahl1`, F12 öffnet `u_main_design.py` in einem beschreibbaren Reiter. Eine dort gespeicherte Zeile ist nach der nächsten Änderung im Designer ohne Warnung weg.
+
+**Ursache:** nachgewiesen. `_zur_definition_springen` (`ide/shell/hauptfenster.py`) übergibt jede Fundstelle an `datei_oeffnen`, das erzeugte Dateien nicht unterscheidet.
+
+**Zu tun:** Führt eine Definition in eine `*_design.py`, den Designer öffnen und die Komponente auswählen. Erledigt, wenn F12 auf `self.e_zahl1` keinen Reiter mit `u_main_design.py` öffnet, sondern den Designer mit `e_zahl1` ausgewählt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_zur_definition_springen` (`ide/shell/hauptfenster.py`) leitet einen Treffer in einer `*_design.py` an `_komponente_im_designer_zeigen` weiter: der Designer geht auf und wählt die Komponente aus. Test: `test_f12_auf_eine_komponente_oeffnet_den_designer` in `tests/test_navigation.py`.
+
+## 546. Der Diagramm-Editor überschreibt eine von außen geänderte `.pdiag` ohne Nachfrage ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Sicherheitsprüfung, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** Zwei Natter-Fenster öffnen dasselbe Diagramm. A ändert und speichert, danach speichert B: die Änderung aus A ist ohne Nachfrage verloren. Für Editor und Designer prüft Punkt 286 diesen Fall.
+
+**Ursache:** nachgewiesen. `DiagrammFenster.speichern` (`ide/diagramm/fenster.py`) und `ide/diagramm/datei.py` schreiben ohne Vergleich mit `ide/dateistand.py`.
+
+**Zu tun:** Dateistand beim Laden und Speichern merken, vor dem Schreiben bei einer Änderung von außen fragen. Erledigt, wenn die Probe mit zwei Fenstern nachfragt und bei „Nein“ die Änderung aus A bleibt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Das Diagrammfenster merkt sich den Dateistand beim Laden und nach jedem Speichern (`ide/diagramm/fenster.py`); vor dem Schreiben fragt `_von_aussen_geaendert_fragen`, wenn sich die Datei inzwischen geändert hat, und bei „Nein“ bleibt sie unverändert. Test: `test_zwei_fenster_auf_derselben_datei_fragen_vor_dem_ueberschreiben` in `tests/test_diagramm_fenster.py`.
+
+## 547. `Strings.save_to_file` schreibt nicht atomar ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Sicherheitsprüfung, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** Ein Zeichen, das in der gewählten Kodierung fehlt, eine volle Platte oder ein abgezogener Stick mitten im Schreiben hinterlassen eine abgeschnittene Datei; die alte ist verloren. `10_Notizbuch` benutzt die Methode.
+
+**Ursache:** nachgewiesen. `pcl/strings.py`, `save_to_file` öffnet die Zieldatei direkt mit `"w"`.
+
+**Zu tun:** Zuerst vollständig kodieren, dann über eine Zwischendatei mit `os.replace` schreiben. Erledigt, wenn ein Kodierfehler die alte Datei unverändert lässt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `Strings.save_to_file` (`pcl/strings.py`) kodiert den ganzen Text zuerst und schreibt dann über eine Zwischendatei mit `fsync` und `os.replace`. Test: `test_ein_fehler_beim_speichern_laesst_die_alte_datei_stehen` in `tests/test_strings.py`.
+
+## 548. Tief verschachteltes JSON oder eine sehr lange Zahl in einer Projektdatei endet in der Absturzmeldung ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Sicherheitsprüfung, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** Eine `.natter`, `.pfm` oder `.pdiag` mit tief verschachteltem JSON wirft `RecursionError`, eine Zahl mit mehr als 4300 Ziffern `ValueError`, beides als Ausnahme statt „ist beschädigt“. Eine `.pfm` mit 300 ineinander liegenden Panels scheitert im Designer ebenso. Beim Start über die Dateiverknüpfung beendet sich Natter nach dem Fehlerdialog.
+
+**Ursache:** nachgewiesen. `json_datei_lesen` (`ide/schema.py`) lässt beide Ausnahmen durch; `_oeffnen_fehler` und die `except`-Listen in `ide/shell/hauptfenster.py` kennen nur `json.JSONDecodeError`; `_projekt_aus_argv_oeffnen` in `ide/main.py` hat kein eigenes `try`.
+
+**Zu tun:** Beide Ausnahmen als „beschädigt“ melden, eine Grenze für die Verschachtelung einer `.pfm`, und der Start mit so einer Datei lässt das Fenster offen. Erledigt, wenn die drei Proben für alle drei Dateiarten die Meldung zeigen.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `json_datei_lesen` (`ide/schema.py`) wandelt `RecursionError` und den `ValueError` einer überlangen Zahl in `JsonUebergross` um, eine Unterklasse von `json.JSONDecodeError`; damit gilt die Datei überall als beschädigt. `pfm_pruefen` (`ide/codegen/design.py`) prüft zuerst die Verschachtelung (`MAX_TIEFE = 50`). Test: `test_uebergrosse_dateien_melden_sich_als_beschaedigt` in `tests/test_oeffnen_und_speichern.py`.
+
+## 549. Formular-Import (.lfm): Absturz bei ANSI-Dateien und offenem Listenende, `#13#10` und `+`-Fortsetzungen falsch ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** Eine `.lfm` in Windows-1252 endet in `UnicodeDecodeError`; `Lines.Strings = (` mit `)` hinter dem letzten Eintrag in `IndexError`; `'Zeile 1'#13#10'Zeile 2'` landet wörtlich in der Beschriftung; eine Fortsetzungszeile mit `+'…'` wird als unerwartete Zeile abgelehnt.
+
+**Ursache:** nachgewiesen. Lesen nur mit `utf-8-sig` in `_formular_importieren_aktion` (`ide/shell/hauptfenster.py`); `_skalar_parsen`, `_wert_parsen` und `_objekt_parsen` in `ide/import_lfm/parser.py`.
+
+**Zu tun:** Verkettete Texte aus Hochkommas und `#nn` sowie `+`-Zeilen lesen, `)` am Ende eines Eintrags annehmen, Dateiende ohne `)` als `LfmParserError` melden, bei einem Dekodierfehler auf cp1252 ausweichen. Erledigt, wenn alle vier Proben ohne Ausnahme durchlaufen und die Beschriftung „Zeile 1\nZeile 2“ lautet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Der Parser (`ide/import_lfm/parser.py`) liest verkettete Texte aus Hochkommas, `#nn`, `#$hex` und `+`-Fortsetzungen, nimmt `)` hinter dem letzten Listeneintrag an, meldet ein Dateiende mitten im Block als `LfmParserError` und vereinheitlicht Zeilenenden; der Import im Hauptfenster weicht bei einem Dekodierfehler auf cp1252 aus. Tests: `test_zeichenketten_wie_lazarus_sie_schreibt` und `test_eine_liste_ohne_ende_ist_ein_parserfehler` in `tests/test_lfm_parser.py`, `test_import_liest_eine_lfm_in_windows_1252` in `tests/test_hauptfenster_formular_import.py`.
+
+## 550. Python-eigene Ereignisfilter in Zyklen werden in Nebenfäden zerstört ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Sicherheitsprüfung, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** Nach Öffnen und Schließen von Designer, Editor, Diagrammen und CSV-Ansicht liegen `pcl.control._MausFilter`, `pcl.form._FensterFilter` und `_EscapeWache` als Python-eigene, gültige `QObject`s in Speicherzyklen. Eine Probe zeigte, dass die Speicherbereinigung einen `_MausFilter` in einem Nebenfaden zerstört. Dasselbe Muster wie Punkt 534, ohne Uhr; ein Absturz ist hier vermutet.
+
+**Ursache:** nachgewiesen. `_MausFilter.__init__` (`pcl/control.py`), `_FensterFilter` (`pcl/form.py`) und `_EscapeWache.__init__` (`ide/designer/canvas.py`) rufen `super().__init__()` ohne Eltern.
+
+**Zu tun:** Die Filter bekommen das gefilterte Widget bzw. den Designer als Eltern. Erledigt, wenn die Probe keine Python-eigenen, gültigen Filter mehr in Zyklen findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Maus-, Anker-, Fenster- und Escape-Filter bekommen ihr Widget bzw. den Designer als Eltern (`pcl/control.py`, `pcl/form.py`, `ide/designer/canvas.py`); den Bezug zurück auf das Control halten Maus- und Ankerfilter nur noch schwach (`weakref`), damit über die Eltern-Kante kein Zyklus entsteht, den die Speicherbereinigung nicht sieht. Test: `test_die_ereignisfilter_gehoeren_ihrem_widget` in `tests/test_designer_canvas.py`.
+
+## 551. DBNavigator: „<<“ und „>>“ beenden das Programm, solange die Abfrage nicht geöffnet ist ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Sicherheitsprüfung, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** An einer nicht geöffneten oder geschlossenen `SQLQuery` werfen „<<“ und „>>“ `NatterDatenbankError`, das Schülerprogramm endet; „<“ und „>“ tun nichts.
+
+**Ursache:** nachgewiesen. `_erster`/`_letzter` in `pcl/components/data_controls.py` prüfen nicht wie `_vor`/`_zurueck`.
+
+**Zu tun:** Ohne geöffnete Abfrage nichts tun. Erledigt, wenn alle vier Knöpfe ohne Ausnahme bleiben.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_erster` und `_letzter` (`pcl/components/data_controls.py`) tun nur etwas, wenn die Abfrage Datensätze hat. Test: `test_der_navigator_an_einer_ungeoeffneten_abfrage_tut_nichts` in `tests/test_data_controls.py`.
+
+## 552. Ein gescheiterter Versuch, eine Datei im Editor zu öffnen, lässt einen Editor im Speicher zurück ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Sicherheitsprüfung, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** `datei_oeffnen` auf eine Datei, die kein UTF-8 ist, meldet richtig „keine Textdatei“; der vorher gebaute `QuelltextEditor` lebt aber samt Uhr und Verbindungen weiter, auch nach `gc.collect()`.
+
+**Ursache:** nachgewiesen. `datei_oeffnen` (`ide/shell/hauptfenster.py`) baut und verbindet den Editor, bevor feststeht, ob die Datei lesbar ist, und gibt ihn im Fehlerfall nicht frei.
+
+**Zu tun:** Erst lesen, dann bauen, oder im Fehlerfall `deleteLater()`. Erledigt, wenn kein verworfener Editor mehr lebt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `datei_oeffnen` (`ide/shell/hauptfenster.py`) liest die Datei, bevor es den Editor baut. Test: `test_eine_nicht_lesbare_datei_meldet_sich_statt_abzustuerzen` in `tests/test_oeffnen_und_speichern.py`.
+
+## 553. Die Prüfung vor dem Start ruft ruff ohne Zeitgrenze ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Sicherheitsprüfung, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** Vermutet: Bei einem Projekt auf einem nicht mehr erreichbaren Netzlaufwerk steht Natter, bis ruff zurückkehrt; nicht nachgestellt.
+
+**Ursache:** nachgewiesen für die fehlende Grenze: `_ruff_pruefen` (`ide/run/pruefung.py`), `subprocess.run` ohne `timeout`.
+
+**Zu tun:** Eine Zeitgrenze; danach ohne Prüfung starten und das in der Statuszeile sagen. Erledigt, wenn eine Attrappe, die nicht zurückkehrt, den Start nach der Grenze nicht mehr aufhält.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** ruff läuft mit einer Zeitgrenze von 20 Sekunden (`RUFF_ZEITGRENZE_S` in `ide/run/pruefung.py`); danach startet das Programm ohne Prüfung, und die Statuszeile sagt das (`PruefungZuLang`). Test: `test_ein_ruff_ohne_antwort_haelt_die_pruefung_nicht_auf` in `tests/test_pruefung.py`.
+
+## 554. Die Integritätsprüfung beim Start entfällt ohne Meldung, wenn `Natter.exe` fehlt ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Sicherheitsprüfung, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** Ob geprüft wird, hängt allein an `Natter.exe` neben dem Ordner `python`. `python\pythonw.exe -m ide` startet die IDE auch ohne sie, dann werden weder Manifest noch Signatur geprüft. Der Docstring behauptet, ohne den Starter lasse sich Natter nicht starten.
+
+**Ursache:** nachgewiesen am Code. `programmordner` und `installation_pruefen` in `ide/integritaet/start_pruefung.py`.
+
+**Zu tun:** Die Installation an einem Merkmal erkennen, das ohne Starter bleibt (etwa `manifest.json`), eine fehlende `Natter.exe` als Befund melden, Docstring berichtigen. Erledigt, wenn ein Test mit nachgebautem Aufbau ohne `Natter.exe` einen Befund erhält.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `programmordner` (`ide/integritaet/start_pruefung.py`) erkennt die Installation auch am Ort des laufenden Codes: liegt das Paket `ide` in `python/Lib/site-packages` des Programmordners, wird geprüft, und eine fehlende `Natter.exe` meldet das Manifest. Der Docstring ist berichtigt. Test: `test_ohne_natter_exe_bleibt_die_installation_erkannt` in `tests/test_integritaet_manifest.py`.
+
+## 555. Testlauf: gescheiterte `subTest`-Fälle, übersprungene und `expectedFailure`-Tests verschwinden ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** Eine Testdatei mit `test_sub` (zwei gescheiterte Subtests), einem `@unittest.skip`-Test, einem bestandenen `@unittest.expectedFailure`-Test und `test_ok` ergibt nur „1 Test gelaufen, 0 nicht bestanden“, ebenso im HTML-Protokoll. `python -m unittest` meldet zwei Fehlschläge und einen unerwarteten Erfolg.
+
+**Ursache:** nachgewiesen. `_StrukturiertesErgebnis` (`ide/testrunner/harness.py`) überschreibt nur `addSuccess`, `addFailure` und `addError`.
+
+**Zu tun:** `addSubTest`, `addSkip`, `addExpectedFailure` und `addUnexpectedSuccess` melden, gescheiterte Subtests mit ihren Parametern. Erledigt, wenn die Probe `test_sub` als nicht bestanden zeigt und keiner der vier Tests fehlt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_StrukturiertesErgebnis` (`ide/testrunner/harness.py`) meldet gescheiterte Teilfälle (alle eines Tests in einem Eintrag, mit ihren Parametern), übersprungene Tests mit dem neuen Zustand „übersprungen“, einen erwartet scheiternden als bestanden und einen unerwartet bestandenen als fehlgeschlagen. Als nicht bestanden zählen nur noch „fehlgeschlagen“ und „fehler“ (`NICHT_BESTANDEN`); das HTML-Protokoll nennt die übersprungenen. Test: `test_subtests_skip_expectedfailure_und_setupclass` in `tests/test_testrunner_ausfuehrung.py`.
+
+## 556. Testlauf: ein Fehler in `setUpClass` ergibt eine zerlegte Test-ID und eine Meldung über eine fehlende Datei ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** `setUpClass` mit `RuntimeError` liefert die ID `setUpClass (test_b.T)`, der Baum zeigt ein Modul „setUpClass (test_b“ mit dem Eintrag „T)“, ein Doppelklick meldet „Die Testdatei setUpClass (test_b.py lässt sich nicht laden“. Die Dauer erscheint als „-0,000“.
+
+**Ursache:** nachgewiesen. `_tests_baum_befuellen` (`ide/shell/hauptfenster.py`) trennt jede ID an Punkten; `ide/testrunner/harness.py` übernimmt `_ErrorHolder.id()`; `_dauer` liest `time.perf_counter()` zu früh.
+
+**Zu tun:** `_ErrorHolder` erkennen und Klasse bzw. Modul als ID melden, mit deutschem Text wie „Vorbereitung der Klasse T gescheitert“; Dauer nie negativ. Erledigt, wenn die Probe einen Eintrag unter `test_b → T` zeigt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Ein Fehler in `setUpClass`, `tearDownClass`, `setUpModule` oder `tearDownModule` bekommt die Klasse bzw. das Modul als ID und eine deutsche Meldung wie „Die Vorbereitung der Klasse T (setUpClass) ist gescheitert“ (`_vorbereitung_gescheitert`); die Dauer ist ohne Startzeit 0 und nie negativ. Test: `test_subtests_skip_expectedfailure_und_setupclass` in `tests/test_testrunner_ausfuehrung.py`.
+
+## 557. Panel „Tests“ und HTML-Protokoll zeigen nach einem Projektwechsel das alte Projekt, Einzelläufe fehlen im Protokoll ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** Nach einem Testlauf in einem Projekt und dem Öffnen eines anderen zeigt „Tests“ weiter die alten Ergebnisse, der HTML-Export schreibt sie unter dem neuen Titel, ein Doppelklick führt die alte Test-ID im neuen Ordner aus. Ein Test, der nach einer Korrektur per Doppelklick besteht, steht im Protokoll weiter als nicht bestanden.
+
+**Ursache:** nachgewiesen. `_letzte_testergebnisse` setzt nur `_tests_fertig`, `tests_baum.clear()` steht nur in `_tests_baum_befuellen`, `_einzeltest_fertig` ändert nur den Baum (`ide/shell/hauptfenster.py`).
+
+**Zu tun:** Beim Öffnen und Schließen eines Projekts beides leeren, Einzelläufe in die gemerkten Ergebnisse übernehmen. Erledigt, wenn nach einem Projektwechsel das Panel leer ist und der Export einen Einzellauf enthält.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_testergebnisse_leeren` (`ide/shell/hauptfenster.py`) leert Panel und gemerkten Lauf beim Öffnen eines anderen und beim Schließen eines Projekts; `_einzellauf_merken` übernimmt die Ergebnisse eines Doppelklicks in den gemerkten Lauf. Test: `test_einzellauf_und_projektwechsel_im_gemerkten_lauf` in `tests/test_hauptfenster_testexplorer.py`.
+
+## 558. „Unit öffnen …“ (Strg+P) öffnet ein Formular als JSON-Text im Editor ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** Die Liste enthält `u_main.pfm`; die Wahl öffnet die `.pfm` als beschreibbaren Text, auch wenn der Designer sie offen hat. Der Docstring von `oeffnen` nennt genau das als behobenen Fehler.
+
+**Ursache:** nachgewiesen. `_unit_oeffnen_dialog` (`ide/shell/hauptfenster.py`) ruft `datei_oeffnen` statt `oeffnen`.
+
+**Zu tun:** Über `oeffnen` gehen. Erledigt, wenn die Wahl von `u_main.pfm` den Designer zeigt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_unit_oeffnen_dialog` (`ide/shell/hauptfenster.py`) öffnet die Wahl über `oeffnen`, ein Formular also im Designer. Test: `test_strg_p_oeffnet_ein_formular_im_designer` in `tests/test_navigation.py`.
+
+## 559. Menüeinträge: „Angekreuzt“ lässt sich im Programm nur abwählen, und der Zustand kommt nicht im Eintrag an ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** Ein Eintrag ohne `checked` ist nicht ankreuzbar; einer mit `checked: True` verliert beim Klick das Häkchen, aber `eintrag(...)["checked"]` bleibt `True`, auch im Handler, und nach `aktualisieren()` ist das Häkchen wieder da. Ein Umschalter wie „Raster anzeigen“ lässt sich so nicht bauen.
+
+**Ursache:** nachgewiesen. `pcl/components/menus.py`: `setCheckable(True)` nur bei `checked`, kein Rückweg vom Klick in den Eintrag.
+
+**Zu tun:** Ankreuzbarkeit vom Anfangszustand trennen (eigenes Feld `checkable` samt Schema, Menü-Editor und Doku), den Zustand nach einem Klick in den Eintrag schreiben. Erledigt, wenn ein anfangs leerer Eintrag sich ankreuzen lässt und der Handler den neuen Zustand liest.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Neues Feld `checkable` im Menüeintrag (`pcl/components/menus.py`), im Menü-Editor als „Ankreuzbar“; ein Eintrag mit `checked`, aber ohne `checkable` bleibt wie bisher ankreuzbar. Ein Klick schreibt den neuen Zustand in den Eintrag, bevor `on_click` läuft. `docs/komponenten.md` beschreibt beides. Tests: `test_ein_umschalter_laesst_sich_ankreuzen_und_der_handler_liest_es` in `tests/test_components_menus.py`, `test_ankreuzbar_und_ein_kuerzel_ohne_wirkung` in `tests/test_menue_editor.py`.
+
+## 560. Projekt-Explorer: Datenbank, PDF und andere Nicht-Textdateien unter „Dateien“ enden in „keine Textdatei“ ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** Ein Doppelklick auf `konten.sqlite` meldet „„konten.sqlite“ ist keine Textdatei …“, ebenso für ein Aufgabenblatt als `.pdf` oder `.docx`. Punkt 104 (erledigt) verspricht einen passenden Betrachter.
+
+**Ursache:** nachgewiesen. `oeffnen` (`ide/shell/hauptfenster.py`) kennt nur CSV, Bilder, HTML und Markdown.
+
+**Zu tun:** `.sqlite`/`.db` im Datenbank-Panel verbinden, PDF und Office-Dateien mit dem zuständigen Windows-Programm öffnen. Erledigt, wenn ein Doppelklick auf `konten.sqlite` das Panel mit dieser Datei verbindet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `oeffnen` (`ide/shell/hauptfenster.py`) verbindet eine `.sqlite`, `.sqlite3` oder `.db` im Panel „Datenbank“ (`DatenbankPanel.datei_verbinden`) und übergibt PDF- und Office-Dateien dem Programm, das Windows dafür vorsieht (`_mit_windows_oeffnen`). Test: `test_doppelklick_auf_datenbank_und_pdf` in `tests/test_hauptfenster_betrachter.py`.
+
+## 561. Menü-Tastenkürzel mit deutschen Tastennamen wie „Strg+Ende“ wirken nicht, „Delete“ wird zu „Entfete“ ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** `Strg+Ende`, `Strg+Pos1` und `Strg+Bild auf` ergeben kein Kürzel, im Menü steht es trotzdem. `Ctrl+Delete` erscheint als „Strg+Entfete“, `Ctrl+Insert` als „Strg+Einfgert“.
+
+**Ursache:** nachgewiesen. `_TASTENNAMEN` und `kuerzel_anzeige` in `pcl/components/menus.py` ersetzen Teilzeichenketten und kennen nur Strg, Umschalt, Entf und Einfg.
+
+**Zu tun:** Tastennamen als ganze Teile zwischen `+` umsetzen, Pos1, Ende, Bild auf, Bild ab, Rück ergänzen, ein Kürzel ohne Wirkung melden. Erledigt, wenn `Strg+Ende` wirkt und `Ctrl+Delete` als „Strg+Entf“ erscheint.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Tastenkürzel werden je ganzem Teil zwischen `+` umgesetzt, ohne Rücksicht auf Groß- und Kleinschreibung (`_teile_umsetzen` in `pcl/components/menus.py`), dazu Pos1, Ende, Bild auf, Bild ab, Rück, Eingabe und Leertaste. Ein Kürzel, das Qt nicht versteht, lehnt `eintraege_pruefen` mit einer deutschen Meldung ab (`kuerzel_fehler`), und der Menü-Editor zeigt sie, statt die Einträge zu übernehmen. Tests: `test_deutsche_tastenkuerzel_werden_umgesetzt`, `test_die_anzeige_setzt_ganze_tastennamen_um` und `test_ein_kuerzel_ohne_wirkung_wird_abgelehnt` in `tests/test_components_menus.py`, `test_ankreuzbar_und_ein_kuerzel_ohne_wirkung` in `tests/test_menue_editor.py`.
+
+## 562. Lesereihenfolge (Tab-Reihenfolge, Design-Prüfung) teilt Zeilen an festen 24-Pixel-Grenzen ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** „rechts“ (200, 46) und „links“ (10, 50) ergeben „rechts“ vor „links“, (200, 40) und (10, 47) dagegen „links“ zuerst. Der Kommentar verspricht, was weniger als 24 px auseinander liegt, gelte als nebeneinander.
+
+**Ursache:** nachgewiesen. `lesereihenfolge` (`ide/lint/regeln.py`), Schlüssel `top // _ZEILENHOEHE`.
+
+**Zu tun:** Zeilen nach Abstand zum Zeilenanfang bilden. Erledigt, wenn beide Proben „links“ vor „rechts“ liefern.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `lesereihenfolge` (`ide/lint/regeln.py`) beginnt eine Zeile beim obersten noch nicht eingeordneten Element und nimmt alles auf, was weniger als 24 Pixel tiefer liegt. Test: `test_lesereihenfolge_nach_abstand_nicht_nach_rastergrenze` in `tests/test_design_pruefer.py`.
+
+## 563. HTML-Vorschau: nach einem Verweis lädt das Speichern die falsche Seite ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** Nach einem Klick auf `seite2.html` beobachtet die Vorschau weiter nur `index.html`: Änderungen an `seite2.html` erscheinen nicht, und Speichern von `index.html` springt auf die erste Seite zurück.
+
+**Ursache:** nachgewiesen. `_neu_laden` in `ide/viewers/html_vorschau.py` zeigt immer `self._pfad` und beobachtet nur diese Datei.
+
+**Zu tun:** Die gerade gezeigte Seite beobachten und neu laden. Erledigt, wenn eine Änderung an `seite2.html` bei offener Seite 2 sofort erscheint.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Die HTML-Vorschau (`ide/viewers/html_vorschau.py`) beobachtet die gerade gezeigte Seite (`_beobachten`) und lädt beim Speichern diese neu. Test: `test_nach_einem_verweis_wird_die_gezeigte_seite_beobachtet` in `tests/test_viewer_html.py`.
+
+## 564. Markdown: der Reiter zeigt den Dateinamen statt der Überschrift, wenn die Datei mit BOM gespeichert ist ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** `README.md` mit UTF-8-BOM und `# Obstsortierer` ergibt den Reiter „README.md“.
+
+**Ursache:** nachgewiesen. `_markdown_titel` (`ide/shell/hauptfenster.py`) liest mit `utf-8` statt `utf-8-sig`.
+
+**Zu tun:** Mit `utf-8-sig` lesen. Erledigt, wenn der Reiter „Obstsortierer“ heißt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_markdown_titel` (`ide/shell/hauptfenster.py`) liest mit `utf-8-sig`. Test: `test_der_reiter_traegt_die_ueberschrift` in `tests/test_markdown_ansicht.py`.
+
+## 565. „Unit umbenennen“ lehnt eine reine Änderung der Groß- und Kleinschreibung ab ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** `u_konto.py` in `U_Konto.py` umzubenennen meldet „gibt es schon“; beim Formular ist dieser Fall eigens erlaubt.
+
+**Ursache:** nachgewiesen. `_unit_umbenennen` (`ide/shell/hauptfenster.py`): `if ziel.exists()` ohne Ausnahme für die eigene Datei.
+
+**Zu tun:** Die eigene Datei ausnehmen wie in `_formular_umbenennen`. Erledigt, wenn `u_konto` → `U_Konto` gelingt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_unit_umbenennen` (`ide/shell/hauptfenster.py`) lässt eine Umbenennung zu, die nur die Schreibweise ändert. Test: `test_unit_umbenennen_nur_in_der_schreibweise` in `tests/test_explorer_unit_umbenennen_loeschen.py`.
+
+## 566. Häufige SQLite-Fehler kommen englisch an, ein CSV-Import mit `sqlite_` im Namen scheitert englisch ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Sicherheitsprüfung, Entwicklungsstand `241f38d`.
+
+**Beobachtet:** Unübersetzt bleiben unter anderem `unrecognized token: "'Meier"` (offenes Anführungszeichen), `misuse of aggregate function sum()`, `sub-select returns 2 columns - expected 1`, `database or disk is full`, `too many columns on …`. Der Import von `sqlite_daten.csv` meldet „object name reserved for internal use: sqlite_daten_natter_import“.
+
+**Ursache:** nachgewiesen. `_datenbankmeldung_eindeutschen` (`pcl/fehlerkatalog.py`) kennt diese Meldungen nicht; `ide/database/panel.py` bildet den Hilfsnamen aus dem Dateinamen, auch mit `sqlite_`.
+
+**Zu tun:** Die Meldungen deutsch fassen, beim Import einen Namen mit `sqlite_` umbenennen. Erledigt, wenn jede genannte Meldung deutsch erscheint und der Import von `sqlite_daten.csv` gelingt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Zehn weitere Treibermeldungen stehen deutsch im Katalog (`_DATENBANKMELDUNGEN` in `pcl/fehlerkatalog.py`), darunter offenes Anführungszeichen, Aggregatfunktion in WHERE und GROUP BY, innere Abfrage mit zu vielen Spalten, UNION mit verschieden vielen Spalten, ORDER BY außerhalb der Spalten, volle Platte und reservierte Namen. Der CSV-Import lässt `sqlite_` vorn im Tabellennamen weg (`_tabellenname_aus_dateiname` in `ide/database/panel.py`). Tests: `test_haeufige_sqlite_fehler_kommen_deutsch_an` und `test_volle_platte_und_zu_viele_spalten` in `tests/test_db_sqlite.py`, `test_import_einer_datei_mit_sqlite_im_namen` in `tests/test_database_panel_grenzen.py`.

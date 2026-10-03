@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
@@ -43,7 +44,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from pcl.components.menus import EINTRAG_VORGABE, eintrag_vollstaendig
+from pcl.components.menus import (
+    EINTRAG_VORGABE,
+    eintrag_vollstaendig,
+    kuerzel_fehler,
+)
 
 #: Rolle, unter der am Baumeintrag sein Pfad hängt: "0" für den
 #: ersten Eintrag der obersten Ebene, "0.2" für dessen dritten
@@ -134,6 +139,12 @@ def menue_methode_anlegen(canvas: Any, methodenname: str) -> bool:
     return True
 
 
+def _alle_eintraege(eintraege: list[dict[str, Any]]):  # noqa: ANN202
+    for eintrag in eintraege:
+        yield eintrag
+        yield from _alle_eintraege(eintrag["children"])
+
+
 def _zeilentext(eintrag: dict[str, Any]) -> str:
     if eintrag.get("separator"):
         return TRENNLINIE_TEXT
@@ -206,7 +217,15 @@ class MenueEditor(QDialog):
         self.feld_shortcut = QLineEdit()
         self.feld_on_click = QLineEdit()
         self.feld_enabled = QCheckBox("Bedienbar")
+        self.feld_checkable = QCheckBox("Ankreuzbar")
         self.feld_checked = QCheckBox("Angekreuzt")
+        self.feld_checkable.setToolTip(
+            "Ein Klick setzt oder entfernt das Häkchen, z. B. für „Raster anzeigen“"
+        )
+        self.kuerzel_hinweis = QLabel()
+        self.kuerzel_hinweis.setWordWrap(True)
+        self.kuerzel_hinweis.setStyleSheet("QLabel { color: #c0392b; }")
+        self.kuerzel_hinweis.hide()
 
         self.feld_name.setToolTip("Bezeichner im Quelltext, z. B. mi_datei_beenden")
         self.feld_caption.setToolTip(
@@ -226,11 +245,13 @@ class MenueEditor(QDialog):
         formular.addRow("Name:", self.feld_name)
         formular.addRow("Beschriftung:", self.feld_caption)
         formular.addRow("Tastenkürzel:", self.feld_shortcut)
+        formular.addRow("", self.kuerzel_hinweis)
         # Der Knopf in eigener Zeile: neben ihm blieb für den Namen der
         # Methode nur ein winziges Feld (Punkt 502).
         formular.addRow("Beim Anklicken:", self.feld_on_click)
         formular.addRow("", self.anlegen_knopf)
         formular.addRow(self.feld_enabled)
+        formular.addRow(self.feld_checkable)
         formular.addRow(self.feld_checked)
 
         self.knoepfe = QDialogButtonBox()
@@ -271,6 +292,7 @@ class MenueEditor(QDialog):
         for feld in (self.feld_name, self.feld_caption, self.feld_shortcut, self.feld_on_click):
             feld.textChanged.connect(self._felder_uebernehmen)
         self.feld_enabled.toggled.connect(self._felder_uebernehmen)
+        self.feld_checkable.toggled.connect(self._felder_uebernehmen)
         self.feld_checked.toggled.connect(self._felder_uebernehmen)
 
         self._fuellen()
@@ -409,6 +431,7 @@ class MenueEditor(QDialog):
             self.feld_shortcut,
             self.feld_on_click,
             self.feld_enabled,
+            self.feld_checkable,
             self.feld_checked,
         )
         for feld in felder:
@@ -417,6 +440,7 @@ class MenueEditor(QDialog):
             for feld in felder[:4]:
                 feld.clear()
             self.feld_enabled.setChecked(True)
+            self.feld_checkable.setChecked(False)
             self.feld_checked.setChecked(False)
         else:
             self.feld_name.setText(eintrag["name"])
@@ -424,6 +448,9 @@ class MenueEditor(QDialog):
             self.feld_shortcut.setText(eintrag["shortcut"])
             self.feld_on_click.setText(eintrag["on_click"])
             self.feld_enabled.setChecked(eintrag["enabled"])
+            self.feld_checkable.setChecked(
+                eintrag.get("checkable", False) or eintrag["checked"]
+            )
             self.feld_checked.setChecked(eintrag["checked"])
         for feld in felder:
             feld.blockSignals(False)
@@ -437,7 +464,9 @@ class MenueEditor(QDialog):
         eintrag["shortcut"] = self.feld_shortcut.text()
         eintrag["on_click"] = self.feld_on_click.text()
         eintrag["enabled"] = self.feld_enabled.isChecked()
+        eintrag["checkable"] = self.feld_checkable.isChecked()
         eintrag["checked"] = self.feld_checked.isChecked()
+        self._kuerzel_hinweis_zeigen(kuerzel_fehler(eintrag["shortcut"]))
         zeile = self.baum.currentItem()
         if zeile is not None:
             zeile.setText(0, _zeilentext(eintrag))
@@ -469,14 +498,27 @@ class MenueEditor(QDialog):
 
     # -- Abschluss -------------------------------------------------------
 
-    def anwenden(self) -> None:
-        """Übernimmt den Entwurf, ohne den Dialog zu schließen."""
+    def _kuerzel_hinweis_zeigen(self, fehler: str | None) -> None:
+        self.kuerzel_hinweis.setText(fehler or "")
+        self.kuerzel_hinweis.setVisible(fehler is not None)
+
+    def anwenden(self) -> bool:
+        """Übernimmt den Entwurf, ohne den Dialog zu schließen.
+
+        Ein Tastenkürzel, das sich nicht umsetzen lässt, hält das auf:
+        das Menü nähme die Einträge sonst nicht an (Punkt 561)."""
+        for eintrag in _alle_eintraege(self.entwurf):
+            fehler = kuerzel_fehler(eintrag.get("shortcut", ""))
+            if fehler is not None:
+                self._kuerzel_hinweis_zeigen(fehler)
+                return False
         self.ergebnis = copy.deepcopy(self.entwurf)
         self.uebernommen = True
+        return True
 
     def _ok(self) -> None:
-        self.anwenden()
-        self.accept()
+        if self.anwenden():
+            self.accept()
 
     def eintraege(self) -> list[dict[str, Any]]:
         """Die übernommenen Einträge – nach „Schließen" ohne

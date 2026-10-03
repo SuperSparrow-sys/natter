@@ -186,6 +186,7 @@ from ide.shell.tastenkuerzel import als_markdown as tastenkuerzel_als_markdown
 from ide.shell.theme import basis_schriftgroesse, ide_qss_erzeugen
 from ide.shell.vervollstaendigung import aufwaermen as vervollstaendigung_aufwaermen
 from ide.testrunner import Testergebnis, ergebnisse_als_html, tests_ausfuehren
+from ide.testrunner.ausfuehrung import NICHT_BESTANDEN
 from ide.viewers import (
     MARKDOWN_ENDUNGEN,
     BildVorschau,
@@ -204,6 +205,14 @@ from pcl.theme import VORGABE_VARIABLE, theme_aufloesen
 
 _BILD_ENDUNGEN = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".svg"}
 _HTML_ENDUNGEN = {".html", ".htm"}
+_DATENBANK_ENDUNGEN = {".sqlite", ".sqlite3", ".db"}
+#: Dateien, die Natter nicht selbst zeigt, aber Windows mit dem
+#: zuständigen Programm öffnen kann: Aufgabenblätter und Vorlagen der
+#: Lehrkraft (Punkt 560).
+_FREMDE_ENDUNGEN = {
+    ".pdf", ".doc", ".docx", ".odt", ".rtf", ".xls", ".xlsx", ".ods",
+    ".ppt", ".pptx", ".odp",
+}
 
 #: Schlüssel in den Einstellungen: der Ordner, in dem zuletzt in einem
 #: Datei-Dialog etwas gewählt wurde (Punkt 408).
@@ -332,6 +341,7 @@ _STATUS_FARBE = {
     "bestanden": "#1e8e3e",
     "fehlgeschlagen": "#c0392b",
     "fehler": "#c0392b",
+    "übersprungen": "#7f7f7f",
 }
 
 # Name der dynamischen QWidget-Eigenschaft, die den Dateipfad eines
@@ -2614,7 +2624,7 @@ class HauptFenster(QMainWindow):
         """Die Auswertung des Testlaufs, zurück im Faden der Oberfläche."""
         self._letzte_testergebnisse = ergebnisse
         self._tests_baum_befuellen(ergebnisse)
-        anzahl_fehlgeschlagen = sum(1 for e in ergebnisse if e.status != "bestanden")
+        anzahl_fehlgeschlagen = sum(1 for e in ergebnisse if e.status in NICHT_BESTANDEN)
         self.statusBar().showMessage(
             f"{len(ergebnisse)} {'Test' if len(ergebnisse) == 1 else 'Tests'} gelaufen, "
             f"{anzahl_fehlgeschlagen} nicht bestanden. Ein Klick auf einen Eintrag im "
@@ -3105,6 +3115,24 @@ class HauptFenster(QMainWindow):
         if text:
             self.statusBar().showMessage(text)
 
+    def _einzellauf_merken(self, ergebnisse: list[Testergebnis]) -> None:
+        """Übernimmt die Ergebnisse eines Einzellaufs in den letzten
+        Testlauf, damit das HTML-Protokoll einen per Doppelklick
+        reparierten Test als bestanden führt (Punkt 557)."""
+        neu = {e.id: e for e in ergebnisse}
+        gemerkt = [neu.pop(e.id, e) for e in self._letzte_testergebnisse]
+        self._letzte_testergebnisse = gemerkt + list(neu.values())
+
+    def _testergebnisse_leeren(self) -> None:
+        """Vergisst den letzten Testlauf, wenn das Projekt wechselt.
+
+        Sonst zeigte „Tests“ die Ergebnisse des vorigen Projekts, der
+        HTML-Export schrieb sie unter dem neuen Titel, und ein
+        Doppelklick führte die alte Test-ID im neuen Ordner aus
+        (Punkt 557)."""
+        self._letzte_testergebnisse = []
+        self.tests_baum.clear()
+
     def _tests_baum_befuellen(self, ergebnisse: list[Testergebnis]) -> None:
         self.tests_baum.clear()
         baum: dict[str, dict[str, list[Testergebnis]]] = {}
@@ -3192,11 +3220,12 @@ class HauptFenster(QMainWindow):
         eintrag = self._test_eintrag_finden(test_id)
         if eintrag is None:
             return
-        nicht_bestanden = sum(1 for e in ergebnisse if e.status != "bestanden")
+        nicht_bestanden = sum(1 for e in ergebnisse if e.status in NICHT_BESTANDEN)
         self.statusBar().showMessage(
             f"{test_id}: {len(ergebnisse)} gelaufen, {nicht_bestanden} "
             f"nicht bestanden."
         )
+        self._einzellauf_merken(ergebnisse)
         blaetter = self._blatt_eintraege_sammeln(eintrag)
         for ergebnis in ergebnisse:
             ziel_eintrag = blaetter.get(ergebnis.id, eintrag if eintrag.childCount() == 0 else None)
@@ -4138,6 +4167,7 @@ class HauptFenster(QMainWindow):
             self._sicherung_eigen = False
             self._haltepunkte_ablegen()
             self._gemerkte_haltepunkte.clear()
+            self._testergebnisse_leeren()
         anderes_fenster = sperre.anderer_besitzer(neu.ordner)
         # Die Sperre eines anderen Fensters bleibt stehen; die
         # Originale der Beispiele öffnet Natter nie zum Bearbeiten.
@@ -4194,6 +4224,7 @@ class HauptFenster(QMainWindow):
         self._projekt_datei = None
         self._sicherung_eigen = False
         self._gemerkte_haltepunkte.clear()
+        self._testergebnisse_leeren()
         self.datenbank_panel.projektordner_setzen(None)
         self.explorer.leeren()
         self.objektinspektor.leeren()
@@ -6394,6 +6425,7 @@ class HauptFenster(QMainWindow):
             self.projekt = None
             self._projekt_datei = None
             self._gemerkte_haltepunkte.clear()
+            self._testergebnisse_leeren()
             self.explorer.leeren()
             self._zuruecksetzen_pruefen()
             geschlossen = True
@@ -8445,6 +8477,15 @@ class HauptFenster(QMainWindow):
                     pfad, projektordner=self._offener_projektordner()
                 ),
             )
+        elif endung in _DATENBANK_ENDUNGEN:
+            self.datenbank_dock.show()
+            self._datenbank_nach_vorn()
+            if self.datenbank_panel.datei_verbinden(pfad):
+                self.statusBar().showMessage(
+                    f"Das Panel „Datenbank“ ist mit „{pfad.name}“ verbunden."
+                )
+        elif endung in _FREMDE_ENDUNGEN:
+            self._mit_windows_oeffnen(pfad)
         elif endung in MARKDOWN_ENDUNGEN:
             # Bis landete jede `.md` im Quelltexteditor:
             # `## Überschrift` und Tabellen aus Strichen, in einem
@@ -8456,6 +8497,22 @@ class HauptFenster(QMainWindow):
             )
         else:
             self.datei_oeffnen(pfad)
+
+    def _mit_windows_oeffnen(self, pfad: Path) -> None:
+        """Übergibt `pfad` dem Programm, das Windows dafür vorsieht.
+        Eigene Methode, damit Tests den Aufruf abfangen können."""
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+
+        if QDesktopServices.openUrl(QUrl.fromLocalFile(str(pfad))):
+            self.statusBar().showMessage(
+                f"„{pfad.name}“ wird mit dem dafür vorgesehenen Programm geöffnet."
+            )
+        else:
+            self.statusBar().showMessage(
+                f"„{pfad.name}“ lässt sich nicht öffnen: auf diesem Rechner "
+                "ist kein Programm dafür eingerichtet."
+            )
 
     def _in_der_arbeitskopie(self, pfad: Path) -> Path | None:
         """Dieselbe Datei in der Arbeitskopie des Beispiels, in dem

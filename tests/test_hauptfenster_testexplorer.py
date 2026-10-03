@@ -302,3 +302,28 @@ def test_eine_freie_testfunktion_haengt_direkt_am_modul(hauptfenster) -> None:  
     assert kurz.child(0).childCount() == 0
     klasse = module["test_klasse"].child(0)
     assert klasse.text(0) == "KontoTest" and klasse.child(0).text(0) == "test_x"
+
+
+def test_einzellauf_und_projektwechsel_im_gemerkten_lauf(
+    tmp_path: Path, hauptfenster
+) -> None:  # noqa: ANN001
+    """Punkt 557: ein Einzellauf ersetzt das alte Ergebnis im Protokoll,
+    und nach einem Projektwechsel ist der alte Lauf vergessen."""
+    from ide.testrunner.ausfuehrung import Testergebnis
+
+    _projekt_mit_testdatei(hauptfenster, tmp_path / "a")
+    test_id = "test_beispiel.TestBeispiel.test_fehlschlagend"
+    hauptfenster._tests_fertig([
+        Testergebnis("test_beispiel.TestBeispiel.test_bestehend", "bestanden", 0.0),
+        Testergebnis(test_id, "fehlgeschlagen", 0.0, "falsch"),
+    ])
+    hauptfenster._einzeltest_fertig(
+        test_id, [Testergebnis(test_id, "bestanden", 0.0)]
+    )
+    status = {e.id: e.status for e in hauptfenster._letzte_testergebnisse}
+    assert status[test_id] == "bestanden"
+    assert len(status) == 2
+
+    _projekt_mit_testdatei(hauptfenster, tmp_path / "b")
+    assert hauptfenster._letzte_testergebnisse == []
+    assert hauptfenster.tests_baum.topLevelItemCount() == 0

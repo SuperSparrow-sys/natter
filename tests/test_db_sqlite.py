@@ -571,3 +571,38 @@ def test_werte_als_tupel_bekommen_einen_hinweis_auf_namen() -> None:
     for aufruf in (db.execute, db.query, db.query_one):
         with pytest.raises(NatterDatenbankError, match=":name"):
             aufruf("SELECT * FROM t WHERE n = ?", (1,))
+
+
+@pytest.mark.parametrize(
+    ("sql", "deutsch"),
+    [
+        ("SELECT * FROM t WHERE a = 'Meier", "Anführungszeichen"),
+        ("SELECT sum(a) FROM t WHERE sum(a) > 1", "HAVING"),
+        ("SELECT (SELECT a, b FROM t)", "liefert 2 Spalten"),
+        ("SELECT a FROM t GROUP BY sum(a)", "GROUP BY"),
+        ("SELECT 1 UNION SELECT 1, 2", "verschieden viele"),
+        ("SELECT * FROM t ORDER BY 3", "erlaubt sind die Nummern 1 bis 2"),
+        ("SELECT abs(1, 2)", "Anzahl Werte"),
+        ("CREATE TABLE sqlite_x (a)", "vorbehalten"),
+    ],
+)
+def test_haeufige_sqlite_fehler_kommen_deutsch_an(sql: str, deutsch: str) -> None:
+    """Punkt 566: diese Meldungen kamen englisch an."""
+    db = sqlite3.connect(":memory:")
+    db.execute("CREATE TABLE t (a, b)")
+    with pytest.raises(sqlite3.Error) as fehler:
+        db.execute(sql)
+    db.close()
+
+    meldung = _datenbankmeldung_eindeutschen(str(fehler.value))
+
+    assert deutsch in meldung
+    assert meldung != str(fehler.value)
+
+
+@pytest.mark.parametrize(
+    "treiber", ["database or disk is full", "too many columns on t"]
+)
+def test_volle_platte_und_zu_viele_spalten(treiber: str) -> None:
+    meldung = _datenbankmeldung_eindeutschen(treiber)
+    assert treiber not in meldung

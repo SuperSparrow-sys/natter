@@ -52,7 +52,9 @@ KUERZEL = re.compile(
 EIGENE_PROGRAMME = {
     # F1 bis F12 als Tastennamen, die `on_key_press` an ein Programm
     # meldet.
-    "docs/komponenten.md": {"Strg+Q", "Strg+Umschalt+S", "Alt+D", "F1"},
+    "docs/komponenten.md": {
+        "Strg+Q", "Strg+Umschalt+S", "Alt+D", "F1", "Strg+Ende", "Strg+Bild",
+    },
 }
 
 

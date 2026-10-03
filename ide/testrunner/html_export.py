@@ -11,6 +11,7 @@ _STATUS_FARBE = {
     "bestanden": "#1e8e3e",
     "fehlgeschlagen": "#c0392b",
     "fehler": "#c0392b",
+    "übersprungen": "#7f7f7f",
 }
 
 
@@ -22,6 +23,8 @@ def ergebnisse_als_html(ergebnisse: list[Testergebnis], *, titel: str = "Testpro
     # Zahlformen richtig, und das Protokoll geht an die Lehrkraft.
     anzahl = f"{len(ergebnisse)} {'Test' if len(ergebnisse) == 1 else 'Tests'}"
     zeilen = "\n".join(_zeile(e) for e in ergebnisse)
+    uebersprungen = sum(1 for e in ergebnisse if e.status == "übersprungen")
+    zusatz = f", {uebersprungen} übersprungen" if uebersprungen else ""
 
     return f"""\
 <!DOCTYPE html>
@@ -41,7 +44,7 @@ def ergebnisse_als_html(ergebnisse: list[Testergebnis], *, titel: str = "Testpro
 </head>
 <body>
 <h1>{escape(titel)}</h1>
-<p>{bestanden} von {anzahl} bestanden.</p>
+<p>{bestanden} von {anzahl} bestanden{zusatz}.</p>
 <table>
 <tr><th>Test</th><th>Status</th><th>Dauer (s)</th><th>Soll</th><th>Ist</th><th>Meldung</th></tr>
 {zeilen}

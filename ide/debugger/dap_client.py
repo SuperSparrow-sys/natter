@@ -12,16 +12,31 @@ anschließend `configurationDone` gesendet hat (siehe
 `debugpy/adapter/clients.py`, `_start_message_handler`:
 ``return messaging.NO_RESPONSE  # will respond on "configurationDone"``).
 Der korrekte Ablauf ist deshalb: `initialize` (mit Antwort) → `attach`
-senden (Antwort kommt später) → auf das Event `initialized` warten →
+senden (Antwort kommt später) → auf `debugpyWaitingForServer` warten
+und das Programm starten → auf das Event `initialized` warten →
 `configurationDone` senden → jetzt treffen die Antworten auf
 `configurationDone` und die aufgeschobene `attach`-Antwort ein, in
 beliebiger Reihenfolge. `_antwort_abwarten` sammelt deshalb jede Antwort,
 die nicht zur gerade erwarteten `seq` passt, statt sie zu verwerfen.
+
+Verbindung: Natter startet den Adapter von debugpy selbst und spricht
+mit ihm über dessen Standardein- und -ausgabe. Bis 0.4.3 lauschte
+debugpy mit `--listen` an einem Port auf 127.0.0.1, und jede
+Verbindung dorthin bekam eine Sitzung - auf einem Rechner mit
+mehreren angemeldeten Konten auch die eines anderen, der damit Code im
+Konto der Schülerin hätte ausführen können (Punkt 542). Jetzt gibt es
+für die Seite der IDE keinen Port mehr. Das Programm verbindet sich
+zum Adapter (`--connect`) und weist sich dabei mit einer Kennung aus,
+die nur Adapter und Programm kennen; eine fremde Verbindung ohne sie
+weist der Adapter ab.
 """
 
 from __future__ import annotations
 
 import json
+import os
+import queue
+import secrets
 import socket
 import subprocess
 import sys
@@ -52,15 +67,12 @@ _STANDARD_ZEITLIMIT = 30.0
 
 #: So oft wird ein Start versucht, bevor aufgegeben wird.
 #:
-#: `_freien_port_finden()` bindet Port 0, liest die vergebene Nummer und
-#: gibt sie wieder frei – erst danach bindet `debugpy` sie. In dieser
-#: Lücke kann ein anderer Prozess dieselbe Nummer bekommen; dann verbindet
-#: sich Natter entweder gar nicht oder mit dem Falschen, und der
-#: Handshake geht schief. Das ist selten, aber real: in langen
-#: Testläufen, in denen viele `debugpy`-Prozesse kurz hintereinander
-#: starten, fiel mehrfach genau einer der DAP-Tests aus und lief einzeln
-#: sofort wieder durch. Ein zweiter Versuch mit einer neuen Nummer kostet
-#: nichts und nimmt dem Zufall die Gelegenheit.
+#: Bis 0.4.3 suchte Natter einen freien Port, gab ihn wieder frei, und
+#: erst danach band ihn debugpy; in dieser Lücke konnte ihn ein anderer
+#: Prozess bekommen. Den Port vergibt heute der Adapter selbst, aber
+#: in langen Testläufen, in denen viele debugpy-Prozesse kurz
+#: hintereinander starten, scheitert ab und zu ein einzelner Start und
+#: läuft beim zweiten Mal durch. Ein weiterer Versuch kostet nichts.
 _STARTVERSUCHE = 3
 
 #: So lange wartet `beenden()` auf die Antwort auf `disconnect`, bevor
@@ -84,10 +96,69 @@ class DapAbgebrochen(DapFehler):
     Fehler, den jemand gemeldet bekommen muss."""
 
 
-def _freien_port_finden() -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as temp:
-        temp.bind(("127.0.0.1", 0))
-        return temp.getsockname()[1]
+class _Leitung:
+    """Die Verbindung zum Adapter über seine Standardein- und -ausgabe,
+    mit den Methoden eines Sockets, die der Client benutzt.
+
+    Ein eigener Faden liest die Ausgabe, damit `recv` eine Zeitgrenze
+    haben kann; unter Windows lässt sich auf ein Rohr nicht mit
+    Zeitgrenze warten."""
+
+    def __init__(self, prozess: subprocess.Popen) -> None:
+        self._prozess = prozess
+        self._schlange: queue.Queue[bytes] = queue.Queue()
+        self._zeitlimit: float | None = None
+        self._zu = False
+        threading.Thread(target=self._lesen, daemon=True).start()
+
+    def _lesen(self) -> None:
+        ausgabe = self._prozess.stdout
+        try:
+            while True:
+                stueck = ausgabe.read1(65536)
+                self._schlange.put(stueck)
+                if not stueck:
+                    return
+        except (OSError, ValueError):
+            self._schlange.put(b"")
+
+    def recv(self, _groesse: int) -> bytes:
+        if self._zu:
+            return b""
+        try:
+            stueck = self._schlange.get(timeout=self._zeitlimit)
+        except queue.Empty:
+            raise TimeoutError from None
+        if not stueck:
+            self._zu = True
+        return stueck
+
+    def sendall(self, daten: bytes) -> None:
+        try:
+            self._prozess.stdin.write(daten)
+            self._prozess.stdin.flush()
+        except ValueError as fehler:  # schon geschlossen
+            raise OSError(str(fehler)) from fehler
+
+    def settimeout(self, zeitlimit: float | None) -> None:
+        self._zeitlimit = zeitlimit
+
+    def gettimeout(self) -> float | None:
+        return self._zeitlimit
+
+    def shutdown(self, _wie: int = 0) -> None:
+        """Weckt ein wartendes `recv` auf, auch aus einem anderen Faden."""
+        self._schlange.put(b"")
+        try:
+            self._prozess.stdin.close()
+        except OSError:
+            pass
+
+    def close(self) -> None:
+        # Die Ausgabe schließt nicht hier: der lesende Faden hält sie
+        # gesperrt, bis der Adapter endet, und `close()` wartete so
+        # lange mit. Sie endet mit dem Prozess.
+        self.shutdown()
 
 
 #: Hülle für ein Konsolenprogramm unter dem Debugger (Punkt 87). Wie
@@ -150,14 +221,58 @@ _DEBUG_KONSOLEN_HUELLE = (
 KONSOLE_NICHT_OFFEN_HALTEN = "NATTER_KONSOLE_NICHT_OFFEN_HALTEN"
 
 
+#: Umgebungsvariable, über die der Adapter seine Kennung bekommt.
+_KENNUNG_VARIABLE = "NATTER_DAP_KENNUNG"
+
+#: Startet den Adapter von debugpy mit der Kennung aus
+#: `_KENNUNG_VARIABLE`. Der Adapter erzeugt sie sonst selbst aus
+#: `os.urandom` und `codecs.encode` und verrät sie nur einem Programm,
+#: das er selbst startet; `--access-token` liest er nicht aus. Natter
+#: startet das Programm aber selbst, in einem eigenen Konsolenfenster
+#: und im Auftragsobjekt. Ändert debugpy diese Stelle, scheitert der
+#: Handshake, und die DAP-Tests schlagen an.
+_ADAPTER_START = (
+    "import os, sys\n"
+    f"kennung = os.environ.pop({_KENNUNG_VARIABLE!r})\n"
+    "import debugpy.adapter.__main__ as start\n"
+    "class _Kennung:\n"
+    "    @staticmethod\n"
+    "    def encode(*_a, **_k):\n"
+    "        return kennung.encode('ascii')\n"
+    "start.codecs = _Kennung\n"
+    "sys.argv = ['debugpy.adapter']\n"
+    "start.main()\n"
+)
+
+
+def adapter_aufruf(kennung: str, arbeitsordner: Path) -> tuple[list[str], dict]:
+    """Befehl und `Popen`-Optionen für den Adapter von debugpy, der
+    über Standardein- und -ausgabe mit Natter spricht. Die Kennung geht
+    über die Umgebung, nicht über die Befehlszeile. `-P` aus demselben
+    Grund wie beim Programm: eine `random.py` im Projektordner ersetzte
+    sonst das gleichnamige Modul."""
+    befehl = [*python_befehl(), "-P", "-c", _ADAPTER_START]
+    optionen = ohne_konsole(
+        cwd=arbeitsordner,
+        env={**os.environ, _KENNUNG_VARIABLE: kennung},
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+    )
+    return befehl, optionen
+
+
 def debugpy_aufruf(
     port: int,
     skriptpfad: Path,
     arbeitsordner: Path,
     konsole_titel: str | None = None,
     lademarke: Path | None = None,
+    kennung: str = "",
 ) -> tuple[list[str], dict]:
     """Befehl und `Popen`-Optionen für das Schülerprogramm unter debugpy.
+    Es verbindet sich zum Adapter an `port` und weist sich mit
+    `kennung` aus.
 
     Ein GUI-Programm läuft ohne Konsole. Ein Konsolenprogramm bekommt ein
     eigenes Fenster wie ohne Debugger - bis 0.3.5 lief es unsichtbar:
@@ -169,7 +284,9 @@ def debugpy_aufruf(
     """
     kopf = [
         *python_befehl(), "-P", "-m", "debugpy",
-        "--listen", str(port), "--wait-for-client",
+        "--connect", f"127.0.0.1:{port}",
+        "--adapter-access-token", kennung,
+        "--wait-for-client",
     ]
     if konsole_titel is None:
         return (
@@ -188,8 +305,10 @@ def debugpy_aufruf(
 class DapClient:
     def __init__(self) -> None:
         self.prozess: subprocess.Popen | None = None
+        #: Der Adapter von debugpy, mit dem Natter spricht.
+        self._adapter: subprocess.Popen | None = None
         self.ereignisse: list[dict[str, Any]] = []
-        self._socket: socket.socket | None = None
+        self._socket: _Leitung | socket.socket | None = None
         self._puffer = b""
         self._naechste_seq = 1
         self._aufgehobene_antworten: dict[int, dict[str, Any]] = {}
@@ -228,14 +347,16 @@ class DapClient:
         with self._sperre:
             self._gestoppt.set()
             prozess = self.prozess
+            adapter = self._adapter
             verbindung = self._socket
         if verbindung is not None:
             try:
                 verbindung.shutdown(socket.SHUT_RDWR)
             except OSError:
                 pass
-        if prozess is not None:
-            prozessbaum_beenden(prozess)
+        for teil in (prozess, adapter):
+            if teil is not None:
+                prozessbaum_beenden(teil)
 
     def starten(
         self,
@@ -246,9 +367,9 @@ class DapClient:
         zeitlimit: float = _STANDARD_ZEITLIMIT,
         konsole_titel: str | None = None,
     ) -> None:
-        """Startet `skriptpfad` als eigenen Prozess unter `debugpy`
-        (`--listen`/`--wait-for-client`), verbindet sich und führt den
-        `initialize`/`attach`-Handshake durch. `anfangs_breakpoints`
+        """Startet den Adapter von debugpy, führt mit ihm den
+        `initialize`/`attach`-Handshake durch und startet währenddessen
+        `skriptpfad` als eigenen Prozess (`--connect`/`--wait-for-client`). `anfangs_breakpoints`
         (Datei → Zeilennummern) wird noch während der Konfigurations-
         phase gesetzt, damit ein Breakpoint auf der allerersten
         ausgeführten Zeile nicht verpasst wird. Nach Rückkehr ist die
@@ -259,26 +380,43 @@ class DapClient:
         `DapAbgebrochen`, und es bleibt kein Prozess zurück."""
         letzter_fehler: Exception | None = None
         for _ in range(_STARTVERSUCHE):
-            port = _freien_port_finden()
-            befehl, optionen = debugpy_aufruf(
-                port, skriptpfad, arbeitsordner, konsole_titel, self.lademarke
-            )
+            kennung = secrets.token_hex(32)
+            befehl, optionen = adapter_aufruf(kennung, arbeitsordner)
             with self._sperre:
                 if self._gestoppt.is_set():
                     break
-                self.prozess = subprocess.Popen(befehl, **optionen)
-                # Programm, Adapter und alles, was das Programm
-                # startet, landen in einem Auftragsobjekt; `stoppen()`
-                # erreicht damit auch Enkel eines Programms, das
-                # selbst schon zu Ende ist (Punkt 281).
-                auftrag_zuweisen(self.prozess)
+                self._adapter = subprocess.Popen(befehl, **optionen)
+                auftrag_zuweisen(self._adapter)
+                self._socket = _Leitung(self._adapter)
+            self._socket.settimeout(zeitlimit)
+
+            def programm_starten(port: int, kennung: str = kennung) -> None:
+                befehl, optionen = debugpy_aufruf(
+                    port, skriptpfad, arbeitsordner, konsole_titel,
+                    self.lademarke, kennung,
+                )
+                with self._sperre:
+                    if self._gestoppt.is_set():
+                        raise DapAbgebrochen(
+                            "Der Start des Debuggers wurde abgebrochen."
+                        )
+                    self.prozess = subprocess.Popen(befehl, **optionen)
+                    # Programm, Adapter und alles, was das Programm
+                    # startet, landen in einem Auftragsobjekt;
+                    # `stoppen()` erreicht damit auch Enkel eines
+                    # Programms, das selbst schon zu Ende ist
+                    # (Punkt 281).
+                    auftrag_zuweisen(self.prozess)
+
             try:
-                self._socket = self._verbinden(port, zeitlimit)
-                self._socket.settimeout(zeitlimit)
-                self._handshake(anfangs_breakpoints or {})
+                self._handshake(
+                    anfangs_breakpoints or {}, programm_starten, zeitlimit
+                )
             except (DapFehler, OSError) as fehler:
                 letzter_fehler = fehler
                 self._fehlstart_aufraeumen()
+                if isinstance(fehler, DapAbgebrochen):
+                    break
                 continue
             if not self._gestoppt.is_set():
                 return
@@ -303,40 +441,72 @@ class DapClient:
             self._socket = None
         with self._sperre:
             prozess, self.prozess = self.prozess, None
-        if prozess is not None:
-            prozessbaum_beenden(prozess)
+            adapter, self._adapter = self._adapter, None
+        for teil in (prozess, adapter):
+            if teil is not None:
+                prozessbaum_beenden(teil)
         self._puffer = b""
         self._naechste_seq = 1
         self._aufgehobene_antworten.clear()
         self.ereignisse.clear()
 
-    def _verbinden(self, port: int, zeitlimit: float) -> socket.socket:
+    def _beim_start_abwarten(self, name: str, zeitlimit: float) -> dict[str, Any]:
+        """Wartet beim Start auf das Ereignis `name`, sieht dabei aber
+        alle paar Zehntelsekunden nach, ob das Programm schon zu Ende
+        ist oder „Stopp“ kam. Ein Programm, das vor der Verbindung
+        endet, kam sonst erst nach der vollen Zeitgrenze zur Meldung."""
+        for index, ereignis in enumerate(self.ereignisse):
+            if ereignis.get("event") == name:
+                return self.ereignisse.pop(index).get("body") or {}
+        assert self._socket is not None
         ende = time.monotonic() + zeitlimit
-        letzter_fehler: OSError | None = None
-        while time.monotonic() < ende:
-            if self._gestoppt.is_set():
-                raise DapAbgebrochen("Der Start des Debuggers wurde abgebrochen.")
-            # Ist der Prozess schon beendet, kommt keine Verbindung
-            # mehr. Gewartet wurde trotzdem die volle Zeit.
-            if self.prozess is not None and self.prozess.poll() is not None:
-                raise DapFehler(
-                    "Der Debugger wurde beendet, bevor das Programm "
-                    "starten konnte."
-                )
-            try:
-                return socket.create_connection(("127.0.0.1", port), timeout=1)
-            except OSError as fehler:
-                letzter_fehler = fehler
-                time.sleep(0.1)
-        raise DapFehler(f"Konnte nicht mit debugpy auf Port {port} verbinden.") from letzter_fehler
+        self._socket.settimeout(0.2)
+        try:
+            while time.monotonic() < ende:
+                if self._gestoppt.is_set():
+                    raise DapAbgebrochen("Der Start des Debuggers wurde abgebrochen.")
+                nachricht = self._naechste_nachricht(nachsichtig=True)
+                if nachricht is None:
+                    if self.prozess is not None and self.prozess.poll() is not None:
+                        raise DapFehler(
+                            "Der Debugger wurde beendet, bevor das Programm "
+                            "starten konnte."
+                        )
+                    continue
+                if nachricht.get("type") == "event":
+                    if nachricht.get("event") == name:
+                        return nachricht.get("body") or {}
+                    self.ereignisse.append(nachricht)
+                elif nachricht.get("type") == "response":
+                    if not nachricht.get("success", True):
+                        raise DapFehler(
+                            nachricht.get("message")
+                            or f"{nachricht.get('command')} fehlgeschlagen"
+                        )
+                    andere_seq = nachricht.get("request_seq")
+                    if andere_seq is not None:
+                        self._aufgehobene_antworten[andere_seq] = nachricht
+        finally:
+            self._socket.settimeout(zeitlimit)
+        raise DapFehler("Zeitüberschreitung beim Warten auf debugpy.")
 
-    def _handshake(self, anfangs_breakpoints: dict[Path, list[int]]) -> None:
+    def _handshake(
+        self,
+        anfangs_breakpoints: dict[Path, list[int]],
+        programm_starten: Any = None,
+        zeitlimit: float = _STANDARD_ZEITLIMIT,
+    ) -> None:
         self.anfrage(
             "initialize",
             {"adapterID": "natter", "linesStartAt1": True, "columnsStartAt1": True},
         )
         attach_seq = self._senden("attach", {"justMyCode": False})
-        self._ereignis_abwarten("initialized")
+        if programm_starten is not None:
+            # Der Adapter lauscht jetzt auf das Programm und nennt den
+            # Port; erst dann wird es gestartet.
+            warten = self._beim_start_abwarten("debugpyWaitingForServer", zeitlimit)
+            programm_starten(int(warten["port"]))
+        self._beim_start_abwarten("initialized", zeitlimit)
 
         for pfad, zeilen in anfangs_breakpoints.items():
             self.breakpoints_setzen(pfad, zeilen)
@@ -529,6 +699,12 @@ class DapClient:
             # Programm gestartet hat, lebte sonst im Auftrag weiter
             # (Punkt 281).
             prozessbaum_beenden(self.prozess)
+        if self._adapter is not None:
+            try:
+                self._adapter.wait(timeout=min(zeitlimit, _DISCONNECT_ZEITLIMIT))
+            except subprocess.TimeoutExpired:
+                pass
+            prozessbaum_beenden(self._adapter)
 
     # -- Breakpoints und Ausführungssteuerung (Abschnitt 8.1) ---------------
 

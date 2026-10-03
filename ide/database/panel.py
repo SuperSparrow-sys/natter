@@ -81,6 +81,10 @@ ZEILEN_JE_STAPEL = 2000
 def _tabellenname_aus_dateiname(pfad: Path) -> str:
     name = Path(pfad).stem
     bereinigt = "".join(zeichen if zeichen.isalnum() else "_" for zeichen in name)
+    # Namen mit „sqlite_“ vorn behält SQLite sich selbst vor; der
+    # Import von `sqlite_daten.csv` scheiterte daran (Punkt 566).
+    while bereinigt.casefold().startswith("sqlite_"):
+        bereinigt = bereinigt[len("sqlite_"):]
     return bereinigt or "import"
 
 
@@ -608,6 +612,15 @@ class DatenbankPanel(QWidget):
         jetzt im neuen Projektordner gesucht (Punkt 244)."""
         self.trennen()
         self._projektordner = Path(ordner) if ordner is not None else None
+
+    def datei_verbinden(self, pfad: Path) -> bool:
+        """Verbindet mit dieser Datei, wie nach „Datei wählen …“ und
+        „Verbinden“. So öffnet ein Doppelklick auf eine Datenbank im
+        Projekt-Explorer sie hier (Punkt 560). `True`, wenn danach
+        eine Verbindung besteht."""
+        self._sqlite_pfad.setText(str(pfad))
+        self._verbinden()
+        return self._verbindung is not None
 
     def _sqlite_datei_waehlen(self) -> None:
         pfad, _ = QFileDialog.getOpenFileName(

@@ -636,17 +636,33 @@ def _in_der_naehe(
 
 
 #: Höhe einer „Zeile“ für die Lesereihenfolge: was weniger als das
-#: auseinander liegt, gilt als nebeneinander.
+#: unter dem obersten Element einer Zeile liegt, gilt als daneben.
 _ZEILENHOEHE = 24
 
 
 def lesereihenfolge(eintraege: list, lage) -> list:  # noqa: ANN001
     """`eintraege` in Lesereihenfolge, `lage(eintrag)` liefert
     (left, top). Die Design-Prüfung und „Tab-Reihenfolge nach Lage
-    ordnen“ im Designer benutzen dieselbe Regel."""
-    return sorted(
-        eintraege, key=lambda e: (lage(e)[1] // _ZEILENHOEHE, lage(e)[0])
-    )
+    ordnen“ im Designer benutzen dieselbe Regel.
+
+    Eine Zeile beginnt beim obersten noch nicht eingeordneten Element
+    und nimmt alles auf, was weniger als `_ZEILENHOEHE` tiefer liegt.
+    Früher entschied `top // 24`: (10, 50) und (200, 46) lagen dann in
+    verschiedenen Zeilen, obwohl sie nur 4 Pixel trennen (Punkt 562)."""
+    nach_hoehe = sorted(eintraege, key=lambda e: (lage(e)[1], lage(e)[0]))
+    ergebnis: list = []
+    zeile: list = []
+    zeilenanfang = 0
+    for eintrag in nach_hoehe:
+        oben = lage(eintrag)[1]
+        if zeile and oben - zeilenanfang >= _ZEILENHOEHE:
+            ergebnis.extend(sorted(zeile, key=lambda e: lage(e)[0]))
+            zeile = []
+        if not zeile:
+            zeilenanfang = oben
+        zeile.append(eintrag)
+    ergebnis.extend(sorted(zeile, key=lambda e: lage(e)[0]))
+    return ergebnis
 
 
 def _tab_reihenfolge_pruefen(kinder: list[dict[str, Any]]) -> list[Befund]:

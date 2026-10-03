@@ -82,7 +82,7 @@ class HtmlVorschau(QWidget):
         layout.addLayout(werkzeugleiste)
         layout.addWidget(self._browser)
 
-        self._beobachter = QFileSystemWatcher([str(self._pfad)])
+        self._beobachter = QFileSystemWatcher(self)
         self._beobachter.fileChanged.connect(self._neu_laden)
 
         self._neu_laden()
@@ -92,13 +92,22 @@ class HtmlVorschau(QWidget):
         return self._browser
 
     def _neu_laden(self) -> None:
-        self._seite_zeigen(self._pfad)
-        # Manche Editoren ersetzen die Datei beim Speichern statt sie
-        # in-place zu schreiben - QFileSystemWatcher verliert dabei die
-        # Beobachtung; erneutes Hinzufügen ist ein No-op, wenn der Pfad
-        # schon beobachtet wird.
-        if str(self._pfad) not in self._beobachter.files():
-            self._beobachter.addPath(str(self._pfad))
+        """Lädt die gerade gezeigte Seite neu, nicht die zuerst
+        geöffnete: nach einem Verweis auf `seite2.html` sprang das
+        Speichern von `index.html` sonst auf die erste Seite zurück,
+        und Änderungen an `seite2.html` erschienen nie (Punkt 563)."""
+        self._seite_zeigen(self._seite)
+
+    def _beobachten(self, seite: Path) -> None:
+        """Beobachtet genau die gezeigte Seite. Manche Editoren
+        ersetzen die Datei beim Speichern statt sie in-place zu
+        schreiben - QFileSystemWatcher verliert dabei die Beobachtung,
+        deshalb wird sie bei jedem Laden neu gesetzt."""
+        andere = [p for p in self._beobachter.files() if p != str(seite)]
+        if andere:
+            self._beobachter.removePaths(andere)
+        if str(seite) not in self._beobachter.files() and seite.is_file():
+            self._beobachter.addPath(str(seite))
 
     def _seite_zeigen(self, seite: Path, marke: str = "") -> None:
         """Zeigt eine Seite und merkt sie sich als Bezug für relative
@@ -113,6 +122,7 @@ class HtmlVorschau(QWidget):
         (gelöscht oder umbenannt, während die Vorschau offen ist),
         steht ein Hinweis in der Vorschau."""
         self._seite = seite
+        self._beobachten(seite)
         self._browser.ordner_setzen(self._grenze, seite.parent)
         try:
             text = text_lesen(seite)

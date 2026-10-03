@@ -627,6 +627,24 @@ def test_ohne_natter_exe_daneben_gilt_es_nicht_als_installation(
     assert programmordner() is None
 
 
+def test_ohne_natter_exe_bleibt_die_installation_erkannt(
+    programm, schluesselpaar
+) -> None:
+    """Punkt 554: `pythonw.exe -m ide` im Ordner `python` startet die
+    IDE auch ohne `Natter.exe`. Erkannt wird die Installation dann am
+    Ort des laufenden Codes, und die fehlende Datei ist ein Befund."""
+    privat, oeffentlich = schluesselpaar
+    manifest_schreiben(programm, privat)
+    (programm / "Natter.exe").unlink()
+
+    ordner = programmordner(
+        programm / "python" / "pythonw.exe", programm / SP / "ide"
+    )
+
+    assert ordner == programm
+    assert _pruefen(programm, oeffentlich, nur_kern=True).fehlend == ["Natter.exe"]
+
+
 def test_eine_installation_wird_auch_ohne_manifest_erkannt(programm, monkeypatch) -> None:
     """Bis 0.3.3 galt ein Ordner ohne `manifest.json` als
     Entwicklungsbaum - wer das Manifest löschte, schaltete die Prüfung

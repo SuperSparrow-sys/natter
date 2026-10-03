@@ -26,9 +26,14 @@ ein `dict` mit diesen Schlüsseln:
 ``shortcut``
     Tastenkürzel in Qt-Schreibweise (``Strg+Q`` wird angenommen und
     umgesetzt, damit niemand ``Ctrl`` tippen muss).
-``enabled``, ``checked``
-    Wie bei jeder Komponente; ``checked`` macht den Eintrag
-    ankreuzbar.
+``enabled``
+    Wie bei jeder Komponente.
+``checkable``, ``checked``
+    ``checkable`` macht den Eintrag zu einem Umschalter wie „Raster
+    anzeigen“, ``checked`` ist sein Zustand. Ein Klick schreibt den
+    neuen Zustand zurück in den Eintrag, bevor ``on_click`` läuft.
+    Ein Eintrag mit ``checked``, aber ohne ``checkable`` ist ebenfalls
+    ankreuzbar; so blieben Menüs aus älteren Fassungen gleich.
 ``separator``
     Eine Trennlinie. Sie hat keine Beschriftung und kein Ereignis.
 ``on_click``
@@ -46,6 +51,7 @@ und lesbar, und `eintrag_vollstaendig()` füllt die Vorgaben auf.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from PySide6.QtCore import QPoint, QPointF, QRectF, Qt
@@ -63,6 +69,7 @@ EINTRAG_VORGABE: dict[str, Any] = {
     "caption": "",
     "shortcut": "",
     "enabled": True,
+    "checkable": False,
     "checked": False,
     "separator": False,
     "on_click": "",
@@ -78,8 +85,55 @@ EINTRAG_VORGABE: dict[str, Any] = {
 MENUELEISTE_HOEHE = 26
 
 
-#: Deutsche Schreibweise -> die, die Qt versteht.
-_TASTENNAMEN = {"Strg": "Ctrl", "Umschalt": "Shift", "Entf": "Del", "Einfg": "Ins"}
+#: Deutsche Tastennamen -> die, die Qt versteht. Verglichen wird je
+#: ganzem Teil zwischen „+“ und ohne Rücksicht auf Groß- und
+#: Kleinschreibung; das Ersetzen von Teilzeichenketten machte aus
+#: „Delete“ einmal „Entfete“ (Punkt 561).
+_TASTENNAMEN = {
+    "strg": "Ctrl",
+    "umschalt": "Shift",
+    "entf": "Del",
+    "einfg": "Ins",
+    "pos1": "Home",
+    "ende": "End",
+    "bild auf": "PgUp",
+    "bild ab": "PgDown",
+    "rück": "Backspace",
+    "rücktaste": "Backspace",
+    "eingabe": "Return",
+    "leertaste": "Space",
+}
+
+#: Qts Tastennamen -> die deutsche Anzeige im Menü.
+_ANZEIGENAMEN = {
+    "ctrl": "Strg",
+    "shift": "Umschalt",
+    "del": "Entf",
+    "delete": "Entf",
+    "ins": "Einfg",
+    "insert": "Einfg",
+    "home": "Pos1",
+    "end": "Ende",
+    "pgup": "Bild auf",
+    "pgdown": "Bild ab",
+    "backspace": "Rück",
+    "return": "Eingabe",
+    "enter": "Eingabe",
+    "space": "Leertaste",
+}
+
+
+def _teile_umsetzen(kuerzel: str, namen: dict[str, str]) -> str:
+    """Setzt jeden Teil eines Kürzels über `namen` um. Ein „+“ am
+    Ende (`Strg++`) ist die Plustaste, kein Trenner."""
+    akkorde = []
+    for akkord in re.split(r"(?<!\+),", kuerzel):
+        akkord = akkord.strip()
+        teile = re.split(r"\+(?=.)", akkord)
+        akkorde.append(
+            "+".join(namen.get(teil.strip().lower(), teil.strip()) for teil in teile)
+        )
+    return ", ".join(akkorde)
 
 
 def _deutsche_kuerzel_umsetzen(kuerzel: str) -> str:
@@ -88,11 +142,23 @@ def _deutsche_kuerzel_umsetzen(kuerzel: str) -> str:
     Wer die Oberfläche auf Deutsch bedient, tippt „Strg" – und `Qt`
     würde daraus stillschweigend gar kein Kürzel machen, ohne sich zu
     beschweren. Genau so eine stumme Nicht-Wirkung soll es in Natter
-    nicht geben.
+    nicht geben; was sich trotzdem nicht umsetzen lässt, meldet
+    `eintraege_pruefen`.
     """
-    for deutsch, englisch in _TASTENNAMEN.items():
-        kuerzel = kuerzel.replace(deutsch, englisch)
-    return kuerzel
+    return _teile_umsetzen(kuerzel, _TASTENNAMEN)
+
+
+def kuerzel_fehler(kuerzel: str) -> str | None:
+    """Was gegen `kuerzel` spricht, oder `None`, wenn Qt es versteht."""
+    if not kuerzel.strip():
+        return None
+    if QKeySequence(_deutsche_kuerzel_umsetzen(kuerzel)).toString():
+        return None
+    return (
+        f"Das Tastenkürzel „{kuerzel}“ lässt sich nicht umsetzen. Gemeint "
+        "sind Angaben wie „Strg+S“, „Umschalt+F5“, „Strg+Ende“ oder "
+        "„Strg+Bild auf“."
+    )
 
 
 def kuerzel_anzeige(kuerzel: str) -> str:
@@ -109,9 +175,7 @@ def kuerzel_anzeige(kuerzel: str) -> str:
     ein Tabulator, zeigt Qt alles dahinter rechtsbündig als
     Kürzelspalte und schreibt nichts Eigenes hin.
     """
-    for deutsch, englisch in _TASTENNAMEN.items():
-        kuerzel = kuerzel.replace(englisch, deutsch)
-    return kuerzel
+    return _teile_umsetzen(_deutsche_kuerzel_umsetzen(kuerzel), _ANZEIGENAMEN)
 
 
 def eintrag_vollstaendig(eintrag: dict[str, Any]) -> dict[str, Any]:
@@ -172,6 +236,9 @@ def eintraege_pruefen(eintraege: Any, _tiefe: int = 0) -> None:
                 f"Unbekanntes Feld {sorted(unbekannt)[0]!r} in einem Menüeintrag. "
                 f"Erlaubt sind: {erlaubt}."
             )
+        fehler = kuerzel_fehler(str(eintrag.get("shortcut", "")))
+        if fehler is not None:
+            raise NatterPropertyError(fehler)
         eintraege_pruefen(eintrag.get("children", []), _tiefe + 1)
 
 
@@ -419,9 +486,14 @@ class _Menue(Control):
             beschriftung += "\t" + kuerzel_anzeige(eintrag["shortcut"])
         aktion = QAction(beschriftung, eltern)
         aktion.setEnabled(eintrag["enabled"])
-        if eintrag["checked"]:
+        if eintrag["checkable"] or eintrag["checked"]:
             aktion.setCheckable(True)
-            aktion.setChecked(True)
+            aktion.setChecked(eintrag["checked"])
+            # Vor triggered verbunden, also vor dem Handler: der liest
+            # schon den neuen Zustand (Punkt 559).
+            aktion.toggled.connect(
+                lambda an, e=eintrag: e.__setitem__("checked", an)
+            )
         if eintrag["shortcut"]:
             aktion.setShortcut(QKeySequence(_deutsche_kuerzel_umsetzen(eintrag["shortcut"])))
         handler = self._handler_suchen(eintrag["on_click"])

@@ -686,9 +686,10 @@ Ein Eintrag hat diese Felder:
 |---|---|
 | `name` | Bezeichner im Quelltext, z. B. `mi_datei_beenden` |
 | `caption` | Was dasteht. Ein `&` macht den nächsten Buchstaben zum Zugriffsbuchstaben (`&Datei` → Alt+D) |
-| `shortcut` | Tastenkürzel, deutsch geschrieben: `Strg+Q`, `Strg+Umschalt+S` |
+| `shortcut` | Tastenkürzel, deutsch geschrieben: `Strg+Q`, `Strg+Umschalt+S`, `Strg+Ende`, `Strg+Bild auf`. Ein Kürzel, das sich nicht umsetzen lässt, lehnt das Menü mit einer Meldung ab |
 | `enabled` | Ob der Eintrag anklickbar ist |
-| `checked` | Macht den Eintrag ankreuzbar und kreuzt ihn an |
+| `checkable` | Macht den Eintrag zu einem Umschalter wie „Raster anzeigen“ |
+| `checked` | Ob das Häkchen gesetzt ist. Ein Klick schreibt den neuen Zustand hierher zurück, bevor `on_click` läuft: `self.mm_haupt.eintrag("mi_raster")["checked"]` |
 | `separator` | Eine Trennlinie – ohne Beschriftung und ohne Ereignis |
 | `on_click` | Name der Methode, die beim Anklicken läuft |
 | `children` | Untereinträge (zweite Ebene) |

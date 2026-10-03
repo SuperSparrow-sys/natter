@@ -22,9 +22,12 @@ from ide.integritaet.manifest import (
 )
 
 
-def programmordner() -> Path | None:
+def programmordner(
+    ausfuehrbar: Path | None = None, paketordner: Path | None = None
+) -> Path | None:
     """Der Ordner der ausgelieferten Installation, oder `None` im
-    Entwicklungsbaum.
+    Entwicklungsbaum. `ausfuehrbar` und `paketordner` sind für Tests;
+    ohne sie gelten `sys.executable` und der Ordner des Pakets `ide`.
 
     Bis M12 war die Frage einfach: PyInstaller setzt `sys.frozen`, und
     der Programmordner ist der Ordner neben der Exe. Seit M13 läuft
@@ -36,23 +39,39 @@ def programmordner() -> Path | None:
     eingefrorene IDE wird nicht gebaut.
 
     Erkennungsmerkmal ist der Aufbau der Installation: die mitgelieferte
-    Python liegt im Ordner `python` neben `Natter.exe`:
+    Python liegt im Ordner `python`, und der Code von Natter in deren
+    `site-packages`:
 
         <Installation>/Natter.exe
         <Installation>/manifest.json
         <Installation>/python/pythonw.exe   <- sys.executable
+        <Installation>/python/Lib/site-packages/ide
 
     Bis 0.3.3 war das Merkmal das `manifest.json` selbst. Wer eine Datei
     im Programmordner veränderte und das Manifest dazu löschte, schaltete
-    die Prüfung damit ganz ab, ohne jede Meldung (Punkt 27). Den Aufbau
-    zu entfernen hieße dagegen, Natter nicht mehr starten zu können.
+    die Prüfung damit ganz ab, ohne jede Meldung (Punkt 27). Bis 0.4.3
+    war es `Natter.exe`: `pythonw.exe -m ide` im Ordner `python` startet die IDE
+    auch ohne den Starter, und dann entfiel die Prüfung ebenso
+    (Punkt 554). Der Ort des laufenden Codes lässt sich nicht
+    entfernen, ohne dass die IDE nicht mehr startet; eine fehlende
+    `Natter.exe` meldet dann das Manifest, das sie aufführt.
 
-    Im Entwicklungsbaum zeigt derselbe Weg auf `.venv`, und dort liegt
-    keine `Natter.exe` - die Prüfung entfällt wie bisher ersatzlos.
+    Im Entwicklungsbaum zeigt derselbe Weg auf `.venv` (Ordner `Scripts`), und der
+    Code liegt im Arbeitsbaum - die Prüfung entfällt wie bisher
+    ersatzlos.
     """
-    python = Path(sys.executable).resolve().parent
+    python = Path(ausfuehrbar or sys.executable).resolve().parent
     moeglich = python.parent
-    if python.name.lower() == "python" and (moeglich / "Natter.exe").is_file():
+    if python.name.lower() != "python":
+        return None
+    if (moeglich / "Natter.exe").is_file():
+        return moeglich
+    if paketordner is None:
+        import ide
+
+        paketordner = Path(ide.__file__).parent
+    eigener_ort = (python / "Lib" / "site-packages" / "ide").resolve()
+    if Path(paketordner).resolve() == eigener_ort:
         return moeglich
     return None
 

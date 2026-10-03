@@ -16,6 +16,7 @@ from pcl.components.menus import (
     eintrag_knapp,
     eintrag_suchen,
     eintrag_vollstaendig,
+    kuerzel_anzeige,
 )
 from pcl.errors import NatterPropertyError
 
@@ -137,6 +138,11 @@ def test_die_dritte_ebene_wird_abgelehnt() -> None:
         ("Entf", "Del"),
         ("F5", "F5"),
         ("Ctrl+Q", "Ctrl+Q"),
+        ("Strg+Ende", "Ctrl+End"),
+        ("Strg+Pos1", "Ctrl+Home"),
+        ("Strg+Bild auf", "Ctrl+PgUp"),
+        ("strg+entf", "Ctrl+Del"),
+        ("Strg++", "Ctrl++"),
     ],
 )
 def test_deutsche_tastenkuerzel_werden_umgesetzt(deutsch: str, qt: str) -> None:
@@ -418,3 +424,48 @@ def test_hohe_eintraege_stehen_in_der_leiste_und_nicht_im_ueberlauf(qtbot) -> No
         assert formular.b_start._qwidget.y() == 10 + leiste.height()
     finally:
         app.setStyleSheet(vorher)
+
+
+@pytest.mark.parametrize(
+    ("kuerzel", "anzeige"),
+    [("Ctrl+Delete", "Strg+Entf"), ("Ctrl+Insert", "Strg+Einfg"),
+     ("Strg+Ende", "Strg+Ende"), ("Ctrl+PgDown", "Strg+Bild ab")],
+)
+def test_die_anzeige_setzt_ganze_tastennamen_um(kuerzel: str, anzeige: str) -> None:
+    """Punkt 561: früher ersetzte die Anzeige Teilzeichenketten, und
+    aus „Delete“ wurde „Entfete“."""
+    assert kuerzel_anzeige(kuerzel) == anzeige
+
+
+def test_ein_kuerzel_ohne_wirkung_wird_abgelehnt() -> None:
+    with pytest.raises(NatterPropertyError, match="Strg[+]Foo"):
+        eintraege_pruefen([{"caption": "X", "shortcut": "Strg+Foo"}])
+
+
+def test_ein_umschalter_laesst_sich_ankreuzen_und_der_handler_liest_es() -> None:
+    """Punkt 559: ein anfangs leerer, ankreuzbarer Eintrag bekommt per
+    Klick sein Häkchen, und der Handler liest schon den neuen Zustand."""
+
+    class _Raster(Form):
+        def create_components(self) -> None:
+            self.mm = MainMenu(self)
+            self.mm.entries = [{
+                "name": "mi_raster", "caption": "Raster", "checkable": True,
+                "on_click": "umschalten",
+            }]
+            self.gelesen: list[bool] = []
+
+        def umschalten(self, sender) -> None:
+            self.gelesen.append(self.mm.eintrag("mi_raster")["checked"])
+
+    formular = _Raster()
+    formular.show()
+    aktion = formular._menueleiste.actions()[0]
+    assert aktion.isCheckable() and not aktion.isChecked()
+
+    aktion.trigger()
+    aktion.trigger()
+
+    assert formular.gelesen == [True, False]
+    formular.mm.aktualisieren()
+    assert not formular._menueleiste.actions()[0].isChecked()

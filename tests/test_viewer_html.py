@@ -413,3 +413,26 @@ def test_verweise_die_nicht_aufgehen_bekommen_je_einen_eigenen_satz(
     assert pdf.startswith(markdown[1]) and markdown[1]
     assert markdown[2] == draussen
     assert angefordert == []
+
+
+def test_nach_einem_verweis_wird_die_gezeigte_seite_beobachtet(
+    tmp_path: Path, qtbot
+) -> None:
+    """Punkt 563: nach einem Klick auf seite2.html erscheint eine
+    Änderung an seite2.html, und das Neuladen bleibt auf Seite 2."""
+    from PySide6.QtCore import QUrl
+
+    index = tmp_path / "index.html"
+    index.write_text('<a href="seite2.html">weiter</a>', encoding="utf-8")
+    seite2 = tmp_path / "seite2.html"
+    seite2.write_text("<h1>Zwei alt</h1>", encoding="utf-8")
+    vorschau = HtmlVorschau(index)
+    qtbot.addWidget(vorschau)
+
+    vorschau._verweis_geklickt(QUrl("seite2.html"))
+    assert vorschau._beobachter.files() == [str(seite2)]
+
+    seite2.write_text("<h1>Zwei neu</h1>", encoding="utf-8")
+    vorschau._beobachter.fileChanged.emit(str(seite2))
+
+    assert "Zwei neu" in vorschau.browser.toPlainText()

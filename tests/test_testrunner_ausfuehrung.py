@@ -397,3 +397,66 @@ def test_freie_testfunktionen_laufen_mit_deutscher_meldung(tmp_path: Path) -> No
     )
     einzeln = ausfuehren(tmp_path, ziel="test_kurz.test_start")
     assert [(e.id, e.status) for e in einzeln] == [("test_kurz.test_start", "bestanden")]
+
+
+_SONDERFAELLE_INHALT = '''\
+import unittest
+
+
+class T(unittest.TestCase):
+    def test_sub(self):
+        for i in range(3):
+            with self.subTest(i=i):
+                self.assertEqual(i, 0)
+
+    @unittest.skip("noch nicht fertig")
+    def test_skip(self):
+        pass
+
+    @unittest.expectedFailure
+    def test_erwartet(self):
+        self.assertEqual(1, 2)
+
+    @unittest.expectedFailure
+    def test_unerwartet(self):
+        pass
+
+    def test_ok(self):
+        pass
+
+
+class V(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        raise RuntimeError("Vorbereitung kaputt")
+
+    def test_nie(self):
+        pass
+'''
+
+
+def test_subtests_skip_expectedfailure_und_setupclass(tmp_path: Path) -> None:
+    """Punkte 555 und 556: keiner der Sonderfälle von unittest fehlt,
+    und ein Fehler in setUpClass hängt an seiner Klasse."""
+    (tmp_path / "test_sonder.py").write_text(
+        _SONDERFAELLE_INHALT, encoding="utf-8"
+    )
+    ergebnisse = {e.id: e for e in ausfuehren(tmp_path)}
+
+    sub = ergebnisse["test_sonder.T.test_sub"]
+    assert sub.status == "fehlgeschlagen"
+    assert "Teilfall i=1" in sub.nachricht
+    assert "Teilfall i=2" in sub.nachricht
+    skip = ergebnisse["test_sonder.T.test_skip"]
+    assert (skip.status, skip.nachricht) == (
+        "übersprungen", "Übersprungen: noch nicht fertig"
+    )
+    assert ergebnisse["test_sonder.T.test_erwartet"].status == "bestanden"
+    assert ergebnisse["test_sonder.T.test_unerwartet"].status == "fehlgeschlagen"
+    assert ergebnisse["test_sonder.T.test_ok"].status == "bestanden"
+    vorbereitung = ergebnisse["test_sonder.V"]
+    assert vorbereitung.status == "fehler"
+    assert vorbereitung.nachricht.startswith(
+        "Die Vorbereitung der Klasse V (setUpClass) ist gescheitert"
+    )
+    assert vorbereitung.dauer == 0.0

@@ -814,6 +814,61 @@ _DATENBANKMELDUNGEN: tuple[tuple[re.Pattern[str], str], ...] = (
         re.compile(r"cannot rollback - no transaction is active"),
         "es ist keine Transaktion offen, die sich zurücknehmen ließe",
     ),
+    # Bis Punkt 566 englisch.
+    (
+        re.compile(r'unrecognized token: "(?P<wort>[^"]*)"'),
+        "die SQL-Anweisung lässt sich ab „{wort}“ nicht lesen; oft fehlt "
+        "ein schließendes Anführungszeichen",
+    ),
+    (
+        re.compile(r"misuse of aggregate(?: function)?:? (?P<name>\w+)\(\)"),
+        "{name}() fasst mehrere Zeilen zusammen und gehört nicht in WHERE; "
+        "eine Bedingung auf das Ergebnis gehört in HAVING",
+    ),
+    (
+        re.compile(r"aggregate functions are not allowed in the GROUP BY clause"),
+        "in GROUP BY steht eine Funktion wie sum() oder count(); dort "
+        "gehören Spalten hin",
+    ),
+    (
+        re.compile(
+            r"sub-select returns (?P<n>\d+) columns - expected (?P<m>\d+)"
+        ),
+        "die innere Abfrage liefert {n} Spalten, erwartet wird {m}",
+    ),
+    (
+        re.compile(
+            r"SELECTs to the left and right of (?P<op>[A-Z]+(?: ALL)?) do "
+            r"not have the same number of result columns"
+        ),
+        "die Abfragen links und rechts von {op} liefern verschieden viele "
+        "Spalten",
+    ),
+    (
+        re.compile(
+            r"(?P<nr>\d+)\w\w (?P<klausel>ORDER|GROUP) BY term out of range "
+            r"- should be between (?P<a>\d+) and (?P<b>\d+)"
+        ),
+        "{klausel} BY {nr} verweist auf keine Spalte des Ergebnisses; "
+        "erlaubt sind die Nummern {a} bis {b}",
+    ),
+    (
+        re.compile(r"wrong number of arguments to function (?P<name>\w+)\(\)"),
+        "die Funktion {name}() bekommt nicht die passende Anzahl Werte",
+    ),
+    (
+        re.compile(r"database or disk is full"),
+        "die Datenbank oder das Laufwerk ist voll",
+    ),
+    (
+        re.compile(r"too many columns on (?P<name>\S+)"),
+        "„{name}“ hat zu viele Spalten",
+    ),
+    (
+        re.compile(r"object name reserved for internal use: (?P<name>\S+)"),
+        "Namen, die mit „sqlite_“ beginnen, sind SQLite selbst "
+        "vorbehalten („{name}“)",
+    ),
 )
 
 

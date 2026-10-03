@@ -440,3 +440,21 @@ def test_abbrechen_statt_schliessen_und_platz_fuer_die_methode() -> None:
     zeile, _ = editor.eintragsdaten.layout().getWidgetPosition(editor.feld_on_click)
     knopfzeile, _ = editor.eintragsdaten.layout().getWidgetPosition(editor.anlegen_knopf)
     assert knopfzeile == zeile + 1
+
+
+def test_ankreuzbar_und_ein_kuerzel_ohne_wirkung(qtbot) -> None:
+    """Punkte 559 und 561: „Ankreuzbar“ landet im Eintrag, und ein
+    Tastenkürzel, das sich nicht umsetzen lässt, hält „Anwenden“ auf."""
+    editor = _editor(qtbot)
+    _waehlen(editor, 0, 0)
+    editor.feld_checkable.setChecked(True)
+    editor.feld_shortcut.setText("Strg+Foo")
+
+    assert editor.entwurf[0]["children"][0]["checkable"] is True
+    assert editor.anwenden() is False
+    assert editor.uebernommen is False
+    assert "Strg+Foo" in editor.kuerzel_hinweis.text()
+
+    editor.feld_shortcut.setText("Strg+Ende")
+    assert editor.anwenden() is True
+    assert editor.kuerzel_hinweis.isHidden()

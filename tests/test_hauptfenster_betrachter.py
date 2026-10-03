@@ -149,3 +149,35 @@ def test_unterseite_im_projekt_reicht_bis_zum_projektordner(
         startseite = fenster.editor_tabs.currentWidget()
         assert isinstance(startseite, MarkdownAnsicht)
         assert startseite.pfad == projekt / "index.md"
+
+
+def test_doppelklick_auf_datenbank_und_pdf(
+    tmp_path: Path, hauptfenster_bauen, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Punkt 560: eine `.sqlite` verbindet das Panel „Datenbank“, eine
+    PDF geht an das Programm, das Windows dafür vorsieht - beides
+    endete in „keine Textdatei“."""
+    import sqlite3
+
+    datenbank = tmp_path / "konten.sqlite"
+    with sqlite3.connect(datenbank) as verbindung:
+        verbindung.execute("CREATE TABLE konto (nr INTEGER)")
+    verbindung.close()
+    pdf = tmp_path / "aufgabe.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    fenster = hauptfenster_bauen()
+    uebergeben: list[Path] = []
+    monkeypatch.setattr(fenster, "_mit_windows_oeffnen", uebergeben.append)
+
+    fenster._bei_explorer_doppelklick(_eintrag(datenbank), 0)
+    fenster._bei_explorer_doppelklick(_eintrag(pdf), 0)
+
+    panel = fenster.datenbank_panel
+    assert panel.verbindung is not None
+    assert Path(panel.verbindung.database_name) == datenbank
+    assert uebergeben == [pdf]
+    assert fenster.editor_tabs.count() == 0 or not any(
+        "aufgabe" in fenster.editor_tabs.tabText(i)
+        for i in range(fenster.editor_tabs.count())
+    )
+    panel.trennen()

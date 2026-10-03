@@ -125,37 +125,32 @@ def test_zwei_clients_koennen_unabhaengig_gleichzeitig_laufen(tmp_path: Path) ->
     assert (ordner_b / "b.txt").exists()
 
 
-def test_ein_belegter_port_fuehrt_zu_einem_zweiten_versuch(
+def test_ein_gescheiterter_versuch_fuehrt_zu_einem_zweiten(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`_freien_port_finden()` gibt die Nummer wieder frei, bevor
-    `debugpy` sie bindet – in dieser Lücke kann sie ein anderer Prozess
-    bekommen. Der Start gibt dann nicht auf, sondern nimmt eine neue
-    Nummer (M11, Abschnitt 5)."""
+    """Scheitert ein Start, gibt `starten` nicht auf, sondern versucht
+    es mit einem neuen Adapter und einer neuen Kennung (M11,
+    Abschnitt 5)."""
     import ide.debugger.dap_client as modul
 
     skript = _skript_schreiben(tmp_path, "marker = 1" + chr(10))
-    echtes_verbinden = modul.DapClient._verbinden
+    echter_handshake = modul.DapClient._handshake
     versuche: list[int] = []
 
-    def _einmal_scheitern(selbst, port, zeitlimit):
-        versuche.append(port)
+    def _einmal_scheitern(selbst, *args, **kwargs):
+        versuche.append(selbst._adapter.pid)
         if len(versuche) == 1:
-            raise DapFehler("Port schon belegt")
-        return echtes_verbinden(selbst, port, zeitlimit)
+            raise DapFehler("Adapter antwortet nicht")
+        return echter_handshake(selbst, *args, **kwargs)
 
-    monkeypatch.setattr(modul.DapClient, "_verbinden", _einmal_scheitern)
+    monkeypatch.setattr(modul.DapClient, "_handshake", _einmal_scheitern)
 
     client = DapClient()
     try:
         client.starten(skript, arbeitsordner=tmp_path)
 
-        # Mindestens zwei: der erzwungene Fehlschlag und der Versuch
-        # danach. Mehr sind erlaubt - im Gesamtlauf ist real auch der
-        # zweite Versuch einmal gescheitert und erst der dritte
-        # durchgekommen. Genau davor soll die Wiederholung schuetzen.
         assert 2 <= len(versuche) <= modul._STARTVERSUCHE
-        assert len(set(versuche)) == len(versuche)  # jedes Mal eine neue Nummer
+        assert len(set(versuche)) == len(versuche)  # jedes Mal ein neuer Adapter
         assert client.prozess is not None
     finally:
         client.beenden()
@@ -175,15 +170,15 @@ def test_ein_fehlstart_laesst_keinen_debugpy_prozess_zurueck(
 
     def _merken(befehl, *args, **kwargs):
         prozess = echtes_popen(befehl, *args, **kwargs)
-        if "debugpy" in befehl:
+        if any("debugpy" in teil for teil in befehl):
             prozesse.append(prozess)
         return prozess
 
     monkeypatch.setattr(modul.subprocess, "Popen", _merken)
     monkeypatch.setattr(
         modul.DapClient,
-        "_verbinden",
-        lambda selbst, port, zeitlimit: (_ for _ in ()).throw(DapFehler("nichts da")),
+        "_handshake",
+        lambda selbst, *a, **k: (_ for _ in ()).throw(DapFehler("nichts da")),
     )
 
     client = DapClient()
@@ -195,6 +190,58 @@ def test_ein_fehlstart_laesst_keinen_debugpy_prozess_zurueck(
         prozess.wait(timeout=10)
         assert prozess.poll() is not None
     assert client.prozess is None
+
+
+def test_eine_fremde_verbindung_bekommt_keine_sitzung(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Punkt 542: ein Programm, das sich ohne die Kennung zum Adapter
+    verbindet, wird nicht angenommen und läuft nicht; die Sitzung
+    bekommt das richtige Programm. Für die IDE selbst lauscht kein
+    Port mehr: der Adapter spricht über Standardein- und -ausgabe."""
+    import subprocess
+
+    import ide.debugger.dap_client as modul
+
+    skript = _skript_schreiben(
+        tmp_path,
+        "from pathlib import Path" + chr(10)
+        + "Path('echt.txt').write_text('1')" + chr(10),
+    )
+    echter_aufruf = modul.debugpy_aufruf
+    fremde: list[subprocess.Popen] = []
+
+    def _vorher_ein_fremder(port, *args, **kwargs):
+        befehl, optionen = echter_aufruf(port, *args, **kwargs)
+        fremd = [
+            teil if teil != kwargs.get("kennung", args[-1] if args else "")
+            else "falsch"
+            for teil in befehl
+        ]
+        fremd[-1] = str(tmp_path / "fremd.py")
+        (tmp_path / "fremd.py").write_text(
+            "from pathlib import Path" + chr(10)
+            + "Path('fremd.txt').write_text('1')" + chr(10),
+            encoding="utf-8",
+        )
+        fremde.append(subprocess.Popen(fremd, **modul.ohne_konsole(cwd=tmp_path)))
+        time.sleep(1.5)
+        return befehl, optionen
+
+    monkeypatch.setattr(modul, "debugpy_aufruf", _vorher_ein_fremder)
+    client = DapClient()
+    try:
+        befehl, _optionen = modul.adapter_aufruf("abc", tmp_path)
+        assert "--listen" not in befehl and "--port" not in befehl
+        client.starten(skript, arbeitsordner=tmp_path)
+        client.prozess.wait(timeout=20)
+    finally:
+        client.beenden()
+        for prozess in fremde:
+            prozessbaum_beenden(prozess)
+
+    assert (tmp_path / "echt.txt").exists()
+    assert not (tmp_path / "fremd.txt").exists()
 
 
 def _prozess_lebt(pid: int) -> bool:

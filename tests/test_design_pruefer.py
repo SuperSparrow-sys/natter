@@ -6,7 +6,9 @@ Beispiel und ein sauberes Gegenbeispiel.
 
 from __future__ import annotations
 
-from ide.lint.regeln import pruefen
+import pytest
+
+from ide.lint.regeln import lesereihenfolge, pruefen
 
 
 def _pfm(kinder: list[dict], *, breite: int = 400, hoehe: int = 300, farbe: str = "") -> dict:
@@ -463,3 +465,17 @@ def test_auch_in_einem_panel_wird_geprueft_und_ein_timer_ueberlappt_nichts() -> 
     assert [b.komponente for b in ausserhalb] == ["b_c"]
     assert "außerhalb von p_knoepfe" in ausserhalb[0].meldung
 
+
+
+@pytest.mark.parametrize(
+    "rechts_oben, links_oben", [(46, 50), (40, 47), (50, 46)]
+)
+def test_lesereihenfolge_nach_abstand_nicht_nach_rastergrenze(
+    rechts_oben: int, links_oben: int
+) -> None:
+    """Punkt 562: was weniger als 24 Pixel auseinander liegt, steht in
+    einer Zeile, auch über ein Vielfaches von 24 hinweg."""
+    eintraege = [("rechts", 200, rechts_oben), ("links", 10, links_oben),
+                 ("unten", 0, 90)]
+    geordnet = lesereihenfolge(eintraege, lambda e: (e[1], e[2]))
+    assert [e[0] for e in geordnet] == ["links", "rechts", "unten"]
