@@ -39,7 +39,7 @@ from ide.diagramm.formen import (
 )
 from ide.diagramm.kommandos import WerteKommando
 from ide.diagramm.stil import stil as stil_zu_namen
-from ide.diagramm.uml_modell import formname
+from ide.diagramm.uml_modell import formname, ist_klasse
 from ide.diagramm.zeichnen import fuellfarbe, randfarbe, schriftgroesse
 
 _GEOMETRIE = (("x", "Links"), ("y", "Oben"), ("w", "Breite"), ("h", "Höhe"))
@@ -103,6 +103,20 @@ class EigenschaftenPanel(QWidget):
         self.formular = QWidget()
         self._layout = QFormLayout(self.formular)
         self._layout.setContentsMargins(6, 6, 6, 6)
+
+        # Attribute und Operationen stehen im Eigenschaften-Dialog der
+        # Klasse. Bis 0.4.3 führte nur der Doppelklick oder das
+        # Kontextmenü dorthin, und das Panel zeigte bei einer Klasse
+        # nur Lage und Farben (Punkt 496).
+        self.klasse_bearbeiten = QPushButton("Attribute und Operationen …")
+        self.klasse_bearbeiten.setToolTip(
+            "Öffnet den Eigenschaften-Dialog der Klasse; ein Doppelklick "
+            "auf die Klasse tut dasselbe."
+        )
+        self.klasse_bearbeiten.clicked.connect(
+            lambda: self.canvas.eigenschaften_bearbeiten()
+        )
+        self._layout.addRow("", self.klasse_bearbeiten)
 
         self.felder: dict[str, QWidget] = {}
         for name, beschriftung in _GEOMETRIE:
@@ -213,6 +227,9 @@ class EigenschaftenPanel(QWidget):
             ):
                 self._zeile_zeigen(widget, verbindung is not None)
 
+            self._zeile_zeigen(
+                self.klasse_bearbeiten, form is not None and ist_klasse(form)
+            )
             if form is not None:
                 self.hinweis.setText(self._formtitel(form))
                 for name, _ in _GEOMETRIE:

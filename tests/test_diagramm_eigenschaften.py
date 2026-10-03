@@ -164,3 +164,27 @@ def test_feld_schrift_zeigt_und_nimmt_das_komma_auch_bei_englischem_format(
         assert QLocale().decimalPoint() == ","
     finally:
         QLocale.setDefault(vorher)
+
+
+def test_bei_einer_klasse_fuehrt_ein_knopf_zu_den_attributen(
+    fenster: DiagrammFenster, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Punkt 496: das Panel zeigte bei einer Klasse nur Lage und
+    Farben; zu Attributen und Operationen führte nur der Doppelklick.
+    Bei einer Notiz gibt es den Knopf nicht."""
+    flaeche = fenster.zeichenflaeche
+    panel = fenster.eigenschaften
+    geoeffnet: list[object] = []
+    monkeypatch.setattr(
+        flaeche, "eigenschaften_bearbeiten", lambda form=None: geoeffnet.append(form)
+    )
+
+    flaeche.form_platzieren("note", 400, 400)
+    panel.aktualisieren()
+    assert panel.klasse_bearbeiten.isHidden()
+
+    flaeche.form_platzieren("class", 200, 200)
+    panel.aktualisieren()
+    assert not panel.klasse_bearbeiten.isHidden()
+    panel.klasse_bearbeiten.click()
+    assert len(geoeffnet) == 1

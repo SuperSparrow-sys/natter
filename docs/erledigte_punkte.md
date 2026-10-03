@@ -13100,3 +13100,17 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** Ein Klick unter das Struktogramm, in seiner Breite, hängt den Block hinten an. Erledigt, wenn ein Test zwei Blöcke so nacheinander anlegt und ein Klick daneben nichts anlegt.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** `stelle_bei` liefert, wenn keine Einfügestelle in der Nähe liegt, für einen Punkt unterhalb des Struktogramms in dessen Breite die Stelle am Ende der Wurzel. Die Vorschau beim Bewegen der Maus nutzt dieselbe Funktion und zeigt die Stelle an. An der echten Oberfläche nachgeprüft: der Klick in die freie Fläche legt die Anweisung an, und sie steht nach `Strg+S` in der Datei. Handbuch, Abschnitt Diagramm-Editor, nennt es. Test: `test_klick_unter_das_struktogramm_haengt_den_block_an` in `tests/test_diagramm_struktogramm.py`; mit der Datei aus `HEAD` scheitert er.
+
+---
+
+## 496. Klassendiagramm: das Panel „Eigenschaften“ führt nicht zu Attributen und Operationen ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht Diagramm-Editor an der echten Oberfläche, Entwicklungsstand `2341757` (Bild `build\auswertung\044s\bilder\F_Klassendiagramm_platziert.png`).
+
+**Beobachtet:** Eine frisch platzierte Klasse ist ausgewählt, rechts steht das Panel „Eigenschaften“ mit Links, Oben, Breite, Höhe, Füllung, Linie und Schrift. Wo Name, Attribute und Operationen der Klasse eingetragen werden, steht nirgends. Dorthin führen nur der Doppelklick auf die Klasse und der Eintrag „Eigenschaften …“ im Kontextmenü, die man kennen muss.
+
+**Ursache:** nachgewiesen. `EigenschaftenPanel` (`ide/diagramm/eigenschaften.py`) bietet für Formen nur Geometrie und Gestaltung an.
+
+**Zu tun:** Bei einer ausgewählten Klasse im Panel ein Knopf, der den Eigenschaften-Dialog öffnet. Erledigt, wenn ein Test den Knopf bei einer Klasse sichtbar und bei einer Notiz verborgen findet und der Klick den Dialog öffnet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Neuer Knopf „Attribute und Operationen …“ oben im Panel, sichtbar bei Klassen, abstrakten Klassen und Interfaces (`ist_klasse`); er ruft `DiagrammCanvas.eigenschaften_bearbeiten` auf, denselben Weg wie der Doppelklick, und sein Tooltip nennt den Doppelklick. Test: `test_bei_einer_klasse_fuehrt_ein_knopf_zu_den_attributen` in `tests/test_diagramm_eigenschaften.py`; mit der Datei aus `HEAD` scheitert er.
