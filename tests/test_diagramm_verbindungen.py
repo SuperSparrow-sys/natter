@@ -65,6 +65,41 @@ def test_zwei_klicks_verbinden_quelle_und_ziel(canvas: DiagrammCanvas) -> None:
     assert canvas.ausgewaehlte_verbindung is verbindung
 
 
+def test_von_form_zu_form_ziehen_verbindet(canvas: DiagrammCanvas) -> None:
+    """Punkt 493: das Handbuch sagt „von Klasse zu Klasse ziehen“, aber
+    das Loslassen auf dem Ziel tat nichts. Ein Klick ohne Ziehen wartet
+    weiter auf den zweiten Klick, und dann entsteht nur eine
+    Verbindung."""
+    ganzes, teil = _zwei_klassen(canvas)
+    canvas.verbindungsmodus_setzen("association")
+
+    canvas.mousePressEvent(_klick(*_mitte(ganzes)))
+    canvas.mouseReleaseEvent(_loslassen(*_mitte(teil)))
+
+    assert [(v["from"], v["to"]) for v in canvas.verbindungen] == [
+        (ganzes["id"], teil["id"])
+    ]
+
+    canvas.verbindungsmodus_setzen("association")
+    canvas.mousePressEvent(_klick(*_mitte(teil)))
+    canvas.mouseReleaseEvent(_loslassen(*_mitte(teil)))
+    assert len(canvas.verbindungen) == 1
+    canvas.mousePressEvent(_klick(*_mitte(ganzes)))
+    canvas.mouseReleaseEvent(_loslassen(*_mitte(ganzes)))
+    assert len(canvas.verbindungen) == 2
+
+
+def _loslassen(x: float, y: float) -> QMouseEvent:
+    return QMouseEvent(
+        QEvent.Type.MouseButtonRelease,
+        QPointF(x, y),
+        QPointF(x, y),
+        Qt.MouseButton.LeftButton,
+        Qt.MouseButton.NoButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+
+
 def test_klick_ins_leere_bricht_das_verbinden_ab(canvas: DiagrammCanvas) -> None:
     ganzes, _ = _zwei_klassen(canvas)
     canvas.verbindungsmodus_setzen("association")
@@ -76,11 +111,23 @@ def test_klick_ins_leere_bricht_das_verbinden_ab(canvas: DiagrammCanvas) -> None
     assert canvas._verbindungs_kind is None
 
 
-def test_form_laesst_sich_nicht_mit_sich_selbst_verbinden(canvas: DiagrammCanvas) -> None:
+def test_eine_schleife_haengt_rechts_an_der_form(canvas: DiagrammCanvas) -> None:
+    """Punkt 491: eine Assoziation einer Klasse mit sich selbst wurde
+    abgelehnt. Jetzt ist sie eine Schleife rechts an der Form, die beim
+    Verschieben mitgeht. Von sich selbst erben kann eine Klasse nicht."""
+    from ide.diagramm.zeichnen import verbindungs_punkte
+
     ganzes, _ = _zwei_klassen(canvas)
 
-    assert canvas.verbindung_erstellen("association", ganzes, ganzes) is None
-    assert canvas.verbindungen == []
+    assert canvas.verbindung_erstellen("inheritance", ganzes, ganzes) is None
+    schleife = canvas.verbindung_erstellen("association", ganzes, ganzes)
+    assert schleife is not None
+    canvas.verschieben(40, 16, ganzes)
+    punkte = verbindungs_punkte(schleife, ganzes, ganzes)
+    rechts = ganzes["x"] + ganzes["w"]
+    assert punkte[0].x() == punkte[-1].x() == rechts
+    assert max(p.x() for p in punkte) > rechts
+    assert all(ganzes["y"] <= p.y() <= ganzes["y"] + ganzes["h"] for p in punkte)
 
 
 def test_verbindungs_ids_sind_eindeutig(canvas: DiagrammCanvas) -> None:

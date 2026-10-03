@@ -400,3 +400,24 @@ def test_dasselbe_objekt_in_zwei_paletten_ist_erlaubt() -> None:
     from ide.diagramm.formen import NOTIZ, _nach_kind
 
     assert _nach_kind({"x": (NOTIZ,), "y": (NOTIZ,)}, "Formen")["note"] is NOTIZ
+
+
+def test_jede_neue_nachricht_steht_unter_der_vorigen(sequenz: DiagrammCanvas) -> None:
+    """Punkt 494: alle Nachrichten lagen auf derselben Höhe, die
+    Reihenfolge war nicht zu sehen. Die erste läuft unter dem
+    Männchen eines Akteurs, nicht durch es hindurch."""
+    from ide.diagramm.zeichnen import AKTEUR_HOEHE, nachrichtenhoehe
+
+    nutzer = sequenz.form_platzieren("actor_lifeline", 200, 300)
+    formular = sequenz.form_platzieren("lifeline", 420, 300)
+    hoehen = []
+    for kind, q, z in (
+        ("sync_message", nutzer, formular),
+        ("reply_message", formular, nutzer),
+        ("sync_message", nutzer, formular),
+    ):
+        nachricht = sequenz.verbindung_erstellen(kind, q, z)
+        hoehen.append(nachrichtenhoehe(nachricht, q, z))
+
+    assert hoehen == sorted(hoehen) and len(set(hoehen)) == 3
+    assert hoehen[0] > nutzer["y"] + AKTEUR_HOEHE

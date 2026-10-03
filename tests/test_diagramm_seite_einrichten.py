@@ -14,7 +14,7 @@ import pytest
 from PySide6.QtGui import QPageLayout, QPageSize
 
 from ide.diagramm import DiagrammFenster, diagramm_erzeugen
-from ide.diagramm.seite import seitengroesse
+from ide.diagramm.seite import satzspiegel, seitengroesse
 from ide.diagramm.seitendialog import SeitenDialog
 
 
@@ -136,3 +136,42 @@ def test_drucker_bekommt_groesse_und_ausrichtung(qtbot, tmp_path: Path) -> None:
 
     assert drucker.groesse.id() == QPageSize.PageSizeId.A3
     assert drucker.ausrichtung == QPageLayout.Orientation.Portrait
+
+
+def test_ein_klick_nahe_am_seitenrand_legt_die_form_ganz_auf_die_seite(
+    tmp_path: Path,
+) -> None:
+    """Punkt 490: der Klickpunkt ist die Mitte der Form, und ein Klick
+    nahe am linken oberen Rand legte die Klasse halb über den Rand."""
+    flaeche = _fenster(tmp_path).zeichenflaeche
+    links, oben, _, _ = satzspiegel(flaeche.diagramm.daten["page"])
+
+    form = flaeche.form_platzieren("class", links + 8, oben + 8)
+
+    assert form["x"] >= links and form["y"] >= oben
+    assert not any(h.regel == "ausserhalb_der_seite" for h in flaeche.hinweise)
+
+
+def test_eine_klasse_wird_nach_ok_so_breit_wie_ihr_text(tmp_path: Path) -> None:
+    """Punkt 489: die Höhe wuchs nach dem Eigenschaften-Dialog mit, die
+    Breite nicht, und eine gewöhnliche Operation war gleich
+    abgeschnitten. Schmaler wird eine Klasse dabei nie."""
+    flaeche = _fenster(tmp_path).zeichenflaeche
+    form = flaeche.form_platzieren("class", 300, 300)
+    breite = form["w"]
+    dialog = flaeche.eigenschaften_dialog(form)
+    dialog._operation_neu()
+    dialog.operation_name.setText("abheben")
+    dialog.operation_typ.setText("Boolean")
+    dialog._parameter_neu()
+    dialog.parameter_name.setText("betrag")
+    dialog.parameter_typ.setText("Real")
+
+    dialog._ok()
+
+    assert form["w"] > breite
+    assert not any(h.regel == "abgeschnittener_text" for h in flaeche.hinweise)
+    flaeche.groesse_aendern(200, 0, form)
+    breit = form["w"]
+    flaeche.eigenschaften_dialog(form)._ok()
+    assert form["w"] == breit

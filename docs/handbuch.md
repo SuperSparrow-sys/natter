@@ -439,7 +439,11 @@ anklicken und dann auf die Zeichenfläche klicken. Name, Attribute und
 Operationen stehen im Eigenschaften-Dialog: Doppelklick auf die Klasse
 oder Rechtsklick und „Eigenschaften …“. Für eine Beziehung die
 Verbindungsart in der Palette wählen (etwa Assoziation oder
-Vererbung) und von Klasse zu Klasse ziehen.
+Vererbung) und von Klasse zu Klasse ziehen oder erst die eine und
+dann die andere anklicken. Zweimal dieselbe Form angeklickt ergibt
+eine Schleife rechts an der Form, etwa einen Übergang, bei dem ein
+Zustand bleibt, was er ist. Im Sequenzdiagramm kommt jede neue
+Nachricht unter die vorige.
 
 Für eine Auswahl mit mehr als zwei Wegen gibt es im Struktogramm zwei
 Blöcke:

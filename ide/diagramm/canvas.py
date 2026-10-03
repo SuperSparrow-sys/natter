@@ -66,6 +66,7 @@ from ide.diagramm.zeichnen import (
     form_zeichnen,
     knickpunkt_bei,
     knickpunkte_zeichnen,
+    mindestbreite,
     mindesthoehe,
     nachrichtenhoehe,
     segment_bei,
@@ -118,6 +119,15 @@ _ANFASSER_VERHALTEN: dict[str, tuple[int, int, int, int]] = {
     "sw": (1, -1, 0, 1),
     "w": (1, -1, 0, 0),
 }
+
+
+#: Abstand einer neuen Nachricht im Sequenzdiagramm zur vorigen
+#: (Punkt 494).
+NACHRICHTENABSTAND = 40
+
+#: Verbindungsarten, die eine Form nicht mit sich selbst verbinden
+#: (Punkt 491).
+OHNE_SCHLEIFE = ("inheritance", "realization", "generalization")
 
 
 def _am_raster(wert: float) -> int:
@@ -359,10 +369,36 @@ class DiagrammCanvas(ZoomMischung, QWidget):
         if kind == "abstract_class":
             form["abstract"] = True
         form["h"] = max(form["h"], _raster_aufrunden(mindesthoehe(form)))
+        self._in_den_seitenbereich(form, x, y)
 
         self.kommandos.ausfuehren(EinfuegenKommando(self.formen, form))
         self._nach_aenderung(form)
         return form
+
+    def _in_den_seitenbereich(
+        self, form: dict[str, Any], klick_x: float, klick_y: float
+    ) -> None:
+        """Schiebt eine neue Form in den Seitenbereich, wenn auf ihn
+        geklickt wurde und sie hinein passt (Punkt 490).
+
+        Der Klickpunkt ist die Mitte der Form. Ein Klick nahe am Rand
+        der Seite legte eine Klasse deshalb halb über den Rand, und
+        sie trug sofort den Warnrahmen „liegt außerhalb des
+        Seitenbereichs“, obwohl auf die Seite geklickt worden war.
+        Wer neben das Blatt klickt, bekommt die Form dort, und eine
+        Form, die größer ist als der Seitenbereich, bleibt ebenfalls,
+        wo sie ist; die Warnung sagt dann das Richtige."""
+        links, oben, breite, hoehe = satzspiegel(self.diagramm.daten.get("page") or {})
+        if not (
+            links <= klick_x <= links + breite and oben <= klick_y <= oben + hoehe
+        ):
+            return
+        if form["w"] <= breite:
+            form["x"] = min(max(form["x"], _raster_aufrunden(links)),
+                            int(links + breite - form["w"]))
+        if form["h"] <= hoehe:
+            form["y"] = min(max(form["y"], _raster_aufrunden(oben)),
+                            int(oben + hoehe - form["h"]))
 
     # -- Verbinden ------------------------------------------------------
 
@@ -379,11 +415,17 @@ class DiagrammCanvas(ZoomMischung, QWidget):
     def verbindung_erstellen(
         self, kind: str, quelle: dict[str, Any], ziel: dict[str, Any]
     ) -> dict[str, Any] | None:
-        """Legt eine Verbindung zwischen zwei Formen an. Eine Form mit
-        sich selbst zu verbinden ergibt hier keine sinnvolle
-        Darstellung und wird abgelehnt."""
-        verbindungs_art(kind)  # prüft die Art, wirft bei Unbekanntem
-        if quelle is ziel:
+        """Legt eine Verbindung zwischen zwei Formen an.
+
+        Eine Form mit sich selbst zu verbinden ergibt eine Schleife
+        rechts an der Form (Punkt 491): der Übergang, bei dem ein
+        Zustand bleibt, was er ist, oder eine Klasse, die auf sich
+        selbst zeigt (`Knoten.naechster`). Bis 0.4.3 wurde das
+        abgelehnt. Für Vererbung, Realisierung und die waagerechten
+        Nachrichten des Sequenzdiagramms bleibt es dabei; eine Klasse
+        erbt nicht von sich selbst."""
+        art = verbindungs_art(kind)  # prüft die Art, wirft bei Unbekanntem
+        if quelle is ziel and (art.waagerecht or kind in OHNE_SCHLEIFE):
             return None
 
         verbindung: dict[str, Any] = {
@@ -392,6 +434,23 @@ class DiagrammCanvas(ZoomMischung, QWidget):
             "from": quelle["id"],
             "to": ziel["id"],
         }
+        if art.waagerecht:
+            # Eine neue Nachricht kommt unter die bisher unterste
+            # (Punkt 494). Bis 0.4.3 lagen alle auf derselben Höhe
+            # übereinander, und die Reihenfolge, um die es im
+            # Sequenzdiagramm geht, war nicht zu sehen.
+            hoehen = [
+                nachrichtenhoehe(v, q, z)
+                for v in self.verbindungen
+                if verbindungs_art(v["kind"]).waagerecht
+                and (q := self.form_mit_id(v["from"])) is not None
+                and (z := self.form_mit_id(v["to"])) is not None
+            ]
+            if hoehen:
+                verbindung["y"] = max(
+                    nachrichtenhoehe(verbindung, quelle, ziel),
+                    max(hoehen) + NACHRICHTENABSTAND,
+                )
         self.kommandos.ausfuehren(EinfuegenKommando(self.verbindungen, verbindung))
         self._verbindung_auswaehlen(verbindung)
         self.geaendert.emit()
@@ -1007,6 +1066,11 @@ class DiagrammCanvas(ZoomMischung, QWidget):
             return
         probe = {**form, **geaendert}
         geaendert["h"] = max(form["h"], _raster_aufrunden(mindesthoehe(probe)))
+        # Die Breite wächst mit wie die Höhe, schrumpft aber nie: eine
+        # von Hand breiter gezogene Klasse bleibt so. Bis 0.4.3 wurde
+        # „abheben(betrag: Real): Boolean“ in der Standardbreite gleich
+        # abgeschnitten und rot markiert (Punkt 489).
+        geaendert["w"] = max(form["w"], _raster_aufrunden(mindestbreite(probe)))
         self.kommandos.ausfuehren(WerteKommando(form, geaendert))
         self._nach_aenderung()
 
@@ -1105,6 +1169,21 @@ class DiagrammCanvas(ZoomMischung, QWidget):
         self.update()
 
     def mouseReleaseEvent(self, ereignis: QMouseEvent) -> None:
+        if (
+            self._verbindungs_kind is not None
+            and self._verbindungs_quelle is not None
+            and ereignis.button() == Qt.MouseButton.LeftButton
+        ):
+            # Von Form zu Form gezogen, wie es das Handbuch beschreibt
+            # (Punkt 493). Bis 0.4.3 entstand die Verbindung nur mit
+            # einem zweiten Klick, und das Loslassen auf dem Ziel tat
+            # nichts. Losgelassen auf derselben Form bleibt es beim
+            # Warten auf den zweiten Klick.
+            punkt = self._diagrammpunkt(ereignis)
+            ziel = self.form_bei(punkt.x(), punkt.y())
+            if ziel is not None and ziel is not self._verbindungs_quelle:
+                self._verbindungsklick(punkt)
+                return
         if self._greif_start is not None:
             self._greifen_beenden()
             return

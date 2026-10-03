@@ -13002,3 +13002,73 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** Relative Pfade müssen in der Exe zum Lesen mitgelieferter Dateien und zum Schreiben eigener Dateien taugen. Erledigt, wenn eine echte Exe aus einem fremden Ordner `daten.txt` liest und eine vom Programm geänderte Datei beim nächsten Start nicht überschrieben wird.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** Der Laufzeithaken (`_ARBEITSORDNER_HOOK`, erzeugt mit `arbeitsordner_haken`) kennt die Namen der mitgegebenen Dateien und Ordner (`DATEN`, vom Export eingetragen) und kopiert vor dem Wechsel in den Ordner der Exe alles davon, was dort noch fehlt, aus dem Auspackordner neben die Exe. Vorhandenes bleibt unberührt; ein Ordner wird Datei für Datei ergänzt. Scheitert das Kopieren, etwa in einem schreibgeschützten Ordner, startet das Programm trotzdem. Nachweis an der echten Exe: erster Start aus einem fremden Ordner liest „Hallo aus der Datei“ und legt `daten.txt` daneben, nach Ändern der Datei liest der zweite Start den geänderten Text. README Abschnitt 16 beschreibt die Regel neu, ohne den Umweg über `__file__`. Test: `test_der_haken_legt_die_daten_neben_die_exe` in `tests/test_exporter.py`; mit der Datei aus `HEAD` scheitert er.
+
+---
+
+## 489. Klassendiagramm: nach dem Eigenschaften-Dialog ist eine gewöhnliche Operation abgeschnitten ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht Diagramm-Editor aus Schülersicht, Entwicklungsstand `ee342d5`.
+
+**Beobachtet:** Klasse „Girokonto“ platziert, im Eigenschaften-Dialog die Operation `abheben(betrag: Real): Boolean` angelegt, „OK“. Die Klasse wird höher, bleibt aber 184 Pixel breit; die Operation steht als „abheben(betrag: Real): …“ da, und die Klasse trägt sofort den Warnrahmen „ist zu schmal, der Text wird abgeschnitten“.
+
+**Ursache:** nachgewiesen. `_eigenschaften_uebernehmen` in `ide/diagramm/canvas.py` zieht nur die Höhe auf `mindesthoehe` nach; die Breite blieb bewusst unberührt (Docstring von `abgeschnittener_text` in `ide/diagramm/hinweise.py`), eine Begründung dafür steht nirgends.
+
+**Zu tun:** Nach „OK“ oder „Anwenden“ die Breite auf `mindestbreite` nachziehen, nie verkleinern. Erledigt, wenn ein Test nach dem Dialog keinen Hinweis „zu schmal“ findet und eine breiter gezogene Klasse ihre Breite behält.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_eigenschaften_uebernehmen` setzt `w` auf das Größere aus bisheriger Breite und `mindestbreite`, auf das Raster aufgerundet, im selben Rückgängig-Schritt wie die Höhe. Eine von Hand breiter gezogene Klasse bleibt so breit. Der Hinweis „zu schmal“ bleibt für Formen, die jemand schmaler zieht. Test: `test_eine_klasse_wird_nach_ok_so_breit_wie_ihr_text` in `tests/test_diagramm_seite_einrichten.py`; mit `ide/diagramm` aus `HEAD` scheitert er.
+
+---
+
+## 490. Diagramm: ein Klick nahe am Seitenrand legt die Form halb über den Rand ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht Diagramm-Editor aus Schülersicht, Entwicklungsstand `ee342d5`.
+
+**Beobachtet:** Eine Klasse, nahe der linken oberen Ecke auf die Seite geklickt, liegt mit der linken Hälfte außerhalb des Seitenbereichs (x = -16) und trägt sofort den Warnrahmen „liegt außerhalb des Seitenbereichs und fehlt im Ausdruck“, obwohl auf die Seite geklickt wurde.
+
+**Ursache:** nachgewiesen. `form_platzieren` in `ide/diagramm/canvas.py` nimmt den Klickpunkt als Mitte der Form, ohne auf den Seitenbereich zu achten.
+
+**Zu tun:** Liegt der Klickpunkt im Seitenbereich und passt die Form hinein, wird sie so verschoben, dass sie ganz darin liegt. Ein Klick neben das Blatt bleibt, wie er ist. Erledigt, wenn ein Test nach einem Klick nahe dem Rand keine Warnung findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_in_den_seitenbereich` in `ide/diagramm/canvas.py` schiebt eine neue Form in den Satzspiegel (`satzspiegel`), wenn der Klickpunkt darin liegt und die Form hineinpasst. Wer neben das Blatt klickt, bekommt die Form dort, wie es `test_flaeche_waechst_mit_einer_form_ausserhalb_des_blatts` und `test_form_ausserhalb_der_seite_passt_nach_groesserem_format` verlangen. Test: `test_ein_klick_nahe_am_seitenrand_legt_die_form_ganz_auf_die_seite` in `tests/test_diagramm_seite_einrichten.py`; mit `ide/diagramm` aus `HEAD` scheitert er.
+
+---
+
+## 491. Diagramm: eine Form lässt sich nicht mit sich selbst verbinden ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht Diagramm-Editor aus Schülersicht, Entwicklungsstand `ee342d5`.
+
+**Beobachtet:** Im Zustandsdiagramm einer Ampel soll „Rot“ bei einem Tastendruck in „Rot“ bleiben: Übergang ausgewählt, zweimal auf „Rot“ geklickt, es entsteht nichts. Dasselbe im Klassendiagramm für eine Assoziation einer Klasse mit sich selbst (`Knoten.naechster`). Übergänge eines Zustands auf sich selbst sind bei Automaten im Unterricht der Normalfall.
+
+**Ursache:** nachgewiesen. `verbindung_erstellen` in `ide/diagramm/canvas.py` lehnt `quelle is ziel` ab, weil es dafür keine Darstellung gab.
+
+**Zu tun:** Eine Schleife an der Form zeichnen, die beim Verschieben mitgeht; für Vererbung und Realisierung weiter ablehnen. Erledigt, wenn ein Test eine Schleife anlegt, verschiebt und ihre Punkte an der Form findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `verbindungs_punkte` in `ide/diagramm/zeichnen.py` liefert für eine Verbindung einer Form mit sich selbst ohne Knickpunkte eine Schleife rechts an der Form (`SCHLEIFENWEITE`), berechnet aus der Lage der Form und deshalb beim Verschieben mitgehend. `verbindung_erstellen` lehnt sie nur noch für Vererbung, Realisierung, Generalisierung (`OHNE_SCHLEIFE`) und die waagerechten Nachrichten des Sequenzdiagramms ab. Geprüft am Bild eines Zustandsdiagramms nach Verschieben des Zustands. Handbuch, Abschnitt Diagramm-Editor, nennt die Schleife. Test: `test_eine_schleife_haengt_rechts_an_der_form` in `tests/test_diagramm_verbindungen.py` (ersetzt `test_form_laesst_sich_nicht_mit_sich_selbst_verbinden`); mit `ide/diagramm` aus `HEAD` scheitert er.
+
+---
+
+## 493. Diagramm: Ziehen von Form zu Form verbindet nicht, obwohl das Handbuch es so beschreibt ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht Diagramm-Editor aus Schülersicht, Entwicklungsstand `ee342d5`.
+
+**Beobachtet:** Das Handbuch sagt im Abschnitt zum Klassendiagramm: „die Verbindungsart in der Palette wählen … und von Klasse zu Klasse ziehen“. Gedrückt auf der einen Klasse und auf der anderen losgelassen, entsteht keine Verbindung; die erste Klasse ist nur als Quelle gewählt, und erst ein weiterer Klick auf das Ziel verbindet.
+
+**Ursache:** nachgewiesen. `DiagrammCanvas` (`ide/diagramm/canvas.py`) wertet im Verbindungsmodus nur `mousePressEvent` aus (`_verbindungsklick`); `mouseReleaseEvent` kennt den Fall nicht.
+
+**Zu tun:** Loslassen über einer anderen Form verbindet. Ein Klick ohne Ziehen wartet weiter auf den zweiten Klick. Erledigt, wenn ein Test beide Wege mit genau einer Verbindung je Weg findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `mouseReleaseEvent` legt im Verbindungsmodus die Verbindung an, wenn eine Quelle gewählt ist und über einer anderen Form losgelassen wird. Losgelassen über derselben Form bleibt es beim Warten auf den zweiten Klick, so entsteht auch die Schleife aus Punkt 491. Handbuch nennt beide Wege. Test: `test_von_form_zu_form_ziehen_verbindet` in `tests/test_diagramm_verbindungen.py`; mit der Datei aus `HEAD` scheitert er.
+
+---
+
+## 494. Sequenzdiagramm: alle neuen Nachrichten liegen auf derselben Höhe ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht Diagramm-Editor aus Schülersicht, Entwicklungsstand `ee342d5`.
+
+**Beobachtet:** Akteur „Nutzer“, Lebenslinien „Formular“ und „Datenbank“, nacheinander vier Nachrichten angelegt (anmelden, prüfen, ok, Willkommen). Im Bild liegen alle vier auf einer Linie übereinander und sehen aus wie zwei Doppelpfeile; die Reihenfolge, um die es im Sequenzdiagramm geht, ist nicht zu sehen. Jede Nachricht muss von Hand nach unten gezogen werden. Die erste Nachricht läuft außerdem quer durch das Männchen des Akteurs.
+
+**Ursache:** nachgewiesen. Eine neue Nachricht hat kein `y`, und `nachrichtenhoehe` in `ide/diagramm/zeichnen.py` gibt dann für alle dieselbe Höhe zurück: Kopf der Lebenslinie plus 24. Als Kopf zählt dabei immer die Höhe eines Kastens, auch beim Akteur mit seiner höheren Figur.
+
+**Zu tun:** Eine neue Nachricht kommt unter die bisher unterste; die erste unter Kopf oder Figur der Lebenslinien. Erledigt, wenn ein Test drei Nachrichten mit steigender Höhe findet, die erste unterhalb des Männchens.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `verbindung_erstellen` setzt bei waagerechten Nachrichten `y` auf die Höhe der bisher untersten Nachricht plus `NACHRICHTENABSTAND` (40). `nachrichtenhoehe` nimmt für den Akteur das Männchen samt Namen als Kopf (`_lebenslinienkopf`). Am Bild geprüft: vier Nachrichten untereinander, jede mit lesbarer Beschriftung. Test: `test_jede_neue_nachricht_steht_unter_der_vorigen` in `tests/test_diagramm_aktivitaet_sequenz.py`; mit `ide/diagramm` aus `HEAD` scheitert er.

@@ -983,8 +983,23 @@ def nachrichtenhoehe(
     eigene = verbindung.get("y")
     if eigene is not None:
         return float(eigene)
-    oben = max(float(quelle["y"]), float(ziel["y"]))
-    return oben + KOPFHOEHE + 24
+    # Unter dem Kopf der höheren Lebenslinie. Beim Akteur ist das das
+    # Männchen samt Namen; mit der Kopfhöhe eines Kastens lief die
+    # erste Nachricht quer durch die Figur (Punkt 494).
+    return max(
+        float(form["y"]) + _lebenslinienkopf(form) for form in (quelle, ziel)
+    ) + 24
+
+
+def _lebenslinienkopf(form: dict[str, Any]) -> float:
+    """Wie weit oben an einer Lebenslinie Kopf oder Figur reichen."""
+    if form.get("kind") == "actor_lifeline":
+        return 4 + AKTEUR_HOEHE + KOPFHOEHE
+    return KOPFHOEHE
+
+
+#: Wie weit eine Schleife rechts aus der Form herausragt.
+SCHLEIFENWEITE = 32.0
 
 
 def verbindungs_punkte(
@@ -1011,6 +1026,22 @@ def verbindungs_punkte(
     zwischen = [QPointF(x, y) for x, y in (verbindung.get("waypoints") or [])]
     quell_rechteck = form_rechteck(quelle)
     ziel_rechteck = form_rechteck(ziel)
+
+    if quelle.get("id") == ziel.get("id") and not zwischen:
+        # Eine Schleife rechts an der Form (Punkt 491). Die Punkte
+        # entstehen hier aus der Lage der Form und nicht als
+        # gespeicherte Knickpunkte, damit sie beim Verschieben
+        # mitwandert.
+        rechts = quell_rechteck.right()
+        oben = quell_rechteck.top() + quell_rechteck.height() * 0.3
+        unten = quell_rechteck.top() + quell_rechteck.height() * 0.7
+        aussen = rechts + SCHLEIFENWEITE
+        return [
+            QPointF(rechts, oben),
+            QPointF(aussen, oben),
+            QPointF(aussen, unten),
+            QPointF(rechts, unten),
+        ]
 
     erster_blick = zwischen[0] if zwischen else ziel_rechteck.center()
     letzter_blick = zwischen[-1] if zwischen else quell_rechteck.center()
