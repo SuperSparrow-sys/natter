@@ -720,7 +720,42 @@ def _einzeilig(roh: Any) -> str:
     Doppelpunkt, den der Kopf angehängt bekommt, und aus „x > 0 #
     positiv“ wurde `if x > 0 # positiv:` (Punkt 636)."""
     zeilen = [_ohne_kommentar(zeile) for zeile in str(roh or "").splitlines()]
-    return _kommazahlen(" ".join(" ".join(zeilen).split()))
+    return _logikwoerter(_kommazahlen(" ".join(" ".join(zeilen).split())))
+
+
+#: „und“, „oder“ und „nicht“, wie im Struktogramm üblich geschrieben.
+_LOGIKWOERTER = {"und": "and", "oder": "or", "nicht": "not"}
+
+
+def _logikwoerter(text: str) -> str:
+    """Schreibt „und“, „oder“ und „nicht“ als `and`, `or` und `not`,
+    als ganze Wörter und unabhängig von Groß- und Kleinschreibung.
+
+    Eine Bedingung wie „jahr % 4 = 0 und jahr % 100 != 0“ war für
+    Python kein Ausdruck und wurde zum Platzhalter `False`; das
+    Programm nahm dann immer den Nein-Zweig (Punkt 655). Ersetzt werden
+    nur Namen, nie Wörter in einem Text in Anführungszeichen. Lässt
+    sich der Text nicht zerlegen, bleibt er, wie er ist. Angewandt wird
+    das nur auf Köpfe und Fälle, nicht auf Anweisungen: aus „Ausgabe:
+    nicht gefunden“ würde sonst `print(not gefunden)`."""
+    if not re.search(r"\b(?:und|oder|nicht)\b", text, re.IGNORECASE):
+        return text
+    import io
+    import tokenize
+
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(text).readline))
+    except (tokenize.TokenError, SyntaxError, IndentationError):
+        return text
+    stellen = [
+        (token.start[1], token.end[1], _LOGIKWOERTER[token.string.lower()])
+        for token in tokens
+        if token.type == tokenize.NAME and token.start[0] == 1
+        and token.string.lower() in _LOGIKWOERTER
+    ]
+    for anfang, ende, ersatz in reversed(stellen):
+        text = text[:anfang] + ersatz + text[ende:]
+    return text
 
 
 #: Eine Kommazahl wie „2,5“: genau ein Komma zwischen zwei Ziffernfolgen,
@@ -1052,6 +1087,24 @@ def _als_zahl_benutzt(wurzel: dict[str, Any]) -> set[str]:
     namen = {name for text in texte for name in _NAME.findall(text)}
     vergleich = r"(?:==|!=|=(?!=))"
     gefunden = set(_fallauswahl_mit_zahlen(wurzel))
+    # Ein Name als Index einer Liste („liste ← [1, 2, 3]“, dann
+    # „liste[i]“) muss eine ganze Zahl sein; als Text endete der Zugriff
+    # mit TypeError (Punkt 656). Nur Listen, die als Liste angelegt
+    # werden: in einem Wörterbuch wie `telefon[name]` ist der Schlüssel
+    # oft ein Text.
+    listen = {
+        treffer.group(1)
+        for zeile in zeilen
+        if (treffer := re.match(r"\s*(\w+)\s*(?:=(?!=)|←|:=)\s*\[", zeile))
+    }
+    for name in namen:
+        n = re.escape(name)
+        if any(
+            re.search(rf"(?<![\w.]){re.escape(liste)}\s*\[\s*{n}\s*\]", text)
+            for liste in listen
+            for text in texte
+        ):
+            gefunden.add(name)
     for name in namen:
         n = re.escape(name)
         muster = re.compile(

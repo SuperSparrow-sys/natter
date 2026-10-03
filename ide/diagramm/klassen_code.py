@@ -24,6 +24,7 @@ import keyword
 import re
 from typing import Any
 
+from ide.diagramm.struktogramm_code import _kommazahlen
 from ide.diagramm.uml_modell import attribute, formname, ist_klasse, operationen
 
 EINRUECKUNG = "    "
@@ -126,6 +127,16 @@ def _docstring(text: str, tiefe: int) -> list[str]:
     if len(zeilen) == 1:
         return [f'{einzug}"""{zeilen[0]}"""']
     return [f'{einzug}"""{zeilen[0]}', *(f"{einzug}{z}" for z in zeilen[1:]), f'{einzug}"""']
+
+
+def _wert(roh: Any) -> str:
+    """Ein Start- oder Standardwert, wie ihn Python lesen soll: „0,5“
+    mit Komma wird `0.5`. Bis Punkt 654 ergab „zins = 0,5“ im
+    modellierten Konstruktor still das Tupel `(0, 5)`, und eine
+    Rechnung damit endete in TypeError. Es gilt dieselbe Regel wie im
+    Struktogramm: nur ein Komma direkt zwischen zwei Ziffernfolgen,
+    außerhalb von Klammern und Texten; `[1, 2]` und `(1,2)` bleiben."""
+    return _kommazahlen(str(roh or "").strip())
 
 
 def _basisklassen(daten: dict[str, Any], shape: dict[str, Any]) -> list[str]:
@@ -286,7 +297,7 @@ def _eigene_parameter(
         feld = _bezeichner(
             str(attribut.get("name", "")), attribut.get("visibility", "public")
         )
-        wert = attribut.get("value")
+        wert = _wert(attribut.get("value"))
         if wert and _ist_veraenderlich(wert):
             zuweisungen.append(
                 f"{EINRUECKUNG * 2}self.{feld} = {str(wert).strip()}"
@@ -359,7 +370,7 @@ def _konstruktor_parameter(
                 continue
             stueck = _mit_typ(name, p.get("type"))
             if p.get("default"):
-                stueck += f" = {p['default']}"
+                stueck += f" = {_wert(p['default'])}"
             ergebnis.append((name, stueck, bool(p.get("default"))))
         return ergebnis
     _, basis = _basisform(daten, shape)
@@ -439,7 +450,7 @@ def _klassenattribute(shape: dict[str, Any]) -> list[str]:
             continue
         zeilen.append(
             f"{EINRUECKUNG}{_mit_typ(name, attribut.get('type'))}"
-            f" = {attribut.get('value') or 'None'}"
+            f" = {_wert(attribut.get('value')) or 'None'}"
         )
     return [*zeilen, ""] if zeilen else []
 
@@ -489,7 +500,7 @@ def _zuweisungen_fuer_init(
             belegt.add(roh)
     for attribut in instanz:
         roh = str(attribut.get("name", "")).strip().lstrip("_")
-        wert = str(attribut.get("value") or "").strip()
+        wert = _wert(attribut.get("value"))
         if roh in belegt or not wert:
             continue
         zeilen.append(f"{EINRUECKUNG * 2}self.{felder[roh]} = {wert}")
@@ -578,7 +589,7 @@ def _operation_zeilen(
     for p in parameter:
         stueck = _mit_typ(str(p.get("name", "")).strip(), p.get("type"))
         if p.get("default"):
-            stueck += f" = {p['default']}"
+            stueck += f" = {_wert(p['default'])}"
         if stueck:
             argumente.append(stueck)
 
@@ -694,7 +705,7 @@ def ungueltige_namen(
                 attribut.get("type"), f"{klassenname}.{feld}: Der Typ"
             )
             ausdruck_pruefen(
-                attribut.get("value"), f"{klassenname}.{feld}: Der Startwert"
+                _wert(attribut.get("value")), f"{klassenname}.{feld}: Der Startwert"
             )
         for operation in operationen(klasse):
             pruefen(operation.get("name"), f"{klassenname}: Die Operation")

@@ -1455,3 +1455,72 @@ def test_hinweis_nach_anzahl_ohne_anrede(anzahl: int, satz: str) -> None:
     """Punkt 652: „1 Zeile … Sie stehen als Kommentar im Code“."""
     bloecke = [_anweisung(f"rechne Teil {i} aus") for i in range(anzahl)]
     assert als_python(_diagramm(*bloecke)).meldung() == satz
+
+
+@pytest.mark.parametrize(
+    ("bedingung", "jahr", "erwartet"),
+    [
+        ("jahr % 4 = 0 und jahr % 100 != 0 oder jahr % 400 = 0?", "2000", "ja"),
+        ("jahr % 4 = 0 und jahr % 100 != 0 oder jahr % 400 = 0?", "1900", "nein"),
+        ("jahr % 4 = 0 und jahr % 100 != 0 oder jahr % 400 = 0?", "2024", "ja"),
+        ("jahr > 0 UND jahr < 10", "5", "ja"),
+        ("nicht (jahr > 10)", "11", "nein"),
+    ],
+)
+def test_und_oder_nicht_in_bedingungen(
+    bedingung: str, jahr: str, erwartet: str, monkeypatch
+) -> None:  # noqa: ANN001
+    """Punkt 655: „und“, „oder“ und „nicht“ ergaben `if False:`; das
+    Schaltjahr nahm immer den Nein-Zweig."""
+    import builtins
+
+    ergebnis = als_python(_diagramm(
+        _anweisung("Eingabe: jahr"),
+        _block("branch", bedingung,
+               then=[_anweisung('spur.append("ja")')],
+               **{"else": [_anweisung('spur.append("nein")')]}),
+    ))
+    monkeypatch.setattr(builtins, "input", lambda _frage="": jahr)
+
+    assert ergebnis.anzahl == 0
+    assert _ausfuehren(ergebnis) == [erwartet]
+
+
+def test_und_in_einem_text_bleibt() -> None:
+    """Wörter in Anführungszeichen bleiben, wie sie sind."""
+    ergebnis = als_python(_diagramm(
+        _anweisung('name ← "Tom und Jerry"'),
+        _block("branch", 'name == "Tom und Jerry"',
+               then=[_anweisung('spur.append("ja")')]),
+    ))
+    assert 'if name == "Tom und Jerry":' in ergebnis.text
+    assert _ausfuehren(ergebnis) == ["ja"]
+
+
+def test_eine_eingabe_als_listenindex_wird_zahl(monkeypatch) -> None:  # noqa: ANN001
+    """Punkt 656: „Eingabe: i“ und „liste[i]“ endeten mit TypeError."""
+    import builtins
+
+    ergebnis = als_python(_diagramm(
+        _anweisung("Eingabe: i"),
+        _anweisung("liste ← [1, 2, 3]"),
+        _anweisung("spur.append(liste[i])"),
+    ))
+    monkeypatch.setattr(builtins, "input", lambda _frage="": "1")
+
+    assert _ausfuehren(ergebnis) == [2]
+
+
+def test_ein_text_als_schluessel_eines_woerterbuchs_bleibt_text(monkeypatch) -> None:  # noqa: ANN001
+    """Ein Wörterbuch mit Texten als Schlüsseln liest den Namen weiter
+    als Text."""
+    import builtins
+
+    ergebnis = als_python(_diagramm(
+        _anweisung("Eingabe: name"),
+        _anweisung('telefon ← {"Anna": 123}'),
+        _anweisung("spur.append(telefon[name])"),
+    ))
+    monkeypatch.setattr(builtins, "input", lambda _frage="": "Anna")
+
+    assert _ausfuehren(ergebnis) == [123]
