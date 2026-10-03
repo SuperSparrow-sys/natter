@@ -166,8 +166,28 @@ class KlassenDialog(QDialog):
         layout.addWidget(self.reiter)
         layout.addWidget(self.knoepfe)
         fenstergroesse.einpassen(self, 640, 700)
+        self._breite_geprueft = False
 
         self._anzeigen()
+
+    def showEvent(self, ereignis) -> None:  # noqa: ANN001, N802
+        """Beim ersten Zeigen mindestens so breit wie die breiteste
+        Seite (Punkt 500). Mit fest 640 Pixeln waren auf „Klasse“ die
+        Felder rechts und die Zahlen „40“ und „17“ abgeschnitten, und
+        unten stand eine waagerechte Bildlaufleiste. Gemessen wird erst
+        hier: Schriftgröße und Stylesheet der IDE gelten erst beim
+        Zeigen, vorher ist die Seite rund 70 Pixel schmaler. Höher als
+        der Bildschirm wird der Dialog weiterhin nicht."""
+        super().showEvent(ereignis)
+        if self._breite_geprueft:
+            return
+        self._breite_geprueft = True
+        noetig = max(
+            self.reiter.widget(i).widget().minimumSizeHint().width()
+            for i in range(self.reiter.count())
+        ) + 64
+        if self.width() < noetig:
+            fenstergroesse.einpassen(self, noetig, self.height())
 
     # -- Reiter „Klasse“ -------------------------------------------------
 

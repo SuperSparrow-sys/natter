@@ -323,3 +323,33 @@ def test_die_form_waechst_mit_ihrem_inhalt(
     dialog.anwenden()
 
     assert klasse["h"] > vorher
+
+
+def test_der_dialog_ist_so_breit_wie_seine_breiteste_seite(qtbot) -> None:  # noqa: ANN001
+    """Punkt 500: mit fest 640 Pixeln waren unter dem Stylesheet der IDE
+    die Felder rechts abgeschnitten, und unten stand eine waagerechte
+    Bildlaufleiste. Gemessen wird nach dem Zeigen, wenn Schrift und
+    Stylesheet gelten."""
+    from PySide6.QtWidgets import QWidget
+
+    from ide.diagramm.klassendialog import KlassenDialog
+    from ide.shell.theme import ide_qss_erzeugen
+
+    eltern = QWidget()
+    eltern.setStyleSheet(ide_qss_erzeugen("light", basis_pt=12))
+    qtbot.addWidget(eltern)
+    dialog = KlassenDialog(
+        {"id": "s1", "kind": "class", "x": 0, "y": 0, "w": 184, "h": 128,
+         "name": "Klasse", "attributes": [], "operations": []},
+        eltern,
+    )
+    dialog.show()
+    qtbot.waitExposed(dialog)
+
+    for i in range(dialog.reiter.count()):
+        rollbereich = dialog.reiter.widget(i)
+        assert (
+            rollbereich.widget().minimumSizeHint().width()
+            <= dialog.width()
+        ), dialog.reiter.tabText(i)
+    dialog.close()

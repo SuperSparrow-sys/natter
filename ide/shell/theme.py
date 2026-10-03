@@ -106,6 +106,9 @@ def ide_qss_erzeugen(
     if basis_pt is None:
         basis_pt = schrift["sizes_pt"][0]
     tab_schliessen = _tab_schliessen_symbol(aufgeloest)
+    # Nicht unter `icons`: der Haken ist kein Symbol der Palette, das
+    # allein in 16 Pixeln stehen muss, sondern eine Einlage im Kästchen.
+    haken = (_ICON_ORDNER.parent / "qss" / "haken.svg").as_posix()
 
     return f"""\
 QMainWindow, QDialog {{
@@ -285,6 +288,44 @@ QStatusBar {{
    bleibt rot. */
 QStatusBar QWidget {{
     background-color: transparent;
+}}
+
+/* Kästchen und Optionsfelder. Die allgemeine QWidget-Regel oben gibt
+   ihnen eine Hintergrundfarbe, und damit zeichnet Qt die Markierung aus
+   dem Stylesheet statt im Windows-Stil. Ohne die Regeln hier verlor ein
+   angekreuztes Kästchen seinen Kasten und zeigte nur noch den Haken,
+   etwa im Eigenschaften-Dialog einer Klasse (Punkt 501). */
+QCheckBox::indicator, QRadioButton::indicator {{
+    width: 14px;
+    height: 14px;
+    background-color: {farben["bg"]};
+    border: 1px solid {farben["text_muted"]};
+}}
+QCheckBox::indicator {{
+    border-radius: 3px;
+}}
+QRadioButton::indicator {{
+    border-radius: 8px;
+}}
+QCheckBox::indicator:hover, QRadioButton::indicator:hover {{
+    border: 1px solid {farben["accent"]};
+}}
+QCheckBox::indicator:checked {{
+    background-color: {farben["accent"]};
+    border: 1px solid {farben["accent"]};
+    image: url({haken});
+}}
+QRadioButton::indicator:checked {{
+    /* Ring in der Akzentfarbe mit hellem Punkt. Breite und Höhe
+       schrumpfen um den dickeren Rand, damit der Kreis rund bleibt. */
+    width: 8px;
+    height: 8px;
+    background-color: {farben["bg"]};
+    border: 4px solid {farben["accent"]};
+}}
+QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {{
+    background-color: {farben["surface"]};
+    border-color: {farben["border"]};
 }}
 
 QPushButton {{

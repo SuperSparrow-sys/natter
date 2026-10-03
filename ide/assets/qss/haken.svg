@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Haken eines angekreuzten Kaestchens. Weiss auf der Akzentfarbe, in hell wie dunkel; ide/shell/theme.py bindet die Datei als image: url(...) ein. -->
+  <path d="M5 12.5 9.8 17.3 19 7" fill="none" stroke="#ffffff" stroke-width="2.6"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

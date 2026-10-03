@@ -487,3 +487,21 @@ def test_reiter_kreuz_hat_je_theme_eine_eigene_datei() -> None:
     dunkel = strichfarbe("tab_schliessen_dunkel")
     assert hell != dunkel
     assert dunkel.lightness() > hell.lightness()
+
+
+def test_angekreuzte_kaestchen_behalten_im_ide_thema_ihren_kasten() -> None:
+    """Punkt 501: die allgemeine QWidget-Regel des IDE-Stylesheets
+    schaltet Kästchen auf Zeichnen aus dem Stylesheet um. Ohne eigene
+    Regeln verlor ein angekreuztes Kästchen seinen Kasten. Der Haken
+    liegt nicht unter `icons`, weil er kein Symbol der Palette ist."""
+    from pathlib import Path as _Pfad
+
+    from ide.shell.theme import ide_qss_erzeugen
+
+    for thema in ("light", "dark"):
+        qss = ide_qss_erzeugen(thema)
+        assert "QCheckBox::indicator:checked" in qss
+        haken = qss.split("QCheckBox::indicator:checked", 1)[1].split("}", 1)[0]
+        pfad = haken.split("url(", 1)[1].split(")", 1)[0]
+        assert _Pfad(pfad).is_file() and _Pfad(pfad).parent.name == "qss"
+

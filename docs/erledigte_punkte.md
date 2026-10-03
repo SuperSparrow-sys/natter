@@ -13156,3 +13156,31 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** Text umbrechen und die Zeile samt ihren Regelzellen mitwachsen lassen. Erledigt, wenn ein Test eine lange Bedingung höher findet als eine kurze und das Bild den ganzen Text zeigt.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** Neue Funktion `zeilenhoehe` misst den umbrochenen Text in der Breite der Textspalte (`QFontMetricsF`, `TextWordWrap`), mindestens `ZEILENHOEHE`. Größe, Zellen für Klick und Auswahl und das Zeichnen verwenden sie; der Text wird umbrochen gezeichnet. Bildschirm, PNG, SVG und PDF benutzen denselben Code. Am exportierten Bild geprüft. Test: `test_eine_lange_bedingung_bricht_um_statt_abgeschnitten_zu_werden` in `tests/test_diagramm_tabelle.py`; mit der Datei aus `HEAD` scheitert er.
+
+---
+
+## 500. Klassendialog: rechts abgeschnitten, mit waagerechter Bildlaufleiste ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Doppelklick auf eine Klasse an der echten Oberfläche (Entwicklungsfassung, Bild `build\auswertung\044s\bilder\F_Klassendiagramm_dialog.png`), Entwicklungsstand `4843fec`.
+
+**Beobachtet:** „Eigenschaften: UML – Klasse“ öffnet sich zu schmal. Auf dem Reiter „Klasse“ reichen die Eingabefelder über den rechten Rand, von den Feldern „Operationen umbrechen nach (Zeichen)“ und „Kommentar umbrechen nach (Zeichen)“ sind nur die Zahlen zu sehen, und unten steht eine waagerechte Bildlaufleiste.
+
+**Ursache:** nachgewiesen. `KlassenDialog` (`ide/diagramm/klassendialog.py`) öffnet mit fest 640 Pixeln Breite (`fenstergroesse.einpassen(self, 640, 700)`). Die Seite braucht unter dem Stylesheet der IDE bei 150 % 673 Pixel; die Rollbereiche aus Punkt 300 verstecken den Rest hinter einer Bildlaufleiste.
+
+**Zu tun:** Den Dialog mindestens so breit öffnen wie die breiteste Seite, höchstens so breit wie der Bildschirm. Erledigt, wenn ein Test unter dem IDE-Stylesheet keine Seite breiter als den Dialog findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `KlassenDialog.showEvent` misst beim ersten Zeigen die breiteste Seite (`minimumSizeHint`) und verbreitert den Dialog bei Bedarf über `fenstergroesse.einpassen`, das auf die verfügbare Fläche begrenzt. Gemessen wird erst dort, weil Schriftgröße und Stylesheet der IDE vorher nicht gelten und die Seite dann rund 70 Pixel schmaler erscheint. Am Bild bei 150 % geprüft. Test: `test_der_dialog_ist_so_breit_wie_seine_breiteste_seite` in `tests/test_diagramm_klassendialog.py`; mit der Datei aus `HEAD` scheitert er.
+
+---
+
+## 501. IDE: ein angekreuztes Kästchen verliert seinen Kasten ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Klassendialog an der echten Oberfläche (Bild wie Punkt 500), Entwicklungsstand `4843fec`.
+
+**Beobachtet:** In „Eigenschaften: UML – Klasse“ zeigen „Attribute sichtbar“ und „Operationen sichtbar“ nur einen Haken ohne Kasten, die leeren Kästchen daneben einen Kasten. Angekreuzt und leer sehen dadurch wie zwei verschiedene Bedienelemente aus. Betroffen ist jedes Kästchen in Fenstern mit dem Stylesheet der IDE.
+
+**Ursache:** nachgewiesen. `ide_qss_erzeugen` (`ide/shell/theme.py`) gibt jedem `QWidget` eine Hintergrundfarbe. Damit zeichnet Qt Kästchen und Optionsfelder aus dem Stylesheet statt im Windows-Stil, und für ihre Markierung gab es dort keine Regeln. `pcl.theme` hat solche Regeln für die Programme seit M8.
+
+**Zu tun:** Regeln für Kästchen und Optionsfelder im IDE-Stylesheet. Erledigt, wenn ein Bild in hellem und dunklem Thema angekreuzte, leere, gewählte und nicht gewählte Felder einheitlich zeigt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Neue Regeln in `ide_qss_erzeugen`: Kasten bzw. Kreis mit Rand in `text_muted`, angekreuzt mit Akzentfarbe und weißem Haken (`ide/assets/qss/haken.svg`), gewählt als Ring in der Akzentfarbe. Der Haken liegt nicht unter `icons`, weil er kein Symbol der Palette ist, sondern eine Einlage im Kästchen; die Rasterregeln der Symbole gelten für ihn nicht. Am Bild in hell und dunkel bei 150 % geprüft. Test: `test_angekreuzte_kaestchen_behalten_im_ide_thema_ihren_kasten` in `tests/test_assets_symbole.py`; mit der Datei aus `HEAD` scheitert er.
