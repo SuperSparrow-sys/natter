@@ -164,6 +164,38 @@ def test_lange_zeilen_brechen_um_statt_zu_verschwinden(
     assert hoch, "Die lange Zeile belegt nur eine Zeile - sie wird abgeschnitten."
 
 
+def test_der_umbrochene_rest_steht_unter_dem_code(
+    projekt: Projekt, qapp
+) -> None:
+    """Punkt 518: der Rest einer langen Zeile stand ganz links, vor
+    der Nummernspalte, und sah aus wie eine eigene Zeile ohne
+    Einrückung. Die erste Zeile behält dabei ihre volle Breite: eine
+    Zeile, die vorher passte, bricht auch jetzt nicht um."""
+    lang = projekt.ordner / "u_lang.py"
+    lang.write_text(
+        f"x = {'1234567890' * 30}\ny = {'9' * 90}\n",
+        encoding="utf-8",
+    )
+    spalte = len("   1 │ ")
+    dokument = dokument_erzeugen(projekt)
+    dokument.setPageSize(A4)
+    assert dokument.pageCount() > 0
+
+    zeilen = {}
+    block = dokument.begin()
+    while block.isValid():
+        for anfang in ("x = ", "y = "):
+            if f"│ {anfang}" in block.text():
+                zeilen[anfang] = block.layout()
+        block = block.next()
+
+    lang_layout, passend = zeilen["x = "], zeilen["y = "]
+    code_x = lang_layout.lineAt(0).cursorToX(spalte)[0]
+    assert lang_layout.lineCount() > 1
+    assert lang_layout.lineAt(1).x() == pytest.approx(code_x, abs=1)
+    assert passend.lineCount() == 1
+
+
 # ------------------------------------------------ Seiten und Datei
 
 

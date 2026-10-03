@@ -259,12 +259,14 @@ def test_csvansicht_sortiert_zahlen_nach_wert(
     tmp_path: Path, qtbot,  # noqa: ANN001
 ) -> None:
     """Punkt 329: Zahlen, auch mit Dezimalkomma, nach Wert und vor
-    Texten, leere Zellen am Ende; absteigend bleiben sie dort."""
+    Texten, leere Zellen am Ende; absteigend bleiben sie dort.
+    Punkt 520: ein Datum wie 15.12.2025 nach dem Kalender."""
     datei = tmp_path / "noten.csv"
     datei.write_text(
-        "Name;Punkte;Schnitt\n"
-        'Anna;9;"2,5"\nBo;10;"11,25"\nCem;100;3\nDana;25;"1,75"\n'
-        "Eli;;fehlt\n",
+        "Name;Punkte;Schnitt;Datum\n"
+        'Anna;9;"2,5";03.10.2026\nBo;10;"11,25";15.12.2025\n'
+        'Cem;100;3;1.2.2025\nDana;25;"1,75";28.02.2026\n'
+        "Eli;;fehlt;\n",
         encoding="utf-8",
     )
     ansicht = CsvAnsicht(datei)
@@ -283,6 +285,10 @@ def test_csvansicht_sortiert_zahlen_nach_wert(
     assert spalte(1) == ["100", "25", "10", "9", ""]
     tabelle.sortByColumn(2, Qt.SortOrder.AscendingOrder)
     assert spalte(2) == ["1,75", "2,5", "3", "11,25", "fehlt"]
+    tabelle.sortByColumn(3, Qt.SortOrder.AscendingOrder)
+    assert spalte(3) == [
+        "1.2.2025", "15.12.2025", "28.02.2026", "03.10.2026", ""
+    ]
 
 
 def test_csvansicht_sortiert_text_wie_ein_woerterbuch(

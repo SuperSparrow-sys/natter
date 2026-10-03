@@ -38,6 +38,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
+    QDialogButtonBox,
     QDockWidget,
     QFileDialog,
     QHBoxLayout,
@@ -86,7 +87,13 @@ from ide.diagramm import (
     DiagrammFenster,
     diagramm_erzeugen,
 )
-from ide.env import PaketFehler, installierte_pakete, paket_installieren, paketliste_exportieren
+from ide.env import (
+    Paket,
+    PaketFehler,
+    installierte_pakete,
+    paket_installieren,
+    paketliste_exportieren,
+)
 from ide.export import exe_exportieren
 from ide.export.signatur import (
     WIEDER_FRAGEN,
@@ -2407,6 +2414,60 @@ class HauptFenster(QMainWindow):
             nummer += 1
         return f"u_form{nummer}", f"Form{nummer}"
 
+    def _formularname_fehler(
+        self, unit: str, ordner: Path, *, unit_darf_bestehen: bool = False
+    ) -> str | None:
+        """Was gegen `unit` als Name eines Formulars in `ordner`
+        spricht, oder `None`. Gemeinsam für „Neues Formular …“ und den
+        Import einer `.lfm` (Punkt 517). Der Import darf eine schon
+        vorhandene Unit ohne Formular behalten und legt nur das
+        Formular dazu; ein vorhandenes Formular ersetzt er nie."""
+        if (
+            not unit.isidentifier()
+            or keyword.iskeyword(unit)
+            or not unit.startswith("u_")
+            or unit.endswith("_design")
+        ):
+            return (
+                f"„{unit}“ taugt nicht als Name: erlaubt sind Buchstaben, "
+                "Ziffern und Unterstrich, am Anfang „u_“, etwa "
+                "u_einstellungen."
+            )
+        # Windows unterscheidet in Dateinamen nicht zwischen Groß- und
+        # Kleinschreibung: „u_Main“ träfe die vorhandene u_main.py.
+        # Deshalb wird ohne Rücksicht darauf verglichen und zusätzlich
+        # jede der drei Dateien auf dem Datenträger geprüft.
+        if unit_darf_bestehen:
+            if (ordner / f"{unit}.pfm").exists() or any(
+                p.stem.casefold() == unit.casefold()
+                for p in ordner.glob("*.pfm")
+            ):
+                return (
+                    f"„{unit}“ gibt es schon - bitte einen anderen Namen "
+                    "wählen."
+                )
+            return None
+        vorhandene: set[str] = set()
+        if self.projekt is not None and ordner == self.projekt.ordner:
+            vorhandene = {
+                p.stem.casefold() for p in self.projekt.alle_python_dateien()
+            }
+            vorhandene |= {
+                p.stem.casefold() for p in self.projekt.formulare()
+            }
+        ziele = [
+            ordner / f"{unit}.pfm",
+            ordner / f"{unit}.py",
+            ordner / f"{unit}_design.py",
+        ]
+        if (
+            unit.casefold() in vorhandene
+            or f"{unit}_design".casefold() in vorhandene
+            or any(z.exists() for z in ziele)
+        ):
+            return f"„{unit}“ gibt es schon - bitte einen anderen Namen wählen."
+        return None
+
     def formular_erzeugen(self, unit: str) -> Path | None:
         """Legt `<unit>.pfm`, `<unit>.py` und `<unit>_design.py` an,
         zeigt sie im Explorer und öffnet das Formular im Designer.
@@ -2423,31 +2484,12 @@ class HauptFenster(QMainWindow):
             raise RuntimeError("Kein Projekt offen.")
         if unit.endswith((".py", ".pfm")):
             unit = unit.rsplit(".", 1)[0]
-        if not unit.isidentifier() or not unit.startswith("u_"):
-            raise ValueError(
-                f"„{unit}“ taugt nicht als Name: erlaubt sind Buchstaben, Ziffern und "
-                f"Unterstrich, am Anfang „u_“, etwa u_einstellungen."
-            )
-        # Windows unterscheidet in Dateinamen nicht zwischen Groß- und
-        # Kleinschreibung: „u_Main“ träfe die vorhandene u_main.py.
-        # Deshalb wird ohne Rücksicht darauf verglichen und zusätzlich
-        # jede der drei Dateien auf dem Datenträger geprüft.
-        vorhandene = {
-            p.stem.casefold() for p in self.projekt.alle_python_dateien()
-        }
-        vorhandene |= {p.stem.casefold() for p in self.projekt.formulare()}
         ordner = self.projekt.ordner
-        ziele = [
-            ordner / f"{unit}.pfm",
-            ordner / f"{unit}.py",
-            ordner / f"{unit}_design.py",
-        ]
-        if (
-            unit.casefold() in vorhandene
-            or f"{unit}_design".casefold() in vorhandene
-            or any(z.exists() for z in ziele)
-        ):
-            raise FileExistsError(f"„{unit}“ gibt es schon - bitte einen anderen Namen wählen.")
+        fehler = self._formularname_fehler(unit, ordner)
+        if fehler is not None:
+            if "gibt es schon" in fehler:
+                raise FileExistsError(fehler)
+            raise ValueError(fehler)
         klasse = self._naechster_formularname()[1]
 
         pfm_pfad = ordner / f"{unit}.pfm"
@@ -3645,9 +3687,21 @@ class HauptFenster(QMainWindow):
             else "Dieses Laufwerk hat keinen Papierkorb: die Dateien werden "
             "endgültig gelöscht und lassen sich nicht zurückholen."
         )
+        # „Dazu gehören“ bei mehreren Dateien; bis 0.4.3 stand auch vor
+        # zweien „Dazu gehört“ (Punkt 513).
+        verb = "gehört" if len(weitere) == 1 else "gehören"
         dazu = (
-            f" Dazu gehört {_aufzaehlung([p.name for p in weitere])}." if weitere else ""
+            f" Dazu {verb} {_aufzaehlung([p.name for p in weitere])}."
+            if weitere else ""
         )
+        nutzer = self._importierende_dateien(pfad.stem, betroffen)
+        if nutzer:
+            einzahl = len(nutzer) == 1
+            dazu += (
+                f" {_aufzaehlung(nutzer)} {'importiert' if einzahl else 'importieren'}"
+                f" „{pfad.stem}“ noch; das Programm startet erst wieder, "
+                f"wenn der Import dort entfernt ist."
+            )
         if not self._loeschen_bestaetigt(
             "Formular löschen" if ist_formular else "Unit löschen",
             f"„{pfad.name}“ wirklich löschen?{dazu} {folge}",
@@ -3675,6 +3729,29 @@ class HauptFenster(QMainWindow):
         if self.projekt is not None:
             self.explorer.projekt_anzeigen(self.projekt)
         self.statusBar().showMessage(f"„{pfad.name}“ gelöscht.")
+
+    def _importierende_dateien(
+        self, stamm: str, ausser: list[Path]
+    ) -> list[str]:
+        """Die Dateien des Projekts, die `stamm` importieren, ohne
+        auskommentierte Zeilen und ohne `ausser` (Punkt 514). Bis 0.4.3
+        ließ sich ein Formular löschen, das `u_main.py` noch
+        importierte, ohne Hinweis; danach startete das Programm mit
+        einem ModuleNotFoundError nicht mehr."""
+        if self.projekt is None:
+            return []
+        name = re.escape(stamm)
+        muster = re.compile(
+            rf"^\s*(?:from\s+{name}\s+import\b|import\s+{name}\b)", re.M
+        )
+        weg = {p.resolve() for p in ausser}
+        return [
+            datei.name
+            for datei in self.projekt.alle_python_dateien()
+            if datei.resolve() not in weg
+            and not datei.stem.endswith("_design")
+            and muster.search(self._aktueller_text_von(datei))
+        ]
 
     def _offenen_tab_pfad_aktualisieren(self, alt: Path, neu: Path) -> None:
         for index in range(self.editor_tabs.count()):
@@ -5397,15 +5474,31 @@ class HauptFenster(QMainWindow):
         """Lädt jede Datei neu, die sich auf der Platte geändert hat
         und im Editor keine ungespeicherten Änderungen hat. Läuft, wenn
         das Fenster wieder in den Vordergrund kommt (Punkt 286)."""
+        weg: list[str] = []
         for index in range(self.editor_tabs.count()):
             editor = self._tab_inhalt(self.editor_tabs.widget(index))
             if (
-                isinstance(editor, QPlainTextEdit)
-                and editor.property(_PFAD_EIGENSCHAFT)
-                and not editor.document().isModified()
-                and _von_aussen_geaendert(editor)
+                not isinstance(editor, QPlainTextEdit)
+                or not editor.property(_PFAD_EIGENSCHAFT)
+                or editor.document().isModified()
             ):
+                continue
+            pfad = Path(editor.property(_PFAD_EIGENSCHAFT))
+            if editor.property(dateistand.EIGENSCHAFT) and not pfad.exists():
+                # Draußen gelöscht oder umbenannt: der Text steht nur
+                # noch im Editor. Bis 0.4.3 galt der Reiter weiter als
+                # gespeichert, und beim Schließen kam keine Frage
+                # (Punkt 515).
+                editor.document().setModified(True)
+                weg.append(pfad.name)
+            elif _von_aussen_geaendert(editor):
                 self._editor_neu_laden(editor)
+        if weg:
+            self.statusBar().showMessage(
+                f"{_aufzaehlung(weg)} gibt es "
+                "auf der Platte nicht mehr. Der Text steht noch im Editor; "
+                "Speichern legt die Datei wieder an."
+            )
 
     def changeEvent(self, event: QEvent) -> None:
         super().changeEvent(event)
@@ -7739,18 +7832,30 @@ class HauptFenster(QMainWindow):
             )
             return
 
+        # Vorgeschlagen wird ein Name, unter dem Natter das Formular
+        # führen kann: `unit1.lfm` wird `u_unit1.pfm` (Punkt 517).
+        stamm = Path(quelle).stem
+        if not stamm.startswith("u_"):
+            stamm = f"u_{stamm.lower()}"
         ziel, _ = QFileDialog.getSaveFileName(
             self,
             "Formular speichern unter",
-            str(
-                Path(self._dialog_startordner())
-                / Path(quelle).with_suffix(".pfm").name
-            ),
+            str(Path(self._dialog_startordner()) / f"{stamm}.pfm"),
             filter="Natter-Formulare (*.pfm)",
         )
         if not ziel:
             return
-        ziel_pfad = Path(ziel)
+        ziel_pfad = Path(ziel).with_suffix(".pfm")
+        # Aus dem Namen wird ein Python-Modul. Bis 0.4.3 entstand aus
+        # „Pizza Bestellung.pfm“ eine Unit mit einem Syntaxfehler, und
+        # ein vorhandenes Formular wie u_main.pfm wurde ersetzt, wenn
+        # die Rückfrage des Dateidialogs bejaht wurde (Punkt 517).
+        fehler = self._formularname_fehler(
+            ziel_pfad.stem, ziel_pfad.parent, unit_darf_bestehen=True
+        )
+        if fehler is not None:
+            self._umbenennen_ablehnen(fehler, "Formular importieren")
+            return
         # Die Bilder zuerst: sie stehen seit Punkt 57 als `picture` in der
         # `.pfm` und damit auch in der Designer-Vorschau. Bis dahin lud
         # eine Zeile im Code sie erst im gestarteten Programm.
@@ -7868,24 +7973,50 @@ class HauptFenster(QMainWindow):
 
     def _pakete_anzeigen_aktion(self) -> None:
         """„Pakete → Paketverwaltung anzeigen“: Liste der installierten
-        Pakete des aktuell aktiven Python-Interpreters."""
-        try:
-            pakete = installierte_pakete()
-        except (OSError, PaketFehler) as fehler:
-            self.statusBar().showMessage(
-                f"Paketliste nicht lesbar: {fehler}. Besteht eine Verbindung zum Netz?"
-            )
-            return
+        Pakete des aktuell aktiven Python-Interpreters.
 
+        `pip list` läuft im Hintergrund (Punkt 516). Bis 0.4.3 stand
+        Natter dabei still, auf einem Schulrechner mehrere Sekunden,
+        und ein Fehler riet, die Netzverbindung zu prüfen, die für die
+        Liste gar nicht gebraucht wird."""
+        if not self._hintergrund_frei("Die Paketliste"):
+            return
+        fehlertext = "Paketliste nicht lesbar"
+        self.statusBar().showMessage("Die Paketliste wird gelesen …")
+
+        def arbeit(_melden: Callable[[int, str], None]) -> object:
+            try:
+                return installierte_pakete()
+            except (OSError, PaketFehler) as fehler:
+                return fehler
+
+        def fertig(ergebnis: object) -> None:
+            if isinstance(ergebnis, BaseException):
+                self._hintergrund_fehler(fehlertext, str(ergebnis))
+                return
+            self.statusBar().clearMessage()
+            self._paketliste_zeigen(ergebnis)
+
+        self._hintergrund_starten(arbeit, fertig, fehlertext)
+
+    def _paketliste_zeigen(self, pakete: list[Paket]) -> None:
         dialog = QDialog(self)
         dialog.setWindowTitle("Paketverwaltung")
         tabelle = QTableWidget(len(pakete), 2)
         tabelle.setHorizontalHeaderLabels(["Paket", "Version"])
+        # Nur zum Ansehen: eine geänderte Zelle bewirkte nichts.
+        tabelle.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        tabelle.verticalHeader().setVisible(False)
         for zeile, paket in enumerate(pakete):
             tabelle.setItem(zeile, 0, QTableWidgetItem(paket.name))
             tabelle.setItem(zeile, 1, QTableWidgetItem(paket.version))
+        tabelle.horizontalHeader().setStretchLastSection(True)
+        tabelle.resizeColumnToContents(0)
         layout = QVBoxLayout(dialog)
         layout.addWidget(tabelle)
+        knoepfe = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        knoepfe.rejected.connect(dialog.reject)
+        layout.addWidget(knoepfe)
         dialog.resize(400, 500)
         dialog.exec()
 

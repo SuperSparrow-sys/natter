@@ -13338,3 +13338,122 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** Scheitert eine Anweisung an einem Komma zwischen zwei Ziffern, auf den Punkt hinweisen. Erledigt, wenn ein Test den Hinweis findet.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** `_kommazahl_hinweis` hängt „In SQL steht in einer Kommazahl ein Punkt, etwa 2.5 statt 2,5“ an, wenn die Meldung das Komma nennt und die Anweisung eine Ziffernfolge mit Komma enthält. Test: derselbe wie bei Punkt 510.
+
+---
+
+## 513. Explorer: die Frage vor dem Löschen sagt „Dazu gehört“ vor zwei Dateien ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Projekt-Explorer an der Oberfläche (Entwicklungsstand `f68d4b0`).
+
+**Beobachtet:** „⋮ → Löschen …“ an einem Formular fragt „„u_einstellungen.py“ wirklich löschen? Dazu gehört „u_einstellungen.pfm“ und „u_einstellungen_design.py“.“
+
+**Ursache:** nachgewiesen. `_unit_loeschen` in `ide/shell/hauptfenster.py` setzt das Verb fest in die Einzahl.
+
+**Zu tun:** „gehören“ bei mehr als einer Datei. Erledigt, wenn ein Test den Satz für ein Formular prüft.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_unit_loeschen` wählt „gehört“ oder „gehören“ nach der Zahl der weiteren Dateien. Test: `test_die_frage_vor_dem_loeschen_nennt_importe` in `tests/test_explorer_formular_diagramm_loeschen.py`; mit `hauptfenster.py` aus `HEAD` scheitert er.
+
+
+---
+
+## 514. Explorer: ein Formular lässt sich löschen, obwohl eine andere Datei es importiert ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Projekt-Explorer an der Oberfläche (Entwicklungsstand `f68d4b0`).
+
+**Beobachtet:** `u_main.py` enthält `from u_einstellungen import Form2`. „Löschen …“ am Formular `u_einstellungen` fragt nur nach dem Löschen der drei Dateien; danach startet das Programm mit „ModuleNotFoundError: No module named 'u_einstellungen'“ nicht mehr.
+
+**Ursache:** nachgewiesen. `_unit_loeschen` sucht nicht nach Dateien, die die Unit importieren.
+
+**Zu tun:** Die Frage nennt jede Datei, die die Unit noch importiert, ohne auskommentierte Zeilen. Erledigt, wenn ein Test den Hinweis findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Neue Methode `_importierende_dateien` sucht `from <unit> import` und `import <unit>` im Projekt, im Stand der Editoren und ohne die zu löschenden und die erzeugten Dateien; die Frage ergänzt „„u_main.py“ importiert „u_einstellungen“ noch; das Programm startet erst wieder, wenn der Import dort entfernt ist.“ Test: derselbe wie bei Punkt 513.
+
+
+---
+
+## 515. Eine draußen gelöschte Datei gilt im Editor weiter als gespeichert ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, „Datei von außen geändert“ an der Oberfläche (Entwicklungsstand `f68d4b0`).
+
+**Beobachtet:** `u_main.py` ist gespeichert im Editor offen und wird im Windows-Explorer gelöscht. Nach dem Zurückkehren steht der Text weiter im Editor, der Reiter trägt keinen Punkt für ungespeicherte Änderungen, und beim Schließen von Natter käme keine Frage: der Text wäre verloren.
+
+**Ursache:** nachgewiesen. `_von_aussen_geaenderte_neu_laden` behandelt nur geänderte Dateien; `dateistand.von_aussen_geaendert` meldet eine fehlende Datei absichtlich als unverändert.
+
+**Zu tun:** Eine verschwundene Datei macht den Reiter ungespeichert und bekommt einen Hinweis. Erledigt, wenn ein Test danach mit „Alle speichern“ die Datei wieder anlegt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_von_aussen_geaenderte_neu_laden` setzt für einen unveränderten Editor, dessen Datei nicht mehr existiert, `setModified(True)` und meldet „„u_main.py“ gibt es auf der Platte nicht mehr. Der Text steht noch im Editor; Speichern legt die Datei wieder an.“ Test: `test_draussen_geloeschte_datei_gilt_als_ungespeichert` in `tests/test_von_aussen_geaendert.py`; mit `hauptfenster.py` aus `HEAD` scheitert er.
+
+
+---
+
+## 516. Paketverwaltung: die Liste hält Natter an, und ein Fehler nennt das Netz ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Menü „Pakete“ (Entwicklungsstand `f68d4b0`).
+
+**Beobachtet:** „Pakete → Paketverwaltung anzeigen“ ruft `pip list` im Faden der Oberfläche auf; hier stand Natter 0,8 Sekunden, auf einem Schulrechner länger. Scheitert das, heißt es „Paketliste nicht lesbar: … Besteht eine Verbindung zum Netz?“, obwohl die Liste kein Netz braucht. Die Zellen der Tabelle lassen sich bearbeiten, ohne dass das etwas bewirkt, und der Dialog hat keinen Knopf zum Schließen.
+
+**Ursache:** nachgewiesen. `_pakete_anzeigen_aktion` liest synchron und baut eine bearbeitbare `QTableWidget` ohne Knopfleiste.
+
+**Zu tun:** Liste im Hintergrund lesen, Fehler ohne Netz-Hinweis, Tabelle nur zum Ansehen. Erledigt, wenn Tests beides zeigen.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_pakete_anzeigen_aktion` liest über `_hintergrund_starten`; ein Fehler kommt über `_hintergrund_fehler` in Statuszeile und Panel „Meldungen“. `_paketliste_zeigen` baut eine Tabelle ohne Bearbeitung, ohne Zeilennummern und mit „Schließen“. Tests: `test_pakete_anzeigen_zeigt_installierte_pakete` und `test_eine_unlesbare_paketliste_nennt_kein_netz` in `tests/test_hauptfenster_pakete.py`; mit `hauptfenster.py` aus `HEAD` scheitern beide.
+
+
+---
+
+## 517. Formular aus .lfm übernehmen: der Name wird nicht geprüft ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, „Werkzeuge → Formular importieren (.lfm) …“ mit dem Beispiel `f_Pizza` (Entwicklungsstand `f68d4b0`).
+
+**Beobachtet:** Gespeichert unter „Pizza Bestellung.pfm“ entsteht `Pizza Bestellung.py` mit `from Pizza Bestellung_design import Form1Design`, ein Syntaxfehler, und das Formular erscheint im Explorer. Ein vorhandenes Formular wie `u_main.pfm` wird ersetzt, wenn die Rückfrage des Dateidialogs bejaht wird. Vorgeschlagen wird `unit1.pfm`, ohne das „u_“, das „Neues Formular …“ verlangt.
+
+**Ursache:** nachgewiesen. `_formular_importieren_aktion` übernimmt den Pfad aus dem Dateidialog ohne Prüfung.
+
+**Zu tun:** Dieselben Namensregeln wie bei „Neues Formular …“, ein vorhandenes Formular nie ersetzen, Vorschlag mit „u_“. Erledigt, wenn ein Test beide Fälle ablehnt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Neue Methode `_formularname_fehler`, gemeinsam für `formular_erzeugen` und den Import: Bezeichner, kein Schlüsselwort, Anfang „u_“, kein Ende auf „_design“, kein vorhandenes Formular. Der Import darf wie bisher eine vorhandene Unit ohne Formular behalten (`unit_darf_bestehen`). Vorgeschlagen wird `u_unit1.pfm`. Test: `test_import_lehnt_untaugliche_namen_ab` in `tests/test_hauptfenster_formular_import.py`; mit `hauptfenster.py` aus `HEAD` scheitern beide Fälle.
+
+
+---
+
+## 518. Quelltext als PDF: umbrochene Zeilen beginnen vor der Nummernspalte ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, „Projekt → Quelltext als PDF …“ (Entwicklungsstand `f68d4b0`).
+
+**Beobachtet:** Eine Zeile, die zu lang für das Blatt ist, setzt sich ganz links fort, vor der Spalte mit den Zeilennummern. Die Spalte reißt auf, und die Fortsetzung sieht aus wie eine eigene Zeile ohne Einrückung.
+
+**Ursache:** nachgewiesen. `_code_einfuegen` in `ide/export/quelltext_pdf.py` setzt keine hängende Einrückung; der Kommentar dort begründete das mit verlorener Breite, die aber nur eine Einrückung der ganzen Zeile kostet.
+
+**Zu tun:** Die Fortsetzung beginnt unter dem Code, ohne dass die erste Zeile schmaler wird. Erledigt, wenn ein Test beides am Layout prüft.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Jede Codezeile hat einen linken Rand in der Breite der Nummernspalte und einen gleich großen negativen Einzug der ersten Zeile. Test: `test_der_umbrochene_rest_steht_unter_dem_code` in `tests/test_quelltext_pdf.py`; mit `quelltext_pdf.py` aus `HEAD` scheitert er.
+
+
+---
+
+## 519. Struktogramm: die Schrägen der Verzweigung laufen durch die Bedingung ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, PDF-Export von `konto_abheben.pdiag` (Entwicklungsstand `f68d4b0`).
+
+**Beobachtet:** In „Betrag größer als der Kontostand?“ läuft die rechte Schräge durch „Kontostand?“, in „Betrag kleiner oder gleich null?“ beide Schrägen durch den Text; am Bildschirm wie im PDF.
+
+**Ursache:** nachgewiesen. `_verzweigung_layout` in `ide/diagramm/struktogramm.py` macht den Kopf so hoch wie den Text. Der Text steht in der mittleren halben Breite, und so breit ist das Feld zwischen den Schrägen nur in der oberen Hälfte des Kopfes.
+
+**Zu tun:** Der Kopf wird so hoch, dass der Text in dessen oberer Hälfte endet. Erledigt, wenn ein Test das für eine kurze und eine umbrochene Bedingung zeigt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Die Kopfhöhe ist jetzt `2 × (Texthöhe + Innenabstand)`, mindestens wie bisher. Die Fallauswahl war nicht betroffen. Test: `test_die_bedingung_bleibt_ueber_den_schraegen` in `tests/test_diagramm_struktogramm.py`; mit `struktogramm.py` aus `HEAD` scheitert er für die umbrochene Bedingung.
+
+
+---
+
+## 520. CSV-Ansicht: Datumsangaben werden als Text sortiert ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, CSV aus einer deutschen Tabellenkalkulation (Entwicklungsstand `f68d4b0`).
+
+**Beobachtet:** Eine Spalte mit 01.02.2025, 03.10.2026 und 15.12.2025 steht aufsteigend sortiert in dieser Reihenfolge; der Oktober 2026 kommt vor dem Dezember 2025. Zahlen mit Komma und Tausenderpunkt sortiert die Ansicht richtig.
+
+**Ursache:** nachgewiesen. `_sortierschluessel` in `ide/viewers/csv_ansicht.py` kennt Zahlen und Text, aber kein Datum.
+
+**Zu tun:** Ein Datum in der Form TT.MM.JJJJ nach dem Kalender sortieren. Erledigt, wenn ein Test eine Datumsspalte sortiert.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_datumszahl` macht aus `15.12.2025` die Zahl 20251215, die wie eine Zahl einsortiert wird. Test: `test_csvansicht_sortiert_zahlen_nach_wert` in `tests/test_viewer_csv.py`, um eine Datumsspalte erweitert; mit `csv_ansicht.py` aus `HEAD` scheitert er.

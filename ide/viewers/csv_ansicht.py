@@ -14,6 +14,7 @@ from __future__ import annotations
 import codecs
 import csv
 import io
+import re
 import threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -275,6 +276,22 @@ def _zahl_deutsch(anzahl: int) -> str:
     return f"{anzahl:,}".replace(",", ".")
 
 
+#: Ein Datum, wie eine deutsche Tabellenkalkulation es schreibt.
+_DATUM = re.compile(r"(\d{1,2})\.(\d{1,2})\.(\d{4})")
+
+
+def _datumszahl(text: str) -> float | None:
+    """`15.12.2025` als 20251215, sonst `None` (Punkt 520). Als Text
+    sortiert stand der 03.10.2026 vor dem 15.12.2025."""
+    treffer = _DATUM.fullmatch(text)
+    if treffer is None:
+        return None
+    tag, monat, jahr = (int(teil) for teil in treffer.groups())
+    if not (1 <= tag <= 31 and 1 <= monat <= 12):
+        return None
+    return float(jahr * 10_000 + monat * 100 + tag)
+
+
 def _sortierschluessel(
     zellen: list[str], grenzen: list[int], spalte: int,
 ) -> _Schluessel:
@@ -283,7 +300,8 @@ def _sortierschluessel(
 
     Eine Zelle, die `pcl.zahlen.zahl` lesen kann, zählt als Zahl, mit
     Dezimalkomma wie mit Dezimalpunkt; so erkennt auch der CSV-Import
-    des Datenbank-Panels seine Zahlenspalten (Punkt 288).
+    des Datenbank-Panels seine Zahlenspalten (Punkt 288). Ein Datum
+    wie 15.12.2025 zählt nach Jahr, Monat und Tag.
     """
     schluessel: list[float | str] = []
     mit_zahl: list[int] = []
@@ -296,6 +314,11 @@ def _sortierschluessel(
         if not nackt:
             schluessel.append("")
             leer.append(nummer)
+            continue
+        datum = _datumszahl(nackt)
+        if datum is not None:
+            schluessel.append(datum)
+            mit_zahl.append(nummer)
             continue
         if nackt[0] in _ZAHL_ANFANG:
             try:

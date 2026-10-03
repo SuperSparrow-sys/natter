@@ -53,6 +53,7 @@ from PySide6.QtGui import (
     QAbstractTextDocumentLayout,
     QColor,
     QFont,
+    QFontMetricsF,
     QPageSize,
     QPainter,
     QPdfWriter,
@@ -227,18 +228,26 @@ def dokument_erzeugen(projekt: Projekt, jetzt: date | None = None) -> QTextDocum
 
 def _code_einfuegen(cursor: QTextCursor, quelltext: str) -> None:
     """Die Zeilen einer Datei, jede als eigener Block."""
-    # Keine hängende Einrückung für den umgebrochenen Rest. Sie sah
-    # gut aus, kostete aber rund fünf Zeichen Breite in jeder Zeile -
-    # und dann brachen erst recht Zeilen um, die sonst gepasst
-    # hätten. Als Fortsetzung ist der Rest ohnehin zu erkennen: ihm
-    # fehlt die Zeilennummer.
+    zeilen = _nummeriert(quelltext)
+    # Der umgebrochene Rest einer Zeile beginnt unter dem Code, nicht
+    # unter der Nummer (Punkt 518). Bis 0.4.3 stand er ganz links,
+    # die Nummernspalte riss auf, und die Fortsetzung sah aus wie
+    # eine eigene Zeile ohne Einrückung, was in Python etwas anderes
+    # bedeutet. Linker Rand und negativer Einzug der ersten Zeile
+    # heben sich auf: die erste Zeile behält ihre volle Breite.
+    spalte = zeilen[-1][: zeilen[-1].index(_TRENNER) + len(_TRENNER)]
+    breite = QFontMetricsF(QFont(CODE_SCHRIFT, CODE_GROESSE)).horizontalAdvance(
+        spalte
+    )
     zeilenformat = QTextBlockFormat()
+    zeilenformat.setLeftMargin(breite)
+    zeilenformat.setTextIndent(-breite)
 
     code = QTextCharFormat()
     code.setFontFamilies([CODE_SCHRIFT])
     code.setFontPointSize(CODE_GROESSE)
 
-    for zeile in _nummeriert(quelltext):
+    for zeile in zeilen:
         cursor.insertBlock()
         cursor.setBlockFormat(zeilenformat)
         cursor.insertText(zeile, code)

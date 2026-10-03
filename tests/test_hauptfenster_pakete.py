@@ -15,8 +15,10 @@ from ide.env import Paket, PaketFehler
 
 
 def test_pakete_anzeigen_zeigt_installierte_pakete(
-    monkeypatch: pytest.MonkeyPatch, hauptfenster_bauen
+    monkeypatch: pytest.MonkeyPatch, qtbot, hauptfenster_bauen  # noqa: ANN001
 ) -> None:
+    """Punkt 516: die Liste wird im Hintergrund gelesen, und die
+    Tabelle lässt sich nur ansehen."""
     monkeypatch.setattr(
         "ide.shell.hauptfenster.installierte_pakete",
         lambda: [Paket("pytest", "8.0.0"), Paket("ruff", "0.8.1")],
@@ -26,16 +28,40 @@ def test_pakete_anzeigen_zeigt_installierte_pakete(
 
     def dialog_lesen() -> None:
         dialog = QApplication.activeModalWidget()
+        if dialog is None:
+            QTimer.singleShot(20, dialog_lesen)
+            return
         tabelle = dialog.findChild(QTableWidget)
         inhalt["zeilen"] = tabelle.rowCount()
         inhalt["erste_zelle"] = tabelle.item(0, 0).text()
+        inhalt["bearbeitbar"] = int(tabelle.editTriggers().value)
         dialog.close()
 
     QTimer.singleShot(0, dialog_lesen)
     fenster._pakete_anzeigen_aktion()
+    qtbot.waitUntil(lambda: "zeilen" in inhalt, timeout=10_000)
 
     assert inhalt["zeilen"] == 2
     assert inhalt["erste_zelle"] == "pytest"
+    assert inhalt["bearbeitbar"] == 0
+
+
+def test_eine_unlesbare_paketliste_nennt_kein_netz(
+    monkeypatch: pytest.MonkeyPatch,
+    hintergrund_abwarten, hauptfenster_bauen,  # noqa: ANN001
+) -> None:
+    def kaputt() -> list[Paket]:
+        raise PaketFehler("pip antwortet nicht.", "")
+
+    monkeypatch.setattr("ide.shell.hauptfenster.installierte_pakete", kaputt)
+    fenster = hauptfenster_bauen()
+
+    fenster._pakete_anzeigen_aktion()
+    hintergrund_abwarten(fenster)
+
+    status = fenster.statusBar().currentMessage()
+    assert "pip antwortet nicht" in status
+    assert "Netz" not in status
 
 
 def test_paket_installieren_ruft_installation_mit_eingegebenem_namen_auf(

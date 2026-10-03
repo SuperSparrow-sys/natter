@@ -176,9 +176,16 @@ def layout(block: dict[str, Any], x: float, y: float, breite: float) -> Kasten:
 
 def _verzweigung_layout(block: dict[str, Any], x: float, y: float, breite: float) -> Kasten:
     """Bedingung im Dreiecksfeld oben, darunter Ja- und Nein-Zweig
-    nebeneinander (Abschnitt 13.5)."""
+    nebeneinander (Abschnitt 13.5).
+
+    Die Bedingung steht in der mittleren Hälfte der Breite. So breit
+    ist das Feld zwischen den beiden Schrägen nur in der oberen Hälfte
+    des Kopfes; der Kopf ist deshalb doppelt so hoch wie der Text samt
+    Abstand. Bis 0.4.3 war er nur so hoch wie der Text, und die
+    Schrägen liefen durch dessen untere Zeilen (Punkt 519)."""
     kopfhoehe = max(
-        MINDESTHOEHE, texthoehe(block.get("text", ""), breite / 2) + 2 * INNENABSTAND
+        MINDESTHOEHE,
+        2 * (texthoehe(block.get("text", ""), breite / 2) + INNENABSTAND),
     )
     kopf = QRectF(x, y, breite, kopfhoehe)
 

@@ -138,6 +138,31 @@ def test_unveraenderter_editor_laedt_die_datei_neu(
     assert antworten == []
 
 
+def test_draussen_geloeschte_datei_gilt_als_ungespeichert(
+    hauptfenster_bauen,  # noqa: ANN001
+    projekt: Path,
+    antworten: list[str],
+) -> None:
+    """Punkt 515: der Text stand nur noch im Editor, der Reiter galt
+    aber als gespeichert, und beim Schließen kam keine Frage."""
+    fenster = hauptfenster_bauen()
+    fenster.projekt_oeffnen(projekt / "01_Begruessung.natter")
+    unit = projekt / "u_main.py"
+    editor = fenster.datei_oeffnen(unit)
+    text = editor.toPlainText()
+    unit.unlink()
+
+    fenster._von_aussen_geaenderte_neu_laden()
+
+    assert editor.document().isModified()
+    assert editor.toPlainText() == text
+    assert "gibt es auf der Platte nicht mehr" in (
+        fenster.statusBar().currentMessage()
+    )
+    assert fenster.alle_speichern()
+    assert unit.read_text(encoding="utf-8") == text
+
+
 def test_methode_aus_dem_designer_zaehlt_nicht_als_fremde_aenderung(
     hauptfenster_bauen,  # noqa: ANN001
     tmp_path: Path,

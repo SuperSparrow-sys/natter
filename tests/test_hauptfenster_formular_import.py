@@ -287,3 +287,50 @@ def test_importiertes_formular_steht_im_projekt_explorer(
     pfade = [gruppe.child(i).data(0, PFAD_ROLLE) for i in range(gruppe.childCount())]
     assert str(ziel) in pfade
     assert not gruppe.isHidden()
+
+
+@pytest.mark.parametrize(
+    ("name", "grund"),
+    [("Pizza Bestellung.pfm", "taugt nicht"), ("u_main.pfm", "gibt es schon")],
+)
+def test_import_lehnt_untaugliche_namen_ab(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    hauptfenster_bauen,  # noqa: ANN001
+    name: str,
+    grund: str,
+) -> None:
+    """Punkt 517: aus „Pizza Bestellung.pfm“ entstand eine Unit mit
+    einem Syntaxfehler, und ein vorhandenes Formular wurde ersetzt.
+    Vorgeschlagen wird ein Name mit „u_“."""
+    from PySide6.QtWidgets import QMessageBox
+
+    quelle = tmp_path / "unit1.lfm"
+    quelle.write_text(_LFM_TEXT, encoding="utf-8")
+    vorhanden = tmp_path / "u_main.pfm"
+    vorhanden.write_text("{}", encoding="utf-8")
+    vorschlaege: list[str] = []
+    monkeypatch.setattr(
+        QFileDialog, "getOpenFileName",
+        staticmethod(lambda *a, **k: (str(quelle), "")),
+    )
+    monkeypatch.setattr(
+        QFileDialog, "getSaveFileName",
+        staticmethod(
+            lambda _e, _t, vorschlag, *a, **k: vorschlaege.append(vorschlag)
+            or (str(tmp_path / name), "")
+        ),
+    )
+    warnungen: list[str] = []
+    monkeypatch.setattr(
+        QMessageBox, "warning",
+        staticmethod(lambda _e, _t, text: warnungen.append(text)),
+    )
+    fenster = hauptfenster_bauen()
+
+    fenster._formular_importieren_aktion()
+
+    assert Path(vorschlaege[0]).name == "u_unit1.pfm"
+    assert grund in warnungen[0]
+    assert vorhanden.read_text(encoding="utf-8") == "{}"
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["u_main.pfm", "unit1.lfm"]

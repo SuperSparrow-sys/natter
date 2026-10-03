@@ -290,3 +290,33 @@ def test_diagramm_umbenennen_prueft_den_namen(
 
     assert len(meldungen) == 1
     assert pfad.exists()
+
+
+def test_die_frage_vor_dem_loeschen_nennt_importe(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, hauptfenster
+) -> None:
+    """Punkt 514: ein Formular, das `u_main.py` noch importiert, ließ
+    sich ohne Hinweis löschen, und das Programm startete danach nicht
+    mehr. Ein auskommentierter Import zählt nicht. Punkt 513: vor zwei
+    weiteren Dateien steht „gehören“."""
+    projekt = hauptfenster.projekt_oeffnen(_projekt_kopie(tmp_path))
+    hauptfenster.formular_erzeugen("u_zweit")
+    haupt = projekt.ordner / f"{projekt.haupt_unit}.py"
+    haupt.write_text(
+        "from u_zweit import Form2\n" + haupt.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    fragen: list[str] = []
+    monkeypatch.setattr(
+        "ide.shell.hauptfenster.QMessageBox.question",
+        staticmethod(
+            lambda _e, _t, text, *a: fragen.append(text)
+            or QMessageBox.StandardButton.No
+        ),
+    )
+
+    _aktion(hauptfenster, "Formulare/u_zweit", "Löschen …").trigger()
+
+    assert "Dazu gehören „u_zweit.pfm“ und „u_zweit_design.py“." in fragen[0]
+    assert f"„{haupt.name}“ importiert „u_zweit“ noch" in fragen[0]
+    assert (projekt.ordner / "u_zweit.py").exists()

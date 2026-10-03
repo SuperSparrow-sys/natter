@@ -501,3 +501,64 @@ def test_ein_mit_open_url_geoeffnetes_programm_uebersteht_stopp(
         if prozess.poll() is None:
             prozess.kill()
         prozess.wait(10)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="nur unter Windows")
+@pytest.mark.parametrize("explorer_startet", [True, False])
+def test_im_auftrag_oeffnet_der_explorer_der_anmeldung(
+    monkeypatch: pytest.MonkeyPatch, explorer_startet: bool
+) -> None:
+    """Punkt 285: in einem Auftragsobjekt geht die Adresse an einen
+    neuen Explorer, damit der Browser nicht mit „Stopp“ endet.
+    Startet der Explorer nicht, öffnet der eigene Prozess."""
+    import webbrowser
+
+    import pcl.files as files
+
+    gestartet: list[list[str]] = []
+    geoeffnet: list[str] = []
+
+    def starten(argumente: list[str], **_k: object) -> None:
+        if not explorer_startet:
+            raise OSError("verweigert")
+        gestartet.append(argumente)
+
+    monkeypatch.setattr(files, "_in_einem_auftrag", lambda: True)
+    monkeypatch.setattr(subprocess, "Popen", starten)
+    monkeypatch.setattr(webbrowser, "open", geoeffnet.append)
+
+    from pcl import open_url
+
+    open_url("https://example.com/seite")
+
+    if explorer_startet:
+        assert [Path(a[0]).name.lower() for a in gestartet] == ["explorer.exe"]
+        assert gestartet[0][1] == "https://example.com/seite"
+        assert geoeffnet == []
+    else:
+        assert geoeffnet == ["https://example.com/seite"]
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="nur unter Windows")
+def test_ein_programm_im_auftrag_erkennt_ihn() -> None:
+    """`_in_einem_auftrag` gegen ein echtes Auftragsobjekt, wie Natter
+    es für ein gestartetes Programm anlegt."""
+    from ide.prozess import auftrag_zuweisen, prozessbaum_beenden
+
+    kind = subprocess.Popen(
+        [
+            sys.executable, "-c",
+            "import sys; sys.stdin.readline(); "
+            "from pcl.files import _in_einem_auftrag; "
+            "print(_in_einem_auftrag())",
+        ],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
+        cwd=Path(__file__).resolve().parent.parent,
+    )
+    try:
+        assert auftrag_zuweisen(kind) is not None
+        ausgabe, _ = kind.communicate("los\n", timeout=60)
+    finally:
+        prozessbaum_beenden(kind)
+    assert ausgabe.strip() == "True"
+

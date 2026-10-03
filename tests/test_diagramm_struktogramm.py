@@ -582,3 +582,23 @@ def test_klick_unter_das_struktogramm_haengt_den_block_an(
     flaeche.einfuegemodus_setzen("statement")
     flaeche.mousePressEvent(_klick(wurzel.right() + VERSATZ + 300, unten))
     assert len(flaeche.wurzel["children"]) == 2
+
+
+@pytest.mark.parametrize(
+    "bedingung",
+    ["x > 0?", "Betrag größer als der Kontostand des gewählten Kontos?"],
+)
+def test_die_bedingung_bleibt_ueber_den_schraegen(qapp, bedingung: str) -> None:  # noqa: ANN001
+    """Punkt 519: der Kopf war nur so hoch wie der Text, und die
+    Schrägen liefen durch dessen untere Zeilen. In der mittleren
+    Hälfte der Breite ist zwischen den Schrägen nur in der oberen
+    Hälfte des Kopfes Platz; dort muss der Text enden."""
+    from ide.diagramm.struktogramm import INNENABSTAND, layout, texthoehe
+
+    breite = 300.0
+    kasten = layout(
+        {"kind": "branch", "text": bedingung, "then": [], "else": []},
+        0, 0, breite,
+    )
+    text_unten = INNENABSTAND + texthoehe(bedingung, breite / 2)
+    assert text_unten <= kasten.kopf.height() / 2
