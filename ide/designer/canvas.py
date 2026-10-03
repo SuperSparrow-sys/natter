@@ -795,6 +795,12 @@ class _PlatzierenKommando:
         # `left`/`top` zählen dann ab der linken oberen Ecke
         # des Behälters, nicht ab der des Formulars.
         eltern, ex, ey = canvas._behaelter_bei(x, y)
+        if getattr(typ, "nur_im_designer", False):
+            # Menüs und Zeitgeber gehören dem Formular, nie einem
+            # Behälter: ein Menü auf einem Panel fand die Methoden des
+            # Formulars nicht, und das Programm startete nicht
+            # (Punkt 593).
+            eltern, ex, ey = canvas.formular, x, y
         self.neue_komponente = typ(eltern)
         # Am Raster einrasten.
         # Ohne das legte der Designer Komponenten auf krumme
@@ -1781,6 +1787,9 @@ class DesignerCanvas(QObject):
         gezogene Komponente selbst, weil sie obenauf liegt."""
         formular_widget = self.formular._qwidget
         ecke = komponente._qwidget.mapTo(formular_widget, QPoint(0, 0))
+        if getattr(type(komponente), "nur_im_designer", False):
+            # Wie beim Ablegen: nie in einen Behälter (Punkt 593).
+            return self.formular, ecke.x(), ecke.y()
         mitte = QPoint(
             ecke.x() + komponente._qwidget.width() // 2,
             ecke.y() + komponente._qwidget.height() // 2,

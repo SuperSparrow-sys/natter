@@ -89,3 +89,65 @@ def test_tausenderpunkte_in_der_csv(tmp_path) -> None:
     from pcl.components.chart import _als_zahlen
 
     assert list(_als_zahlen(diagramm._dataframe["umsatz"], "umsatz", "x")) == [1200.5, 980.0]
+
+
+@pytest.mark.parametrize(
+    ("aufruf", "meldung"),
+    [
+        (lambda d: d.add_line_series([1, 2, 3], [1, 2]), "3 x-Werte, aber 2 y-Werte"),
+        (lambda d: d.add_scatter_series([1, 2], [1, 2, 3]), "2 x-Werte, aber 3 y-Werte"),
+        (lambda d: d.add_bar_series(["a", "b"], [1, None]), "2. Wert ist None"),
+        (lambda d: d.add_pie_series(["a", "b"], [3, -1]), "negativen"),
+        (lambda d: d.add_pie_series(["a"], [3, 1]), "1 Beschriftungen, aber 2 Werte"),
+        (lambda d: d.add_histogram_series([1, 2, 3], bins=0), "ab 1"),
+        (lambda d: d.add_line_series([1, 2], ["10", "zehn"]), "„zehn“ ist keine Zahl"),
+    ],
+)
+def test_eingabefehler_der_reihen_kommen_deutsch(aufruf, meldung: str) -> None:
+    """Punkt 598: die Fehler kamen englisch aus matplotlib."""
+    with pytest.raises(NatterDatenError, match=meldung):
+        aufruf(Chart(Form()))
+
+
+def test_werte_als_text_werden_zahlen() -> None:
+    """Punkt 598: „10“, „9“, „100“ ergab still eine Kategorienachse in
+    dieser Reihenfolge. Kreisdiagramm mit Text lief in einen
+    numpy-Fehler."""
+    diagramm = Chart(Form())
+    diagramm.add_line_series([1, 2, 3], ["10", "9", "100,5"])
+    diagramm.add_pie_series(["a", "b"], ["3", "1"])
+
+    linie = diagramm._achse.get_lines()[0]
+    assert list(linie.get_ydata()) == [10.0, 9.0, 100.5]
+
+
+def test_ein_einzelner_punkt_und_mehrere_titel() -> None:
+    """Punkt 621: eine Linie aus einem Punkt war unsichtbar, und von
+    zwei Reihentiteln wurde der letzte zur Überschrift."""
+    diagramm = Chart(Form())
+    diagramm.add_line_series([1], [5], title="Jungen")
+    assert diagramm._achse.get_lines()[0].get_marker() == "o"
+    assert diagramm._achse.get_title() == "Jungen"
+
+    diagramm.add_line_series([1, 2], [3, 4], title="Mädchen")
+    assert diagramm._achse.get_title() == ""
+
+
+def test_clear_und_reihe_zeichnen_gebuendelt(monkeypatch) -> None:  # noqa: ANN001
+    """Punkt 614: jedes clear() und jede Reihe zeichnete sofort; hundert
+    Aktualisierungen dauerten über eine halbe Minute. Jetzt wird je
+    Durchlauf der Ereignisschleife einmal gezeichnet."""
+    from PySide6.QtWidgets import QApplication
+
+    diagramm = Chart(Form())
+    QApplication.processEvents()
+    gezeichnet = []
+    monkeypatch.setattr(diagramm._qwidget, "draw", lambda: gezeichnet.append(1))
+
+    for _ in range(20):
+        diagramm.clear()
+        diagramm.add_line_series(list(range(10)), list(range(10)))
+    assert gezeichnet == []
+    QApplication.processEvents()
+
+    assert gezeichnet == [1]

@@ -904,7 +904,7 @@ class RadioGroup(Control):
         # überschriebe das den gerade gesetzten `item_index`.
         self._baut_auf = False
         #: Die zuletzt mit `on_change` gemeldete Auswahl.
-        self._gemeldet = -1
+        self._gemeldet: tuple[int, str | None] = (-1, None)
         super().__init__(parent)
 
     @property
@@ -964,9 +964,14 @@ class RadioGroup(Control):
         """`on_change`, wenn sich die Auswahl geändert hat - nach einem
         Klick wie nach `item_index = …` im Code oder kürzeren `items`.
         Bis 0.4.3 meldete nur der Klick einen Wechsel (Punkt 583)."""
-        if self.item_index == self._gemeldet:
+        # Mit dem Text: rückt die gewählte Option durch
+        # `items.insert(0, …)` nach, ist das eine andere Auswahl unter
+        # derselben Nummer, wie bei der ComboBox (Punkt 621).
+        index = self.item_index
+        text = self._items[index] if 0 <= index < len(self._items) else None
+        if (index, text) == self._gemeldet:
             return
-        self._gemeldet = self.item_index
+        self._gemeldet = (index, text)
         self._ereignis_ausloesen("on_change")
 
     def _bei_umschalten(self, gewaehlt: bool, index: int) -> None:

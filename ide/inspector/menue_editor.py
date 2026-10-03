@@ -217,6 +217,7 @@ class MenueEditor(QDialog):
         self.feld_shortcut = QLineEdit()
         self.feld_on_click = QLineEdit()
         self.feld_enabled = QCheckBox("Bedienbar")
+        self.feld_visible = QCheckBox("Sichtbar")
         self.feld_checkable = QCheckBox("Ankreuzbar")
         self.feld_checked = QCheckBox("Angekreuzt")
         self.feld_checkable.setToolTip(
@@ -251,6 +252,7 @@ class MenueEditor(QDialog):
         formular.addRow("Beim Anklicken:", self.feld_on_click)
         formular.addRow("", self.anlegen_knopf)
         formular.addRow(self.feld_enabled)
+        formular.addRow(self.feld_visible)
         formular.addRow(self.feld_checkable)
         formular.addRow(self.feld_checked)
 
@@ -292,6 +294,7 @@ class MenueEditor(QDialog):
         for feld in (self.feld_name, self.feld_caption, self.feld_shortcut, self.feld_on_click):
             feld.textChanged.connect(self._felder_uebernehmen)
         self.feld_enabled.toggled.connect(self._felder_uebernehmen)
+        self.feld_visible.toggled.connect(self._felder_uebernehmen)
         self.feld_checkable.toggled.connect(self._felder_uebernehmen)
         self.feld_checked.toggled.connect(self._felder_uebernehmen)
 
@@ -431,6 +434,7 @@ class MenueEditor(QDialog):
             self.feld_shortcut,
             self.feld_on_click,
             self.feld_enabled,
+            self.feld_visible,
             self.feld_checkable,
             self.feld_checked,
         )
@@ -440,6 +444,7 @@ class MenueEditor(QDialog):
             for feld in felder[:4]:
                 feld.clear()
             self.feld_enabled.setChecked(True)
+            self.feld_visible.setChecked(True)
             self.feld_checkable.setChecked(False)
             self.feld_checked.setChecked(False)
         else:
@@ -448,6 +453,7 @@ class MenueEditor(QDialog):
             self.feld_shortcut.setText(eintrag["shortcut"])
             self.feld_on_click.setText(eintrag["on_click"])
             self.feld_enabled.setChecked(eintrag["enabled"])
+            self.feld_visible.setChecked(eintrag.get("visible", True))
             self.feld_checkable.setChecked(
                 eintrag.get("checkable", False) or eintrag["checked"]
             )
@@ -465,6 +471,7 @@ class MenueEditor(QDialog):
         eintrag["shortcut"] = self.feld_shortcut.text()
         eintrag["on_click"] = self.feld_on_click.text()
         eintrag["enabled"] = self.feld_enabled.isChecked()
+        eintrag["visible"] = self.feld_visible.isChecked()
         eintrag["checkable"] = self.feld_checkable.isChecked()
         # Ohne „Ankreuzbar“ gibt es kein Häkchen. Sonst machte ein
         # stehengebliebenes `checked` den Eintrag wieder ankreuzbar

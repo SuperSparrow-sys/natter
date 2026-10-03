@@ -518,3 +518,161 @@ def test_kuerzel_eines_klappmenues_wirken_im_fenster(qtbot) -> None:
     QTest.keyClick(formular.b_ziel._qwidget, Qt.Key.Key_K, Qt.KeyboardModifier.ControlModifier)
 
     assert formular.geloescht == 1
+
+
+@pytest.mark.parametrize("art", [MainMenu, PopupMenu])
+def test_ein_menue_auf_einem_panel_findet_die_methoden_des_formulars(art) -> None:
+    """Punkt 593: ein Menü auf einem Panel suchte die Methode im Panel
+    und brach den Start ab."""
+    from pcl import Panel
+
+    class _AufPanel(Form):
+        def create_components(self) -> None:
+            self.p_panel = Panel(self)
+            self.menue = art(self.p_panel)
+            self.menue.entries = [{"name": "mi_x", "caption": "X", "on_click": "mi_x"}]
+            self.aufrufe = 0
+
+        def mi_x(self, sender) -> None:
+            self.aufrufe += 1
+
+    formular = _AufPanel()
+    formular.show()
+    if art is MainMenu:
+        formular._menueleiste.actions()[0].trigger()
+    else:
+        formular.menue.menue().actions()[0].trigger()
+
+    assert formular.aufrufe == 1
+
+
+def test_aktualisieren_fuellt_auf_und_prueft() -> None:
+    """Punkt 597: ein angehängter knapper Eintrag endete mit KeyError,
+    ein unbrauchbares Kürzel blieb still."""
+    formular = _Formular()
+    formular.show()
+    datei = formular.mm_haupt.eintrag("mi_datei")
+
+    datei["children"].append({"name": "mi_neu2", "caption": "Neu 2"})
+    formular.mm_haupt.aktualisieren()
+
+    untermenue = formular._menueleiste.actions()[0].menu()
+    assert [a.text() for a in untermenue.actions()][-1] == "Neu 2"
+    assert formular.mm_haupt.eintrag("mi_neu2")["enabled"] is True
+    formular.mm_haupt.eintrag("mi_neu2")["shortcut"] = "Strg+Bla"
+    with pytest.raises(NatterPropertyError, match="Strg[+]Bla"):
+        formular.mm_haupt.aktualisieren()
+
+
+@pytest.mark.parametrize("zweites", ["haupt", "klapp"])
+def test_gleiches_kuerzel_in_zwei_menues_wirkt_einmal(qtbot, zweites: str) -> None:
+    """Punkt 613: Entf im Hauptmenü und im Klappmenü (oder in zwei
+    Klappmenüs) löste gar nichts mehr aus."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    class _Doppelt(Form):
+        def create_components(self) -> None:
+            self.b_ziel = Button(self)
+            self.aufrufe: list[str] = []
+            if zweites == "haupt":
+                self.mm = MainMenu(self)
+                self.mm.entries = [{"caption": "&Bearbeiten", "children": [
+                    {"caption": "Löschen", "shortcut": "Entf", "on_click": "haupt"},
+                ]}]
+            else:
+                self.pm0 = PopupMenu(self)
+                self.pm0.entries = [
+                    {"caption": "Löschen", "shortcut": "Entf", "on_click": "haupt"},
+                ]
+            self.pm = PopupMenu(self)
+            self.pm.entries = [{"caption": "Löschen", "shortcut": "Entf", "on_click": "klapp"}]
+
+        def haupt(self, sender) -> None:
+            self.aufrufe.append("haupt")
+
+        def klapp(self, sender) -> None:
+            self.aufrufe.append("klapp")
+
+    formular = _Doppelt()
+    formular.show()
+    formular._qwidget.activateWindow()
+    qtbot.waitUntil(formular._qwidget.isActiveWindow, timeout=2000)
+    formular.b_ziel._qwidget.setFocus()
+
+    QTest.keyClick(formular.b_ziel._qwidget, Qt.Key.Key_Delete)
+
+    assert formular.aufrufe == ["haupt"]
+
+
+def test_klappmenue_kennt_die_komponente_an_der_es_aufging() -> None:
+    """Punkt 620: an zwei Listen hängend erfuhr die Methode nicht,
+    welche gemeint war."""
+    from pcl import ListBox
+
+    class _ZweiListen(Form):
+        def create_components(self) -> None:
+            self.lb_a = ListBox(self)
+            self.lb_b = ListBox(self)
+            self.pm = PopupMenu(self)
+            self.pm.entries = [{"caption": "Löschen", "on_click": "loeschen"}]
+            self.lb_a.popup_menu = self.pm
+            self.lb_b.popup_menu = self.pm
+            self.gemeint: list = []
+
+        def loeschen(self, sender) -> None:
+            self.gemeint.append(sender.popup_component)
+
+    formular = _ZweiListen()
+    formular.show()
+    for liste in (formular.lb_a, formular.lb_b):
+        # Wie `aufklappen`, nur ohne das blockierende exec().
+        formular.pm._aufgeklappt_an = liste
+        formular.pm.menue(liste._qwidget).actions()[0].trigger()
+
+    assert formular.gemeint == [formular.lb_a, formular.lb_b]
+    assert PopupMenu(Form()).popup_component is None
+
+
+@pytest.mark.parametrize(
+    ("kuerzel", "gut"),
+    [("Strg+S, Bla", False), ("Alt+Pfeil links", True), ("Druck", True)],
+)
+def test_kuerzel_folgen_und_weitere_tastennamen(kuerzel: str, gut: bool) -> None:
+    """Punkt 621: „Strg+S, Bla“ wurde angenommen und wirkte nie;
+    Pfeiltasten und Druck fehlten."""
+    from pcl.components.menus import kuerzel_fehler
+
+    assert (kuerzel_fehler(kuerzel) is None) is gut
+    if gut:
+        assert kuerzel_anzeige(kuerzel) == kuerzel
+
+
+def test_keine_alten_menues_bleiben_haengen() -> None:
+    """Punkt 621: jedes Aufklappen und jedes aktualisieren() ließ ein
+    QMenu mehr zurück."""
+    from PySide6.QtCore import QCoreApplication, QEvent
+    from PySide6.QtWidgets import QMenu
+
+    formular = _Formular()
+    formular.show()
+    for _ in range(10):
+        formular.mm_haupt.aktualisieren()
+    klapp = PopupMenu(formular)
+    klapp.entries = [{"caption": "X"}]
+    for _ in range(10):
+        klapp.menue(formular.b_start._qwidget)
+    # deleteLater ausführen
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
+
+    assert len(formular._menueleiste.findChildren(QMenu)) <= 2
+    assert len(formular.b_start._qwidget.findChildren(QMenu)) <= 1
+
+
+def test_unsichtbarer_eintrag_fehlt_im_menue() -> None:
+    """Punkt 621: Menüeinträge kannten kein `visible`."""
+    klapp = PopupMenu()
+    klapp.entries = [{"caption": "&A", "visible": False}, {"caption": "&B"}]
+
+    sichtbar = [a.text() for a in klapp.menue().actions() if a.isVisible()]
+    assert sichtbar == ["&B"]

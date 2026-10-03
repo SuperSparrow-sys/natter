@@ -70,7 +70,11 @@ class MaskEdit(Control):
 
     Die Zeichen der Maske sind die von Qt: `0` eine Ziffer
     (Pflicht), `9` eine Ziffer (freiwillig), `A` ein Buchstabe
-    (Pflicht), `N` Buchstabe oder Ziffer. Alles andere steht fest da.
+    (Pflicht), `N` Buchstabe oder Ziffer; dazu `a`, `n`, `X`, `x`,
+    `D`, `d`, `H`, `h`, `B`, `b`, `#`, `>`, `<`, `!`, `;` und der
+    Rückstrich, siehe `docs/komponenten.md`. Ein solches Zeichen in
+    festem Text bekommt einen Rückstrich davor: aus „Datum: “ wird
+    ``r"\\D\\atum: 00.00.0000"`` (Punkt 618).
 
     Was nicht hineinpasst, nimmt das Feld gar nicht erst an: wer
     bei der Maske `00000` Buchstaben tippt, sieht nichts erscheinen.
@@ -103,7 +107,13 @@ class MaskEdit(Control):
         return widget
 
     def _bei_textaenderung(self, text: str) -> None:
-        _prop_gleichziehen(self, "text", self._ohne_leere_maske(text))
+        text = self._ohne_leere_maske(text)
+        _prop_gleichziehen(self, "text", text)
+        # Nur bei einer echten Änderung: Qt meldet auch abgelehnte
+        # Zeichen und die Rücktaste über leere Stellen (Punkt 621).
+        if text == getattr(self, "_gemeldeter_text", ""):
+            return
+        self._gemeldeter_text = text
         if self.on_change is not None:
             self.on_change(self)
 

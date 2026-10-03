@@ -181,3 +181,54 @@ def test_ein_leeres_maskedit_liefert_leeren_text(formular) -> None:
     assert me.text == "20.09.2026"
     me.text = ""
     assert me.text == ""
+
+
+def test_maske_mit_festem_text_wie_in_der_referenz(formular) -> None:
+    """Punkt 618: „Datum: 00.00.0000“ zerstückelte das Wort, weil `D`
+    und `a` Maskenzeichen sind. Mit Rückstrich, wie in der Referenz,
+    steht es fest da."""
+    from pcl import MaskEdit
+
+    me = MaskEdit(formular)
+    _AM_LEBEN.append(me)
+    me.mask = r"\D\atum: 00.00.0000"
+    me.text = "20092026"
+
+    assert me._qwidget.displayText() == "Datum: 20.09.2026"
+    assert me.text == "Datum: 20.09.2026"
+
+
+def test_maskedit_meldet_nur_echte_aenderungen(formular) -> None:
+    """Punkt 621: on_change kam auch bei abgelehnten Zeichen und bei der
+    Rücktaste über leere Stellen."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    from pcl import MaskEdit
+
+    me = MaskEdit(formular)
+    _AM_LEBEN.append(me)
+    me.mask = "00000"
+    gemeldet: list[str] = []
+    me.on_change = lambda sender: gemeldet.append(sender.text)
+
+    QTest.keyClicks(me._qwidget, "x")
+    QTest.keyClick(me._qwidget, Qt.Key.Key_Backspace)
+    QTest.keyClicks(me._qwidget, "1")
+
+    assert gemeldet == ["1"]
+
+
+def test_radiogroup_meldet_eine_andere_option_unter_derselben_nummer(formular) -> None:
+    """Punkt 621: `items.insert(0, …)` ließ die gewählte Option
+    nachrücken, ohne `on_change`."""
+    rg = RadioGroup(formular)
+    _AM_LEBEN.append(rg)
+    rg.items = ["a", "b"]
+    rg.item_index = 0
+    gemeldet: list[str] = []
+    rg.on_change = lambda sender: gemeldet.append(sender.items[sender.item_index])
+
+    rg.items.insert(0, "neu")
+
+    assert gemeldet == ["neu"]
