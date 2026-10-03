@@ -13613,3 +13613,15 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** Einzahl richtig schreiben, `pcl.text` und `pcl.zahl` nutzen, Titel „Ausgleichskurve“, gelöschte Datei abfangen.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** So umgesetzt; der Titel über den Generator. Die vorhandenen Tests in `tests/test_beispiele_bedienen.py` laufen unverändert durch.
+
+## 535. „Über Natter“ ohne Versionsnummer, „Quelltext als PDF“ meldet Dateien statt Units ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchgang durch alle Menübefehle mit offenem Beispiel `06_Kontoverwaltung`.
+
+**Beobachtet:** „Hilfe → Über Natter“ nennt keine Versionsnummer; bei einer Rückfrage, welche Fassung installiert ist, ist das der erste Ort zum Nachsehen. „Projekt → Quelltext als PDF …“ meldet „2 Dateien geschrieben nach …“, es entsteht aber ein einziges PDF mit beiden Units.
+
+**Ursache:** nachgewiesen. `_ueber_aktion` und `_quelltext_als_pdf_aktion` in `ide/shell/hauptfenster.py`.
+
+**Zu tun:** Version im Fenster „Über Natter“; Meldung „2 Units als PDF gespeichert: …“.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Beides so umgesetzt; die Version kommt aus `VERSION` in `ide/main.py`, die das Bauskript mit `--version` setzt. Test: `test_mit_projekt_schreibt_er_die_datei` in `tests/test_quelltext_pdf.py`, um beide Texte erweitert.

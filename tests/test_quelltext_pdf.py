@@ -276,7 +276,20 @@ def test_mit_projekt_schreibt_er_die_datei(
     fenster.aktionen["projekt.quelltext_als_pdf"].qaction.trigger()
 
     assert ziel.exists()
-    assert "geschrieben" in fenster.statusBar().currentMessage()
+    # Ein PDF mit beiden Units, nicht „2 Dateien“.
+    assert "2 Units als PDF gespeichert" in fenster.statusBar().currentMessage()
+
+    # Im selben Fenster: „Über Natter“ nennt die Versionsnummer.
+    from PySide6.QtWidgets import QMessageBox
+
+    from ide.main import VERSION
+
+    texte: list[str] = []
+    monkeypatch.setattr(
+        QMessageBox, "about", staticmethod(lambda _e, _t, text: texte.append(text))
+    )
+    fenster.aktionen["hilfe.ueber"].qaction.trigger()
+    assert f"Natter {VERSION}" in texte[0]
 
 
 def test_ein_abgebrochener_dialog_schreibt_nichts(

@@ -2683,9 +2683,11 @@ class HauptFenster(QMainWindow):
             QMessageBox.warning(self, "Quelltext als PDF", str(fehler))
             return
 
+        # Ein PDF mit allen Units; „2 Dateien geschrieben nach …“ las
+        # sich, als wären zwei PDFs entstanden.
         anzahl = len(self.projekt.units())
-        wort = "Datei" if anzahl == 1 else "Dateien"
-        self.statusBar().showMessage(f"{anzahl} {wort} geschrieben nach {ziel}")
+        wort = "Unit" if anzahl == 1 else "Units"
+        self.statusBar().showMessage(f"{anzahl} {wort} als PDF gespeichert: {ziel}")
 
     def _als_exe_exportieren_aktion(self) -> None:
         """„Projekt → Als Exe exportieren …“ (Abschnitt 16;
@@ -7048,10 +7050,14 @@ class HauptFenster(QMainWindow):
         return None
 
     def _ueber_aktion(self) -> None:
+        # Mit Versionsnummer: bei einer Rückfrage („welche Fassung ist
+        # installiert?“) ist das der erste Ort, an dem jemand nachsieht.
+        from ide.main import VERSION
+
         QMessageBox.about(
             self,
             "Über Natter",
-            "<h3>Natter</h3><p>Eine Entwicklungsumgebung für Python – "
+            f"<h3>Natter {VERSION}</h3><p>Eine Entwicklungsumgebung für Python – "
             "Oberfläche entwerfen, Code schreiben, Programm starten.</p>",
         )
 
