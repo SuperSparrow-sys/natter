@@ -477,17 +477,12 @@ Aufruf lautet `konto.getStand()`. Ein Start- oder Standardwert mit
 Komma wie „0,5“ wird zur Kommazahl `0.5`. Aus einer
 Fallauswahl wird dabei `match`/`case`, aus einer Mehrfachauswahl mit
 Bedingungen eine Kette aus `if`, `elif` und `else`. „Eingabe: zahl“
-wird zu `input(…)`, und wo `zahl` im Struktogramm wie eine Zahl benutzt
-wird, zu `zahl_lesen(…)`. Diese kleine Funktion steht dann vor dem
-erzeugten Unterprogramm und liest „8“ als ganze Zahl 8 und „2,5“ als
-Kommazahl 2.5, so dass eine eingelesene Zahl auch als Listenindex
-taugt. Als Zahl gilt auch ein Vergleich mit einer Variablen, die selbst
-eine Zahl ist, etwa „solange tipp != geheim“ nach „geheim ← 42“, eine
-Fallauswahl mit Fällen wie „< 0“ und ein Index einer Liste wie
-„liste[i]“ nach „liste ← [1, 2, 3]“. Ebenso eine Eingabe, die mit
-einem Element einer Zahlenliste verglichen („liste[i] = gesucht“), mit
-„in“ darin gesucht oder mit `append` in eine Liste eingelesen wird,
-deren Elemente verrechnet oder verglichen werden. In Bedingungen werden
+wird zu `zahl = eingabe_lesen(…)`. Diese kleine Funktion steht dann vor
+dem erzeugten Unterprogramm: was eine Zahl ist, liest sie als Zahl,
+„8“ als ganze Zahl 8 und „2,5“ als Kommazahl 2.5, alles andere bleibt
+Text. So taugt eine eingelesene Zahl zum Rechnen, zum Vergleichen und
+als Listenindex, und ein eingelesener Name bleibt ein Name. Eine
+Postleitzahl wie „01067“ wird dabei zur Zahl 1067. In Bedingungen werden
 „und“, „oder“ und „nicht“ zu `and`, `or` und `not`, wenn jeder Name
 darin im Struktogramm einen Wert bekommt; „nicht fertig“ ohne Wert für
 `fertig` bleibt Kommentar. Kommazahlen wie „x > 2,5“ oder

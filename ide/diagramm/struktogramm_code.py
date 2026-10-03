@@ -82,8 +82,11 @@ _EIN_AUSGABE = re.compile(
 #: oder „x := 5“. Links ein Name, auch mit Index oder Attribut
 #: („liste[i] ← 0“, „self.summe := 0“). „<-“ gehört nicht dazu: „x <- 5“
 #: ist in Python schon ein Vergleich mit -5.
+#: Mehrere Ziele mit Komma wie beim Tausch „a, b ← b, a“ gehören dazu
+#: (Punkt 665).
+_ZIEL = r"[^\W\d]\w*(?:\.\w+|\[[^\]]*\])*"
 _ZUWEISUNG = re.compile(
-    r"^\s*(?P<ziel>[^\W\d]\w*(?:\.\w+|\[[^\]]*\])*)"
+    rf"^\s*(?P<ziel>{_ZIEL}(?:\s*,\s*{_ZIEL})*)"
     r"\s*(?:←|:=)\s*(?P<wert>.+?)\s*$"
 )
 _VON_BIS = re.compile(
@@ -112,18 +115,28 @@ AUSSPRUENGE = {
 }
 
 
-#: Liest eine Zahl ein, mit Komma oder Punkt: „8“ wird die ganze Zahl
-#: 8, „2,5“ die Kommazahl 2.5. Steht vor dem Unterprogramm, sobald eine
-#: Eingabe als Zahl gelesen wird (Punkt 643). Mit `float(…)` allein
-#: wurde aus 3 + 5 „8.0“, und ein Listenindex endete mit `TypeError`.
-ZAHL_LESEN = [
-    "def zahl_lesen(frage):",
-    '    """Liest eine Zahl ein: „8“ wird 8, „2,5“ wird 2.5."""',
-    '    text = input(frage).strip().replace(",", ".")',
-    "    wert = float(text)",
-    '    if wert.is_integer() and "." not in text:',
-    "        return int(wert)",
-    "    return wert",
+#: Liest eine Eingabe ein. Eine eingetippte Zahl wird Zahl, auch mit
+#: Komma: „8“ wird 8, „2,5“ wird 2.5. Alles andere bleibt Text. Steht
+#: vor dem Unterprogramm, sobald es eine „Eingabe:“ gibt.
+#:
+#: Bis 0.4.3 entstand `input(…)`, und „zahl > 0“ brach mit `TypeError`
+#: ab. Danach riet der Erzeuger aus dem übrigen Struktogramm, ob eine
+#: Eingabe eine Zahl sein soll (Punkte 579, 601, 622, 643, 656, 659).
+#: Jede Regel dafür fand neue Fälle, in denen sie falsch riet, zuletzt
+#: Namen, die beim Sortieren zu Zahlen werden sollten (Punkt 662). Was
+#: getippt wurde, weiß erst das laufende Programm; deshalb entscheidet
+#: es dort.
+EINGABE_LESEN = [
+    "def eingabe_lesen(frage):",
+    '    """Liest eine Eingabe: eine Zahl wird Zahl („8“ wird 8, „2,5“',
+    '    wird 2.5), alles andere bleibt Text."""',
+    "    text = input(frage).strip()",
+    '    ziffern = text.lstrip("+-").replace(",", ".", 1).replace(".", "", 1)',
+    "    if not ziffern.isdecimal():",
+    "        return text",
+    '    if "," in text or "." in text:',
+    '        return float(text.replace(",", "."))',
+    "    return int(text)",
 ]
 
 
@@ -168,10 +181,6 @@ def als_python(daten: dict[str, Any], block: dict[str, Any] | None = None) -> Er
     # Schleife ist und was nicht.
     schreiber = _Schreiber(in_schleife=block is not None)
     wurzel = block if block is not None else (daten.get("root") or {})
-    # Eine Eingabe, die als Zahl dient, liest `zahl_lesen` - als ganze
-    # Zahl, wenn sie eine ist, sonst als Kommazahl (Punkt 643). Die
-    # Grenzen einer Zählschleife gehören deshalb einfach dazu.
-    schreiber.zahlnamen = _als_zahl_benutzt(wurzel) | _als_ganzzahl_benutzt(wurzel)
     schreiber.zugewiesen = _zugewiesene_namen(wurzel)
     # Ein Schnipsel wird in fremden Code eingefügt; dort können Namen
     # einen Wert haben, die das Struktogramm nicht kennt.
@@ -187,8 +196,8 @@ def als_python(daten: dict[str, Any], block: dict[str, Any] | None = None) -> Er
         schreiber.koerper(_bloecke_von(daten.get("root") or {}), 1)
         schreiber.uebersetzbar_machen()
     zeilen = schreiber.zeilen
-    if schreiber.zahl_lesen:
-        zeilen = [*ZAHL_LESEN, "", *([""] if block is None else []), *zeilen]
+    if schreiber.eingabe_lesen:
+        zeilen = [*EINGABE_LESEN, "", *([""] if block is None else []), *zeilen]
     return Ergebnis("\n".join(zeilen) + "\n", schreiber.nicht_uebernommen)
 
 
@@ -236,9 +245,8 @@ class _Schreiber:
         self.uebernommen: list[tuple[int, int, int]] = []
         #: Namen, die im Struktogramm wie Zahlen benutzt werden; ihre
         #: Eingabe wird zur Zahl (Punkt 579).
-        self.zahlnamen: set[str] = set()
-        #: Ob eine Eingabe `zahl_lesen` braucht (Punkt 643).
-        self.zahl_lesen = False
+        #: Ob eine „Eingabe:“ vorkommt und `eingabe_lesen` braucht.
+        self.eingabe_lesen = False
         #: Namen, die im Struktogramm einen Wert bekommen (Punkt 581).
         self.zugewiesen: set[str] = set()
         #: Ob Namen ohne Wert als Pseudocode gelten (Punkt 602).
@@ -416,10 +424,12 @@ class _Schreiber:
             _EIN_AUSGABE.match(text) if "\n" not in text.strip() else None
         )
         if ein_aus is not None:
-            uebersetzt = _ein_ausgabe_als_python(ein_aus, self.zahlnamen)
+            uebersetzt = _ein_ausgabe_als_python(ein_aus)
             if uebersetzt is not None:
                 text = uebersetzt
-                self.zahl_lesen = self.zahl_lesen or "zahl_lesen(" in uebersetzt
+                self.eingabe_lesen = (
+                    self.eingabe_lesen or "eingabe_lesen(" in uebersetzt
+                )
         # „zahl ← zahl - 1“ und „zahl := zahl - 1“ werden zu
         # `zahl = zahl - 1` (Punkt 481). Als Kommentar übernommen lief
         # ein Countdown sonst endlos.
@@ -854,26 +864,16 @@ def _ohne_kommentar(zeile: str) -> str:
     return zeile
 
 
-def _ein_ausgabe_als_python(
-    treffer: re.Match[str],
-    zahlnamen: set[str] | None = None,
-) -> str | None:
-    """„Eingabe: zahl“ als `zahl = input("zahl? ")`, „Ausgabe: zahl“
-    als `print(zahl)` - oder `None`, wenn hinter dem Doppelpunkt kein
-    Name bzw. kein Ausdruck steht.
-
-    Wird der Name anderswo im Struktogramm wie eine Zahl benutzt
-    (`zahl > 0`, `zahl * 2`), liest `zahl_lesen` die Eingabe als Zahl,
-    auch mit deutschem Komma: „8“ als ganze Zahl, „2,5“ als Kommazahl.
-    Aus „Eingabe: zahl“ und „zahl > 0?“ entstand sonst Code, der beim
-    Vergleich mit `TypeError` abbrach (Punkte 579 und 643)."""
+def _ein_ausgabe_als_python(treffer: re.Match[str]) -> str | None:
+    """„Eingabe: zahl“ als `zahl = eingabe_lesen("zahl? ")`,
+    „Ausgabe: zahl“ als `print(zahl)` - oder `None`, wenn hinter dem
+    Doppelpunkt kein Name bzw. kein Ausdruck steht. Ob die Eingabe Zahl
+    oder Text ist, entscheidet `eingabe_lesen` beim Lauf."""
     rest = treffer.group("rest")
     if treffer.group("art").lower() == "eingabe":
         if not rest.isidentifier() or keyword.iskeyword(rest):
             return None
-        if zahlnamen and rest in zahlnamen:
-            return f'{rest} = zahl_lesen("{rest}? ")'
-        return f'{rest} = input("{rest}? ")'
+        return f'{rest} = eingabe_lesen("{rest}? ")'
     if not _ist_ausdruck(rest):
         return None
     return f"print({rest})"
@@ -1095,215 +1095,6 @@ def _nur_ein_name(code: str) -> bool:
         len(baum.body) == 1
         and isinstance(baum.body[0], ast.Expr)
         and isinstance(baum.body[0].value, ast.Name)
-    )
-
-
-def _als_ganzzahl_benutzt(wurzel: dict[str, Any]) -> set[str]:
-    """Die Namen, die als Grenze einer Zählschleife stehen („für i von
-    1 bis n“) oder in `range(…)`. `range` braucht ganze Zahlen.
-
-    Gesucht wird „von“, „bis“ und „schrittweite“ nur in den Köpfen
-    von Zählschleifen. In allen Texten traf „bis“ auch die Fußschleife
-    „wiederhole bis betrag > 0“, und die Eingabe „2,5“ endete mit
-    einem ValueError (Punkt 627)."""
-    zaehlkoepfe = list(_zaehlkoepfe(wurzel))
-    texte = list(_texte(wurzel))
-    namen = {name for text in texte for name in _NAME.findall(text)}
-    gefunden = set()
-    for name in namen:
-        n = re.escape(name)
-        grenze = re.compile(rf"\b(?:von|bis|schrittweite)\s*{n}\b", re.IGNORECASE)
-        bereich = re.compile(rf"\brange\([^)]*(?<![\w.]){n}\b")
-        if any(grenze.search(kopf) for kopf in zaehlkoepfe) or any(
-            bereich.search(text) for text in texte
-        ):
-            gefunden.add(name)
-    return gefunden
-
-
-def _zaehlkoepfe(knoten: Any) -> Iterator[str]:
-    """Die Kopftexte aller Zählschleifen unter `knoten`."""
-    if isinstance(knoten, list):
-        for eintrag in knoten:
-            yield from _zaehlkoepfe(eintrag)
-        return
-    if not isinstance(knoten, dict):
-        return
-    if knoten.get("kind") == "count_loop":
-        yield str(knoten.get("text", ""))
-    for wert in knoten.values():
-        if isinstance(wert, list | dict):
-            yield from _zaehlkoepfe(wert)
-
-
-def _als_zahl_benutzt(wurzel: dict[str, Any]) -> set[str]:
-    """Die Namen, die wie Zahlen benutzt werden: neben `<`, `>`, `-`,
-    `*`, `/` oder `%`, verglichen mit einer Zahl (`==`, `!=` oder einem
-    einzelnen `=`), als Kopf einer Fallauswahl mit Zahlen als Fällen
-    und in einer Summe ohne Text in Anführungszeichen. Bis Punkt 601
-    zählten `!=`, `=`, Fallauswahl und `+` nicht: aus „Eingabe: note“
-    mit den Fällen 1 und 2 lief immer der Sonst-Fall, und „a + b“ ergab
-    bei 3 und 5 „35“. Ein `+` mit einem Text in Anführungszeichen in
-    derselben Zeile („"Hallo " + name“) verbindet dagegen Texte."""
-    texte = list(_texte(wurzel))
-    zeilen = [zeile for text in texte for zeile in text.splitlines()]
-    namen = {name for text in texte for name in _NAME.findall(text)}
-    vergleich = r"(?:==|!=|=(?!=))"
-    gefunden = set(_fallauswahl_mit_zahlen(wurzel))
-    # Ein Name als Index einer Liste („liste ← [1, 2, 3]“, dann
-    # „liste[i]“) muss eine ganze Zahl sein; als Text endete der Zugriff
-    # mit TypeError (Punkt 656). Nur Listen, die als Liste angelegt
-    # werden: in einem Wörterbuch wie `telefon[name]` ist der Schlüssel
-    # oft ein Text.
-    listen = {
-        treffer.group(1)
-        for zeile in zeilen
-        if (treffer := re.match(r"\s*(\w+)\s*(?:=(?!=)|←|:=)\s*\[", zeile))
-    }
-    for name in namen:
-        n = re.escape(name)
-        if any(
-            re.search(rf"(?<![\w.]){re.escape(liste)}\s*\[\s*{n}\s*\]", text)
-            for liste in listen
-            for text in texte
-        ):
-            gefunden.add(name)
-    for name in namen:
-        n = re.escape(name)
-        muster = re.compile(
-            rf"(?<![\w.]){n}\s*(?:[<>]=?(?!=)|<=|>=|[-*/%]|{vergleich}\s*-?\d)"
-            rf"|(?:[<>]=?|[-*/%]|\d\s*{vergleich})\s*(?<![\w.]){n}(?![\w(])"
-        )
-        summe = re.compile(rf"(?<![\w.]){n}\s*\+|\+\s*{n}(?![\w(])")
-        if any(muster.search(text) for text in texte) or any(
-            summe.search(zeile) and not re.search("[\"']", zeile)
-            for zeile in zeilen
-        ):
-            gefunden.add(name)
-    return _zahlen_weitergeben(gefunden, namen, texte, zeilen)
-
-
-#: Was einer Zuweisung eine Zahl als Wert gibt: eine Zahl, auch mit
-#: Vorzeichen oder Komma, oder ein Aufruf, der eine Zahl liefert.
-_ZAHLWERT = re.compile(
-    r"\s*(?:-?\d+(?:[.,]\d+)?|(?:random\.)?(?:randint|randrange|uniform|random)\("
-    r"|int\(|float\(|zahl\(|len\(|round\(|abs\()"
-)
-
-
-def _zahlen_weitergeben(
-    gefunden: set[str], namen: set[str], texte: list[str], zeilen: list[str]
-) -> set[str]:
-    """Erweitert `gefunden` um die Namen, die eine Zahl als Wert
-    bekommen („geheim ← 42“, „wurf ← randint(1, 6)“), die als
-    Laufvariable einer Zählschleife zählen, und um jeden Namen, der
-    mit einem dieser Namen verglichen oder verrechnet wird - so lange,
-    bis nichts mehr dazukommt.
-
-    Bis Punkt 622 zählte ein Vergleich nur mit einer Ziffer: aus
-    „geheim ← 42“, „Eingabe: tipp“ und „solange tipp != geheim“ wurde
-    `tipp = input(…)`, und die Schleife endete auch bei der richtigen
-    Eingabe nie.
-
-    Eine Liste zählt dabei wie eine Zahl, wenn sie mit Zahlen angelegt
-    wird („liste ← [3, 7, 5]“) oder ihre Elemente verrechnet oder
-    verglichen werden; ein Element `liste[i]` steht dann für eine Zahl.
-    Ein Name, der mit einem Element verglichen, mit `in` in ihr gesucht
-    oder mit `append` in sie eingefügt wird, ist dann ebenfalls eine
-    Zahl. Bis Punkt 659 fand eine lineare Suche die eingegebene Zahl
-    nie, und das Maximum eingelesener Zahlen wurde als Text bestimmt."""
-    zahlen = set(gefunden)
-    for zeile in zeilen:
-        zuweisung = re.match(r"\s*(\w+)\s*(?:=(?!=)|←|:=)(.*)$", zeile)
-        if zuweisung and (
-            _ZAHLWERT.match(zuweisung.group(2))
-            or re.match(r"\s*\[\s*-?\d", zuweisung.group(2))
-        ):
-            zahlen.add(zuweisung.group(1))
-        laufvariable = re.match(
-            r"\s*(?:(?:für|fuer|for)\s+)?(\w+)\s+(?:von|=)\s*-?\d", zeile, re.IGNORECASE
-        )
-        if laufvariable:
-            zahlen.add(laufvariable.group(1))
-    operator = r"(?:==|!=|<=|>=|=(?!=)|<|>|[-*/%+])"
-    # Ein Name oder ein Element von ihm: `liste` oder `liste[i]`.
-    element = r"(?:\s*\[[^\]]*\])?"
-    while True:
-        neu = set()
-        for name in namen - zahlen:
-            n = re.escape(name)
-            for andere in zahlen:
-                a = re.escape(andere)
-                paar = re.compile(
-                    rf"(?<![\w.]){n}{element}\s*{operator}\s*{a}{element}(?![\w(\[])"
-                    rf"|(?<![\w.]){a}{element}\s*{operator}\s*{n}{element}(?![\w(\[])"
-                    rf"|(?<![\w.]){n}\s+in\s+{a}(?![\w(\[])"
-                    rf"|(?<![\w.]){a}\.append\(\s*{n}\s*\)"
-                    rf"|(?<![\w.]){n}\.append\(\s*{a}\s*\)"
-                )
-                if any(
-                    paar.search(zeile) and not re.search("[\"']", zeile)
-                    for zeile in zeilen
-                ):
-                    neu.add(name)
-                    break
-            else:
-                # Eine Zuweisung, deren Wert eine Zahl enthält:
-                # „rest ← betrag - preis“.
-                for zeile in zeilen:
-                    zuweisung = re.match(rf"\s*{n}\s*(?:=(?!=)|←|:=)(.*)$", zeile)
-                    if zuweisung and not re.search("[\"']", zeile) and any(
-                        re.search(rf"(?<![\w.]){re.escape(z)}(?![\w(])", zuweisung.group(1))
-                        for z in zahlen
-                    ) and re.search(r"[-*/%+]", zuweisung.group(1)):
-                        neu.add(name)
-                        break
-        if not neu:
-            return zahlen
-        zahlen |= neu
-
-
-def _fallauswahl_mit_zahlen(knoten: Any) -> Iterator[str]:
-    """Die Namen im Kopf einer Fallauswahl, deren Fälle Zahlen sind."""
-    if isinstance(knoten, list):
-        for eintrag in knoten:
-            yield from _fallauswahl_mit_zahlen(eintrag)
-        return
-    if not isinstance(knoten, dict):
-        return
-    if knoten.get("kind") in MEHRFACH:
-        kopf = _einzeilig(knoten.get("text", ""))
-        etiketten = [
-            _einzeilig(str(fall.get("label", "")))
-            for fall in knoten.get("cases") or []
-        ]
-        if kopf.isidentifier() and any(
-            _zahlenliste(etikett) or _vergleich_mit_zahl(etikett)
-            for etikett in etiketten
-        ):
-            yield kopf
-    for wert in knoten.values():
-        if isinstance(wert, list | dict):
-            yield from _fallauswahl_mit_zahlen(wert)
-
-
-def _vergleich_mit_zahl(etikett: str) -> bool:
-    """Ob die Fallbeschriftung mit einem Vergleich gegen eine Zahl
-    beginnt („< 0“, „= 0“, „>= 18“). Der Kopf darüber ist dann eine
-    Zahl; bis Punkt 626 blieb die Eingabe Text, und „< 0“ endete mit
-    einem TypeError."""
-    return bool(re.match(r"\s*(?:<=|>=|==|!=|<|>|=)\s*-?\d", etikett))
-
-
-def _zahlenliste(etikett: str) -> bool:
-    """Ob die Fallbeschriftung aus einer oder mehreren Zahlen besteht
-    („1“, „1, 2“)."""
-    try:
-        werte = [ast.literal_eval(w) for w in _alternativen(etikett)]
-    except (ValueError, SyntaxError, TypeError):
-        return False
-    return bool(werte) and all(
-        isinstance(w, int | float) and not isinstance(w, bool) for w in werte
     )
 
 

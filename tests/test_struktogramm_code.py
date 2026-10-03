@@ -872,7 +872,7 @@ def test_eingabe_und_ausgabe_werden_uebersetzt_und_annotationen_verworfen() -> N
         )
     )
 
-    assert '    zahl = input("zahl? ")' in _zeilen(ergebnis)
+    assert '    zahl = eingabe_lesen("zahl? ")' in _zeilen(ergebnis)
     assert "    print(zahl)" in _zeilen(ergebnis)
     assert ergebnis.nicht_uebernommen == ["Ergebnis: summe"]
     _pruefen(ergebnis)
@@ -933,8 +933,8 @@ def test_eine_eingabe_die_wie_eine_zahl_benutzt_wird_wird_zur_zahl(
     raum: dict = {}
     exec(code + "\nprobe()\n", raum)
 
-    assert 'name = input("name? ")' in code
-    assert 'zahl = zahl_lesen("zahl? ")' in code
+    assert 'name = eingabe_lesen("name? ")' in code
+    assert 'zahl = eingabe_lesen("zahl? ")' in code
 
 
 def test_zaehlschleife_abwaerts_mit_geklammerter_schrittweite() -> None:
@@ -1119,7 +1119,7 @@ def test_beispiel_konto_abheben_laeuft_ohne_name_error() -> None:
 @pytest.mark.parametrize(
     ("text", "code"),
     [
-        ("Eingabe: a\nEingabe: b", ['a = input("a? ")', 'b = input("b? ")']),
+        ("Eingabe: a\nEingabe: b", ['a = eingabe_lesen("a? ")', 'b = eingabe_lesen("b? ")']),
         ("x ← 1\ny ← 2", ["x = 1", "y = 2"]),
         ("x = 1\ny ← 2", ["x = 1", "y = 2"]),
     ],
@@ -1131,7 +1131,10 @@ def test_mehrzeilige_bloecke_werden_zeilenweise_uebersetzt(
     einzeiligen Blöcken."""
     ergebnis = als_python(_diagramm(_anweisung(text)))
 
-    assert _zeilen(ergebnis)[1:] == [f"    {z}" for z in code]
+    zeilen = _zeilen(ergebnis)
+    # Vor dem Unterprogramm steht bei einer Eingabe `eingabe_lesen`.
+    anfang = zeilen.index("def ampel_zeichnen():")
+    assert zeilen[anfang + 1:] == [f"    {z}" for z in code]
     assert ergebnis.anzahl == 0
 
 
@@ -1196,7 +1199,7 @@ def test_zahlenraten_vergleicht_mit_einem_namen_der_eine_zahl_ist(
         ))
         from random import randint
 
-        assert 'tipp = zahl_lesen("tipp? ")' in ergebnis.text
+        assert 'tipp = eingabe_lesen("tipp? ")' in ergebnis.text
         spur = []
         import builtins
 
@@ -1441,7 +1444,7 @@ def test_ganze_zahlen_bleiben_ganz(
     endete mit TypeError, 3 + 5 ergab „8.0“."""
     ergebnis = als_python(_diagramm(*bloecke))
 
-    assert ergebnis.text.startswith("def zahl_lesen(frage):")
+    assert ergebnis.text.startswith("def eingabe_lesen(frage):")
     _pruefen(ergebnis)
     assert _programm_mit_eingaben(monkeypatch, ergebnis, *eingaben) == erwartet
 
@@ -1633,3 +1636,95 @@ def test_eingaben_in_und_aus_zahlenlisten_sind_zahlen(
     _mit_eingaben(monkeypatch, *eingaben)
 
     assert _ausfuehren(ergebnis) == erwartet
+
+
+def _laufen(bloecke: list, eingaben: list, monkeypatch) -> list:  # noqa: ANN001
+    """Übersetzt, führt mit diesen Eingaben aus und liefert `spur`."""
+    import builtins
+
+    ergebnis = als_python(_diagramm(*bloecke))
+    _pruefen(ergebnis)
+    antworten = iter(eingaben)
+    monkeypatch.setattr(builtins, "input", lambda _frage="": next(antworten))
+    spur: list = []
+    raum: dict = {"spur": spur}
+    exec(compile(ergebnis.text, "<struktogramm>", "exec"), raum)
+    raum["ampel_zeichnen"]()
+    return spur
+
+
+def test_namen_einlesen_und_sortieren(monkeypatch) -> None:  # noqa: ANN001
+    """Punkt 662: Namen, die in eine Liste kamen und verglichen wurden,
+    galten als Zahlen, und „Cem“ brach mit ValueError ab."""
+    bloecke = [
+        _anweisung("namen ← []"),
+        _block("count_loop", "für i von 1 bis 3", children=[
+            _anweisung("Eingabe: name"), _anweisung("namen.append(name)")]),
+        _block("count_loop", "für i von 0 bis 1", children=[
+            _block("count_loop", "für j von 0 bis 1 - i", children=[
+                _block("branch", "namen[j] > namen[j + 1]", then=[
+                    _anweisung("namen[j], namen[j + 1] ← namen[j + 1], namen[j]"),
+                ], **{"else": []}),
+            ]),
+        ]),
+        _anweisung("spur.append(namen)"),
+    ]
+    assert _laufen(bloecke, ["Cem", "Anna", "Ben"], monkeypatch) == [["Anna", "Ben", "Cem"]]
+
+
+def test_maximum_dreier_zahlen_mit_pfeil(monkeypatch) -> None:  # noqa: ANN001
+    """Punkt 663: mit „maximum ← a“ blieb a Text, b und c wurden Zahlen."""
+    bloecke = [
+        _anweisung("Eingabe: a"), _anweisung("Eingabe: b"), _anweisung("Eingabe: c"),
+        _anweisung("maximum ← a"),
+        _block("branch", "b > maximum", then=[_anweisung("maximum ← b")], **{"else": []}),
+        _block("branch", "c > maximum", then=[_anweisung("maximum ← c")], **{"else": []}),
+        _anweisung("spur.append(maximum)"),
+    ]
+    assert _laufen(bloecke, ["3", "12", "9"], monkeypatch) == [12]
+
+
+@pytest.mark.parametrize(
+    ("ausdruck", "erwartet"),
+    [("max(zahlen)", 10), ("sum(zahlen)", 22), ("sum(zahlen) / len(zahlen)", 22 / 3)],
+)
+def test_max_und_sum_ueber_eingelesene_zahlen(
+    monkeypatch, ausdruck: str, erwartet: float
+) -> None:  # noqa: ANN001
+    """Punkt 664: über eingelesene Zahlen rechneten max und sum mit Text."""
+    bloecke = [
+        _anweisung("zahlen ← []"),
+        _block("count_loop", "für i von 1 bis 3", children=[
+            _anweisung("Eingabe: z"), _anweisung("zahlen.append(z)")]),
+        _anweisung(f"spur.append({ausdruck})"),
+    ]
+    assert _laufen(bloecke, ["9", "10", "3"], monkeypatch) == [erwartet]
+
+
+def test_tausch_mit_pfeil_wird_uebersetzt(monkeypatch) -> None:  # noqa: ANN001
+    """Punkt 665: „a, b ← b, a“ wurde Kommentar."""
+    bloecke = [
+        _anweisung("a ← 1"), _anweisung("b ← 2"),
+        _anweisung("a, b ← b, a"),
+        _anweisung("spur.append((a, b))"),
+    ]
+    ergebnis = als_python(_diagramm(*bloecke))
+    assert ergebnis.anzahl == 0
+    assert _laufen(bloecke, [], monkeypatch) == [(2, 1)]
+
+
+@pytest.mark.parametrize(
+    ("eingabe", "erwartet"),
+    [
+        ("8", 8), ("-3", -3), ("2,5", 2.5), ("2.5", 2.5),
+        ("Cem", "Cem"), ("1,2,3", "1,2,3"), ("", ""),
+    ],
+)
+def test_eingabe_lesen_entscheidet_beim_lauf(
+    monkeypatch, eingabe: str, erwartet: object
+) -> None:  # noqa: ANN001
+    """Eine Zahl wird Zahl, alles andere bleibt Text."""
+    gelesen = _laufen(
+        [_anweisung("Eingabe: x"), _anweisung("spur.append(x)")], [eingabe], monkeypatch
+    )
+    assert gelesen == [erwartet] and type(gelesen[0]) is type(erwartet)
