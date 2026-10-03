@@ -15328,3 +15328,63 @@ Dasselbe gilt für „Ausführen bis Cursor“ auf diesen Zeilen.
 **Zu tun:** Den Satz in die Meldung selbst nehmen und nach Anzahl formulieren, ohne „Sie“ („steht als Kommentar im Code“ / „stehen als Kommentar im Code“). Erledigt, wenn ein Test den Text für eine und für zwei Zeilen prüft.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** `Ergebnis.meldung()` (`ide/diagramm/struktogramm_code.py`) formuliert den ganzen Satz nach Anzahl und ohne Anrede („1 Zeile konnte nicht übernommen werden und steht als Kommentar im Code.“); `quelltext_hinweis` hängt nichts mehr an. Tests: `test_hinweis_nach_anzahl_ohne_anrede` in `tests/test_struktogramm_code.py`, `test_nicht_uebernommene_zeilen_werden_genannt` in `tests/test_diagramm_codefenster.py`.
+
+## 653. Klappmenü-Kürzel wirken nicht an Komponenten, die in einer Liste stehen ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht vor 0.4.4, Stand f163469. Rückschritt durch Punkt 623 (Commit 3f1ed41).
+
+**Beobachtet:** Ein Formular legt drei Knöpfe in einer Schleife an und speichert sie in `self.knoepfe`. Jeder bekommt `k.popup_menu = self.pm`, und das Klappmenü hat den Eintrag „Löschen“ mit „Strg+K“. Der Fokus liegt auf `knoepfe[1]`, dann wird Strg+K gedrückt: Die Methode wird nicht aufgerufen (`Aufrufe: []`). Auf dem Stand 2376f1d lief sie (`Aufrufe: [1]`). Der Rechtsklick öffnet das Menü weiterhin, nur das Kürzel bleibt ohne Wirkung und ohne Meldung. Komponenten in Listen sind im Unterricht üblich, etwa bei einem Spielfeld aus Knöpfen.
+
+**Ursache:** nachgewiesen. `PopupMenu._komponenten` in `pcl/components/menus.py` (Zeile 766 bis 779) sucht die zugeordneten Komponenten nur unter `vars(self._formular)`. Eine Komponente, die nur in einer Liste oder einem Wörterbuch steht, findet es dort nicht, und `_menue_erneuern` meldet für sie kein Kürzel an. Seit Punkt 623 gilt ein Klappmenü-Kürzel nur noch an den Komponenten, die `_komponenten` liefert. Vorher galt es im ganzen Fenster.
+
+**Zu tun:** Die zugeordneten Komponenten über die Zuordnung selbst bestimmen, etwa indem der Setter `popup_menu` die Komponente beim Klappmenü einträgt, oder über alle Kind-Widgets des Formulars. Erledigt, wenn ein Test mit Knöpfen in einer Liste das Kürzel an jedem Knopf auslöst.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Der Setter `popup_menu` (`pcl/control.py`) meldet die Komponente beim Klappmenü an (`PopupMenu._zuordnen`, schwach gehalten), und `_komponenten` (`pcl/components/menus.py`) liefert die Komponenten über diese Zuordnung statt über die Attribute des Formulars; auch Knöpfe in einer Liste bekommen so ihr Kürzel. Abgemeldete Kürzel werden sofort abgeschaltet. Tests: `test_klappmenue_kuerzel_an_knoepfen_in_einer_liste` und `test_eine_aufgehobene_zuordnung_nimmt_das_kuerzel_weg` in `tests/test_klappmenue_in_listen.py`.
+
+## 654. Klassen-Code: Startwert „0,5“ wird bei modelliertem Konstruktor still zum Tupel ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht vor 0.4.4, Stand f163469. Rückschritt durch Punkt 606 (Commit 30729ea): seitdem entsteht die Zuweisung, vorher fehlte sie ganz.
+
+**Beobachtet:** Die Klasse `Konto` hat die Attribute `-inhaber: str` und `-zins: float = 0,5` und die Operation `+__init__(inhaber: str)`. Erzeugt wird `self.__zins = 0,5`. Natter meldet nichts, und `vars(Konto("Anna"))` ergibt `{'_Konto__inhaber': 'Anna', '_Konto__zins': (0, 5)}`. Eine Rechnung mit dem Zinssatz bricht dann mit `TypeError` ab. Ohne modellierten Konstruktor meldet Natter in diesem Fall richtig „Der erzeugte Code lässt sich nicht übersetzen“. „0,5“ mit Komma ist die Schreibweise, die eine Schülerin von sich aus wählt.
+
+**Ursache:** nachgewiesen. `_zuweisungen_fuer_init` in `ide/diagramm/klassen_code.py` (um Zeile 490) übernimmt den Startwert unverändert. Die Prüfung über `ausdruck_pruefen` und `ungueltige_namen` lässt „0,5“ durch, weil es als Python-Ausdruck gültig ist, nämlich als Tupel. Dasselbe gilt für ein Klassenattribut mit „0,5“.
+
+**Zu tun:** Einen Startwert, der als Tupel aus Zahlen gelesen würde, wie im Struktogramm als Kommazahl schreiben oder mit einer Meldung ablehnen, die auf das Komma hinweist. Erledigt, wenn ein Test mit „0,5“ bei modelliertem Konstruktor entweder `0.5` erzeugt oder eine Meldung bekommt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Start- und Standardwerte laufen im Klassen-Code durch `_wert` (`ide/diagramm/klassen_code.py`), dieselbe Regel wie `_kommazahlen` im Struktogramm-Code: „0,5“ wird `0.5`, `[1, 2]` bleibt; das gilt für Attribute, beide Konstruktorarten, Standardwerte von Parametern und die Prüfung in `ungueltige_namen`. `docs/handbuch.md` nennt das. Test: `test_kommazahl_als_startwert_und_standardwert` in `tests/test_diagramm_klassen_code.py`.
+
+## 655. Struktogramm-Code: Bedingungen mit „und“, „oder“, „nicht“ werden zu `if False` ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht vor 0.4.4, Stand f163469. Kein Rückschritt, auf 2376f1d ebenso.
+
+**Beobachtet:** Die Verzweigung „jahr % 4 = 0 und jahr % 100 != 0 oder jahr % 400 = 0“ (Schaltjahr) ergibt `# jahr % 4 = 0 und …` und darunter `if False:`. Ebenso wird „x > 0 UND x < 10“ zu `if False:`. Das erzeugte Programm läuft, nimmt aber immer den Nein-Zweig. Über dem Code steht nur, dass eine Zeile nicht übernommen wurde. Im Struktogramm sind „und“, „oder“ und „nicht“ die übliche Schreibweise für zusammengesetzte Bedingungen. „wahr“, „falsch“, „←“ und ein einzelnes „=“ übersetzt Natter schon, diese drei Wörter nicht.
+
+**Ursache:** nachgewiesen. `ide/diagramm/struktogramm_code.py` kennt keine Übersetzung der Wörter „und“, „oder“ und „nicht“. Ein `grep` nach ihnen findet nichts. `_bedingungstext` und `_als_ausdruck` (um Zeile 1246) verwerfen die Bedingung deshalb als Nicht-Python und setzen den Platzhalter `False` ein.
+
+**Zu tun:** „und“, „oder“ und „nicht“ als ganze Wörter außerhalb von Texten in Anführungszeichen, unabhängig von Groß- und Kleinschreibung, in `and`, `or` und `not` übersetzen, wenn der Name im Struktogramm keinen Wert bekommt, und im Handbuch nennen. Erledigt, wenn ein Test das Schaltjahr-Struktogramm ausführt und für 2000, 1900 und 2024 das richtige Ergebnis bekommt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_logikwoerter` (`ide/diagramm/struktogramm_code.py`, aus `_einzeilig`) schreibt in Köpfen und Fällen „und“, „oder“, „nicht“ als `and`, `or`, `not`, nur als ganze Wörter und nie in Texten in Anführungszeichen; Anweisungen bleiben ausgenommen. Das Schaltjahr-Beispiel ergibt für 2000, 1900 und 2024 das richtige Ergebnis. `docs/handbuch.md` nennt das. Tests: `test_und_oder_nicht_in_bedingungen` und `test_und_in_einem_text_bleibt` in `tests/test_struktogramm_code.py`.
+
+## 656. Struktogramm-Code: eine Eingabe, die nur als Listenindex dient, bleibt Text ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht vor 0.4.4, Stand f163469. Bezug: Punkt 643, dessen Kriterium nur den Fall mit zusätzlichem Vergleich „i < 3?“ abdeckt. Kein Rückschritt.
+
+**Beobachtet:** „Eingabe: i“, „liste ← [1, 2, 3]“, „Ausgabe: liste[i]“ ergibt `i = input("i? ")` und `print(liste[i])`. Ausgeführt endet das mit `TypeError: list indices must be integers or slices, not str`. Das Handbuch (Abschnitt zum Diagramm-Editor) sagt, `zahl_lesen` sorge dafür, „dass eine eingelesene Zahl auch als Listenindex taugt“.
+
+**Ursache:** nachgewiesen. `_als_zahl_benutzt` in `ide/diagramm/struktogramm_code.py` (Zeile 1041 bis 1067) zählt einen Namen nur neben Rechen- und Vergleichszeichen als Zahl. Ein Name in eckigen Klammern hinter einem anderen Namen zählt nicht.
+
+**Zu tun:** Einen Namen, der als Index `name[i]` benutzt wird, als Zahl werten. Erledigt, wenn ein Test das Beispiel oben mit der Eingabe 1 ausführt und „2“ ausgegeben wird.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_als_zahl_benutzt` (`ide/diagramm/struktogramm_code.py`) wertet einen Namen als Zahl, wenn er als Index einer im Struktogramm angelegten Liste steht; die Eingabe läuft dann über `zahl_lesen`. Wörterbücher bleiben ausgenommen. `docs/handbuch.md` nennt das. Tests: `test_eine_eingabe_als_listenindex_wird_zahl` und `test_ein_text_als_schluessel_eines_woerterbuchs_bleibt_text` in `tests/test_struktogramm_code.py`.
+
+## 657. Debugger: Haltezeile steht nach einer Änderung im Halt auf der falschen Zeile ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht vor 0.4.4, Stand f163469. Kein Rückschritt, wird aber erst seit Punkt 645 sichtbar, weil Haltepunkte nach einer Änderung im Halt jetzt an der richtigen Stelle halten.
+
+**Beobachtet:** Mit echtem debugpy in einem Konsolenprojekt geprüft. Das Programm hält auf `summe = summe + i`. Oben wird eine Kommentarzeile eingefügt, dann ein Haltepunkt auf `x = i * 2` gesetzt (im Editor Zeile 5), Strg+S gedrückt und fortgesetzt. debugpy hält richtig an `x = i * 2`, gemeldet als Zeile 4 der geladenen Datei. Die gelbe Haltezeile und der Cursor stehen im Editor aber auf Zeile 4, also auf `summe = summe + i`. Im Aufrufstapel springt ein Klick ebenso eine Zeile zu hoch.
+
+**Ursache:** nachgewiesen. `_haltezeile_zeigen` in `ide/shell/hauptfenster.py` (Zeile 9741 bis 9759) übernimmt `frame["line"]` unverändert. Punkt 645 rechnet nur in eine Richtung um, vom Editor auf den geladenen Text (`_zeilen_zur_datei(..., geladen=True)`). Für Zeilen, die debugpy meldet, fehlt die Umrechnung in die Gegenrichtung.
+
+**Zu tun:** Zeilen aus Stapelrahmen über die umgekehrte Zuordnung auf den Editortext abbilden, für die Haltezeile, den Cursor beim Halt und den Aufrufstapel. Erledigt, wenn ein Test nach eingefügter Zeile im Halt die gelbe Zeile auf der Anweisung zeigt, an der das Programm hält.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_editorzeile_aus_datei` (`ide/shell/hauptfenster.py`) rechnet eine Zeile, die debugpy aus der geladenen Datei meldet, auf den Editortext zurück; `_haltezeile_zeigen` und `_zu_frame_springen` nutzen das, sodass Haltezeile, Cursor und Sprung aus dem Aufrufstapel nach einer im Halt eingefügten Zeile auf der richtigen Anweisung stehen. Test: `test_nach_einer_eingefuegten_zeile_steht_die_haltezeile_richtig` in `tests/test_haltepunkte_und_reiter.py`.
