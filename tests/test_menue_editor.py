@@ -503,3 +503,39 @@ def test_doppeltes_kuerzel_haelt_anwenden_auf(qtbot) -> None:
 
     assert editor.anwenden() is False
     assert "Strg+K" in editor.kuerzel_hinweis.text()
+
+
+def test_formular_mit_doppeltem_kuerzel_oeffnet_und_startet(qtbot, tmp_path) -> None:
+    """Punkt 639: eine .pfm aus 0.4.3 mit zweimal Strg+N ließ sich im
+    Designer nicht öffnen und nicht starten. Jetzt öffnet sie, der
+    Menü-Editor nennt das doppelte Kürzel, und nach dem Ändern startet
+    das Programm."""
+    from ide.designer.laden import formular_fuer_designer_laden
+
+    eintraege = [{"caption": "&Datei", "children": [
+        {"name": "mi_neu", "caption": "Neu", "shortcut": "Strg+N"},
+        {"name": "mi_neu2", "caption": "Neu2", "shortcut": "Strg+N"},
+    ]}]
+    pfm = {
+        "format": "pfm/1", "class": "Form1", "type": "Form", "properties": {},
+        "children": [{"name": "mm_haupt", "type": "MainMenu",
+                      "properties": {"entries": eintraege}}],
+    }
+    pfad = tmp_path / "u_main.pfm"
+    pfad.write_text(json.dumps(pfm), encoding="utf-8")
+
+    formular = formular_fuer_designer_laden(pfad)
+    editor = _editor(qtbot, formular.mm_haupt.entries)
+    assert "Strg+N" in editor.kuerzel_hinweis.text()
+    assert editor.anwenden() is False
+
+    _waehlen(editor, 0, 1)
+    editor.feld_shortcut.setText("Strg+M")
+    assert editor.anwenden() is True
+
+    namensraum: dict = {}
+    pfm["children"][0]["properties"]["entries"] = editor.eintraege()
+    exec(design_code_erzeugen(pfm, "u_main.pfm"), namensraum)
+    programm = namensraum["Form1Design"]()
+    programm.show()
+    assert len(programm.mm_haupt.entries[0]["children"]) == 2

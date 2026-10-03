@@ -245,6 +245,11 @@ def _teilattribute(
             ergebnis.append(
                 {"name": name, "type": f"list[{typ}]", "value": "[]"}
             )
+        elif "0..1" in woerter:
+            # „0..1“ heißt: es darf auch keins geben. Als Pflichtparameter
+            # ließ sich der erste Knoten einer verketteten Liste nicht
+            # anlegen (Punkt 649).
+            ergebnis.append({"name": name, "type": f"{typ} | None", "value": "None"})
         else:
             ergebnis.append({"name": name, "type": typ})
     return ergebnis

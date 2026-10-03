@@ -775,9 +775,71 @@ def test_popup_component_nach_kuerzel_und_ausserhalb(qtbot) -> None:
     ],
     ids=["oben", "untermenues"],
 )
-def test_doppeltes_kuerzel_im_selben_menue_wird_abgelehnt(eintraege) -> None:  # noqa: ANN001
-    """Punkt 633: zwei Einträge mit Strg+K lösten keinen aus, ohne
-    Hinweis."""
+def test_doppeltes_kuerzel_wird_erkannt_und_nur_das_erste_wirkt(eintraege) -> None:  # noqa: ANN001
+    """Punkte 633 und 639: zwei Einträge mit Strg+K lösten keinen aus.
+    Die Einträge bleiben zulässig, damit eine ältere `.pfm` sich öffnen
+    und starten lässt; `doppeltes_kuerzel` nennt beide für den
+    Menü-Editor, und angemeldet wird nur das erste."""
+    from pcl.components.menus import _blaetter, _kuerzel_gewinner, doppeltes_kuerzel
+
+    assert "steht bei „Eins“ und bei „Zwei“" in doppeltes_kuerzel(eintraege)
     menue = MainMenu()
-    with pytest.raises(NatterPropertyError, match="steht bei „Eins“ und bei „Zwei“"):
-        menue.entries = eintraege
+    menue.entries = eintraege  # keine Ausnahme
+
+    gewinner = _kuerzel_gewinner(menue._eintraege)
+    blaetter = _blaetter(menue._eintraege)
+    assert [id(e) in gewinner for e in blaetter] == [True, False]
+
+
+def _klappmenue_kuerzel_probe(qtbot, fall: str):  # noqa: ANN202
+    """Eine Liste mit Klappmenü-Eintrag auf Entf in drei Lagen aus
+    Punkt 648."""
+    from pcl import ListBox
+
+    class _Probe(Form):
+        def create_components(self) -> None:
+            self.lb = ListBox(self)
+            self.pm = PopupMenu(self)
+            eintrag = {"name": "mi_weg", "caption": "Eintrag löschen",
+                       "shortcut": "Entf", "on_click": "loeschen"}
+            if fall == "unsichtbar":
+                self.pm.entries = [{**eintrag, "visible": False}]
+            elif fall == "untermenue_aus":
+                self.pm.entries = [{"caption": "Bearbeiten", "enabled": False,
+                                    "children": [eintrag]}]
+            else:
+                self.mm = MainMenu(self)
+                self.mm.entries = [{"caption": "&Daten", "children": [
+                    {"caption": "Datensatz löschen", "shortcut": "Entf",
+                     "enabled": False, "on_click": "loeschen"}]}]
+                self.pm.entries = [eintrag]
+            self.lb.popup_menu = self.pm
+            self.geloescht = 0
+
+        def loeschen(self, sender) -> None:
+            self.geloescht += 1
+
+    formular = _Probe()
+    formular.show()
+    qtbot.waitExposed(formular._qwidget)
+    formular._qwidget.activateWindow()
+    qtbot.waitUntil(formular._qwidget.isActiveWindow, timeout=2000)
+    return formular
+
+
+@pytest.mark.parametrize(
+    ("fall", "erwartet"),
+    [("unsichtbar", 0), ("untermenue_aus", 0), ("hauptmenue_aus", 1)],
+)
+def test_klappmenue_kuerzel_nur_fuer_bedienbare_eintraege(
+    qtbot, fall: str, erwartet: int
+) -> None:
+    """Punkt 648: unsichtbare Einträge und Einträge unter einem
+    abgeschalteten Untermenü lösten ihr Kürzel aus, und ein
+    abgeschalteter Hauptmenü-Eintrag mit Entf ließ Entf in der Liste
+    wirkungslos."""
+    formular = _klappmenue_kuerzel_probe(qtbot, fall)
+
+    _entf(formular.lb)
+
+    assert formular.geloescht == erwartet

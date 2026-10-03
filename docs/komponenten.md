@@ -691,7 +691,7 @@ Ein Eintrag hat diese Felder:
 |---|---|
 | `name` | Bezeichner im Quelltext, z. B. `mi_datei_beenden` |
 | `caption` | Was dasteht. Ein `&` macht den nächsten Buchstaben zum Zugriffsbuchstaben (`&Datei` → Alt+D) |
-| `shortcut` | Tastenkürzel, deutsch geschrieben: `Strg+Q`, `Strg+Umschalt+S`, `Strg+Ende`, `Strg+Bild auf`, `Alt+Pfeil links`, `Druck`. Ein Kürzel, das sich nicht umsetzen lässt, und dasselbe Kürzel an zwei Einträgen eines Menüs lehnt das Menü mit einer Meldung ab |
+| `shortcut` | Tastenkürzel, deutsch geschrieben: `Strg+Q`, `Strg+Umschalt+S`, `Strg+Ende`, `Strg+Bild auf`, `Alt+Pfeil links`, `Druck`. Ein Kürzel, das sich nicht umsetzen lässt, lehnt das Menü mit einer Meldung ab. Dasselbe Kürzel an zwei Einträgen eines Menüs lehnt der Menü-Editor beim Anwenden ab; steht es so in einer älteren Datei, wirkt nur das erste. Ein Kürzel wirkt nur, solange sein Eintrag sichtbar und bedienbar ist |
 | `enabled` | Ob der Eintrag anklickbar ist |
 | `visible` | Ob der Eintrag im Menü steht |
 | `checkable` | Macht den Eintrag zu einem Umschalter wie „Raster anzeigen“ |
@@ -761,7 +761,9 @@ Ein Tastenkürzel eines Eintrags wirkt auch, solange das Klappmenü zu
 ist, aber nur, wenn eine Komponente den Fokus hat, der dieses
 Klappmenü zugeordnet ist. Zwei Listen mit je eigenem Klappmenü dürfen
 so beide „Entf“ für „Löschen“ tragen; die Taste gilt der Liste mit dem
-Fokus. Trägt das Hauptmenü dasselbe Kürzel, gilt es dort.
+Fokus. Trägt ein sichtbarer, bedienbarer Eintrag des Hauptmenüs
+dasselbe Kürzel, gilt es dort. Unsichtbare Einträge und Einträge unter
+einem abgeschalteten Untermenü lösen ihr Kürzel nicht aus.
 
 Hängt ein Klappmenü an mehreren Komponenten, sagt `popup_component`,
 an welcher es aufging oder an welcher das Kürzel gedrückt wurde:
