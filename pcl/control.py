@@ -20,6 +20,7 @@ auslöst.
 
 from __future__ import annotations
 
+import weakref
 from typing import Any
 
 from PySide6.QtCore import QEvent, QObject, QPointF, Qt
@@ -178,8 +179,17 @@ class _MausFilter(QObject):
     """
 
     def __init__(self, control: Control) -> None:
-        super().__init__()
-        self._control = control
+        # Das Widget der Komponente als Eltern: der Filter endet mit
+        # ihm im Hauptfaden. Ohne Eltern gehörte er Python, steckte über
+        # `_control` in einem Zyklus und wurde von der
+        # Speicherbereinigung abgeräumt, auch in einem Nebenfaden
+        # (Punkt 550, dasselbe Muster wie Punkt 534).
+        super().__init__(control._qwidget)
+        # Nur schwach gehalten: das Widget hält den Filter, und hielte
+        # der Filter die Komponente fest, käme ein geschlossenes
+        # Formular nie mehr frei - die Speicherbereinigung sieht den
+        # Weg über Qt nicht.
+        self._control_ref = weakref.ref(control)
         self._gedrueckt = False
         self._zuletzt: tuple[tuple[Any, ...], QObject] | None = None
 
@@ -216,7 +226,16 @@ class _MausFilter(QObject):
         except RuntimeError:
             return stelle
 
+    @property
+    def _control(self) -> Any:
+        # Schon während `super().__init__` kann ein Ereignis ankommen,
+        # bevor die Referenz gesetzt ist.
+        ref = self.__dict__.get("_control_ref")
+        return ref() if ref is not None else None
+
     def eventFilter(self, objekt: QObject, ereignis: QEvent) -> bool:  # noqa: N802
+        if self._control is None:
+            return False
         art = ereignis.type()
         if art in _MAUS_ARTEN:
             if self._schon_gemeldet(objekt, ereignis):
@@ -354,13 +373,19 @@ class _AnkerFilter(QObject):
     in der Größe ändert."""
 
     def __init__(self, control: Control) -> None:
-        super().__init__()
-        self._control = control
+        # Wie `_MausFilter`: mit dem Widget der Komponente als Eltern
+        # endet er im Hauptfaden (Punkt 550).
+        super().__init__(control._qwidget)
+        self._control_ref = weakref.ref(control)
 
     def eventFilter(self, objekt: QObject, ereignis: QEvent) -> bool:  # noqa: N802
+        ref = self.__dict__.get("_control_ref")
+        control = ref() if ref is not None else None
+        if control is None:
+            return False
         if ereignis.type() == QEvent.Type.Resize:
-            anwenden = getattr(self._control, "_anker_anwenden", None)
-            if anwenden is not None and "_anchors" in self._control.__dict__:
+            anwenden = getattr(control, "_anker_anwenden", None)
+            if anwenden is not None and "_anchors" in control.__dict__:
                 anwenden()
         return False
 

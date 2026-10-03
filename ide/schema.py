@@ -94,7 +94,31 @@ def json_datei_lesen(pfad: Path) -> Any:
     Wirft `json.JSONDecodeError`, `UnicodeDecodeError` oder `OSError`;
     `fehler_beschreiben()` macht daraus eine deutsche Meldung.
     """
-    return json.loads(Path(pfad).read_text(encoding="utf-8-sig"))
+    text = Path(pfad).read_text(encoding="utf-8-sig")
+    # Zwei Arten kaputter Dateien kommen nicht als `JSONDecodeError`:
+    # sehr tief verschachtelte Klammern (`RecursionError`) und eine Zahl
+    # mit mehr als 4300 Ziffern (`ValueError`). Beide flogen bis 0.4.3
+    # aus dem Öffnen heraus und beendeten beim Start über die
+    # Dateiverknüpfung Natter (Punkt 548).
+    try:
+        return json.loads(text)
+    except RecursionError as fehler:
+        raise JsonUebergross("zu tief verschachtelt", text) from fehler
+    except json.JSONDecodeError:
+        raise
+    except ValueError as fehler:
+        raise JsonUebergross("eine Zahl mit zu vielen Ziffern", text) from fehler
+
+
+class JsonUebergross(json.JSONDecodeError):
+    """Eine Datei, die sich als JSON nicht lesen lässt, weil sie viel
+    größer gebaut ist, als Natter je schreibt. Erbt von
+    `json.JSONDecodeError`, damit jede Stelle, die eine beschädigte
+    Datei meldet, auch diese meldet."""
+
+    def __init__(self, grund: str, text: str) -> None:
+        super().__init__(grund, text, 0)
+        self.grund = grund
 
 
 def fehler_beschreiben(fehler: BaseException) -> str:
@@ -105,6 +129,11 @@ def fehler_beschreiben(fehler: BaseException) -> str:
     line 3 column 5“). Dieser Text stand vorher unverändert in der
     Meldung.
     """
+    if isinstance(fehler, JsonUebergross):
+        return (
+            f"Der Inhalt ist {fehler.grund}; so sieht keine Datei aus, die "
+            "Natter geschrieben hat."
+        )
     if isinstance(fehler, json.JSONDecodeError):
         return (
             f"Ab Zeile {fehler.lineno}, Spalte {fehler.colno} ist der "

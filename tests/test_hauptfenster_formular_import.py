@@ -334,3 +334,20 @@ def test_import_lehnt_untaugliche_namen_ab(
     assert grund in warnungen[0]
     assert vorhanden.read_text(encoding="utf-8") == "{}"
     assert sorted(p.name for p in tmp_path.iterdir()) == ["u_main.pfm", "unit1.lfm"]
+
+
+def test_import_liest_eine_lfm_in_windows_1252(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, hauptfenster_bauen
+) -> None:
+    """Punkt 549: Eine `.lfm` mit Umlauten in Windows-1252 brach mit
+    `UnicodeDecodeError` ab."""
+    quelle = tmp_path / "unit1.lfm"
+    quelle.write_bytes(_LFM_TEXT.replace("'Start'", "'Größe'").encode("cp1252"))
+    ziel = tmp_path / "u_main.pfm"
+    _dialoge_vorbereiten(monkeypatch, tmp_path, quelle=quelle, ziel=ziel)
+    fenster = hauptfenster_bauen()
+
+    fenster._formular_importieren_aktion()
+
+    daten = json.loads(ziel.read_text(encoding="utf-8"))
+    assert daten["children"][0]["properties"]["caption"] == "Größe"

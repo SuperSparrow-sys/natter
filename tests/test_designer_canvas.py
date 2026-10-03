@@ -160,3 +160,24 @@ def test_der_designer_stirbt_mit_seinem_formular_im_hauptfaden() -> None:
     faden.start()
     faden.join()
     QCoreApplication.processEvents()
+
+
+def test_die_ereignisfilter_gehoeren_ihrem_widget() -> None:
+    """Punkt 550: Maus-, Fenster-, Anker- und Escape-Filter hatten keine
+    Eltern, gehörten Python und konnten in einem Nebenfaden abgeräumt
+    werden. Jetzt gehören sie Qt und enden mit ihrem Widget."""
+    import shiboken6
+
+    formular = _Formular()
+    formular.b_ein.anchors.right = True
+    canvas = DesignerCanvas(formular)
+
+    filter_ = [
+        formular._maus_filter,
+        formular.b_ein._maus_filter,
+        formular.b_ein._anker_filter,
+        canvas._escape_wache,
+    ]
+
+    assert all(f is not None for f in filter_)
+    assert not any(shiboken6.ownedByPython(f) for f in filter_)

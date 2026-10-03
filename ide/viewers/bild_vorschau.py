@@ -7,8 +7,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+
+from pcl.bilddatei import bild_laden
 
 _MAX_SEITE = 600
 
@@ -21,7 +22,7 @@ class BildVorschau(QWidget):
     def __init__(self, pfad: Path, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._pfad = Path(pfad)
-        self._pixmap = QPixmap(str(self._pfad))
+        self._pixmap = bild_laden(self._pfad)
 
         self._bild_label = QLabel()
         self._bild_label.setAlignment(Qt.AlignmentFlag.AlignCenter)

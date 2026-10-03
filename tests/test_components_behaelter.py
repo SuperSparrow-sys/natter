@@ -116,7 +116,12 @@ def test_panel_caption_wird_gezeichnet() -> None:
 def test_panel_hat_kein_kind_label_das_klicks_abfangen_wuerde() -> None:
     formular = _Formular()
 
-    assert formular.p_feld._qwidget.children() == []
+    # Nur Widgets zählen; der Ereignisfilter hängt seit Punkt 550 als
+    # Kind am Panel, fängt aber keine Klicks ab.
+    from PySide6.QtWidgets import QWidget
+
+    kinder = formular.p_feld._qwidget.children()
+    assert [k for k in kinder if isinstance(k, QWidget)] == []
 
 
 def test_panel_color_faerbt_nur_das_panel_nicht_seinen_inhalt() -> None:

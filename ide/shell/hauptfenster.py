@@ -6216,6 +6216,10 @@ class HauptFenster(QMainWindow):
                 f"{Path(fundstelle.pfad).stem}. Der Quelltext dazu wird nicht "
                 f"geöffnet."
             )
+        elif fundstelle.pfad is not None and Path(fundstelle.pfad).stem.endswith("_design"):
+            meldung = self._komponente_im_designer_zeigen(
+                Path(fundstelle.pfad), fundstelle.name
+            )
         else:
             self.sprung_merken()
             if fundstelle.pfad is not None:
@@ -6232,6 +6236,27 @@ class HauptFenster(QMainWindow):
 
         self.statusBar().showMessage(meldung)
         return meldung
+
+    def _komponente_im_designer_zeigen(self, design_datei: Path, name: str) -> str:
+        """F12 auf eine Komponente führt in die erzeugte `_design.py`.
+        Statt sie zum Bearbeiten zu öffnen - jede Änderung dort ginge
+        beim nächsten Schreiben des Designers verloren (Punkt 545) -,
+        öffnet sich das Formular im Designer mit der Komponente
+        ausgewählt."""
+        pfm = design_datei.with_name(design_datei.stem[: -len("_design")] + ".pfm")
+        if not pfm.is_file():
+            return (
+                f"„{name}“ steht in {design_datei.name}, einer Datei, die Natter "
+                "aus dem Designer erzeugt; das Formular dazu fehlt."
+            )
+        self.sprung_merken()
+        formular = self.designer_oeffnen(pfm)
+        komponente = getattr(formular, name, None)
+        canvas = self._widget_zu_canvas.get(formular._qwidget)
+        if canvas is not None and komponente is not None and komponente is not formular:
+            canvas.auswahl_setzen([komponente])
+            return f"„{name}“ liegt auf dem Formular {pfm.stem} und ist im Designer ausgewählt."
+        return f"„{name}“ gehört zum Formular {pfm.stem}; es ist im Designer geöffnet."
 
     def _funde_in_editoren_zeigen(self, funde: list[RuffFund]) -> None:
         """Unterringelt die Funde der Vorstart-Prüfung dort, wo sie
@@ -7139,6 +7164,10 @@ class HauptFenster(QMainWindow):
                     # funktionierendes Fenster.
                     neu_geladen = None
             if neu_geladen is None or neu_geladen.daten == vorhanden.diagramm.daten:
+                if neu_geladen is not None:
+                    # Inhalt gleich: der Stand auf der Platte gilt als
+                    # gesehen und löst beim Speichern keine Frage aus.
+                    vorhanden._dateistand = dateistand.kennung(pfad)
                 vorhanden.show()
                 vorhanden.raise_()
                 vorhanden.activateWindow()
@@ -7829,7 +7858,22 @@ class HauptFenster(QMainWindow):
             return
         self._dialog_ordner_merken(quelle)
         try:
-            lfm_objekt = parse_lfm(Path(quelle).read_text(encoding="utf-8-sig"))
+            roh = Path(quelle).read_bytes()
+        except OSError as fehler:
+            self.statusBar().showMessage(
+                f"Import fehlgeschlagen: {Path(quelle).name} lässt sich nicht lesen "
+                f"({fehler.strerror or fehler})."
+            )
+            return
+        try:
+            text = roh.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            # Ältere Fassungen schreiben Umlaute als Windows-1252
+            # („ANSI“). Bis 0.4.3 brach der Import daran mit
+            # `UnicodeDecodeError` ab (Punkt 549).
+            text = roh.decode("cp1252", errors="replace")
+        try:
+            lfm_objekt = parse_lfm(text)
         except LfmParserError as fehler:
             self.statusBar().showMessage(
                 f"Import fehlgeschlagen: {fehler}. Ist die gewählte Datei wirklich ein "

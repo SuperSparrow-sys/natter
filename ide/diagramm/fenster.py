@@ -49,6 +49,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ide import dateistand
 from ide.assets import symbol
 from ide.deutsch import mehrzahl
 from ide.diagramm import fenstergroesse
@@ -305,6 +306,9 @@ class DiagrammFenster(QMainWindow):
         super().__init__()
         self.diagramm = diagramm
         self._geaendert = False
+        #: Der Stand der Datei beim Öffnen oder letzten Speichern
+        #: (Punkt 546).
+        self._dateistand = dateistand.kennung(diagramm.pfad)
         self._drucker: QPrinter | None = None
         self.setWindowIcon(symbol("app"))
         self._titel_setzen()
@@ -1340,12 +1344,21 @@ class DiagrammFenster(QMainWindow):
         """Schreibt das Diagramm in seine Datei. `False`, wenn das
         nicht ging; die Meldung dazu ist dann schon gezeigt, und das
         Diagramm bleibt als geändert markiert."""
+        # Ein zweites Natter-Fenster auf demselben Projekt schreibt
+        # dieselbe Datei. Ohne diese Frage ging dessen Änderung ohne ein
+        # Wort verloren (Punkt 546), wie für Editor und Designer schon in
+        # Punkt 286.
+        if dateistand.von_aussen_geaendert(
+            self._dateistand, self.diagramm.pfad
+        ) and not self._von_aussen_geaendert_fragen():
+            return False
         try:
             self.diagramm.speichern()
         except OSError as fehler:
             if self._speicherfehler_melden(self.diagramm.pfad, fehler):
                 return self.speichern_unter() is not None
             return False
+        self._dateistand = dateistand.kennung(self.diagramm.pfad)
         self._geaendert = False
         self._titel_setzen()
         self.statusBar().showMessage(f"{self.diagramm.pfad.name} gespeichert", 3000)
@@ -1379,6 +1392,24 @@ class DiagrammFenster(QMainWindow):
         frage.setDefaultButton(unter)
         frage.exec()
         return frage.clickedButton() is unter
+
+    def _von_aussen_geaendert_fragen(self) -> bool:
+        """Ob die von außen geänderte Datei überschrieben werden soll.
+        Eigene Methode, damit Tests die Antwort vorgeben können."""
+        antwort = QMessageBox.question(
+            self,
+            "Diagramm speichern",
+            f"„{self.diagramm.pfad.name}“ wurde seit dem Öffnen außerhalb "
+            "dieses Fensters geändert, zum Beispiel in einem zweiten "
+            "Natter-Fenster.\n\nMit dem Stand aus diesem Fenster "
+            "überschreiben? Die andere Änderung geht dabei verloren.\n\n"
+            "Bei „Nein“ bleibt die Änderung nur in diesem Fenster; mit "
+            "„Speichern unter …“ lässt sie sich in eine eigene Datei "
+            "bringen.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        return antwort == QMessageBox.StandardButton.Yes
 
     def _vor_dem_schliessen_fragen(self) -> QMessageBox.StandardButton:
         """Eigene Methode, damit Tests die Antwort vorgeben können,
@@ -1450,6 +1481,7 @@ class DiagrammFenster(QMainWindow):
             if self._speicherfehler_melden(Path(pfad), fehler):
                 return self.speichern_unter()
             return None
+        self._dateistand = dateistand.kennung(self.diagramm.pfad)
         self._geaendert = False
         self._titel_setzen()
         return self.diagramm.pfad

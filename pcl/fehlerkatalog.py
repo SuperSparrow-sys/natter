@@ -30,10 +30,10 @@ from __future__ import annotations
 
 import ast
 import builtins
-import importlib
 import json
 import re
 import string
+import sys
 import traceback
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -1753,9 +1753,13 @@ def _exception_klasse_aufloesen(exception_id: str) -> type[BaseException] | None
     if "." not in exception_id:
         return None
     modulname, _, klassenname = exception_id.rpartition(".")
-    try:
-        modul = importlib.import_module(modulname)
-    except ImportError:
+    # Nur nachschlagen, nie importieren: den Namen bestimmt das
+    # untersuchte Programm über seine Ausnahmeklasse. Ein Import lief im
+    # Prozess der IDE und konnte dort beliebigen Code ausführen, bis hin
+    # zu einem `sys.exit`, das Natter wortlos beendete (Punkt 540).
+    # Module wie `json.decoder` hat die IDE ohnehin schon geladen.
+    modul = sys.modules.get(modulname)
+    if modul is None:
         return None
     klasse = getattr(modul, klassenname, None)
     return klasse if isinstance(klasse, type) and issubclass(klasse, BaseException) else None

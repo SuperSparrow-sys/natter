@@ -40,6 +40,8 @@ class _FensterFilter(_MausFilter):
     """
 
     def eventFilter(self, objekt: QObject, ereignis: QEvent) -> bool:  # noqa: N802
+        if self._control is None:
+            return False
         if ereignis.type() == QEvent.Type.Close:
             # Gibt `on_close` False zurück, bleibt das Fenster offen:
             # die Rückfrage „Wirklich beenden?“ braucht das.
@@ -234,9 +236,10 @@ class Form(Komponente):
             return
         # Dieselbe Suche wie beim Bild eines `Image`: im Arbeitsordner,
         # im Projektordner und neben dem gestarteten Hauptprogramm.
+        from pcl.bilddatei import bild_laden
         from pcl.components.additional import _bilddatei_finden
 
-        self._qwidget.setWindowIcon(QIcon(_bilddatei_finden(self.icon, self)))
+        self._qwidget.setWindowIcon(QIcon(bild_laden(_bilddatei_finden(self.icon, self))))
 
     def _position_anwenden(self) -> None:
         """Setzt das Fenster vor dem ersten Zeigen an seinen Platz.

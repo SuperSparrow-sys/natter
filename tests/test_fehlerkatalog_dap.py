@@ -127,3 +127,21 @@ def test_dateiname_ohne_filename_attribut_faellt_auf_die_nachricht_zurueck() -> 
 
     assert meldung is not None
     assert "nicht_da.txt" in meldung.was
+
+
+def test_eine_ausnahme_aus_einem_ungeladenen_modul_importiert_nichts() -> None:
+    """Punkt 540: Den Modulnamen bestimmt das untersuchte Programm. Die
+    IDE importierte ihn bis 0.4.3 in ihrem eigenen Prozess; `this`
+    druckte dort den Zen of Python."""
+    import sys
+
+    sys.modules.pop("this", None)
+    info = _exception_info(
+        "this.Fehler",
+        "x",
+        f'  File "{_DIESE_DATEI}", line 1, in <module>\n    f()\nthis.Fehler: x\n',
+    )
+
+    fehlermeldung_aus_dap_erzeugen(info)
+
+    assert "this" not in sys.modules

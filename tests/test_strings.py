@@ -91,3 +91,20 @@ def test_eine_einzelne_zeile_ohne_umbruch_ergibt_einen_eintrag() -> None:
     sammlung.zuweisen("nur eine Zeile")
 
     assert list(sammlung) == ["nur eine Zeile"]
+
+
+def test_ein_fehler_beim_speichern_laesst_die_alte_datei_stehen(tmp_path: Path) -> None:
+    """Punkt 547: Ein Zeichen, das es in cp1252 nicht gibt, ließ eine
+    abgeschnittene Datei zurück; jetzt bleibt die alte unverändert."""
+    datei = tmp_path / "notiz.txt"
+    datei.write_text("alter Stand\n", encoding="utf-8")
+    zeilen = Strings(lambda: None)
+    zeilen.zuweisen(["neu", "Pfeil →", "Ende"])
+
+    with pytest.raises(UnicodeEncodeError):
+        zeilen.save_to_file(datei, encoding="cp1252")
+
+    assert datei.read_text(encoding="utf-8") == "alter Stand\n"
+    assert [p.name for p in tmp_path.iterdir()] == ["notiz.txt"]
+    zeilen.save_to_file(datei)
+    assert datei.read_text(encoding="utf-8").splitlines() == ["neu", "Pfeil →", "Ende"]

@@ -328,3 +328,32 @@ def test_auch_ein_struktogramm_bleibt_lesbar(tmp_path: Path, qtbot) -> None:
     for dock in _docks(fenster):
         breite = dock.fontMetrics().horizontalAdvance(dock.windowTitle())
         assert _platz_fuer_den_titel(dock) > breite, dock.windowTitle()
+
+
+def test_zwei_fenster_auf_derselben_datei_fragen_vor_dem_ueberschreiben(
+    tmp_path: Path, monkeypatch
+) -> None:  # noqa: ANN001
+    """Punkt 546: Speicherte erst Fenster A und dann B, war die
+    Änderung aus A ohne Nachfrage weg."""
+    import json
+    import os
+    import time
+
+    pfad = tmp_path / "k.pdiag"
+    diagramm_erzeugen("class", pfad, "K")
+    a = DiagrammFenster(Diagramm.laden(pfad))
+    b = DiagrammFenster(Diagramm.laden(pfad))
+    a.zeichenflaeche.form_platzieren("class", 100, 100)
+    assert a.speichern()
+    # Auf schnellen Platten bleibt die Änderungszeit sonst gleich.
+    zeit = time.time() + 5
+    os.utime(pfad, (zeit, zeit))
+    b.zeichenflaeche.form_platzieren("note", 300, 300)
+    gefragt: list[bool] = []
+    monkeypatch.setattr(b, "_von_aussen_geaendert_fragen", lambda: gefragt.append(True) or False)
+
+    assert b.speichern() is False
+
+    assert gefragt == [True]
+    arten = [s["kind"] for s in json.loads(pfad.read_text(encoding="utf-8"))["shapes"]]
+    assert arten == ["class"]

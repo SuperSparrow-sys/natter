@@ -119,3 +119,35 @@ def test_alle_echten_referenzprojekte_parsen_ohne_absturz(pfad: Path) -> None:
     objekt = _laden(pfad)
     assert objekt["class"].startswith("TForm")
     assert isinstance(objekt["children"], list)
+
+
+_ZEICHENKETTEN = """object Form1: TForm1
+  Caption = 'Zeile 1'#13#10'Zeile 2'
+  object Label1: TLabel
+    Caption = 'Ein langer Text, der '+
+      'weitergeht'
+  end
+  object Memo1: TMemo
+    Lines.Strings = (
+      'a'
+      'b')
+  end
+end
+"""
+
+
+def test_zeichenketten_wie_lazarus_sie_schreibt() -> None:
+    """Punkt 549: `#13#10`, Fortsetzungszeilen mit `+` und `)` hinter dem
+    letzten Listeneintrag."""
+    objekt = parse_lfm(_ZEICHENKETTEN)
+
+    assert objekt["properties"]["Caption"] == "Zeile 1\nZeile 2"
+    assert objekt["children"][0]["properties"]["Caption"] == "Ein langer Text, der weitergeht"
+    assert objekt["children"][1]["properties"]["Lines.Strings"] == ["a", "b"]
+
+
+def test_eine_liste_ohne_ende_ist_ein_parserfehler() -> None:
+    text = "object Form1: TForm1\n  Lines.Strings = (\n    'x'\n"
+
+    with pytest.raises(LfmParserError, match="Ende einer Liste"):
+        parse_lfm(text)

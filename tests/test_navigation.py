@@ -64,3 +64,37 @@ def test_alt_links_ohne_verlauf_meldet_sich(qtbot, hauptfenster) -> None:  # noq
     hauptfenster.aktionen["suchen.zurueck"].qaction.trigger()
 
     assert "keine vorige Stelle" in hauptfenster.statusBar().currentMessage()
+
+
+def test_f12_auf_eine_komponente_oeffnet_den_designer(
+    qtbot, tmp_path: Path, hauptfenster  # noqa: ANN001
+) -> None:
+    """Punkt 545: F12 auf `self.e_zahl1` öffnete die erzeugte
+    `u_main_design.py` zum Bearbeiten, und jede Änderung dort ging beim
+    nächsten Schreiben des Designers verloren."""
+    import shutil
+
+    from ide.shell.quelltexteditor import QuelltextEditor
+
+    quelle = Path(__file__).resolve().parent.parent / "beispielprojekte" / "03_Taschenrechner"
+    ziel = tmp_path / "03"
+    shutil.copytree(quelle, ziel, ignore=shutil.ignore_patterns("__pycache__"))
+    hauptfenster.projekt_oeffnen(ziel / "03_Taschenrechner.natter")
+    editor = hauptfenster.datei_oeffnen(ziel / "u_main.py")
+    text = editor.toPlainText()
+    cursor = editor.textCursor()
+    cursor.setPosition(text.index("self.e_zahl1") + len("self.e_"))
+    editor.setTextCursor(cursor)
+
+    meldung = hauptfenster._zur_definition_springen()
+
+    offen = [
+        hauptfenster.editor_tabs.widget(i) for i in range(hauptfenster.editor_tabs.count())
+    ]
+    assert not any(
+        isinstance(w, QuelltextEditor) and str(w.property("pfad")).endswith("_design.py")
+        for w in offen
+    )
+    canvas = hauptfenster._aktueller_canvas
+    assert canvas is not None and canvas.ausgewaehlte_komponente is canvas.formular.e_zahl1
+    assert "ausgewählt" in meldung

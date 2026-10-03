@@ -39,6 +39,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from pcl.bilddatei import bild_laden
 from pcl.components.tabelle import TabellenAnsicht
 from pcl.control import Control
 from pcl.errors import NatterPropertyError, NatterZellenError
@@ -551,7 +552,7 @@ class Picture:
         # Das ungeskalierte Bild bleibt hier liegen: `stretch` und
         # `proportional` rechnen bei jeder Größenänderung neu, und wer
         # zweimal hintereinander skaliert, bekommt Treppen.
-        self._original = QPixmap(_bilddatei_finden(pfad, self._besitzer))
+        self._original = bild_laden(_bilddatei_finden(pfad, self._besitzer))
         self._besitzer._bild_anzeigen()
 
     def clear(self) -> None:

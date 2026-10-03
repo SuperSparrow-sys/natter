@@ -99,6 +99,27 @@ def _eintrag_pruefen(
         _name_pruefen(methode, f"eine Methode von {wer}")
 
 
+#: So tief dürfen Komponenten ineinander liegen. Ein Formular aus dem
+#: Designer kommt kaum über fünf Ebenen; bei einigen hundert brachen
+#: Schema-Prüfung, Designer und Codeerzeugung mit `RecursionError` ab
+#: (Punkt 548).
+MAX_TIEFE = 50
+
+
+def _tiefe_pruefen(pfm: Any) -> None:
+    offen = [(pfm, 0)]
+    while offen:
+        eintrag, tiefe = offen.pop()
+        if tiefe > MAX_TIEFE:
+            raise PfmBeschaedigt(
+                f"Die Komponenten liegen mehr als {MAX_TIEFE} Ebenen tief "
+                "ineinander"
+            )
+        if isinstance(eintrag, dict):
+            for kind in eintrag.get("children") or []:
+                offen.append((kind, tiefe + 1))
+
+
 def pfm_pruefen(pfm: dict[str, Any]) -> None:
     """Prüft eine geladene `.pfm` gegen das Schema und darauf, dass an
     jeder Stelle, die als Name in den erzeugten Quelltext eingeht,
@@ -109,6 +130,7 @@ def pfm_pruefen(pfm: dict[str, Any]) -> None:
     Löst `PfmBeschaedigt` aus, wenn etwas nicht passt; das Schema
     meldet seine Fehler wie bisher über `ide.schema.schema_fehler()`.
     """
+    _tiefe_pruefen(pfm)
     schema_pruefen(pfm, _PFM_SCHEMA)
     typen = _komponenten_typen()
     _name_pruefen(pfm["class"], "die Formularklasse")

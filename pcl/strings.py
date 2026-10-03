@@ -195,9 +195,32 @@ gelb"`` in acht einzelne Einträge – einen
         self._aendern()
 
     def save_to_file(self, pfad: str | Path, encoding: str = "utf-8") -> None:
-        with open(pfad, "w", encoding=encoding) as datei:
-            for zeile in self._zeilen:
-                datei.write(zeile + "\n")
+        """Schreibt die Zeilen in eine Textdatei.
+
+        Erst wird alles kodiert, dann über eine Zwischendatei
+        geschrieben und diese an die Stelle der alten gesetzt. Ein
+        Zeichen, das es in `encoding` nicht gibt, eine volle Platte
+        oder ein abgezogener Stick hinterließen sonst eine
+        abgeschnittene Datei, und der alte Stand war verloren
+        (Punkt 547)."""
+        import os
+        import tempfile
+
+        text = "".join(zeile + "\n" for zeile in self._zeilen)
+        daten = text.replace("\n", os.linesep).encode(encoding)
+        ziel = Path(pfad)
+        griff, zwischen = tempfile.mkstemp(
+            prefix=f".{ziel.name}.", suffix=".tmp", dir=ziel.parent or None
+        )
+        try:
+            with os.fdopen(griff, "wb") as datei:
+                datei.write(daten)
+                datei.flush()
+                os.fsync(datei.fileno())
+            os.replace(zwischen, ziel)
+        except BaseException:
+            Path(zwischen).unlink(missing_ok=True)
+            raise
 
     def __len__(self) -> int:
         return len(self._zeilen)

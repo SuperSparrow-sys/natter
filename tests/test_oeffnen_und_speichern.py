@@ -410,3 +410,46 @@ def test_im_editor_bleibt_rueckgaengig_beim_text(
     fenster._bearbeiten_rueckgaengig()
 
     assert "alt" in editor.toPlainText()
+
+
+def test_uebergrosse_dateien_melden_sich_als_beschaedigt(
+    fenster: HauptFenster, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Punkt 548: Tief verschachtelte Klammern, eine Zahl mit mehr als
+    4300 Ziffern und 300 ineinander liegende Panels flogen als
+    `RecursionError` bzw. `ValueError` heraus, statt sich als beschädigt
+    zu melden."""
+    import json
+
+    gezeigt = _meldungen_abfangen(monkeypatch)
+    inhalte = {
+        "tief": "[" * 100_000 + "]" * 100_000,
+        "zahl": '{"format": "pfm/1", "class": "F", "x": ' + "1" * 5000 + "}",
+    }
+    panel: dict = {"name": "p0", "type": "Panel", "properties": {}}
+    oben = panel
+    for i in range(1, 300):
+        kind = {"name": f"p{i}", "type": "Panel", "properties": {}}
+        oben["children"] = [kind]
+        oben = kind
+    panels = {
+        "format": "pfm/1", "class": "Form1", "type": "Form", "properties": {},
+        "children": [panel],
+    }
+
+    for name, inhalt in inhalte.items():
+        for endung in ("pfm", "pdiag"):
+            datei = tmp_path / f"u_{name}.{endung}"
+            datei.write_text(inhalt, encoding="utf-8")
+            fenster.oeffnen(datei)
+            assert "beschädigt" in fenster.statusBar().currentMessage(), datei.name
+        projekt = tmp_path / f"{name}.natter"
+        projekt.write_text(inhalt, encoding="utf-8")
+        assert fenster.projekt_oeffnen_gemeldet(projekt) is None
+        assert "beschädigt" in gezeigt[-1]
+
+    tief = tmp_path / "u_panels.pfm"
+    tief.write_text(json.dumps(panels), encoding="utf-8")
+    fenster.oeffnen(tief)
+    assert "beschädigt" in fenster.statusBar().currentMessage()
+    assert fenster.editor_tabs.count() == 0

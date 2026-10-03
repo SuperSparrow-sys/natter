@@ -40,7 +40,7 @@ from PySide6.QtCore import (
     Qt,
     QTimer,
 )
-from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPixmap, QTextCursor
+from PySide6.QtGui import QColor, QMouseEvent, QPainter, QTextCursor
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -276,7 +276,9 @@ def _bildgroesse(pfad: Path) -> tuple[int, int]:
     die echten Bildmaße, auf `_BILD_MAXKANTE` heruntergerechnet. Ein
     nicht lesbares Bild bekommt die Palettengröße aus
     `_STANDARDGROESSEN`."""
-    pixmap = QPixmap(str(pfad))
+    from pcl.bilddatei import bild_laden
+
+    pixmap = bild_laden(pfad)
     if pixmap.isNull() or pixmap.width() <= 0 or pixmap.height() <= 0:
         return _STANDARDGROESSEN["Image"]
     breite, hoehe = pixmap.width(), pixmap.height()
@@ -897,7 +899,9 @@ class _EscapeWache(QObject):
     der Anwendung und fängt nichts außer dieser einen Taste ab."""
 
     def __init__(self, canvas: DesignerCanvas) -> None:
-        super().__init__()
+        # Mit dem Designer als Eltern endet die Wache mit ihm im
+        # Hauptfaden (Punkt 550).
+        super().__init__(canvas)
         self._canvas = canvas
 
     def eventFilter(self, objekt: QObject, ereignis: QEvent) -> bool:  # noqa: N802
