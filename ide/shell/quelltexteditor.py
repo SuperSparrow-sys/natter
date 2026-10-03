@@ -312,6 +312,34 @@ def haltepunkte_zuordnen(
     return neu, {zuordnung[z]: b for z, b in bedingungen.items() if z in zuordnung}
 
 
+def _eigene_uebertragen(
+    breakpoints: set[int],
+    bedingungen: dict[int, str],
+    eigene: tuple[set[int], set[int], dict[int, str], set[int]],
+    zuordnung: dict[int, int],
+) -> tuple[set[int], dict[int, str]]:
+    """Überträgt eigene Änderungen an Haltepunkten über eine
+    Zeilenzuordnung auf einen zurückgeholten Stand (Punkt 625). Eine
+    Zeile ohne Entsprechung fällt weg."""
+    gesetzt, entfernt, neue_bedingungen, ohne_bedingung = eigene
+    punkte = set(breakpoints)
+    bed = dict(bedingungen)
+    for zeile in entfernt | ohne_bedingung:
+        ziel = zuordnung.get(zeile)
+        if ziel is None:
+            continue
+        bed.pop(ziel, None)
+        if zeile in entfernt:
+            punkte.discard(ziel)
+    for zeile in gesetzt:
+        if zeile in zuordnung:
+            punkte.add(zuordnung[zeile])
+    for zeile, bedingung in neue_bedingungen.items():
+        if zeile in zuordnung:
+            bed[zuordnung[zeile]] = bedingung
+    return punkte, {z: b for z, b in bed.items() if z in punkte}
+
+
 class QuelltextEditor(QPlainTextEdit):
     breakpoint_umgeschaltet = Signal(int, bool)  # (Zeile ab 1, jetzt gesetzt?)
     #: Die Menge der Haltepunkte hat sich geändert, durch Umschalten
@@ -435,6 +463,12 @@ class QuelltextEditor(QPlainTextEdit):
         self._haltepunkt_staende: dict[int, tuple[set[int], dict[int, str]]] = {}
         self._schritte_vorher = 0
         self._im_rueckgaengig = False
+        #: Der Stand der Haltepunkte vor der ersten eigenen Änderung
+        #: (Setzen, Entfernen, Bedingung) an einem Stand des Stapels.
+        #: Was seitdem gesetzt oder entfernt wurde, überträgt Rückgängig
+        #: auf den zurückgeholten Stand, statt es zu verwerfen
+        #: (Punkt 625).
+        self._vor_eigenen: dict[int, tuple[set[int], dict[int, str]]] = {}
 
         #: Zugeklappte Klassen und Funktionen, je Kopfzeile (M11, 2.3)
         self._gefaltet: set[int] = set()
@@ -485,11 +519,21 @@ class QuelltextEditor(QPlainTextEdit):
         self.breakpoints_geaendert.emit()
         return True
 
+    def _eigene_aenderung_merken(self) -> None:
+        """Merkt den Stand vor der ersten eigenen Änderung an diesem
+        Stand des Rückgängig-Stapels (Punkt 625)."""
+        schritte = self.document().availableUndoSteps()
+        if schritte not in self._vor_eigenen:
+            self._vor_eigenen[schritte] = (
+                set(self.breakpoints), dict(self.bedingungen)
+            )
+
     def breakpoint_umschalten(self, zeile: int) -> None:
         """Setzt/entfernt einen Breakpoint bei `zeile` (ab 1) und meldet
         die Änderung über `breakpoint_umgeschaltet`. Ein neuer
         Haltepunkt auf einer Leer- oder Kommentarzeile landet auf der
         nächsten Anweisung."""
+        self._eigene_aenderung_merken()
         if zeile not in self.breakpoints:
             zeile = self.anweisungszeile(zeile)
         if zeile in self.breakpoints:
@@ -553,6 +597,10 @@ class QuelltextEditor(QPlainTextEdit):
                 set(self.breakpoints), dict(self.bedingungen)
             )
             self._schritte_vorher = dokument.availableUndoSteps()
+            # Ein neuer Textschritt: was hier und dahinter gemerkt war,
+            # gehört zu einem Stand, den es so nicht mehr gibt.
+            for nummer in [n for n in self._vor_eigenen if n >= self._schritte_vorher]:
+                del self._vor_eigenen[nummer]
         zeilen = dokument.blockCount()
         unterschied = zeilen - self._zeilen_vorher
         self._zeilen_vorher = zeilen
@@ -588,6 +636,7 @@ class QuelltextEditor(QPlainTextEdit):
         dieser Zeile nur, wenn die Bedingung wahr ist. Leer heißt:
         immer halten. Setzt den Haltepunkt, falls noch keiner da ist."""
         bedingung = bedingung.strip()
+        self._eigene_aenderung_merken()
         if zeile not in self.breakpoints:
             zeile = self.anweisungszeile(zeile)
         if zeile not in self.breakpoints:
@@ -665,6 +714,9 @@ class QuelltextEditor(QPlainTextEdit):
         self._haltepunkt_staende[vorher] = (
             set(self.breakpoints), dict(self.bedingungen)
         )
+        # Was seit dem Ankommen an diesem Stand von Hand geändert wurde.
+        eigene = self._eigene_aenderungen(self._vor_eigenen.pop(vorher, None))
+        text_vorher = self.toPlainText().split("\n")
         self._im_rueckgaengig = True
         try:
             schritt()
@@ -672,10 +724,19 @@ class QuelltextEditor(QPlainTextEdit):
             self._im_rueckgaengig = False
         nachher = dokument.availableUndoSteps()
         self._schritte_vorher = nachher
+        self._vor_eigenen.pop(nachher, None)
         stand = self._haltepunkt_staende.get(nachher)
         if nachher == vorher or stand is None:
             return
         breakpoints, bedingungen = stand
+        if eigene is not None:
+            # Der zurückgeholte Stand bleibt der Bezug: ein weiteres
+            # Rückgängig trägt die eigenen Änderungen weiter.
+            self._vor_eigenen[nachher] = (set(breakpoints), dict(bedingungen))
+            zuordnung = zeilen_zuordnen(text_vorher, self.toPlainText().split("\n"))
+            breakpoints, bedingungen = _eigene_uebertragen(
+                breakpoints, bedingungen, eigene, zuordnung
+            )
         letzte = dokument.blockCount()
         breakpoints = {z for z in breakpoints if 1 <= z <= letzte}
         bedingungen = {z: b for z, b in bedingungen.items() if z in breakpoints}
@@ -685,6 +746,24 @@ class QuelltextEditor(QPlainTextEdit):
         self.bedingungen = dict(bedingungen)
         self._rand.update()
         self.breakpoints_geaendert.emit()
+
+    def _eigene_aenderungen(
+        self, vorher: tuple[set[int], dict[int, str]] | None
+    ) -> tuple[set[int], set[int], dict[int, str], set[int]] | None:
+        """Gesetzte und entfernte Haltepunkte, neue oder geänderte und
+        entfernte Bedingungen seit `vorher`, oder `None`."""
+        if vorher is None:
+            return None
+        alte_punkte, alte_bedingungen = vorher
+        return (
+            self.breakpoints - alte_punkte,
+            alte_punkte - self.breakpoints,
+            {
+                z: b for z, b in self.bedingungen.items()
+                if alte_bedingungen.get(z) != b
+            },
+            {z for z in alte_bedingungen if z not in self.bedingungen},
+        )
 
     def undo(self) -> None:
         self._schritt_mit_haltepunkten(super().undo)

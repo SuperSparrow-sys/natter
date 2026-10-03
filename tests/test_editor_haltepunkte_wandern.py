@@ -138,3 +138,53 @@ def test_ersetzen_von_aussen_haelt_den_haltepunkt_an_der_anweisung(
     assert feld.bedingungen == {zeile: "True"}
     feld.undo()
     assert feld.breakpoints == {haltepunkt}
+
+
+_VIER_ZEILEN = "a = 1\nb = 2\nc = 3\nd = 4\n"
+
+
+@pytest.mark.parametrize(
+    ("vorher", "aenderung", "erwartet_punkte", "erwartet_bedingungen"),
+    [
+        # Nach dem Tippen gesetzt: bleibt nach Strg+Z.
+        (set(), lambda f: f.breakpoint_umschalten(4), {4}, {}),
+        # Nach dem Tippen entfernt: kommt mit Strg+Z nicht wieder.
+        ({4}, lambda f: f.breakpoint_umschalten(4), set(), {}),
+        # Nach dem Tippen gesetzte Bedingung bleibt.
+        (set(), lambda f: f.bedingung_setzen(4, "d > 3"), {4}, {4: "d > 3"}),
+    ],
+    ids=["gesetzt", "entfernt", "bedingung"],
+)
+def test_rueckgaengig_behaelt_was_danach_gesetzt_wurde(
+    qtbot, vorher, aenderung, erwartet_punkte, erwartet_bedingungen  # noqa: ANN001
+) -> None:
+    """Punkt 625: Strg+Z nahm Haltepunkte und Bedingungen zurück, die
+    nach dem letzten Tippen gesetzt oder entfernt worden waren."""
+    feld = _editor(qtbot, _VIER_ZEILEN)
+    for zeile in vorher:
+        feld.breakpoint_umschalten(zeile)
+    _cursor_auf(feld, 1, 5)
+    QTest.keyClicks(feld, "0")
+    aenderung(feld)
+
+    QTest.keyClick(feld, Qt.Key.Key_Z, Qt.KeyboardModifier.ControlModifier)
+
+    assert feld.toPlainText() == _VIER_ZEILEN
+    assert feld.breakpoints == erwartet_punkte
+    assert feld.bedingungen == erwartet_bedingungen
+
+
+def test_haltepunkt_nach_dem_tippen_wandert_mit_der_zeile_zurueck(qtbot) -> None:  # noqa: ANN001
+    """Punkt 625: ein nach dem Einfügen einer Zeile gesetzter Haltepunkt
+    bleibt bei seiner Anweisung, wenn Strg+Z die Zeile wieder nimmt."""
+    feld = _editor(qtbot, _VIER_ZEILEN)
+    _cursor_auf(feld, 1)
+    QTest.keyClicks(feld, "x = 0")
+    QTest.keyClick(feld, Qt.Key.Key_Return)
+    feld.breakpoint_umschalten(5)  # d = 4
+
+    while feld.toPlainText() != _VIER_ZEILEN and feld.document().isUndoAvailable():
+        feld.undo()
+
+    assert feld.toPlainText() == _VIER_ZEILEN
+    assert feld.breakpoints == {4}
