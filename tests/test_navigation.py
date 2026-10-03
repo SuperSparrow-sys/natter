@@ -98,3 +98,35 @@ def test_f12_auf_eine_komponente_oeffnet_den_designer(
     canvas = hauptfenster._aktueller_canvas
     assert canvas is not None and canvas.ausgewaehlte_komponente is canvas.formular.e_zahl1
     assert "ausgewählt" in meldung
+
+
+def test_strg_p_oeffnet_ein_formular_im_designer(
+    qtbot, tmp_path: Path, hauptfenster, monkeypatch  # noqa: ANN001
+) -> None:
+    """Punkt 558: Die Wahl einer `.pfm` in „Unit öffnen …“ öffnete sie
+    als JSON-Text im Editor."""
+    import shutil
+
+    from PySide6.QtWidgets import QDialog
+
+    from ide.shell import hauptfenster as modul
+    from ide.shell.quelltexteditor import QuelltextEditor
+
+    quelle = Path(__file__).resolve().parent.parent / "beispielprojekte" / "03_Taschenrechner"
+    ziel = tmp_path / "03"
+    shutil.copytree(quelle, ziel, ignore=shutil.ignore_patterns("__pycache__"))
+    hauptfenster.projekt_oeffnen(ziel / "03_Taschenrechner.natter")
+
+    def waehlen(dialog) -> QDialog.DialogCode:  # noqa: ANN001
+        dialog.ausgewaehlte_datei = ziel / "u_main.pfm"
+        return QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(modul.SchnellAuswahl, "exec", waehlen)
+
+    hauptfenster.aktionen["datei.unit_oeffnen"].qaction.trigger()
+
+    assert hauptfenster._aktueller_canvas is not None
+    assert not any(
+        isinstance(hauptfenster.editor_tabs.widget(i), QuelltextEditor)
+        for i in range(hauptfenster.editor_tabs.count())
+    )

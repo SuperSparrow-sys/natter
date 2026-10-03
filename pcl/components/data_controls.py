@@ -462,7 +462,9 @@ class DBNavigator(_DatenControl):
 
     def _erster(self) -> None:
         dataset = self._abfrage()
-        if dataset is not None:
+        # Ohne geöffnete Abfrage gibt es nichts zu blättern; wie bei
+        # „<“ und „>“ passiert dann nichts (Punkt 551).
+        if dataset is not None and dataset.record_count > 0:
             dataset.first()
             self._data_source.aktualisieren()
 
@@ -480,7 +482,9 @@ class DBNavigator(_DatenControl):
 
     def _letzter(self) -> None:
         dataset = self._abfrage()
-        if dataset is not None:
+        # Ohne geöffnete Abfrage gibt es nichts zu blättern; wie bei
+        # „<“ und „>“ passiert dann nichts (Punkt 551).
+        if dataset is not None and dataset.record_count > 0:
             dataset.last()
             self._data_source.aktualisieren()
 

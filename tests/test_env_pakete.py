@@ -174,3 +174,30 @@ def test_paketliste_exportieren_schreibt_pip_freeze_ausgabe(
     paketliste_exportieren(ziel)
 
     assert ziel.read_text(encoding="utf-8") == pip_ausgabe
+
+
+@pytest.mark.parametrize(
+    "eingabe",
+    ["-r anforderungen.txt", "--index-url=http://127.0.0.1:9/", "C:/pakete/x.whl",
+     "https://example.org/x.tar.gz", "requests; os.system('x')"],
+)
+def test_ein_ungueltiger_paketname_startet_pip_nicht(eingabe: str, monkeypatch) -> None:  # noqa: ANN001
+    """Punkt 543: Die Eingabe ging unverändert an pip; mit einem Minus
+    am Anfang las pip sie als Schalter."""
+    import subprocess
+
+    from ide.env.pakete import PaketFehler, paket_installieren
+
+    gestartet: list[object] = []
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: gestartet.append(a))
+
+    with pytest.raises(PaketFehler, match="kein Paketname"):
+        paket_installieren(eingabe)
+    assert gestartet == []
+
+
+@pytest.mark.parametrize("name", ["requests", "scikit-learn", "numpy==2.1", "pandas>=2,<3"])
+def test_gueltige_paketnamen_werden_angenommen(name: str) -> None:
+    from ide.env.pakete import paketname_fehler
+
+    assert paketname_fehler(name) is None

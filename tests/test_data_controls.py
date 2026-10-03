@@ -515,3 +515,18 @@ def test_to_dataframe_laesst_gebundene_controls_weiterarbeiten(
     assert formular.abfrage.record_index == 1
     assert formular.dbt_ort._qwidget.text() == "Bonn"
     assert formular.dbe_name._qwidget.text() == "Bo"
+
+
+def test_der_navigator_an_einer_ungeoeffneten_abfrage_tut_nichts() -> None:
+    """Punkt 551: „<<“ und „>>“ beendeten das Programm mit
+    `SQLQuery.first() ohne vorheriges open()`."""
+    formular = _Formular()
+    formular.abfrage.close()
+
+    for knopf in (
+        formular.dbn_kunden.knopf_erster,
+        formular.dbn_kunden.knopf_zurueck,
+        formular.dbn_kunden.knopf_vor,
+        formular.dbn_kunden.knopf_letzter,
+    ):
+        knopf.click()

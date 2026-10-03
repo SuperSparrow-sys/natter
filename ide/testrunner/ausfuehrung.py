@@ -20,6 +20,7 @@ from ide.prozess import (
     ohne_konsole,
     prozessbaum_beenden,
 )
+from pcl.pruefungsmodus import laeuft as pruefungsmodus_laeuft
 from pcl.zahlen import text as zahl_text
 
 _HARNESS_PFAD = Path(__file__).resolve().parent / "harness.py"
@@ -302,7 +303,7 @@ def _abbruch_ergebnis(lauf: _Lauf, ziel: str | None) -> Testergebnis:
         test_id = ziel or lauf.letztes_modul or "Testlauf"
         text = f"Der Testlauf ist abgebrochen. Der Testprozess endete {wert}."
     teile = [text]
-    if lauf.qt_ohne_anwendung:
+    if lauf.qt_ohne_anwendung and not pruefungsmodus_laeuft():
         teile.append(
             "Qt hat den Prozess beendet, weil ein Formular ohne "
             "QApplication angelegt wurde. Ein Formular im Test braucht "

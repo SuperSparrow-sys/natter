@@ -115,13 +115,26 @@ def test_eine_nicht_lesbare_datei_meldet_sich_statt_abzustuerzen(
 ) -> None:
     """Eine alte, nicht in UTF-8 gespeicherte Pascal-Datei oder eine
     `.exe` – vorher flog der `UnicodeDecodeError` bis nach oben durch."""
+    import gc
+
+    from PySide6.QtWidgets import QApplication
+
+    from ide.shell.quelltexteditor import QuelltextEditor
+
     datei = tmp_path / "alt.pas"
     datei.write_bytes(b"program Gru\xdf;\n")  # ISO-8859-1, kein UTF-8
 
+    def editoren() -> int:
+        gc.collect()
+        return sum(isinstance(w, QuelltextEditor) for w in QApplication.allWidgets())
+
+    vorher = editoren()
     ergebnis = fenster.datei_oeffnen(datei)
 
     assert ergebnis is None
     assert fenster.editor_tabs.count() == 0
+    # Punkt 552: kein verworfener Editor bleibt zurück.
+    assert editoren() == vorher
     meldung = fenster.statusBar().currentMessage()
     assert "alt.pas" in meldung
     assert "UTF-8" in meldung

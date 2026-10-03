@@ -6,6 +6,7 @@ from ide.env.pakete import (
     installierte_pakete,
     paket_installieren,
     paketliste_exportieren,
+    paketname_fehler,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "installierte_pakete",
     "paket_installieren",
     "paketliste_exportieren",
+    "paketname_fehler",
 ]

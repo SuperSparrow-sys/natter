@@ -288,8 +288,38 @@ def projekt_pruefen(projekt: Projekt) -> list[RuffFund]:
     return funde
 
 
+#: Länger wartet die Prüfung vor dem Start nicht auf ruff. Ein Projekt
+#: auf einem Netzlaufwerk, das gerade nicht antwortet, hielt Natter
+#: sonst an, bis ruff zurückkam (Punkt 553).
+RUFF_ZEITGRENZE_S = 20
+
+
+class PruefungZuLang(RuntimeError):
+    """ruff kam nicht innerhalb von `RUFF_ZEITGRENZE_S` zurück."""
+
+
 def _ruff_pruefen(projekt: Projekt) -> list[RuffFund]:
-    ergebnis = subprocess.run(
+    try:
+        ergebnis = _ruff_aufrufen(projekt)
+    except subprocess.TimeoutExpired as fehler:
+        raise PruefungZuLang() from fehler
+    if not ergebnis.stdout.strip():
+        return []
+
+    return [
+        RuffFund(
+            datei=Path(fund["filename"]),
+            zeile=fund["location"]["row"],
+            spalte=fund["location"]["column"],
+            code=fund["code"] or fund["name"],
+            meldung=fund["message"],
+        )
+        for fund in json.loads(ergebnis.stdout)
+    ]
+
+
+def _ruff_aufrufen(projekt: Projekt) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
         [
             *ruff_befehl(),
             "check",
@@ -311,21 +341,9 @@ def _ruff_pruefen(projekt: Projekt) -> list[RuffFund]:
             text=True,
             encoding="utf-8",
             errors="replace",
+            timeout=RUFF_ZEITGRENZE_S,
         ),
     )
-    if not ergebnis.stdout.strip():
-        return []
-
-    return [
-        RuffFund(
-            datei=Path(fund["filename"]),
-            zeile=fund["location"]["row"],
-            spalte=fund["location"]["column"],
-            code=fund["code"] or fund["name"],
-            meldung=fund["message"],
-        )
-        for fund in json.loads(ergebnis.stdout)
-    ]
 
 
 def _self_pruefen(funde: list[RuffFund]) -> list[RuffFund]:

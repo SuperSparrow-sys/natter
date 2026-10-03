@@ -99,3 +99,25 @@ def test_eine_datei_mit_dem_namen_eines_moduls_ergibt_einen_hinweis(tmp_path: Pa
     assert funde[0].datei.name == "random.py"
     assert not funde[0].blockiert
     assert "u_random" in str(funde[0])
+
+
+def test_ein_ruff_ohne_antwort_haelt_die_pruefung_nicht_auf(
+    tmp_path: Path, monkeypatch
+) -> None:  # noqa: ANN001
+    """Punkt 553: ruff lief ohne Zeitgrenze; auf einem Netzlaufwerk, das
+    nicht antwortet, stand Natter."""
+    import subprocess
+
+    import pytest
+
+    import ide.run.pruefung as pruefung
+
+    projekt = _projekt_schreiben(tmp_path, "print(1)\n")
+
+    def haengt(*_a, **k):  # noqa: ANN002, ANN003, ANN202
+        raise subprocess.TimeoutExpired("ruff", k.get("timeout"))
+
+    monkeypatch.setattr(pruefung.subprocess, "run", haengt)
+
+    with pytest.raises(pruefung.PruefungZuLang):
+        projekt_pruefen(projekt)

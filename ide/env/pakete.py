@@ -13,6 +13,7 @@ jeweils nur den passenden Ordner in den Suchpfad hängt.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -107,6 +108,34 @@ def installierte_pakete() -> list[Paket]:
     return [Paket(eintrag["name"], eintrag["version"]) for eintrag in daten]
 
 
+#: Ein Paketname wie `requests` oder `scikit-learn`, wahlweise mit
+#: Versionsangabe wie `numpy==2.1` oder `pandas>=2,<3` (PEP 508 ohne
+#: Adressen und Pfade).
+_PAKETNAME = re.compile(
+    r"^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?"
+    r"(?:\[[A-Za-z0-9._,-]+\])?"
+    r"(?:\s*(?:==|>=|<=|~=|!=|<|>)\s*[A-Za-z0-9.*+!_-]+"
+    r"(?:\s*,\s*(?:==|>=|<=|~=|!=|<|>)\s*[A-Za-z0-9.*+!_-]+)*)?$"
+)
+
+
+def paketname_fehler(name: str) -> str | None:
+    """Was gegen `name` als Paketname spricht, oder `None`.
+
+    Die Eingabe ging bis 0.4.3 unverändert an `pip`: mit `-` am Anfang
+    las es sie als Schalter, etwa als Anforderungsdatei mit eigenem
+    Paketverzeichnis, und Adressen oder Pfade galten als Quelle
+    (Punkt 543)."""
+    if not _PAKETNAME.match(name.strip()):
+        return (
+            f"„{name.strip()}“ ist kein Paketname. Erwartet wird ein Name wie "
+            "„requests“ oder „scikit-learn“, wahlweise mit Version wie "
+            "„numpy==2.1“ - keine Adresse, kein Pfad und nichts, was mit "
+            "einem Minus beginnt."
+        )
+    return None
+
+
 def paket_installieren(name: str) -> str:
     """Installiert `name` per `pip install`. Liefert `pip`s Ausgabe bei
     Erfolg, löst `PaketFehler` bei Misserfolg aus.
@@ -116,6 +145,9 @@ def paket_installieren(name: str) -> str:
     `pip`s Ausgabe steht in `rohausgabe`. Die Versionsprüfung von
     `pip` selbst bleibt aus: sie ginge ein weiteres Mal ins Netz.
     """
+    fehler = paketname_fehler(name)
+    if fehler is not None:
+        raise PaketFehler(fehler)
     ergebnis = subprocess.run(
         [
             sys.executable, "-m", "pip", "install",
@@ -123,7 +155,8 @@ def paket_installieren(name: str) -> str:
             "--retries", str(_PIP_WIEDERHOLUNGEN),
             "--disable-pip-version-check",
             "--no-input",
-            name,
+            "--",
+            name.strip(),
         ],
         **ohne_konsole(capture_output=True, text=True),
     )

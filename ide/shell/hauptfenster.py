@@ -93,6 +93,7 @@ from ide.env import (
     installierte_pakete,
     paket_installieren,
     paketliste_exportieren,
+    paketname_fehler,
 )
 from ide.export import exe_exportieren
 from ide.export.signatur import (
@@ -137,7 +138,12 @@ from ide.run.ladeanzeige import (
     lademarke_entfernen,
     lademarke_gesetzt,
 )
-from ide.run.pruefung import RuffFund, modul_verdeckt
+from ide.run.pruefung import (
+    RUFF_ZEITGRENZE_S,
+    PruefungZuLang,
+    RuffFund,
+    modul_verdeckt,
+)
 from ide.schema import (
     fehler_beschreiben,
     json_datei_lesen,
@@ -2343,7 +2349,9 @@ class HauptFenster(QMainWindow):
             return
         dialog = SchnellAuswahl(dateien, self)
         if dialog.exec() == QDialog.DialogCode.Accepted and dialog.ausgewaehlte_datei is not None:
-            self.datei_oeffnen(dialog.ausgewaehlte_datei)
+            # Über `oeffnen`: ein Formular geht im Designer auf, nicht
+            # als JSON-Text im Editor (Punkt 558).
+            self.oeffnen(dialog.ausgewaehlte_datei)
 
     def unit_erzeugen(
         self, name: str | None = None, *, inhalt: str | None = None
@@ -3278,7 +3286,11 @@ class HauptFenster(QMainWindow):
             )
             return
         ziel = pfad.parent / neuer_name
-        if ziel.exists():
+        # Windows unterscheidet nicht nach Groß- und Kleinschreibung:
+        # „U_Konto.py“ "gibt es" schon, solange u_konto.py da ist. Die
+        # eigene Datei zählt nicht (Punkt 565), wie beim Formular.
+        nur_schreibweise = ziel.name.casefold() == pfad.name.casefold()
+        if ziel.exists() and not nur_schreibweise:
             self.statusBar().showMessage(
                 f"„{neuer_name}“ gibt es schon - bitte einen anderen Namen wählen."
             )
@@ -5236,6 +5248,24 @@ class HauptFenster(QMainWindow):
                 self.editor_tabs.setCurrentIndex(index)
                 return editor
 
+        # Zuerst lesen, dann den Editor bauen: einer, der für eine nicht
+        # lesbare Datei schon entstanden war, blieb samt Uhr und
+        # Verbindungen im Speicher (Punkt 552).
+        try:
+            inhalt = pfad.read_text(encoding="utf-8-sig")
+        except UnicodeDecodeError:
+            self.statusBar().showMessage(
+                f"„{pfad.name}“ ist keine Textdatei (oder nicht in UTF-8 gespeichert) und "
+                f"lässt sich deshalb nicht im Editor öffnen."
+            )
+            return None
+        except OSError as fehler:
+            self.statusBar().showMessage(
+                f"„{pfad.name}“ lässt sich nicht öffnen: {fehler}. Ist die Datei gerade in "
+                f"einem anderen Programm geöffnet?"
+            )
+            return None
+
         editor = QuelltextEditor(
             thema=theme_aufloesen(self._design_thema), schriftart=self._code_schriftart
         )
@@ -5255,20 +5285,6 @@ class HauptFenster(QMainWindow):
         )
         editor.wert_gefragt.connect(self._wert_unter_maus_erfragen)
         editor.debugger_haelt = self._aktueller_thread_id is not None
-        try:
-            inhalt = pfad.read_text(encoding="utf-8-sig")
-        except UnicodeDecodeError:
-            self.statusBar().showMessage(
-                f"„{pfad.name}“ ist keine Textdatei (oder nicht in UTF-8 gespeichert) und "
-                f"lässt sich deshalb nicht im Editor öffnen."
-            )
-            return None
-        except OSError as fehler:
-            self.statusBar().showMessage(
-                f"„{pfad.name}“ lässt sich nicht öffnen: {fehler}. Ist die Datei gerade in "
-                f"einem anderen Programm geöffnet?"
-            )
-            return None
         editor.setPlainText(inhalt)
         editor.setProperty(_PFAD_EIGENSCHAFT, str(pfad))
         gemerkt = self._gemerkte_haltepunkte_nehmen(pfad)
@@ -8086,7 +8102,12 @@ class HauptFenster(QMainWindow):
         """„Pakete → Paket installieren …“: Name abfragen, per `pip`
         installieren, Ergebnis in der Statuszeile anzeigen."""
         name, ok = QInputDialog.getText(self, "Paket installieren", "Paketname:")
+        name = name.strip()
         if not ok or not name:
+            return
+        fehler = paketname_fehler(name)
+        if fehler is not None:
+            self.statusBar().showMessage(fehler)
             return
         if not self._hintergrund_frei("Die Installation"):
             return
@@ -8476,7 +8497,7 @@ class HauptFenster(QMainWindow):
         „README.md“ nebeneinander, ohne Unterschied.
         """
         try:
-            text = pfad.read_text(encoding="utf-8", errors="replace")
+            text = pfad.read_text(encoding="utf-8-sig", errors="replace")
         except OSError:
             return pfad.name
         return ueberschrift_lesen(text) or pfad.name
@@ -8714,7 +8735,15 @@ class HauptFenster(QMainWindow):
             return True
         if not self.alle_speichern():
             return True
-        funde = projekt_pruefen(self.projekt)
+        try:
+            funde = projekt_pruefen(self.projekt)
+        except PruefungZuLang:
+            self.statusBar().showMessage(
+                f"Die Prüfung vor dem Start brauchte länger als {RUFF_ZEITGRENZE_S} "
+                "Sekunden, etwa wegen eines langsamen Netzlaufwerks. Das Programm "
+                "startet diesmal ohne sie."
+            )
+            return False
         self.meldungen_liste.clear()
         self._funde_in_editoren_zeigen(funde)
         if not funde:

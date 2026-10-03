@@ -223,7 +223,14 @@ def _csv_wert(wert: Any) -> Any:
 def _kommazahl_hinweis(text: str, anweisung: str) -> str:
     """Hängt einen Hinweis an, wenn eine SQL-Anweisung an einem Komma
     scheitert, das in einer Kommazahl steht (Punkt 512). `2,0` liest
-    SQL als zwei Werte, und die Meldung allein nannte nur das Komma."""
+    SQL als zwei Werte, und die Meldung allein nannte nur das Komma.
+
+    Im Prüfungsmodus nicht: dort sagen Meldungen, was falsch ist, aber
+    nicht, wie es richtig wäre (Punkt 544)."""
+    from pcl.pruefungsmodus import laeuft as pruefungsmodus_laeuft
+
+    if pruefungsmodus_laeuft():
+        return text
     if "„,“" in text and re.search(r"\d,\d", anweisung):
         return (
             f"{text}. In SQL steht in einer Kommazahl ein Punkt, "

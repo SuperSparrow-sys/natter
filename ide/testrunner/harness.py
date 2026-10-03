@@ -192,6 +192,16 @@ class _StrukturiertesErgebnis(unittest.TestResult):
         )
 
 
+def _pruefung_laeuft() -> bool:
+    """Im Prüfungsmodus bleiben Lösungshinweise weg (Punkt 544)."""
+    try:
+        from pcl.pruefungsmodus import laeuft
+
+        return laeuft()
+    except Exception:  # noqa: BLE001 - ein Hinweis darf den Lauf nie stören
+        return False
+
+
 _EINGABE_HINWEIS = (
     "Beim Laden wurde input() aufgerufen, im Testlauf gibt es aber "
     "keine Eingabe. Das Hauptprogramm gehört in die Funktion main() "
@@ -210,7 +220,7 @@ def ladefehler_meldung(modul: str, text: str) -> str:
     traceback_text = "\n".join(zeilen).strip()
     letzte = next((z for z in reversed(zeilen) if z.strip()), "")
     teile = [f"Die Testdatei {modul}.py lässt sich nicht laden."]
-    if letzte.startswith("EOFError"):
+    if letzte.startswith("EOFError") and not _pruefung_laeuft():
         teile.append(_EINGABE_HINWEIS)
     if traceback_text:
         teile.append(traceback_text)

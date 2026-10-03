@@ -233,3 +233,17 @@ def test_unit_umbenennen_fuehrt_die_importe_nach(
         cwd=ordner, env=umgebung, capture_output=True, text=True, timeout=60,
     )
     assert lauf.returncode == 0, lauf.stderr
+
+
+def test_unit_umbenennen_nur_in_der_schreibweise(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, hauptfenster
+) -> None:
+    """Punkt 565: „U_Konto“ statt „u_konto“ galt als schon vorhanden,
+    weil Windows nicht nach Groß- und Kleinschreibung unterscheidet."""
+    projekt = hauptfenster.projekt_oeffnen(_projekt_kopie(tmp_path) / "06_Kontoverwaltung.natter")
+
+    meldungen = _umbenennen(hauptfenster, projekt.ordner / "u_konto.py", "U_Konto", monkeypatch)
+
+    assert meldungen == []
+    assert "U_Konto.py" in [p.name for p in projekt.ordner.glob("*.py")]
+    assert "from U_Konto import" in (projekt.ordner / "u_main.py").read_text(encoding="utf-8")

@@ -181,6 +181,12 @@ def test_der_reiter_traegt_die_ueberschrift(datei: Path, qtbot) -> None:
 
     assert fenster.editor_tabs.tabText(fenster.editor_tabs.currentIndex()) == "Obstsortierer"
 
+    # Punkt 564: auch mit BOM am Anfang der Datei.
+    mit_bom = datei.with_name("bom.md")
+    mit_bom.write_text(datei.read_text(encoding="utf-8"), encoding="utf-8-sig")
+    fenster.oeffnen(mit_bom)
+    assert fenster.editor_tabs.tabText(fenster.editor_tabs.currentIndex()) == "Obstsortierer"
+
 
 def test_ohne_ueberschrift_bleibt_der_dateiname(tmp_path: Path, qtbot) -> None:
     pfad = tmp_path / "notizen.md"

@@ -435,6 +435,18 @@ def test_ein_sql_fehler_leert_das_ergebnis_und_nennt_den_punkt() -> None:
     assert panel.ergebnis_tabelle.columnCount() == 0
     assert "etwa 2.5 statt 2,5" in panel._status_label.text()
 
+    # Punkt 544: im Prüfungsmodus ohne den Hinweis.
+    import pcl.pruefungsmodus
+
+    alt = pcl.pruefungsmodus.laeuft
+    pcl.pruefungsmodus.laeuft = lambda *a, **k: True
+    try:
+        panel._sql_ausfuehren()
+    finally:
+        pcl.pruefungsmodus.laeuft = alt
+    assert "2.5 statt 2,5" not in panel._status_label.text()
+    assert "„,“" in panel._status_label.text()
+
 
 def test_csv_export_schreibt_kommazahlen_mit_komma(tmp_path: Path) -> None:
     """Punkt 511: die Datei trennt mit Semikolon wie eine deutsche
