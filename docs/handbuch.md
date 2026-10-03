@@ -550,6 +550,23 @@ Schülerin aus und sammelt ihn später wieder ein, ist das kein
 Sonderfall: der ausgeteilte Ordner geht ohne Frage an seinem Ort auf,
 und eingesammelt wird genau das, was darin gespeichert wurde.
 
+Statt eines ganzen Projekts lässt sich auch eine einzelne Datei
+austeilen. Eine Klasse der Lehrkraft, etwa `konto.py`, kommt im
+Windows-Explorer in den eigenen Projektordner; sobald Natter wieder
+vorn ist, steht sie im Projekt-Explorer unter „Units“, und in
+`u_main.py` holt `from konto import Konto` sie ins Programm. Umgekehrt
+gibt die Lehrkraft ein Projekt mit fertiger Oberfläche aus, und die
+Schülerin legt mit **Datei → Neue Unit** ihre eigene Klasse dazu.
+Ein Diagramm (`.pdiag`) geht genauso: in den Projektordner oder
+seinen Unterordner `diagramme` kopiert, erscheint es unter
+„Diagramme“. Ohne Projekt öffnet **Datei → Öffnen …** jedes
+Diagramm, auch eine Abgabe zum Kontrollieren. Liegt die Datei in
+einem Ordner, in dem nur gelesen werden darf, bietet die Meldung
+beim Speichern **Speichern unter …** an, etwa in das eigene Projekt;
+die Vorlage der Lehrkraft bleibt dabei unverändert. Aus einem
+Klassendiagramm legt **Quelltext → Erzeugen …** mit „In eine Datei
+schreiben“ die Klassen als Unit im Projekt an.
+
 Der zweite Knopf in der Frage öffnet das Projekt an seinem Ort:
 **Nur ansehen**, wenn der Ordner kein Schreibrecht hat; **Trotzdem
 hier öffnen**, wenn das Projekt gerade an einem anderen Rechner in

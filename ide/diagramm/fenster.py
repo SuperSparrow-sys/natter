@@ -1330,23 +1330,42 @@ class DiagrammFenster(QMainWindow):
         try:
             self.diagramm.speichern()
         except OSError as fehler:
-            self._speicherfehler_melden(self.diagramm.pfad, fehler)
+            if self._speicherfehler_melden(self.diagramm.pfad, fehler):
+                return self.speichern_unter() is not None
             return False
         self._geaendert = False
         self._titel_setzen()
         self.statusBar().showMessage(f"{self.diagramm.pfad.name} gespeichert", 3000)
         return True
 
-    def _speicherfehler_melden(self, pfad: Path, fehler: OSError) -> None:
-        """Eigene Methode, damit Tests das Scheitern prüfen können,
-        ohne dass ein Fenster auf einen Klick wartet."""
+    def _speicherfehler_melden(self, pfad: Path, fehler: OSError) -> bool:
+        """Meldet, dass sich `pfad` nicht speichern ließ, und liefert, ob
+        unter einem anderen Namen gespeichert werden soll. Eigene
+        Methode, damit Tests das Scheitern prüfen können, ohne dass ein
+        Fenster auf einen Klick wartet.
+
+        Bis 0.4.3 gab es nur „OK“, und der Text sagte „Das Diagramm ist
+        noch offen und unverändert“, obwohl die Änderungen im Fenster
+        standen. Wer ein Diagramm aus einem schreibgeschützten
+        Austauschordner der Lehrkraft geändert hatte, erfuhr nicht, wie
+        es weitergeht (Punkt 505)."""
         grund = fehler.strerror or str(fehler)
-        QMessageBox.warning(
-            self,
+        frage = QMessageBox(
+            QMessageBox.Icon.Warning,
             "Speichern nicht möglich",
-            f"{pfad.name} lässt sich nicht speichern:\n\n{grund}\n\n"
-            "Das Diagramm ist noch offen und unverändert.",
+            f"{pfad.name} lässt sich nicht speichern: {grund}.\n\n"
+            "Die Änderungen stehen weiter im Fenster. Mit „Speichern "
+            "unter …“ kommen sie in eine eigene Datei, etwa in den Ordner "
+            "des eigenen Projekts.",
+            parent=self,
         )
+        unter = frage.addButton(
+            "Speichern unter …", QMessageBox.ButtonRole.AcceptRole
+        )
+        frage.addButton("Abbrechen", QMessageBox.ButtonRole.RejectRole)
+        frage.setDefaultButton(unter)
+        frage.exec()
+        return frage.clickedButton() is unter
 
     def _vor_dem_schliessen_fragen(self) -> QMessageBox.StandardButton:
         """Eigene Methode, damit Tests die Antwort vorgeben können,
@@ -1415,7 +1434,8 @@ class DiagrammFenster(QMainWindow):
         try:
             self.diagramm.speichern(Path(pfad))
         except OSError as fehler:
-            self._speicherfehler_melden(Path(pfad), fehler)
+            if self._speicherfehler_melden(Path(pfad), fehler):
+                return self.speichern_unter()
             return None
         self._geaendert = False
         self._titel_setzen()

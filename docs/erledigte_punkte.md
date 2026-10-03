@@ -13226,3 +13226,17 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** Diagramme auch aus dem Projektordner selbst zeigen. Erledigt, wenn ein Test ein solches Diagramm unter „Diagramme“ findet.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** `Projekt.diagramme` liefert die Diagramme aus `diagramme/` und dahinter die aus dem Projektordner. „Neues Diagramm …“ legt weiter unter `diagramme/` an; Umbenennen und Löschen arbeiten mit dem Pfad der Datei und gelten für beide Orte. Test wie Punkt 503.
+
+---
+
+## 505. Diagramm: Speichern einer schreibgeschützten Vorlage führt nirgends hin ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Weg der Lehrkraft (Diagramm austeilen und kontrollieren), Entwicklungsstand `811abb3`.
+
+**Beobachtet:** Eine Lehrkraft legt ein Klassendiagramm schreibgeschützt in den Austauschordner. Eine Schülerin öffnet es mit „Datei → Öffnen …“, setzt eine Klasse dazu und drückt Strg+S. Die Meldung sagt „vorlage_ro.pdiag lässt sich nicht speichern: Die Datei ist schreibgeschützt. Das Diagramm ist noch offen und unverändert.“ und bietet nur „OK“. „Unverändert“ stimmt nicht, die Änderungen stehen im Fenster, und wie es weitergeht, steht nirgends. Ohne Projekt öffnet „Datei → Öffnen …“ jedes Diagramm, auch zum Kontrollieren einer Abgabe.
+
+**Ursache:** nachgewiesen. `DiagrammFenster._speicherfehler_melden` (`ide/diagramm/fenster.py`) zeigt eine reine Warnung; `speichern` und `speichern_unter` brechen danach ab.
+
+**Zu tun:** Die Meldung bietet „Speichern unter …“ an und sagt richtig, dass die Änderungen erhalten sind. Erledigt, wenn ein Test nach gescheitertem Speichern über „Speichern unter …“ eine Datei findet und das Fenster nicht mehr als geändert gilt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_speicherfehler_melden` fragt mit den Knöpfen „Speichern unter …“ (vorgewählt) und „Abbrechen“ und liefert die Wahl; der Text lautet „… lässt sich nicht speichern: <Grund>. Die Änderungen stehen weiter im Fenster. Mit „Speichern unter …“ kommen sie in eine eigene Datei, etwa in den Ordner des eigenen Projekts.“ `speichern` und `speichern_unter` führen dann zum Dateidialog. Das Handbuch, Abschnitt 3.6, beschreibt jetzt auch das Austeilen einer einzelnen Klasse oder eines Diagramms (Punkte 503 bis 505). Test: `test_nach_gescheitertem_speichern_geht_es_mit_speichern_unter_weiter` in `tests/test_diagramm_schliessen.py`; mit der Datei aus `HEAD` scheitert er.

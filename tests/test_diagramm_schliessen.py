@@ -137,3 +137,37 @@ def test_speichern_unter_meldet_einen_fehler(tmp_path: Path, monkeypatch) -> Non
     assert fenster.speichern_unter(tmp_path / "b.pdiag") is None
     assert gemeldet == ["b.pdiag"]
     assert fenster.geaendert
+
+
+def test_nach_gescheitertem_speichern_geht_es_mit_speichern_unter_weiter(
+    tmp_path: Path, monkeypatch  # noqa: ANN001
+) -> None:
+    """Punkt 505: ein Diagramm aus einem schreibgeschützten Ordner der
+    Lehrkraft ließ sich ändern, aber nicht speichern, und die Meldung
+    bot nur „OK“. Jetzt führt sie zu „Speichern unter …“."""
+    fenster = _geaendertes_fenster(tmp_path)
+    original = Diagramm.speichern
+    gemeldet: list[str] = []
+
+    def nur_original_scheitert(self, pfad=None) -> None:  # noqa: ANN001
+        if pfad is None:
+            raise PermissionError(13, "Die Datei ist schreibgeschützt")
+        original(self, pfad)
+
+    monkeypatch.setattr(Diagramm, "speichern", nur_original_scheitert)
+    monkeypatch.setattr(
+        DiagrammFenster,
+        "_speicherfehler_melden",
+        lambda self, pfad, fehler: gemeldet.append(pfad.name) or True,
+    )
+    ziel = tmp_path / "eigenes" / "kopie.pdiag"
+    monkeypatch.setattr(
+        "ide.diagramm.fenster.QFileDialog.getSaveFileName",
+        lambda *a, **k: (str(ziel), ""),
+    )
+
+    assert fenster.speichern() is True
+
+    assert gemeldet == ["a.pdiag"]
+    assert ziel.is_file()
+    assert not fenster.geaendert
