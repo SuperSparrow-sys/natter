@@ -269,10 +269,11 @@ def eintraege_pruefen(eintraege: Any, _tiefe: int = 0) -> None:
         if fehler is not None:
             raise NatterPropertyError(fehler)
         eintraege_pruefen(eintrag.get("children", []), _tiefe + 1)
-    if _tiefe == 0:
-        doppelt = doppeltes_kuerzel(eintraege)
-        if doppelt is not None:
-            raise NatterPropertyError(doppelt)
+    # Ein doppeltes Kürzel macht die Einträge nicht ungültig. Der
+    # Menü-Editor lehnt es beim Anwenden ab; zur Laufzeit wirkt nur
+    # das erste (`_kuerzel_gewinner`). Bis zu Punkt 639 lehnte schon
+    # das Zuweisen ab, und eine `.pfm` aus 0.4.3 mit zwei gleichen
+    # Kürzeln ließ sich weder im Designer öffnen noch starten.
 
 
 def doppeltes_kuerzel(eintraege: list[dict[str, Any]]) -> str | None:
@@ -296,6 +297,45 @@ def doppeltes_kuerzel(eintraege: list[dict[str, Any]]) -> str | None:
             )
         gesehen[schluessel] = beschriftung
     return None
+
+
+def _wirksame_blaetter(eintraege: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Die Einträge ohne Untereinträge, die sich bedienen lassen: selbst
+    sichtbar und bedienbar, und jedes Untermenü darüber ebenso. Nur
+    deren Kürzel wirken (Punkt 648)."""
+    ergebnis = []
+    for eintrag in eintraege:
+        if eintrag.get("separator") or not eintrag.get("visible", True):
+            continue
+        if not eintrag.get("enabled", True):
+            continue
+        kinder = eintrag.get("children") or []
+        if kinder:
+            ergebnis.extend(_wirksame_blaetter(kinder))
+        else:
+            ergebnis.append(eintrag)
+    return ergebnis
+
+
+def _kuerzel_gewinner(
+    eintraege: list[dict[str, Any]], belegt: set[str] | None = None
+) -> set[int]:
+    """Die Einträge (als `id`), deren Kürzel angemeldet werden: je
+    Taste der erste bedienbare Eintrag, und keiner, dessen Taste in
+    `belegt` schon vergeben ist. Qt hielte zwei gleiche Kürzel für
+    mehrdeutig und löste keines aus (Punkte 633, 639)."""
+    vergeben = set(belegt or ())
+    gewinner: set[int] = set()
+    for eintrag in _wirksame_blaetter(eintraege):
+        kuerzel = str(eintrag.get("shortcut", "") or "").strip()
+        if not kuerzel or kuerzel_fehler(kuerzel):
+            continue
+        schluessel = _kuerzel_schluessel(kuerzel)
+        if schluessel in vergeben:
+            continue
+        vergeben.add(schluessel)
+        gewinner.add(id(eintrag))
+    return gewinner
 
 
 def _blaetter_roh(eintraege: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -577,7 +617,7 @@ class _Menue(Control):
             aktion.toggled.connect(
                 lambda an, e=eintrag: e.__setitem__("checked", an)
             )
-        if eintrag["shortcut"]:
+        if eintrag["shortcut"] and id(eintrag) in getattr(self, "_gewinner", ()):
             aktion.setShortcut(QKeySequence(_deutsche_kuerzel_umsetzen(eintrag["shortcut"])))
         handler = self._handler_suchen(eintrag["on_click"])
         if handler is not None:
@@ -630,6 +670,7 @@ class MainMenu(_Menue):
                 objekt.deleteLater()
         leiste.clear()
         self._qt_objekte.clear()
+        self._gewinner = _kuerzel_gewinner(self._eintraege)
         for eintrag in self._eintraege:
             self._aktion_bauen(eintrag, leiste)
         _klappmenue_kuerzel_erneuern(self._formular)
@@ -671,6 +712,7 @@ class PopupMenu(_Menue):
                 objekt.deleteLater()
         menue = QMenu(eltern)
         self._qt_objekte = [menue]
+        self._gewinner = _kuerzel_gewinner(self._eintraege)
         for eintrag in self._eintraege:
             self._aktion_bauen(eintrag, menue)
         return menue
@@ -694,12 +736,10 @@ class PopupMenu(_Menue):
         formular = self._formular
         if formular is None or getattr(formular, "_entwurfsansicht", False):
             return
-        belegt = _hauptmenue_kuerzel(formular)
+        gewinner = _kuerzel_gewinner(self._eintraege, _hauptmenue_kuerzel(formular))
         for komponente in self._komponenten():
             for eintrag in _blaetter(self._eintraege):
-                if not eintrag["shortcut"] or eintrag["separator"]:
-                    continue
-                if _kuerzel_schluessel(eintrag["shortcut"]) in belegt:
+                if id(eintrag) not in gewinner:
                     continue
                 aktion = QAction(komponente._qwidget)
                 aktion.setShortcut(
@@ -765,14 +805,17 @@ def _kuerzel_schluessel(kuerzel: str) -> str:
 
 
 def _hauptmenue_kuerzel(formular: Any) -> set[str]:
-    """Die Kürzel, die auf `formular` schon das Hauptmenü trägt."""
+    """Die Kürzel, die auf `formular` schon das Hauptmenü trägt. Nur
+    sichtbare, bedienbare Einträge belegen eine Taste; ein
+    abgeschalteter „Datensatz löschen“ mit Entf ließ sonst Entf im
+    Klappmenü einer Liste wirkungslos (Punkt 648)."""
     belegt: set[str] = set()
     for wert in vars(formular).values():
         if isinstance(wert, MainMenu):
             belegt.update(
                 _kuerzel_schluessel(e["shortcut"])
-                for e in _blaetter(wert._eintraege)
-                if e.get("shortcut")
+                for e in _wirksame_blaetter(wert._eintraege)
+                if e.get("shortcut") and not kuerzel_fehler(str(e["shortcut"]))
             )
     return belegt
 

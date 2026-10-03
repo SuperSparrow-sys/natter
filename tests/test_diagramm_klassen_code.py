@@ -1109,3 +1109,26 @@ def test_gerichtete_assoziation_wird_ein_attribut(beschriftung: str, attribut: s
         teil = namensraum["Motor"]()
         wagen = namensraum["Auto"](teil)
         assert getattr(wagen, attribut) is teil
+
+
+def test_assoziation_null_bis_eins_ist_ein_optionaler_parameter() -> None:
+    """Punkt 649: „naechster 0..1“ ergab einen Pflichtparameter, und der
+    erste Knoten einer verketteten Liste ließ sich nicht anlegen."""
+    knoten = _klasse(
+        "Knoten", id="s1",
+        attributes=[{"name": "inhalt", "type": "int", "visibility": "public"}],
+    )
+    daten = _diagramm(
+        knoten,
+        verbindungen=[{
+            "id": "c1", "kind": "directed_association", "from": "s1", "to": "s1",
+            "labels": {"to": "naechster 0..1"},
+        }],
+    )
+
+    namensraum = _ausfuehren(diagramm_als_python(daten))
+    erster = namensraum["Knoten"](5)
+    zweiter = namensraum["Knoten"](7, erster)
+
+    assert erster.naechster is None
+    assert zweiter.naechster is erster

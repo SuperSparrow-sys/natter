@@ -300,6 +300,10 @@ class MenueEditor(QDialog):
         self.feld_checked.toggled.connect(self._felder_uebernehmen)
 
         self._fuellen()
+        # Ein Menü aus einer älteren Fassung kann zwei gleiche Kürzel
+        # tragen; dann wirkt nur das erste. Gesagt wird es gleich beim
+        # Öffnen, geändert werden muss es vor „Anwenden“ (Punkt 639).
+        self._kuerzel_hinweis_zeigen(doppeltes_kuerzel(self.entwurf))
 
     # -- Baum ------------------------------------------------------------
 
@@ -483,7 +487,9 @@ class MenueEditor(QDialog):
             self.feld_checked.blockSignals(False)
         self.feld_checked.setEnabled(eintrag["checkable"])
         eintrag["checked"] = self.feld_checked.isChecked()
-        self._kuerzel_hinweis_zeigen(kuerzel_fehler(eintrag["shortcut"]))
+        self._kuerzel_hinweis_zeigen(
+            kuerzel_fehler(eintrag["shortcut"]) or doppeltes_kuerzel(self.entwurf)
+        )
         zeile = self.baum.currentItem()
         if zeile is not None:
             zeile.setText(0, _zeilentext(eintrag))
