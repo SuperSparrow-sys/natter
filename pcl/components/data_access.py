@@ -111,6 +111,20 @@ def _abschliessen(verbindung: sqlite3.Connection, name: str) -> None:
         pass
 
 
+def _ohne_tupel(methode: str, werte: tuple[Any, ...]) -> None:
+    """Werte kommen mit Namen, nicht als Tupel wie in `sqlite3`
+    (Punkt 486). Die übliche Schreibweise aus Anleitungen,
+    ``execute("… VALUES (?)", (name,))``, endete sonst in „nimmt 2
+    Angaben entgegen, übergeben wurden 3“, und niemand erfuhr, wie es
+    richtig geht."""
+    if werte:
+        raise NatterDatenbankError(
+            f"SQLite3Connection.{methode}: Werte werden hier nicht als "
+            "Tupel übergeben, sondern mit Namen: im SQL-Text als "
+            "Platzhalter „:name“ und beim Aufruf als name=wert."
+        )
+
+
 class SQLite3Connection(Komponente):
     """Verbindung zu einer SQLite-Datenbank. ``database_name`` ist ein
     Dateipfad oder ``":memory:"``.
@@ -165,7 +179,9 @@ class SQLite3Connection(Komponente):
 
     # -- Der kurze Weg -------------------------------------------------
 
-    def query(self, sql: str, **parameter: Any) -> list[dict[str, Any]]:
+    def query(
+        self, sql: str, *werte: Any, **parameter: Any
+    ) -> list[dict[str, Any]]:
         """Führt eine SELECT-Anweisung aus und liefert alle Zeilen als
         Liste von `dict`s::
 
@@ -184,6 +200,7 @@ class SQLite3Connection(Komponente):
         Steht hier doch eine schreibende Anweisung, wird sie wie bei
         `execute()` festgeschrieben.
         """
+        _ohne_tupel("query", werte)
         war_offen = self.verbindung.in_transaction
         cursor = self._ausfuehren(sql, parameter)
         spalten = [beschreibung[0] for beschreibung in cursor.description or []]
@@ -200,7 +217,9 @@ class SQLite3Connection(Komponente):
         self._festschreiben_falls_eigen(sql, war_offen)
         return zeilen
 
-    def query_one(self, sql: str, **parameter: Any) -> dict[str, Any] | None:
+    def query_one(
+        self, sql: str, *werte: Any, **parameter: Any
+    ) -> dict[str, Any] | None:
         """Wie `query()`, liefert aber nur die erste Zeile – oder
         ``None``, wenn die Abfrage nichts findet::
 
@@ -208,10 +227,11 @@ class SQLite3Connection(Komponente):
             if konto is None:
                 self.l_meldung.caption = "Kein Konto mit dieser Nummer."
         """
+        _ohne_tupel("query_one", werte)
         zeilen = self.query(sql, **parameter)
         return zeilen[0] if zeilen else None
 
-    def execute(self, sql: str, **parameter: Any) -> int:
+    def execute(self, sql: str, *werte: Any, **parameter: Any) -> int:
         """Führt eine schreibende Anweisung aus (INSERT, UPDATE, DELETE,
         CREATE TABLE) und schreibt sie sofort fest. Liefert die Anzahl
         der betroffenen Zeilen::
@@ -223,6 +243,7 @@ class SQLite3Connection(Komponente):
         fest; das tut dann erst `commit()`, und `rollback()` nimmt
         alles seit dem ``BEGIN`` zurück.
         """
+        _ohne_tupel("execute", werte)
         war_offen = self.verbindung.in_transaction
         cursor = self._ausfuehren(sql, parameter)
         anzahl = cursor.rowcount

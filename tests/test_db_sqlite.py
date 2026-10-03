@@ -560,3 +560,14 @@ def test_fehlende_tabelle_im_arbeitsspeicher_nennt_keine_datei() -> None:
         "SQL-Fehler: eine Tabelle namens „konto“ gibt es in der "
         "Datenbank nicht"
     )
+
+
+def test_werte_als_tupel_bekommen_einen_hinweis_auf_namen() -> None:
+    """Punkt 486: ``execute("… (?)", (1,))`` wie in `sqlite3` endete in
+    „nimmt 2 Angaben entgegen, übergeben wurden 3“."""
+    db = SQLite3Connection(":memory:")
+    db.execute("CREATE TABLE t (n INTEGER)")
+
+    for aufruf in (db.execute, db.query, db.query_one):
+        with pytest.raises(NatterDatenbankError, match=":name"):
+            aufruf("SELECT * FROM t WHERE n = ?", (1,))

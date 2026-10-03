@@ -12960,3 +12960,17 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** Die Meldung nennt die Namen und den Zahlenbereich; eine Kommazahl wird wie eine Zahl außerhalb des Bereichs abgelehnt. Erledigt, wenn ein Test beides findet.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** Die Meldung lautet jetzt „Unbekannte Farbe: 'rot'. Möglich sind black, blue, … white oder eine Zahl von 0 bis 15.“, und eine Kommazahl oder ein Wahrheitswert ergibt „Farbe muss 0 bis 15 sein, erhalten wurde 2.5.“ Test: `test_unbekannte_konsolenfarbe_nennt_die_moeglichen` in `tests/test_crt.py`; mit der Datei aus `HEAD` scheitert er.
+
+---
+
+## 486. Datenbank: Werte als Tupel wie in `sqlite3` enden in einer nichtssagenden Meldung ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, fünfte Durchsicht, Entwicklungsstand `fbba354`.
+
+**Beobachtet:** `db.execute("INSERT INTO konto VALUES (?, ?)", (1, "Ana"))`, die Schreibweise aus fast jeder Python-Anleitung zu SQLite, meldet in der Fehleranzeige „SQLite3Connection.execute() nimmt 2 Angaben entgegen, übergeben wurden 3.“ mit der Leitfrage, ob die Methode über das Objekt aufgerufen wurde. Dass `pcl` Werte mit Namen erwartet (`:name` im SQL-Text, `name=wert` beim Aufruf), steht nirgends. Dasselbe bei `query` und `query_one`.
+
+**Ursache:** nachgewiesen. `query`, `query_one` und `execute` in `pcl/components/data_access.py` nehmen nur `sql` und Schlüsselwortargumente; ein zweites Argument an der Stelle scheitert schon an Python mit `TypeError`.
+
+**Zu tun:** Ein Tupel oder jeder andere zusätzliche Wert nach dem SQL-Text ergibt eine deutsche Meldung, die die Übergabe mit Namen erklärt. Erledigt, wenn ein Test für alle drei Methoden diese Meldung bekommt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Die drei Methoden nehmen `*werte` entgegen und lehnen jeden solchen Wert mit `_ohne_tupel` ab: „SQLite3Connection.execute: Werte werden hier nicht als Tupel übergeben, sondern mit Namen: im SQL-Text als Platzhalter „:name“ und beim Aufruf als name=wert.“ Unterstützt wird die Tupel-Schreibweise bewusst nicht: zwei Wege für dasselbe wären für Lernende einer zu viel, und die Meldung zu „?“ ohne Werte verweist schon auf `:name`. Test: `test_werte_als_tupel_bekommen_einen_hinweis_auf_namen` in `tests/test_db_sqlite.py`; mit `pcl` aus `HEAD` scheitert er.
