@@ -8,6 +8,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from ide.project import Projekt
 from ide.run import projekt_pruefen
 
@@ -133,3 +135,27 @@ def test_eine_fehlerhafte_datei_im_unterordner_haelt_den_start_nicht_auf(
     (tmp_path / "alt" / "versuch1.py").write_text("def f(:\n", encoding="utf-8")
 
     assert projekt_pruefen(projekt) == []
+
+
+@pytest.mark.parametrize(
+    ("name", "verdeckt"),
+    [("random", True), ("pandas", True), ("pcl", True), ("design", False),
+     ("docs", False), ("ide", False), ("u_konto", False)],
+)
+def test_modul_verdeckt_kennt_nur_echte_module(name: str, verdeckt: bool) -> None:
+    """Punkt 587: Ordner der IDE wie `design` oder `docs` galten als
+    Module."""
+    from ide.run.pruefung import modul_verdeckt
+
+    assert modul_verdeckt(name) is verdeckt
+
+
+def test_modul_verdeckt_fuehrt_nichts_aus() -> None:
+    """Punkt 587: `this.x` ließ `find_spec` das Modul `this` ausführen."""
+    import sys
+
+    from ide.run.pruefung import modul_verdeckt
+
+    sys.modules.pop("this", None)
+    assert modul_verdeckt("this.x") is False
+    assert "this" not in sys.modules

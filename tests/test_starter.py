@@ -174,3 +174,21 @@ def test_gui_projekt_bekommt_kein_eigenes_konsolenfenster(
     # verloren; gelesen wird sie vom Panel „Ausgabe“.
     assert aufrufe[0][1]["stdout"] is subprocess.PIPE
     assert aufrufe[0][1]["stderr"] is subprocess.STDOUT
+
+
+@pytest.mark.parametrize(
+    "aufruf", ['sys.exit("Ungültige Eingabe - Abbruch")', "sys.exit(3)", "sys.exit()"]
+)
+def test_sys_exit_wie_ohne_huelle(tmp_path: Path, aufruf: str) -> None:
+    """Punkt 585: `sys.exit("Text")` verschluckte den Text und endete
+    mit 0. Mit Hülle soll dasselbe herauskommen wie mit `python
+    main.py`."""
+    inhalt = f"import sys\n{aufruf}\n"
+    mit = _huelle_ausfuehren(tmp_path, inhalt)
+    ohne = subprocess.run(
+        [sys.executable, "main.py"], cwd=tmp_path, capture_output=True,
+        text=True, timeout=60,
+    )
+
+    assert mit.returncode == ohne.returncode
+    assert ohne.stderr.strip() in mit.stderr

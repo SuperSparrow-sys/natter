@@ -85,6 +85,10 @@ def test_vorlage_umschalten_ist_rueckgaengig_machbar(fenster) -> None:
     fenster.zeichenflaeche.rueckgaengig()
 
     assert fenster.diagramm.stil == "modern-light"
+    # Punkt 590: das Häkchen folgt, nach Rückgängig wie nach Wiederholen.
+    assert fenster.stil_aktionen["modern-light"].isChecked()
+    fenster.zeichenflaeche.wiederholen()
+    assert fenster.stil_aktionen["modern-dark"].isChecked()
 
 
 def test_gewaehlte_vorlage_steht_in_der_statusleiste(fenster) -> None:

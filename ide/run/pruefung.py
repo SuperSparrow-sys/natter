@@ -14,6 +14,7 @@ Ruff immer gemeldet, auch außerhalb der ausgewählten Regeln.
 from __future__ import annotations
 
 import ast
+import functools
 import json
 import re
 import subprocess
@@ -473,15 +474,28 @@ def modul_verdeckt(name: str) -> bool:
 
     Python sucht zuerst im Ordner des Programms. Eine Unit `random.py`
     machte `import random` zur eigenen Datei, und `random.randint`
-    endete mit einem AttributeError (Punkt 536)."""
-    import importlib.util
+    endete mit einem AttributeError (Punkt 536).
 
-    if name in sys.stdlib_module_names:
-        return True
-    try:
-        return importlib.util.find_spec(name) is not None
-    except (ImportError, ValueError):
+    Gefragt wird ohne Import und nur nach Standardbibliothek und
+    installierten Paketen. Bis 0.4.3 fragte `find_spec` den Suchpfad der
+    IDE: Ordner wie `design` oder `docs` galten als Module, und ein Name
+    mit Punkt wie `this.x` führte das Modul `this` aus (Punkt 587)."""
+    if not name.isidentifier():
         return False
+    return name in sys.stdlib_module_names or name in _installierte_module()
+
+
+@functools.cache
+def _installierte_module() -> frozenset[str]:
+    """Die Namen der Module und Pakete in `site-packages`, ohne sie zu
+    laden, dazu `pcl`. Natters eigenes Paket `ide` braucht kein
+    Schülerprogramm."""
+    import pkgutil
+    import sysconfig
+
+    orte = {sysconfig.get_paths()[art] for art in ("purelib", "platlib")}
+    namen = {modul.name for modul in pkgutil.iter_modules(sorted(orte))}
+    return frozenset((namen | {"pcl"}) - {"ide"})
 
 
 def _modulnamen_pruefen(projekt: Projekt) -> list[RuffFund]:

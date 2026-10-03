@@ -566,8 +566,53 @@ class PopupMenu(_Menue):
             self._aktion_bauen(eintrag, menue)
         return menue
 
+    def _menue_erneuern(self) -> None:
+        """Meldet die Tastenkürzel der Einträge am Fenster an.
+
+        Die Aktionen des Klappmenüs entstehen erst beim Aufklappen. Ein
+        Kürzel wie „Entf“ stand deshalb im Menü, wirkte aber nie
+        (Punkt 591). Wie bei `MainMenu` gilt es jetzt im ganzen Fenster.
+        Im Designer wird nichts angemeldet."""
+        for aktion in getattr(self, "_kuerzel_aktionen", []):
+            aktion.deleteLater()
+        self._kuerzel_aktionen: list[QAction] = []
+        formular = self._formular
+        if formular is None or getattr(formular, "_entwurfsansicht", False):
+            return
+        fenster = getattr(formular, "_qwidget", None)
+        if fenster is None:
+            return
+        for eintrag in _blaetter(self._eintraege):
+            if not eintrag["shortcut"] or eintrag["separator"]:
+                continue
+            aktion = QAction(fenster)
+            aktion.setShortcut(QKeySequence(_deutsche_kuerzel_umsetzen(eintrag["shortcut"])))
+            aktion.setShortcutContext(Qt.ShortcutContext.WindowShortcut)
+            aktion.setEnabled(eintrag["enabled"])
+            aktion.triggered.connect(lambda _an=False, e=eintrag: self._kuerzel_ausloesen(e))
+            fenster.addAction(aktion)
+            self._kuerzel_aktionen.append(aktion)
+
+    def _kuerzel_ausloesen(self, eintrag: dict[str, Any]) -> None:
+        if eintrag["checkable"] or eintrag["checked"]:
+            eintrag["checked"] = not eintrag["checked"]
+        handler = self._handler_suchen(eintrag["on_click"])
+        if handler is not None:
+            handler(self)
+
     def aufklappen(self, komponente: Control, x: int, y: int) -> None:
         """Klappt das Menü an dieser Stelle der Komponente auf."""
         widget = komponente._qwidget
         punkt = widget.mapToGlobal(widget.rect().topLeft()) + QPoint(x, y)
         self.menue(widget).exec(punkt)
+
+
+def _blaetter(eintraege: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Alle Einträge ohne Untereinträge, auch in den Untermenüs."""
+    ergebnis = []
+    for eintrag in eintraege:
+        if eintrag["children"]:
+            ergebnis.extend(_blaetter(eintrag["children"]))
+        else:
+            ergebnis.append(eintrag)
+    return ergebnis

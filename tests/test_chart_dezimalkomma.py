@@ -70,3 +70,22 @@ def test_csv_in_cp1252_mit_komma_in_x_ergibt_eine_regression(tmp_path) -> None:
     ergebnis = diagramm.add_regression()
 
     assert ergebnis.steigung == pytest.approx(2.5, abs=0.01)
+
+
+def test_leeres_kreisdiagramm_meldet_sich_deutsch() -> None:
+    """Punkt 592: matplotlib meldete „All wedge sizes are zero“."""
+    with pytest.raises(NatterDatenError, match="Kreisdiagramm"):
+        Chart(Form()).add_pie_series([], [])
+
+
+def test_tausenderpunkte_in_der_csv(tmp_path) -> None:
+    """Punkt 592: „1.200,50“ galt als „nicht nur Zahlen“."""
+    datei = tmp_path / "umsatz.csv"
+    datei.write_text("monat;umsatz\nJan;1.200,50\nFeb;980,00\n", encoding="utf-8")
+    diagramm = Chart(Form())
+
+    diagramm.load_csv(datei, 0, 1)
+
+    from pcl.components.chart import _als_zahlen
+
+    assert list(_als_zahlen(diagramm._dataframe["umsatz"], "umsatz", "x")) == [1200.5, 980.0]

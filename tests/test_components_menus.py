@@ -486,3 +486,35 @@ def test_die_leiste_folgt_dem_fenster_beim_ziehen_und_maximieren(qtbot) -> None:
         lambda: formular._menueleiste.width() == formular._qwidget.width(),
         timeout=2000,
     )
+
+
+def test_kuerzel_eines_klappmenues_wirken_im_fenster(qtbot) -> None:
+    """Punkt 591: das Kürzel stand im Klappmenü, wirkte aber nie,
+    solange das Menü zu war."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    class _MitKlappmenue(Form):
+        def create_components(self) -> None:
+            self.b_ziel = Button(self)
+            self.pm = PopupMenu(self)
+            self.pm.entries = [
+                {"name": "mi_weg", "caption": "Löschen", "shortcut": "Strg+K",
+                 "on_click": "loeschen"},
+            ]
+            self.b_ziel.popup_menu = self.pm
+            self.geloescht = 0
+
+        def loeschen(self, sender) -> None:
+            self.geloescht += 1
+
+    formular = _MitKlappmenue()
+    formular.show()
+    qtbot.waitExposed(formular._qwidget)
+    formular._qwidget.activateWindow()
+    qtbot.waitUntil(formular._qwidget.isActiveWindow, timeout=2000)
+    formular.b_ziel._qwidget.setFocus()
+
+    QTest.keyClick(formular.b_ziel._qwidget, Qt.Key.Key_K, Qt.KeyboardModifier.ControlModifier)
+
+    assert formular.geloescht == 1

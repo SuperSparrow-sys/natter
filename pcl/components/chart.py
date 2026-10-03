@@ -120,6 +120,22 @@ def _trennzeichen_erkennen(datei: Path) -> str:
     return haeufigstes if kopfzeile.count(haeufigstes) else ","
 
 
+def _ist_positiv(wert: Any) -> bool:
+    try:
+        return float(wert) > 0
+    except (TypeError, ValueError):
+        return False
+
+
+def _deutsche_zahl_oder_nichts(wert: Any) -> float | None:
+    from pcl.zahlen import zahl
+
+    try:
+        return zahl(str(wert))
+    except Exception:
+        return None
+
+
 def _als_zahlen(spalte: pd.Series, spaltenname: Any, quelle: str) -> pd.Series:
     """Wandelt eine Spalte in Zahlen um oder meldet auf Deutsch, warum
     das nicht geht (M10, Punkt 3: „Spalte enthält keine Zahlen“).
@@ -145,6 +161,9 @@ def _als_zahlen(spalte: pd.Series, spaltenname: Any, quelle: str) -> pd.Series:
     # nie zustande.
     if not pd.api.types.is_numeric_dtype(spalte):
         kandidaten.append(spalte.astype(str).str.strip().str.replace(",", ".", regex=False))
+        # Dritter Anlauf wie `pcl.zahl`: „1.200,50“ mit Tausenderpunkt
+        # galt sonst als „nicht nur Zahlen“ (Punkt 592).
+        kandidaten.append(spalte.map(_deutsche_zahl_oder_nichts))
 
     for kandidat in kandidaten:
         zahlen = pd.to_numeric(kandidat, errors="coerce")
@@ -288,11 +307,19 @@ class Chart(Control):
         self._nach_serie(title)
 
     def add_pie_series(self, labels: Any, werte: Any, *, title: str = "") -> None:
+        liste = list(werte)
+        if not any(_ist_positiv(wert) for wert in liste):
+            # matplotlib meldete englisch „All wedge sizes are zero“
+            # (Punkt 592).
+            raise NatterDatenError(
+                "Ein Kreisdiagramm braucht mindestens einen Wert größer als 0."
+                + (" Die Liste der Werte ist leer." if not liste else "")
+            )
         self._beispiel_verwerfen()
         palette = _farbpalette(self._theme)
-        anzahl = len(list(werte))
+        anzahl = len(liste)
         farben = [palette[i % len(palette)] for i in range(anzahl)]
-        self._achse.pie(werte, labels=labels, colors=farben, textprops=self._textstil())
+        self._achse.pie(liste, labels=labels, colors=farben, textprops=self._textstil())
         self._serienanzahl += anzahl
         self._nach_serie(title)
 

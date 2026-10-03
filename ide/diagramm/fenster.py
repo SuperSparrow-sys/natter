@@ -678,6 +678,11 @@ class DiagrammFenster(QMainWindow):
     def _bei_aenderung(self) -> None:
         if self.eigenschaften is not None:
             self.eigenschaften.aktualisieren()
+        # Das Häkchen im Menü „Stil“ folgt dem Diagramm, auch nach
+        # Rückgängig und Wiederholen (Punkt 590).
+        stil = getattr(self, "stil_aktionen", {}).get(self.diagramm.stil)
+        if stil is not None and not stil.isChecked():
+            stil.setChecked(True)
         self._geaendert = True
         self._titel_setzen()
         self._statusleiste_aktualisieren()

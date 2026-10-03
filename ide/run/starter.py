@@ -70,8 +70,15 @@ _KONSOLEN_HUELLE = (
     "rueckgabe = 0\n"
     "try:\n"
     "    runpy.run_path(skript, run_name='__main__')\n"
+    # Wie Python selbst: `sys.exit("Text")` schreibt den Text auf die
+    # Fehlerausgabe und endet mit 1. Bis 0.4.3 verschwand der Text,
+    # und das Programm endete mit 0 (Punkt 585).
     "except SystemExit as beendet:\n"
-    "    rueckgabe = beendet.code if isinstance(beendet.code, int) else 0\n"
+    "    if beendet.code is None or isinstance(beendet.code, int):\n"
+    "        rueckgabe = beendet.code or 0\n"
+    "    else:\n"
+    "        print(beendet.code, file=sys.stderr)\n"
+    "        rueckgabe = 1\n"
     # Dieselbe Meldung (Wo, Was, Zu prüfen) wie im Debugger und im GUI-Programm
     # (M12). Ohne sie stand hier der rohe englische Traceback, in dem vor
     # der einen wichtigen Zeile ein Dutzend Zeilen aus `pcl` und Qt

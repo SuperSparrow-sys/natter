@@ -794,3 +794,15 @@ def test_ein_ordner_build_ueber_dem_projekt_nimmt_keine_pakete_weg(
     weg = _ueberfluessige_pakete(Projekt(ordner, {}))
 
     assert not {"pandas", "matplotlib", "numpy"} & set(weg)
+
+
+def test_ein_quelltext_pdf_wandert_nicht_in_die_exe(tmp_path: Path) -> None:
+    """Punkt 586: das Quelltext-PDF im Projektordner kam als
+    Programmdaten in die Exe."""
+    from ide.export.exporter import _daten_dateien_des_projekts
+
+    (tmp_path / "Statistik Quelltext.pdf").write_bytes(b"%PDF")
+    (tmp_path / "anleitung.pdf").write_bytes(b"%PDF")
+    namen = [p.name for p in _daten_dateien_des_projekts(Projekt(tmp_path, {}))]
+
+    assert namen == ["anleitung.pdf"]

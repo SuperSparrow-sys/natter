@@ -271,6 +271,10 @@ def _daten_dateien_des_projekts(projekt: Projekt) -> list[Path]:
         and not ist_verknuepfung(p)
         and p.suffix.lower() not in _KEINE_DATEN
         and not p.name.startswith(".")
+        # Ein Quelltext-PDF aus „Projekt → Quelltext als PDF …“, das
+        # noch im Projektordner liegt, gehört nicht in die Exe
+        # (Punkt 586).
+        and not p.name.lower().endswith(" quelltext.pdf")
     )
 
 

@@ -458,3 +458,23 @@ def test_ankreuzbar_und_ein_kuerzel_ohne_wirkung(qtbot) -> None:
     editor.feld_shortcut.setText("Strg+Ende")
     assert editor.anwenden() is True
     assert editor.kuerzel_hinweis.isHidden()
+
+
+def test_ankreuzbar_abwaehlen_nimmt_das_haekchen_mit(qtbot) -> None:
+    """Punkt 588: nach dem Abwählen von „Ankreuzbar“ war es beim
+    nächsten Auswählen wieder angehakt, und der Eintrag blieb im
+    Programm ankreuzbar."""
+    editor = _editor(qtbot)
+    _waehlen(editor, 0, 0)
+    editor.feld_checkable.setChecked(True)
+    editor.feld_checked.setChecked(True)
+
+    editor.feld_checkable.setChecked(False)
+    _waehlen(editor, 1)
+    _waehlen(editor, 0, 0)
+
+    assert not editor.feld_checkable.isChecked()
+    assert not editor.feld_checked.isChecked()
+    assert not editor.feld_checked.isEnabled()
+    eintrag = editor.entwurf[0]["children"][0]
+    assert (eintrag["checkable"], eintrag["checked"]) == (False, False)

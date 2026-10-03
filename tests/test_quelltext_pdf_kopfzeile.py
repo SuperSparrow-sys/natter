@@ -83,3 +83,28 @@ def test_seitenkoepfe_folgen_der_datei(projekt: Projekt) -> None:
 
 def test_ohne_namen_kommt_die_anmeldung(projekt: Projekt) -> None:
     assert modul.anmeldename()
+
+
+def test_das_pdf_landet_am_vorschlag_nicht_unter_den_exportdaten(
+    tmp_path: Path, monkeypatch, hauptfenster
+) -> None:  # noqa: ANN001
+    """Punkt 586: vorgeschlagen war der Projektordner, und der nächste
+    Exe-Export nahm das PDF als Programmdaten mit."""
+    from PySide6.QtWidgets import QFileDialog
+
+    from ide.export.exporter import _daten_dateien_des_projekts
+    from ide.project.neu import projekt_erzeugen
+
+    projekt = projekt_erzeugen("console", tmp_path, "Statistik")
+    hauptfenster.projekt_oeffnen(projekt.ordner / "Statistik.natter")
+    monkeypatch.setattr(
+        QFileDialog, "getSaveFileName",
+        staticmethod(lambda _e, _t, vorschlag, _f: (vorschlag, "")),
+    )
+
+    hauptfenster._quelltext_als_pdf_aktion()
+
+    pdf = projekt.ordner.parent / "Statistik Quelltext.pdf"
+    assert pdf.exists(), hauptfenster.statusBar().currentMessage()
+    daten = _daten_dateien_des_projekts(hauptfenster.projekt)
+    assert not [p for p in daten if p.suffix == ".pdf"]

@@ -2679,7 +2679,12 @@ class HauptFenster(QMainWindow):
         if not self.alle_speichern():
             return
 
-        vorschlag = self.projekt.ordner / f"{self.projekt.name} Quelltext.pdf"
+        # Neben den Projektordner wie die Abgabe-ZIP: im Projektordner
+        # nahm der nächste Exe-Export das PDF als Programmdaten mit, und
+        # der Empfänger bekam den ganzen Quelltext (Punkt 586).
+        vorschlag = (
+            self.projekt.ordner.parent / f"{self.projekt.name} Quelltext.pdf"
+        )
         pfad, _ = QFileDialog.getSaveFileName(
             self, "Quelltext als PDF speichern", str(vorschlag), "PDF-Dateien (*.pdf)"
         )

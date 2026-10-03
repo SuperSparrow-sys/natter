@@ -103,9 +103,15 @@ class MaskEdit(Control):
         return widget
 
     def _bei_textaenderung(self, text: str) -> None:
-        _prop_gleichziehen(self, "text", text)
+        _prop_gleichziehen(self, "text", self._ohne_leere_maske(text))
         if self.on_change is not None:
             self.on_change(self)
+
+    def _ohne_leere_maske(self, text: str) -> str:
+        """Ein leeres Feld liefert `""`. Qt gibt bei der Maske
+        `00.00.0000` sonst die festen Zeichen „..“ zurück, und
+        ``if self.me_datum.text == ""`` griff nie (Punkt 592)."""
+        return "" if text == getattr(self, "_leer", "") else text
 
     def _bei_prop_aenderung(self, name: str, wert: Any) -> None:
         super()._bei_prop_aenderung(name, wert)
@@ -113,6 +119,12 @@ class MaskEdit(Control):
             # Die Maske vor dem Text: `setInputMask` leert das Feld,
             # ein vorher gesetzter Text wäre sonst weg.
             self._qwidget.setInputMask(wert)
+            # Wie „leer“ mit dieser Maske aussieht, zeigt ein eigenes,
+            # leeres Feld: dieses hier kann schon Text tragen.
+            probe = QLineEdit()
+            probe.setInputMask(wert)
+            self._leer = probe.text()
+            probe.deleteLater()
             self._qwidget.setText(self.text)
             self._text_gleichziehen()
         elif name == "text":
@@ -129,7 +141,7 @@ class MaskEdit(Control):
         nirgends sieht. Über `textChanged` allein kommt es nicht
         zurück - war das Feld vorher schon leer, meldet Qt gar keine
         Änderung."""
-        _prop_gleichziehen(self, "text", self._qwidget.text())
+        _prop_gleichziehen(self, "text", self._ohne_leere_maske(self._qwidget.text()))
 
 
 class DateEdit(Control):

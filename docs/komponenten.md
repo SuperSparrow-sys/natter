@@ -751,6 +751,9 @@ self.sg_tabelle.popup_menu = self.pm_tabelle
 `None` im Code oder „(kein)“ im Objektinspektor nimmt die Zuordnung
 wieder weg. Dasselbe Klappmenü darf an mehreren Komponenten hängen.
 
+Ein Tastenkürzel eines Eintrags wirkt wie bei `MainMenu` im ganzen
+Fenster, auch solange das Klappmenü zu ist.
+
 ## GroupBox
 
 Ein Rahmen mit Überschrift, der andere Komponenten aufnimmt.
@@ -1489,7 +1492,7 @@ self.l_steigung.caption = f"Steigung: {ergebnis.steigung:.2f}"
 | Feld | Bedeutung |
 |---|---|
 | steigung | linear: `m` aus `y = m·x + b`; polynomial: Koeffizient des Glieds `·x`; exponentiell: Wachstumsrate im Exponenten; logarithmisch: Faktor vor `ln(x)` |
-| achsenabschnitt | Wert bei `x = 0` |
+| achsenabschnitt | linear, polynomial und exponentiell: Wert bei `x = 0`; logarithmisch: Wert bei `x = 1`, denn `ln(0)` gibt es nicht |
 | bestimmtheitsmass | R², immer auf der Originalskala gerechnet |
 | formel | lesbarer Text, z. B. `y = 2,31·x + 4,07` |
 | koeffizienten | alle Koeffizienten, höchste Potenz zuerst |

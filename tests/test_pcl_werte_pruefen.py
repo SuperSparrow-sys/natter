@@ -166,3 +166,18 @@ def test_kuerzere_items_heben_die_auswahl_auf(formular, typ) -> None:
     k.items = ["a"]
 
     assert k.item_index == -1
+
+
+def test_ein_leeres_maskedit_liefert_leeren_text(formular) -> None:
+    """Punkt 592: mit der Maske 00.00.0000 lieferte ein leeres Feld „..“."""
+    from pcl import MaskEdit
+
+    me = MaskEdit(formular)
+    _AM_LEBEN.append(me)
+    me.mask = "00.00.0000"
+
+    assert me.text == ""
+    me.text = "20.09.2026"
+    assert me.text == "20.09.2026"
+    me.text = ""
+    assert me.text == ""

@@ -454,6 +454,7 @@ class MenueEditor(QDialog):
             self.feld_checked.setChecked(eintrag["checked"])
         for feld in felder:
             feld.blockSignals(False)
+        self.feld_checked.setEnabled(self.feld_checkable.isChecked())
 
     def _felder_uebernehmen(self) -> None:
         eintrag = self._gewaehlter_eintrag()
@@ -465,6 +466,14 @@ class MenueEditor(QDialog):
         eintrag["on_click"] = self.feld_on_click.text()
         eintrag["enabled"] = self.feld_enabled.isChecked()
         eintrag["checkable"] = self.feld_checkable.isChecked()
+        # Ohne „Ankreuzbar“ gibt es kein Häkchen. Sonst machte ein
+        # stehengebliebenes `checked` den Eintrag wieder ankreuzbar
+        # (Punkt 588).
+        if not eintrag["checkable"] and self.feld_checked.isChecked():
+            self.feld_checked.blockSignals(True)
+            self.feld_checked.setChecked(False)
+            self.feld_checked.blockSignals(False)
+        self.feld_checked.setEnabled(eintrag["checkable"])
         eintrag["checked"] = self.feld_checked.isChecked()
         self._kuerzel_hinweis_zeigen(kuerzel_fehler(eintrag["shortcut"]))
         zeile = self.baum.currentItem()
