@@ -134,15 +134,61 @@ _DESIGN_ORDNER = Path(pcl.__file__).resolve().parent.parent / "design"
 #: neben der Exe liegen, statt im Auspackordner mit gelöscht zu werden.
 #: Auch ein Start über eine Verknüpfung oder aus einem anderen Ordner
 #: landet damit an derselben Stelle.
+#:
+#: Die mitgelieferten Daten (`DATEN`, vom Export eingetragen) packt
+#: PyInstaller aber in den Auspackordner. Mit dem Ordner der Exe als
+#: Arbeitsverzeichnis fand ``open("noten.csv")`` sie bis 0.4.3 nicht,
+#: und die Exe brach beim Freund mit `FileNotFoundError` ab (Punkt 488).
+#: Der Haken legt deshalb vor dem Wechsel jede mitgelieferte Datei
+#: neben die Exe, die dort noch fehlt. Was schon da ist, bleibt: eine
+#: Datenbank, in die das Programm geschrieben hat, wird beim nächsten
+#: Start nicht durch den Stand aus dem Export ersetzt.
 _ARBEITSORDNER_HOOK = """import os
+import shutil
 import sys
 
+DATEN = []
+
+
+def _fehlendes_kopieren(quelle, ziel):
+    for name in DATEN:
+        von = os.path.join(quelle, name)
+        nach = os.path.join(ziel, name)
+        try:
+            if os.path.isdir(von):
+                for wurzel, _ordner, dateien in os.walk(von):
+                    hier = os.path.join(nach, os.path.relpath(wurzel, von))
+                    os.makedirs(hier, exist_ok=True)
+                    for datei in dateien:
+                        if not os.path.exists(os.path.join(hier, datei)):
+                            shutil.copy2(
+                                os.path.join(wurzel, datei),
+                                os.path.join(hier, datei),
+                            )
+            elif os.path.isfile(von) and not os.path.exists(nach):
+                shutil.copy2(von, nach)
+        except OSError:
+            pass
+
+
 if getattr(sys, "frozen", False):
+    _ziel = os.path.dirname(os.path.abspath(sys.executable))
+    _quelle = getattr(sys, "_MEIPASS", None)
+    if _quelle:
+        _fehlendes_kopieren(_quelle, _ziel)
     try:
-        os.chdir(os.path.dirname(os.path.abspath(sys.executable)))
+        os.chdir(_ziel)
     except OSError:
         pass
 """
+
+
+def arbeitsordner_haken(daten: list[str]) -> str:
+    """Der Laufzeithaken mit den Namen der Dateien und Ordner, die der
+    Export mitgibt."""
+    return _ARBEITSORDNER_HOOK.replace(
+        "DATEN = []", f"DATEN = {sorted(set(daten))!r}", 1
+    )
 
 #: Dateien im Projektordner, die nicht als Daten mitwandern: der
 #: Quelltext geht als übersetzter Code in die Exe, der Rest wird nur in
@@ -451,7 +497,9 @@ def exe_exportieren(
         f"{_DESIGN_ORDNER}{os.pathsep}design",
     ]
 
+    mitgegeben: list[str] = []
     for ordner in _daten_ordner_des_projekts(projekt):
+        mitgegeben.append(ordner.name)
         if not enthaelt_verknuepfung(ordner):
             befehl += ["--add-data", f"{ordner}{os.pathsep}{ordner.name}"]
             continue
@@ -461,11 +509,12 @@ def exe_exportieren(
             ziel = Path(ordner.name, *datei.relative_to(ordner).parent.parts)
             befehl += ["--add-data", f"{datei}{os.pathsep}{ziel}"]
     for datei in _daten_dateien_des_projekts(projekt):
+        mitgegeben.append(datei.name)
         befehl += ["--add-data", f"{datei}{os.pathsep}."]
 
     spec_pfad.mkdir(parents=True, exist_ok=True)
     haken = spec_pfad / "natter_arbeitsordner.py"
-    haken.write_text(_ARBEITSORDNER_HOOK, encoding="utf-8")
+    haken.write_text(arbeitsordner_haken(mitgegeben), encoding="utf-8")
     befehl += ["--runtime-hook", str(haken)]
 
     for paket in _ueberfluessige_pakete(projekt):

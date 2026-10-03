@@ -373,11 +373,12 @@ steckt darin; es gibt keinen Ordner zum Mitschicken und nichts zum
 Entpacken. Während des Baus läuft in der untersten Zeile ein
 Ladebalken mit.
 
-Beim Start packt sich die Exe in einen Ordner unter `%TEMP%` aus, der
-beim Beenden wieder gelöscht wird. Mitgelieferte Dateien liest ein
-Programm deshalb über `Path(__file__).parent`, schreibt eigene Dateien
-aber mit relativem Pfad, etwa `Path("konten.sqlite")`: die Exe startet
-im eigenen Ordner, und die Datei bleibt neben ihr liegen. Die Exe
+Beim ersten Start legt die Exe die mitgelieferten Dateien und
+Ordner neben sich ab, soweit sie dort noch fehlen, und startet im
+eigenen Ordner. Ein Programm liest und schreibt seine Dateien deshalb
+wie in Natter mit relativem Pfad, etwa `open("noten.csv")` oder
+`Path("konten.sqlite")`. Was das Programm verändert hat, bleibt beim
+nächsten Start erhalten. Die Exe
 trägt das Symbol, das beim Hauptformular unter `icon` eingestellt ist.
 
 ## 17. Quelltext als PDF

@@ -744,3 +744,35 @@ def test_der_export_nimmt_keine_startdatei_von_ausserhalb(
     assert not ergebnis.erfolgreich
     assert "Startdatei" in ergebnis.protokoll
     assert pyinstaller == []
+
+
+def test_der_haken_legt_die_daten_neben_die_exe(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Punkt 488: die Daten lagen nur im Auspackordner, und
+    ``open("noten.csv")`` im Ordner der Exe scheiterte. Was neben der
+    Exe schon liegt, bleibt; das Programm kann es verändert haben."""
+    import sys
+
+    from ide.export.exporter import arbeitsordner_haken
+
+    auspack = tmp_path / "_MEI123"
+    (auspack / "bilder").mkdir(parents=True)
+    (auspack / "noten.csv").write_text("neu", encoding="utf-8")
+    (auspack / "konten.sqlite").write_text("aus dem Export", encoding="utf-8")
+    (auspack / "bilder" / "a.png").write_text("bild", encoding="utf-8")
+    exe_ordner = tmp_path / "irgendwo"
+    exe_ordner.mkdir()
+    (exe_ordner / "konten.sqlite").write_text("vom Programm", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(auspack), raising=False)
+    monkeypatch.setattr(sys, "executable", str(exe_ordner / "Projekt.exe"))
+
+    haken = arbeitsordner_haken(["noten.csv", "konten.sqlite", "bilder"])
+    exec(compile(haken, "natter_arbeitsordner.py", "exec"), {})
+
+    assert Path.cwd() == exe_ordner
+    assert Path("noten.csv").read_text(encoding="utf-8") == "neu"
+    assert Path("bilder/a.png").is_file()
+    assert Path("konten.sqlite").read_text(encoding="utf-8") == "vom Programm"
