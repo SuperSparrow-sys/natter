@@ -297,3 +297,27 @@ def test_nach_verwerfen_steht_der_haltepunkt_auf_der_zeile_der_datei(
     assert wieder.toPlainText() == "a = 1\nb = 2\nc = 3\n"
     assert wieder.breakpoints == {3}
     assert wieder.bedingungen == {3: "c > 0"}
+
+
+def test_nach_dem_speichern_im_halt_gelten_die_geladenen_zeilen(
+    qtbot, tmp_path: Path, hauptfenster
+) -> None:  # noqa: ANN001
+    """Punkt 645: nach Strg+S im Halt gingen die Zeilen des Editors an
+    debugpy, das Programm kannte aber noch den Stand vom Start."""
+    main = _projekt(hauptfenster, tmp_path, "a = 1\nb = 2\nc = 3\nd = 4\n")
+    editor = hauptfenster.datei_oeffnen(main)
+    editor.breakpoint_umschalten(1)
+
+    hauptfenster._projekt_mit_debugger_starten_aktion()
+    try:
+        qtbot.waitUntil(
+            lambda: hauptfenster._aktueller_thread_id is not None, timeout=DEBUG_ZEITGRENZE
+        )
+        _cursor_auf(editor, 2).insertText("x = 0\n")
+        assert hauptfenster.alle_speichern()
+        editor.breakpoint_umschalten(4)  # c = 3, geladen in Zeile 3
+        qtbot.wait(300)
+        assert hauptfenster.debug_sitzung.client.gesetzte_breakpoints(main) == [1, 3]
+    finally:
+        if hauptfenster.debug_sitzung is not None:
+            hauptfenster._debugger_stoppen_aktion()

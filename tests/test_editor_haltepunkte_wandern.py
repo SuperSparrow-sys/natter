@@ -188,3 +188,25 @@ def test_haltepunkt_nach_dem_tippen_wandert_mit_der_zeile_zurueck(qtbot) -> None
 
     assert feld.toPlainText() == _VIER_ZEILEN
     assert feld.breakpoints == {4}
+
+
+@pytest.mark.parametrize("ablauf", ["gesetzt", "entfernt"])
+def test_handaenderung_ueberlebt_mehrere_rueckgaengig(qtbot, ablauf: str) -> None:  # noqa: ANN001
+    """Punkt 647: Eingabetaste, Haltepunkt setzen (oder entfernen),
+    noch einmal Eingabetaste, zweimal Strg+Z: der Haltepunkt war weg
+    (oder kam zurück). Er steht so, wie er zuletzt von Hand gesetzt
+    war."""
+    feld = _editor(qtbot, _VIER_ZEILEN)
+    if ablauf == "entfernt":
+        feld.breakpoint_umschalten(4)
+    _cursor_auf(feld, 1)
+    QTest.keyClick(feld, Qt.Key.Key_Return)
+    feld.breakpoint_umschalten(5)  # d = 4, eine Zeile tiefer
+    _cursor_auf(feld, 1)
+    QTest.keyClick(feld, Qt.Key.Key_Return)
+
+    for _ in range(2):
+        QTest.keyClick(feld, Qt.Key.Key_Z, Qt.KeyboardModifier.ControlModifier)
+
+    assert feld.toPlainText() == _VIER_ZEILEN
+    assert feld.breakpoints == ({4} if ablauf == "gesetzt" else set())
