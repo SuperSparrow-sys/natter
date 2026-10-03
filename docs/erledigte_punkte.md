@@ -15388,3 +15388,54 @@ Dasselbe gilt für „Ausführen bis Cursor“ auf diesen Zeilen.
 **Zu tun:** Zeilen aus Stapelrahmen über die umgekehrte Zuordnung auf den Editortext abbilden, für die Haltezeile, den Cursor beim Halt und den Aufrufstapel. Erledigt, wenn ein Test nach eingefügter Zeile im Halt die gelbe Zeile auf der Anweisung zeigt, an der das Programm hält.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** `_editorzeile_aus_datei` (`ide/shell/hauptfenster.py`) rechnet eine Zeile, die debugpy aus der geladenen Datei meldet, auf den Editortext zurück; `_haltezeile_zeigen` und `_zu_frame_springen` nutzen das, sodass Haltezeile, Cursor und Sprung aus dem Aufrufstapel nach einer im Halt eingefügten Zeile auf der richtigen Anweisung stehen. Test: `test_nach_einer_eingefuegten_zeile_steht_die_haltezeile_richtig` in `tests/test_haltepunkte_und_reiter.py`.
+
+## 658. Struktogramm-Code: „nicht“, „und“, „oder“ mit einem Namen ohne Wert ergeben Code, der mit `NameError` abbricht ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht vor 0.4.4, Stand b66b68a. Rückschritt durch Punkt 655 (Commit 53d66e4): vorher wurden diese Texte als Kommentar mit Platzhalter übernommen und über dem Code gezählt.
+
+**Beobachtet:** Eine Fallauswahl „status“ mit den Fällen „bestanden“, „nicht bestanden“ und „sonst“ nach „Eingabe: status“ ergibt `if status == 'bestanden':` und `elif not bestanden:`. Über dem Code steht, dass alles übernommen wurde. Mit der Eingabe „nicht bestanden“ bricht das Programm mit „NameError: name 'bestanden' is not defined“ ab. Ebenso wird die Verzweigung „nicht fertig“ ohne Zuweisung an `fertig` zu `if not fertig:` und „x > 0 und gerade“ zu `if x > 0 and gerade:`, beide enden mit `NameError`. Vor Punkt 655 standen alle drei als Kommentar mit `if False:` im Code, und die Meldung über dem Code nannte sie. Das Handbuch sagt: „Ein Fall wie „J“ oder „rot“, der im Struktogramm keinen Wert bekommt, ist ein Text“ und „Was kein Python ist, steht als Kommentar im Code“.
+
+**Ursache:** nachgewiesen. `_logikwoerter` in `ide/diagramm/struktogramm_code.py` (Zeile 730 bis 758) wird aus `_einzeilig` auf jeden Kopf und jeden Fall angewandt. Danach ist „nicht bestanden“ der gültige Ausdruck `not bestanden`; `_fall_als_text` (Zeile 600) macht nur einzelne Bezeichner zum Text, und `_vergleich` (Zeile 681) übernimmt `not bestanden` als Bedingung (`_ist_bedingung`). Ob die Namen im Struktogramm einen Wert bekommen (`self.zugewiesen`), prüft für Bedingungen niemand. Nachweis: `als_python` mit den drei Beispielen, einmal unverändert und einmal mit `_logikwoerter` als Identität (Skript `stg_probe3b.py`/`stg_probe4.py` im Scratchpad der Durchsicht).
+
+**Zu tun:** „und“, „oder“, „nicht“ nur übersetzen, wenn jeder übrige Name der Bedingung im Struktogramm einen Wert bekommt oder eingebaut ist; sonst wie vorher als Kommentar mit Platzhalter übernehmen und zählen. Ein Fall einer Fallauswahl aus mehreren Wörtern ohne Wert ist ein Text. Erledigt, wenn ein Test das Beispiel mit „nicht bestanden“ mit beiden Eingaben ohne Ausnahme ausführt und „nicht fertig“ ohne Zuweisung als nicht übernommen gezählt wird.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Ein Kopf oder Fall mit „und“, „oder“ oder „nicht“, der nach der Übersetzung einen Namen ohne Wert im Struktogramm liest, wird wieder Kommentar mit Platzhalter und gezählt (`_logik_ohne_wert`, `_namen_ohne_wert` in `ide/diagramm/struktogramm_code.py`), wie bei `_unbekannte_namen` nur im ganzen Struktogramm; ein Fall aus Wörtern wie „nicht bestanden“ ist der Text `'nicht bestanden'` (`_fall_beschriftung`), „nicht fertig“ mit einer Zuweisung an `fertig` bleibt `not fertig`. `docs/handbuch.md` nennt das. Tests: `test_fall_aus_woertern_ohne_wert_ist_ein_text` und `test_logikwoerter_mit_namen_ohne_wert_werden_kommentar` in `tests/test_struktogramm_code.py`.
+
+## 659. Struktogramm-Code: eine Eingabe, die mit Elementen einer Zahlenliste verglichen oder in eine Liste eingelesen wird, bleibt Text ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht vor 0.4.4, Stand b66b68a. Kein Rückschritt; Punkt 656 deckt nur den Namen als Index ab.
+
+**Beobachtet:** Drei übliche Unterrichtsaufgaben ergeben falsche Ergebnisse ohne Meldung:
+- Lineare Suche: „liste ← [3, 7, 5]“, „Eingabe: gesucht“, Schleife mit „liste[i] = gesucht“. Erzeugt wird `gesucht = input("gesucht? ")`; mit der Eingabe 5 gibt das Programm „nicht gefunden“ aus. Ebenso „x in zahlen“.
+- Zahlen in eine Liste einlesen und das Maximum bestimmen: „Eingabe: z“, „liste.append(z)“, dann „liste[i] > maximum“. Mit 9, 10, 3 gibt das Programm 9 aus, weil Texte verglichen werden.
+- Dieselbe Liste summieren: „summe ← summe + liste[i]“ bricht mit „TypeError: unsupported operand type(s) for +: 'int' and 'str'“ ab.
+
+**Ursache:** nachgewiesen. `_als_zahl_benutzt` und `_zahlen_weitergeben` in `ide/diagramm/struktogramm_code.py` (Zeile 1076 bis 1185) werten einen Namen nur als Zahl, wenn er neben einem Rechen- oder Vergleichszeichen mit einer Zahl oder einem Zahlnamen steht. Ein Element `liste[i]` einer Liste aus Zahlen zählt nicht als Zahl, `x in zahlen` nicht als Vergleich, und ein Name, der mit `append` in eine Liste kommt, deren Elemente verrechnet werden, bleibt Text. Nachweis: `als_python` und Ausführung mit untergeschobenem `input` (Skripte `stg_probe.py` und `stg_probe2.py` im Scratchpad der Durchsicht).
+
+**Zu tun:** Eine Liste, die mit Zahlen angelegt wird oder deren Elemente verrechnet oder mit `<`/`>` verglichen werden, als Zahlenliste werten; ein Name, der mit einem Element einer Zahlenliste verglichen, mit `in` in ihr gesucht oder mit `append` in sie eingefügt wird, ist dann eine Zahl. Listen aus Texten bleiben ausgenommen. Erledigt, wenn ein Test die drei Beispiele ausführt und „gefunden an Stelle 2“, 10 und 22 erhält.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_zahlen_weitergeben` (`ide/diagramm/struktogramm_code.py`) wertet eine mit Zahlen angelegte Liste als Zahl, ein Element `liste[i]` zählt beim Vergleichen und Verrechnen wie der Name, und `x in zahlen` sowie `liste.append(z)` geben die Eigenschaft in beide Richtungen weiter; Listen aus Texten bleiben Text. `docs/handbuch.md` nennt das. Test: `test_eingaben_in_und_aus_zahlenlisten_sind_zahlen` in `tests/test_struktogramm_code.py`.
+
+## 660. Test-Explorer: die Statuszeile verspricht, dass ein Klick den Grund zeigt, ein Klick tut aber nichts ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht vor 0.4.4, Stand b66b68a. Kein Rückschritt.
+
+**Beobachtet:** Nach „Projekt → Alle Tests ausführen“ steht in der Statuszeile „Ein Klick auf einen Eintrag im Test-Explorer zeigt, woran es lag.“ Ein Klick auf einen fehlgeschlagenen Test zeigt nichts, ein Doppelklick startet ihn nur neu. Der Grund steht allein als Tooltip über der Spalte „Status“; über dem Testnamen erscheint nichts. Bei `assertEqual(2, 3, "Größe stimmt nicht")` zeigt der Tooltip nur „Soll: 2 · Ist: 3“, der Text der Lehrkraft fehlt. Das Handbuch (Abschnitt 3.7) sagt: „Ist ein `assert` nicht erfüllt, steht die Zeile im Panel.“
+
+**Ursache:** nachgewiesen. In `ide/shell/hauptfenster.py` ist am Baum nur `itemActivated` mit dem Neustart verbunden (Zeile 1199); die Meldung steht in `_tests_fertig` (Zeile 2692 bis 2693). `_test_eintrag_aktualisieren` (Zeile 3315 bis 3328) setzt den Tooltip nur für Spalte 1 und bei vorhandenem Soll/Ist ohne `nachricht`. Nachweis: Tooltips der Spalten 0 bis 2 nach einem Lauf sind `['', 'Soll: 2 · Ist: 3', '']`.
+
+**Zu tun:** Den Grund eines nicht bestandenen Tests sichtbar machen, wo die Meldung es sagt, etwa bei einem Klick in einer Zeile unter dem Baum oder in der Ausgabe, mit Soll, Ist und eigenem Text; sonst die Meldung und das Handbuch an das tatsächliche Verhalten anpassen. Erledigt, wenn ein Test nach einem Klick auf einen fehlgeschlagenen Eintrag Soll, Ist und den Text aus `assertEqual` sichtbar findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Ein Klick auf einen Eintrag im Test-Explorer (oder der Wechsel mit den Pfeiltasten) zeigt in der Statuszeile, woran der Test gescheitert ist: Soll und Ist, den eigenen Text aus `assertEqual(…, msg)`, sonst die Meldung, dazu die Stelle (`_test_grund_zeigen`, `_test_grund` in `ide/shell/hauptfenster.py`); derselbe Text steht als Hinweis über allen Spalten. Meldung nach dem Testlauf und `docs/handbuch.md` (Abschnitt 3.7) sagen dasselbe; ein Doppelklick führt den Test weiter neu aus. Test: `test_ein_klick_zeigt_den_grund_in_der_statuszeile` in `tests/test_testlauf_gruende.py`.
+
+## 661. Test-Explorer: eine Ausnahme im Test nennt weder Fehlerart noch Zeile und bleibt englisch (gering) ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Durchsicht vor 0.4.4, Stand b66b68a. Kein Rückschritt.
+
+**Beobachtet:** Wirft die geprüfte Funktion eine Ausnahme, steht als Grund nur „'NoneType' object has no attribute 'foo'“. Fehlerart (`AttributeError`), Datei und Zeile fehlen, und der Text ist nicht übersetzt. Bei einem nicht erfüllten `assert` steht dagegen die Zeile da. Mit dieser Meldung lässt sich die Stelle im eigenen Code nicht finden.
+
+**Ursache:** nachgewiesen. `addError` in `ide/testrunner/harness.py` (Zeile 271 bis 294) übernimmt nur `str(err[1])`, ohne Typ, letzte Zeile des Tracebacks aus dem Projekt und ohne `meldung_eindeutschen` oder Fehlerkatalog.
+
+**Zu tun:** Fehlerart, Datei und Zeile der letzten Stelle im Projekt und den deutschen Text aus dem Fehlerkatalog in die Meldung übernehmen. Erledigt, wenn ein Test mit einer Ausnahme in der geprüften Funktion Fehlerart, Dateiname und Zeile in der Meldung findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `addError` und Teilfälle mit Ausnahme (`ide/testrunner/harness.py`) melden über `_ausnahme_meldung` Fehlerart und deutschen Text aus `pcl.fehlerkatalog`; `_ort_im_projekt` bestimmt die letzte Stelle im Projektordner, die im neuen Feld `Testergebnis.ort` (`ide/testrunner/ausfuehrung.py`) und im HTML-Protokoll steht. Test: `test_eine_ausnahme_nennt_fehlerart_ort_und_deutschen_text` in `tests/test_testlauf_gruende.py`; `test_fehler_hat_keine_soll_ist_werte` erwartet jetzt `RuntimeError: kaputt`.
