@@ -190,7 +190,7 @@ def test_nicht_uebernommene_zeilen_werden_genannt(tmp_path: Path, ziel: str) -> 
 
     ergebnis = fenster.quelltext_erzeugen(ziel, "alles", tmp_path / "u_s.py")
 
-    satz = "1 Zeile konnte nicht übernommen werden."
+    satz = "1 Zeile konnte nicht übernommen werden und steht als Kommentar im Code."
     if ziel == "fenster":
         assert isinstance(ergebnis, CodeFenster)
         assert satz in ergebnis.hinweis.text()

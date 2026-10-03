@@ -412,14 +412,18 @@ def test_pseudocode_wird_kommentar_und_gezaehlt() -> None:
         "erhöhe zustand um 1",
         "setze ausgabe auf rot",
     ]
-    assert ergebnis.meldung() == "2 Zeilen konnten nicht übernommen werden."
+    assert ergebnis.meldung() == (
+        "2 Zeilen konnten nicht übernommen werden und stehen als Kommentar im Code."
+    )
     _pruefen(ergebnis)
 
 
 def test_eine_einzelne_zeile_wird_im_singular_gemeldet() -> None:
     ergebnis = als_python(_diagramm(_anweisung("setze zustand auf 1")))
 
-    assert ergebnis.meldung() == "1 Zeile konnte nicht übernommen werden."
+    assert ergebnis.meldung() == (
+        "1 Zeile konnte nicht übernommen werden und steht als Kommentar im Code."
+    )
 
 
 def test_ohne_pseudocode_gibt_es_nichts_zu_melden() -> None:
@@ -930,7 +934,7 @@ def test_eine_eingabe_die_wie_eine_zahl_benutzt_wird_wird_zur_zahl(
     exec(code + "\nprobe()\n", raum)
 
     assert 'name = input("name? ")' in code
-    assert "float(" in code.split("\n")[1]
+    assert 'zahl = zahl_lesen("zahl? ")' in code
 
 
 def test_zaehlschleife_abwaerts_mit_geklammerter_schrittweite() -> None:
@@ -1192,7 +1196,7 @@ def test_zahlenraten_vergleicht_mit_einem_namen_der_eine_zahl_ist(
         ))
         from random import randint
 
-        assert "float(input" in ergebnis.text
+        assert 'tipp = zahl_lesen("tipp? ")' in ergebnis.text
         spur = []
         import builtins
 
@@ -1254,3 +1258,200 @@ def test_ein_kommentar_im_kopf_ergibt_gueltigen_code(block: dict) -> None:
     _pruefen(ergebnis)
     assert ergebnis.anzahl == 0
     _ausfuehren(ergebnis)
+
+
+def _verzweigung(bedingung: str, ja: str, nein: str) -> dict:
+    return _block(
+        "branch", bedingung,
+        then=[_anweisung(f"spur.append({ja!r})")],
+        **{"else": [_anweisung(f"spur.append({nein!r})")]},
+    )
+
+
+@pytest.mark.parametrize(
+    ("bloecke", "eingaben", "erwartet"),
+    [
+        ([_anweisung("Eingabe: x"), _verzweigung("x > 2,5?", "gross", "klein")],
+         ["3"], ["gross"]),
+        ([_anweisung("Eingabe: x"),
+          _block("head_loop", "solange x < 1,5", children=[_anweisung("x ← x + 1")]),
+          _anweisung("spur.append(x)")],
+         ["0"], [2]),
+        ([_anweisung("x ← 0"),
+          _block("foot_loop", "wiederhole bis x >= 1,5", children=[_anweisung("x ← x + 1")]),
+          _anweisung("spur.append(x)")],
+         [], [2]),
+        ([_anweisung("Eingabe: note"),
+          _block("multi_branch", "note", cases=[
+              {"label": "< 2,5", "children": [_anweisung("spur.append('gut')")]},
+              {"label": "sonst", "children": [_anweisung("spur.append('rest')")]},
+          ])],
+         ["1,7"], ["gut"]),
+        ([_anweisung("preis ← 2,5"), _anweisung("gesamt ← preis * 4"),
+          _anweisung("spur.append(gesamt)")],
+         [], [10.0]),
+        ([_anweisung("Eingabe: x"),
+          _block("case_of", "x", cases=[
+              {"label": "2,5", "children": [_anweisung("spur.append('zweieinhalb')")]},
+              {"label": "sonst", "children": [_anweisung("spur.append('anders')")]},
+          ])],
+         ["5"], ["anders"]),
+    ],
+    ids=["verzweigung", "kopfschleife", "fussschleife", "fall", "zuweisung", "fallwert"],
+)
+def test_kommazahlen_werden_zahlen(
+    monkeypatch, bloecke: list, eingaben: list, erwartet: list
+) -> None:  # noqa: ANN001
+    """Punkt 637: „x > 2,5“ ergab einen Syntaxfehler, „preis ← 2,5“ ein
+    Tupel und der Fall „2,5“ die Fälle 2 und 5."""
+    ergebnis = als_python(_diagramm(*bloecke))
+    _pruefen(ergebnis)
+    assert ergebnis.anzahl == 0
+    assert _programm_mit_eingaben(monkeypatch, ergebnis, *eingaben) == erwartet
+
+
+@pytest.mark.parametrize(
+    ("text", "erwartet"),
+    [("randint(1,6)", "randint(1,6)"), ("1, 2", "1, 2"), ("1,2,3", "1,2,3"),
+     ("'2,5'", "'2,5'"), ("x2,5", "x2,5"), ("2,5 * x", "2.5 * x")],
+)
+def test_ein_komma_als_trennzeichen_bleibt(text: str, erwartet: str) -> None:
+    """Punkt 637: in Klammern, in Texten, mit Leerzeichen und in einer
+    Aufzählung trennt das Komma Werte."""
+    from ide.diagramm.struktogramm_code import _kommazahlen
+
+    assert _kommazahlen(text) == erwartet
+
+
+def test_raise_mit_eigener_ausnahme_bricht_ab() -> None:
+    """Punkt 640: „raise NichtGenugGeld“ wurde Kommentar, und die
+    Abbuchung lief weiter."""
+
+    class NichtGenugGeld(Exception):
+        pass
+
+    ergebnis = als_python(_diagramm(
+        _anweisung("stand ← 10"),
+        _anweisung("betrag ← 20"),
+        _block("branch", "betrag > stand?", then=[_block("jump", "raise NichtGenugGeld")]),
+        _anweisung("spur.append('abgebucht')"),
+    ))
+
+    assert "raise NichtGenugGeld" in ergebnis.text
+    assert ergebnis.anzahl == 0
+    with pytest.raises(NichtGenugGeld):
+        _ausfuehren(ergebnis, NichtGenugGeld=NichtGenugGeld)
+
+
+@pytest.mark.parametrize(
+    "bloecke",
+    [
+        [_anweisung("name ← 'Ada Lovelace'"),
+         _anweisung("Vorname, Nachname = name.split()"),
+         _anweisung("spur.append(Nachname)")],
+        [_anweisung("paare ← [('Ada', 'Lovelace')]"),
+         _block("count_loop", "für Vorname, Nachname in paare",
+                children=[_anweisung("spur.append(Nachname)")])],
+    ],
+    ids=["zuweisung", "schleife"],
+)
+def test_alle_ziele_einer_tupel_zuweisung_haben_einen_wert(bloecke: list) -> None:
+    """Punkt 640: nur der erste Name einer Tupel-Zuweisung zählte, und
+    „Nachname“ wurde Kommentar."""
+    ergebnis = als_python(_diagramm(*bloecke))
+
+    assert ergebnis.anzahl == 0
+    assert _ausfuehren(ergebnis) == ["Lovelace"]
+
+
+@pytest.mark.parametrize(
+    "bloecke",
+    [
+        [_anweisung("fertig ← wahr"),
+         _block("case_of", "fertig", cases=[
+             {"label": "wahr", "children": [_anweisung("spur.append('ja')")]},
+             {"label": "falsch", "children": [_anweisung("spur.append('nein')")]},
+         ])],
+        [_anweisung("fertig ← wahr"),
+         _block("multi_branch", "", cases=[
+             {"label": "fertig = wahr", "children": [_anweisung("spur.append('ja')")]},
+             {"label": "sonst", "children": [_anweisung("spur.append('nein')")]},
+         ])],
+        [_anweisung("fertig ← falsch"),
+         _anweisung("n ← 0"),
+         _block("foot_loop", "wiederhole bis fertig = wahr", children=[
+             _anweisung("n ← n + 1"),
+             _block("branch", "n >= 2?", then=[_anweisung("fertig ← wahr")]),
+             _block("jump", "weiter"),
+         ]),
+         _anweisung("spur.append('ja')")],
+    ],
+    ids=["fallauswahl", "mehrfachauswahl", "fussschleife"],
+)
+def test_wahr_und_falsch_ueberall(bloecke: list) -> None:
+    """Punkt 641: „wahr“ als Fall wurde der Text 'wahr', in der
+    Mehrfachauswahl und vor dem `continue` der Fußschleife blieb es ein
+    Name."""
+    ergebnis = als_python(_diagramm(*bloecke))
+    code = "\n".join(
+        z for z in ergebnis.text.splitlines() if not z.strip().startswith("#")
+    )
+
+    assert "wahr" not in code
+    assert _ausfuehren(ergebnis) == ["ja"]
+
+
+@pytest.mark.parametrize(("eingabe", "erwartet"), [("J", "ja"), ("N", "nein"), ("x", "?")])
+def test_faelle_j_und_n_sind_texte(monkeypatch, eingabe: str, erwartet: str) -> None:  # noqa: ANN001
+    """Punkt 642: der Fall „J“ ergab `antwort == J` und `NameError`."""
+    ergebnis = als_python(_diagramm(
+        _anweisung("Eingabe: antwort"),
+        _block("multi_branch", "antwort", cases=[
+            {"label": "J", "children": [_anweisung("spur.append('ja')")]},
+            {"label": "N", "children": [_anweisung("spur.append('nein')")]},
+            {"label": "sonst", "children": [_anweisung("spur.append('?')")]},
+        ]),
+    ))
+    assert _programm_mit_eingaben(monkeypatch, ergebnis, eingabe) == [erwartet]
+
+
+@pytest.mark.parametrize(
+    ("bloecke", "eingaben", "erwartet"),
+    [
+        ([_anweisung("liste ← ['a', 'b', 'c']"), _anweisung("Eingabe: i"),
+          _block("branch", "i < 3?", then=[_anweisung("spur.append(liste[i])")])],
+         ["1"], ["b"]),
+        ([_anweisung("Eingabe: a"), _anweisung("Eingabe: b"),
+          _anweisung("spur.append(str(a + b))")],
+         ["3", "5"], ["8"]),
+        ([_anweisung("Eingabe: a"), _anweisung("Eingabe: b"),
+          _anweisung("spur.append(a + b)")],
+         ["2,5", "5"], [7.5]),
+        ([_anweisung("Eingabe: n"),
+          _block("head_loop", "solange n > 0", children=[
+              _anweisung("spur.append(str(n))"), _anweisung("n ← n - 1")])],
+         ["3"], ["3", "2", "1"]),
+    ],
+    ids=["listenindex", "summe", "kommazahl", "countdown"],
+)
+def test_ganze_zahlen_bleiben_ganz(
+    monkeypatch, bloecke: list, eingaben: list, erwartet: list
+) -> None:  # noqa: ANN001
+    """Punkt 643: jede eingegebene Zahl wurde `float`; ein Listenindex
+    endete mit TypeError, 3 + 5 ergab „8.0“."""
+    ergebnis = als_python(_diagramm(*bloecke))
+
+    assert ergebnis.text.startswith("def zahl_lesen(frage):")
+    _pruefen(ergebnis)
+    assert _programm_mit_eingaben(monkeypatch, ergebnis, *eingaben) == erwartet
+
+
+@pytest.mark.parametrize(
+    ("anzahl", "satz"),
+    [(1, "1 Zeile konnte nicht übernommen werden und steht als Kommentar im Code."),
+     (2, "2 Zeilen konnten nicht übernommen werden und stehen als Kommentar im Code.")],
+)
+def test_hinweis_nach_anzahl_ohne_anrede(anzahl: int, satz: str) -> None:
+    """Punkt 652: „1 Zeile … Sie stehen als Kommentar im Code“."""
+    bloecke = [_anweisung(f"rechne Teil {i} aus") for i in range(anzahl)]
+    assert als_python(_diagramm(*bloecke)).meldung() == satz
