@@ -269,6 +269,46 @@ def eintraege_pruefen(eintraege: Any, _tiefe: int = 0) -> None:
         if fehler is not None:
             raise NatterPropertyError(fehler)
         eintraege_pruefen(eintrag.get("children", []), _tiefe + 1)
+    if _tiefe == 0:
+        doppelt = doppeltes_kuerzel(eintraege)
+        if doppelt is not None:
+            raise NatterPropertyError(doppelt)
+
+
+def doppeltes_kuerzel(eintraege: list[dict[str, Any]]) -> str | None:
+    """Eine Meldung, wenn zwei Einträge desselben Menüs dasselbe
+    Tastenkürzel tragen, sonst `None`.
+
+    Qt hält ein solches Kürzel für mehrdeutig und löst gar keinen der
+    beiden Einträge aus, ohne etwas zu melden (Punkt 633)."""
+    gesehen: dict[str, str] = {}
+    for eintrag in _blaetter_roh(eintraege):
+        kuerzel = str(eintrag.get("shortcut", "") or "").strip()
+        if not kuerzel or eintrag.get("separator") or kuerzel_fehler(kuerzel):
+            continue
+        schluessel = _kuerzel_schluessel(kuerzel)
+        beschriftung = str(eintrag.get("caption", "")).replace("&", "") or "ohne Beschriftung"
+        if schluessel in gesehen:
+            return (
+                f"Das Tastenkürzel „{kuerzel}“ steht bei „{gesehen[schluessel]}“ "
+                f"und bei „{beschriftung}“. Eine Taste kann nur einen Eintrag "
+                "auslösen; einer der beiden braucht ein anderes Kürzel."
+            )
+        gesehen[schluessel] = beschriftung
+    return None
+
+
+def _blaetter_roh(eintraege: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Wie `_blaetter`, aber für Einträge, die noch nicht aufgefüllt
+    sind."""
+    ergebnis = []
+    for eintrag in eintraege:
+        kinder = eintrag.get("children") or []
+        if kinder:
+            ergebnis.extend(_blaetter_roh(kinder))
+        else:
+            ergebnis.append(eintrag)
+    return ergebnis
 
 
 def eintrag_suchen(eintraege: list[dict[str, Any]], name: str) -> dict[str, Any] | None:
@@ -616,8 +656,9 @@ class PopupMenu(_Menue):
         """Die Komponente, an der das Klappmenü zuletzt aufging, oder
         `None`. Hängt dasselbe Klappmenü an zwei Listen, sagt sie der
         Methode, welche gemeint ist (Punkt 620). Bei einem Tastenkürzel
-        ist es die Komponente mit dem Fokus, wenn ihr dieses Klappmenü
-        zugeordnet ist."""
+        ist es die Komponente, an der es ausgelöst wurde; Kürzel eines
+        Klappmenüs wirken nur, solange eine seiner Komponenten den
+        Fokus hat (Punkte 623, 624)."""
         return self._aufgeklappt_an
 
     def menue(self, eltern: QWidget | None = None) -> QMenu:
@@ -635,67 +676,67 @@ class PopupMenu(_Menue):
         return menue
 
     def _menue_erneuern(self) -> None:
-        """Meldet die Tastenkürzel der Einträge am Fenster an.
+        """Meldet die Tastenkürzel der Einträge an den Komponenten an,
+        denen das Klappmenü zugeordnet ist.
 
         Die Aktionen des Klappmenüs entstehen erst beim Aufklappen. Ein
         Kürzel wie „Entf“ stand deshalb im Menü, wirkte aber nie
-        (Punkt 591). Wie bei `MainMenu` gilt es jetzt im ganzen Fenster.
-        Im Designer wird nichts angemeldet."""
+        (Punkt 591). Es gilt dort, wo das Klappmenü aufgeht: solange
+        eine seiner Komponenten den Fokus hat. Bis dahin galt es im
+        ganzen Fenster, und mit zwei Listen, deren Klappmenüs beide
+        „Entf“ trugen, löschte die Taste in der Liste ohne Fokus
+        (Punkt 623). Ein Kürzel, das schon das Hauptmenü trägt, wird
+        nicht angemeldet: Qt hielte es für mehrdeutig und löste gar
+        nichts aus (Punkt 613). Im Designer wird nichts angemeldet."""
         for aktion in getattr(self, "_kuerzel_aktionen", []):
             aktion.deleteLater()
         self._kuerzel_aktionen: list[QAction] = []
         formular = self._formular
         if formular is None or getattr(formular, "_entwurfsansicht", False):
             return
-        fenster = getattr(formular, "_qwidget", None)
-        if fenster is None:
-            return
-        # Ein Kürzel, das schon das Hauptmenü oder ein anderes
-        # Klappmenü trägt, wird nicht ein zweites Mal angemeldet: Qt
-        # hielt es sonst für mehrdeutig und löste gar nichts aus
-        # (Punkt 613).
-        belegt = _belegte_kuerzel(formular, ausser=self)
-        for eintrag in _blaetter(self._eintraege):
-            if not eintrag["shortcut"] or eintrag["separator"]:
-                continue
-            folge = _kuerzel_schluessel(eintrag["shortcut"])
-            if folge in belegt:
-                continue
-            belegt.add(folge)
-            aktion = QAction(fenster)
-            aktion.setShortcut(QKeySequence(_deutsche_kuerzel_umsetzen(eintrag["shortcut"])))
-            aktion.setShortcutContext(Qt.ShortcutContext.WindowShortcut)
-            aktion.setEnabled(eintrag["enabled"])
-            aktion.triggered.connect(lambda _an=False, e=eintrag: self._kuerzel_ausloesen(e))
-            fenster.addAction(aktion)
-            self._kuerzel_aktionen.append(aktion)
+        belegt = _hauptmenue_kuerzel(formular)
+        for komponente in self._komponenten():
+            for eintrag in _blaetter(self._eintraege):
+                if not eintrag["shortcut"] or eintrag["separator"]:
+                    continue
+                if _kuerzel_schluessel(eintrag["shortcut"]) in belegt:
+                    continue
+                aktion = QAction(komponente._qwidget)
+                aktion.setShortcut(
+                    QKeySequence(_deutsche_kuerzel_umsetzen(eintrag["shortcut"]))
+                )
+                aktion.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+                aktion.setEnabled(eintrag["enabled"])
+                aktion.triggered.connect(
+                    lambda _an=False, e=eintrag, k=komponente: self._kuerzel_ausloesen(e, k)
+                )
+                komponente._qwidget.addAction(aktion)
+                self._kuerzel_aktionen.append(aktion)
 
-    def _kuerzel_ausloesen(self, eintrag: dict[str, Any]) -> None:
-        komponente = self._komponente_mit_fokus()
-        if komponente is not None:
-            self._aufgeklappt_an = komponente
+    def _kuerzel_ausloesen(self, eintrag: dict[str, Any], komponente: Control) -> None:
+        # Bei jedem Kürzel neu gesetzt; vorher blieb nach einem Kürzel
+        # die Komponente des letzten Rechtsklicks stehen (Punkt 624).
+        self._aufgeklappt_an = komponente
         if eintrag["checkable"] or eintrag["checked"]:
             eintrag["checked"] = not eintrag["checked"]
         handler = self._handler_suchen(eintrag["on_click"])
         if handler is not None:
             handler(self)
 
-    def _komponente_mit_fokus(self) -> Control | None:
-        """Die Komponente mit dem Fokus, wenn ihr dieses Klappmenü
+    def _komponenten(self) -> list[Control]:
+        """Die Komponenten des Formulars, denen dieses Klappmenü
         zugeordnet ist."""
-        from PySide6.QtWidgets import QApplication
-
-        fokus = QApplication.focusWidget()
-        if fokus is None or self._formular is None:
-            return None
+        if self._formular is None:
+            return []
+        gefunden: list[Control] = []
         for wert in vars(self._formular).values():
             if (
                 isinstance(wert, Control)
                 and getattr(wert, "_popup_menu", None) is self
-                and (wert._qwidget is fokus or wert._qwidget.isAncestorOf(fokus))
+                and wert not in gefunden
             ):
-                return wert
-        return None
+                gefunden.append(wert)
+        return gefunden
 
     def aufklappen(self, komponente: Control, x: int, y: int) -> None:
         """Klappt das Menü an dieser Stelle der Komponente auf."""
@@ -723,22 +764,15 @@ def _kuerzel_schluessel(kuerzel: str) -> str:
     return QKeySequence(_deutsche_kuerzel_umsetzen(kuerzel)).toString()
 
 
-def _belegte_kuerzel(formular: Any, ausser: Any) -> set[str]:
-    """Die Kürzel, die auf `formular` schon das Hauptmenü und die
-    übrigen Klappmenüs tragen."""
+def _hauptmenue_kuerzel(formular: Any) -> set[str]:
+    """Die Kürzel, die auf `formular` schon das Hauptmenü trägt."""
     belegt: set[str] = set()
     for wert in vars(formular).values():
-        if wert is ausser:
-            continue
         if isinstance(wert, MainMenu):
             belegt.update(
                 _kuerzel_schluessel(e["shortcut"])
                 for e in _blaetter(wert._eintraege)
                 if e.get("shortcut")
-            )
-        elif isinstance(wert, PopupMenu):
-            belegt.update(
-                a.shortcut().toString() for a in getattr(wert, "_kuerzel_aktionen", [])
             )
     return belegt
 

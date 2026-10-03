@@ -151,3 +151,43 @@ def test_clear_und_reihe_zeichnen_gebuendelt(monkeypatch) -> None:  # noqa: ANN0
     QApplication.processEvents()
 
     assert gezeichnet == [1]
+
+
+
+@pytest.mark.parametrize(
+    ("werte", "fehler"),
+    [(["1,5", "2", "3"], False), ([1, None, 3], True), ([], True)],
+    ids=["text", "none", "leer"],
+)
+def test_boxplot_prueft_seine_werte(werte, fehler: bool) -> None:  # noqa: ANN001
+    """Punkt 628: Text endete mit einem englischen numpy-Fehler, `None`
+    mit einem TypeError."""
+    diagramm = Chart(Form())
+    if not fehler:
+        diagramm.add_boxplot_series(werte)
+        return
+    with pytest.raises(NatterDatenError, match="add_boxplot_series"):
+        diagramm.add_boxplot_series(werte)
+
+
+def test_jahre_als_text_ergeben_ganzzahlige_teilstriche() -> None:
+    """Punkt 634: aus „2020“, „2021“, „2022“ wurden Teilstriche wie
+    „2019,75“."""
+    diagramm = Chart(Form())
+    diagramm.add_line_series(["2020", "2021", "2022"], ["1,5", "2", "3"])
+    diagramm._figure.canvas.draw()
+
+    assert all(float(w).is_integer() for w in diagramm._achse.get_xticks())
+    assert not any("," in t for t in _beschriftungen(diagramm._achse.xaxis))
+
+
+def test_regression_mit_text_und_dezimalkomma() -> None:
+    """Punkt 635: die Punktwolke nahm „1,5“ an, add_regression(x, y)
+    lehnte es ab."""
+    diagramm = Chart(Form())
+    xs, ys = [1, 2, 3], ["1,5", "2,5", "3,5"]
+    diagramm.add_scatter_series(xs, ys)
+
+    ergebnis = diagramm.add_regression(xs, ys)
+
+    assert ergebnis.steigung == pytest.approx(1.0)

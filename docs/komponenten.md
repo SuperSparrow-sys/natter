@@ -691,7 +691,7 @@ Ein Eintrag hat diese Felder:
 |---|---|
 | `name` | Bezeichner im Quelltext, z. B. `mi_datei_beenden` |
 | `caption` | Was dasteht. Ein `&` macht den nächsten Buchstaben zum Zugriffsbuchstaben (`&Datei` → Alt+D) |
-| `shortcut` | Tastenkürzel, deutsch geschrieben: `Strg+Q`, `Strg+Umschalt+S`, `Strg+Ende`, `Strg+Bild auf`, `Alt+Pfeil links`, `Druck`. Ein Kürzel, das sich nicht umsetzen lässt, lehnt das Menü mit einer Meldung ab |
+| `shortcut` | Tastenkürzel, deutsch geschrieben: `Strg+Q`, `Strg+Umschalt+S`, `Strg+Ende`, `Strg+Bild auf`, `Alt+Pfeil links`, `Druck`. Ein Kürzel, das sich nicht umsetzen lässt, und dasselbe Kürzel an zwei Einträgen eines Menüs lehnt das Menü mit einer Meldung ab |
 | `enabled` | Ob der Eintrag anklickbar ist |
 | `visible` | Ob der Eintrag im Menü steht |
 | `checkable` | Macht den Eintrag zu einem Umschalter wie „Raster anzeigen“ |
@@ -757,14 +757,14 @@ self.sg_tabelle.popup_menu = self.pm_tabelle
 `None` im Code oder „(kein)“ im Objektinspektor nimmt die Zuordnung
 wieder weg. Dasselbe Klappmenü darf an mehreren Komponenten hängen.
 
-Ein Tastenkürzel eines Eintrags wirkt wie bei `MainMenu` im ganzen
-Fenster, auch solange das Klappmenü zu ist. Trägt das Hauptmenü oder
-ein anderes Klappmenü dasselbe Kürzel, gilt es dort: eine Taste löst
-immer genau einen Eintrag aus.
+Ein Tastenkürzel eines Eintrags wirkt auch, solange das Klappmenü zu
+ist, aber nur, wenn eine Komponente den Fokus hat, der dieses
+Klappmenü zugeordnet ist. Zwei Listen mit je eigenem Klappmenü dürfen
+so beide „Entf“ für „Löschen“ tragen; die Taste gilt der Liste mit dem
+Fokus. Trägt das Hauptmenü dasselbe Kürzel, gilt es dort.
 
 Hängt ein Klappmenü an mehreren Komponenten, sagt `popup_component`,
-an welcher es aufging; bei einem Tastenkürzel ist es die Komponente mit
-dem Fokus, wenn ihr dieses Klappmenü zugeordnet ist:
+an welcher es aufging oder an welcher das Kürzel gedrückt wurde:
 
 ```python
 def mi_loeschen_click(self, sender):
