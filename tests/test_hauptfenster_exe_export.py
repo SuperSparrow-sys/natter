@@ -378,3 +378,26 @@ def test_die_rueckfrage_laesst_sich_im_panel_wieder_zulassen(
     assert not vermerk.exists()
     assert signatur.WIEDER_FRAGEN not in _meldungen(hauptfenster)
     assert "wieder" in hauptfenster.statusBar().currentMessage()
+
+
+def test_ein_syntaxfehler_in_einer_unit_haelt_den_export_auf(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, hauptfenster
+) -> None:
+    """Punkt 594: PyInstaller ließ eine Unit mit Syntaxfehler still weg,
+    und die Exe brach beim Empfänger ab."""
+    ordner = _projekt_kopie(tmp_path)
+    (ordner / "u_hilfe.py").write_text("def f(:\n    pass\n", encoding="utf-8")
+    hauptfenster.projekt_oeffnen(ordner / "04_CookieKlicker.natter")
+    aufgerufen = []
+    monkeypatch.setattr(
+        "ide.shell.hauptfenster.exe_exportieren",
+        lambda projekt, **_: aufgerufen.append(projekt),
+    )
+
+    hauptfenster._als_exe_exportieren_aktion()
+
+    assert aufgerufen == []
+    lauf = hauptfenster._hintergrundarbeit
+    assert lauf is None or not lauf.isRunning()
+    assert "keine Exe erstellt" in hauptfenster.statusBar().currentMessage()
+    assert hauptfenster.meldungen_liste.count() >= 1

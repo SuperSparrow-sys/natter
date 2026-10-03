@@ -2729,8 +2729,10 @@ class HauptFenster(QMainWindow):
             return
         if not self._hintergrund_frei("Der Export"):
             return
-        # Exportiert wird, was auf der Platte steht (Punkt 86).
-        if not self.alle_speichern():
+        # Exportiert wird, was auf der Platte steht (Punkt 86); geprüft
+        # wird vorher wie vor dem Start (Punkt 594). Gespeichert wird
+        # dabei mit.
+        if self._vorstart_pruefung_blockiert(fuer_export=True):
             return
 
         projekt = self.projekt
@@ -8781,7 +8783,7 @@ class HauptFenster(QMainWindow):
         self._endmarke = None
         self._ende_gemeldet = False
 
-    def _vorstart_pruefung_blockiert(self) -> bool:
+    def _vorstart_pruefung_blockiert(self, fuer_export: bool = False) -> bool:
         """Die Prüfung vor dem Start (Abschnitt 8.2). Liefert, ob der
         Start deshalb unterbleibt.
 
@@ -8802,18 +8804,27 @@ class HauptFenster(QMainWindow):
 
         Eine offene Transaktion im Datenbank-Panel wird vorher
         festgeschrieben oder zurückgenommen, je nach Antwort auf die
-        Nachfrage; ohne Antwort unterbleibt der Start (Punkt 276)."""
-        if not self._transaktion_vor_dem_start_klaeren():
+        Nachfrage; ohne Antwort unterbleibt der Start (Punkt 276).
+
+        Mit `fuer_export` prüft dieselbe Stelle vor dem Exe-Export, ohne
+        die Frage nach der Transaktion. PyInstaller ließ eine Unit mit
+        Syntaxfehler still weg, und die Exe brach beim Empfänger ab
+        (Punkt 594)."""
+        if not fuer_export and not self._transaktion_vor_dem_start_klaeren():
             return True
         if not self.alle_speichern():
             return True
         try:
             funde = projekt_pruefen(self.projekt)
         except PruefungZuLang:
+            folge = (
+                "Die Exe wird diesmal ohne sie erstellt."
+                if fuer_export
+                else "Das Programm startet diesmal ohne sie."
+            )
             self.statusBar().showMessage(
                 f"Die Prüfung vor dem Start brauchte länger als {RUFF_ZEITGRENZE_S} "
-                "Sekunden, etwa wegen eines langsamen Netzlaufwerks. Das Programm "
-                "startet diesmal ohne sie."
+                f"Sekunden, etwa wegen eines langsamen Netzlaufwerks. {folge}"
             )
             return False
         self.meldungen_liste.clear()
@@ -8833,17 +8844,26 @@ class HauptFenster(QMainWindow):
         blockierend = [fund for fund in funde if fund.blockiert]
         if blockierend:
             anzahl = len(blockierend)
+            wann, folge = (
+                ("vor dem Export", "keine Exe erstellt")
+                if fuer_export
+                else ("vor dem Start", "nicht gestartet")
+            )
             self.statusBar().showMessage(
-                f"{anzahl} {'Fund' if anzahl == 1 else 'Funde'} vor dem Start - nicht "
-                f"gestartet. Jeder Eintrag unten im Panel „Meldungen“ nennt Datei und "
+                f"{anzahl} {'Fund' if anzahl == 1 else 'Funde'} {wann} - {folge}. "
+                f"Jeder Eintrag unten im Panel „Meldungen“ nennt Datei und "
                 f"Zeile; ein Klick führt dorthin."
             )
             return True
 
         anzahl = len(funde)
+        trotzdem = (
+            "die Exe wird trotzdem erstellt" if fuer_export
+            else "das Programm läuft trotzdem"
+        )
         self.statusBar().showMessage(
             f"{anzahl} {'Hinweis' if anzahl == 1 else 'Hinweise'} unten im Panel "
-            f"„Meldungen“ - das Programm läuft trotzdem."
+            f"„Meldungen“ - {trotzdem}."
         )
         return False
 

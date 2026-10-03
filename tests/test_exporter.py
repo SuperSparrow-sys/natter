@@ -16,6 +16,7 @@ ZIP.
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -806,3 +807,113 @@ def test_ein_quelltext_pdf_wandert_nicht_in_die_exe(tmp_path: Path) -> None:
     namen = [p.name for p in _daten_dateien_des_projekts(Projekt(tmp_path, {}))]
 
     assert namen == ["anleitung.pdf"]
+
+
+@pytest.mark.parametrize("neu_geschrieben", [False, True])
+def test_nach_einem_fehlschlag_bleibt_die_vorige_exe(
+    tmp_path: Path, pyinstaller, neu_geschrieben: bool
+) -> None:
+    """Punkt 616: ein gescheiterter Export löschte auch die Exe des
+    letzten gelungenen. Entfernt wird nur, was dieser Lauf schrieb."""
+    projekt = _projekt(tmp_path)
+    alt = projekt.ordner / "dist" / "MeinProjekt.exe"
+    alt.parent.mkdir()
+    alt.write_bytes(b"alte Exe")
+    pyinstaller.einstellung["rueckgabe"] = 1
+    pyinstaller.einstellung["exe_anlegen"] = neu_geschrieben
+
+    exe_exportieren(projekt)
+
+    assert alt.exists() is not neu_geschrieben
+
+
+def test_semikolon_im_namen_bricht_den_export_nicht_ab(tmp_path: Path, pyinstaller) -> None:
+    """Punkt 616: PyInstaller trennt `--add-data` an `;`, und
+    „Noten; 7a.csv“ brach den Export ab."""
+    import argparse
+
+    from PyInstaller.building.makespec import SourceDestAction
+
+    projekt = _projekt(tmp_path)
+    (projekt.ordner / "Noten; 7a.csv").write_text("a;b\n", encoding="utf-8")
+    (projekt.ordner / "Info;Kurs").mkdir()
+    (projekt.ordner / "Info;Kurs" / "liste.txt").write_text("x", encoding="utf-8")
+    (projekt.ordner / "bilder").mkdir()
+
+    exe_exportieren(projekt)
+
+    befehl = pyinstaller[0]
+    werte = [befehl[i + 1] for i, teil in enumerate(befehl) if teil == "--add-data"]
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--add-data", action=SourceDestAction, dest="daten")
+    gelesen = parser.parse_args([f"--add-data={w}" for w in werte]).daten
+    assert ("." in {ziel for _quelle, ziel in gelesen})
+    assert any(quelle.endswith("bilder") for quelle, _ziel in gelesen)
+    assert not any(";" in quelle for quelle, _ziel in gelesen)
+
+
+def test_testprotokoll_und_windows_dateien_bleiben_draussen(tmp_path: Path) -> None:
+    """Punkt 616: ein Testprotokoll, `Thumbs.db` und `desktop.ini` kamen
+    in die Exe."""
+    from ide.export.exporter import _daten_dateien_des_projekts
+    from ide.testrunner import Testergebnis, ergebnisse_als_html
+
+    projekt = _projekt(tmp_path)
+    (projekt.ordner / "Testergebnisse.html").write_text(
+        ergebnisse_als_html([Testergebnis("t.T.test_a", "bestanden", 0.0)]),
+        encoding="utf-8",
+    )
+    (projekt.ordner / "seite.html").write_text("<p>Hallo</p>", encoding="utf-8")
+    (projekt.ordner / "Thumbs.db").write_bytes(b"x")
+    (projekt.ordner / "desktop.ini").write_text("[x]", encoding="utf-8")
+
+    namen = [p.name for p in _daten_dateien_des_projekts(projekt)]
+
+    assert namen == ["seite.html"]
+
+
+def test_zwischenstaende_liegen_nicht_im_projektordner(tmp_path: Path, pyinstaller) -> None:
+    """Punkt 616: blieben `_pyinstaller_build` oder `_pyinstaller_spec`
+    liegen, kamen sie in die Abgabe-ZIP. Sie liegen jetzt unter %TEMP%."""
+    projekt = _projekt(tmp_path)
+
+    exe_exportieren(projekt)
+
+    befehl = pyinstaller[0]
+    for schalter in ("--workpath", "--specpath"):
+        ort = Path(befehl[befehl.index(schalter) + 1])
+        assert projekt.ordner not in ort.parents
+
+
+@pytest.mark.parametrize(("typ", "mit_haken"), [("console", True), ("gui", False)])
+def test_konsolenprogramm_bekommt_den_konsolenhaken(
+    tmp_path: Path, pyinstaller, typ: str, mit_haken: bool
+) -> None:
+    """Punkt 609: die Konsolen-Exe schloss ihr Fenster sofort, auch
+    nach einem Fehler."""
+    projekt = _projekt(tmp_path, typ=typ)
+
+    exe_exportieren(projekt)
+
+    befehl = pyinstaller[0]
+    haken = [befehl[i + 1] for i, teil in enumerate(befehl) if teil == "--runtime-hook"]
+    assert any(h.endswith("natter_konsole.py") for h in haken) is mit_haken
+
+
+def test_der_konsolenhaken_meldet_fehler_deutsch_und_wartet(tmp_path: Path) -> None:
+    """Punkt 609: der Haken meldet einen Fehler wie in Natter. Gewartet
+    wird nur an einer echten Konsole; hier ist die Eingabe ein Rohr."""
+    from ide.export.exporter import _KONSOLEN_HOOK
+
+    skript = tmp_path / "start.py"
+    skript.write_text(_KONSOLEN_HOOK + "\nprint('vorher')\n1 / 0\n", encoding="utf-8")
+    ergebnis = subprocess.run(
+        [sys.executable, str(skript)], capture_output=True, text=True,
+        encoding="utf-8", errors="replace", input="", timeout=60,
+        cwd=Path(__file__).resolve().parent.parent,
+    )
+
+    assert "vorher" in ergebnis.stdout
+    assert "ZeroDivisionError" in ergebnis.stderr or "durch null" in ergebnis.stderr.lower()
+    assert "Traceback (most recent call last)" not in ergebnis.stderr
+    assert ergebnis.returncode != 0

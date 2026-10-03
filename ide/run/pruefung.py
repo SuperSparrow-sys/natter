@@ -41,14 +41,16 @@ _AUSGEWAEHLTE_REGELN = "E9,F821,F401,F841"
 #: hinzugefügte Regel verhindert den Start, bis jemand bewusst
 #: entscheidet, dass sie es nicht soll. Der umgekehrte Weg würde eine
 #: neue, ernste Regel stillschweigend durchlassen (M12).
-NUR_HINWEIS = frozenset({"F401", "F841", "natter-modulname"})
+NUR_HINWEIS = frozenset({"F401", "F841", "natter-modulname", "natter-kodierung"})
 
 #: Regeln, die Natter selbst prüft, weil sie mehr als eine Datei
 #: betreffen. Ihre `meldung` ist schon deutsch, und ihre Leitfrage
 #: steht im Fund. Import und Ereignis verhindern den Start; ein
 #: Dateiname, der ein Modul verdeckt, ist nur ein Hinweis, denn er
 #: stört erst, wenn das Programm das Modul importiert.
-EIGENE_REGELN = frozenset({"natter-import", "natter-ereignis", "natter-modulname"})
+EIGENE_REGELN = frozenset(
+    {"natter-import", "natter-ereignis", "natter-modulname", "natter-kodierung"}
+)
 
 #: Die Klammer in Pythons „'(' was never closed“.
 _KLAMMER_MUSTER = re.compile(r"'(.)' was never closed")
@@ -81,6 +83,12 @@ _UEBERSETZUNGEN: dict[str, tuple[str, str]] = {
         "Die Variable {name} bekommt einen Wert, der nie gelesen wird.",
         "Steht der Name weiter unten falsch geschrieben? Wird der Wert "
         "überhaupt gebraucht?",
+    ),
+    "E902": (
+        "Die Datei ist nicht in UTF-8 gespeichert, und Python kann sie so "
+        "nicht lesen.",
+        "Mit einem anderen Editor als UTF-8 speichern, oder in die erste "
+        "Zeile „# -*- coding: cp1252 -*-“ schreiben.",
     ),
     "invalid-syntax": (
         "Python versteht diese Zeile nicht.",
@@ -280,13 +288,49 @@ def projekt_pruefen(projekt: Projekt) -> list[RuffFund]:
     steht (`_importe_pruefen`), und ob jede Methode, die ein Formular
     mit einem Ereignis verknüpft, in seiner Unit steht
     (`_ereignisse_pruefen`)."""
-    funde = _self_pruefen(
-        _syntaxfehler_zusammenfassen(_ruff_pruefen(projekt))
+    funde = _kodierung_pruefen(
+        _self_pruefen(_syntaxfehler_zusammenfassen(_ruff_pruefen(projekt)))
     )
     funde.extend(_importe_pruefen(projekt))
     funde.extend(_ereignisse_pruefen(projekt))
     funde.extend(_modulnamen_pruefen(projekt))
     return funde
+
+
+def _kodierung_pruefen(funde: list[RuffFund]) -> list[RuffFund]:
+    """Eine Datei, die nicht in UTF-8 vorliegt, liest ruff gar nicht
+    (`E902`) und meldete das englisch und blockierend, auch mit einer
+    Kodierungsangabe, mit der Python die Datei ausführt (Punkt 608).
+    Übersetzt Python die Datei, wird daraus ein Hinweis; sonst bleibt
+    es ein Fund mit deutscher Meldung (`_UEBERSETZUNGEN`)."""
+    ergebnis: list[RuffFund] = []
+    for fund in funde:
+        if fund.code == "E902" and _python_liest(fund.datei):
+            fund = RuffFund(
+                datei=fund.datei,
+                zeile=1,
+                spalte=1,
+                code="natter-kodierung",
+                meldung=(
+                    f"{fund.datei.name} ist nicht in UTF-8 gespeichert und "
+                    "wird deshalb vor dem Start nicht geprüft."
+                ),
+                leitfrage=(
+                    "Der Editor von Natter öffnet nur UTF-8. Soll die Datei "
+                    "dort bearbeitet werden, mit einem anderen Editor als "
+                    "UTF-8 speichern."
+                ),
+            )
+        ergebnis.append(fund)
+    return ergebnis
+
+
+def _python_liest(datei: Path) -> bool:
+    try:
+        compile(datei.read_bytes(), str(datei), "exec")
+    except (SyntaxError, ValueError, OSError):
+        return False
+    return True
 
 
 #: Länger wartet die Prüfung vor dem Start nicht auf ruff. Ein Projekt
@@ -464,7 +508,42 @@ def _oberste_namen(baum: ast.Module) -> set[str] | None:
             offen.extend(ast.iter_child_nodes(knoten))
     if "__getattr__" in namen:
         return None
+    # Ein Name, den eine Funktion über `global` anlegt, gehört ebenfalls
+    # zum Modul, sobald sie läuft (Punkt 608).
+    for knoten in ast.walk(baum):
+        if isinstance(knoten, ast.Global):
+            namen.update(knoten.names)
     return namen
+
+
+#: Ausnahmen, deren Behandlung einen Import als „darf fehlen“
+#: kennzeichnet.
+_IMPORTFEHLER = {"ImportError", "ModuleNotFoundError", "Exception", "BaseException"}
+
+
+def _abgefangene_importe(baum: ast.Module) -> set[int]:
+    """Die `id` der Importe in einem `try`, dessen `except` einen
+    fehlenden Import abfängt. Solch ein Import darf scheitern; das
+    Programm hat einen Ersatz (Punkt 608)."""
+    ergebnis: set[int] = set()
+    for knoten in ast.walk(baum):
+        if not isinstance(knoten, ast.Try):
+            continue
+        faengt = False
+        for behandlung in knoten.handlers:
+            typen = behandlung.type
+            if typen is None:
+                faengt = True
+                continue
+            namen = typen.elts if isinstance(typen, ast.Tuple) else [typen]
+            if any(isinstance(n, ast.Name) and n.id in _IMPORTFEHLER for n in namen):
+                faengt = True
+        if faengt:
+            for teil in knoten.body:
+                for innen in ast.walk(teil):
+                    if isinstance(innen, ast.ImportFrom):
+                        ergebnis.add(id(innen))
+    return ergebnis
 
 
 def modul_verdeckt(name: str) -> bool:
@@ -553,8 +632,11 @@ def _importe_pruefen(projekt: Projekt) -> list[RuffFund]:
         importierend = baum(datei)
         if importierend is None:
             continue
+        abgefangen = _abgefangene_importe(importierend)
         for knoten in ast.walk(importierend):
             if not isinstance(knoten, ast.ImportFrom) or knoten.level:
+                continue
+            if id(knoten) in abgefangen:
                 continue
             if not knoten.module:
                 continue
@@ -568,7 +650,9 @@ def _importe_pruefen(projekt: Projekt) -> list[RuffFund]:
             if vorhanden is None:
                 continue
             for alias in knoten.names:
-                if alias.name in vorhanden:
+                # Ein Stern-Import nennt keinen Namen, den es geben
+                # müsste (Punkt 608).
+                if alias.name == "*" or alias.name in vorhanden:
                     continue
                 funde.append(
                     _import_fund(

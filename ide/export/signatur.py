@@ -110,6 +110,11 @@ class SignaturErgebnis:
 _GEDULD_SEKUNDEN = 180
 
 
+class PowerShellFehlt(OSError):
+    """PowerShell lässt sich nicht starten, etwa weil AppLocker sie für
+    Schülerkonten sperrt."""
+
+
 def _powershell(
     befehl: str,
     *,
@@ -143,6 +148,11 @@ def _powershell(
                 env=umgebung,
             ),
         )
+    except OSError as fehler:
+        # Eine gesperrte PowerShell (WinError 1260) kam bis 0.4.3 aus
+        # dem Export heraus, und der meldete „fehlgeschlagen“, obwohl
+        # die Exe fertig war (Punkt 599).
+        raise PowerShellFehlt(str(fehler)) from fehler
     except subprocess.TimeoutExpired as abbruch:
         # Was PowerShell bis dahin geschrieben hat, bleibt erhalten:
         # `zertifikat_anlegen` braucht daraus den Fingerabdruck eines
@@ -545,6 +555,21 @@ def signieren_wenn_moeglich(
     eine Schülerin sie eher für einen Angriff und antwortet mit
     „Nein“.
     """
+    try:
+        return _signieren_wenn_moeglich(exe, anlegen, vor_dem_anlegen)
+    except PowerShellFehlt as fehler:
+        return SignaturErgebnis(
+            False,
+            "Ohne Signatur: PowerShell lässt sich auf diesem Rechner nicht "
+            f"starten ({fehler}). Die Exe ist trotzdem erstellt.",
+        )
+
+
+def _signieren_wenn_moeglich(
+    exe: Path,
+    anlegen: bool,
+    vor_dem_anlegen: Callable[[], None] | None,
+) -> SignaturErgebnis:
     fingerabdruck = vorhandenes_zertifikat()
     if fingerabdruck is None and anlegen:
         if abgelehnt_vermerk().exists():

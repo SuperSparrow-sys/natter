@@ -616,3 +616,46 @@ def test_quelltext_in_ein_unbeschreibbares_ziel_meldet_das(
 
     assert codefenster.in_datei_schreiben("x = 1\n", sperre / "a.py") is None
     assert gemeldet == [sperre / "a.py"]
+
+
+@pytest.mark.parametrize(
+    "fall", ["links_draussen", "im_druckrand", "struktogramm_bis_in_den_rand"]
+)
+def test_pdf_bleibt_im_satzspiegel(
+    fall: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Punkt 600: eine Form bei negativem x fehlte zur Hälfte, eine im
+    Druckrand kam unverkleinert bis an die Blattkante, und ein
+    Struktogramm reichte unten in den Rand. In allen drei Fällen wird
+    jetzt in den Satzspiegel eingepasst."""
+    import ide.diagramm.export as export
+    from ide.diagramm.neu import leeres_diagramm
+    from ide.diagramm.seite import satzspiegel
+
+    if fall == "struktogramm_bis_in_den_rand":
+        daten = leeres_diagramm("struktogramm", "rand")
+        daten["root"]["children"] = [
+            {"id": f"b{i}", "kind": "statement", "text": f"x = {i}"} for i in range(37)
+        ]
+    else:
+        daten = leeres_diagramm("class", "rand")
+        x, y = (-72, 300) if fall == "links_draussen" else (300, 2)
+        daten["shapes"] = [{
+            "id": "s1", "kind": "class", "x": x, "y": y, "w": 184, "h": 80,
+            "name": "Konto", "attributes": [], "operations": [],
+        }]
+    links, oben, breite, hoehe = satzspiegel(daten["page"])
+    eingepasst = []
+    echt = export.auf_seite_zeichnen
+    monkeypatch.setattr(
+        export, "auf_seite_zeichnen",
+        lambda maler, d, b, h, **k: (
+            eingepasst.append((maler.transform().dx(), maler.transform().dy(), b, h)),
+            echt(maler, d, b, h, **k),
+        ),
+    )
+
+    assert export.pdf_passt_auf_seite(daten) is False
+    als_pdf(daten, tmp_path / "rand.pdf")
+
+    assert eingepasst == [(links, oben, breite, hoehe)]

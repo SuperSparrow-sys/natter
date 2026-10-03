@@ -638,3 +638,24 @@ def test_die_oberflaeche_sagt_es_wenn_nicht_signiert_wurde() -> None:
 
     assert "Signiert" in quelle
     assert "signaturzeile" in quelle
+
+
+@pytest.mark.parametrize(
+    "fehler",
+    [OSError(22, "Die Anwendung wurde durch eine Richtlinie blockiert"),
+     FileNotFoundError("powershell")],
+)
+def test_eine_gesperrte_powershell_ergibt_eine_unsignierte_exe(
+    monkeypatch: pytest.MonkeyPatch, fehler: OSError
+) -> None:
+    """Punkt 599: der Fehler beim Start von PowerShell kam aus dem
+    Export heraus, und der meldete „fehlgeschlagen“."""
+    def gesperrt(*_a, **_k):  # noqa: ANN002, ANN003, ANN202
+        raise fehler
+
+    monkeypatch.setattr(signatur.subprocess, "run", gesperrt)
+
+    ergebnis = signatur.signieren_wenn_moeglich(Path("egal.exe"), anlegen=True)
+
+    assert ergebnis.signiert is False
+    assert "PowerShell" in ergebnis.grund

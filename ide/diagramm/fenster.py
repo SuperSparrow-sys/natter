@@ -1538,7 +1538,7 @@ class DiagrammFenster(QMainWindow):
                 als_svg(self.diagramm.daten, pfad)
             else:
                 if not pdf_passt_auf_seite(self.diagramm.daten):
-                    zusatz = " - verkleinert, damit alles auf die Seite passt"
+                    zusatz = " - in den Druckbereich der Seite eingepasst"
                 als_pdf(self.diagramm.daten, pfad)
         except OSError as fehler:
             # Ein schreibgeschützter oder fehlender Ordner endete bei PNG

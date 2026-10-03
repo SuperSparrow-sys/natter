@@ -31,6 +31,7 @@ def ergebnisse_als_html(ergebnisse: list[Testergebnis], *, titel: str = "Testpro
 <html lang="de">
 <head>
 <meta charset="utf-8">
+<meta name="generator" content="Natter-Testprotokoll">
 <title>{escape(titel)}</title>
 <style>
   body {{ font-family: sans-serif; margin: 2em; }}

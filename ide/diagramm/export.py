@@ -315,13 +315,21 @@ def seitenformat(daten: dict[str, Any]) -> tuple[QPageSize, bool]:
 
 def pdf_passt_auf_seite(daten: dict[str, Any]) -> bool:
     """Ob das Diagramm in Originalgröße auf eine Seite seines Formats
-    passt. Sonst verkleinert `als_pdf` es auf die Seite."""
-    breite, hoehe = seitengroesse(daten.get("page") or {})
+    passt. Sonst verkleinert `als_pdf` es auf die Seite.
+
+    Verglichen wird mit dem Satzspiegel, an allen vier Seiten. Bis
+    0.4.3 nur mit der rechten und unteren Blattkante: eine Form bei
+    negativem x fehlte zur Hälfte, und eine im Druckrand stand 0,4 mm
+    vor der Kante (Punkt 600)."""
+    rand_links, rand_oben, breite, hoehe = satzspiegel(daten.get("page") or {})
     bereich = inhaltsbereich(daten)
-    links, oben = _seitenversatz(daten)
+    versatz_links, versatz_oben = _seitenversatz(daten)
+    toleranz = 0.5
     return (
-        bereich.right() + links <= breite + 0.5
-        and bereich.bottom() + oben <= hoehe + 0.5
+        bereich.left() + versatz_links >= rand_links - toleranz
+        and bereich.top() + versatz_oben >= rand_oben - toleranz
+        and bereich.right() + versatz_links <= rand_links + breite + toleranz
+        and bereich.bottom() + versatz_oben <= rand_oben + hoehe + toleranz
     )
 
 
