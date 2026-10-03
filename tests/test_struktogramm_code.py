@@ -152,9 +152,12 @@ def test_mehrfachauswahl_mit_einfachen_werten_wird_zu_match() -> None:
 
 def test_mehrfachauswahl_ohne_einfache_werte_wird_zur_wenn_kette() -> None:
     """Ein bloßer Name wäre als `case`-Muster ein Capture und würde
-    alles auffangen – dann lieber der Vergleich."""
+    alles auffangen – dann lieber der Vergleich. Die Namen bekommen
+    hier einen Wert; ohne ihn gelten sie als Text (Punkt 602)."""
     ergebnis = als_python(
         _diagramm(
+            _anweisung("rot = 1"),
+            _anweisung("gruen = 2"),
             _block(
                 "multi_branch",
                 "zustand",
@@ -167,6 +170,8 @@ def test_mehrfachauswahl_ohne_einfache_werte_wird_zur_wenn_kette() -> None:
     )
 
     assert _zeilen(ergebnis)[1:] == [
+        "    rot = 1",
+        "    gruen = 2",
         "    if zustand == rot:",
         "        halt()",
         "    elif zustand == gruen:",
@@ -970,3 +975,182 @@ def test_mehrfachauswahl_randfaelle(etiketten: list, x: int, erwartet: str) -> N
     ergebnis = als_python(_diagramm(_block("multi_branch", "x", cases=faelle)))
     _pruefen(ergebnis)
     assert _ausfuehren(ergebnis, x=x) == [erwartet]
+
+
+def _mit_eingaben(monkeypatch, *antworten: str) -> None:  # noqa: ANN001
+    import builtins
+
+    folge = iter(antworten)
+    monkeypatch.setattr(builtins, "input", lambda _frage="": next(folge))
+
+
+def _zweig(bedingung: str) -> dict:
+    return _block(
+        "branch", bedingung,
+        then=[_anweisung("spur.append('ja')")],
+        **{"else": [_anweisung("spur.append('nein')")]},
+    )
+
+
+@pytest.mark.parametrize(
+    ("bloecke", "antworten", "erwartet"),
+    [
+        # `!=` und ein einzelnes `=` vergleichen mit einer Zahl.
+        ([_anweisung("Eingabe: z"), _zweig("z != 0?")], ["0"], ["nein"]),
+        ([_anweisung("Eingabe: z"), _zweig("z = 0?")], ["0"], ["ja"]),
+        # Fallauswahl mit Zahlen, das Beispiel aus dem Handbuch.
+        (
+            [
+                _anweisung("Eingabe: note"),
+                _block("case_of", "note", cases=[
+                    {"label": "1", "children": [_anweisung("spur.append('sehr gut')")]},
+                    {"label": "2", "children": [_anweisung("spur.append('gut')")]},
+                    {"label": "sonst", "children": [_anweisung("spur.append('sonst')")]},
+                ]),
+            ],
+            ["1"],
+            ["sehr gut"],
+        ),
+        # Eine Summe in einer Schleife.
+        (
+            [
+                _anweisung("summe ← 0"),
+                _block("count_loop", "für i von 1 bis 2", children=[
+                    _anweisung("Eingabe: zahl"),
+                    _anweisung("summe ← summe + zahl"),
+                ]),
+                _anweisung("spur.append(summe)"),
+            ],
+            ["3", "4,5"],
+            [7.5],
+        ),
+        # Zwei Eingaben addiert, ohne Text in Anführungszeichen.
+        (
+            [_anweisung("Eingabe: a"), _anweisung("Eingabe: b"),
+             _anweisung("spur.append(a + b)")],
+            ["3", "5"],
+            [8.0],
+        ),
+    ],
+    ids=["ungleich", "gleich", "fallauswahl", "summe", "a_plus_b"],
+)
+def test_eingaben_werden_zahlen_wo_sie_wie_zahlen_benutzt_werden(
+    monkeypatch, bloecke: list, antworten: list, erwartet: list  # noqa: ANN001
+) -> None:
+    """Punkt 601: bei `!=`, `=`, einer Fallauswahl und `+` blieb die
+    Eingabe Text."""
+    _mit_eingaben(monkeypatch, *antworten)
+    ergebnis = als_python(_diagramm(*bloecke))
+
+    assert _ausfuehren(ergebnis) == erwartet
+    assert ergebnis.anzahl == 0
+
+
+def test_ein_text_mit_plus_bleibt_text(monkeypatch) -> None:  # noqa: ANN001
+    """Punkt 601: „"Hallo " + name“ verbindet Texte und macht `name`
+    nicht zur Zahl."""
+    _mit_eingaben(monkeypatch, "Anna")
+    ergebnis = als_python(_diagramm(
+        _anweisung("Eingabe: name"), _anweisung('spur.append("Hallo " + name)')
+    ))
+
+    assert _ausfuehren(ergebnis) == ["Hallo Anna"]
+
+
+@pytest.mark.parametrize(
+    ("text", "art"),
+    [
+        ("Anweisung", "statement"),
+        ("Initialisierung", "statement"),
+        ("Unterprogramm()", "call"),
+        ("Ende (Abbruch)", "jump"),
+    ],
+)
+def test_pseudocode_der_zufaellig_python_ist_wird_kommentar(text: str, art: str) -> None:
+    """Punkt 602: diese Zeilen nahm Python an, beim Lauf kam
+    `NameError`, und gezählt wurde nichts."""
+    ergebnis = als_python(_diagramm(_block(art, text)))
+
+    assert ergebnis.nicht_uebernommen == [text]
+    _ausfuehren(ergebnis)
+
+
+def test_wahr_falsch_und_texte_als_faelle(monkeypatch) -> None:  # noqa: ANN001
+    """Punkt 602: „fertig ← falsch“ ergab `fertig = falsch`, die Fälle
+    „rot“ und „grün“ `farbe == rot`."""
+    _mit_eingaben(monkeypatch, "grün")
+    ergebnis = als_python(_diagramm(
+        _anweisung("fertig ← falsch"),
+        _anweisung("Eingabe: farbe"),
+        _block("case_of", "farbe", cases=[
+            {"label": "rot", "children": [_anweisung("spur.append(fertig)")]},
+            {"label": "grün", "children": [_anweisung("spur.append(not fertig)")]},
+        ]),
+    ))
+
+    assert _ausfuehren(ergebnis) == [True]
+    assert ergebnis.anzahl == 0
+
+
+def test_beispiel_konto_abheben_laeuft_ohne_name_error() -> None:
+    """Punkt 602: der Aussprung „Ende (Abbruch)“ im Beispiel 06 wurde
+    zum Aufruf einer Funktion `Ende`."""
+    import json
+    from pathlib import Path
+
+    pfad = (
+        Path(__file__).parent.parent
+        / "beispielprojekte" / "06_Kontoverwaltung" / "diagramme"
+        / "konto_abheben.pdiag"
+    )
+    daten = json.loads(pfad.read_text(encoding="utf-8"))
+    ergebnis = als_python(daten)
+
+    code_zeilen = [z.strip() for z in ergebnis.text.splitlines()]
+    assert "Ende (Abbruch)" not in code_zeilen
+    assert ergebnis.nicht_uebernommen.count("Ende (Abbruch)") == 2
+    _pruefen(ergebnis)
+
+
+@pytest.mark.parametrize(
+    ("text", "code"),
+    [
+        ("Eingabe: a\nEingabe: b", ['a = input("a? ")', 'b = input("b? ")']),
+        ("x ← 1\ny ← 2", ["x = 1", "y = 2"]),
+        ("x = 1\ny ← 2", ["x = 1", "y = 2"]),
+    ],
+)
+def test_mehrzeilige_bloecke_werden_zeilenweise_uebersetzt(
+    text: str, code: list
+) -> None:
+    """Punkt 603: Ein-/Ausgabe und Pfeil-Zuweisung galten nur in
+    einzeiligen Blöcken."""
+    ergebnis = als_python(_diagramm(_anweisung(text)))
+
+    assert _zeilen(ergebnis)[1:] == [f"    {z}" for z in code]
+    assert ergebnis.anzahl == 0
+
+
+@pytest.mark.parametrize(
+    ("kopf", "erwartet"),
+    [
+        ("für i von 1 bis 10, Schrittweite 2", [1, 3, 5, 7, 9]),
+        ("für i von 0,5 bis 2", None),
+        ("für i von 1 bis 2,5", None),
+        ("i von 1 bis 10 schritt 0,5", None),
+    ],
+)
+def test_komma_in_der_zaehlschleife(kopf: str, erwartet: list | None) -> None:
+    """Punkt 604: ein Komma vor „Schrittweite“ ergab ein Tupel als
+    Grenze, ein Dezimalkomma einen falschen Bereich oder `TypeError`.
+    Was `range` nicht zählen kann, wird Kommentar und gezählt."""
+    ergebnis = als_python(_diagramm(
+        _block("count_loop", kopf, children=[_anweisung("spur.append(i)")])
+    ))
+
+    if erwartet is None:
+        assert ergebnis.nicht_uebernommen == [kopf]
+        assert _ausfuehren(ergebnis) == []
+    else:
+        assert _ausfuehren(ergebnis) == erwartet
+        assert ergebnis.anzahl == 0

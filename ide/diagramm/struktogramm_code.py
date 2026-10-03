@@ -21,6 +21,7 @@ Hand nachzuziehen ist.
 from __future__ import annotations
 
 import ast
+import builtins
 import keyword
 import re
 import textwrap
@@ -88,7 +89,8 @@ _ZUWEISUNG = re.compile(
 _VON_BIS = re.compile(
     r"^(?P<name>\w+)\s*(?:\s(?:von|from)\s|:?=)\s*(?P<von>.+?)"
     r"\s+(?:bis|to)\s+(?P<bis>.+?)"
-    r"(?:\s+(?:schrittweite|schritt|step)\s+(?P<schritt>.+))?$",
+    # Ein Komma vor „Schrittweite“ ist erlaubt (Punkt 604).
+    r"(?:\s*,?\s+(?:schrittweite|schritt|step)\s+(?P<schritt>.+))?$",
     re.IGNORECASE,
 )
 
@@ -148,6 +150,9 @@ def als_python(daten: dict[str, Any], block: dict[str, Any] | None = None) -> Er
     schreiber.zahlnamen = _als_zahl_benutzt(wurzel)
     schreiber.ganzzahlnamen = _als_ganzzahl_benutzt(wurzel)
     schreiber.zugewiesen = _zugewiesene_namen(wurzel)
+    # Ein Schnipsel wird in fremden Code eingefügt; dort können Namen
+    # einen Wert haben, die das Struktogramm nicht kennt.
+    schreiber.namen_pruefen = block is None
     if block is not None:
         schreiber.folge(_bloecke_von(block), 0)
         if not schreiber.anweisungen:
@@ -211,6 +216,8 @@ class _Schreiber:
         self.ganzzahlnamen: set[str] = set()
         #: Namen, die im Struktogramm einen Wert bekommen (Punkt 581).
         self.zugewiesen: set[str] = set()
+        #: Ob Namen ohne Wert als Pseudocode gelten (Punkt 602).
+        self.namen_pruefen = False
 
     def uebersetzbar_machen(self) -> None:
         """Übersetzt das Ergebnis und macht jede übernommene
@@ -307,7 +314,7 @@ class _Schreiber:
         Schleife ist es `None`."""
         text = _bedingungstext(roh, abbruch)
         if text is not None:
-            return text
+            return _wahrheitswerte(text, self.zugewiesen)
         self.verworfen(roh, tiefe)
         return platzhalter
 
@@ -355,6 +362,15 @@ class _Schreiber:
         if text.strip() in ("break", "continue"):
             self._springen(text.strip(), tiefe)
             return
+        zeilen = [z for z in textwrap.dedent(text).splitlines() if z.strip()]
+        if len(zeilen) > 1 and self._zeilenweise(text, zeilen):
+            # Ein Block aus mehreren Zeilen wie „Eingabe: a“ und
+            # „Eingabe: b“ oder „x ← 1“ und „y ← 2“ wird Zeile für
+            # Zeile übersetzt. Bis Punkt 603 galt die Übersetzung von
+            # Ein-/Ausgabe und Zuweisung nur für einzeilige Blöcke.
+            for zeile in zeilen:
+                self._anweisung(zeile, tiefe)
+            return
         ein_aus = (
             _EIN_AUSGABE.match(text) if "\n" not in text.strip() else None
         )
@@ -373,10 +389,16 @@ class _Schreiber:
             umgeschrieben = f"{zuweisung['ziel']} = {zuweisung['wert']}"
             if _ist_anweisung(umgeschrieben, self.in_schleife):
                 text = umgeschrieben
-        if _nur_annotation(text) or not _ist_anweisung(text, self.in_schleife):
+        text = _wahrheitswerte(text, self.zugewiesen)
+        if (
+            _nur_annotation(text)
+            or not _ist_anweisung(text, self.in_schleife)
+            or self._pseudocode(text)
+        ):
             # Eine Annotation ohne Wert („Ergebnis: summe“) ließe
             # Python gelten; sie bewirkte im Programm aber nichts, und
-            # die Schülerin hielte die Zeile für übersetzt.
+            # die Schülerin hielte die Zeile für übersetzt. Ebenso ein
+            # bloßer Name wie die Vorgabe „Anweisung“ (Punkt 602).
             self.verworfen(text, tiefe)
             return
         anfang = len(self.zeilen)
@@ -385,12 +407,41 @@ class _Schreiber:
         self.uebernommen.append((anfang, len(self.zeilen), tiefe))
         self.anweisungen += 1
 
+    def _zeilenweise(self, text: str, zeilen: list[str]) -> bool:
+        """Ob ein mehrzeiliger Block Zeile für Zeile übersetzt wird: wenn
+        keine Zeile eingerückt ist und er als Ganzes kein Python ist
+        oder eine Zeile Ein-/Ausgabe, Zuweisung mit Pfeil oder eine
+        Annotation ohne Wert ist. Ein mehrzeiliger Python-Block mit
+        Einrückung bleibt zusammen."""
+        if any(z[:1].isspace() for z in zeilen):
+            return False
+        if not _ist_anweisung(text, self.in_schleife):
+            return True
+        return any(
+            _EIN_AUSGABE.match(z) or _ZUWEISUNG.match(z) or _nur_annotation(z)
+            for z in zeilen
+        )
+
+    def _pseudocode(self, code: str) -> bool:
+        """Ob eine Anweisung, die Python annimmt, trotzdem Pseudocode ist
+        (Punkt 602): ein bloßer Name, die unveränderte Vorgabe
+        „Unterprogramm()“ oder - im ganzen Struktogramm, nicht im
+        Schnipsel - ein Name als Wert, der nirgends einen Wert bekommt."""
+        if _nur_ein_name(code):
+            return True
+        if _einzeilig(code) == STANDARDTEXTE["call"]:
+            return True
+        return self.namen_pruefen and bool(_unbekannte_namen(code, self.zugewiesen))
+
     def _aussprung(self, roh: str, tiefe: int) -> None:
         wort = str(roh).strip().lower()
         if wort in AUSSPRUENGE:
             self._springen(AUSSPRUENGE[wort], tiefe)
             return
-        if _ist_anweisung(roh, self.in_schleife):  # z. B. „return summe“
+        # Nur echte Aussprünge wie „return summe“ wandern als Python in
+        # den Code. „Ende (Abbruch)“ nahm Python als Aufruf an, und der
+        # Lauf endete mit `NameError` (Punkt 602).
+        if _ist_aussprung(roh) and _ist_anweisung(roh, self.in_schleife):
             self._anweisung(roh, tiefe)
             return
         self.verworfen(roh, tiefe)
@@ -501,7 +552,10 @@ class _Schreiber:
         if sonst:
             faelle = [f for f in faelle if f is not sonst[0]] + [sonst[0]]
         ausdruck = _einzeilig(block.get("text", ""))
-        etiketten = [_einzeilig(str(fall.get("label", ""))) for fall in faelle]
+        etiketten = [
+            self._fall_als_text(_einzeilig(str(fall.get("label", ""))))
+            for fall in faelle
+        ]
         muster = [
             etikett
             for nummer, etikett in enumerate(etiketten)
@@ -515,6 +569,24 @@ class _Schreiber:
             self._match(faelle, etiketten, ausdruck, tiefe)
         else:
             self._wenn_kette(faelle, etiketten, ausdruck, tiefe)
+
+    def _fall_als_text(self, etikett: str) -> str:
+        """Ein Fall wie „rot“ unter dem Kopf `farbe` meint den Text
+        „rot“, nicht eine Variable `rot`, die es nicht gibt. Bis
+        Punkt 602 entstand `farbe == rot` und beim Lauf `NameError`.
+        Ein Name, der im Struktogramm einen Wert bekommt, eingebaut ist
+        oder ganz in Großbuchstaben steht, bleibt ein Name."""
+        if (
+            not self.namen_pruefen
+            or not etikett.isidentifier()
+            or keyword.iskeyword(etikett)
+            or etikett.lower() in SONST
+            or etikett in self.zugewiesen
+            or etikett in _EINGEBAUT
+            or etikett.isupper()
+        ):
+            return etikett
+        return repr(etikett)
 
     def _match(
         self,
@@ -653,18 +725,141 @@ _NAME = re.compile(r"[A-Za-z_ÄÖÜäöüß][\wÄÖÜäöüß]*")
 
 
 def _zugewiesene_namen(wurzel: dict[str, Any]) -> set[str]:
-    """Die Namen hinter „Eingabe:“ und vor einer Zuweisung."""
+    """Die Namen, die im Struktogramm einen Wert bekommen: hinter
+    „Eingabe:“, vor einer Zuweisung und als Laufvariable einer
+    Zählschleife („für i von 1 bis 10“, „für jedes x in liste“)."""
     namen = set()
     for text in _texte(wurzel):
         for zeile in text.splitlines():
             treffer = re.match(
-                r"\s*(?:eingabe\s*:\s*(\w+)|(\w+)\s*(?:=(?!=)|←|:=))",
+                r"\s*(?:eingabe\s*:\s*(\w+)|(\w+)\s*(?:=(?!=)|←|:=)"
+                r"|(?:(?:für|fuer|for)\s+(?:(?:jedes|jede|jeden|jeder)\s+)?)?"
+                r"(\w+)\s+(?:von|from|in)\s)",
                 zeile,
                 re.IGNORECASE,
             )
             if treffer:
-                namen.add(treffer.group(1) or treffer.group(2))
+                namen.add(treffer.group(1) or treffer.group(2) or treffer.group(3))
     return namen
+
+
+#: „wahr“ und „falsch“, wie im Struktogramm üblich geschrieben.
+_WAHRHEITSWERTE = {"wahr": "True", "falsch": "False"}
+
+
+def _wahrheitswerte(code: str, zugewiesen: set[str]) -> str:
+    """Setzt `True` und `False` für die Namen „wahr“ und „falsch“ ein,
+    sofern sie im Struktogramm nicht selbst einen Wert bekommen.
+    „fertig ← falsch“ ergab sonst `fertig = falsch` und beim Lauf
+    einen `NameError` (Punkt 602). Text in Anführungszeichen bleibt
+    unberührt, weil nur Namen im Syntaxbaum ersetzt werden."""
+    gesucht = {
+        name for name in _WAHRHEITSWERTE
+        if name not in zugewiesen and re.search(rf"\b{name}\b", code, re.IGNORECASE)
+    }
+    if not gesucht:
+        return code
+    try:
+        baum = ast.parse(textwrap.dedent(code))
+    except (SyntaxError, ValueError):
+        return code
+    stellen = [
+        knoten for knoten in ast.walk(baum)
+        if isinstance(knoten, ast.Name) and knoten.id.lower() in gesucht
+        and isinstance(knoten.ctx, ast.Load)
+    ]
+    if not stellen:
+        return code
+    zeilen = textwrap.dedent(code).splitlines()
+    # Von hinten ersetzen, damit die Spalten davor stimmen bleiben.
+    for knoten in sorted(stellen, key=lambda k: (k.lineno, k.col_offset), reverse=True):
+        zeile = zeilen[knoten.lineno - 1]
+        zeilen[knoten.lineno - 1] = (
+            zeile[: knoten.col_offset]
+            + _WAHRHEITSWERTE[knoten.id.lower()]
+            + zeile[knoten.end_col_offset:]
+        )
+    return "\n".join(zeilen)
+
+
+#: Namen, die es in jedem Programm gibt.
+_EINGEBAUT = frozenset(dir(builtins)) | {"self"}
+
+
+def _unbekannte_namen(code: str, bekannt: set[str]) -> list[str]:
+    """Die großgeschriebenen Namen in `code`, die als Wert benutzt
+    werden, im Struktogramm aber nirgends einen Wert bekommen und auch
+    nicht eingebaut sind - deutsche Hauptwörter wie „Abbruch“ oder
+    „Initialisierung“. „Ende (Abbruch)“ ist für Python ein Aufruf von
+    `Ende` mit dem Wert `Abbruch`; `Abbruch` hat nie einen Wert, die
+    Zeile ist Pseudocode (Punkt 602).
+
+    Kleingeschriebene Namen wie `summe` oder `n` bleiben: ein
+    Struktogramm beschreibt oft einen Ausschnitt, dessen Werte von
+    außen kommen. Ausgenommen sind auch Namen, die aufgerufen werden
+    oder vor einem Punkt stehen (eine Funktion oder ein Objekt des
+    Programms), und Konstanten in Großbuchstaben."""
+    try:
+        baum = ast.parse(textwrap.dedent(code))
+    except (SyntaxError, ValueError):
+        return []
+    gebunden = {
+        knoten.id for knoten in ast.walk(baum)
+        if isinstance(knoten, ast.Name) and not isinstance(knoten.ctx, ast.Load)
+    } | {knoten.arg for knoten in ast.walk(baum) if isinstance(knoten, ast.arg)}
+    ausgenommen = {
+        knoten.func.id for knoten in ast.walk(baum)
+        if isinstance(knoten, ast.Call) and isinstance(knoten.func, ast.Name)
+    } | {
+        knoten.value.id for knoten in ast.walk(baum)
+        if isinstance(knoten, ast.Attribute) and isinstance(knoten.value, ast.Name)
+    }
+    unbekannt = []
+    for knoten in ast.walk(baum):
+        if not (isinstance(knoten, ast.Name) and isinstance(knoten.ctx, ast.Load)):
+            continue
+        name = knoten.id
+        if (
+            name in bekannt or name in gebunden or name in ausgenommen
+            or name in _EINGEBAUT or name.isupper() or not name[0].isupper()
+        ):
+            continue
+        unbekannt.append(name)
+    return unbekannt
+
+
+def _ist_aussprung(code: str) -> bool:
+    """Ob `code` ein Aussprung in Python ist: `return`, `break`,
+    `continue`, `raise` oder der Aufruf von `exit`, `quit` oder
+    `sys.exit`."""
+    try:
+        baum = ast.parse(textwrap.dedent(str(code)).strip())
+    except (SyntaxError, ValueError):
+        return False
+    if len(baum.body) != 1:
+        return False
+    anweisung = baum.body[0]
+    if isinstance(anweisung, ast.Return | ast.Break | ast.Continue | ast.Raise):
+        return True
+    if isinstance(anweisung, ast.Expr) and isinstance(anweisung.value, ast.Call):
+        aufruf = ast.unparse(anweisung.value.func)
+        return aufruf in ("exit", "quit", "sys.exit")
+    return False
+
+
+def _nur_ein_name(code: str) -> bool:
+    """Ob `code` nur aus einem Namen besteht, etwa der Vorgabe
+    „Anweisung“ oder „Initialisierung“. Als Anweisung bewirkt ein
+    Name nichts."""
+    try:
+        baum = ast.parse(textwrap.dedent(code))
+    except (SyntaxError, ValueError):
+        return False
+    return (
+        len(baum.body) == 1
+        and isinstance(baum.body[0], ast.Expr)
+        and isinstance(baum.body[0].value, ast.Name)
+    )
 
 
 def _als_ganzzahl_benutzt(wurzel: dict[str, Any]) -> set[str]:
@@ -687,20 +882,67 @@ def _als_ganzzahl_benutzt(wurzel: dict[str, Any]) -> set[str]:
 
 
 def _als_zahl_benutzt(wurzel: dict[str, Any]) -> set[str]:
-    """Die Namen, die neben einem Vergleich oder einer Rechnung stehen.
-    Ein `+` zählt nicht: es verbindet auch Texte."""
+    """Die Namen, die wie Zahlen benutzt werden: neben `<`, `>`, `-`,
+    `*`, `/` oder `%`, verglichen mit einer Zahl (`==`, `!=` oder einem
+    einzelnen `=`), als Kopf einer Fallauswahl mit Zahlen als Fällen
+    und in einer Summe ohne Text in Anführungszeichen. Bis Punkt 601
+    zählten `!=`, `=`, Fallauswahl und `+` nicht: aus „Eingabe: note“
+    mit den Fällen 1 und 2 lief immer der Sonst-Fall, und „a + b“ ergab
+    bei 3 und 5 „35“. Ein `+` mit einem Text in Anführungszeichen in
+    derselben Zeile („"Hallo " + name“) verbindet dagegen Texte."""
     texte = list(_texte(wurzel))
+    zeilen = [zeile for text in texte for zeile in text.splitlines()]
     namen = {name for text in texte for name in _NAME.findall(text)}
-    gefunden = set()
+    vergleich = r"(?:==|!=|=(?!=))"
+    gefunden = set(_fallauswahl_mit_zahlen(wurzel))
     for name in namen:
         n = re.escape(name)
         muster = re.compile(
-            rf"(?<![\w.]){n}\s*(?:[<>]=?|[-*/%]|==\s*-?\d)"
-            rf"|(?:[<>]=?|[-*/%]|\d\s*==)\s*{n}(?![\w(])"
+            rf"(?<![\w.]){n}\s*(?:[<>]=?(?!=)|<=|>=|[-*/%]|{vergleich}\s*-?\d)"
+            rf"|(?:[<>]=?|[-*/%]|\d\s*{vergleich})\s*(?<![\w.]){n}(?![\w(])"
         )
-        if any(muster.search(text) for text in texte):
+        summe = re.compile(rf"(?<![\w.]){n}\s*\+|\+\s*{n}(?![\w(])")
+        if any(muster.search(text) for text in texte) or any(
+            summe.search(zeile) and not re.search("[\"']", zeile)
+            for zeile in zeilen
+        ):
             gefunden.add(name)
     return gefunden
+
+
+def _fallauswahl_mit_zahlen(knoten: Any) -> Iterator[str]:
+    """Die Namen im Kopf einer Fallauswahl, deren Fälle Zahlen sind."""
+    if isinstance(knoten, list):
+        for eintrag in knoten:
+            yield from _fallauswahl_mit_zahlen(eintrag)
+        return
+    if not isinstance(knoten, dict):
+        return
+    if knoten.get("kind") in MEHRFACH:
+        kopf = _einzeilig(knoten.get("text", ""))
+        etiketten = [
+            _einzeilig(str(fall.get("label", "")))
+            for fall in knoten.get("cases") or []
+        ]
+        if kopf.isidentifier() and any(
+            _zahlenliste(etikett) for etikett in etiketten
+        ):
+            yield kopf
+    for wert in knoten.values():
+        if isinstance(wert, list | dict):
+            yield from _fallauswahl_mit_zahlen(wert)
+
+
+def _zahlenliste(etikett: str) -> bool:
+    """Ob die Fallbeschriftung aus einer oder mehreren Zahlen besteht
+    („1“, „1, 2“)."""
+    try:
+        werte = [ast.literal_eval(w) for w in _alternativen(etikett)]
+    except (ValueError, SyntaxError, TypeError):
+        return False
+    return bool(werte) and all(
+        isinstance(w, int | float) and not isinstance(w, bool) for w in werte
+    )
 
 
 def _nur_annotation(quelltext: str) -> bool:
@@ -894,7 +1136,7 @@ def _von_bis(text: str) -> str | None:
     schritt = (treffer.group("schritt") or "").strip()
     if not name.isidentifier() or keyword.iskeyword(name):
         return None
-    if not all(_ist_ausdruck(t) for t in (von, bis, schritt or "1")):
+    if not all(_ist_grenze(t) for t in (von, bis, schritt or "1")):
         return None
     anfang, ende = _ganze_zahl(von), _ganze_zahl(bis)
     if not schritt and anfang is not None and ende is not None:
@@ -909,6 +1151,23 @@ def _von_bis(text: str) -> str | None:
     grenze = f"{_als_summand(bis)} {'-' if abwaerts else '+'} 1"
     argumente = [von, grenze] + ([schritt] if schritt else [])
     return f"{name} in range({', '.join(argumente)})"
+
+
+def _ist_grenze(text: str) -> bool:
+    """Ob `text` als Grenze oder Schrittweite von `range` taugt: ein
+    Ausdruck, aber kein Tupel und keine Kommazahl. „0,5“ las Python als
+    Tupel, und aus „von 0,5 bis 2“ wurde `range(0,5, 2 + 1)`, aus „bis
+    2,5“ ein `TypeError` (Punkt 604). `range` zählt nur ganze Zahlen;
+    solche Köpfe werden zum Kommentar."""
+    try:
+        knoten = ast.parse(text, mode="eval").body
+    except (SyntaxError, ValueError):
+        return False
+    if isinstance(knoten, ast.UnaryOp):
+        knoten = knoten.operand
+    if isinstance(knoten, ast.Tuple):
+        return False
+    return not (isinstance(knoten, ast.Constant) and isinstance(knoten.value, float))
 
 
 def _ganze_zahl(text: str) -> int | None:
