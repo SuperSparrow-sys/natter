@@ -379,6 +379,8 @@ DOCK_HINWEISE = {
 }
 
 _TEST_ID_ROLLE = Qt.ItemDataRole.UserRole
+#: Der Grund eines nicht bestandenen Tests als Text (Punkt 660).
+_TEST_GRUND_ROLLE = Qt.ItemDataRole.UserRole + 1
 _STATUS_FARBE = {
     "bestanden": "#1e8e3e",
     "fehlgeschlagen": "#c0392b",
@@ -399,6 +401,28 @@ _DOCK_MINDESTHOEHE = 60
 #: (Punkt 437). 1366 × 768 bei 100 % lässt einem maximierten Fenster
 #: rund 690, 1920 × 1080 bei 100 % rund 1000.
 KNAPPE_FENSTERHOEHE = 700
+
+
+def _test_grund(ergebnis: Testergebnis) -> str:
+    """Woran ein Test gescheitert ist, in Zeilen: Soll und Ist, die
+    Meldung samt eigenem Text aus `assertEqual(…, msg)` und die Stelle.
+    Leer bei einem bestandenen Test."""
+    if ergebnis.status == "bestanden" and not ergebnis.nachricht:
+        return ""
+    zeilen = []
+    nachricht = ergebnis.nachricht or ""
+    if ergebnis.soll is not None:
+        zeilen.append(f"Soll: {ergebnis.soll} · Ist: {ergebnis.ist}")
+        # „2 != 3 : Größe stimmt nicht“ - der eigene Text steht hinter
+        # „ : “, der Vergleich davor ist mit Soll und Ist schon gesagt.
+        _vergleich, trenner, eigener = nachricht.partition(" : ")
+        if trenner and eigener.strip():
+            zeilen.append(eigener.strip())
+    elif nachricht:
+        zeilen.append(nachricht)
+    if ergebnis.ort:
+        zeilen.append(f"Stelle: {ergebnis.ort}")
+    return "\n".join(zeilen)
 
 
 def _aufzaehlung(namen: list[str]) -> str:
@@ -1197,6 +1221,14 @@ class HauptFenster(QMainWindow):
         self.tests_baum = QTreeWidget()
         self.tests_baum.setHeaderLabels(["Test", "Status", "Dauer (s)"])
         self.tests_baum.itemActivated.connect(self._bei_test_doppelklick)
+        # Ein Klick oder die Pfeiltasten zeigen in der Statuszeile, woran
+        # ein Test gescheitert ist (Punkt 660).
+        self.tests_baum.itemClicked.connect(
+            lambda eintrag, _spalte: self._test_grund_zeigen(eintrag)
+        )
+        self.tests_baum.currentItemChanged.connect(
+            lambda eintrag, _vorher: self._test_grund_zeigen(eintrag)
+        )
         # Der Reiter „Ausgabe“ war bis hierher ein leeres graues Feld:
         # angelegt, benannt, nie gefüllt. Das Schülerprogramm läuft in
         # einem eigenen Fenster (Abschnitt 7.8), seine `print`-Zeilen
@@ -2690,7 +2722,7 @@ class HauptFenster(QMainWindow):
         self.statusBar().showMessage(
             f"{len(ergebnisse)} {'Test' if len(ergebnisse) == 1 else 'Tests'} gelaufen, "
             f"{anzahl_fehlgeschlagen} nicht bestanden. Ein Klick auf einen Eintrag im "
-            f"Test-Explorer zeigt, woran es lag."
+            f"Test-Explorer zeigt hier, woran es lag."
         )
         self.panels.setCurrentWidget(self.tests_baum)
 
@@ -3321,12 +3353,26 @@ class HauptFenster(QMainWindow):
         farbe = QColor(_STATUS_FARBE.get(ergebnis.status, "#000000"))
         for spalte in range(3):
             eintrag.setForeground(spalte, farbe)
-        if ergebnis.status == "fehlgeschlagen" and ergebnis.soll is not None:
-            eintrag.setToolTip(1, f"Soll: {ergebnis.soll} · Ist: {ergebnis.ist}")
-        elif ergebnis.nachricht:
-            eintrag.setToolTip(1, ergebnis.nachricht)
-        else:
-            eintrag.setToolTip(1, "")
+        grund = _test_grund(ergebnis)
+        eintrag.setData(0, _TEST_GRUND_ROLLE, grund)
+        # Über der ganzen Zeile, nicht nur über „Status“; bis 0.4.3 stand
+        # über dem Testnamen nichts, und ein eigener Text aus
+        # `assertEqual` fehlte ganz (Punkt 660).
+        for spalte in range(3):
+            eintrag.setToolTip(spalte, grund)
+
+    def _test_grund_zeigen(self, eintrag: QTreeWidgetItem | None) -> None:
+        """Zeigt in der Statuszeile, woran der gewählte Test scheiterte.
+        Ein Modul- oder Klasseneintrag hat keinen eigenen Grund."""
+        if eintrag is None:
+            return
+        grund = eintrag.data(0, _TEST_GRUND_ROLLE)
+        if grund:
+            self.statusBar().showMessage(
+                f"{eintrag.text(0)}: {grund.replace(chr(10), ' · ')}"
+            )
+        elif eintrag.text(1) == "bestanden":
+            self.statusBar().showMessage(f"{eintrag.text(0)}: bestanden.")
 
     def _neue_unit_aktion(self) -> None:
         if self.projekt is None:

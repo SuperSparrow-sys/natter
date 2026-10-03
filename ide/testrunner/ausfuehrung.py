@@ -52,6 +52,10 @@ class Testergebnis:
     nachricht: str | None = None
     soll: str | None = None
     ist: str | None = None
+    #: Datei und Zeile im Projekt, etwa „test_konto.py, Zeile 12“:
+    #: bei einem Fehlschlag die Zeile im Test, bei einer Ausnahme die
+    #: Stelle im eigenen Code (Punkte 660 und 661).
+    ort: str | None = None
 
 
 def tests_ausfuehren(

@@ -60,6 +60,9 @@ def _zeile(ergebnis: Testergebnis) -> str:
     soll = escape(ergebnis.soll) if ergebnis.soll is not None else ""
     ist = escape(ergebnis.ist) if ergebnis.ist is not None else ""
     nachricht = escape(ergebnis.nachricht) if ergebnis.nachricht else ""
+    if ergebnis.ort:
+        ort = escape(ergebnis.ort)
+        nachricht = f"{nachricht}\n{ort}" if nachricht else ort
     # Dezimalkomma wie im Test-Explorer.
     dauer = f"{ergebnis.dauer:.3f}".replace(".", ",")
     return (
