@@ -321,3 +321,33 @@ def test_nach_dem_speichern_im_halt_gelten_die_geladenen_zeilen(
     finally:
         if hauptfenster.debug_sitzung is not None:
             hauptfenster._debugger_stoppen_aktion()
+
+
+def test_nach_einer_eingefuegten_zeile_steht_die_haltezeile_richtig(
+    qtbot, tmp_path: Path, hauptfenster
+) -> None:  # noqa: ANN001
+    """Punkt 657: debugpy meldet die Zeile der geladenen Datei; nach
+    einer im Halt eingefügten Zeile stand die gelbe Haltezeile eine
+    Zeile zu hoch, ebenso der Sprung aus dem Aufrufstapel."""
+    main = _projekt(hauptfenster, tmp_path, "a = 1\nb = 2\nc = 3\nd = 4\n")
+    editor = hauptfenster.datei_oeffnen(main)
+    editor.breakpoint_umschalten(1)
+
+    hauptfenster._projekt_mit_debugger_starten_aktion()
+    try:
+        qtbot.waitUntil(
+            lambda: hauptfenster._aktueller_thread_id is not None, timeout=DEBUG_ZEITGRENZE
+        )
+        _cursor_auf(editor, 2).insertText("# eingefügt\n")
+        assert hauptfenster.alle_speichern()
+        editor.breakpoint_umschalten(4)  # c = 3, geladen in Zeile 3
+        qtbot.wait(300)
+        hauptfenster._debugger_fortsetzen_aktion()
+        qtbot.waitUntil(lambda: editor.haltezeile == 4, timeout=DEBUG_ZEITGRENZE)
+        assert editor.document().findBlockByNumber(3).text() == "c = 3"
+
+        hauptfenster._zu_frame_springen({"source": {"path": str(main)}, "line": 3})
+        assert editor.textCursor().blockNumber() + 1 == 4
+    finally:
+        if hauptfenster.debug_sitzung is not None:
+            hauptfenster._debugger_stoppen_aktion()

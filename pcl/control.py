@@ -547,6 +547,9 @@ class Control(Komponente):
                 f"erhalten wurde {typ_beschreibung(type(menue))}."
             )
         vorher, self._popup_menu = self._popup_menu, menue
+        zuordnen = getattr(menue, "_zuordnen", None)
+        if callable(zuordnen):
+            zuordnen(self)
         # Die Kürzel eines Klappmenüs hängen an seinen Komponenten; bei
         # einer neuen Zuordnung melden beide Menüs sie neu an.
         for klappmenue in {id(m): m for m in (vorher, menue) if m is not None}.values():

@@ -53,6 +53,7 @@ und lesbar, und `eintrag_vollstaendig()` füllt die Vorgaben auf.
 from __future__ import annotations
 
 import re
+import weakref
 from typing import Any
 
 from PySide6.QtCore import QPoint, QPointF, QRectF, Qt
@@ -731,6 +732,12 @@ class PopupMenu(_Menue):
         nicht angemeldet: Qt hielte es für mehrdeutig und löste gar
         nichts aus (Punkt 613). Im Designer wird nichts angemeldet."""
         for aktion in getattr(self, "_kuerzel_aktionen", []):
+            # Sofort abschalten und abnehmen: `deleteLater` allein ließ
+            # das Kürzel bis zum nächsten Ereignisdurchlauf wirken.
+            aktion.setEnabled(False)
+            besitzer = aktion.parent()
+            if isinstance(besitzer, QWidget):
+                besitzer.removeAction(aktion)
             aktion.deleteLater()
         self._kuerzel_aktionen: list[QAction] = []
         formular = self._formular
@@ -763,19 +770,30 @@ class PopupMenu(_Menue):
         if handler is not None:
             handler(self)
 
+    def _zuordnen(self, komponente: Control) -> None:
+        """Merkt sich eine Komponente, der dieses Klappmenü zugeordnet
+        wurde. Aufgerufen vom Setter `popup_menu`. Schwach gehalten:
+        das Klappmenü soll eine Komponente nicht am Leben halten."""
+        refs = self.__dict__.setdefault("_zugeordnet", [])
+        if not any(r() is komponente for r in refs):
+            refs.append(weakref.ref(komponente))
+
     def _komponenten(self) -> list[Control]:
-        """Die Komponenten des Formulars, denen dieses Klappmenü
-        zugeordnet ist."""
-        if self._formular is None:
-            return []
+        """Die Komponenten, denen dieses Klappmenü zugeordnet ist.
+
+        Über die Zuordnung selbst bestimmt, nicht über die Attribute des
+        Formulars: Knöpfe, die ein Programm in einer Liste hält, fehlten
+        dort, und ihr Kürzel wirkte nicht (Punkt 653)."""
         gefunden: list[Control] = []
-        for wert in vars(self._formular).values():
-            if (
-                isinstance(wert, Control)
-                and getattr(wert, "_popup_menu", None) is self
-                and wert not in gefunden
-            ):
-                gefunden.append(wert)
+        lebend = []
+        for ref in self.__dict__.get("_zugeordnet", []):
+            komponente = ref()
+            if komponente is None:
+                continue
+            lebend.append(ref)
+            if getattr(komponente, "_popup_menu", None) is self:
+                gefunden.append(komponente)
+        self.__dict__["_zugeordnet"] = lebend
         return gefunden
 
     def aufklappen(self, komponente: Control, x: int, y: int) -> None:

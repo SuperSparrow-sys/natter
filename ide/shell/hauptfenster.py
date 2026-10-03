@@ -7729,6 +7729,20 @@ class HauptFenster(QMainWindow):
             return None
         return zeilen_zuordnen(text.split("\n"), datei.split("\n"))
 
+    def _editorzeile_aus_datei(self, editor: QuelltextEditor, zeile: int) -> int:
+        """Die Zeile im Editor zu einer Zeile, die debugpy meldet.
+
+        Gegenstück zu `_zeilen_zur_datei` mit dem geladenen Stand: wurde
+        im Halt eine Zeile eingefügt, meldet debugpy weiter die Zeile
+        der geladenen Datei, und die gelbe Haltezeile stand eine Zeile
+        zu hoch, ebenso der Sprung aus dem Aufrufstapel (Punkt 657). Ohne
+        Entsprechung bleibt die gemeldete Zeile."""
+        zuordnung = self._zeilen_zur_datei(editor, geladen=True)
+        if not zuordnung:
+            return zeile
+        rueckwaerts = {datei: im_editor for im_editor, datei in zuordnung.items()}
+        return rueckwaerts.get(zeile, zeile)
+
     def _gemerkte_haltepunkte_nehmen(
         self, pfad: Path
     ) -> tuple[set[int], dict[int, str]] | None:
@@ -9754,7 +9768,9 @@ class HauptFenster(QMainWindow):
             treffer = (
                 ziel is not None and pfad and Path(pfad).resolve() == ziel
             )
-            zeile = frame["line"] if treffer else None
+            zeile = (
+                self._editorzeile_aus_datei(widget, frame["line"]) if treffer else None
+            )
             if widget.haltezeile != zeile:
                 widget.haltezeile_setzen(zeile)
 
@@ -9916,10 +9932,11 @@ class HauptFenster(QMainWindow):
         editor = self.datei_oeffnen(pfad)
         if editor is None:
             return
+        zeile = self._editorzeile_aus_datei(editor, frame["line"])
         cursor = editor.textCursor()
         cursor.movePosition(cursor.MoveOperation.Start)
         cursor.movePosition(
-            cursor.MoveOperation.Down, cursor.MoveMode.MoveAnchor, frame["line"] - 1
+            cursor.MoveOperation.Down, cursor.MoveMode.MoveAnchor, zeile - 1
         )
         editor.setTextCursor(cursor)
         editor.ensureCursorVisible()
