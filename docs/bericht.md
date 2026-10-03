@@ -583,6 +583,49 @@ README zeigt auf die neueste Fassung. Vor dem Entpacken die ZIP unter
 Nach jedem Bau kommt hier ein Eintrag dazu: Datum, Fassung, Größe,
 Signaturen, Dauer, und was der Lauf aufgedeckt hat, samt Irrweg.
 
+### 0.4.4 – 4. Oktober 2026
+
+`Natter-Setup.exe`, 276,7 MB, ZIP 277 MB, jede Binärdatei gültig
+signiert. Veröffentlicht als Release `v0.4.4`. 24,1 Minuten: pytest
+4:25 (5.596 Tests), `dist\Natter` 10:57, Installer 7:00, Rauchprobe
+bestanden. Enthält die Punkte 521 bis 667.
+
+Vorher liefen eine Sicherheitsprüfung in zwei Teilen (Punkte 540 bis
+566) und neun Durchsichten. Die Zahl der Befunde je Runde fiel von 29
+über 15, 16, 5, 4 und 4 auf 2. Die Behebungen liefen ab der dritten
+Runde parallel in eigenen Arbeitsbäumen, getrennt nach Bereichen
+(Struktogramm, Klassen-Code, Editor/Debugger, pcl, Export), und die
+Hauptsitzung führte sie zusammen; Konflikte gab es keine.
+
+Irrweg beim Struktogramm-Code: Fünf Runden lang bekam der Erzeuger
+neue Regeln, um aus dem übrigen Struktogramm zu erraten, ob eine
+„Eingabe:“ eine Zahl sein soll (Punkte 579, 601, 622, 643, 656, 659).
+Jede Runde fand Fälle, in denen die Regel falsch riet, zuletzt
+Namen, die beim Sortieren zu Zahlen wurden (Punkt 662). Gelöst wurde
+es, indem die Entscheidung ins laufende Programm wanderte
+(`eingabe_lesen`: eine getippte Zahl wird Zahl, sonst Text) und nur
+die eindeutige Gegenrichtung erkannt wird: ein Name, den das
+Struktogramm mit Anführungszeichen, Index oder Durchlaufen als Text
+behandelt, bleibt Text (Punkte 665 bis 667). Rund 200 Zeilen Regeln
+fielen weg. Ähnlich bei den Haltepunkten unter Rückgängig (Punkte
+580, 596, 625, 647): erst gemerkte Stände samt Handänderungen trugen
+alle Fälle.
+
+Irrweg in der Durchsicht: Eine Teilprüfung startete gegen die Regel
+einen echten Exe-Export. Der Signierschritt legte im Profil
+`%LOCALAPPDATA%\Natter\zertifikat_abgelehnt.txt` an, wodurch Natter
+in diesem Konto nicht mehr nach dem Zertifikat gefragt hätte; der
+Vermerk wurde entfernt, ein neues Zertifikat war nicht entstanden.
+Seitdem verbietet jeder Helferauftrag Export, Signatur und PyInstaller
+ausdrücklich.
+
+Geprüft an `dist\Natter`: Der Debugger startet über den neuen Weg
+(Adapter über Standardein- und -ausgabe, Kennung für das Programm,
+Punkt 542) in 0,8 s und hält am Haltepunkt. Nicht an einer gebauten
+Exe geprüft, weil das einen Export mit Signatur bräuchte: dass eine
+Konsolen-Exe ohne Qt auskommt (Punkt 629), Fehler deutsch meldet
+(Punkt 650) und nach einem Fehler offen bleibt (Punkt 609).
+
 ### 0.4.3 – 2. Oktober 2026
 
 `Natter-Setup.exe`, 276,6 MB, ZIP 277 MB, jede Binärdatei gültig
