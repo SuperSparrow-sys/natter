@@ -197,3 +197,45 @@ def test_eine_hineinkopierte_klasse_und_ein_diagramm_erscheinen(
     ]
     assert "konto_lehrkraft.py" in units
     assert "aufgabe" in diagramme
+
+
+def test_eine_klasse_aus_einem_ordner_nur_zum_lesen_laesst_sich_woanders_speichern(
+    hauptfenster, tmp_path: Path, monkeypatch  # noqa: ANN001
+) -> None:
+    """Punkt 506: eine Klasse der Lehrkraft, direkt aus dem Austausch-
+    ordner geöffnet und geändert, ließ sich nicht speichern, und ein
+    „Speichern unter …“ gab es nicht. Jetzt bietet die Meldung es an,
+    und der Reiter arbeitet danach mit der eigenen Datei."""
+    import ide.shell.hauptfenster as modul
+
+    austausch = tmp_path / "austausch"
+    austausch.mkdir()
+    vorlage = austausch / "konto.py"
+    vorlage.write_text("class Konto:\n    pass\n", encoding="utf-8")
+    editor = hauptfenster.datei_oeffnen(vorlage)
+    editor.selectAll()
+    editor.insertPlainText("class Konto:\n    stand = 0\n")
+
+    def verweigert(pfad, inhalt, encoding="utf-8"):  # noqa: ANN001
+        if Path(pfad).parent == austausch:
+            raise PermissionError(13, "Zugriff verweigert")
+        Path(pfad).write_text(inhalt, encoding=encoding)
+
+    monkeypatch.setattr(modul, "atomar_schreiben", verweigert)
+    monkeypatch.setattr(
+        modul.HauptFenster, "_speichern_unter_anbieten", lambda self, text: True
+    )
+    eigene = tmp_path / "eigenes" / "konto.py"
+    eigene.parent.mkdir()
+    monkeypatch.setattr(
+        modul.QFileDialog, "getSaveFileName", lambda *a, **k: (str(eigene), "")
+    )
+
+    assert hauptfenster._aktuelle_datei_speichern() is True
+
+    assert eigene.read_text(encoding="utf-8") == "class Konto:\n    stand = 0\n"
+    assert vorlage.read_text(encoding="utf-8") == "class Konto:\n    pass\n"
+    assert not editor.document().isModified()
+    tabs = hauptfenster.editor_tabs
+    assert tabs.tabText(tabs.currentIndex()) == "konto.py"
+    assert editor.property("pfad") == str(eigene)

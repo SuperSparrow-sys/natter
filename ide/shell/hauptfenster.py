@@ -1464,6 +1464,14 @@ class HauptFenster(QMainWindow):
         )
         self.aktionen.registrieren(
             Aktion(
+                "datei.speichern_unter",
+                "Speichern unter …",
+                menue="Datei",
+                callback=self._aktuelle_datei_speichern_unter,
+            )
+        )
+        self.aktionen.registrieren(
+            Aktion(
                 "datei.alle_speichern",
                 "Alle speichern",
                 menue="Datei",
@@ -5238,6 +5246,54 @@ class HauptFenster(QMainWindow):
             return False
         return self._editor_speichern(editor)
 
+    def _aktuelle_datei_speichern_unter(self) -> Path | None:
+        """„Datei → Speichern unter …“ für den Editor im aktiven Reiter."""
+        editor = self._tab_inhalt(self.editor_tabs.currentWidget())
+        if not isinstance(editor, QPlainTextEdit) or not editor.property(
+            _PFAD_EIGENSCHAFT
+        ):
+            self.statusBar().showMessage(
+                "Speichern unter … gilt für eine Datei im Editor."
+            )
+            return None
+        return self.editor_speichern_unter(editor)
+
+    def editor_speichern_unter(
+        self, editor: QPlainTextEdit, pfad: Path | None = None
+    ) -> Path | None:
+        """Schreibt den Text eines Editors in eine andere Datei, und der
+        Reiter arbeitet danach mit ihr weiter (Punkt 506).
+
+        Bis 0.4.3 gab es das nicht. Wer eine Klasse der Lehrkraft aus
+        einem Ordner geöffnet hatte, in dem nur gelesen werden darf,
+        konnte die Änderungen nirgends speichern. Der Dialog beginnt
+        im Ordner des offenen Projekts, sonst bei der Datei.
+        `pfad` gibt die Datei vor, ohne zu fragen (für Tests)."""
+        alt = Path(editor.property(_PFAD_EIGENSCHAFT))
+        if pfad is None:
+            start = self.projekt.ordner if self.projekt is not None else alt.parent
+            gewaehlt, _ = QFileDialog.getSaveFileName(
+                self, "Speichern unter", str(start / alt.name),
+                "Python (*.py);;Alle Dateien (*)",
+            )
+            if not gewaehlt:
+                return None
+            pfad = Path(gewaehlt)
+        if not self.datei_schreiben_gemeldet(
+            pfad, editor.toPlainText(), folge="Der Text steht noch im Editor."
+        ):
+            return None
+        editor.setProperty(_PFAD_EIGENSCHAFT, str(pfad))
+        editor.document().setModified(False)
+        _stand_merken(editor)
+        index = self.editor_tabs.indexOf(editor)
+        if index != -1:
+            self.editor_tabs.setTabText(index, pfad.name)
+        if self.projekt is not None:
+            self.explorer.auffrischen(self.projekt)
+        self.statusBar().showMessage(f"Gespeichert als {pfad}.")
+        return pfad
+
     def _editor_speichern(self, editor: QPlainTextEdit) -> bool:
         """Schreibt den Text eines Editors in seine Datei. Liefert, ob
         es geklappt hat.
@@ -5263,7 +5319,10 @@ class HauptFenster(QMainWindow):
         # die alte. Der Tab bleibt deshalb als geändert markiert, wenn
         # es nicht geklappt hat (M11, Abschnitt 5).
         if not self.datei_schreiben_gemeldet(
-            pfad, editor.toPlainText(), folge="Der Text steht noch im Editor."
+            pfad,
+            editor.toPlainText(),
+            folge="Der Text steht noch im Editor.",
+            unter=lambda: self.editor_speichern_unter(editor) is not None,
         ):
             return False
         editor.document().setModified(False)
@@ -5505,7 +5564,12 @@ class HauptFenster(QMainWindow):
         return False
 
     def datei_schreiben_gemeldet(
-        self, pfad: Path, inhalt: str, *, folge: str = ""
+        self,
+        pfad: Path,
+        inhalt: str,
+        *,
+        folge: str = "",
+        unter: Callable[[], bool] | None = None,
     ) -> bool:
         """Schreibt `inhalt` nach `pfad` und meldet ein Scheitern als
         Fenster. Liefert, ob es geklappt hat.
@@ -5546,17 +5610,21 @@ class HauptFenster(QMainWindow):
                 ):
                     QTimer.singleShot(0, self._kopie_nach_speicherfehler)
                 return False
-            QMessageBox.warning(
-                self,
-                "Nicht gespeichert",
+            text = (
                 f"„{Path(pfad).name}“ konnte nicht gespeichert werden: "
                 f"Das Schreiben in\n{Path(pfad).parent}\nwurde verweigert."
                 "\n\n"
                 + (f"{folge}\n\n" if folge else "")
                 + "Häufige Gründe: der Ordner hat kein Schreibrecht, etwa "
                 "eine Freigabe nur zum Lesen; die Datei ist "
-                "schreibgeschützt oder in einem anderen Programm geöffnet.",
+                "schreibgeschützt oder in einem anderen Programm geöffnet."
             )
+            if unter is not None and self._speichern_unter_anbieten(text):
+                # Mit „Speichern unter …“ an einen Ort, an dem
+                # geschrieben werden darf (Punkt 506).
+                return unter()
+            if unter is None:
+                QMessageBox.warning(self, "Nicht gespeichert", text)
             return False
         except OSError as fehler:
             QMessageBox.warning(
@@ -5569,6 +5637,24 @@ class HauptFenster(QMainWindow):
             )
             return False
         return True
+
+    def _speichern_unter_anbieten(self, text: str) -> bool:
+        """Meldet ein gescheitertes Speichern mit dem Knopf „Speichern
+        unter …“ und liefert, ob er gewählt wurde. Eigene Methode, damit
+        Tests die Antwort vorgeben können."""
+        frage = QMessageBox(
+            QMessageBox.Icon.Warning, "Nicht gespeichert",
+            text + "\n\nMit „Speichern unter …“ kommt der Text in eine "
+            "eigene Datei, etwa in den Ordner des eigenen Projekts.",
+            parent=self,
+        )
+        unter = frage.addButton(
+            "Speichern unter …", QMessageBox.ButtonRole.AcceptRole
+        )
+        frage.addButton("Abbrechen", QMessageBox.ButtonRole.RejectRole)
+        frage.setDefaultButton(unter)
+        frage.exec()
+        return frage.clickedButton() is unter
 
     # -- Bearbeiten (Abschnitt 7.2) -------------------------------------------
 

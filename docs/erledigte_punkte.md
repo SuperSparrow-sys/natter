@@ -13240,3 +13240,17 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** Die Meldung bietet „Speichern unter …“ an und sagt richtig, dass die Änderungen erhalten sind. Erledigt, wenn ein Test nach gescheitertem Speichern über „Speichern unter …“ eine Datei findet und das Fenster nicht mehr als geändert gilt.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** `_speicherfehler_melden` fragt mit den Knöpfen „Speichern unter …“ (vorgewählt) und „Abbrechen“ und liefert die Wahl; der Text lautet „… lässt sich nicht speichern: <Grund>. Die Änderungen stehen weiter im Fenster. Mit „Speichern unter …“ kommen sie in eine eigene Datei, etwa in den Ordner des eigenen Projekts.“ `speichern` und `speichern_unter` führen dann zum Dateidialog. Das Handbuch, Abschnitt 3.6, beschreibt jetzt auch das Austeilen einer einzelnen Klasse oder eines Diagramms (Punkte 503 bis 505). Test: `test_nach_gescheitertem_speichern_geht_es_mit_speichern_unter_weiter` in `tests/test_diagramm_schliessen.py`; mit der Datei aus `HEAD` scheitert er.
+
+---
+
+## 506. Es gibt kein „Speichern unter …“ für Dateien im Editor ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, Weg der Lehrkraft (Klasse austeilen), Entwicklungsstand `0a78d77`.
+
+**Beobachtet:** Eine Schülerin öffnet `konto.py` der Lehrkraft mit „Datei → Öffnen …“ direkt im Austauschordner, in dem nur gelesen werden darf, und ändert die Klasse. Strg+S meldet „konto.py konnte nicht gespeichert werden: Das Schreiben in … wurde verweigert.“ mit einer Liste möglicher Gründe und nur „OK“. Im Menü „Datei“ gibt es „Speichern“ und „Alle speichern“, aber kein „Speichern unter …“; die Änderungen lassen sich nur über die Zwischenablage retten. Für ein ganzes Projekt in einem solchen Ordner bietet Natter seit Punkt 341 die eigene Kopie an, für eine einzelne Datei nicht.
+
+**Ursache:** nachgewiesen. `ide/shell/hauptfenster.py` registriert keine Aktion zum Speichern unter einem anderen Namen; `datei_schreiben_gemeldet` kennt außerhalb eines Projekts nur die Warnung.
+
+**Zu tun:** „Datei → Speichern unter …“ für den Editor im aktiven Reiter, und die Meldung beim verweigerten Speichern bietet es an. Erledigt, wenn ein Test eine solche Klasse über die Meldung in eine eigene Datei speichert und der Reiter danach mit ihr weiterarbeitet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Neue Aktion `datei.speichern_unter` „Speichern unter …“ im Menü „Datei“ (`editor_speichern_unter`): Dialog im Ordner des offenen Projekts, sonst bei der Datei; danach trägt der Reiter Pfad und Namen der neuen Datei, gilt als gespeichert, und der Explorer frischt auf. `datei_schreiben_gemeldet` hat den neuen Parameter `unter`; `_editor_speichern` gibt ihn mit, und bei verweigertem Schreiben außerhalb eines Projekts fragt `_speichern_unter_anbieten` mit „Speichern unter …“ (vorgewählt) und „Abbrechen“. Die Vorlage der Lehrkraft bleibt unverändert. Handbuch Abschnitt 3.6 nennt den Weg. Test: `test_eine_klasse_aus_einem_ordner_nur_zum_lesen_laesst_sich_woanders_speichern` in `tests/test_hauptfenster_projekt.py`; mit der Datei aus `HEAD` scheitert er.

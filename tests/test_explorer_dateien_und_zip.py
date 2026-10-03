@@ -151,6 +151,12 @@ def test_keine_zip_wenn_eine_datei_nicht_gespeichert_wurde(
         staticmethod(lambda _eltern, _titel, text: meldungen.append(text)),
     )
     fenster = hauptfenster_bauen()
+    # Seit Punkt 506 kommt die Meldung beim Speichern aus dem Editor als
+    # Frage mit „Speichern unter …“; die Antwort ist „Abbrechen“.
+    monkeypatch.setattr(
+        type(fenster), "_speichern_unter_anbieten",
+        lambda self, text: meldungen.append(text) or False,
+    )
     fenster.projekt_oeffnen(ordner / "Wetter.natter")
     editor = fenster.datei_oeffnen(ordner / "u_main.py")
     editor.setPlainText("x = 2\n")

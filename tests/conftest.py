@@ -182,7 +182,8 @@ def _schliessen_ohne_nachfrage(monkeypatch):
 
     Dasselbe gilt für das Diagrammfenster (Punkt 111) und für das
     Löschen einer Komponente, die die Unit noch benutzt (Punkt 294):
-    dort löscht der Designer im Test ohne Nachfrage. Ein noch
+    dort löscht der Designer im Test ohne Nachfrage. Nach einem
+    verweigerten Speichern ist die Antwort „Abbrechen“. Ein noch
     laufendes Programm endet beim Schließen wie vor Punkt 433 ohne
     Frage."""
     from PySide6.QtWidgets import QMessageBox
@@ -208,6 +209,14 @@ def _schliessen_ohne_nachfrage(monkeypatch):
         DesignerCanvas,
         "_loeschen_trotzdem_fragen",
         lambda self, name, zeile: True,
+    )
+    # Nach verweigertem Speichern „Abbrechen“ statt „Speichern unter …“
+    # (Punkte 505 und 506): die Frage wartete sonst auf einen Klick.
+    monkeypatch.setattr(
+        HauptFenster, "_speichern_unter_anbieten", lambda self, text: False
+    )
+    monkeypatch.setattr(
+        DiagrammFenster, "_speicherfehler_melden", lambda self, pfad, fehler: False
     )
 
 

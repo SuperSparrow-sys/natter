@@ -554,7 +554,11 @@ Statt eines ganzen Projekts lässt sich auch eine einzelne Datei
 austeilen. Eine Klasse der Lehrkraft, etwa `konto.py`, kommt im
 Windows-Explorer in den eigenen Projektordner; sobald Natter wieder
 vorn ist, steht sie im Projekt-Explorer unter „Units“, und in
-`u_main.py` holt `from konto import Konto` sie ins Programm. Umgekehrt
+`u_main.py` holt `from konto import Konto` sie ins Programm. Wurde
+die Klasse direkt im Austauschordner geöffnet und geändert, bringt
+**Datei → Speichern unter …** sie ins eigene Projekt; die Meldung
+beim Speichern in einem Ordner, in dem nur gelesen werden darf,
+bietet das ebenfalls an. Umgekehrt
 gibt die Lehrkraft ein Projekt mit fertiger Oberfläche aus, und die
 Schülerin legt mit **Datei → Neue Unit** ihre eigene Klasse dazu.
 Ein Diagramm (`.pdiag`) geht genauso: in den Projektordner oder
