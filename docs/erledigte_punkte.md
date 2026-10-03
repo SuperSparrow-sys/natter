@@ -12932,3 +12932,31 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** Die einfachen UML-Typen auf die Python-Typen abbilden, auch innerhalb zusammengesetzter Typen, und fehlende Typen Name für Name nennen. Erledigt, wenn ein Test `Real`, `list[Integer]`, `String` und `Boolean` als `float`, `list[int]`, `str` und `bool` findet und im Kopf nur die eigene Klasse `Person` als fehlend steht.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** `python_typ` mit der Tabelle `UML_TYPEN` in `ide/diagramm/klassen_code.py` macht aus Integer/Int `int`, aus Real/Double/Float `float`, aus String/Char `str`, aus Boolean/Bool `bool` und aus Void `None`, auch in klein geschriebener Form und innerhalb von `list[…]`. Eine Klasse namens „Text“ oder „Zahl“ bleibt unberührt. `_mit_typ`, der Rückgabetyp und `fremde_typen` gehen über `python_typ`; `fremde_typen` prüft jeden Namen im Typ einzeln und übergeht die Namen aus `typing` wie `Optional`. Im Diagramm selbst bleibt die Schreibweise der Schülerin stehen. Test: `test_uml_typen_werden_zu_python_typen` in `tests/test_diagramm_klassen_code.py`; mit der Datei aus `HEAD` scheitert er.
+
+---
+
+## 484. `read_key` liefert die Eingabetaste als "\r" statt „Eingabe“ ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, vierte Durchsicht, Entwicklungsstand `64f22d1`.
+
+**Beobachtet:** `pcl.crt.read_key()` soll Sondertasten mit denselben Namen liefern wie `on_key_press` in einem Fenster (Docstring und `docs/komponenten.md`). Für Pfeil-, F- und Bildtasten stimmt das. Die Eingabetaste kommt aber als `"\r"`, Escape als `"\x1b"`, Tab als `"\t"`, die Rücktaste als `"\x08"` und die Leertaste als `" "`; ein Fenster nennt sie „Eingabe“, „Esc“, „Tab“, „Rücktaste“ und „Leertaste“. Eine Schleife `while read_key() != "Eingabe":` endet in der Konsole nie, und `if taste == "Esc":` trifft nie.
+
+**Ursache:** nachgewiesen. `read_key` in `pcl/crt.py` übersetzt nur die zweiteiligen Sondertasten (`_SONDERTASTEN`); Steuerzeichen aus einem Byte gibt es unverändert zurück.
+
+**Zu tun:** Die fünf Tasten wie in `tastenname` (`pcl/control.py`) benennen. Erledigt, wenn ein Test für die fünf Bytes die fünf Namen bekommt.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Neue Tabelle `_STEUERTASTEN` in `pcl/crt.py`; `read_key` gibt für `\r`, `\x1b`, `\t`, `\x08` und das Leerzeichen „Eingabe“, „Esc“, „Tab“, „Rücktaste“ und „Leertaste“ zurück. Docstring und `docs/komponenten.md` nennen die Namen. Test: `test_read_key_nennt_eingabe_und_esc_wie_ein_fenster` in `tests/test_crt.py`; mit der Datei aus `HEAD` scheitert er.
+
+---
+
+## 485. Eine unbekannte Konsolenfarbe meldet sich ohne Hinweis auf die möglichen ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, vierte Durchsicht, Entwicklungsstand `64f22d1`.
+
+**Beobachtet:** `crt.text_color("rot")` meldet nur „Unbekannte Farbe: 'rot'.“; dass die Konsolenfarben englisch heißen („red“, „light_red“), steht nirgends in der Meldung. `crt.text_color(2.5)` endet in einem englischen `TypeError` aus dem Tupelzugriff.
+
+**Ursache:** nachgewiesen. `_farbnummer` in `pcl/crt.py` nennt die möglichen Namen nicht und prüft bei einer Zahl nur den Bereich, nicht ob sie ganz ist.
+
+**Zu tun:** Die Meldung nennt die Namen und den Zahlenbereich; eine Kommazahl wird wie eine Zahl außerhalb des Bereichs abgelehnt. Erledigt, wenn ein Test beides findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Die Meldung lautet jetzt „Unbekannte Farbe: 'rot'. Möglich sind black, blue, … white oder eine Zahl von 0 bis 15.“, und eine Kommazahl oder ein Wahrheitswert ergibt „Farbe muss 0 bis 15 sein, erhalten wurde 2.5.“ Test: `test_unbekannte_konsolenfarbe_nennt_die_moeglichen` in `tests/test_crt.py`; mit der Datei aus `HEAD` scheitert er.

@@ -64,8 +64,14 @@ def _farbnummer(farbe: int | str) -> int:
         try:
             return _FARBEN[farbe.lower()]
         except KeyError:
-            raise ValueError(f"Unbekannte Farbe: {farbe!r}.") from None
-    if 0 <= farbe <= 15:
+            # Mit der Liste der Namen: „rot“ oder „grau“ liegen nahe,
+            # die Konsolenfarben heißen aber englisch (Punkt 485).
+            raise ValueError(
+                f"Unbekannte Farbe: {farbe!r}. Möglich sind "
+                f"{', '.join(_FARBEN)} oder eine Zahl von 0 bis 15."
+            ) from None
+    ganz = isinstance(farbe, int) and not isinstance(farbe, bool)
+    if ganz and 0 <= farbe <= 15:
         return farbe
     raise ValueError(f"Farbe muss 0 bis 15 sein, erhalten wurde {farbe!r}.")
 
@@ -158,6 +164,17 @@ _SONDERTASTEN: dict[int, str] = {
     134: "F12",
 }
 
+#: Tasten, die `getch` als ein Steuerzeichen liefert, mit demselben
+#: Namen wie bei `on_key_press` (Punkt 484). Bis 0.4.3 kam die
+#: Eingabetaste als "\r", und ``read_key() == "Eingabe"`` war nie wahr.
+_STEUERTASTEN: dict[bytes, str] = {
+    b"\r": "Eingabe",
+    b"\x1b": "Esc",
+    b"\t": "Tab",
+    b"\x08": "Rücktaste",
+    b" ": "Leertaste",
+}
+
 #: Die Bytes, mit denen `getch` eine Sondertaste ankündigt.
 _VORZEICHEN = (bytes([0xE0]), bytes([0x00]))
 
@@ -169,14 +186,17 @@ def read_key() -> str:
     Ein Zeichen kommt als das Zeichen selbst („a“, „7“, „ä“). Pfeil-
     und F-Tasten und die übrigen Sondertasten kommen mit ihrem Namen
     wie bei `on_key_press`: „Oben“, „Unten“, „Links“, „Rechts“,
-    „Pos1“, „Ende“, „Bild auf“, „Bild ab“, „Einfg“, „Entf“ und „F1“
-    bis „F12“. Eine andere Sondertaste, etwa Strg zusammen mit einem
-    Pfeil, ergibt einen leeren Text."""
+    „Pos1“, „Ende“, „Bild auf“, „Bild ab“, „Einfg“, „Entf“, „F1“
+    bis „F12“, „Eingabe“, „Esc“, „Tab“, „Rücktaste“ und „Leertaste“.
+    Eine andere Sondertaste, etwa Strg zusammen mit einem Pfeil,
+    ergibt einen leeren Text."""
     import msvcrt
 
     zeichen = msvcrt.getch()
     if zeichen in _VORZEICHEN:
         return _SONDERTASTEN.get(msvcrt.getch()[0], "")
+    if zeichen in _STEUERTASTEN:
+        return _STEUERTASTEN[zeichen]
     try:
         return zeichen.decode("cp850")
     except UnicodeDecodeError:

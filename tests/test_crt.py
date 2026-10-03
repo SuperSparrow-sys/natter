@@ -114,3 +114,25 @@ def test_read_key_liefert_f_tasten_und_links(monkeypatch: pytest.MonkeyPatch) ->
     )
 
     assert [crt.read_key() for _ in range(4)] == ["F1", "Links", "F12", ""]
+
+
+def test_read_key_nennt_eingabe_und_esc_wie_ein_fenster(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Punkt 484: die Eingabetaste kam als "\\r", und
+    ``read_key() == "Eingabe"`` war nie wahr, obwohl `on_key_press`
+    sie so nennt."""
+    _getch_folge(monkeypatch, b"\r", b"\x1b", b"\t", b"\x08", b" ")
+
+    assert [crt.read_key() for _ in range(5)] == [
+        "Eingabe", "Esc", "Tab", "Rücktaste", "Leertaste",
+    ]
+
+
+def test_unbekannte_konsolenfarbe_nennt_die_moeglichen() -> None:
+    """Punkt 485: „Unbekannte Farbe: 'rot'.“ ohne jeden Hinweis, und
+    eine Kommazahl endete in einem englischen Fehler."""
+    with pytest.raises(ValueError, match="light_red"):
+        crt.text_color("rot")
+    with pytest.raises(ValueError, match="0 bis 15"):
+        crt.text_color(2.5)

@@ -1514,7 +1514,7 @@ crt.text_background("black")
 | `goto_xy(x, y)` | setzt den Cursor auf Spalte `x`, Zeile `y`; gezählt wird ab 1 |
 | `text_color(farbe)` | Farbe der Schrift für alles, was danach ausgegeben wird |
 | `text_background(farbe)` | Farbe des Hintergrunds hinter der Schrift |
-| `read_key()` | wartet auf eine Taste und liefert sie, ohne Eingabetaste und ohne sie anzuzeigen. Ein Zeichen kommt als das Zeichen selbst, Sondertasten mit denselben Namen wie bei `on_key_press`: „Oben“, „Unten“, „Links“, „Rechts“, „Pos1“, „Ende“, „Bild auf“, „Bild ab“, „Einfg“, „Entf“, „F1“ bis „F12“; eine andere Sondertaste ergibt einen leeren Text |
+| `read_key()` | wartet auf eine Taste und liefert sie, ohne Eingabetaste und ohne sie anzuzeigen. Ein Zeichen kommt als das Zeichen selbst, Sondertasten mit denselben Namen wie bei `on_key_press`: „Oben“, „Unten“, „Links“, „Rechts“, „Pos1“, „Ende“, „Bild auf“, „Bild ab“, „Einfg“, „Entf“, „F1“ bis „F12“, „Eingabe“, „Esc“, „Tab“, „Rücktaste“ und „Leertaste“; eine andere Sondertaste ergibt einen leeren Text |
 | `key_pressed()` | `True`, wenn eine Taste gedrückt wurde, die noch nicht gelesen ist; wartet nicht |
 | `delay(millisekunden)` | wartet so viele Millisekunden |
 | `beep(frequenz=800, dauer_ms=200)` | ein Piepton |
