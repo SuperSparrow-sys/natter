@@ -253,3 +253,30 @@ def test_die_kopfzeile_sagt_einzahl_bei_einer_zeile() -> None:
     assert "1 Zeile," in fenster.beschreibung
     assert "1 Spalte" in fenster.beschreibung
     assert "(n)" not in fenster.beschreibung
+
+
+def test_grosse_werte_ergeben_zusammenhaengende_erste_zeilen(tmp_path: Path) -> None:
+    """Punkt 574: debugpy kürzte die Antwort in der Mitte, und nach
+    Zeile 83 folgte 157. Jetzt kommen nur so viele Zeilen, wie
+    hineinpassen, und alle von vorn."""
+    skript = tmp_path / "ziel.py"
+    skript.write_text(
+        'daten = [{"nr": i, "a": "ä" * 250, "b": "\\"" * 250} for i in range(200)]\n'
+        "marker = 1\n",
+        encoding="utf-8",
+    )
+    client = DapClient()
+    try:
+        client.starten(skript, arbeitsordner=tmp_path, anfangs_breakpoints={skript: [2]})
+        ereignis = client.angehalten_abwarten()
+        frame_id = client.aufrufstapel_lesen(ereignis["threadId"])[0]["id"]
+        antwort = client.auswerten(tabellen_ausdruck("daten"), frame_id)
+        tabelle = tabelle_aus_antwort(antwort["result"])
+    finally:
+        client.beenden()
+
+    assert tabelle.gesamt == 200
+    assert 0 < len(tabelle.zeilen) < 200
+    assert [zeile[0] for zeile in tabelle.zeilen] == [
+        str(i) for i in range(len(tabelle.zeilen))
+    ]

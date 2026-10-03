@@ -25,7 +25,7 @@ from typing import Any
 MEHRFACH = ("multi_branch", "case_of")
 
 #: Beschriftungen, die den letzten Fall zum „sonst“-Fall machen.
-SONST = frozenset({"sonst", "andernfalls", "default", "_"})
+SONST = frozenset({"sonst", "andernfalls", "default", "else", "_"})
 
 #: Standardtexte neuer Blöcke – so steht nie ein leerer Kasten da, und
 #: es ist gleich zu sehen, was hineingehört.

@@ -52,3 +52,21 @@ def test_add_regression_auf_leerem_diagramm_meldet_sich() -> None:
     diagramm.clear()
     with pytest.raises(NatterDatenError, match="add_scatter_series"):
         diagramm.add_regression()
+
+
+def test_csv_in_cp1252_mit_komma_in_x_ergibt_eine_regression(tmp_path) -> None:
+    """Punkte 572 und 576: eine CSV in der Windows-Kodierung endete in
+    einem UnicodeDecodeError, und eine x-Spalte mit Dezimalkomma blieb
+    Text, sodass add_regression() scheiterte."""
+    datei = tmp_path / "versuch.csv"
+    zeilen = ["zeit;weg (Länge)"] + [
+        f"{t:.1f};{2.5 * t - 1.9:.2f}".replace(".", ",") for t in (0.5, 1, 1.5, 2, 10)
+    ]
+    datei.write_bytes(("\r\n".join(zeilen) + "\r\n").encode("cp1252"))
+    diagramm = Chart(Form())
+    diagramm.kind = "scatter"
+
+    diagramm.load_csv(datei, 0, 1)
+    ergebnis = diagramm.add_regression()
+
+    assert ergebnis.steigung == pytest.approx(2.5, abs=0.01)

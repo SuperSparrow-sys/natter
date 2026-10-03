@@ -30,6 +30,7 @@ from PySide6.QtGui import (
     QFont,
     QFontDatabase,
     QKeyEvent,
+    QKeySequence,
     QMouseEvent,
     QPainter,
     QPaintEvent,
@@ -396,6 +397,12 @@ class QuelltextEditor(QPlainTextEdit):
         self._haltemarkierung: list[QTextEdit.ExtraSelection] = []
         self._zeilen_vorher = 1
         self.document().contentsChange.connect(self._breakpoints_nachfuehren)
+        #: Zeilenzuordnung (alt -> neu) der Schritte, die den ganzen Text
+        #: umstellen, je Zahl der Rückgängig-Schritte danach. Mit ihr
+        #: wandern Haltepunkte beim Rückgängigmachen und Wiederholen
+        #: zurück bzw. wieder mit (Punkt 580).
+        self._umordnungen: dict[int, dict[int, int]] = {}
+        self.document().undoCommandAdded.connect(self._umordnungen_kuerzen)
 
         #: Zugeklappte Klassen und Funktionen, je Kopfzeile (M11, 2.3)
         self._gefaltet: set[int] = set()
@@ -546,6 +553,42 @@ class QuelltextEditor(QPlainTextEdit):
         if bereich.contains(self.viewport().rect()):
             self._breite_aktualisieren()
 
+    def _umordnungen_kuerzen(self) -> None:
+        """Ein neuer Schritt macht alle gemerkten Schritte ab seiner
+        Nummer ungültig: der Wiederholen-Stapel ist damit leer."""
+        schritte = self.document().availableUndoSteps()
+        for nummer in [n for n in self._umordnungen if n >= schritte]:
+            del self._umordnungen[nummer]
+
+    def _haltepunkte_umordnen(self, zuordnung: dict[int, int]) -> None:
+        breakpoints = {zuordnung.get(z, z) for z in self.breakpoints}
+        bedingungen = {zuordnung.get(z, z): b for z, b in self.bedingungen.items()}
+        if (breakpoints, bedingungen) == (self.breakpoints, self.bedingungen):
+            return
+        self.breakpoints = breakpoints
+        self.bedingungen = bedingungen
+        self._rand.update()
+        self.breakpoints_geaendert.emit()
+
+    def undo(self) -> None:
+        dokument = self.document()
+        vorher = dokument.availableUndoSteps()
+        zuordnung = self._umordnungen.get(vorher)
+        super().undo()
+        # Die Zahl zählt einzelne Befehle, nicht Bearbeitungsblöcke;
+        # geprüft wird nur, dass wirklich etwas zurückgenommen wurde.
+        if zuordnung and dokument.availableUndoSteps() < vorher:
+            self._haltepunkte_umordnen({neu: alt for alt, neu in zuordnung.items()})
+
+    def redo(self) -> None:
+        dokument = self.document()
+        vorher = dokument.availableUndoSteps()
+        super().redo()
+        nachher = dokument.availableUndoSteps()
+        zuordnung = self._umordnungen.get(nachher)
+        if zuordnung and nachher > vorher:
+            self._haltepunkte_umordnen(zuordnung)
+
     def keyPressEvent(self, event: QKeyEvent) -> None:
         """Automatischer Einzug (Gewünscht: „was
  passiert wenn ich in einer Funktion Enter drücke“ – bisher
@@ -557,6 +600,13 @@ class QuelltextEditor(QPlainTextEdit):
  mehr einrücken. Tab fügt vier Leerzeichen statt eines
  Tabulatorzeichens ein - sonst mischen sich in Python schnell
  Tabs und Leerzeichen (`TabError`)."""
+        # Über die eigenen Methoden, damit Haltepunkte mitwandern.
+        if event.matches(QKeySequence.StandardKey.Undo):
+            self.undo()
+            return
+        if event.matches(QKeySequence.StandardKey.Redo):
+            self.redo()
+            return
         # Solange die Vorschlagsliste offen ist, gehören ihr die
         # Pfeiltasten, Eingabe und Escape. Sonst würde Eingabe eine neue
         # Zeile einfügen, statt den markierten Vorschlag zu übernehmen -
@@ -1385,6 +1435,7 @@ class QuelltextEditor(QPlainTextEdit):
         cursor.select(cursor.SelectionType.Document)
         cursor.insertText("\n".join(zeilen))
         cursor.endEditBlock()
+        self._umordnungen[dokument.availableUndoSteps()] = dict(zuordnung)
 
         self._gefaltet = gefaltet
         self._alles_sichtbar_machen()

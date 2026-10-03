@@ -43,8 +43,14 @@ MAX_ZEILEN = 200
 #: Längster Text je Zelle. Schützt gegen einzelne, sehr lange Werte.
 MAX_ZELLENTEXT = 300
 
+#: Höchste Länge aller Zeilen als JSON. debugpy kürzt die Antwort auf
+#: `evaluate` bei rund 65 000 Zeichen, und zwar als Darstellung des
+#: Textes, in der jedes Anführungszeichen und jeder Umlaut mehr Platz
+#: braucht. 20 000 lässt dafür genug Luft (Punkt 574).
+MAX_TEXTLAENGE = 20000
+
 _KONVERTER_QUELLTEXT = '''
-def natter_tabelle(wert, max_zeilen, max_zellentext):
+def natter_tabelle(wert, max_zeilen, max_zellentext, max_textlaenge=20000):
     """Wandelt `wert` in {"spalten", "zeilen", "gesamt", "art"} um.
     Liefert None, wenn der Wert keine sinnvolle Tabelle ergibt."""
 
@@ -60,9 +66,22 @@ def natter_tabelle(wert, max_zeilen, max_zellentext):
         return gewandelt
 
     def fertig(spalten, zeilen, gesamt, art):
+        # Nur so viele Zeilen, wie in die Antwort von debugpy passen:
+        # die kürzt einen langen Text in der Mitte, und die Tabelle
+        # sprang dann von Zeile 83 auf 157 (Punkt 574). Die ersten
+        # Zeilen bleiben zusammenhängend, `gesamt` nennt alle.
+        import json as _json
+        fertige = []
+        laenge = 0
+        for zeile in zeilen:
+            texte = [text(zelle) for zelle in zeile]
+            laenge += len(_json.dumps(texte))
+            if fertige and laenge > max_textlaenge:
+                break
+            fertige.append(texte)
         return {
             "spalten": [text(spalte) for spalte in spalten],
-            "zeilen": [[text(zelle) for zelle in zeile] for zeile in zeilen],
+            "zeilen": fertige,
             "gesamt": gesamt,
             "art": art,
         }

@@ -970,3 +970,32 @@ def test_uml_typen_werden_zu_python_typen() -> None:
     assert "def gesperrt(self, grund: str) -> bool:" in code
     assert "importiert werden: Person" in code
     _gueltig(code)
+
+
+def test_kommentar_mit_drei_anfuehrungszeichen_am_ende_bleibt_uebersetzbar() -> None:
+    """Punkt 582: ein Kommentar, der auf drei Anführungszeichen endet,
+    ergab einen Docstring mit doppeltem Rückstrich und damit einen
+    Syntaxfehler."""
+    code = klasse_als_python(_klasse(comment='Sagt """'), _diagramm())
+    _gueltig(code)
+
+
+@pytest.mark.parametrize("fall", ["kreis", "doppelt"])
+def test_kreis_und_doppelter_name_werden_gemeldet(fall: str) -> None:
+    """Punkt 582: ein Vererbungskreis ergab `class B(A)` vor `class A`
+    und `NameError`, zwei gleichnamige Klassen ersetzten sich still."""
+    from ide.diagramm.klassen_code import ungueltige_namen
+
+    a = _klasse("A", id="s1")
+    b = _klasse("B" if fall == "kreis" else "A", id="s2")
+    verbindungen = (
+        [
+            {"id": "c1", "kind": "generalization", "from": "s1", "to": "s2"},
+            {"id": "c2", "kind": "generalization", "from": "s2", "to": "s1"},
+        ]
+        if fall == "kreis" else []
+    )
+    meldungen = ungueltige_namen(_diagramm(a, b, verbindungen=verbindungen))
+
+    erwartet = "von sich selbst" if fall == "kreis" else "2-mal vor"
+    assert any(erwartet in m for m in meldungen), meldungen

@@ -91,6 +91,19 @@ def _spaltenliste(spalten: list[Any]) -> str:
     return ", ".join(str(spalte) for spalte in spalten)
 
 
+def _kodierung(datei: Path) -> str:
+    """UTF-8 (auch mit Markierung am Anfang) oder, wenn die Datei das
+    nicht ist, cp1252 - wie `Strings.load_from_file`. Eine deutsche
+    Tabellenkalkulation speichert „CSV (Trennzeichen-getrennt)“ in
+    cp1252, und `load_csv` endete damit in einem `UnicodeDecodeError`
+    (Punkt 572)."""
+    try:
+        datei.read_bytes().decode("utf-8")
+    except UnicodeDecodeError:
+        return "cp1252"
+    return "utf-8-sig"
+
+
 def _trennzeichen_erkennen(datei: Path) -> str:
     """Rät das Spaltentrennzeichen aus der Kopfzeile einer CSV-Datei.
 
@@ -101,7 +114,7 @@ def _trennzeichen_erkennen(datei: Path) -> str:
     der Standardbibliothek (im Test aufgefallen). Das häufigste Zeichen
     der Kopfzeile genügt; ohne Treffer bleibt es beim Komma.
     """
-    with datei.open(encoding="utf-8", errors="replace") as strom:
+    with datei.open(encoding=_kodierung(datei), errors="replace") as strom:
         kopfzeile = strom.readline()
     haeufigstes = max((";", "\t", ","), key=kopfzeile.count)
     return haeufigstes if kopfzeile.count(haeufigstes) else ","
@@ -351,7 +364,10 @@ class Chart(Control):
                 "Nachkommastelle beginnt."
             )
         try:
-            daten = pd.read_csv(datei, sep=trennzeichen, decimal=decimal or ".")
+            daten = pd.read_csv(
+                datei, sep=trennzeichen, decimal=decimal or ".",
+                encoding=_kodierung(datei),
+            )
         except pd.errors.EmptyDataError as fehler:
             raise NatterDatenError(f"Die Datei „{pfad}“ enthält keine Daten.") from fehler
         except pd.errors.ParserError as fehler:
@@ -459,9 +475,17 @@ class Chart(Control):
         titel = str(self._y_spalte)
         x_werte = self._dataframe[self._x_spalte]
         y_werte = _als_zahlen(self._dataframe[self._y_spalte], self._y_spalte, self._quelle)
+        art = self.kind
+        if art in ("line", "scatter"):
+            # Auf einer Zahlenachse gehören Zahlen: „0,5“ blieb sonst
+            # Text, die Punkte standen in gleichem Abstand als
+            # Kategorien, und add_regression() scheiterte (Punkt 576).
+            try:
+                x_werte = _als_zahlen(x_werte, self._x_spalte, self._quelle)
+            except NatterDatenError:
+                pass
 
         self._leeren()
-        art = self.kind
         if art == "line":
             self.add_line_series(x_werte, y_werte, title=titel)
         elif art == "pie":

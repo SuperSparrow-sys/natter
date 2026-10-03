@@ -115,11 +115,15 @@ class Strings:
         _zeile_pruefen(text, "Strings.count erwartet")
         return self._zeilen.count(text)
 
-    def pop(self, index: int = -1) -> str:
+    def pop(self, index: int | None = None) -> str:
         """Entfernt eine Zeile, ohne Angabe die letzte, und gibt sie
         zurück."""
         if not self._zeilen:
             raise IndexError("Die Liste ist leer.")
+        if index is None:
+            index = -1
+        else:
+            self._negativ_pruefen(index)
         try:
             zeile = self._zeilen.pop(index)
         except IndexError:
@@ -228,20 +232,29 @@ gelb"`` in acht einzelne Einträge – einen
     def __getitem__(self, index: int) -> str:
         if isinstance(index, slice):
             return self._zeilen[index]
-        if self._auswahlliste and isinstance(index, int) and index < 0:
-            if index == -1:
-                raise NatterEintragError(
-                    "Einen Eintrag -1 gibt es nicht. item_index ist -1, "
-                    "solange in der Liste nichts ausgewählt ist."
-                )
-            raise NatterEintragError(
-                f"Einen Eintrag {index} gibt es nicht. Die Einträge "
-                "zählen ab 0."
-            )
+        self._negativ_pruefen(index)
         try:
             return self._zeilen[index]
         except IndexError:
             raise NatterEintragError(self._ausserhalb(index)) from None
+
+    def _negativ_pruefen(self, index: object) -> None:
+        """In einer Auswahlliste gibt es keine negativen Nummern: -1 ist
+        dort `item_index` ohne Auswahl. Geprüft beim Lesen, Schreiben,
+        Löschen und `pop`; bis 0.4.3 nur beim Lesen, und ein Knopf
+        „Eintrag löschen“ ohne Auswahl löschte still den letzten
+        (Punkt 571)."""
+        if not (self._auswahlliste and isinstance(index, int) and index < 0):
+            return
+        if index == -1:
+            raise NatterEintragError(
+                "Einen Eintrag -1 gibt es nicht. item_index ist -1, "
+                "solange in der Liste nichts ausgewählt ist."
+            )
+        raise NatterEintragError(
+            f"Einen Eintrag {index} gibt es nicht. Die Einträge "
+            "zählen ab 0."
+        )
 
     def _ausserhalb(self, index: int) -> str:
         anzahl = len(self._zeilen)
@@ -262,11 +275,20 @@ gelb"`` in acht einzelne Einträge – einen
                 _zeile_pruefen(zeile, "Strings erwartet je Zeile")
         else:
             _zeile_pruefen(wert, "Strings erwartet je Zeile")
-        self._zeilen[index] = wert
+            self._negativ_pruefen(index)
+        try:
+            self._zeilen[index] = wert
+        except IndexError:
+            raise NatterEintragError(self._ausserhalb(index)) from None
         self._aendern()
 
-    def __delitem__(self, index: int) -> None:
-        del self._zeilen[index]
+    def __delitem__(self, index: int | slice) -> None:
+        if not isinstance(index, slice):
+            self._negativ_pruefen(index)
+        try:
+            del self._zeilen[index]
+        except IndexError:
+            raise NatterEintragError(self._ausserhalb(index)) from None
         self._aendern()
 
     def __iter__(self) -> Iterator[str]:

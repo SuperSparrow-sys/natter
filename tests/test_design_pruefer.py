@@ -479,3 +479,15 @@ def test_lesereihenfolge_nach_abstand_nicht_nach_rastergrenze(
                  ("unten", 0, 90)]
     geordnet = lesereihenfolge(eintraege, lambda e: (e[1], e[2]))
     assert [e[0] for e in geordnet] == ["links", "rechts", "unten"]
+
+
+@pytest.mark.parametrize(
+    ("farbe", "zu_schwach"),
+    [("red", True), ("#abc", True), ("#80ff0000", True), ("keine farbe", False)],
+)
+def test_kontrast_auch_fuer_farbnamen_und_kurzes_hex(farbe: str, zu_schwach: bool) -> None:
+    """Punkt 567: „red“ und „#abc“ ließen die Prüfung abbrechen, und
+    „#80ff0000“ wurde als RGB 80ff00 gelesen. Jetzt läuft sie durch;
+    eine feste Farbe hat nie zu beiden Textfarben genug Kontrast (siehe
+    `test_lesbarkeit_kontrast`), ein Wert ohne Farbe wird übergangen."""
+    assert ("lesbarkeit.kontrast" in _regeln(_pfm([], farbe=farbe))) is zu_schwach

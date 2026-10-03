@@ -64,6 +64,7 @@ from ide.diagramm.export import (
     als_svg,
     auf_seite_zeichnen,
     in_zwischenablage,
+    pdf_passt_auf_seite,
     seitenformat,
 )
 from ide.diagramm.exportdialog import PngDialog, PngEinstellungen
@@ -1524,13 +1525,27 @@ class DiagrammFenster(QMainWindow):
                     return None
                 png = dialog.einstellungen()
             png = png or PngEinstellungen()
-            als_png(self.diagramm.daten, pfad, png.skalierung, png.transparent)
-        elif endung == ".svg":
-            als_svg(self.diagramm.daten, pfad)
-        else:
-            als_pdf(self.diagramm.daten, pfad)
+        zusatz = ""
+        try:
+            if endung == ".png":
+                als_png(self.diagramm.daten, pfad, png.skalierung, png.transparent)
+            elif endung == ".svg":
+                als_svg(self.diagramm.daten, pfad)
+            else:
+                if not pdf_passt_auf_seite(self.diagramm.daten):
+                    zusatz = " - verkleinert, damit alles auf die Seite passt"
+                als_pdf(self.diagramm.daten, pfad)
+        except OSError as fehler:
+            # Ein schreibgeschützter oder fehlender Ordner endete bei PNG
+            # in der allgemeinen Fehlermeldung, bei SVG und PDF in
+            # „Exportiert nach …“ ohne Datei (Punkt 569).
+            self.statusBar().showMessage(
+                f"Der Export ist gescheitert: {fehler.strerror or fehler}. "
+                "Einen anderen Ordner wählen, etwa den des eigenen Projekts."
+            )
+            return None
 
-        self.statusBar().showMessage(f"Exportiert nach {pfad.name}", 3000)
+        self.statusBar().showMessage(f"Exportiert nach {pfad.name}{zusatz}", 5000)
         return pfad
 
     def seite_einrichten(self, seite: dict[str, str] | None = None) -> bool:

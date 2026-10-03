@@ -64,9 +64,18 @@ class HtmlViewer(Control):
             raise NatterPropertyError(
                 f"HtmlViewer.load_from_file: die Datei {pfad!r} gibt es nicht."
             )
+        # UTF-8, sonst cp1252 wie `Strings.load_from_file` (Punkt 572).
+        roh = datei.read_bytes()
+        try:
+            text = roh.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            text = roh.decode("cp1252", errors="replace")
+        # Bilder mit relativem Pfad gelten ab dem Ordner der Seite, nicht
+        # ab dem Arbeitsordner des Programms (Punkt 589).
+        self._qwidget.setSearchPaths([str(datei.resolve().parent)])
         # Über die Prop, damit `html` danach auch wirklich den Inhalt
         # führt - sonst stünde dort weiter der alte Text.
-        self.html = datei.read_text(encoding="utf-8")
+        self.html = text
 
     def clear(self) -> None:
         """Leert die Anzeige."""

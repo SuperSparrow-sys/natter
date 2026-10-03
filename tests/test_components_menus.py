@@ -469,3 +469,20 @@ def test_ein_umschalter_laesst_sich_ankreuzen_und_der_handler_liest_es() -> None
     assert formular.gelesen == [True, False]
     formular.mm.aktualisieren()
     assert not formular._menueleiste.actions()[0].isChecked()
+
+
+def test_die_leiste_folgt_dem_fenster_beim_ziehen_und_maximieren(qtbot) -> None:
+    """Punkt 578: nach dem Ziehen am Rand oder dem Maximieren blieb die
+    Leiste so breit wie im Designer."""
+    formular = _Formular()
+    formular.show()
+    qtbot.waitExposed(formular._qwidget)
+
+    formular._qwidget.resize(800, 500)
+    qtbot.waitUntil(lambda: formular._menueleiste.width() == 800, timeout=2000)
+
+    formular._qwidget.showMaximized()
+    qtbot.waitUntil(
+        lambda: formular._menueleiste.width() == formular._qwidget.width(),
+        timeout=2000,
+    )

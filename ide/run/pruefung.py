@@ -273,7 +273,7 @@ def projekt_pruefen(projekt: Projekt) -> list[RuffFund]:
     """Prüft das Projekt vor dem Start. Leere Liste bei sauberem
     Projekt.
 
-    Zuerst `ruff check` gegen den Projektordner, dann zwei Prüfungen,
+    Zuerst `ruff check` gegen die Dateien der obersten Ebene, dann zwei Prüfungen,
     die Ruff nicht kennt, weil sie mehr als eine Datei betreffen: ob
     jeder Name, den eine Unit aus einer anderen importiert, dort auch
     steht (`_importe_pruefen`), und ob jede Methode, die ein Formular
@@ -319,6 +319,16 @@ def _ruff_pruefen(projekt: Projekt) -> list[RuffFund]:
 
 
 def _ruff_aufrufen(projekt: Projekt) -> subprocess.CompletedProcess[str]:
+    # Nur die Dateien der obersten Ebene: aus ihnen besteht das
+    # Programm, und nur sie zeigt der Projekt-Explorer. Mit dem ganzen
+    # Ordner hielt eine alte Fassung in `alt/versuch1.py` mit einem
+    # Syntaxfehler den Start auf, und die Meldung nannte nur
+    # „versuch1.py“ (Punkt 575).
+    dateien = sorted(
+        str(pfad) for pfad in projekt.ordner.glob("*.py") if pfad.is_file()
+    )
+    if not dateien:
+        return subprocess.CompletedProcess([], 0, stdout="", stderr="")
     return subprocess.run(
         [
             *ruff_befehl(),
@@ -331,7 +341,7 @@ def _ruff_aufrufen(projekt: Projekt) -> subprocess.CompletedProcess[str]:
             "--no-cache",
             f"--select={_AUSGEWAEHLTE_REGELN}",
             "--output-format=json",
-            str(projekt.ordner),
+            *dateien,
         ],
         # Ruff schreibt UTF-8. Ohne Angabe läse Python das Rohr als
         # cp1252, und aus einem Ordner „Übung“ würde „Ãœbung“ - ein

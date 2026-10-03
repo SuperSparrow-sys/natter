@@ -144,6 +144,10 @@ def als_python(daten: dict[str, Any], block: dict[str, Any] | None = None) -> Er
     # mitbringt. Im ganzen Struktogramm steht dagegen fest, was eine
     # Schleife ist und was nicht.
     schreiber = _Schreiber(in_schleife=block is not None)
+    wurzel = block if block is not None else (daten.get("root") or {})
+    schreiber.zahlnamen = _als_zahl_benutzt(wurzel)
+    schreiber.ganzzahlnamen = _als_ganzzahl_benutzt(wurzel)
+    schreiber.zugewiesen = _zugewiesene_namen(wurzel)
     if block is not None:
         schreiber.folge(_bloecke_von(block), 0)
         if not schreiber.anweisungen:
@@ -199,6 +203,14 @@ class _Schreiber:
         #: Übersetzen des Ganzen an einer davon, wird sie nachträglich
         #: zum Kommentar.
         self.uebernommen: list[tuple[int, int, int]] = []
+        #: Namen, die im Struktogramm wie Zahlen benutzt werden; ihre
+        #: Eingabe wird zur Zahl (Punkt 579).
+        self.zahlnamen: set[str] = set()
+        #: ... und die als Grenze einer Zählschleife ganze Zahlen sein
+        #: müssen.
+        self.ganzzahlnamen: set[str] = set()
+        #: Namen, die im Struktogramm einen Wert bekommen (Punkt 581).
+        self.zugewiesen: set[str] = set()
 
     def uebersetzbar_machen(self) -> None:
         """Übersetzt das Ergebnis und macht jede übernommene
@@ -347,7 +359,10 @@ class _Schreiber:
             _EIN_AUSGABE.match(text) if "\n" not in text.strip() else None
         )
         if ein_aus is not None:
-            text = _ein_ausgabe_als_python(ein_aus) or text
+            text = (
+                _ein_ausgabe_als_python(ein_aus, self.zahlnamen, self.ganzzahlnamen)
+                or text
+            )
         # „zahl ← zahl - 1“ und „zahl := zahl - 1“ werden zu
         # `zahl = zahl - 1` (Punkt 481). Als Kommentar übernommen lief
         # ein Countdown sonst endlos.
@@ -413,7 +428,7 @@ class _Schreiber:
             self.koerper(block["else"], tiefe + 1)
 
     def _zaehlschleife(self, block: dict[str, Any], tiefe: int) -> None:
-        kopf = _zaehlkopf(block.get("text", ""))
+        kopf = _zaehlkopf(block.get("text", ""), "n" in self.zugewiesen)
         if kopf is not None:
             self.zeile(f"for {kopf}:", tiefe)
         else:
@@ -476,6 +491,15 @@ class _Schreiber:
         faelle = block.get("cases") or []
         if not faelle:
             return
+        # Ein „sonst“-Fall gilt, wo er auch steht; im Code kommt er
+        # ans Ende. In der Mitte entstand sonst `elif x == sonst:`
+        # (Punkt 581).
+        sonst = [
+            f for f in faelle
+            if _einzeilig(str(f.get("label", ""))).lower() in SONST
+        ]
+        if sonst:
+            faelle = [f for f in faelle if f is not sonst[0]] + [sonst[0]]
         ausdruck = _einzeilig(block.get("text", ""))
         etiketten = [_einzeilig(str(fall.get("label", ""))) for fall in faelle]
         muster = [
@@ -554,6 +578,10 @@ class _Schreiber:
         gleich = _gleichheit(etikett)
         if gleich is not None:
             return gleich
+        if etikett.startswith("=") and not etikett.startswith("=="):
+            # „= 0“ unter dem Kopf „x“ heißt `x == 0`; der Fall ging
+            # sonst verloren (Punkt 581).
+            etikett = "==" + etikett[1:]
         if etikett.startswith(_VERGLEICHSANFAENGE):
             fortgesetzt = f"{ausdruck} {etikett}"
             if gueltig and _ist_ausdruck(fortgesetzt):
@@ -581,18 +609,98 @@ def _einzeilig(roh: Any) -> str:
     return " ".join(str(roh or "").split())
 
 
-def _ein_ausgabe_als_python(treffer: re.Match[str]) -> str | None:
+def _ein_ausgabe_als_python(
+    treffer: re.Match[str],
+    zahlnamen: set[str] | None = None,
+    ganzzahlnamen: set[str] | None = None,
+) -> str | None:
     """„Eingabe: zahl“ als `zahl = input("zahl? ")`, „Ausgabe: zahl“
     als `print(zahl)` - oder `None`, wenn hinter dem Doppelpunkt kein
-    Name bzw. kein Ausdruck steht."""
+    Name bzw. kein Ausdruck steht.
+
+    Wird der Name anderswo im Struktogramm wie eine Zahl benutzt
+    (`zahl > 0`, `zahl * 2`), wird die Eingabe zur Kommazahl, auch mit
+    deutschem Komma. Aus „Eingabe: zahl“ und „zahl > 0?“ entstand
+    sonst Code, der beim Vergleich mit `TypeError` abbrach
+    (Punkt 579)."""
     rest = treffer.group("rest")
     if treffer.group("art").lower() == "eingabe":
         if not rest.isidentifier() or keyword.iskeyword(rest):
             return None
+        if ganzzahlnamen and rest in ganzzahlnamen:
+            return f'{rest} = int(input("{rest}? "))'
+        if zahlnamen and rest in zahlnamen:
+            return f'{rest} = float(input("{rest}? ").replace(",", "."))'
         return f'{rest} = input("{rest}? ")'
     if not _ist_ausdruck(rest):
         return None
     return f"print({rest})"
+
+
+def _texte(knoten: Any) -> Iterator[str]:
+    """Alle Beschriftungen unter `knoten`, gleich in welchem Feld."""
+    if isinstance(knoten, dict):
+        for wert in knoten.values():
+            yield from _texte(wert)
+    elif isinstance(knoten, list):
+        for wert in knoten:
+            yield from _texte(wert)
+    elif isinstance(knoten, str):
+        yield knoten
+
+
+_NAME = re.compile(r"[A-Za-z_ÄÖÜäöüß][\wÄÖÜäöüß]*")
+
+
+def _zugewiesene_namen(wurzel: dict[str, Any]) -> set[str]:
+    """Die Namen hinter „Eingabe:“ und vor einer Zuweisung."""
+    namen = set()
+    for text in _texte(wurzel):
+        for zeile in text.splitlines():
+            treffer = re.match(
+                r"\s*(?:eingabe\s*:\s*(\w+)|(\w+)\s*(?:=(?!=)|←|:=))",
+                zeile,
+                re.IGNORECASE,
+            )
+            if treffer:
+                namen.add(treffer.group(1) or treffer.group(2))
+    return namen
+
+
+def _als_ganzzahl_benutzt(wurzel: dict[str, Any]) -> set[str]:
+    """Die Namen, die als Grenze einer Zählschleife stehen („für i von
+    1 bis n“). `range` braucht ganze Zahlen."""
+    texte = list(_texte(wurzel))
+    namen = {name for text in texte for name in _NAME.findall(text)}
+    return {
+        name
+        for name in namen
+        if any(
+            re.search(
+                rf"\b(?:von|bis|schrittweite|range\()\s*{re.escape(name)}\b",
+                text,
+                re.IGNORECASE,
+            )
+            for text in texte
+        )
+    }
+
+
+def _als_zahl_benutzt(wurzel: dict[str, Any]) -> set[str]:
+    """Die Namen, die neben einem Vergleich oder einer Rechnung stehen.
+    Ein `+` zählt nicht: es verbindet auch Texte."""
+    texte = list(_texte(wurzel))
+    namen = {name for text in texte for name in _NAME.findall(text)}
+    gefunden = set()
+    for name in namen:
+        n = re.escape(name)
+        muster = re.compile(
+            rf"(?<![\w.]){n}\s*(?:[<>]=?|[-*/%]|==\s*-?\d)"
+            rf"|(?:[<>]=?|[-*/%]|\d\s*==)\s*{n}(?![\w(])"
+        )
+        if any(muster.search(text) for text in texte):
+            gefunden.add(name)
+    return gefunden
 
 
 def _nur_annotation(quelltext: str) -> bool:
@@ -750,7 +858,7 @@ def _alternativen(etikett: str) -> list[str]:
     return [str(w) for w in werte]
 
 
-def _zaehlkopf(roh: Any) -> str | None:
+def _zaehlkopf(roh: Any, n_bekannt: bool = False) -> str | None:
     """Was in einer Zählschleife hinter `for` steht, oder `None`, wenn
     der Text keine Schleife ergibt.
 
@@ -759,9 +867,11 @@ def _zaehlkopf(roh: Any) -> str | None:
     10 + 1)`, denn im Struktogramm zählt die Schleife bis
     einschließlich 10. Der unveränderte Vorgabetext „für i von 1 bis
     n“ bleibt Platzhalter: `n` gibt es im Programm meist nicht, und
-    der Aufruf bräche mit `NameError` ab (Punkt 284)."""
+    der Aufruf bräche mit `NameError` ab (Punkt 284) - es sei denn,
+    `n` bekommt im Struktogramm einen Wert, etwa über „Eingabe: n“
+    (Punkt 581)."""
     text = _einzeilig(roh)
-    if not text or text == STANDARDTEXTE["count_loop"]:
+    if not text or (text == STANDARDTEXTE["count_loop"] and not n_bekannt):
         return None
     treffer = _FUER.match(text)
     rest = treffer.group("rest") if treffer else text
@@ -793,7 +903,9 @@ def _von_bis(text: str) -> str | None:
         # bei „von 1 bis n“ steht erst zur Laufzeit fest, was größer ist.
         if anfang > ende:
             schritt = "-1"
-    abwaerts = schritt.startswith("-")
+    # „(-1)“ ist ebenso abwärts wie „-1“ (Punkt 581).
+    wert = _ganze_zahl(schritt) if schritt else None
+    abwaerts = schritt.lstrip("( ").startswith("-") or (wert is not None and wert < 0)
     grenze = f"{_als_summand(bis)} {'-' if abwaerts else '+'} 1"
     argumente = [von, grenze] + ([schritt] if schritt else [])
     return f"{name} in range({', '.join(argumente)})"

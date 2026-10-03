@@ -114,3 +114,55 @@ def test_none_heisst_kein_wert(formular) -> None:
 
     assert "kein Wert (None)" in str(info.value)
     assert "ohne return" in str(info.value)
+
+
+@pytest.mark.parametrize(
+    "weg",
+    [
+        lambda lb: lb.items.__delitem__(lb.item_index),
+        lambda lb: lb.items.__setitem__(lb.item_index, "X"),
+        lambda lb: lb.items.pop(lb.item_index),
+    ],
+    ids=["del", "zuweisen", "pop"],
+)
+def test_ohne_auswahl_wird_auch_nichts_geaendert(formular, weg) -> None:
+    """Punkt 571: Löschen, Überschreiben und `pop` über `item_index`
+    trafen ohne Auswahl still den letzten Eintrag."""
+    lb = ListBox(formular)
+    _AM_LEBEN.append(lb)
+    lb.items = ["a", "b", "c"]
+    lb.item_index = -1
+
+    with pytest.raises(IndexError, match="nichts ausgewählt"):
+        weg(lb)
+    assert list(lb.items) == ["a", "b", "c"]
+    with pytest.raises(IndexError, match="Einen Eintrag 10 gibt es nicht"):
+        del lb.items[10]
+
+
+def test_radiogroup_meldet_auswahl_aus_dem_code(formular) -> None:
+    """Punkt 583: `item_index = 1` und kürzere `items` lösten kein
+    `on_change` aus, nur ein Klick."""
+    rg = RadioGroup(formular)
+    _AM_LEBEN.append(rg)
+    gemeldet: list[int] = []
+    rg.on_change = lambda sender: gemeldet.append(sender.item_index)
+    rg.items = ["a", "b", "c"]
+
+    rg.item_index = 1
+    rg.items = ["a"]
+
+    assert gemeldet == [1, -1]
+
+
+@pytest.mark.parametrize("typ", [ComboBox, ListBox])
+def test_kuerzere_items_heben_die_auswahl_auf(formular, typ) -> None:
+    """Punkt 584: die ComboBox sprang auf Eintrag 0, die ListBox auf -1."""
+    k = typ(formular)
+    _AM_LEBEN.append(k)
+    k.items = ["a", "b", "c"]
+    k.item_index = 2
+
+    k.items = ["a"]
+
+    assert k.item_index == -1

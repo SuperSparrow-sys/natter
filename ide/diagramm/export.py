@@ -246,6 +246,23 @@ def in_zwischenablage(daten: dict[str, Any]) -> QImage:
     return bild
 
 
+def _maler_auf(geraet: Any, pfad: Path | None) -> QPainter:
+    """Ein Maler auf `geraet`, oder `OSError`, wenn sich die Datei
+    nicht anlegen lässt. `QSvgGenerator` und `QPdfWriter` scheitern
+    still: der Maler bleibt inaktiv, und bis 0.4.3 meldete der Export
+    „Exportiert nach …“ ohne Datei (Punkt 569)."""
+    maler = QPainter(geraet)
+    if not maler.isActive():
+        ziel = pfad.name if pfad is not None else "das Ziel"
+        raise OSError(f"„{ziel}“ lässt sich nicht anlegen")
+    return maler
+
+
+def _geschrieben_pruefen(pfad: Path) -> None:
+    if not pfad.is_file():
+        raise OSError(f"„{pfad.name}“ wurde nicht geschrieben")
+
+
 # -- SVG -----------------------------------------------------------------
 
 
@@ -265,7 +282,7 @@ def _svg_schreiben(
     erzeuger.setTitle(str(daten.get("name") or (pfad.stem if pfad else "Diagramm")))
     erzeuger.setDescription("Erstellt mit dem Diagramm-Editor von Natter")
 
-    maler = QPainter(erzeuger)
+    maler = _maler_auf(erzeuger, pfad)
     maler.fillRect(QRectF(0, 0, bereich.width(), bereich.height()), _hintergrund(daten))
     maler.translate(-bereich.left(), -bereich.top())
     diagramm_zeichnen(maler, daten)
@@ -277,6 +294,7 @@ def als_svg(daten: dict[str, Any], pfad: Path) -> Path:
     weiterverwendbar."""
     pfad = Path(pfad)
     _svg_schreiben(daten, pfad=pfad)
+    _geschrieben_pruefen(pfad)
     return pfad
 
 
@@ -295,9 +313,26 @@ def seitenformat(daten: dict[str, Any]) -> tuple[QPageSize, bool]:
     return QPageSize(groesse), seite.get("orientation") == "landscape"
 
 
+def pdf_passt_auf_seite(daten: dict[str, Any]) -> bool:
+    """Ob das Diagramm in Originalgröße auf eine Seite seines Formats
+    passt. Sonst verkleinert `als_pdf` es auf die Seite."""
+    breite, hoehe = seitengroesse(daten.get("page") or {})
+    bereich = inhaltsbereich(daten)
+    links, oben = _seitenversatz(daten)
+    return (
+        bereich.right() + links <= breite + 0.5
+        and bereich.bottom() + oben <= hoehe + 0.5
+    )
+
+
 def als_pdf(daten: dict[str, Any], pfad: Path) -> Path:
     """Seitengetreues PDF – das Format aus der `.pdiag`, nicht der
-    Inhaltsbereich. Das ist die Abgabeform aus dem Abnahmekriterium."""
+    Inhaltsbereich. Das ist die Abgabeform aus dem Abnahmekriterium.
+
+    Passt das Diagramm nicht auf die Seite, wird es wie beim Druck
+    darauf verkleinert. Bis 0.4.3 fehlte alles jenseits des
+    Seitenrands, bei einem langen Struktogramm etwa die zweite Hälfte
+    (Punkt 568)."""
     pfad = Path(pfad)
     schreiber = QPdfWriter(str(pfad))
     blatt, quer = seitenformat(daten)
@@ -312,11 +347,17 @@ def als_pdf(daten: dict[str, Any], pfad: Path) -> Path:
     schreiber.setPageMargins(QMarginsF(0, 0, 0, 0))
     schreiber.setTitle(str(daten.get("name") or pfad.stem))
 
-    maler = QPainter(schreiber)
-    links, oben = _seitenversatz(daten)
-    maler.translate(links, oben)
-    diagramm_zeichnen(maler, daten)
+    maler = _maler_auf(schreiber, pfad)
+    if pdf_passt_auf_seite(daten):
+        links, oben = _seitenversatz(daten)
+        maler.translate(links, oben)
+        diagramm_zeichnen(maler, daten)
+    else:
+        links, oben, breite, hoehe = satzspiegel(daten.get("page") or {})
+        maler.translate(links, oben)
+        auf_seite_zeichnen(maler, daten, breite, hoehe)
     maler.end()
+    _geschrieben_pruefen(pfad)
     return pfad
 
 

@@ -293,7 +293,16 @@ class Form(Komponente):
         Nur solange das Fenster zu sehen ist. Beim ersten Zeigen
         schickt Qt die Größe, die das Programm selbst gesetzt hat;
         die Menüleiste kann da ihre endgültige Höhe noch nicht haben.
+
+        Die Menüleiste folgt der Breite in jedem Fall. Bis 0.4.3 tat
+        sie das nur bei `self.width = …` im Code; nach dem Ziehen am
+        Rand oder dem Maximieren endete sie mitten im Fenster
+        (Punkt 578).
         """
+        if self._menueleiste is not None:
+            self._menueleiste.resize(
+                self._qwidget.width(), self._menueleiste.height()
+            )
         if not self._ist_fenster() or not self._qwidget.isVisible():
             return
         self.__dict__["_prop_width"] = self._qwidget.width()

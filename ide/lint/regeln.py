@@ -410,9 +410,17 @@ def _kanten_pruefen(kinder: list[dict[str, Any]]) -> list[Befund]:
     return befunde
 
 
-def _relative_luminanz(hex_farbe: str) -> float:
-    hex_farbe = hex_farbe.lstrip("#")
-    werte = (int(hex_farbe[i : i + 2], 16) / 255 for i in (0, 2, 4))
+def _relative_luminanz(farbe: str) -> float | None:
+    """Die relative Helligkeit, oder `None`, wenn `farbe` keine Farbe
+    ist. Gelesen über `QColor` wie im Objektinspektor: Namen wie „red“,
+    drei-, sechs- und achtstelliges Hex. Bis 0.4.3 setzte die Prüfung
+    sechsstelliges Hex voraus und brach bei „red“ ab (Punkt 567)."""
+    from PySide6.QtGui import QColor
+
+    qfarbe = QColor(farbe)
+    if not qfarbe.isValid():
+        return None
+    werte = (qfarbe.redF(), qfarbe.greenF(), qfarbe.blueF())
 
     def kanal(c: float) -> float:
         return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
@@ -421,8 +429,10 @@ def _relative_luminanz(hex_farbe: str) -> float:
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
 
-def _kontrastverhaeltnis(farbe1: str, farbe2: str) -> float:
+def _kontrastverhaeltnis(farbe1: str, farbe2: str) -> float | None:
     l1, l2 = _relative_luminanz(farbe1), _relative_luminanz(farbe2)
+    if l1 is None or l2 is None:
+        return None
     heller, dunkler = max(l1, l2), min(l1, l2)
     return (heller + 0.05) / (dunkler + 0.05)
 
@@ -436,6 +446,8 @@ def _lesbarkeit_pruefen(pfm: dict[str, Any]) -> list[Befund]:
         name = kind.get("name")
         for theme in ("light", "dark"):
             verhaeltnis = _kontrastverhaeltnis(farbe, _THEME_TEXTFARBEN[theme])
+            if verhaeltnis is None:
+                break
             if verhaeltnis < _KONTRAST_MINDESTVERHAELTNIS:
                 ziel = name or "Das Formular"
                 # Dezimalkomma wie überall in der Oberfläche - der

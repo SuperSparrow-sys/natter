@@ -328,3 +328,32 @@ def test_haltepunkt_wandert_mit_seiner_zeile(qtbot) -> None:  # noqa: ANN001
     assert feld.breakpoints == {1}
     assert feld.bedingungen == {1: "a > 0"}
 
+
+
+def test_haltepunkt_wandert_bei_rueckgaengig_und_wiederholen_mit(qtbot) -> None:  # noqa: ANN001
+    """Punkt 580: nach Strg+Z auf Alt+Pfeil stand der Haltepunkt auf
+    „b = 2“ statt auf „a = 1“."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    feld = QuelltextEditor()
+    qtbot.addWidget(feld)
+    feld.setPlainText("a = 1\nb = 2\nc = 3\n")
+    feld.breakpoints = {1}
+    _cursor_auf(feld, 1)
+
+    feld.zeile_verschieben(True)
+    assert feld.breakpoints == {2}
+    QTest.keyClick(feld, Qt.Key.Key_Z, Qt.KeyboardModifier.ControlModifier)
+    assert feld.toPlainText().startswith("a = 1")
+    assert feld.breakpoints == {1}
+    QTest.keyClick(feld, Qt.Key.Key_Y, Qt.KeyboardModifier.ControlModifier)
+    assert feld.toPlainText().startswith("b = 2")
+    assert feld.breakpoints == {2}
+
+    # Ein neuer Schritt nach dem Rückgängigmachen nimmt die gemerkte
+    # Umstellung nicht mehr mit.
+    feld.undo()
+    feld.insertPlainText("x")
+    feld.undo()
+    assert feld.breakpoints == {1}

@@ -560,3 +560,59 @@ def test_eine_vorlagenklasse_zeigt_ihre_parameter(daten: dict) -> None:
 
     assert nachher != vorher
     assert nachher.size() == vorher.size()
+
+
+def test_ein_ueberlanges_struktogramm_kommt_verkleinert_ganz_ins_pdf(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Punkt 568: ab der 38. Anweisung fehlte alles jenseits der Seite.
+    Jetzt wird wie beim Druck auf die Seite verkleinert."""
+    import ide.diagramm.export as export
+    from ide.diagramm.neu import leeres_diagramm
+
+    daten = leeres_diagramm("struktogramm", "lang")
+    daten["root"]["children"] = [
+        {"id": f"b{i}", "kind": "statement", "text": f"x = {i}"} for i in range(61)
+    ]
+    assert not export.pdf_passt_auf_seite(daten)
+    eingepasst = []
+    echt = export.auf_seite_zeichnen
+    monkeypatch.setattr(
+        export, "auf_seite_zeichnen",
+        lambda maler, d, b, h, **k: (eingepasst.append((b, h)), echt(maler, d, b, h, **k)),
+    )
+
+    pfad = als_pdf(daten, tmp_path / "lang.pdf")
+
+    assert pfad.stat().st_size > 0
+    breite, hoehe = seitengroesse(daten["page"])
+    assert eingepasst and eingepasst[0][1] < hoehe
+
+
+@pytest.mark.parametrize("endung", [".png", ".svg", ".pdf"])
+def test_export_in_ein_unbeschreibbares_ziel_meldet_das(
+    fenster: DiagrammFenster, tmp_path: Path, endung: str
+) -> None:
+    """Punkt 569: bei SVG und PDF hieß es „Exportiert nach …“ ohne
+    Datei, bei PNG kam die allgemeine Fehlermeldung."""
+    sperre = tmp_path / "keinordner.txt"
+    sperre.write_text("x", encoding="utf-8")
+
+    assert fenster.exportieren(sperre / f"ausgabe{endung}") is None
+    assert "Export ist gescheitert" in fenster.statusBar().currentMessage()
+
+
+def test_quelltext_in_ein_unbeschreibbares_ziel_meldet_das(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import ide.diagramm.codefenster as codefenster
+
+    gemeldet = []
+    monkeypatch.setattr(
+        codefenster, "schreibfehler_melden", lambda e, p, f: gemeldet.append(p)
+    )
+    sperre = tmp_path / "keinordner.txt"
+    sperre.write_text("x", encoding="utf-8")
+
+    assert codefenster.in_datei_schreiben("x = 1\n", sperre / "a.py") is None
+    assert gemeldet == [sperre / "a.py"]

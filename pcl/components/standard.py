@@ -632,6 +632,11 @@ class ComboBox(Control):
             widget.addItems(list(self._items))
             if 0 <= vorher < widget.count():
                 widget.setCurrentIndex(vorher)
+            elif vorher >= 0:
+                # Eine Auswahl, die es nicht mehr gibt, wird -1 wie bei
+                # der ListBox; Qt wählte sonst selbst Eintrag 0
+                # (Punkt 584).
+                widget.setCurrentIndex(-1)
         finally:
             widget.blockSignals(False)
         neu = widget.currentIndex()
@@ -898,6 +903,8 @@ class RadioGroup(Control):
         # gelöschte Optionsfeld ein `toggled` aus. Ohne diese Sperre
         # überschriebe das den gerade gesetzten `item_index`.
         self._baut_auf = False
+        #: Die zuletzt mit `on_change` gemeldete Auswahl.
+        self._gemeldet = -1
         super().__init__(parent)
 
     @property
@@ -951,13 +958,21 @@ class RadioGroup(Control):
                 self._optionen[self.item_index].setChecked(True)
         finally:
             self._baut_auf = False
+        self._wechsel_melden()
+
+    def _wechsel_melden(self) -> None:
+        """`on_change`, wenn sich die Auswahl geändert hat - nach einem
+        Klick wie nach `item_index = …` im Code oder kürzeren `items`.
+        Bis 0.4.3 meldete nur der Klick einen Wechsel (Punkt 583)."""
+        if self.item_index == self._gemeldet:
+            return
+        self._gemeldet = self.item_index
+        self._ereignis_ausloesen("on_change")
 
     def _bei_umschalten(self, gewaehlt: bool, index: int) -> None:
         if self._baut_auf or not gewaehlt:
             return
         self.item_index = index
-        if self.on_change is not None:
-            self.on_change(self)
 
     def _bei_prop_aenderung(self, name: str, wert: Any) -> None:
         super()._bei_prop_aenderung(name, wert)
@@ -965,6 +980,7 @@ class RadioGroup(Control):
             self._qwidget.setTitle(wert)
         elif name == "item_index":
             self._auswahl_anwenden(wert)
+            self._wechsel_melden()
 
     def _auswahl_anwenden(self, index: int) -> None:
         self._baut_auf = True

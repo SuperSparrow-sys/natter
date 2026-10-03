@@ -215,6 +215,26 @@ def in_datei_schreiben(
                 return None
             pfad = Path(gewaehlt)
 
-    pfad.parent.mkdir(parents=True, exist_ok=True)
-    atomar_schreiben(pfad, quelltext, encoding="utf-8")
+    try:
+        pfad.parent.mkdir(parents=True, exist_ok=True)
+        atomar_schreiben(pfad, quelltext, encoding="utf-8")
+    except OSError as fehler:
+        # Ein Ziel ohne Schreibrecht endete bis 0.4.3 in der allgemeinen
+        # Fehlermeldung (Punkt 569).
+        schreibfehler_melden(eltern, pfad, fehler)
+        return None
     return pfad
+
+
+def schreibfehler_melden(
+    eltern: QWidget | None, pfad: Path, fehler: OSError
+) -> None:
+    """Meldet, dass sich `pfad` nicht schreiben ließ. Eigene Funktion,
+    damit Tests die Meldung abfangen können."""
+    QMessageBox.warning(
+        eltern,
+        "Speichern nicht möglich",
+        f"{pfad.name} lässt sich nicht schreiben: "
+        f"{fehler.strerror or fehler}.\n\nEinen anderen Ordner wählen, "
+        "etwa den des eigenen Projekts.",
+    )

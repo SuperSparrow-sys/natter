@@ -103,8 +103,12 @@ def _docstring(text: str, tiefe: int) -> list[str]:
         return []
     einzug = EINRUECKUNG * tiefe
     sauber = text.strip().replace("\\", "\\\\").replace('"""', '\\"\\"\\"')
-    if sauber.endswith('"'):
-        sauber = sauber[:-1] + '\\"'
+    # Ein schon maskiertes `\"` am Ende (aus `"""`) bleibt, wie es ist;
+    # maskiert verdoppelte sich sonst der Rückstrich (Punkt 582).
+    ohne_quote = sauber[:-1]
+    rueckstriche = len(ohne_quote) - len(ohne_quote.rstrip("\\"))
+    if sauber.endswith('"') and rueckstriche % 2 == 0:
+        sauber = ohne_quote + '\\"'
     zeilen = sauber.splitlines()
     if len(zeilen) == 1:
         return [f'{einzug}"""{zeilen[0]}"""']
@@ -673,6 +677,7 @@ def ungueltige_namen(
                         "der einen hat. Parameter mit Standardwert gehören "
                         "ans Ende."
                     )
+    meldungen.extend(_doppelte_und_kreise(daten, klassen))
     # Übersetzt wird erst, wenn alle Angaben für sich stimmen. Seit
     # Punkt 149 reicht eine Unterklasse die Parameter ihrer
     # Basisklasse weiter, und ein falscher Name dort erschiene sonst
@@ -683,6 +688,47 @@ def ungueltige_namen(
         fehler = _uebersetzungsfehler(klasse_als_python(klasse, daten))
         if fehler:
             meldungen.append(f"{formname(klasse)}: {fehler}")
+    return meldungen
+
+
+def _doppelte_und_kreise(
+    daten: dict[str, Any], klassen: list[dict[str, Any]]
+) -> list[str]:
+    """Zwei Klassen gleichen Namens und Klassen, die über Vererbung von
+    sich selbst erben. Beides ergab Code ohne Meldung: die zweite
+    Klasse ersetzte still die erste, und bei einem Kreis stand
+    `class B(A)` vor `class A` und endete in `NameError` (Punkt 582).
+    Gemeldet wird nur, was die Klassen in `klassen` betrifft."""
+    alle = [f for f in daten.get("shapes") or [] if ist_klasse(f)]
+    betroffen = {formname(k) for k in klassen}
+    meldungen = []
+    gezaehlt: dict[str, int] = {}
+    for klasse in alle:
+        name = formname(klasse)
+        if name:
+            gezaehlt[name] = gezaehlt.get(name, 0) + 1
+    for name, anzahl in sorted(gezaehlt.items()):
+        if anzahl > 1 and name in betroffen:
+            meldungen.append(
+                f"Die Klasse „{name}“ kommt {anzahl}-mal vor. Im Code "
+                "ersetzte die letzte die übrigen; jede Klasse braucht "
+                "einen eigenen Namen."
+            )
+    basen = {formname(k): set(_basisklassen(daten, k)) for k in alle}
+    for name in sorted(betroffen):
+        gesehen: set[str] = set()
+        offen = list(basen.get(name, ()))
+        while offen:
+            basis = offen.pop()
+            if basis == name:
+                meldungen.append(
+                    f"Die Klasse „{name}“ erbt über ihre Basisklassen von "
+                    "sich selbst. Eine der Vererbungslinien entfernen."
+                )
+                break
+            if basis not in gesehen:
+                gesehen.add(basis)
+                offen.extend(basen.get(basis, ()))
     return meldungen
 
 

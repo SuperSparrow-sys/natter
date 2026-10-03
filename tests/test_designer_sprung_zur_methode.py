@@ -151,3 +151,28 @@ def test_die_erste_methode_ersetzt_das_pass_der_leeren_klasse(
     klasse = text[text.index("class Form1"):]
     assert klasse.splitlines()[1].strip().startswith(f"def {name}(")
     assert not [z for z in text.splitlines() if z and not z.strip()]
+
+
+def test_alle_vier_alt_pfeile_verschieben_im_hauptfenster(
+    tmp_path: Path, hauptfenster_bauen, qtbot
+) -> None:  # noqa: ANN001
+    """Punkt 577: Alt+Links griff als Fensterkürzel „Zurück zur vorigen
+    Stelle“, bevor der Designer die Taste sah."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
+
+    fenster, canvas, knopf, _unit = _neues_projekt(hauptfenster_bauen, tmp_path)
+    fenster.show()
+    fenster.activateWindow()
+    knopf._qwidget.setFocus()
+    qtbot.waitUntil(lambda: QApplication.focusWidget() is knopf._qwidget, timeout=2000)
+    start = (knopf.left, knopf.top)
+    alt = Qt.KeyboardModifier.AltModifier
+
+    lagen = []
+    for taste in (Qt.Key.Key_Left, Qt.Key.Key_Up, Qt.Key.Key_Right, Qt.Key.Key_Down):
+        QTest.keyClick(QApplication.focusWidget(), taste, alt)
+        lagen.append((knopf.left - start[0], knopf.top - start[1]))
+
+    assert lagen == [(-1, 0), (-1, -1), (0, -1), (0, 0)]

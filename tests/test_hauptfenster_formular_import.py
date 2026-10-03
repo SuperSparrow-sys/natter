@@ -232,11 +232,17 @@ def test_import_schreibt_bilder_aus_picture_data_nach_assets(
     (tmp_path / "u_quelle.pas").write_bytes((_REFERENZ / "l_Pet" / "u_main.pas").read_bytes())
     ziel = tmp_path / "u_main.pfm"
     _dialoge_vorbereiten(monkeypatch, tmp_path, quelle=quelle, ziel=ziel)
+    # Punkt 570: ein vorhandenes Bild gleichen Namens bleibt, das
+    # importierte bekommt einen freien Namen.
+    eigenes = tmp_path / "assets" / "u_main_Image1.png"
+    eigenes.parent.mkdir()
+    eigenes.write_bytes(b"eigenes Bild")
     fenster = hauptfenster_bauen()
 
     fenster._formular_importieren_aktion()
 
-    bild = tmp_path / "assets" / "Image1.png"
+    assert eigenes.read_bytes() == b"eigenes Bild"
+    bild = tmp_path / "assets" / "u_main_Image1_2.png"
     assert bild.exists()
     assert bild.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
     # Geprüft wird, dass eine vollständige PNG-Datei herauskommt -
@@ -252,7 +258,7 @@ def test_import_schreibt_bilder_aus_picture_data_nach_assets(
         k["name"]: k["properties"].get("picture") for k in pfm["children"]
         if k["type"] == "Image"
     }
-    assert bilder["Image1"] == "assets/Image1.png"
+    assert bilder["Image1"] == "assets/u_main_Image1_2.png"
     quelltext = (tmp_path / "u_main.py").read_text(encoding="utf-8")
     assert "load_from_file" not in quelltext
     assert "#   meinPet.nameaendern(e_name.text);" in quelltext
@@ -261,7 +267,7 @@ def test_import_schreibt_bilder_aus_picture_data_nach_assets(
     meldungen = [
         fenster.meldungen_liste.item(i).text() for i in range(fenster.meldungen_liste.count())
     ]
-    assert any("assets/Image1.png" in m for m in meldungen)
+    assert any("assets/u_main_Image1_2.png" in m for m in meldungen)
 
 
 def test_importiertes_formular_steht_im_projekt_explorer(

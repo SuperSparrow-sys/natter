@@ -177,3 +177,33 @@ def test_sound_liegt_nicht_auf_dem_formular() -> None:
 
     assert Sound not in ALLE_KOMPONENTEN
     assert not hasattr(Sound, "left")
+
+
+def test_load_from_file_mit_cp1252_und_bild_neben_der_seite(
+    betrachter, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Punkte 572 und 589: eine Seite in cp1252 endete in einem
+    UnicodeDecodeError, und ein Bild mit relativem Pfad wurde ab dem
+    Arbeitsordner gesucht statt ab der Seite."""
+    from PySide6.QtCore import QUrl
+    from PySide6.QtGui import QColor, QImage, QTextDocument
+
+    ordner = tmp_path / "bericht"
+    ordner.mkdir()
+    bild = QImage(4, 4, QImage.Format.Format_RGB32)
+    bild.fill(QColor("red"))
+    bild.save(str(ordner / "b.png"))
+    seite = ordner / "seite.html"
+    seite.write_bytes('<p>Größe</p><img src="b.png">'.encode("cp1252"))
+    anderswo = tmp_path / "anderswo"
+    anderswo.mkdir()
+    monkeypatch.chdir(anderswo)
+
+    betrachter.load_from_file(str(seite))
+
+    assert "Größe" in betrachter._qwidget.toPlainText()
+    geladen = betrachter._qwidget.loadResource(
+        QTextDocument.ResourceType.ImageResource.value, QUrl("b.png")
+    )
+    # Der Browser liefert die Bytes der gefundenen Datei.
+    assert geladen is not None and not QImage.fromData(bytes(geladen)).isNull()

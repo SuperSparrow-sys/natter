@@ -121,3 +121,15 @@ def test_ein_ruff_ohne_antwort_haelt_die_pruefung_nicht_auf(
 
     with pytest.raises(pruefung.PruefungZuLang):
         projekt_pruefen(projekt)
+
+
+def test_eine_fehlerhafte_datei_im_unterordner_haelt_den_start_nicht_auf(
+    tmp_path: Path,
+) -> None:
+    """Punkt 575: `alt/versuch1.py` mit einem Syntaxfehler blockierte
+    den Start, obwohl das Programm sie nicht benutzt."""
+    projekt = _projekt_schreiben(tmp_path, "def f() -> int:\n    return 1\n")
+    (tmp_path / "alt").mkdir()
+    (tmp_path / "alt" / "versuch1.py").write_text("def f(:\n", encoding="utf-8")
+
+    assert projekt_pruefen(projekt) == []

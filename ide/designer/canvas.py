@@ -1349,6 +1349,19 @@ class DesignerCanvas(QObject):
         elif typ == QEvent.Type.KeyPress and self._tastatur_verarbeiten(ereignis):
             return True
 
+        elif (
+            typ == QEvent.Type.ShortcutOverride
+            and self.ausgewaehlte_komponente is not None
+            and ereignis.modifiers() & Qt.KeyboardModifier.AltModifier
+            and ereignis.key()
+            in (Qt.Key.Key_Left, Qt.Key.Key_Right, Qt.Key.Key_Up, Qt.Key.Key_Down)
+        ):
+            # Alt+Pfeil verschiebt im Designer um einen Bildpunkt. Ohne
+            # das griff Alt+Links als Fensterkürzel „Zurück zur vorigen
+            # Stelle“, bevor der Designer die Taste sah (Punkt 577).
+            ereignis.accept()
+            return True
+
         elif typ == QEvent.Type.ContextMenu:
             komponente = self._widget_zu_komponente.get(beobachtetes_objekt)
             if komponente is None:

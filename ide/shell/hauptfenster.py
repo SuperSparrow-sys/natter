@@ -8012,9 +8012,19 @@ class HauptFenster(QMainWindow):
         assets.mkdir(parents=True, exist_ok=True)
         bild_pfade: dict[str, str] = {}
         for komponente, bild in ergebnis.bilder.items():
-            dateiname = f"{komponente}{bild.endung}"
+            # Der Formularname davor und ein freier Name: zwei importierte
+            # Formulare mit je einem `Image1` schrieben sonst beide nach
+            # `assets/Image1.png`, und ein eigenes Bild gleichen Namens
+            # ging verloren (Punkt 570).
+            stamm = f"{ziel_pfad.stem}_{komponente}"
+            dateiname = f"{stamm}{bild.endung}"
+            zaehler = 2
+            while (assets / dateiname).exists():
+                dateiname = f"{stamm}_{zaehler}{bild.endung}"
+                zaehler += 1
             try:
-                (assets / dateiname).write_bytes(bild.daten)
+                with open(assets / dateiname, "xb") as datei:
+                    datei.write(bild.daten)
             except OSError as fehler:
                 ergebnis.warnungen.append(f"{komponente}: Bild nicht schreibbar - {fehler}")
                 continue

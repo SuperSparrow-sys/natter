@@ -901,3 +901,72 @@ def test_zaehlschleife_von_groesser_bis_kleiner_zaehlt_abwaerts() -> None:
     ))
 
     assert _ausfuehren(ergebnis, n=2) == [3, 2, 1, 1, 2]
+
+
+def test_eine_eingabe_die_wie_eine_zahl_benutzt_wird_wird_zur_zahl(
+    monkeypatch,
+) -> None:  # noqa: ANN001
+    """Punkt 579: aus „Eingabe: zahl“ und „zahl > 0?“ entstand Code, der
+    beim Vergleich mit TypeError abbrach. Ein Name, der nur als Text
+    benutzt wird, bleibt Text."""
+    import builtins
+
+    daten = {"name": "probe", "root": {"kind": "sequence", "children": [
+        {"kind": "statement", "text": "Eingabe: zahl"},
+        {"kind": "statement", "text": "Eingabe: name"},
+        {"kind": "branch", "text": "zahl > 0?", "then": [
+            {"kind": "statement", "text": 'ergebnis = name + "!"'},
+        ], "else": []},
+    ]}}
+    code = als_python(daten).text
+    antworten = iter(["2,5", "Anna"])
+    monkeypatch.setattr(builtins, "input", lambda _frage="": next(antworten))
+    raum: dict = {}
+    exec(code + "\nprobe()\n", raum)
+
+    assert 'name = input("name? ")' in code
+    assert "float(" in code.split("\n")[1]
+
+
+def test_zaehlschleife_abwaerts_mit_geklammerter_schrittweite() -> None:
+    """Punkt 581: „schrittweite (-1)“ lief nur bis 3."""
+    ergebnis = als_python(_diagramm(_block(
+        "count_loop", "für i von 10 bis 1 schrittweite (-1)",
+        children=[_anweisung("spur.append(i)")],
+    )))
+    assert _ausfuehren(ergebnis) == list(range(10, 0, -1))
+
+
+def test_vorgabe_zaehlschleife_mit_eingelesenem_n(monkeypatch) -> None:  # noqa: ANN001
+    """Punkt 581: „Eingabe: n“ und „für i von 1 bis n“ ergaben
+    `range(0)`."""
+    import builtins
+
+    ergebnis = als_python(_diagramm(
+        _anweisung("Eingabe: n"),
+        _block("count_loop", "für i von 1 bis n", children=[_anweisung("spur.append(i)")]),
+    ))
+    monkeypatch.setattr(builtins, "input", lambda _frage="": "3")
+    assert _ausfuehren(ergebnis) == [1, 2, 3]
+    assert ergebnis.anzahl == 0
+
+
+@pytest.mark.parametrize(
+    ("etiketten", "x", "erwartet"),
+    [
+        (["< 0", "= 0", "> 0"], 0, "b"),
+        (["1", "sonst", "2"], 2, "c"),
+        (["1", "sonst", "2"], 7, "b"),
+        (["1", "2", "else"], 9, "c"),
+    ],
+)
+def test_mehrfachauswahl_randfaelle(etiketten: list, x: int, erwartet: str) -> None:
+    """Punkt 581: „= 0“ ging verloren, „sonst“ in der Mitte ergab
+    `x == sonst`, ein letzter Fall „else“ `elif False`."""
+    faelle = [
+        {"label": etikett, "children": [_anweisung(f"spur.append({buchstabe!r})")]}
+        for etikett, buchstabe in zip(etiketten, "abc", strict=True)
+    ]
+    ergebnis = als_python(_diagramm(_block("multi_branch", "x", cases=faelle)))
+    _pruefen(ergebnis)
+    assert _ausfuehren(ergebnis, x=x) == [erwartet]

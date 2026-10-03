@@ -776,3 +776,21 @@ def test_der_haken_legt_die_daten_neben_die_exe(
     assert Path("noten.csv").read_text(encoding="utf-8") == "neu"
     assert Path("bilder/a.png").is_file()
     assert Path("konten.sqlite").read_text(encoding="utf-8") == "vom Programm"
+
+
+@pytest.mark.parametrize("oberordner", ["normal", "build", "dist", "diagramme"])
+def test_ein_ordner_build_ueber_dem_projekt_nimmt_keine_pakete_weg(
+    tmp_path: Path, oberordner: str
+) -> None:
+    """Punkt 573: unter einem Ordner `build` blieben pandas, matplotlib
+    und numpy draußen, obwohl das Projekt sie benutzt."""
+    from ide.export.exporter import _ueberfluessige_pakete
+
+    ordner = tmp_path / oberordner / "Statistik"
+    ordner.mkdir(parents=True)
+    (ordner / "u_main.py").write_text(
+        "import pandas\nfrom pcl import Chart\n", encoding="utf-8"
+    )
+    weg = _ueberfluessige_pakete(Projekt(ordner, {}))
+
+    assert not {"pandas", "matplotlib", "numpy"} & set(weg)

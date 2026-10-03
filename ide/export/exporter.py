@@ -342,8 +342,12 @@ def _ueberfluessige_pakete(projekt: Projekt) -> list[str]:
     """
     quelltext = ""
     for datei in dateien_im_ordner(projekt.ordner):
+        # Nur die Teile unterhalb des Projektordners: ein Projekt unter
+        # `D:\build\Statistik` verlor sonst pandas und matplotlib
+        # (Punkt 573).
         if datei.suffix != ".py" or any(
-            teil in _NICHT_MITNEHMEN for teil in datei.parts
+            teil in _NICHT_MITNEHMEN
+            for teil in datei.relative_to(projekt.ordner).parts
         ):
             continue
         try:
