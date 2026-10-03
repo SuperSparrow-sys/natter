@@ -12974,3 +12974,17 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** Ein Tupel oder jeder andere zusätzliche Wert nach dem SQL-Text ergibt eine deutsche Meldung, die die Übergabe mit Namen erklärt. Erledigt, wenn ein Test für alle drei Methoden diese Meldung bekommt.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** Die drei Methoden nehmen `*werte` entgegen und lehnen jeden solchen Wert mit `_ohne_tupel` ab: „SQLite3Connection.execute: Werte werden hier nicht als Tupel übergeben, sondern mit Namen: im SQL-Text als Platzhalter „:name“ und beim Aufruf als name=wert.“ Unterstützt wird die Tupel-Schreibweise bewusst nicht: zwei Wege für dasselbe wären für Lernende einer zu viel, und die Meldung zu „?“ ohne Werte verweist schon auf `:name`. Test: `test_werte_als_tupel_bekommen_einen_hinweis_auf_namen` in `tests/test_db_sqlite.py`; mit `pcl` aus `HEAD` scheitert er.
+
+---
+
+## 487. Designer: jede Pfeiltaste ist ein eigener Schritt für Rückgängig ~~(erledigt)~~
+
+**Gemeldet:** 3. Oktober 2026, siebte Durchsicht (Handgriffe im Designer), Entwicklungsstand `e9bc64c`.
+
+**Beobachtet:** Zwei Komponenten ausgewählt, zehnmal Pfeil rechts: beide stehen 80 Pixel weiter. Ein Strg+Z nimmt nur den letzten Schritt zurück (8 Pixel); für den Ausgangsstand braucht es zehn. Wer eine Komponente mit gehaltener Taste schiebt, erzeugt in einer Sekunde rund dreißig Schritte und muss ebenso oft Strg+Z drücken, um eine einzige Bewegung zurückzunehmen. Mehrfachauswahl, Löschen, Kopieren, Einfügen und Duplizieren arbeiten dagegen richtig, und ein Strg+Z holt eine gelöschte Auswahl ganz zurück. Punkt 312 hat die Pfeiltaste schnell gemacht, an der Zahl der Schritte aber nichts geändert.
+
+**Ursache:** nachgewiesen. `verschieben` und `groesse_aendern` in `ide/designer/canvas.py` legen bei jedem Aufruf ein neues Kommando auf den Stapel, auch wenn der Aufruf aus einer gehaltenen Pfeiltaste kommt.
+
+**Zu tun:** Pfeiltasten, die ohne Pause auf dieselbe Auswahl wirken, zu einem Schritt zusammenfassen; eine Pause oder eine andere Art Taste beginnt einen neuen. Erledigt, wenn ein Test eine Folge mit einem Strg+Z ganz zurücknimmt und nach einer Pause zwei Schritte findet.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** `_schritt_ausfuehren` in `ide/designer/canvas.py` führt jeden Schritt aus Verschieben und Größe ändern als `_GruppenKommando` aus. Kommt er von einer Pfeiltaste (`per_taste=True`, nur aus `_tastatur_verarbeiten`), hängt er an das oberste Kommando an, solange es dieselbe Art (Verschieben oder Größe), dieselbe Auswahl und dasselbe Kommando ist und weniger als eine Sekunde (`_TASTENFOLGE_S`) seit dem vorigen Druck vergangen ist. Ziehen mit der Maus, Ausrichten und Aufrufe aus dem Code bleiben einzelne Schritte. Handbuch Abschnitt „Nur im Formular-Designer“ nennt das. Der Leistungstest aus Punkt 312 misst weiter zwanzig einzelne Schritte und schaltet das Zusammenfassen dafür ab. Test: `test_eine_folge_von_pfeiltasten_ist_ein_schritt` in `tests/test_designertasten.py`; mit der Datei aus `HEAD` scheitert er.

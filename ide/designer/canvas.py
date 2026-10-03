@@ -24,6 +24,7 @@ import json
 import keyword
 import os
 import re
+import time
 import types
 from collections.abc import Callable
 from pathlib import Path
@@ -462,6 +463,11 @@ def _menue_handler_umbenennen(
     return geaendert
 
 
+#: So lange darf zwischen zwei Pfeiltasten liegen, damit sie zu einem
+#: Schritt für Rückgängig zusammengefasst werden (Punkt 487).
+_TASTENFOLGE_S = 1.0
+
+
 class _GruppenKommando:
     """Mehrere Kommandos als ein Schritt - ein Strg+Z nimmt das
     Verschieben oder Löschen einer ganzen Auswahl zurück (Punkt 73)."""
@@ -855,6 +861,9 @@ class DesignerCanvas(QObject):
         #: `ausgewaehlte_komponente` und steht im Objektinspektor
         #: (Punkt 73). Bei einer einzelnen Auswahl leer.
         self._mehrfach: list[Any] = []
+        #: Die laufende Folge von Pfeiltasten: (Art und Auswahl, Kommando,
+        #: Zeitpunkt), siehe `_schritt_ausfuehren`.
+        self._tastenfolge: tuple[Any, Any, float] | None = None
         self._zusatz_rahmen: list[QFrame] = []
         self._ziehen_gruppe: dict[Any, tuple[int, int]] = {}
         self._band: QRubberBand | None = None
@@ -1588,11 +1597,11 @@ class DesignerCanvas(QObject):
 
         dx, dy = richtung
         if modifikatoren & Qt.KeyboardModifier.ShiftModifier:
-            self.groesse_aendern(dx * self.raster, dy * self.raster)
+            self.groesse_aendern(dx * self.raster, dy * self.raster, per_taste=True)
         elif modifikatoren & Qt.KeyboardModifier.AltModifier:
-            self.verschieben(dx, dy)
+            self.verschieben(dx, dy, per_taste=True)
         else:
-            self.verschieben(dx * self.raster, dy * self.raster)
+            self.verschieben(dx * self.raster, dy * self.raster, per_taste=True)
         return True
 
     # -- Undo/Redo ----------------------------------------------------------
@@ -1989,22 +1998,59 @@ class DesignerCanvas(QObject):
 
     # -- Bearbeiten ---------------------------------------------------------
 
-    def verschieben(self, dx: int, dy: int, komponente: Any = None) -> None:
+    def verschieben(
+        self, dx: int, dy: int, komponente: Any = None, *, per_taste: bool = False
+    ) -> None:
         if komponente is None and len(self._mehrfach) > 1:
             kommandos = [
                 EigenschaftKommando(k, {"left": k.left + dx, "top": k.top + dy})
                 for k in self._obenauf(self._mehrfach)
             ]
-            self.kommandos.ausfuehren(_GruppenKommando(kommandos))
+            self._schritt_ausfuehren("verschieben", kommandos, per_taste)
             self._nach_aenderung(self.ausgewaehlte_komponente)
             return
         ziel = komponente if komponente is not None else self.ausgewaehlte_komponente
-        self.kommandos.ausfuehren(
-            EigenschaftKommando(ziel, {"left": ziel.left + dx, "top": ziel.top + dy})
+        self._schritt_ausfuehren(
+            "verschieben",
+            [EigenschaftKommando(ziel, {"left": ziel.left + dx, "top": ziel.top + dy})],
+            per_taste,
         )
         self._nach_aenderung(ziel)
 
-    def groesse_aendern(self, dw: int, dh: int, komponente: Any = None) -> None:
+    def _schritt_ausfuehren(
+        self, art: str, kommandos: list[Any], per_taste: bool
+    ) -> None:
+        """Führt einen Schritt aus Verschieben oder Größe ändern aus.
+
+        Mit der Pfeiltaste hängt ein Schritt an den vorigen an, solange
+        dieselbe Auswahl mit derselben Art Taste weiterbewegt wird und
+        zwischen zwei Drücken weniger als `_TASTENFOLGE_S` liegt. Ein
+        Strg+Z nimmt dann die ganze Folge zurück. Bis 0.4.3 kostete
+        jeder Druck einen eigenen Schritt, und eine mit gehaltener
+        Taste um 30 Pixel geschobene Komponente brauchte 30 × Strg+Z
+        (Punkt 487)."""
+        jetzt = time.monotonic()
+        schluessel = (art, tuple(id(k.komponente) for k in kommandos))
+        folge = self._tastenfolge
+        oben = self.kommandos.letztes_kommando
+        if (
+            per_taste
+            and folge is not None
+            and folge[0] == schluessel
+            and folge[1] is oben
+            and jetzt - folge[2] < _TASTENFOLGE_S
+        ):
+            for kommando in kommandos:
+                kommando.tun()
+            oben.kommandos.extend(kommandos)
+        else:
+            oben = _GruppenKommando(kommandos)
+            self.kommandos.ausfuehren(oben)
+        self._tastenfolge = (schluessel, oben, jetzt) if per_taste else None
+
+    def groesse_aendern(
+        self, dw: int, dh: int, komponente: Any = None, *, per_taste: bool = False
+    ) -> None:
         """Umschalt+Pfeil. Bei einer Mehrfachauswahl ändert sich die
         Größe aller ausgewählten Komponenten, in einem Schritt
         (Punkt 180); vorher nur die der zuletzt gewählten."""
@@ -2016,15 +2062,19 @@ class DesignerCanvas(QObject):
                 )
                 for k in self._mehrfach
             ]
-            self.kommandos.ausfuehren(_GruppenKommando(kommandos))
+            self._schritt_ausfuehren("groesse", kommandos, per_taste)
             self._nach_aenderung(self.ausgewaehlte_komponente)
             return
         ziel = komponente if komponente is not None else self.ausgewaehlte_komponente
-        self.kommandos.ausfuehren(
-            EigenschaftKommando(
-                ziel,
-                {"width": max(1, ziel.width + dw), "height": max(1, ziel.height + dh)},
-            )
+        self._schritt_ausfuehren(
+            "groesse",
+            [
+                EigenschaftKommando(
+                    ziel,
+                    {"width": max(1, ziel.width + dw), "height": max(1, ziel.height + dh)},
+                )
+            ],
+            per_taste,
         )
         self._nach_aenderung(ziel)
 

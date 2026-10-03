@@ -120,3 +120,36 @@ def test_die_designertasten_stehen_in_der_uebersicht() -> None:
 def test_die_liste_ist_vollstaendig_genug() -> None:
     """Sonst prüften die Tests oben eine Liste mit einem Eintrag."""
     assert len(DESIGNERTASTEN) >= 6
+
+
+def test_eine_folge_von_pfeiltasten_ist_ein_schritt(monkeypatch) -> None:  # noqa: ANN001
+    """Punkt 487: zehn Pfeiltasten brauchten zehn Strg+Z. Eine Folge
+    derselben Art bei derselben Auswahl ist jetzt ein Schritt; eine
+    Pause von über einer Sekunde oder Umschalt+Pfeil beginnt einen
+    neuen."""
+    import ide.designer.canvas as canvas_modul
+
+    uhr = [100.0]
+    monkeypatch.setattr(canvas_modul.time, "monotonic", lambda: uhr[0])
+    canvas, knopf = _canvas()
+
+    for _ in range(5):
+        canvas._tastatur_verarbeiten(_taste(Qt.Key.Key_Right))
+        uhr[0] += 0.1
+    uhr[0] += 2
+    canvas._tastatur_verarbeiten(_taste(Qt.Key.Key_Down))
+    canvas._tastatur_verarbeiten(
+        _taste(Qt.Key.Key_Right, Qt.KeyboardModifier.ShiftModifier)
+    )
+
+    assert (knopf.left, knopf.top, knopf.width) == (
+        100 + 5 * RASTER, 100 + RASTER, 80 + RASTER
+    )
+    canvas.rueckgaengig()
+    assert knopf.width == 80
+    canvas.rueckgaengig()
+    assert knopf.top == 100
+    canvas.rueckgaengig()
+    assert knopf.left == 100
+    canvas.wiederholen()
+    assert knopf.left == 100 + 5 * RASTER

@@ -982,7 +982,8 @@ Die rechte Maustaste im Editor zeigt dieselben Befehle als Menü, dazu
 | `Strg+C`, `Strg+X`, `Strg+V` | Komponenten kopieren, ausschneiden, einfügen, auch in ein anderes Formular |
 
 Pfeiltasten, auch mit `Umschalt`, `Entf`, `Strg+D` und Ziehen wirken
-auf die ganze Auswahl. Wird eine Komponente auf ein Panel oder eine
+auf die ganze Auswahl. Mehrere Pfeiltasten hintereinander, ohne
+längere Pause, nimmt ein einziges `Strg+Z` zurück. Wird eine Komponente auf ein Panel oder eine
 GroupBox gezogen, liegt sie danach darin, auch wenn mehrere zugleich
 gezogen werden. Eingefügte Komponenten behalten ihre Ereignisse und
 ihr Klappmenü, wenn es die Methode und das Menü im Zielformular gibt;

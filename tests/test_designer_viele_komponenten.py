@@ -314,11 +314,17 @@ def test_eine_wartende_aenderung_geht_nicht_verloren(
 
 
 def test_pfeiltaste_und_rueckgaengig_mit_200_komponenten(
-    qtbot, tmp_path: Path, hauptfenster  # noqa: ANN001
+    qtbot, tmp_path: Path, hauptfenster, monkeypatch  # noqa: ANN001
 ) -> None:
     """Die Grenzen aus Punkt 312: ein Schritt mit der Pfeiltaste unter
     0,1 s, zwanzigmal Rückgängig zusammen unter 2 s. Vorher waren es
-    rund 1 s und 22 s. Die `.pfm` enthält danach den letzten Stand."""
+    rund 1 s und 22 s. Die `.pfm` enthält danach den letzten Stand.
+
+    Seit Punkt 487 wäre eine schnelle Folge von Pfeiltasten ein
+    einziger Schritt; gemessen werden hier aber zwanzig einzelne."""
+    import ide.designer.canvas as canvas_modul
+
+    monkeypatch.setattr(canvas_modul, "_TASTENFOLGE_S", 0.0)
     pfm = _pfm_anlegen(qtbot, tmp_path, 200)
     formular = hauptfenster.designer_oeffnen(pfm)
     canvas = hauptfenster._offene_canvases[0]
