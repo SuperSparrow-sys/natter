@@ -13,6 +13,7 @@ from PySide6.QtCore import QEvent, QEventLoop, QObject, QPoint, Qt
 from PySide6.QtGui import QGuiApplication, QIcon
 from PySide6.QtWidgets import QMenuBar, QWidget
 
+from pcl import taskleiste
 from pcl.control import _MausFilter
 from pcl.properties import ART_BILD, ART_FARBE, Event, Komponente, Prop
 from pcl.theme import qss_erzeugen
@@ -403,6 +404,12 @@ class Form(Komponente):
         self._menueleiste_aufbauen()
         if not self._qwidget.isVisible():
             self._position_anwenden()
+            # Vor dem ersten Zeigen: Windows liest den Namen für die
+            # Taskleiste, wenn der Knopf entsteht (Punkt 469). Nur in
+            # einem Programm und nur für ein eigenes Fenster; `winId`
+            # machte ein eingebettetes Formular sonst zu einem.
+            if taskleiste.kennung_gesetzt and self._qwidget.isWindow():
+                taskleiste.fenster_benennen(int(self._qwidget.winId()))
         _offene_formulare[id(self)] = self
         self._zeitgeber_schalten(an=True)
         self._qwidget.show()

@@ -12786,3 +12786,17 @@ Eine nach Namen sortierte Klassenliste hat damit alle Namen mit Umlaut am Ende, 
 **Zu tun:** Den Cursor an die erste Stelle setzen, an der der gerettete Text von der Datei abweicht, und sie sichtbar machen. Erledigt, wenn ein Test die Position prüft.
 
 **Behoben (3. Oktober 2026, ab 0.4.4).** `_gesichert_oeffnen` vergleicht den Text der Datei mit dem geretteten, setzt den Cursor auf die erste abweichende Stelle und holt sie mit `centerCursor` in die Mitte des Editors. Test: `test_naechstes_oeffnen_bietet_die_sicherung_an[wiederherstellen]` in `tests/test_sicherung.py` prüft die Position; mit `hauptfenster.py` aus `HEAD` scheitert er.
+
+---
+
+## 469. Der Knopf eines gestarteten Programms heißt in der Taskleiste „Python“ ~~(erledigt)~~
+
+**Gemeldet:** 2. Oktober 2026, Prüfung der installierten Fassung 0.4.3 (`build\auswertung\043\`, Bild `03_e_taskleiste_knopf2_lupe.png`).
+
+**Beobachtet:** Beim ersten Programmlauf nach der Installation zeigt der Knopf des Programms die Natter, heißt über UI Automation aber „Python – 1 aktives Fenster“. Der Knopf der IDE heißt seit Punkt 416 „Natter“.
+
+**Ursache:** vermutet. `pcl.Application` meldet sich unter der Kennung `Natter.Programm` an. Für sie gibt es keine Verknüpfung, aus der Windows einen Namen nehmen könnte, deshalb gilt die Dateibeschreibung von `python.exe`.
+
+**Zu tun:** Der Kennung einen Anzeigenamen geben, etwa über einen Eintrag `HKCU\Software\Classes\AppUserModelId\Natter.Programm` (`DisplayName`, `IconUri`), den das Setup schreibt und die Deinstallation entfernt. Erledigt, wenn ein Bildschirmfoto der Taskleiste beim Programmlauf einen Knopf mit einem Namen zeigt, der zu Natter gehört.
+
+**Behoben (3. Oktober 2026, ab 0.4.4).** Die vermutete Lösung trug nicht: ein Eintrag `HKCU\Software\Classes\AppUserModelId\Natter.Programm` mit `DisplayName` und `IconUri` ließ den Knopf an der installierten 0.4.3 bei „Python – 1 aktives Fenster“ (`build\auswertung\044s\469\probe.py`). Windows nimmt den Namen stattdessen aus drei Eigenschaften am Fenster, `RelaunchDisplayNameResource`, `RelaunchIconResource` und `RelaunchCommand`, und nur alle drei zusammen; gelesen werden sie, wenn der Knopf entsteht. Das neue Modul `pcl/taskleiste.py` setzt sie über `SHGetPropertyStoreForWindow` mit ctypes (die Installation bringt kein pywin32 mit): Name „Natter-Programm“, Symbol und Befehl aus der `Natter.exe` der Installation. `Form.show` ruft das beim ersten Zeigen eines eigenen Fensters auf. Es geschieht nur, wenn `pcl.Application` die Kennung `Natter.Programm` gesetzt hat und die Installation gefunden wird; in der IDE, im Entwicklungsbaum und in einer exportierten Exe bleibt alles wie bisher. Nachweis an der echten Taskleiste: ein `pcl`-Programm mit der installierten Python und dem neuen `pcl` erscheint als „Natter-Programm – 1 aktives Fenster“ mit der Natter. Tests in `tests/test_taskleiste.py`: `test_ein_formular_wird_vor_dem_zeigen_benannt` (vor dem Zeigen, nur einmal) und `test_ohne_eigene_kennung_bleibt_das_fenster_unberuehrt`. Am ersten Programmlauf nach der Installation von 0.4.4 noch einmal per Bildschirmfoto bestätigen.

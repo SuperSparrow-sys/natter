@@ -17,6 +17,7 @@ from PySide6.QtCore import QLibraryInfo, QTranslator
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
+from pcl import taskleiste
 from pcl.fehleranzeige import einhaengen as fehleranzeige_einhaengen
 from pcl.form import Form
 from pcl.theme import NATTER_SYMBOL
@@ -93,11 +94,14 @@ def _anwendungs_kennung_setzen() -> None:
     import ctypes
 
     try:
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+        ergebnis = ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
             ANWENDUNGS_KENNUNG
         )
     except (AttributeError, OSError):
-        pass
+        return
+    # Erst mit der eigenen Kennung bekommt der Knopf seinen Namen
+    # (`pcl.taskleiste`, Punkt 469).
+    taskleiste.kennung_gesetzt = ergebnis == 0
 
 
 class Application:

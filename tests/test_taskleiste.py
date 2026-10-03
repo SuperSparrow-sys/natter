@@ -105,3 +105,43 @@ def test_die_ide_setzt_ihr_symbol_vor_dem_ersten_fenster(qapp) -> None:  # noqa:
         assert not app.windowIcon().isNull()
     finally:
         qapp.setWindowIcon(vorher)
+
+
+def test_ein_formular_wird_vor_dem_zeigen_benannt(
+    qapp, monkeypatch: pytest.MonkeyPatch,  # noqa: ANN001
+) -> None:
+    """Punkt 469: der Knopf eines Programms hieß „Python“. Windows
+    nimmt Namen, Symbol und Befehl vom Fenster, wenn der Knopf
+    entsteht; `Form.show` setzt sie deshalb, solange das Fenster noch
+    nicht zu sehen ist, und nur beim ersten Zeigen. Dass Windows den
+    Namen übernimmt, zeigt nur die echte Taskleiste; offscreen gibt es
+    kein echtes Fenster."""
+    from pcl import Form, taskleiste
+
+    monkeypatch.setattr(taskleiste, "kennung_gesetzt", True)
+    benannt: list[tuple[int, bool]] = []
+    monkeypatch.setattr(
+        taskleiste, "fenster_benennen",
+        lambda hwnd: benannt.append(
+            (hwnd, formular._qwidget.isVisible())
+        ) or True,
+    )
+    formular = Form()
+    try:
+        formular.show()
+        formular.show()
+        assert benannt == [(int(formular._qwidget.winId()), False)]
+    finally:
+        formular._qwidget.hide()
+        formular._qwidget.deleteLater()
+
+
+def test_ohne_eigene_kennung_bleibt_das_fenster_unberuehrt(
+    qapp, monkeypatch: pytest.MonkeyPatch,  # noqa: ANN001
+) -> None:
+    """In der IDE und in einer exportierten Exe gibt es keine eigene
+    Kennung; Name und Symbol gälten sonst für die Gruppe „Python“."""
+    from pcl import taskleiste
+
+    monkeypatch.setattr(taskleiste, "kennung_gesetzt", False)
+    assert taskleiste.fenster_benennen(1) is False
