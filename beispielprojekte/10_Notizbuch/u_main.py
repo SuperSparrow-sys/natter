@@ -46,8 +46,8 @@ class Form1(Form1Design):
     def speichern_unter(self, pfad: str) -> bool:
         """Liefert False, wenn sich die Datei nicht schreiben ließ."""
         # Ein Ordner ohne Schreibrecht, ein voller USB-Stick, eine
-        # Datei, die ein anderes Programm offen hält: ohne try brach
-        # das Programm hier ab - und die Notiz war weg.
+        # Datei, die ein anderes Programm offen hält: ohne try bräche
+        # das Programm hier ab - und die Notiz wäre weg.
         try:
             self.m_text.lines.save_to_file(pfad)
         except OSError:

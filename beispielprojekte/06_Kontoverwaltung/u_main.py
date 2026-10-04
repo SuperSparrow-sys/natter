@@ -100,8 +100,8 @@ class Form1(Form1Design):
             self.sg_konten.cells[1, zeile] = konto.inhaber
             self.sg_konten.cells[2, zeile] = euro(konto.stand)
 
-        # "1 Konten" liest sich falsch - dieselbe Stelle, an der sich
-        # der Objektinspektor mit "(1 Einträge)" blamiert hat.
+        # "1 Konten" liest sich falsch - bei genau einem Konto steht die
+        # Einzahl.
         wort = "Konto" if len(konten) == 1 else "Konten"
         self.l_meldung.caption = f"{len(konten)} {wort}."
 

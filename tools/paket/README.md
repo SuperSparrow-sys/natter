@@ -1,8 +1,10 @@
 # Das Paket für die Schule
 
 Was eine Schule bekommt, ist nicht die `Natter-Setup.exe` allein.
-Ohne das Zertifikat blockiert Windows den Start auf Rechnern mit Smart
-App Control, und ohne Anleitung weiß niemand, warum.
+Ohne das Zertifikat meldet Windows beim Installieren einen unbekannten
+Herausgeber, und ohne Anleitung weiß niemand, warum Natter auf einem
+Rechner mit eingeschaltetem Smart App Control gar nicht startet
+(siehe unten).
 
 Hier liegen die Dateien, die dafür von Hand geschrieben sind. Alles
 andere im Paket entsteht beim Bau oder liegt schon im Repository.
@@ -35,7 +37,7 @@ dem Internet". Das `.cmd` ruft dasselbe Skript mit
 
 `Natter-pruefen.ps1` startet die installierte Natter über ihre eigene
 Python, fängt ab, woran sie scheitert, und legt einen Bericht auf den
-Schreibtisch. Darin stehen Windows-Fassung, Signaturstatus, wo das
+Desktop. Darin stehen Windows-Fassung, Signaturstatus, wo das
 Zertifikat eingetragen ist, das Ergebnis der Integritätsprüfung und
 der vollständige Traceback des Startversuchs.
 
@@ -64,9 +66,7 @@ Die Ausgabe muss leer sein.
 ## Smart App Control
 
 Mit eingeschaltetem Smart App Control startet Natter nicht, und
-daran ändert der Zertifikat-Eintrag nichts. Das war zunächst anders
-eingeschätzt worden, und die Fehleinschätzung hat zwei Auslieferungen
-gekostet.
+daran ändert der Zertifikat-Eintrag nichts.
 
 Was gemessen wurde: mit dem Zertifikat in `LocalMachine\Root` und
 `LocalMachine\TrustedPublisher` und eingeschaltetem Smart App Control

@@ -1,27 +1,32 @@
 # Natter
 
-**Eine Entwicklungsumgebung für Python** — für Schülerinnen und
-Schüler im Informatikunterricht. Oberfläche, Hilfetexte und Meldungen
-sind vollständig auf Deutsch. Zielplattform: Windows.
+Natter ist eine Entwicklungsumgebung für Python, gemacht für den
+Informatikunterricht. Programme mit Fenstern entstehen im
+Formular-Designer: Knöpfe, Eingabefelder und Listen werden auf das
+Formular gesetzt und im Objektinspektor eingestellt, ein Doppelklick
+legt die Methode im Code an. Der Code selbst ist gewöhnliches Python,
+ohne Dialekt und ohne versteckte Umschreibung. Konsolenprogramme mit
+`input()` und `print()` gehen genauso.
 
-Alles Gewohnte liegt an seinem Platz: Menüleiste, Werkzeugleisten,
-Komponentenpalette, Formular-Designer, Objektinspektor,
-Projekt-Explorer. Wer Python kennt, findet gewöhnliches Python vor — kein
-Dialekt, keine versteckte Umschreibung.
-
-Dieses Dokument beschreibt, **was es gibt**. Wie Natter gebaut und
-ausgeliefert wird, steht in [`docs/bericht.md`](docs/bericht.md).
+Oberfläche, Hilfe und Fehlermeldungen sind deutsch. Natter läuft
+unter Windows 10 und 11 (64 Bit) und bringt Python mit allen
+Bibliotheken selbst mit; auf dem Rechner muss vorher nichts
+installiert sein. Schulen dürfen Natter kostenlos einsetzen (siehe
+[Lizenz](#lizenz)).
 
 ## Herunterladen
 
 **[Neueste Fassung für Windows herunterladen](https://github.com/SuperSparrow-sys/natter/releases/latest)**
 
+Was jede Fassung Neues bringt, steht unter dem Release und in
+[`docs/neuerungen.md`](docs/neuerungen.md).
+
 Dort liegen zwei Dateien:
 
 | Datei | Wofür |
 |---|---|
-| `Natter-<Version>-Setup.zip` | das vollständige Paket: Installationsprogramm, Zertifikat, Hilfsskripte und Handbuch |
-| `Natter-Setup.exe` | nur das Installationsprogramm, für einen Rechner, auf dem das Zertifikat schon eingetragen ist |
+| `Natter-<Version>-Setup.zip` | das vollständige Paket: Installationsprogramm, Zertifikat, Hilfsskripte und Handbuch. Für die erste Installation an einer Schule die richtige Wahl |
+| `Natter-Setup.exe` | nur das Installationsprogramm, etwa für ein Update oder einen Rechner, auf dem das Zertifikat schon eingetragen ist |
 
 Mit der ZIP geht es unter Windows so weiter:
 
@@ -34,6 +39,54 @@ Mit der ZIP geht es unter Windows so weiter:
 3. Rechtsklick → *Alle extrahieren …*, danach `ZUERST-LESEN.txt`
    öffnen. Dort steht, ob der Rechner die Voraussetzungen erfüllt und
    in welcher Reihenfolge es weitergeht.
+
+## Installation
+
+Auf einem einzelnen Rechner genügt ein Doppelklick auf
+`Natter-Setup.exe`. Der Installer bringt alles mit; auf dem Rechner
+muss kein Python installiert sein, und eine bereits vorhandene
+Python-Installation bleibt unberührt.
+
+Eine Voraussetzung ist vorher zu prüfen: Ist unter Windows 11 die
+intelligente App-Steuerung (Smart App Control) eingeschaltet, startet
+Natter nicht. Wie sich das nachsehen lässt, steht in
+`ZUERST-LESEN.txt`. Auf zentral verwalteten Schulrechnern ist sie in
+der Regel aus.
+
+Vorgabe ist die Installation **nur für den angemeldeten Benutzer**
+unter `%LOCALAPPDATA%\Programs\Natter`. Dafür sind keine
+Administratorrechte nötig, und der Zielordner lässt sich frei wählen.
+Lassen AppLocker oder eine Softwareeinschränkung nur Programme aus
+`C:\Windows` und `C:\Program Files` starten, wie es die Standardregeln
+von AppLocker tun, startet eine solche Installation allerdings nicht.
+
+Für einen Computerraum wird Natter **für alle Benutzer** installiert,
+mit Administratorrechten oder über die Softwareverteilung der Schule:
+
+```powershell
+Natter-Setup.exe /ALLUSERS /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+```
+
+Natter liegt dann unter `C:\Program Files\Natter`, steht in jedem
+Konto im Startmenü und bekommt Updates über dieselbe Verteilung. Die
+Einzelheiten, auch zum Umstieg von Installationen je Konto und zur
+Erkennungsregel für eine Softwareverteilung, stehen im
+[Handbuch, Abschnitt 1.4](docs/handbuch.md#14-auf-vielen-rechnern-gleichzeitig)
+und in `ZUERST-LESEN.txt` im Paket für die Schule.
+
+## Handbuch und erste Schritte
+
+- [`docs/erste_schritte.md`](docs/erste_schritte.md) führt in zehn
+  Minuten zum ersten eigenen Programm. In Natter steht dieselbe Seite
+  unter *Hilfe → Erste Schritte* und auf der Startseite.
+- [`docs/handbuch.md`](docs/handbuch.md) beschreibt das Einrichten
+  auf einem einzelnen Rechner und im Computerraum, die Warnung von
+  Windows beim ersten Start, wo Programm und Schülerdaten liegen, den
+  Prüfungsmodus und sämtliche Tastenkürzel. Ohne
+  Programmierkenntnisse lesbar; in Natter unter *Hilfe → Handbuch*.
+- [`docs/komponenten.md`](docs/komponenten.md) beschreibt jede
+  Komponente mit ihren Eigenschaften und Ereignissen. In Natter
+  öffnet F1 diese Seite.
 
 ---
 
@@ -67,22 +120,6 @@ Mit der ZIP geht es unter Windows so weiter:
 - Andere Betriebssysteme als Windows, andere Sprachen als Deutsch
 - Deutsche oder anderssprachige Aliasse für Python-Namen
 - KI-Funktionen in der IDE
-
-## 1a. Handbuch
-
-[`docs/handbuch.md`](docs/handbuch.md) beschreibt das
-Einrichten auf einem einzelnen Rechner und im Computerraum, die
-Warnung von Windows beim ersten Start, wo Programm und Schülerdaten
-liegen, den Prüfungsmodus und sämtliche Tastenkürzel. Ohne
-Programmierkenntnisse lesbar.
-
-## 1b. Was noch offen ist
-
-[`docs/offene_punkte.md`](docs/offene_punkte.md) sammelt gefundene
-Fehler und ungeklärte Fragen, die noch nicht behoben sind — jeweils
-mit dem, was nachgewiesen ist, und dem, was noch zu prüfen bleibt.
-Erledigtes steht mit Ursache und Änderung in
-[`docs/erledigte_punkte.md`](docs/erledigte_punkte.md).
 
 ## 2. Worauf Natter aufbaut
 
@@ -237,7 +274,7 @@ Farben von Hand setzt.
 | Menü und Werkzeugleisten | jede Funktion als Aktion — Menüeintrag, Knopf, Tastenkürzel und Befehlspalette aus einer Quelle |
 | Projekt-Explorer | Units, Formulare, Diagramme; umbenennen und löschen über „⋮" |
 | Formular-Designer | echte `pcl`-Komponenten, Ziehen mit Maus und Tastatur, acht Größenanfasser, Rückgängig |
-| Komponentenpalette | zwei Reiter, „Standard" und „Zusätzlich" |
+| Komponentenpalette | vier Reiter: „Standard", „Zusätzlich", „Eingabe" und „Datenbank" |
 | Objektinspektor | Eigenschaften und Ereignisse; Doppelklick auf ein Ereignis legt die Methode an |
 | Quelltexteditor | Zeilennummern, Syntax-Hervorhebung in den Farben von VS Code, Einrückungslinien, Vervollständigung, Fehler direkt unterringelt |
 | Betrachter | CSV als sortierbare Tabelle, Bilder, HTML — und Markdown gesetzt statt als Rohtext |
@@ -319,8 +356,8 @@ self.g_konten.show_rows(self.db.query("SELECT * FROM konto"))
 
 Die mitgelieferten Beispiele sind keine Sammlung, sondern eine
 Reihenfolge. Jede Stufe bringt genau eine neue Idee dazu. Die
-Stufen 10 und 11 sind später dazugekommen; sie setzen nur Stufe 3
-voraus und eignen sich auch als Zwischenstufen:
+Stufen 10 und 11 setzen nur Stufe 3 voraus und eignen sich deshalb
+auch als Zwischenstufen:
 
 | | Projekt | Art | Neu |
 |---|---|---|---|
@@ -398,39 +435,16 @@ Solange er läuft, steht das rot in der Fußzeile.
 
 ---
 
-## Installation
-
-`Natter-Setup.exe` herunterladen und starten. Der Installer bringt alles
-mit; auf dem Rechner muss kein Python installiert sein, und eine bereits
-vorhandene Python-Installation bleibt unberührt.
-
-Vorgabe ist die Installation **nur für den angemeldeten Benutzer**
-unter `%LOCALAPPDATA%\Programs\Natter`. Dafür sind keine
-Administratorrechte nötig, und der Zielordner lässt sich frei wählen.
-Auf einem einzelnen Rechner genügt das. Lassen AppLocker oder eine
-Softwareeinschränkung nur Programme aus `C:\Windows` und
-`C:\Program Files` starten, wie es die Standardregeln von AppLocker
-tun, startet eine solche Installation allerdings nicht.
-
-Für einen Computerraum wird Natter **für alle Benutzer** installiert,
-mit Administratorrechten oder über die Softwareverteilung der Schule:
-
-```powershell
-Natter-Setup.exe /ALLUSERS /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
-```
-
-Natter liegt dann unter `C:\Program Files\Natter`, steht in jedem
-Konto im Startmenü und bekommt Updates über dieselbe Verteilung. Die
-Einzelheiten, auch zum Umstieg von Installationen je Konto und zur
-Erkennungsregel für eine Softwareverteilung, stehen im
-[Handbuch, Abschnitt 1.4](docs/handbuch.md#14-auf-vielen-rechnern-gleichzeitig)
-und in `ZUERST-LESEN.txt` im Paket für die Schule.
-
 ## Mitwirken
 
 Wie Natter gebaut, getestet und ausgeliefert wird, steht in
 [`docs/bericht.md`](docs/bericht.md); die Regeln für Beiträge in
 [`AGENTS.md`](AGENTS.md).
+[`docs/offene_punkte.md`](docs/offene_punkte.md) sammelt gefundene
+Fehler und ungeklärte Fragen, die noch nicht behoben sind, jeweils
+mit dem, was nachgewiesen ist, und dem, was noch zu prüfen bleibt.
+Erledigtes steht mit Ursache und Änderung in
+[`docs/erledigte_punkte.md`](docs/erledigte_punkte.md).
 
 ## Lizenz
 

@@ -12,7 +12,7 @@
 #
 # Wichtig zum Mitdenken: eine Vorhersage außerhalb des gemessenen
 # Bereichs ist geraten, nicht gewusst. Das Bestimmtheitsmaß sagt nur,
-# wie gut die Kurve die *vorhandenen* Punkte trifft.
+# wie gut die Kurve die vorhandenen Punkte trifft.
 
 import csv
 from pathlib import Path

@@ -7,7 +7,7 @@
 #   Path           rechnet mit Dateinamen, statt Text zusammenzukleben
 #
 # Wichtig am Aufbau: die Liste der Bilder steht in `self.bilder` - also
-# in Python. Die ListBox *zeigt* sie nur. Wer beides getrennt hält,
+# in Python. Die ListBox zeigt sie nur an. Wer beides getrennt hält,
 # muss nie raten, welche von beiden gerade recht hat.
 
 from pathlib import Path

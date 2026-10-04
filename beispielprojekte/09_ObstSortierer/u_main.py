@@ -138,7 +138,7 @@ class Form1(Form1Design):
         ]
 
         # predict gibt die Antwort, predict_proba die Sicherheit je
-        # Sorte. Beide erwarten eine *Liste von* Früchten, deshalb die
+        # Sorte. Beide erwarten eine Liste von Früchten, deshalb die
         # doppelte Klammer.
         antwort = self.wald.predict([frucht])[0]
         anteile = self.wald.predict_proba([frucht])[0]

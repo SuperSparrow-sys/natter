@@ -20,10 +20,13 @@ Ohne Administratorrechte
 
 Voreingestellt wird Natter nur für das angemeldete Benutzerkonto
 installiert. Auf einem Schulrechner ist das meist der einzige Weg, der
-ohne Rückfrage funktioniert.
+ohne Rückfrage funktioniert. Lassen die Regeln des Rechners (etwa
+AppLocker) nur Programme aus „C:\Program Files“ starten, startet eine
+solche Installation allerdings nicht; dann ist die Installation für
+alle Benutzer nötig.
 
 Für eine Installation für alle Benutzer werden Administratorrechte
-gebraucht – und später ebenfalls, sobald über das Menü „Pakete"
+gebraucht – und später ebenfalls, sobald über das Menü „Pakete“
 zusätzliche Python-Pakete nachinstalliert werden sollen.
 
 

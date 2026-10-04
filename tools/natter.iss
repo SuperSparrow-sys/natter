@@ -165,8 +165,7 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; AppUserMo
 
 [Registry]
 ; .natter-Dateiendung mit Natter verknüpfen - Doppelklick im Explorer
-; öffnet das Projekt direkt (gemeldet: "kann dann auch eine
-; .natter Datei auch einfach öffnen"). ide/main.py liest den Pfad aus
+; öffnet das Projekt direkt. ide/main.py liest den Pfad aus
 ; sys.argv[1] (siehe _projekt_aus_argv_oeffnen).
 ; uninsdeletevalue *und* uninsdeletekeyifempty: der Wert allein darf
 ; nicht stehenbleiben (eine andere Anwendung könnte .natter inzwischen
@@ -324,19 +323,21 @@ begin
   begin
     Andere := FassungUnter(HKCU);
     if Andere <> '' then
-      Melden('In diesem Konto liegt außerdem Natter ' + Andere + ' nur für dieses ' +
-        'Konto. In diesem Konto hat diese Vorrang vor der für alle Benutzer. ' +
-        'Entfernen lässt sie sich mit ' +
-        '"%LOCALAPPDATA%\Programs\Natter\unins000.exe" /VERYSILENT, ' +
-        'ausgeführt in diesem Konto.', mbInformation);
+      Melden('In diesem Konto ist außerdem Natter ' + Andere + ' nur für dieses ' +
+        'Konto installiert. Hier hat diese Installation Vorrang vor der für alle ' +
+        'Benutzer. Entfernen lässt sie sich, indem in diesem Konto ' +
+        '"%LOCALAPPDATA%\Programs\Natter\unins000.exe" /VERYSILENT ' +
+        'ausgeführt wird.', mbInformation);
   end
   else
   begin
     Andere := FassungUnter(HKLM);
     if Andere <> '' then
       Melden('Natter ' + Andere + ' ist auf diesem Computer schon für alle Benutzer ' +
-        'installiert. Eine zusätzliche Installation nur für dieses Konto hat hier ' +
-        'Vorrang und bekommt keine Updates über die Softwareverteilung.', mbInformation);
+        'installiert. Eine zusätzliche Installation nur für dieses Konto hätte in ' +
+        'diesem Konto Vorrang und bekäme keine Updates über die Softwareverteilung. ' +
+        'Meist genügt die vorhandene Installation; dann das Setup mit „Abbrechen“ beenden.',
+        mbInformation);
   end;
 end;
 

@@ -1,5 +1,5 @@
 Natter {VERSION} - Installation auf einem Schulrechner
-==================================================
+===================================================
 
 In diesem Paket:
 
@@ -301,7 +301,7 @@ auszuschalten.
 
 Natter-pruefen.cmd startet die installierte Fassung ueber ihre eigene
 Python, faengt ab, woran sie scheitert, und legt einen Bericht auf den
-Schreibtisch.
+Desktop.
 
 
 Warum das Zertifikat die App-Steuerung nicht ueberzeugt

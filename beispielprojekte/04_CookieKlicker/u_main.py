@@ -9,8 +9,8 @@
 #                  im Designer als kleine Uhr auf dem Formular und ist
 #                  im laufenden Programm unsichtbar.
 #
-# Das Spiel hat drei Ausbaustufen, Helfer, die von selbst backen,
-# und einen Risikoknopf.
+# Das Spiel hat zwei Ausbaustufen (besseren Teig und Helfer, die von
+# selbst backen), drei Keks-Stile zur Auswahl und einen Risikoknopf.
 
 import random
 from pathlib import Path
@@ -39,7 +39,7 @@ RAENGE = [
 
 class Form1(Form1Design):
     def form_create(self, sender) -> None:
-        """Läuft einmal beim Start - hier wird alles aufgeräumt."""
+        """Läuft einmal beim Start - hier wird alles vorbereitet."""
         self.i_stil_hell.picture.load_from_file(str(BILDER / "keks_hell.png"))
         self.i_stil_dunkel.picture.load_from_file(str(BILDER / "keks_dunkel.png"))
         self.i_stil_bunt.picture.load_from_file(str(BILDER / "keks_bunt.png"))

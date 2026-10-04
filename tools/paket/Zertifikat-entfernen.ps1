@@ -8,16 +8,16 @@
 # widerrufen - es gibt keine Sperrliste, die Windows abfragen koennte.
 # Der Eintrag von Hand zurueckgenommen ist die einzige Moeglichkeit.
 #
-# Rechtsklick auf diese Datei -> "Mit PowerShell ausfuehren".
+# Gestartet wird es per Doppelklick auf Zertifikat-entfernen.cmd
+# daneben.
 #
 # Danach meldet Windows beim Installieren wieder einen unbekannten
-# Herausgeber. Die Installation selbst bleibt unberuehrt; sie laesst
-# sich ueber "Apps & Features" entfernen.
-
+# Herausgeber. Die Installation selbst bleibt unberuehrt; entfernt
+# wird Natter unter Einstellungen -> Apps -> Installierte Apps.
 #
 # Mit -Exportzertifikate nimmt es stattdessen die Zertifikate
 # "Natter Programme dieses Rechners" heraus, die "Als Exe exportieren"
-# im angemeldeten Konto angelegt hat (ide/export/signatur.py). Die
+# im angemeldeten Konto angelegt hat. Die
 # liegen im Konto und nicht im Rechner; das Deinstallieren entfernt
 # sie nicht. Dieser Teil laeuft ohne Administratorrechte und muss es
 # auch: mit "Als Administrator ausfuehren" unter einem anderen Konto
@@ -60,7 +60,7 @@ if ($Exportzertifikate) {
     if ($gefunden -eq 0) {
         Write-Host "Nichts gefunden - in diesem Konto hat Natter kein Zertifikat angelegt."
     } else {
-        Write-Host "$gefunden Eintrag/Eintraege entfernt." -ForegroundColor Green
+        Write-Host "$gefunden $(if ($gefunden -eq 1) { 'Eintrag' } else { 'Eintraege' }) entfernt." -ForegroundColor Green
     }
     Write-Host ""
     if (-not $Still) {
@@ -75,9 +75,24 @@ $admin = $rolle.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
 if (-not $admin) {
     Write-Host "Administratorrechte werden gebraucht - Windows fragt gleich nach."
-    Start-Process powershell.exe -Verb RunAs -ArgumentList @(
-        "-ExecutionPolicy", "Bypass", "-File", "`"$PSCommandPath`""
-    )
+    # Wird die Rueckfrage abgelehnt, wirft Start-Process. Ohne
+    # try/catch schloesse sich das Fenster wortlos, als sei alles
+    # erledigt.
+    try {
+        Start-Process powershell.exe -Verb RunAs -ArgumentList @(
+            "-ExecutionPolicy", "Bypass", "-File", "`"$PSCommandPath`""
+        )
+    } catch {
+        Write-Host ""
+        Write-Host "Nichts entfernt." -ForegroundColor Red
+        Write-Host "Die Rueckfrage nach Administratorrechten wurde abgelehnt,"
+        Write-Host "oder dieses Konto hat keine. Ohne sie laesst sich das"
+        Write-Host "Zertifikat nicht aus den Speichern des Rechners nehmen."
+        Write-Host ""
+        if (-not $Still) {
+            Read-Host "Mit der Eingabetaste schliessen"
+        }
+    }
     exit
 }
 
@@ -111,7 +126,7 @@ Write-Host ""
 if ($gefunden -eq 0) {
     Write-Host "Nichts gefunden - das Zertifikat war nicht eingetragen."
 } else {
-    Write-Host "$gefunden Eintrag/Eintraege entfernt." -ForegroundColor Green
+    Write-Host "$gefunden $(if ($gefunden -eq 1) { 'Eintrag' } else { 'Eintraege' }) entfernt." -ForegroundColor Green
     Write-Host "Windows meldet beim Installieren wieder einen unbekannten"
     Write-Host "Herausgeber. Die Installation selbst bleibt unberuehrt."
 }

@@ -2,9 +2,9 @@
 #
 # Startet die installierte Natter ueber ihre eigene Python und faengt
 # ab, woran sie scheitert. Das Ergebnis landet als Textdatei auf dem
-# Schreibtisch und laesst sich weitergeben.
+# Desktop und laesst sich weitergeben.
 #
-# Rechtsklick auf diese Datei -> "Mit PowerShell ausfuehren".
+# Gestartet wird es per Doppelklick auf Natter-pruefen.cmd daneben.
 # Administratorrechte werden nicht gebraucht.
 #
 # Mit -Still wartet das Skript am Ende nicht auf die Eingabetaste -
@@ -15,14 +15,14 @@ param([switch]$Still)
 $ErrorActionPreference = "Continue"
 
 # Wo Natter liegt, steht im Deinstallationseintrag - fuer das eigene
-# Konto unter HKCU, fuer alle Benutzer unter HKLM. Bis 0.3.3 war der
-# Pfad fest eingetragen; eine Installation unter C:\Program Files
-# galt damit als "unvollstaendig" (Punkt 31).
+# Konto unter HKCU, fuer alle Benutzer unter HKLM. Ein fest
+# eingetragener Pfad liesse eine Installation unter C:\Program Files
+# als "unvollstaendig" erscheinen.
 #
 # Liegen beide vor, etwa nach dem Umstieg von Installationen je Konto
 # auf /ALLUSERS, wird die neuere geprueft, bei gleicher Fassung die fuer
-# alle Benutzer. Bis Punkt 358 gewann immer HKCU, und der Bericht
-# beschrieb die alte Kontoinstallation statt der neuen.
+# alle Benutzer. Sonst beschriebe der Bericht womoeglich die alte
+# Kontoinstallation statt der neuen.
 $schluessel = "Software\Microsoft\Windows\CurrentVersion\Uninstall\{961DA420-CA63-4436-9023-9CA411B620DA}_is1"
 $gefunden = @()
 foreach ($wurzel in "HKLM:", "HKCU:") {
@@ -81,7 +81,7 @@ if (-not $eintrag -and -not (Test-Path $programm)) {
     Merken "Zum Installieren Natter-Setup.exe aus diesem Paket ausfuehren."
     $zeilen | Out-File -FilePath $bericht -Encoding utf8
     if (-not $Still) {
-        Read-Host "Bericht liegt auf dem Schreibtisch. Eingabetaste zum Schliessen"
+        Read-Host "Der Bericht liegt auf dem Desktop. Mit der Eingabetaste schliessen"
     }
     exit 1
 }
@@ -91,7 +91,7 @@ if (-not (Test-Path $python)) {
     Merken "Natter neu installieren."
     $zeilen | Out-File -FilePath $bericht -Encoding utf8
     if (-not $Still) {
-        Read-Host "Bericht liegt auf dem Schreibtisch. Eingabetaste zum Schliessen"
+        Read-Host "Der Bericht liegt auf dem Desktop. Mit der Eingabetaste schliessen"
     }
     exit 1
 }
@@ -203,7 +203,7 @@ $skript | Out-File -FilePath $tmp -Encoding utf8
 # der Ordner des Startskripts in %TEMP% kommt nicht in den Suchpfad,
 # ein dort liegengebliebener Ordner "ide" wird also nicht geladen.
 # Den Programmordner traegt das Startskript selbst ein, so wie ihn
-# "python -m ide" im Programmordner in den Suchpfad bringt (Punkt 337).
+# "python -m ide" im Programmordner in den Suchpfad bringt.
 $qt_nachladen = @(
     "QT_PLUGIN_PATH", "QT_QPA_PLATFORM_PLUGIN_PATH",
     "QML_IMPORT_PATH", "QML2_IMPORT_PATH"
@@ -251,7 +251,7 @@ if (Test-Path $log) {
 
 $zeilen | Out-File -FilePath $bericht -Encoding utf8
 Write-Host ""
-Write-Host "Der Bericht liegt auf dem Schreibtisch:" -ForegroundColor Green
+Write-Host "Der Bericht liegt auf dem Desktop:" -ForegroundColor Green
 Write-Host "  $bericht"
 Write-Host ""
 if (-not $Still) {

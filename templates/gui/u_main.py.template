@@ -25,9 +25,10 @@
 #         self.l_titel.caption = "Geklickt!"
 #
 # Die Zeile self.b_ok.on_click = self.b_ok_click, die den Knopf mit
-# dieser Methode verbindet, steht in u_main_design.py und wird aus dem
-# Designer geschrieben. Deshalb stehen hier nur die Methoden - das
-# Verbinden ist schon erledigt.
+# dieser Methode verbindet, schreibt der Designer selbst in eine
+# eigene Datei (u_main_design.py, im Projekt-Explorer ausgeblendet).
+# Deshalb stehen hier nur die Methoden - das Verbinden ist schon
+# erledigt.
 #
 # sender ist die Komponente, die das Ereignis ausgelöst hat. Hängen
 # mehrere Knöpfe an derselben Methode, lässt sich daran erkennen,

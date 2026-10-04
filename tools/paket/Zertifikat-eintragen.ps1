@@ -2,8 +2,8 @@
 # vertrauenswuerdig ein. Danach nennt Windows beim Installieren
 # keinen unbekannten Herausgeber mehr.
 #
-# Rechtsklick auf diese Datei -> "Mit PowerShell ausfuehren".
-# Die Rueckfrage von Windows mit "Ja" beantworten: der Eintrag gilt
+# Gestartet wird es per Doppelklick auf Zertifikat-eintragen.cmd
+# daneben. Die Rueckfrage von Windows mit "Ja" beantworten: der Eintrag gilt
 # fuer alle Benutzerkonten des Rechners und braucht dafuer
 # Administratorrechte.
 
@@ -67,10 +67,10 @@ Write-Host "Fingerabdruck: $($daten.Thumbprint)"
 Write-Host ""
 
 # Der Fingerabdruck steht hier fest drin, derselbe wie in
-# ZUERST-LESEN.txt. Bis 0.3.3 zeigte das Skript ihn nur an und trug
-# im selben Zug ein - der verlangte Vergleich war erst moeglich, als
-# es schon zu spaet war (Punkt 29). Eine untergeschobene andere .cer
-# wird jetzt gar nicht erst eingetragen.
+# ZUERST-LESEN.txt. Verglichen wird vor dem Eintragen: eine
+# untergeschobene andere .cer wird gar nicht erst eingetragen. Nur
+# anzeigen und im selben Zug eintragen hiesse, den Vergleich erst
+# zu ermoeglichen, wenn es schon zu spaet ist.
 $ERWARTET = "DFE4686FB0E8442FD5CAC3C8A76D58A8EB27A8E8"
 if ($daten.Thumbprint -ne $ERWARTET) {
     Write-Host "Nichts eingetragen." -ForegroundColor Red
