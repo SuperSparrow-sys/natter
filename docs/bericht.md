@@ -583,6 +583,28 @@ README zeigt auf die neueste Fassung. Vor dem Entpacken die ZIP unter
 Nach jedem Bau kommt hier ein Eintrag dazu: Datum, Fassung, Größe,
 Signaturen, Dauer, und was der Lauf aufgedeckt hat, samt Irrweg.
 
+### 0.4.4, zweiter Bau – 4. Oktober 2026
+
+Gleiche Nummer, neu gebaut aus `a15b6bf`: überarbeitete Texte
+(README, Handbuch, Erste Schritte, Paket, Installer) und die neue
+Hilfeansicht (Codeschrift des Editors, farbige Codeblöcke,
+Strg+Mausrad). `Natter-Setup.exe`, 276,7 MB, ZIP 277 MB, jede
+Binärdatei gültig signiert. 21,4 Minuten, pytest 3:00 (5.603 Tests),
+Rauchprobe bestanden. Ohne neue Durchsicht gebaut, auf ausdrücklichen
+Wunsch als Neuauflage derselben Fassung. Das Tag `v0.4.4` zeigt jetzt
+auf `a15b6bf` statt auf `11bd7aa`, die Dateien am Release sind
+ersetzt. Über die installierte 0.4.3 (je Konto) installiert: startet
+bis zum Hauptfenster, beendet sich sauber, die Hilfe zeigt Code farbig
+in Cascadia Code und wächst mit Strg+Mausrad.
+
+Irrweg: Der erste Anlauf lief noch in einer Hintergrund-Shell der
+vorigen Sitzung weiter, nachdem diese beendet war. Ohne zugehörige
+Konsole scheiterte jeder Kindprozess mit `0xC0000142`
+(Initialisierung einer DLL fehlgeschlagen), und Schritt 4 meldete 48
+rote Tests, alle mit Prozessstart. Einzeln liefen sie grün, ein neuer
+Bau aus der laufenden Sitzung ebenfalls. Bei vielen roten Tests mit
+Rückgabewert 3221225794 zuerst die Shell prüfen, nicht den Code.
+
 ### 0.4.4 – 4. Oktober 2026
 
 `Natter-Setup.exe`, 276,7 MB, ZIP 277 MB, jede Binärdatei gültig
