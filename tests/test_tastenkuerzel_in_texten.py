@@ -22,7 +22,12 @@ import pytest
 
 from ide.diagramm.fenster import MENUE_ZUGRIFF as DIAGRAMM_MENUE_ZUGRIFF
 from ide.shell.hauptfenster import MENUE_ZUGRIFF, HauptFenster
-from ide.shell.tastenkuerzel import DESIGNERTASTEN, EDITORTASTEN, deutsche_taste
+from ide.shell.tastenkuerzel import (
+    DESIGNERTASTEN,
+    DIAGRAMMTASTEN,
+    EDITORTASTEN,
+    deutsche_taste,
+)
 
 WURZEL = Path(__file__).resolve().parent.parent
 
@@ -109,7 +114,10 @@ def _erlaubte_kuerzel() -> set[str]:
                     erlaubt.add(wert)
                     erlaubt.add(deutsche_taste(wert))
 
-    for taste, _zweck in (*EDITORTASTEN, *DESIGNERTASTEN):
+    # Der Diagramm-Editor setzt einen Teil seiner Kürzel in einer
+    # Schleife über Tupel, die der Syntaxbaum oben nicht als Aufruf
+    # sieht; seine Liste steht in `DIAGRAMMTASTEN`.
+    for taste, _zweck in (*EDITORTASTEN, *DESIGNERTASTEN, *DIAGRAMMTASTEN):
         erlaubt.add(taste)
         # „Alt+Pfeil hoch/runter" steht als eine Zeile, gefunden wird
         # sie einzeln.

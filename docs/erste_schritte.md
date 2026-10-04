@@ -53,25 +53,58 @@ bleibt. Die Abschnitte 4 und 5 gelten für beide Vorlagen.
 
 ## 2. Das Formular bauen
 
-Doppelklick auf **u_main** unter „Formulare" öffnet den Designer.
+Nach dem Anlegen ist der Designer schon offen, daneben als zweiter
+Reiter `u_main.py`. Später öffnet ihn ein Doppelklick auf **u_main**
+unter „Formulare".
 
-Links oben steht die **Komponentenpalette**. Eine Kachel anklicken und
-dann ins Formular klicken – dort entsteht die Komponente. (Ein
-Doppelklick auf die Kachel legt sie in die Mitte.)
+Oben steht die **Komponentenpalette** mit den Reitern „Standard“,
+„Zusätzlich“, „Eingabe“ und „Datenbank“. Die Kacheln zeigen nur ein
+Symbol; ruht die Maus darauf, erscheinen Name und Zweck. Eine Kachel
+anklicken und dann ins Formular klicken – dort entsteht die
+Komponente. Ein Doppelklick auf die Kachel legt sie in die Mitte,
+`Esc` bricht das Platzieren ab.
 
-Rechts steht der **Objektinspektor**. Dort wird eingestellt, was die
-Komponente können soll:
+Rechts steht der **Objektinspektor**: oben alle Komponenten des
+Formulars, darunter zwei Reiter.
 
-* `caption` – die Beschriftung
-* `left`, `top`, `width`, `height` – Lage und Größe
-* Reiter **Ereignisse** – was bei einem Klick passieren soll
+* **Eigenschaften** – `name` (der Name im Code), `caption` (die
+  Beschriftung), `left`, `top`, `width`, `height` (Lage und Größe)
+  und alles Weitere
+* **Ereignisse** – welche Methode bei einem Klick, einer Eingabe
+  oder einem Takt läuft
 
-**Doppelklick auf den Knopf** im Formular: Natter legt die Methode
-dafür in `u_main.py` an und verknüpft sie. (Dasselbe über die rechte
-Maustaste: „Methode für „click“ anlegen“.) Der Reiter **Ereignisse**
-im Objektinspektor zeigt danach, welche Methode an welchem Ereignis
-hängt; dort lässt sich auch eine **schon vorhandene** Methode
-auswählen.
+Zum Mitmachen: einen **Button** und ein **Label** ins Formular
+setzen. Beim Button im Objektinspektor `name` auf `b_start` und
+`caption` auf `Start` stellen, beim Label `name` auf `l_ausgabe`.
+Ohne neuen Namen hießen sie `button` und `label`.
+
+Dann **Doppelklick auf den Knopf** im Formular. Natter legt in
+`u_main.py` die Methode `b_start_click` an, verknüpft sie mit dem
+Klick und setzt den Cursor hinein. Der Name der Methode besteht aus
+dem Namen der Komponente und dem Ereignis. Welches Ereignis ein
+Doppelklick nimmt, hängt von der Komponente ab:
+
+| Doppelklick auf | legt an |
+|---|---|
+| Button, Label, Image, Panel | `…_click`: beim Anklicken |
+| Edit, Memo, CheckBox, ComboBox, ListBox | `…_change`: bei jeder Änderung |
+| Timer | `…_timer`: in jedem Takt |
+| die freie Fläche des Formulars | `form_create`: einmal beim Start, bevor das Fenster erscheint |
+| MainMenu, PopupMenu | keine Methode, sondern öffnet den Menü-Editor |
+
+Gibt es die Methode schon, springt der Doppelklick nur hin. Dasselbe
+liegt auf der rechten Maustaste: „Methode für „click“ anlegen“.
+`Strg+Z` im Designer nimmt eine eben angelegte Methode wieder heraus,
+solange noch nichts hineingeschrieben ist. Wird die Komponente später
+umbenannt, heißt die Methode mit; Zeilen wie `self.button.caption`
+im eigenen Code ändert Natter dabei nicht.
+
+Für jedes andere Ereignis gibt es den Reiter **Ereignisse**. Ein
+Doppelklick auf den Namen eines Ereignisses, etwa `on_mouse_down`,
+legt dessen Methode an und springt hin. Die Auswahlliste daneben
+bietet die **schon vorhandenen** Methoden an, die zu diesem Ereignis
+passen; so können zwei Knöpfe dieselbe Methode benutzen. „(kein)“
+löst die Verknüpfung wieder.
 
 Das Formular selbst lässt sich an den drei Anfassern rechts, unten und
 in der Ecke größer ziehen. Der Punkteraster darauf zeigt, in welchen
@@ -79,8 +112,15 @@ Schritten eine Komponente einrastet.
 
 ## 3. Code schreiben
 
-Weiter zu **u_main.py**. Dort steht jetzt die leere Methode; hinein
-kommt, was passieren soll:
+In `u_main.py` steht jetzt die neue Methode:
+
+```python
+def b_start_click(self, sender):
+    # Hier steht, was passieren soll.
+    pass
+```
+
+Kommentar und `pass` werden durch das ersetzt, was passieren soll:
 
 ```python
 def b_start_click(self, sender):
@@ -112,7 +152,7 @@ und nie von Hand geändert – deshalb taucht sie im Projekt-Explorer
 nicht auf.
 
 `on_click` lässt sich trotzdem selbst setzen: im Code ist es eine
-Eigenschaft wie jede andere. Im Unterricht braucht man das selten –
+Eigenschaft wie jede andere. Im Unterricht ist das selten nötig –
 etwa, wenn zwei Knöpfe dieselbe Methode benutzen sollen. Dafür gibt es
 aber auch den Reiter **Ereignisse** im Objektinspektor, und der
 schreibt es ordentlich in die `.pfm` zurück.
@@ -133,10 +173,13 @@ Einrückungsebenen (bei Python ist die Einrückung die Syntax!), und die
 
 ## 4. Starten
 
-**F5** startet mit Debugger, **Strg+F5** ohne.
+**F5** startet mit Debugger, **Strg+F5** ohne. Vorher speichert
+Natter alle geänderten Dateien. Das Fenster des Programms geht auf,
+und ein Klick auf „Start“ schreibt „Hallo!“ in das Label. Beendet
+wird das Programm wie jedes Fenster oder mit **Umschalt+F5**.
 
 Vor dem Start prüft Natter den Quelltext. Findet es etwas, steht das
-unten unter **Meldungen** – ein Doppelklick führt an die Stelle. Das
+unten unter **Meldungen** – ein Klick führt an die Stelle. Das
 gilt auch, wenn in einer Unit etwas fehlt, das eine andere braucht:
 `def main()` in einem Konsolenprogramm oder die Methode zu einem
 Ereignis, die zum Beispiel mit Strg+Z verschwunden ist.
@@ -155,9 +198,11 @@ Stelle, an der sie zu suchen ist. Das Finden ist die eigentliche
 Aufgabe.
 
 Zum Suchen dient ein **Haltepunkt**: links neben die Zeilennummer
-klicken. Mit F5 hält das Programm dort an, und unter **Variablen**
-steht, was gerade in den Variablen liegt. Rechtsklick auf eine Liste
-oder Tabelle: **Als Tabelle anzeigen**.
+klicken oder **F9** drücken. Mit F5 hält das Programm dort an, und
+unter **Variablen** steht, was gerade in den Variablen liegt; ruht
+die Maus im Editor auf einem Namen, zeigt ein Hinweis seinen Wert.
+Doppelklick oder Rechtsklick auf eine Liste oder Tabelle:
+**Als Tabelle anzeigen**. **F5** setzt das Programm fort.
 
 Ohne Haltepunkt geht es auch: **F11** oder **F10**, bevor das
 Programm läuft, startet es mit dem Debugger und hält in der ersten
@@ -171,9 +216,13 @@ Aufrufe hinweg.
 Struktogramm, Entscheidungstabelle, Use-Case-, Aktivitäts-, Zustands-
 und Sequenzdiagramm.
 
+Ein Doppelklick auf einen Block oder eine Form beschriftet sie, bei
+einer Klasse öffnet er den Dialog für Attribute und Operationen.
+
 Aus einem Klassendiagramm und aus einem Struktogramm erzeugt Natter
-**Python-Quelltext** (Menü „Quelltext"). Das ist eine Vorlage zum
-Weiterschreiben, kein fertiges Programm.
+**Python-Quelltext**: **Quelltext → Erzeugen …** im Fenster des
+Diagramms. Das ist eine Vorlage zum Weiterschreiben, kein fertiges
+Programm.
 
 ## Die wichtigsten Tasten
 
@@ -182,6 +231,7 @@ Weiterschreiben, kein fertiges Programm.
 | F5 | Starten mit Debugger |
 | Strg+F5 | Starten ohne Debugger |
 | Umschalt+F5 | Stopp |
+| F9 | Haltepunkt setzen oder entfernen |
 | F11 / F10 | Einzelschritt / Prozedurschritt |
 | Strg+S | Speichern |
 | Strg+F | Suchen |

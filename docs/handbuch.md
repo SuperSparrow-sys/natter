@@ -341,12 +341,37 @@ Knöpfe, Textfelder, Beschriftungen, Listen, Tabellen, Bilder,
 Zeitgeber und weitere. Eine Komponente wird in der Palette
 angeklickt und dann an der gewünschten Stelle ins Formular geklickt;
 ein Doppelklick in der Palette setzt sie in die Mitte des Formulars.
-Ziehen aus der Palette gibt es nicht. Im **Objektinspektor**
-rechts werden Beschriftung, Größe, Farbe und Verhalten eingestellt.
+`Esc` bricht das Platzieren ab. Ziehen aus der Palette gibt es
+nicht. Im **Objektinspektor** rechts werden Beschriftung, Größe,
+Farbe und Verhalten eingestellt.
+
+Ein Bild aus dem Windows-Explorer lässt sich direkt auf das Formular
+ziehen. Natter kopiert es in den Ordner `assets` des Projekts und legt
+eine `Image`-Komponente in der Größe des Bildes an; landet es auf
+einer vorhandenen, bekommt diese das neue Bild.
 
 Ein Doppelklick auf eine Komponente legt die zugehörige Methode im
 Quelltext an und springt dorthin. Der Schüler schreibt hinein, was
-passieren soll.
+passieren soll. Der Name setzt sich aus dem Namen der Komponente und
+dem Ereignis zusammen: `b_ok_click` für den Knopf `b_ok`,
+`e_name_change` für ein Eingabefeld, `t_takt_timer` für einen
+Timer. Ein Doppelklick auf die freie Fläche des Formulars legt
+`form_create` an, das einmal beim Start läuft. Bei einem MainMenu oder
+PopupMenu öffnet der Doppelklick den Menü-Editor; dort legt der Knopf
+**Methode anlegen** die Methode zum gewählten Menüeintrag an. Gibt es
+die Methode schon, springt der Doppelklick nur hin. `Strg+Z` im
+Designer nimmt eine eben angelegte Methode wieder heraus, solange sie
+noch leer ist. Wird eine Komponente umbenannt, heißen die von Natter
+angelegten Methoden mit; Verweise wie `self.b_ok` im eigenen Code
+bleiben dabei unverändert.
+
+Der Reiter **Ereignisse** im Objektinspektor zeigt alle Ereignisse der
+gewählten Komponente. Ein Doppelklick auf den Namen eines Ereignisses
+legt dessen Methode an, auch für Ereignisse, die der Doppelklick im
+Formular nicht nimmt, etwa `on_mouse_down` oder die Ereignisse des
+DBNavigators. Die Auswahlliste daneben bietet die vorhandenen
+Methoden an, die zum Ereignis passen; so hängen mehrere Komponenten
+an derselben Methode. „(kein)“ löst die Verknüpfung.
 
 Was im Objektinspektor eingestellt wird, heißt im Code genauso. Wer
 dort `caption` sieht, schreibt im Code `self.b_ok.caption`.
@@ -364,6 +389,14 @@ def b_oeffnen_click(self, sender):
 ```
 
 Das steht auch oben in der neu angelegten Unit.
+
+**Werkzeuge → Design prüfen** sieht das Formular im Designer durch:
+überlappende Komponenten, ungleiche Abstände, zu kleine Knöpfe,
+schwacher Kontrast, eine ungünstige Tab-Reihenfolge und Namen ohne das
+übliche Kürzel wie `b_` oder `l_`. Die Funde stehen im Panel
+„Meldungen“ und sind Hinweise, keine Fehler. Mit **Werkzeuge →
+Design-Prüfung beim Speichern automatisch** läuft sie nach jeder
+Änderung von selbst.
 
 ### 3.2 Zwei Arten von Projekten
 
@@ -404,10 +437,21 @@ einzelne Datei ausgeteilt wurde. Den Debugger und die Prüfung vor dem
 Start gibt es dabei nicht; dafür braucht es ein Projekt.
 
 Einen Haltepunkt setzt ein Klick links in den Zeilenrand oder `F9`
-in der Zeile des Cursors. Im Debugger lässt sich Zeile für Zeile
-durchgehen (`F11` hinein, `F10` darüber hinweg), und im Panel
-**Variablen** ist zu sehen, was gerade in welcher Variablen steht. Die
-Zeile, in der das Programm gerade hält, ist gelb hinterlegt.
+in der Zeile des Cursors. Die rechte Maustaste im Zeilenrand gibt
+ihm mit **Bedingung festlegen …** eine Bedingung wie `i == 7`; dann
+hält das Programm dort nur, wenn sie zutrifft. Im Debugger lässt sich
+Zeile für Zeile durchgehen (`F11` hinein, `F10` darüber hinweg), und
+im Panel **Variablen** ist zu sehen, was gerade in welcher Variablen
+steht. Die Zeile, in der das Programm gerade hält, ist gelb
+hinterlegt. `F4` lässt das Programm bis zur Zeile des Cursors laufen.
+
+Während das Programm hält, zeigt ein Hinweis den Wert eines Namens,
+auf dem die Maus im Editor ruht. Eine Liste oder Tabelle unter
+**Variablen** zeigt ein Doppelklick oder **Als Tabelle anzeigen**
+(rechte Maustaste) als Tabelle. Im Panel **Überwachen** kommt ein
+Ausdruck wie `summe / anzahl` über **Hinzufügen** dazu und wird bei
+jedem Halt neu ausgerechnet. Ein Klick auf eine Zeile im
+**Aufrufstapel** springt zu dem Aufruf und zeigt dessen Variablen.
 
 ### 3.4 Modellieren
 
@@ -418,8 +462,22 @@ Natter bringt einen Diagramm-Editor mit für
 - **Entscheidungstabellen**,
 - **Use-Case-, Aktivitäts-, Zustands- und Sequenzdiagramme** (UML).
 
-Angelegt wird ein Diagramm über „Datei → Neues Diagramm …“. Im
-Diagramm-Editor öffnet `F1` diesen Abschnitt.
+Angelegt wird ein Diagramm über „Datei → Neues Diagramm …“. In
+einem Projekt steht es danach im Projekt-Explorer unter „Diagramme“,
+und ein Doppelklick öffnet es wieder. Jedes Diagramm hat ein eigenes
+Fenster mit eigenen Menüs. Im Diagramm-Editor öffnet `F1` diesen
+Abschnitt.
+
+In den UML-Diagrammen wird eine Form in der Palette links angeklickt
+und dann auf die Zeichenfläche geklickt; ein Doppelklick auf eine
+Form beschriftet sie, ebenso `F2`. Die rechte Maustaste bietet
+Kopieren, Duplizieren, Löschen, Gruppieren und die Reihenfolge im
+Vorder- und Hintergrund an.
+
+**Eine Entscheidungstabelle füllen.** Ein Doppelklick auf eine
+Bedingung oder Aktion beschriftet sie, ein Klick in eine Regelzelle
+schaltet ihren Wert um. Bedingungen, Aktionen und Regeln kommen über
+das Menü „Tabelle“ oder die rechte Maustaste dazu.
 
 **Ein Struktogramm zeichnen.** Links steht die Palette mit den
 Blöcken: Anweisung, Verzweigung, Schleifen, Unterprogrammaufruf,
@@ -470,7 +528,12 @@ zunächst „ja“ und „nein“; ein Doppelklick auf eine der beiden
 Beschriftungen ändert sie.
 
 Aus einem Klassendiagramm kann Natter das Gerüst der Klassen erzeugen,
-aus einem Struktogramm das Gerüst einer Funktion. Jede Operation wird
+aus einem Struktogramm das Gerüst einer Funktion: **Quelltext →
+Erzeugen …** (`Strg+Umschalt+E`) im Fenster des Diagramms. Der Dialog
+fragt, ob der Code in einem Fenster erscheinen oder in eine Datei
+geschrieben werden soll, und ob alles oder nur die Auswahl gemeint
+ist. Im Fenster stehen **Kopieren** und **Speichern unter …**
+bereit. Jede Operation wird
 eine Methode und wird mit Klammern aufgerufen, auch eine „Anfrage“:
 aus „+getStand(): float“ wird `def getStand(self) -> float`, der
 Aufruf lautet `konto.getStand()`. Ein Start- oder Standardwert mit
@@ -500,10 +563,14 @@ Code weg. „x ← 1“ wird zu `x = 1`, „wahr“ und „falsch“ zu `True` u
 „nicht bestanden“, der im Struktogramm keinen Wert bekommt, ist ein
 Text. Was kein Python
 ist, steht als Kommentar im Code, und über dem Code steht, wie viele
-Zeilen das sind. Jedes Diagramm lässt
-sich als PNG, SVG oder PDF exportieren, etwa für ein Arbeitsblatt
-oder eine Abgabe. Blattgröße (A3, A4, A5) und Hoch- oder Querformat
-für PDF und Druck stehen unter „Datei → Seite einrichten …“.
+Zeilen das sind.
+
+Jedes Diagramm lässt sich über „Datei → Exportieren …“ als PNG, SVG
+oder PDF speichern, etwa für ein Arbeitsblatt oder eine Abgabe, und
+über „Datei → Drucken …“ drucken. „Bearbeiten → Als Bild kopieren“
+legt es in die Zwischenablage, zum Einfügen in ein Textdokument.
+Blattgröße (A3, A4, A5) und Hoch- oder Querformat für PDF und Druck
+stehen unter „Datei → Seite einrichten …“.
 
 Im Diagramm-Editor stellt `Strg+0` wie im Quelltexteditor die normale
 Größe (100 %) wieder her. **Ansicht → Alles anzeigen**
@@ -752,8 +819,8 @@ Abgabe selbst.
 
 Ein Projekt kann Testdateien enthalten (**Datei → Neue Test-Unit**).
 **Projekt → Alle Tests ausführen** zeigt im Panel **Tests**, was
-besteht und was nicht. Die Ergebnisse lassen sich als HTML
-exportieren.
+besteht und was nicht. **Projekt → Testergebnisse als HTML
+exportieren …** speichert sie als Seite für den Browser.
 
 Eine Testdatei heißt `test_…py`. Darin zählen Klassen mit
 `unittest.TestCase` wie in der Vorlage, aber auch einfache Funktionen
@@ -810,9 +877,12 @@ die Markierung.
 
 Links zeigt der Baum die Tabellen mit ihren Spalten, rechts steht das
 Ergebnis eines `SELECT`, darüber die Rückmeldung wie „2 Zeilen.“ oder
-eine Fehlermeldung. Die Knöpfe unter dem Baum übernehmen eine
-CSV-Datei als Tabelle und speichern die im Baum gewählte Tabelle als
-CSV oder als SQL-Datei. Die CSV-Datei trennt mit Semikolon und
+eine Fehlermeldung. Eine Abfrage, die zu lange läuft, hält
+**Abbrechen** an. Die Knöpfe unter dem Baum übernehmen eine
+CSV-Datei als Tabelle (**CSV importieren …**, auch über **Werkzeuge
+→ CSV in Datenbank importieren …**) und speichern die im Baum
+gewählte Tabelle als CSV oder als SQL-Datei (**CSV exportieren …**,
+**SQL-Dump …**). Die CSV-Datei trennt mit Semikolon und
 schreibt Kommazahlen mit Komma, so wie eine deutsche
 Tabellenkalkulation sie liest. In einer SQL-Anweisung selbst steht
 eine Kommazahl dagegen mit Punkt: `WHERE note < 2.5`.
@@ -1054,7 +1124,8 @@ Die rechte Maustaste im Editor zeigt dieselben Befehle als Menü, dazu
 | `Entf` | Komponente löschen |
 | `Strg+D` | Komponente duplizieren |
 | `F2` | Menü-Editor öffnen, bei einem MainMenu oder PopupMenu |
-| Doppelklick | Ereignis-Methode anlegen und hinspringen |
+| Doppelklick | Ereignis-Methode anlegen und hinspringen (Abschnitt 3.1) |
+| `Esc` | Platzieren einer Komponente aus der Palette abbrechen |
 | `Strg`- oder `Umschalt`-Klick | weitere Komponente zur Auswahl nehmen oder herausnehmen |
 | Ziehen auf der freien Fläche | Rahmen aufziehen, alles darin auswählen |
 | `Strg+A` | alle Komponenten auswählen |
@@ -1066,12 +1137,28 @@ längere Pause, nimmt ein einziges `Strg+Z` zurück. Wird eine Komponente auf ei
 GroupBox gezogen, liegt sie danach darin, auch wenn mehrere zugleich
 gezogen werden. Eingefügte Komponenten behalten ihre Ereignisse und
 ihr Klappmenü, wenn es die Methode und das Menü im Zielformular gibt;
-im selben Formular ist das immer so. Die rechte Maustaste ändert die
-Tab-Reihenfolge und die Rasterweite (4, 8 oder 16 Pixel). Sind
-mehrere Komponenten
-ausgewählt, richtet „Ausrichten“ sie an den Kanten der zuletzt
-angeklickten aus, verteilt sie gleichmäßig oder gibt ihnen deren
-Breite oder Höhe.
+im selben Formular ist das immer so. Die rechte Maustaste legt die
+Methode zum Standardereignis an, dupliziert und löscht, ändert die
+Tab-Reihenfolge und die Rasterweite (4, 8 oder 16 Pixel). Dasselbe
+Menü öffnet **Bearbeiten → Ausrichten, Raster und Tab-Reihenfolge …**.
+Sind mehrere Komponenten ausgewählt, richtet „Ausrichten“ sie an den
+Kanten der zuletzt angeklickten aus, verteilt sie gleichmäßig oder
+gibt ihnen deren Breite oder Höhe.
+
+### Nur im Diagramm-Editor
+
+| Taste | Was passiert |
+|---|---|
+| `F1` | Dieses Handbuch beim Abschnitt über Diagramme |
+| `Strg+Umschalt+E` | Quelltext aus dem Diagramm erzeugen |
+| `F2` | Gewählte Form oder gewählten Block beschriften |
+| `Entf` | Gewählte Formen oder Blöcke löschen |
+| `Strg+D` | Duplizieren |
+| `Strg+G` | Gruppieren |
+| `Strg+Umschalt+G` | Gruppierung aufheben |
+| `Strg+1` | Alles anzeigen |
+| `Strg+0` | Zoom 100 % |
+| `+` / `-` | Im Struktogramm einen Fall oder Strang dazu bzw. weg |
 
 ---
 
