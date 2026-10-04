@@ -57,8 +57,17 @@ from PySide6.QtWidgets import (
 #: nur aus solchen Stellen (M12, am Bildschirmfoto gefunden).
 CODE_SCHRIFTEN = ("Consolas", "Courier New", "DejaVu Sans Mono", "Courier")
 
-#: Der Gattungsname, den Qt beim Umwandeln von Markdown einsetzt.
-_IST_CODE = "monospace"
+def _code_kennungen() -> set[str]:
+    """Die Familien, an denen Qt Code aus Markdown kennzeichnet.
+
+    Qt nimmt dafür die feste Systemschrift. Ohne Bildschirm, also in
+    den Tests, heißt sie „monospace“; unter Windows mit Bildschirm
+    „Courier New“. Gesucht wurde lange nur nach „monospace“, und so
+    lief die eigene Codeschrift in jedem Test und auf keinem
+    Bildschirm - dort blieb aller Code in Courier New.
+    """
+    fest = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
+    return {"monospace", fest.family()}
 
 
 def code_schriftart(bevorzugt: str | None = None) -> str:
@@ -691,8 +700,8 @@ class HilfeAnsicht(QTextBrowser):
         self.setViewportMargins(rand, 0, rand, unten)
 
     def _code_schrift_setzen(self) -> None:
-        """Ersetzt die Gattungsfamilie „monospace“ durch eine, die es
-        wirklich gibt.
+        """Setzt Code-Stellen in die Codeschrift (`_code_kennungen`
+        sagt, woran sie zu erkennen sind).
 
         Seit die Seiten über HTML eingelesen werden, steht
         `code { font-family: … }` in der Vorlage - und trotzdem
@@ -710,6 +719,7 @@ class HilfeAnsicht(QTextBrowser):
         Tabellen ist es die Regel.
         """
         schrift = code_schriftart(self.code_schrift)
+        kennungen = _code_kennungen()
         dokument = self.document()
         stellen: list[tuple[int, int]] = []
 
@@ -718,7 +728,7 @@ class HilfeAnsicht(QTextBrowser):
             teil = block.begin()
             while not teil.atEnd():
                 stueck = teil.fragment()
-                if stueck.isValid() and _IST_CODE in (
+                if stueck.isValid() and kennungen.intersection(
                     stueck.charFormat().fontFamilies() or []
                 ):
                     stellen.append((stueck.position(), stueck.length()))

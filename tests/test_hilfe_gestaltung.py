@@ -335,3 +335,35 @@ def test_das_thema_wird_aus_der_eigenen_farbe_gelesen(ansicht: HilfeAnsicht) -> 
     ansicht.setPalette(palette)
 
     assert ansicht._ist_dunkel() is False
+
+
+def test_auch_die_feste_systemschrift_gilt_als_code(
+    ansicht: HilfeAnsicht, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Unter Windows mit Bildschirm setzt Qt Code aus Markdown auf die
+    feste Systemschrift Courier New, ohne Bildschirm auf „monospace“.
+    Gesucht wurde nur nach „monospace“: in jedem Test lief die
+    Codeschrift, auf dem Bildschirm blieb aller Code in Courier New."""
+    from ide.viewers import hilfe_ansicht
+
+    if "Consolas" not in set(QFontDatabase.families()):
+        pytest.skip("Consolas nicht geladen")
+    fest = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
+    assert fest in hilfe_ansicht._code_kennungen()
+
+    monkeypatch.setattr(
+        hilfe_ansicht, "_code_kennungen", lambda: {"monospace", "Courier New"}
+    )
+    ansicht.code_schrift = "Consolas"
+    ansicht.setHtml(
+        "<p>Text <span style=\"font-family:'Courier New'\">code</span></p>"
+    )
+    ansicht._code_schrift_setzen()
+
+    familien = {
+        familie
+        for _block, stueck in _fragmente(ansicht)
+        if stueck.text() == "code"
+        for familie in stueck.charFormat().fontFamilies() or []
+    }
+    assert familien == {"Consolas"}
