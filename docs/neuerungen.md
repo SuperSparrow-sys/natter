@@ -19,6 +19,10 @@ Punktnummern und keine Einzelkorrekturen.
 - Neu: „Datei → Speichern unter …“, etwa für ausgeteilte Dateien in
   schreibgeschützten Ordnern.
 - Neue Ereignisse `on_mouse_enter` und `on_mouse_leave`.
+- Handbuch und „Erste Schritte“ überarbeitet: Schritt für Schritt zum
+  ersten Knopf, und welcher Doppelklick welche Methode anlegt.
+- Hilfeseiten zeigen Code farbig und in der Schrift des Editors; die
+  Schriftgröße lässt sich mit Strg+Mausrad einstellen.
 - Fehler behoben, die Daten kosten oder Programme abbrechen konnten.
 
 ## 0.4.3
