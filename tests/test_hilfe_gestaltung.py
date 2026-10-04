@@ -15,14 +15,31 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from PySide6.QtGui import QColor, QPalette
+from PySide6.QtCore import QPoint, QPointF, Qt
+from PySide6.QtGui import (
+    QColor,
+    QFontDatabase,
+    QPalette,
+    QWheelEvent,
+)
 
 from ide.viewers.hilfe_ansicht import (
+    GROESSTE_SCHRIFT,
     HOECHSTBREITE,
     ZEILENABSTAND,
     HilfeAnsicht,
+    codeflaeche,
     stilvorlage,
 )
+
+
+def codeflaeche_bei(ansicht: HilfeAnsicht, text: str) -> str | None:
+    """Die Farbe der Fläche, auf der `text` steht, oder `None`."""
+    cursor = ansicht.document().find(text)
+    tabelle = cursor.currentTable()
+    if tabelle is None:
+        return None
+    return tabelle.cellAt(cursor).format().background().color().name()
 
 WURZEL = Path(__file__).resolve().parent.parent
 
@@ -117,15 +134,102 @@ def test_der_codeblock_wird_abgesetzt(ansicht: HilfeAnsicht) -> None:
     deren Formatierung fehlt."""
     ansicht.markdown_setzen(BEISPIEL)
 
-    flaechen = {
-        block.blockFormat().background().color().name()
-        for block, stueck in _fragmente(ansicht)
-        if "def f():" in stueck.text()
-    }
+    assert codeflaeche_bei(ansicht, "def f():") == codeflaeche(False)
 
-    assert flaechen and flaechen != {"#000000"}, (
-        "Der Codeblock hat keine eigene Fläche."
+
+def test_ein_codeblock_ist_eine_flaeche_und_kein_streifenstapel(
+    ansicht: HilfeAnsicht,
+) -> None:
+    """Qt macht aus jeder Codezeile einen eigenen Absatz. Mit der
+    Fläche am Absatz stand zwischen den Zeilen je ein weißer Spalt.
+    Alle Zeilen eines Blocks liegen deshalb in derselben Zelle."""
+    ansicht.markdown_setzen("```python\nx = 1\n\ny = 2\n```\n")
+
+    zellen = set()
+    for text in ("x = 1", "y = 2"):
+        cursor = ansicht.document().find(text)
+        tabelle = cursor.currentTable()
+        assert tabelle is not None, f"„{text}“ steht in keiner Fläche."
+        zellen.add(tabelle.cellAt(cursor).firstPosition())
+
+    assert len(zellen) == 1
+
+
+def test_python_wird_eingefaerbt_ein_pfad_nicht(ansicht: HilfeAnsicht) -> None:
+    """Wie im Editor. Ein Block ohne Sprache bleibt einfarbig: in einem
+    Pfad fände die Hervorhebung Zahlen, wo keine sind."""
+    ansicht.markdown_setzen(
+        "```python\ndef f():\n    return 42\n```\n\n```\nC:/Ordner2/datei 3\n```\n"
     )
+
+    def farben(text: str) -> set[str]:
+        return {
+            stueck.charFormat().foreground().color().name()
+            for _block, stueck in _fragmente(ansicht)
+            if stueck.text() and stueck.text() in text
+        }
+
+    python = farben("def f():    return 42")
+    assert len(python) >= 3, f"Python einfarbig: {python}"
+    pfad = {
+        stueck.charFormat().foreground().style()
+        for _block, stueck in _fragmente(ansicht)
+        if "Ordner" in stueck.text() or "3" == stueck.text()
+    }
+    assert pfad == {Qt.BrushStyle.NoBrush}
+
+
+def test_code_steht_in_der_schrift_des_editors(ansicht: HilfeAnsicht) -> None:
+    """„Ansicht → Schriftart“ gilt auch für Code in Hilfeseiten."""
+    vorhanden = set(QFontDatabase.families())
+    andere = next(
+        (s for s in ("Courier New", "Consolas") if s in vorhanden), None
+    )
+    if andere is None:
+        pytest.skip("Keine Codeschrift geladen")
+    ansicht.markdown_setzen(BEISPIEL)
+
+    ansicht.code_schrift_setzen(andere)
+
+    familien = {
+        familie
+        for _block, stueck in _fragmente(ansicht)
+        if stueck.text() == "def"
+        for familie in stueck.charFormat().fontFamilies() or []
+    }
+    assert andere in familien
+
+
+def test_strg_mausrad_veraendert_die_schriftgroesse(
+    ansicht: HilfeAnsicht,
+) -> None:
+    """Wie im Quelltexteditor. Vorher blieb es ohne Wirkung: Qt
+    schrieb die Schrift des Hilfsdokuments in den `<body>`, und diese
+    Angabe schlug jede Größe, die das Widget bekam."""
+    ansicht.grundgroesse_setzen(10)
+    ansicht.markdown_setzen(BEISPIEL)
+    feste_groessen = {
+        stueck.charFormat().fontPointSize()
+        for _block, stueck in _fragmente(ansicht)
+        if "Ein Absatz" in stueck.text()
+    }
+    assert feste_groessen == {0.0}, "Der Fließtext hat eine feste Größe."
+
+    for _ in range(3):
+        ansicht.wheelEvent(
+            QWheelEvent(
+                QPointF(10, 10), QPointF(10, 10), QPoint(0, 0), QPoint(0, 120),
+                Qt.MouseButton.NoButton, Qt.KeyboardModifier.ControlModifier,
+                Qt.ScrollPhase.NoScrollPhase, False,
+            )
+        )
+
+    assert ansicht.schriftgroesse() == 13
+    ansicht.ensurePolished()
+    assert ansicht.document().defaultFont().pointSize() == 13
+
+    ansicht.grundgroesse_setzen(30)
+    assert ansicht.schriftgroesse() == GROESSTE_SCHRIFT
 
 
 def test_der_zeilenabstand_steht_im_dokument(ansicht: HilfeAnsicht) -> None:

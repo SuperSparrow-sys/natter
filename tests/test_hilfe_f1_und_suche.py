@@ -128,6 +128,15 @@ def test_f1_ohne_komponente_oeffnet_das_handbuch(hauptfenster) -> None:
     assert _oberster_block(ansicht).startswith("3.")
 
 
+def codeflaeche_bei(ansicht: HilfeAnsicht, text: str) -> str | None:
+    """Die Farbe der Fläche, auf der `text` steht, oder `None`."""
+    cursor = ansicht.document().find(text)
+    tabelle = cursor.currentTable()
+    if tabelle is None:
+        return None
+    return tabelle.cellAt(cursor).format().background().color().name()
+
+
 def test_die_hilfe_folgt_dem_dunklen_design(hauptfenster) -> None:
     """Das dunkle Design kommt aus dem Stylesheet, die Palette bleibt
     hell. Die Hilfe fragte die Palette, und Codeblöcke standen im
@@ -137,10 +146,10 @@ def test_die_hilfe_folgt_dem_dunklen_design(hauptfenster) -> None:
     hauptfenster._erste_schritte_aktion()
     ansicht = hauptfenster.editor_tabs.currentWidget()
     assert isinstance(ansicht, HilfeAnsicht)
-    assert "#2b3136" in ansicht.document().defaultStyleSheet()
+    assert codeflaeche_bei(ansicht, "def b_start_click") == "#2b3136"
 
     hauptfenster._design_wechseln("light")
-    assert "#f2f4f6" in ansicht.document().defaultStyleSheet()
+    assert codeflaeche_bei(ansicht, "def b_start_click") == "#f2f4f6"
 
 
 def test_strg_f_sucht_in_der_referenz(hauptfenster, qtbot) -> None:

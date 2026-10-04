@@ -24,10 +24,12 @@ from PySide6.QtGui import (
     QFont,
     QFontDatabase,
     QKeyEvent,
+    QTextBlock,
     QTextBlockFormat,
     QTextCharFormat,
     QTextCursor,
     QTextDocument,
+    QTextFormat,
     QTextList,
     QTextListFormat,
 )
@@ -59,9 +61,13 @@ CODE_SCHRIFTEN = ("Consolas", "Courier New", "DejaVu Sans Mono", "Courier")
 _IST_CODE = "monospace"
 
 
-def code_schriftart() -> str:
-    """Die erste vorhandene Schriftart aus `CODE_SCHRIFTEN`."""
+def code_schriftart(bevorzugt: str | None = None) -> str:
+    """`bevorzugt`, wenn es die Schrift gibt - das ist die Schrift des
+    Quelltexteditors aus „Ansicht → Schriftart“ -, sonst die erste
+    vorhandene aus `CODE_SCHRIFTEN`."""
     vorhanden = set(QFontDatabase.families())
+    if bevorzugt and bevorzugt in vorhanden:
+        return bevorzugt
     for name in CODE_SCHRIFTEN:
         if name in vorhanden:
             return name
@@ -78,6 +84,22 @@ HOECHSTBREITE = 720
 #: Zeilen aufeinanderkleben, sieht aus wie eine Fehlermeldung.
 ZEILENABSTAND = 160
 
+#: Zeilenabstand in Codeblöcken. Enger als im Fließtext, damit ein
+#: Block als eine Fläche erscheint und nicht als Stapel einzelner
+#: Streifen: jede Codezeile ist für Qt ein eigener Absatz, und mit
+#: 160 % blieb zwischen den grauen Flächen je ein weißer Spalt.
+CODE_ZEILENABSTAND = 125
+
+#: Sprachen, deren Codeblöcke wie im Quelltexteditor eingefärbt werden.
+#: Ein Block ohne Angabe bleibt einfarbig - in den Hilfeseiten stehen
+#: darin Pfade und Registry-Schlüssel, und in einem Pfad fände die
+#: Hervorhebung Zahlen und Schlüsselwörter, wo keine sind.
+PYTHON_SPRACHEN = {"python", "py"}
+
+#: Grenzen für Strg+Mausrad, wie im Quelltexteditor.
+KLEINSTE_SCHRIFT = 7
+GROESSTE_SCHRIFT = 32
+
 
 def stilvorlage(dunkel: bool, code_schrift: str) -> str:
     """Die Gestaltung der Hilfeseiten als Stylesheet.
@@ -93,28 +115,147 @@ def stilvorlage(dunkel: bool, code_schrift: str) -> str:
     600 und nicht 700 wie „bold".
     """
     stufe = 500 if dunkel else 400
-    # Die Fläche hinter Codeblöcken muss sich vom Grund abheben und
-    # darf ihn in keinem Thema übertönen, deshalb zwei feste Werte.
-    flaeche = "#2b3136" if dunkel else "#f2f4f6"
-    rahmen = "#4a545c" if dunkel else "#d5dade"
+    rahmen = coderahmen(dunkel)
     return f"""
         body {{ font-weight: {stufe}; line-height: {ZEILENABSTAND}%; }}
         p {{ line-height: {ZEILENABSTAND}%; margin-top: 8px; margin-bottom: 8px; }}
         li {{ line-height: {ZEILENABSTAND}%; margin-bottom: 4px; }}
         h1, h2, h3 {{ margin-top: 20px; margin-bottom: 8px; font-weight: 600; }}
         code {{ font-family: {code_schrift}; }}
-        pre {{
-            font-family: {code_schrift};
-            background-color: {flaeche};
-            border: 1px solid {rahmen};
-            padding: 10px;
-            margin-top: 10px;
-            margin-bottom: 10px;
-        }}
+        pre {{ font-family: {code_schrift}; }}
         table {{ border-collapse: collapse; margin-top: 10px; margin-bottom: 10px; }}
         th, td {{ border: 1px solid {rahmen}; padding: 5px 10px; }}
         th {{ font-weight: 600; }}
     """
+
+
+def codeflaeche(dunkel: bool) -> str:
+    """Die Fläche hinter Codeblöcken. Sie muss sich vom Grund abheben
+    und darf ihn in keinem Thema übertönen, deshalb zwei feste
+    Werte."""
+    return "#2b3136" if dunkel else "#f2f4f6"
+
+
+def coderahmen(dunkel: bool) -> str:
+    """Der Rahmen um Codeblöcke und Tabellen."""
+    return "#4a545c" if dunkel else "#d5dade"
+
+
+def _code_einfaerben(dokument: QTextDocument, dunkel: bool) -> None:
+    """Färbt Python-Codeblöcke ein wie im Quelltexteditor und gibt
+    allen Codeblöcken einen engeren Zeilenabstand als dem Fließtext.
+
+    Eingefärbt wird mit derselben `PythonHervorhebung` wie im Editor,
+    in einem Hilfsdokument je Block. Die Farben gehen als feste
+    Zeichenformate ins Dokument und überstehen so den Umweg über HTML.
+    """
+    from ide.shell.python_hervorhebung import PythonHervorhebung
+
+    # Zwei Codeblöcke, zwischen denen nur eine Leerzeile steht, liegen
+    # im Dokument direkt hintereinander. Getrennt werden sie dann am
+    # Wechsel der Sprache - sonst erbte ein Pfad unter einem
+    # Python-Block dessen Farben.
+    laeufe: list[list[QTextBlock]] = []
+    block = dokument.begin()
+    vorher: str | None = None
+    while block.isValid():
+        format_ = block.blockFormat()
+        sprache = (
+            format_.stringProperty(QTextFormat.Property.BlockCodeLanguage)
+            if format_.hasProperty(QTextFormat.Property.BlockCodeFence)
+            else None
+        )
+        if sprache is not None:
+            if sprache != vorher:
+                laeufe.append([])
+            laeufe[-1].append(block)
+        vorher = sprache
+        block = block.next()
+    if not laeufe:
+        return
+
+    thema = "dark" if dunkel else "light"
+    zeilen = QTextBlockFormat()
+    zeilen.setLineHeight(
+        CODE_ZEILENABSTAND,
+        QTextBlockFormat.LineHeightTypes.ProportionalHeight.value,
+    )
+    cursor = QTextCursor(dokument)
+    cursor.beginEditBlock()
+    for lauf in laeufe:
+        for block in lauf:
+            cursor.setPosition(block.position())
+            cursor.mergeBlockFormat(zeilen)
+
+        sprache = lauf[0].blockFormat().stringProperty(
+            QTextFormat.Property.BlockCodeLanguage
+        )
+        if sprache.lower() not in PYTHON_SPRACHEN:
+            continue
+        hilfe = QTextDocument()
+        hilfe.setPlainText("\n".join(b.text() for b in lauf))
+        hervorhebung = PythonHervorhebung(hilfe, thema)
+        hervorhebung.rehighlight()
+        quelle = hilfe.begin()
+        for block in lauf:
+            for bereich in quelle.layout().formats():
+                anfang = block.position() + bereich.start
+                cursor.setPosition(anfang)
+                cursor.setPosition(
+                    anfang + bereich.length, QTextCursor.MoveMode.KeepAnchor
+                )
+                cursor.mergeCharFormat(bereich.format)
+            quelle = quelle.next()
+    cursor.endEditBlock()
+
+
+#: Aufeinanderfolgende `<pre>`-Zeilen in `toHtml()` - ein Codeblock.
+_CODEZEILEN = re.compile(r"(?:<pre\b[^>]*>.*?</pre>\n?)+")
+
+
+def _codeflaechen(html: str, dunkel: bool) -> str:
+    """Legt jeden Codeblock in eine einzellige Tabelle mit Fläche,
+    Rahmen und Innenabstand.
+
+    Qt macht aus jeder Zeile eines Codeblocks einen eigenen Absatz.
+    Eine Vorlage für `pre` mit Fläche und Rahmen galt deshalb je Zeile,
+    und heraus kam ein Stapel einzelner Streifen mit weißen Spalten:
+    die Fläche eines Absatzes reicht nicht über den Zeilenabstand, und
+    einen Innenabstand kennen Absätze in Qt nicht. Eine Tabellenzelle
+    kennt beides. Ein `QTextFrame` am Dokument wäre der andere Weg,
+    aber Qt lässt dabei einen leeren Absatz davor stehen und verliert
+    den Innenabstand auf dem Weg über HTML.
+    """
+    flaeche = codeflaeche(dunkel)
+    rahmen = coderahmen(dunkel)
+    kopf = (
+        f'<table width="100%" cellspacing="0" cellpadding="0">'
+        f'<tr><td bgcolor="{flaeche}" style="border: 1px solid {rahmen}; '
+        f'padding: 8px 12px;">'
+    )
+    return _CODEZEILEN.sub(
+        lambda treffer: kopf + treffer.group(0) + "</td></tr></table>\n",
+        html,
+    )
+
+
+#: Schriftangaben im `<body>` von `toHtml()`. Qt schreibt dort die
+#: Schrift des Hilfsdokuments fest hin, und als Inline-Angabe schlug
+#: sie sowohl die Vorlage als auch die Schriftgröße des Widgets:
+#: Strg+Plus und Strg+Mausrad blieben in Hilfeseiten ohne Wirkung, und
+#: die kräftigere Schrift im dunklen Thema kam nie an.
+_KOERPERSCHRIFT = re.compile(r"\s*font-(?:family|size|weight|style):[^;]*;")
+
+
+def _koerperschrift_entfernen(html: str) -> str:
+    return re.sub(
+        r'<body style="([^"]*)"',
+        lambda treffer: '<body style="'
+        + _KOERPERSCHRIFT.sub("", treffer.group(1))
+        + '"',
+        html,
+        count=1,
+    )
 
 
 _UMLAUTE = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
@@ -232,7 +373,83 @@ class HilfeAnsicht(QTextBrowser):
         self._rand = -1
         self._unten = 0
         self._abschnitte: list[tuple[int, str, str]] = []
+        #: Schrift des Quelltexteditors („Ansicht → Schriftart“), die
+        #: auch Code-Stellen hier bekommen. `None`: die erste vorhandene
+        #: aus `CODE_SCHRIFTEN`.
+        self.code_schrift: str | None = None
+        #: Grundgröße in Punkt, wie sie das Hauptfenster vorgibt, und
+        #: was Strg+Mausrad in dieser Seite dazugedreht hat.
+        self._grundgroesse: int | None = None
+        self._zoom = 0
         self._suchleiste_bauen()
+
+    # -- Schrift --------------------------------------------------------
+
+    def einstellen(self, dunkel: bool, code_schrift: str, groesse: int) -> None:
+        """Design, Codeschrift und Schriftgröße, wie sie das
+        Hauptfenster vorgibt, in einem Schritt - eine Seite, die schon
+        Inhalt hat, wird dabei nur einmal neu gesetzt."""
+        self._grundgroesse = groesse
+        self._groesse_anwenden()
+        if dunkel == self.dunkel and code_schrift == self.code_schrift:
+            return
+        self.dunkel = dunkel
+        self.code_schrift = code_schrift
+        self._neu_setzen()
+
+    def code_schrift_setzen(self, schrift: str) -> None:
+        """Nach „Ansicht → Schriftart“: Code-Stellen in der Schrift des
+        Editors, an derselben Stelle der Seite."""
+        if schrift == self.code_schrift:
+            return
+        self.code_schrift = schrift
+        self._neu_setzen()
+
+    def grundgroesse_setzen(self, groesse: int) -> None:
+        """Die Schriftgröße, die das Hauptfenster vorgibt (Strg+Plus,
+        Strg+Minus). Was Strg+Mausrad in der Seite verstellt hat,
+        bleibt als Abstand dazu erhalten."""
+        self._grundgroesse = groesse
+        self._groesse_anwenden()
+
+    def schriftgroesse(self) -> int:
+        """Die Schriftgröße der Seite in Punkt."""
+        grund = self._grundgroesse
+        if grund is None:
+            grund = self.font().pointSize()
+            if grund <= 0:
+                grund = 10
+            self._grundgroesse = grund
+        return max(KLEINSTE_SCHRIFT, min(GROESSTE_SCHRIFT, grund + self._zoom))
+
+    def _groesse_anwenden(self) -> None:
+        self.setStyleSheet(
+            f"HilfeAnsicht {{ font-size: {self.schriftgroesse()}pt; }}"
+        )
+
+    def wheelEvent(self, ereignis) -> None:  # noqa: N802 - Qt-Name
+        """Strg+Mausrad macht die Schrift größer oder kleiner, wie im
+        Quelltexteditor."""
+        if ereignis.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            schritt = 1 if ereignis.angleDelta().y() > 0 else -1
+            vorher = self.schriftgroesse()
+            self._zoom += schritt
+            if self.schriftgroesse() == vorher:
+                # An der Grenze nicht weiterzählen, sonst bräuchte der
+                # Weg zurück ebenso viele Drehungen ins Leere.
+                self._zoom -= schritt
+            self._groesse_anwenden()
+            ereignis.accept()
+            return
+        super().wheelEvent(ereignis)
+
+    def _neu_setzen(self) -> None:
+        """Setzt die Seite neu, an derselben Stelle."""
+        if not self._markdown:
+            return
+        stelle = self.verticalScrollBar().value()
+        self.markdown_setzen(self._markdown, self._inhaltsverzeichnis)
+        self.verticalScrollBar().setValue(stelle)
 
     # -- Suchleiste -----------------------------------------------------
 
@@ -388,10 +605,13 @@ class HilfeAnsicht(QTextBrowser):
         self._abschnitte = _anker_setzen(zwischen)
         if inhaltsverzeichnis:
             _inhaltsverzeichnis_einfuegen(zwischen, self._abschnitte)
+        dunkel = self._ist_dunkel()
+        _code_einfaerben(zwischen, dunkel)
         self.document().setDefaultStyleSheet(
-            stilvorlage(self._ist_dunkel(), code_schriftart())
+            stilvorlage(dunkel, code_schriftart(self.code_schrift))
         )
-        self.setHtml(zwischen.toHtml())
+        html = _koerperschrift_entfernen(zwischen.toHtml())
+        self.setHtml(_codeflaechen(html, dunkel))
         self._code_schrift_setzen()
         self._breite_begrenzen()
 
@@ -412,11 +632,7 @@ class HilfeAnsicht(QTextBrowser):
         if dunkel == self.dunkel:
             return
         self.dunkel = dunkel
-        if not self._markdown:
-            return
-        stelle = self.verticalScrollBar().value()
-        self.markdown_setzen(self._markdown, self._inhaltsverzeichnis)
-        self.verticalScrollBar().setValue(stelle)
+        self._neu_setzen()
 
     def resizeEvent(self, ereignis) -> None:  # noqa: N802 - Qt-Name
         super().resizeEvent(ereignis)
@@ -493,7 +709,7 @@ class HilfeAnsicht(QTextBrowser):
         dort `<code>`-Elemente entstehen; in einer langen Seite mit
         Tabellen ist es die Regel.
         """
-        schrift = code_schriftart()
+        schrift = code_schriftart(self.code_schrift)
         dokument = self.document()
         stellen: list[tuple[int, int]] = []
 

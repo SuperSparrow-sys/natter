@@ -4098,11 +4098,10 @@ class HauptFenster(QMainWindow):
                 return widget
 
         ansicht = HilfeAnsicht()
-        ansicht.dunkel = theme_aufloesen(self._design_thema) == "dark"
+        self._hilfeansicht_einstellen(ansicht)
         ansicht.markdown_setzen(markdown, inhaltsverzeichnis)
         index = self.editor_tabs.addTab(ansicht, titel)
         self.editor_tabs.setCurrentIndex(index)
-        self._panel_schrift_anpassen()
         return ansicht
 
     def _hilfedatei_zeigen(
@@ -6239,8 +6238,8 @@ class HauptFenster(QMainWindow):
             editor = self.editor_tabs.widget(index)
             if isinstance(editor, QuelltextEditor):
                 editor.thema_setzen(aufgeloest)
-            elif isinstance(editor, HilfeAnsicht):
-                editor.thema_setzen(aufgeloest == "dark")
+        for ansicht in self._hilfeansichten():
+            ansicht.thema_setzen(aufgeloest == "dark")
 
         # Symbole neu laden: ein `QIcon` merkt sich seine Farben. Ohne
         # das behielt die Werkzeugleiste nach dem Umschalten die alten
@@ -6612,6 +6611,8 @@ class HauptFenster(QMainWindow):
             editor = self.editor_tabs.widget(index)
             if isinstance(editor, QuelltextEditor):
                 editor.schriftart_setzen(schriftart)
+        for ansicht in self._hilfeansichten():
+            ansicht.code_schrift_setzen(schriftart)
 
     def fensterlage_herstellen(self) -> None:
         """Größe, Lage und Maximiert-Zustand vom letzten Mal, beim
@@ -8765,6 +8766,7 @@ class HauptFenster(QMainWindow):
         )
         ansicht.datei_angefordert.connect(self.oeffnen)
         ansicht.bearbeiten_angefordert.connect(self.datei_oeffnen)
+        self._hilfeansicht_einstellen(ansicht.ansicht)
         return ansicht
 
     def datei_ansicht_oeffnen(self, pfad: Path, fabrik, titel: str | None = None) -> QWidget:
@@ -9321,10 +9323,7 @@ class HauptFenster(QMainWindow):
         Fenster stehen, während der Quelltext größer wurde. Beide
         Listen stehen deshalb um so viele Punkte über der Schrift der
         Oberfläche, wie der Editor über seiner Grundgröße steht."""
-        from ide.shell.quelltexteditor import _CODE_SCHRIFTGROESSE
-
-        abstand = self.editor_schriftgroesse() - _CODE_SCHRIFTGROESSE
-        groesse = max(7, self.oberflaeche_schriftgroesse() + abstand)
+        groesse = self._panel_schriftgroesse()
         for liste in (self.ausgabe_liste, self.meldungen_liste):
             liste.setStyleSheet(f"QListWidget {{ font-size: {groesse}pt; }}")
         # Ebenso die Panels des Debuggers und offene Hilfeseiten: wer
@@ -9339,12 +9338,44 @@ class HauptFenster(QMainWindow):
         self.aufrufstapel_liste.setStyleSheet(
             f"QListWidget {{ font-size: {groesse}pt; }}"
         )
+        for ansicht in self._hilfeansichten():
+            ansicht.grundgroesse_setzen(groesse)
+
+    def _panel_schriftgroesse(self) -> int:
+        """Die Schrift der Panels und Hilfeseiten: so viele Punkte über
+        der Oberfläche, wie der Editor über seiner Grundgröße steht."""
+        from ide.shell.quelltexteditor import _CODE_SCHRIFTGROESSE
+
+        abstand = self.editor_schriftgroesse() - _CODE_SCHRIFTGROESSE
+        return max(7, self.oberflaeche_schriftgroesse() + abstand)
+
+    def _hilfeansichten(self) -> list[HilfeAnsicht]:
+        """Alle offenen gesetzten Seiten: Hilfeseiten und geöffnete
+        `.md`-Dateien, deren Ansicht in einer `MarkdownAnsicht`
+        steckt."""
+        ansichten: list[HilfeAnsicht] = []
         for index in range(self.editor_tabs.count()):
-            ansicht = self.editor_tabs.widget(index)
-            if isinstance(ansicht, HilfeAnsicht):
-                ansicht.setStyleSheet(
-                    f"HilfeAnsicht {{ font-size: {groesse}pt; }}"
-                )
+            widget = self.editor_tabs.widget(index)
+            if isinstance(widget, HilfeAnsicht):
+                ansichten.append(widget)
+            elif isinstance(widget, MarkdownAnsicht):
+                ansichten.append(widget.ansicht)
+        return ansichten
+
+    def _hilfeansicht_einstellen(self, ansicht: HilfeAnsicht) -> None:
+        """Design, Codeschrift und Schriftgröße der IDE für eine
+        gesetzte Seite. Code-Stellen stehen in der Schrift, die unter
+        „Ansicht → Schriftart“ für den Editor gewählt ist."""
+        from ide.shell.quelltexteditor import _cascadia_code_bereitstellen
+
+        # Die mitgelieferte Cascadia Code lädt sonst erst der erste
+        # Editor; eine Hilfeseite vom Startbild aus käme vorher.
+        _cascadia_code_bereitstellen()
+        ansicht.einstellen(
+            theme_aufloesen(self._design_thema) == "dark",
+            self._code_schriftart,
+            self._panel_schriftgroesse(),
+        )
 
     def _schriftgroesse_aktion(self, schritt: int) -> None:
         """„Ansicht → Schrift größer/kleiner/normal“ (Strg+Plus,
