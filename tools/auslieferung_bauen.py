@@ -1083,11 +1083,12 @@ def _alle_schritte(
     _schritt(1, "Arbeitsbaum ansehen")
     _arbeitsbaum_ansehen()
     if veroeffentlichen_:
-        # Jetzt und nicht erst in Schritt 12: fehlt `gh` oder liegt
-        # etwas nicht eingecheckt herum, soll das nach Sekunden
-        # auffallen und nicht nach einer halben Stunde.
+        # Jetzt und nicht erst in Schritt 12: fehlt `gh`, liegt
+        # etwas nicht eingecheckt herum oder fehlen die Neuerungen
+        # der Fassung, soll das nach Sekunden auffallen und nicht
+        # nach einer halben Stunde.
         try:
-            vorbedingungen_pruefen()
+            vorbedingungen_pruefen(version or _version_aus_pyproject())
         except VeroeffentlichungFehler as fehler:
             raise BauFehler(f"Veröffentlichen ginge nicht: {fehler}") from fehler
         print("  Veröffentlichen möglich: gh angemeldet, Baum eingecheckt.")

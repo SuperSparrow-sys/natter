@@ -49,6 +49,14 @@ ist, und schlag eine Nummer vor: Patch für Fehlerbehebungen, Minor für
 neue Komponenten oder Menüeinträge. Das ist die eine Frage am Anfang –
 zusammen mit allem anderen, was noch offen ist.
 
+Schreib vor dem Bau den Abschnitt `## <Nummer>` in `docs/neuerungen.md`
+und committe ihn. Er wird zum Text unter dem GitHub-Release, und
+Schritt 1 bricht ab, wenn er fehlt. Leser ist eine Lehrkraft, die
+wissen will, was sich im Unterricht ändert: höchstens fünf, sechs
+Stichpunkte, keine Punktnummern, keine einzelnen Fehlerkorrekturen –
+die bündelt höchstens ein Punkt wie „Fehler behoben, die Daten kosten
+konnten“.
+
 ## 3. Bauen
 
 ```
@@ -119,7 +127,8 @@ Auslieferung, die aus dem Haus geht.
 ## 6. Veröffentlichen
 
 Schritt 12 stellt `Natter-Setup.exe` und `Natter-<Version>-Setup.zip` als
-GitHub-Release ins öffentliche Repository, unter dem Tag `v<Version>`.
+GitHub-Release ins öffentliche Repository, unter dem Tag `v<Version>`,
+mit den Neuerungen aus `docs/neuerungen.md` als Beschreibung.
 Der Nutzer will das nach jedem Bau, ohne eigene Nachfrage. Die Dateien
 hängen am Release und nicht in der Git-Historie: GitHub nimmt dort
 keine Datei über 100 MB an.

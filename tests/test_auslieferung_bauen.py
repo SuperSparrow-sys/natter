@@ -80,7 +80,7 @@ def _echte_dateien_geschuetzt(tmp_path_factory, monkeypatch: pytest.MonkeyPatch)
     def nicht_veroeffentlichen(*_a, **_k):  # noqa: ANN202
         raise AssertionError("Ein Test hat versucht, auf GitHub zu veröffentlichen.")
 
-    monkeypatch.setattr(bau, "vorbedingungen_pruefen", lambda: None)
+    monkeypatch.setattr(bau, "vorbedingungen_pruefen", lambda _version=None: None)
     monkeypatch.setattr(bau, "veroeffentlichen", nicht_veroeffentlichen)
 
 

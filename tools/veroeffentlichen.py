@@ -13,8 +13,9 @@ Ablauf:
    eine Fassung, deren Stand in keinem Commit steht, lässt sich später
    nicht wiederfinden.
 2. `main` und ein Tag `v<Version>` gehen nach GitHub.
-3. Das Release entsteht mit beiden Dateien und einer Beschreibung,
-   die erklärt, wie es unter Windows weitergeht, samt Prüfsummen.
+3. Das Release entsteht mit beiden Dateien und einer Beschreibung:
+   oben die Neuerungen aus docs/neuerungen.md, darunter in zwei Zeilen
+   der Weg unter Windows.
 
 Gibt es das Tag schon und zeigt es auf einen anderen Stand, bleibt es
 dabei: eine veröffentlichte Nummer wird nicht umgebogen. Zeigt es auf
@@ -36,6 +37,10 @@ from pathlib import Path
 WURZEL = Path(__file__).resolve().parent.parent
 _SETUP = WURZEL / "dist" / "installer" / "Natter-Setup.exe"
 _REPOSITORY = "SuperSparrow-sys/natter"
+
+#: Was jede Fassung Neues bringt, aus Sicht einer Lehrkraft. Der
+#: Abschnitt `## <Version>` wird zum Text unter dem Release.
+NEUERUNGEN = WURZEL / "docs" / "neuerungen.md"
 
 #: Die Dateien, die Schritt 2 des Baus beim Setzen der Versionsnummer
 #: ändert. Nur sie dürfen beim Veröffentlichen noch offen sein; sie
@@ -81,30 +86,47 @@ def gh_finden() -> Path | None:
     return next((ort for ort in _GH_ORTE if ort.is_file()), None)
 
 
+def neuerungen(version: str) -> list[str]:
+    """Die Stichpunkte zu `version` aus docs/neuerungen.md, ohne
+    Überschrift. Fehlt der Abschnitt, ist die Liste leer."""
+    if not NEUERUNGEN.is_file():
+        return []
+    zeilen: list[str] = []
+    drin = False
+    for zeile in NEUERUNGEN.read_text(encoding="utf-8").splitlines():
+        if zeile.startswith("## "):
+            if drin:
+                break
+            drin = zeile[3:].strip() == version
+        elif drin:
+            zeilen.append(zeile)
+    while zeilen and not zeilen[-1].strip():
+        zeilen.pop()
+    while zeilen and not zeilen[0].strip():
+        zeilen.pop(0)
+    return zeilen
+
+
 def beschreibung(version: str) -> str:
-    """Der Text unter dem Release. Wer von der Schule kommt, liest ihn
-    vor dem Herunterladen - deshalb nur der Weg unter Windows, in drei
-    Schritten.
+    """Der Text unter dem Release. Wer von der Schule kommt, will
+    zuerst wissen, was diese Fassung Neues bringt - deshalb stehen die
+    Neuerungen oben und der Weg unter Windows nur in zwei Zeilen
+    darunter. Die ausführliche Anleitung liegt als ZUERST-LESEN.txt in
+    der ZIP.
 
     Prüfsummen stehen hier bewusst nicht. Eine Tabelle mit 64-stelligen
     Zeichenketten hilft niemandem, der nur herunterladen will, und wer
     sie braucht, findet sie bei GitHub an jeder Datei.
     """
-    zeilen = [
-        f"## Natter {version} für Windows",
+    zeilen = [f"## Neu in Natter {version}", "", *neuerungen(version)]
+    zeilen += [
         "",
-        f"**`Natter-{version}-Setup.zip`** herunterladen. Darin liegen das "
-        "Installationsprogramm, das Zertifikat, die Hilfsskripte und das "
-        "Handbuch.",
+        "### Installieren",
         "",
-        "1. Die ZIP herunterladen.",
-        "2. **Vor dem Entpacken** Rechtsklick auf die ZIP → *Eigenschaften* → "
-        "unten *Zulassen* anhaken → *OK*. Sonst fragt Windows bei jeder "
-        "entpackten Datei einzeln nach, weil sie aus dem Internet stammt.",
-        "3. Rechtsklick → *Alle extrahieren …*, danach `ZUERST-LESEN.txt` öffnen.",
-        "",
-        "`Natter-Setup.exe` allein genügt auf einem Rechner, auf dem das "
-        "Zertifikat schon eingetragen ist - etwa für ein Update.",
+        f"`Natter-{version}-Setup.zip` herunterladen, vor dem Entpacken "
+        "unter *Eigenschaften* das Häkchen *Zulassen* setzen, entpacken "
+        "und `ZUERST-LESEN.txt` öffnen. Für ein Update auf Rechnern mit "
+        "eingetragenem Zertifikat genügt `Natter-Setup.exe`.",
     ]
     return "\n".join(zeilen) + "\n"
 
@@ -169,13 +191,25 @@ def _pushen(version: str) -> None:
             )
 
 
-def vorbedingungen_pruefen() -> None:
+def _neuerungen_pruefen(version: str) -> None:
+    if not neuerungen(version):
+        raise VeroeffentlichungFehler(
+            f"In docs/neuerungen.md fehlt der Abschnitt „## {version}“. "
+            "Ohne ihn stünde unter dem Release nicht, was die Fassung "
+            "Neues bringt."
+        )
+
+
+def vorbedingungen_pruefen(version: str | None = None) -> None:
     """Prüft vorab, ob sich veröffentlichen ließe, und wirft sonst.
 
     Der Bau ruft das in Schritt 1 auf. Scheiterte es erst in Schritt 12,
     wäre eine halbe Stunde vergangen, bis jemand erfährt, dass `gh`
-    fehlt oder eine Datei nicht eingecheckt ist.
+    fehlt, eine Datei nicht eingecheckt ist oder die Neuerungen der
+    Fassung nicht beschrieben sind.
     """
+    if version is not None:
+        _neuerungen_pruefen(version)
     gh = gh_finden()
     if gh is None:
         raise VeroeffentlichungFehler(
@@ -217,6 +251,7 @@ def veroeffentlichen(
             "Nicht veröffentlicht, es fehlt:\n    " + "\n    ".join(fehlend)
         )
 
+    _neuerungen_pruefen(version)
     gh = gh_finden()
     if gh is None:
         raise VeroeffentlichungFehler(

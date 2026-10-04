@@ -73,7 +73,9 @@ def gh(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> list[list[str]]:
 
 
 @pytest.fixture
-def gebaut(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[Path, Path]:
+def gebaut(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, neuerungen: Path
+) -> tuple[Path, Path]:
     setup = tmp_path / "Natter-Setup.exe"
     setup.write_bytes(b"MZ setup")
     archiv = tmp_path / "Natter-0.3.2-Setup.zip"
@@ -190,12 +192,50 @@ def test_ohne_gebaute_dateien_wird_nichts_angefasst(
 # --------------------------------------------- Die Beschreibung
 
 
-def test_die_beschreibung_erklaert_den_weg_unter_windows() -> None:
+@pytest.fixture
+def neuerungen(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    datei = tmp_path / "neuerungen.md"
+    datei.write_text(
+        "# Neuerungen\n\nVorspann.\n\n"
+        "## 0.3.3\n\n- Später.\n\n"
+        "## 0.3.2\n\n- Struktogramme können mehr.\n- Neues Menü.\n\n"
+        "## 0.3.1\n\n- Früher.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(v, "NEUERUNGEN", datei)
+    return datei
+
+
+def test_die_beschreibung_beginnt_mit_den_neuerungen(neuerungen: Path) -> None:
+    """Wer herunterlädt, will zuerst wissen, was neu ist - nicht, wie
+    man eine ZIP entpackt."""
+    text = v.beschreibung("0.3.2")
+
+    assert text.startswith(
+        "## Neu in Natter 0.3.2\n\n- Struktogramme können mehr.\n- Neues Menü.\n"
+    )
+    assert "Später" not in text and "Früher" not in text
+
+
+def test_die_beschreibung_erklaert_den_weg_unter_windows(neuerungen: Path) -> None:
     text = v.beschreibung("0.3.2")
 
     assert "Natter-0.3.2-Setup.zip" in text
     assert "Zulassen" in text
     assert "ZUERST-LESEN.txt" in text
+    assert text.index("Zulassen") > text.index("Neues Menü")
+
+
+def test_ohne_neuerungen_wird_frueh_abgebrochen(
+    neuerungen: Path, git: _Git, gh: list[list[str]]
+) -> None:
+    with pytest.raises(v.VeroeffentlichungFehler, match="## 0.3.9"):
+        v.vorbedingungen_pruefen("0.3.9")
+
+
+def test_jede_veroeffentlichte_fassung_ist_beschrieben() -> None:
+    for version in ("0.4.0", "0.4.1", "0.4.2", "0.4.3", "0.4.4"):
+        assert v.neuerungen(version), version
 
 
 def test_die_beschreibung_bleibt_ohne_pruefsummen() -> None:
