@@ -583,6 +583,21 @@ README zeigt auf die neueste Fassung. Vor dem Entpacken die ZIP unter
 Nach jedem Bau kommt hier ein Eintrag dazu: Datum, Fassung, Größe,
 Signaturen, Dauer, und was der Lauf aufgedeckt hat, samt Irrweg.
 
+### 0.4.4, dritter Bau – 4. Oktober 2026
+
+Gleiche Nummer, neu gebaut aus `a25451e`, weil die Codeschrift der
+Hilfe auf dem Bildschirm nie ankam. Qt setzt Code aus Markdown auf
+die feste Systemschrift: ohne Bildschirm „monospace“, unter Windows
+mit Bildschirm „Courier New“. Gesucht wurde nur nach „monospace“, und
+weil Tests und Belegbilder ohne Bildschirm liefen, war der Fehler
+dort unsichtbar. Gefunden erst am Bildschirmfoto aus der installierten
+Fassung; geprüft diesmal mit `QT_QPA_PLATFORM=windows`.
+`Natter-Setup.exe` 276,6 MB, 21,1 Minuten, pytest 3:11 (5.604 Tests),
+Rauchprobe und Signaturen in Ordnung. Tag `v0.4.4` zeigt jetzt auf
+`a25451e`, die Dateien am Release sind ersetzt. Über die installierte
+0.4.4 installiert: Hauptfenster nach 3 s, beendet sich sauber, Code in
+der Hilfe in Consolas wie im Editor.
+
 ### 0.4.4, zweiter Bau – 4. Oktober 2026
 
 Gleiche Nummer, neu gebaut aus `a15b6bf`: überarbeitete Texte
