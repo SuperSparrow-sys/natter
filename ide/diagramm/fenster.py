@@ -299,6 +299,10 @@ class DiagrammFenster(QMainWindow):
     #: Klasse selbst suchen.
     datei_geschrieben = Signal(Path)
 
+    #: Jede Änderung am Diagramm. Das Hauptfenster startet daran die
+    #: baldige Sicherung wie bei einer Änderung im Editor (Punkt 679).
+    geaendert_signal = Signal()
+
     #: Öffnet das Handbuch beim Abschnitt über Diagramme. Setzt das
     #: Hauptfenster; der Diagramm-Editor kennt es nicht.
     handbuch_zeigen: Callable[[], None] | None = None
@@ -684,6 +688,7 @@ class DiagrammFenster(QMainWindow):
         if stil is not None and not stil.isChecked():
             stil.setChecked(True)
         self._geaendert = True
+        self.geaendert_signal.emit()
         self._titel_setzen()
         self._statusleiste_aktualisieren()
         # Die Minimap zeigt das ganze Diagramm - wenn sich das ändert,

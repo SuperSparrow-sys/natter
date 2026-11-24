@@ -7363,6 +7363,7 @@ class HauptFenster(QMainWindow):
         # Editor. Der Diagramm-Editor kennt das Hauptfenster nicht, er
         # meldet nur, was er geschrieben hat.
         fenster.datei_geschrieben.connect(self._erzeugte_datei_uebernehmen)
+        fenster.geaendert_signal.connect(self._sicherung_bald.start)
         fenster.handbuch_zeigen = self._handbuch_bei_den_diagrammen
         # Nur austragen, wenn noch dieses Fenster eingetragen ist. Nach
         # dem Neuladen steht unter demselben Pfad schon das neue.

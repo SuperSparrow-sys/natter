@@ -1234,7 +1234,7 @@ Startseite steht vorn.
 
 Solange in einem Projekt etwas ungespeichert ist, legt Natter eine
 Sicherung in den Projektordner: wenige Sekunden nach jeder Änderung
-an einer Unit, alle zwei Minuten und noch einmal unmittelbar vor der
+an einer Unit oder einem Diagramm, alle zwei Minuten und noch einmal unmittelbar vor der
 Frage nach dem Speichern beim Abmelden oder Herunterfahren. Die Datei heißt wie das Projekt mit der Endung
 `.natter-sicherung`, etwa `Ampel.natter-sicherung`, und enthält den
 ungespeicherten Text jeder geänderten Unit und jedes geänderten

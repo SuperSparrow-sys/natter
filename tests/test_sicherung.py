@@ -384,6 +384,29 @@ def test_diagramm_kommt_mit_zurueck(
     assert pdiag.read_text(encoding="utf-8") == vorher
 
 
+def test_diagrammaenderung_startet_die_baldige_sicherung(
+    hauptfenster_bauen, natter: Path,
+) -> None:
+    """Punkt 679: wer nur ein Diagramm ändert, verlor bei einem Absturz
+    bis zu zwei Minuten Arbeit; jetzt sichert die Pause danach wie
+    nach dem Tippen in einer Unit."""
+    ordner = natter.parent
+    (ordner / "diagramme").mkdir()
+    pdiag = ordner / "diagramme" / "klassen.pdiag"
+    diagramm_erzeugen("class", pdiag)
+    hf = hauptfenster_bauen()
+    hf.projekt_oeffnen(natter)
+    df = hf.diagramm_oeffnen(pdiag)
+    hf._sicherung_bald.stop()
+
+    df.diagramm.daten["name"] = "Geändert"
+    df._bei_aenderung()
+
+    assert hf._sicherung_bald.isActive()
+    hf._sicherung_bald.timeout.emit()
+    assert "diagramme/klassen.pdiag" in _gesichert(ordner)
+
+
 @pytest.mark.parametrize(
     "inhalt",
     [
