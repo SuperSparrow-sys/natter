@@ -4464,7 +4464,10 @@ class HauptFenster(QMainWindow):
         )
 
     def _sperre_erneuern(self) -> None:
-        if self.projekt is not None:
+        # Die Originale der Beispiele bekommen nie eine Sperre.
+        if self.projekt is not None and not ist_beispiel_original(
+            self.projekt.ordner
+        ):
             sperre.erneuern(self.projekt.ordner)
 
     def _vorheriges_projekt_schliessen(self, neuer_ordner: Path | None = None) -> bool:

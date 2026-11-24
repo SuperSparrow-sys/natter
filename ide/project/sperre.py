@@ -245,9 +245,15 @@ def sperren(ordner: Path) -> None:
 
 
 def erneuern(ordner: Path) -> None:
-    """Schreibt die Zeit in der eigenen Sperrdatei neu. Eine fremde oder
-    fehlende Sperrdatei bleibt, wie sie ist."""
-    if _gehoert_mir(ordner):
+    """Schreibt die Zeit in der eigenen Sperrdatei neu.
+
+    Fehlt die Sperrdatei oder zählt sie nicht mehr, trägt sich dieses
+    Natter ein. Das ist der Fall, wenn ein zweites Natter das Projekt
+    zuerst geöffnet und inzwischen geschlossen hat: bis Punkt 691 stand
+    das Projekt danach ohne Sperre da, obwohl es hier weiter offen war,
+    und ein drittes Natter bekam keinen Hinweis mehr. Die Sperre eines
+    anderen, noch laufenden Natter bleibt, wie sie ist."""
+    if _gehoert_mir(ordner) or anderer_besitzer(ordner) is None:
         sperren(ordner)
 
 

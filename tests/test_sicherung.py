@@ -552,6 +552,43 @@ def test_sperre_eines_anderen_rechners_und_vorhandene_sicherung(
     ) == ["gesichert = 1\n", "neu = 2\n"]
 
 
+def test_nach_dem_schliessen_des_ersten_natter_haelt_das_zweite_die_sperre(
+    hauptfenster_bauen, natter: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Punkt 691: die Partnerin hat das Projekt an R1 als zweites
+    Natter offen und tippt. Das erste schließt und nimmt die Sperrdatei
+    mit. Beim nächsten Erneuern trägt sich R1 ein, und R2 aus einem
+    anderen Konto bietet den Anteil der Partnerin nicht an."""
+    ordner = natter.parent
+    eigenes = sperre.kontoname()
+    monkeypatch.setattr(sperre, "rechnername", lambda: "R1-PC03")
+    monkeypatch.setattr(sperre, "kontoname", lambda: "partnerin")
+    r1 = hauptfenster_bauen()
+    r1.projekt_oeffnen(natter)
+    _aendern(r1, ordner / "main.py", "partnerin = 1\n")
+    r1._sicherung_bald.timeout.emit()
+    # Wie nach dem Schließen des ersten Natter: die Sperre ist weg.
+    (ordner / sperre.SPERRDATEI).unlink()
+
+    r1._sperre_erneuern()
+
+    assert sperre._gehoert_mir(ordner)
+    monkeypatch.setattr(sperre, "rechnername", lambda: "R2-PC07")
+    monkeypatch.setattr(sperre, "kontoname", lambda: eigenes)
+    monkeypatch.setattr(
+        HauptFenster, "_projekt_schon_offen_melden",
+        lambda self, name, besitzer=None: None,
+    )
+    angeboten: list[str] = []
+    monkeypatch.setattr(
+        HauptFenster, "_sicherung_wiederherstellen_fragen",
+        lambda self, text: angeboten.append(text) or True,
+    )
+    hauptfenster_bauen().projekt_oeffnen(natter)
+    assert angeboten == []
+    assert _gesichert(ordner) == {"main.py": "partnerin = 1\n"}
+
+
 def test_sicherung_bleibt_aus_explorer_abgabe_export_und_kopie(
     qtbot, natter: Path, tmp_path: Path,
 ) -> None:
