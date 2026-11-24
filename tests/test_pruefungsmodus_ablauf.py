@@ -393,3 +393,52 @@ def test_ein_offenes_beispiel_geht_beim_einschalten_zu(
     fenster._in_dateien_suchen_aktion()
     assert "Kein Projekt offen" in fenster.statusBar().currentMessage()
     assert getattr(fenster, "letzter_dateisuche_dialog", None) is None
+
+
+def test_klausur_aus_einem_beispiel_nennt_die_ausloesende_datei(
+    pruefung: QSettings, hauptfenster, tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Punkt 668: eine Klausur, die `u_konto.py` aus 06_Kontoverwaltung
+    # unverändert übernimmt, ging im Modus wortlos als Beispiel zu.
+    # Außerhalb des Modus erfährt die Lehrkraft es jetzt beim Öffnen,
+    # einmal je Ordner, und beide Meldungen nennen die Datei.
+    import shutil
+
+    from ide.shell.startbild import beispielprojekte
+    from pcl.pruefungsmodus import GESPERRT_HINWEIS
+
+    original = next(
+        p for p in beispielprojekte()
+        if p.parent.name == "06_Kontoverwaltung"
+    )
+    klausur = tmp_path / "Klausur"
+    shutil.copytree(original.parent, klausur)
+    projektdatei = klausur / "Klausur.natter"
+    (klausur / original.name).rename(projektdatei)
+    u_main = klausur / "u_main.py"
+    u_main.write_text(
+        "# Klausur\n" + u_main.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    meldungen: list[str] = []
+    monkeypatch.setattr(
+        QMessageBox, "information",
+        staticmethod(lambda _eltern, _titel, text: meldungen.append(text)),
+    )
+
+    fenster = hauptfenster
+    assert fenster.projekt_oeffnen_gemeldet(projektdatei) is not None
+    assert fenster.projekt_oeffnen_gemeldet(projektdatei) is not None
+    assert len(meldungen) == 1
+    assert "u_main.py" not in meldungen[0]
+    assert "06_Kontoverwaltung" in meldungen[0]
+    datei = meldungen[0].split("„")[1].split("“")[0]
+    assert (klausur / datei).exists()
+
+    fenster.projekt_schliessen()
+    starten(pruefung, dauer=timedelta(hours=2))
+    fenster._pruefungsmodus_nachfuehren()
+    assert fenster.projekt_oeffnen_gemeldet(projektdatei) is None
+    assert f"„{datei}“" in meldungen[-1]
+    assert GESPERRT_HINWEIS in meldungen[-1]
+

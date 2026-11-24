@@ -179,6 +179,7 @@ from ide.shell.startbild import (
     aufgabe_original,
     aufgabe_stand_merken,
     aufgabe_zuruecksetzen,
+    beispiel_datei_nach_inhalt,
     beispiel_kopieren,
     beispiel_nach_inhalt,
     beispiel_original,
@@ -643,6 +644,23 @@ def _projektdatei_zu(pfad: Path) -> Path:
         if kandidaten:
             return kandidaten[0]
     return pfad
+
+
+def _beispiel_nur_nach_inhalt(pfad: Path) -> tuple[Path, Path] | None:
+    """`(Beispielordner, Datei)`, wenn das Projekt in `pfad` nur
+    wegen einer unveränderten Datei aus einem Beispiel als Beispiel
+    gilt, nicht wegen seiner Projektdatei - sonst `None`.
+
+    Das ist der Fall einer Aufgabe oder Klausur, die eine Unit oder
+    ein Diagramm aus einem Beispiel übernimmt (Punkt 668). Die
+    Lehrkraft erfährt es beim Öffnen, die Meldung im Prüfungsmodus
+    nennt die Datei."""
+    pfad = Path(pfad)
+    ordner = pfad if pfad.is_dir() else pfad.parent
+    if ist_beispiel_original(ordner) or beispiel_original(ordner):
+        return None
+    einzeln = pfad.is_file() and pfad.suffix != ".natter"
+    return beispiel_datei_nach_inhalt(pfad if einzeln else ordner)
 
 
 def _beispiel_projektordner(pfad: Path) -> Path | None:
@@ -4236,11 +4254,22 @@ class HauptFenster(QMainWindow):
         ordner = _beispiel_projektordner(Path(pfad))
         if ordner is None:
             return False
+        treffer = _beispiel_nur_nach_inhalt(Path(pfad))
+        if treffer is None:
+            text = (
+                f"„{ordner.name}“ ist ein mitgeliefertes Beispielprojekt "
+                "oder eine Kopie davon."
+            )
+        else:
+            beispiel, datei = treffer
+            text = (
+                f"„{ordner.name}“ enthält „{datei.name}“ unverändert aus "
+                f"dem Beispiel „{beispiel.name}“ und gilt deshalb als "
+                "Beispiel."
+            )
         QMessageBox.information(
-            self,
-            "Beispielprojekt gesperrt",
-            f"„{ordner.name}“ ist ein mitgeliefertes Beispielprojekt "
-            f"oder eine Kopie davon.\n\n{GESPERRT_HINWEIS}",
+            self, "Beispielprojekt gesperrt",
+            f"{text}\n\n{GESPERRT_HINWEIS}",
         )
         self.statusBar().showMessage(
             f"Beispielprojekte: {GESPERRT_HINWEIS}"
@@ -4895,7 +4924,40 @@ class HauptFenster(QMainWindow):
         „Datei → Beispielprojekte". „Zuletzt geöffnet" führte sonst
         direkt ins Original, und jede Änderung landete im Beispiel
         selbst.
+
+        Gilt ein Projekt nur wegen einer übernommenen Datei aus einem
+        Beispiel als Beispiel, sagt Natter das außerhalb des
+        Prüfungsmodus einmal je Ordner: eine Klausur aus einem Beispiel
+        ließe sich im Modus sonst erst in der Stunde nicht öffnen
+        (Punkt 668).
         """
+        projekt = self._projekt_oeffnen_gemeldet(pfad)
+        if projekt is not None and not pruefungsmodus_laeuft():
+            self._beispiel_inhalt_nennen(Path(pfad))
+        return projekt
+
+    def _beispiel_inhalt_nennen(self, pfad: Path) -> None:
+        treffer = _beispiel_nur_nach_inhalt(pfad)
+        if treffer is None:
+            return
+        ordner = pfad if pfad.is_dir() else pfad.parent
+        schluessel = _dateischluessel(ordner)
+        gezeigt = self.__dict__.setdefault("_beispiel_hinweise", set())
+        if schluessel in gezeigt:
+            return
+        gezeigt.add(schluessel)
+        beispiel, datei = treffer
+        QMessageBox.information(
+            self, "Im Prüfungsmodus gesperrt",
+            f"„{datei.name}“ in „{ordner.name}“ gleicht einer Datei aus "
+            f"dem Beispiel „{beispiel.name}“. Im Prüfungsmodus lässt "
+            "sich dieses Projekt deshalb nicht öffnen, auch nicht als "
+            "eigene Kopie.\n\nGilt es als Aufgabe für eine Prüfung, "
+            "genügt eine kleine Änderung an der Datei, etwa ein "
+            "Kommentar.",
+        )
+
+    def _projekt_oeffnen_gemeldet(self, pfad: Path) -> Projekt | None:
         if self._beispiel_gesperrt(Path(pfad)):
             return None
         try:

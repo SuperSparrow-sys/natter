@@ -1045,7 +1045,10 @@ Eine Ausnahme für Klausuren gibt es nicht. Jede Unit und jedes
 Diagramm, das aus einem Beispiel übernommen wird, muss deshalb vor
 der Klausur verändert werden. Schon ein abweichendes Zeichen hebt die
 Erkennung auf: in einer Unit genügt ein zusätzlicher Kommentar, in
-einem Diagramm eine verschobene Form.
+einem Diagramm eine verschobene Form. Natter weist darauf hin, sobald
+eine solche Aufgabe außerhalb des Prüfungsmodus geöffnet wird, und
+nennt die betroffene Datei; die Meldung im Prüfungsmodus nennt sie
+ebenfalls.
 
 ---
 

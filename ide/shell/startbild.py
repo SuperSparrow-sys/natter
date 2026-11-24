@@ -447,6 +447,17 @@ def beispiel_nach_inhalt(pfad: Path) -> Path | None:
     Zeichen verändert, fällt allerdings auch hier heraus; die Grenze
     steht im Handbuch, Abschnitt 4.
     """
+    treffer = beispiel_datei_nach_inhalt(pfad)
+    return None if treffer is None else treffer[0]
+
+
+def beispiel_datei_nach_inhalt(pfad: Path) -> tuple[Path, Path] | None:
+    """Wie `beispiel_nach_inhalt`, dazu die Datei, die den Treffer
+    auslöst: `(Beispielordner, Datei)` oder `None`.
+
+    Die Datei braucht die Meldung im Prüfungsmodus und der Hinweis an
+    die Lehrkraft, deren Aufgabe eine unveränderte Unit aus einem
+    Beispiel enthält (Punkt 668)."""
     inhalte = _beispiel_inhalte(daten_ordner("beispielprojekte").resolve())
     if not inhalte:
         return None
@@ -465,7 +476,7 @@ def beispiel_nach_inhalt(pfad: Path) -> Path | None:
     for datei in dateien:
         schluessel = _inhalt_schluessel(datei)
         if schluessel is not None and schluessel in inhalte:
-            return inhalte[schluessel]
+            return inhalte[schluessel], datei
     return None
 
 
