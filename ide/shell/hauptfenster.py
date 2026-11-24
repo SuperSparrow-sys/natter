@@ -3883,17 +3883,45 @@ class HauptFenster(QMainWindow):
                 f" „{pfad.stem}“ noch; das Programm startet erst wieder, "
                 f"wenn der Import dort entfernt ist."
             )
+        weg = {p.resolve() for p in betroffen}
+        # Ungespeicherter Text einer offenen Unit kommt mit in den
+        # Papierkorb; bis 0.4.4 lag dort nur der Stand der Platte, und
+        # die Nachfrage sagte nichts davon (Punkt 680).
+        offen = [
+            editor for editor in self._ungespeicherte_editoren()
+            if Path(editor.property(_PFAD_EIGENSCHAFT)).resolve() in weg
+        ]
+        if offen:
+            namen = _aufzaehlung([
+                Path(e.property(_PFAD_EIGENSCHAFT)).name for e in offen
+            ])
+            dazu += (
+                f" {namen} {'hat' if len(offen) == 1 else 'haben'} "
+                "ungespeicherte Änderungen; in den "
+                "Papierkorb kommt der Text aus dem Editor."
+                if mit_papierkorb
+                else f" Die ungespeicherten Änderungen an {namen} gehen "
+                "dabei verloren."
+            )
         if not self._loeschen_bestaetigt(
             "Formular löschen" if ist_formular else "Unit löschen",
             f"„{pfad.name}“ wirklich löschen?{dazu} {folge}",
             mit_papierkorb,
         ):
             return
+        if mit_papierkorb:
+            for editor in offen:
+                if not self.datei_schreiben_gemeldet(
+                    Path(editor.property(_PFAD_EIGENSCHAFT)),
+                    editor.toPlainText(),
+                    folge="Gelöscht wurde nichts; der Text steht noch "
+                    "im Editor.",
+                ):
+                    return
 
         # Auch der Designer-Reiter muss zu (Punkt 139). Er blieb bis
         # 0.3.5 offen, und die nächste Änderung darin schrieb `.pfm`
         # und `_design.py` wieder auf die Platte, die Unit aber nicht.
-        weg = {p.resolve() for p in betroffen}
         self._reiter_schliessen_wenn(lambda datei: datei in weg)
 
         for datei in betroffen:

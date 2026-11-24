@@ -311,3 +311,48 @@ def test_windows_warnt_selbst_wenn_doch_endgueltig_geloescht_wuerde(
     monkeypatch.setattr(modul.ctypes, "windll", Windll())
     assert in_den_papierkorb(datei)
     assert flags and flags[0] & modul._FOF_WANTNUKEWARNING
+
+
+@pytest.mark.parametrize(
+    ("mit_papierkorb", "hinweis", "im_korb"),
+    [
+        (True, "in den Papierkorb kommt der Text aus dem Editor", True),
+        (False, "ungespeicherten Änderungen an „u_weg.py“ gehen", False),
+    ],
+    ids=["papierkorb", "endgueltig"],
+)
+def test_ungespeicherter_text_einer_geloeschten_unit(
+    hauptfenster, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    mit_papierkorb: bool, hinweis: str, im_korb: bool,
+) -> None:
+    """Punkt 680: die Nachfrage nennt den ungespeicherten Text, und in
+    den Papierkorb kommt er aus dem Editor statt vom Stand der Platte."""
+    import shutil
+
+    import ide.shell.hauptfenster as modul
+
+    ordner = _projekt_anlegen(tmp_path / "p")
+    hauptfenster.projekt_oeffnen(ordner)
+    editor = hauptfenster.datei_oeffnen(ordner / "u_weg.py")
+    editor.insertPlainText("# Arbeit einer halben Stunde\n")
+    korb = tmp_path / "korb"
+    korb.mkdir()
+    monkeypatch.setattr(modul, "papierkorb_verfuegbar", lambda p: mit_papierkorb)
+    monkeypatch.setattr(
+        modul, "in_den_papierkorb",
+        lambda p: bool(shutil.move(str(p), str(korb / Path(p).name))),
+    )
+    gefragt: list[str] = []
+    monkeypatch.setattr(
+        HauptFenster, "_loeschen_bestaetigt",
+        lambda self, titel, text, mit: gefragt.append(text) or True,
+    )
+
+    hauptfenster._unit_loeschen(ordner / "u_weg.py")
+
+    assert hinweis in gefragt[0]
+    assert not (ordner / "u_weg.py").exists()
+    if im_korb:
+        assert "halben Stunde" in (korb / "u_weg.py").read_text(
+            encoding="utf-8"
+        )
