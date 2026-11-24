@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import keyword
+import math
 from datetime import date, time
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,7 @@ from pcl.properties import (
     SAMMLUNGS_EIGENSCHAFTEN,
     VERSCHACHTELTE_EIGENSCHAFTEN,
     VERWEIS_EIGENSCHAFTEN,
+    Prop,
     wert_aus_pfm,
 )
 from pcl.properties import eigenschaften as prop_liste
@@ -84,16 +86,68 @@ def _name_pruefen(text: Any, was: str) -> None:
         )
 
 
+def _eigenschaft_pruefen(klasse: type, name: str, wer: str) -> None:
+    """Lässt nur Eigenschaften zu, die `klasse` öffentlich anbietet.
+
+    Der erzeugte Code weist jede Angabe unter `properties` dem Objekt
+    zu. Ein Name mit `_` am Anfang ginge an der Sperre für unbekannte
+    Eigenschaften vorbei und überschriebe Interna wie
+    `_projektordner`, mit dem der Designer Bilder auf den
+    Projektordner beschränkt (Punkt 669).
+    """
+    if name.startswith("_"):
+        raise PfmBeschaedigt(
+            f"„{name}“ bei {wer} ist keine Eigenschaft, die in einer "
+            ".pfm stehen darf"
+        )
+    verschachtelt = VERSCHACHTELTE_EIGENSCHAFTEN.get(name)
+    if verschachtelt is not None:
+        bekannt = hasattr(klasse, verschachtelt.attribut)
+    elif name in (
+        SAMMLUNGS_EIGENSCHAFTEN + BAUM_EIGENSCHAFTEN + VERWEIS_EIGENSCHAFTEN
+    ):
+        bekannt = isinstance(getattr(klasse, name, None), property)
+    else:
+        bekannt = isinstance(getattr(klasse, name, None), Prop)
+    if not bekannt:
+        raise PfmBeschaedigt(
+            f"{klasse.__name__} bei {wer} besitzt keine Eigenschaft "
+            f"„{name}“. Vielleicht stammt die Datei aus einer neueren "
+            "Fassung von Natter."
+        )
+
+
+def _menue_pruefen(eintraege: Any, wer: str) -> None:
+    """Die Einträge eines Menüs in der Gestalt, die `pcl` annimmt.
+
+    Der Code für einen Menüeintrag entsteht Feld für Feld; `children`
+    als Zahl brach die Codeerzeugung mit `TypeError` ab (Punkt 671).
+    """
+    from pcl.components.menus import eintraege_pruefen
+    from pcl.errors import NatterPropertyError
+
+    try:
+        eintraege_pruefen(eintraege)
+    except NatterPropertyError as fehler:
+        raise PfmBeschaedigt(f"Das Menü {wer}: {fehler}") from fehler
+
+
 def _eintrag_pruefen(
     eintrag: dict[str, Any], wer: str, typen: set[str]
 ) -> None:
+    import pcl
+
     if eintrag["type"] not in typen:
         raise PfmBeschaedigt(
             f"„{_kurz(eintrag['type'])}“ bei {wer} ist keine bekannte "
             f"Komponente"
         )
-    for eigenschaft in eintrag.get("properties", {}):
+    klasse = getattr(pcl, eintrag["type"])
+    for eigenschaft, wert in eintrag.get("properties", {}).items():
         _name_pruefen(eigenschaft, f"eine Eigenschaft von {wer}")
+        _eigenschaft_pruefen(klasse, eigenschaft, wer)
+        if eigenschaft in BAUM_EIGENSCHAFTEN:
+            _menue_pruefen(wert, wer)
     for ereignis, methode in eintrag.get("events", {}).items():
         _name_pruefen(ereignis, f"ein Ereignis von {wer}")
         _name_pruefen(methode, f"eine Methode von {wer}")
@@ -106,7 +160,40 @@ def _eintrag_pruefen(
 MAX_TIEFE = 50
 
 
+#: So tief darf ein Eigenschaftswert verschachtelt sein. Der tiefste,
+#: den Natter schreibt, ist ein Menü mit Untermenüs (acht Ebenen);
+#: 500 Ebenen in einer Liste brachen die Codeerzeugung mit
+#: `RecursionError` ab (Punkt 671).
+MAX_WERT_TIEFE = 20
+
+
+def _wert_pruefen(wert: Any) -> None:
+    """Löst `PfmBeschaedigt` aus, wenn `wert` zu tief verschachtelt ist
+    oder eine Zahl enthält, die keine endliche ist.
+
+    Python liest `NaN` und `Infinity` als JSON. Im erzeugten Code stand
+    dann `nan` als Name statt als Literal (Punkt 671).
+    """
+    offen = [(wert, 0)]
+    while offen:
+        teil, tiefe = offen.pop()
+        if tiefe > MAX_WERT_TIEFE:
+            raise PfmBeschaedigt(
+                f"Ein Wert ist mehr als {MAX_WERT_TIEFE} Ebenen tief "
+                "verschachtelt"
+            )
+        if isinstance(teil, float) and not math.isfinite(teil):
+            raise PfmBeschaedigt(f"„{teil}“ ist keine zulässige Zahl")
+        if isinstance(teil, dict):
+            teil = list(teil.values())
+        if isinstance(teil, list):
+            offen.extend((element, tiefe + 1) for element in teil)
+
+
 def _tiefe_pruefen(pfm: Any) -> None:
+    """Begrenzt die Tiefe von Komponenten und Werten. Läuft vor dem
+    Schema, das selbst rekursiv prüft, und darf sich deshalb auf
+    keinen Grundaufbau verlassen."""
     offen = [(pfm, 0)]
     while offen:
         eintrag, tiefe = offen.pop()
@@ -115,9 +202,12 @@ def _tiefe_pruefen(pfm: Any) -> None:
                 f"Die Komponenten liegen mehr als {MAX_TIEFE} Ebenen tief "
                 "ineinander"
             )
-        if isinstance(eintrag, dict):
-            for kind in eintrag.get("children") or []:
-                offen.append((kind, tiefe + 1))
+        if not isinstance(eintrag, dict):
+            continue
+        _wert_pruefen(eintrag.get("properties"))
+        kinder = eintrag.get("children")
+        if isinstance(kinder, list):
+            offen.extend((kind, tiefe + 1) for kind in kinder)
 
 
 def pfm_pruefen(pfm: dict[str, Any]) -> None:
@@ -244,11 +334,14 @@ def _eintrag_zeilen(eintrag: Any, tiefe: int) -> list[str]:
         ]
 
     ohne_kinder = {name: wert for name, wert in eintrag.items() if name != "children"}
-    paare = ", ".join(
-        f"{_python_literal(name)}: {_python_literal(ohne_kinder[name])}"
+    # Ein Untermenü ohne jedes andere Feld schreibt der Menü-Editor,
+    # wenn die Beschriftung leer bleibt; vorher entstand daraus
+    # `{, "children": [` (Punkt 671).
+    paare = "".join(
+        f"{_python_literal(name)}: {_python_literal(ohne_kinder[name])}, "
         for name in sorted(ohne_kinder)
     )
-    kopf = f"{einzug}{{{paare}, \"children\": ["
+    kopf = f"{einzug}{{{paare}\"children\": ["
     if len(kopf) <= _ZEILENLAENGE:
         zeilen = [kopf]
     else:

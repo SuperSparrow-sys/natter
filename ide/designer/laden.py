@@ -209,8 +209,11 @@ def _zahlen_pruefen(eintrag: dict[str, Any], name: str) -> None:
 def formular_fuer_designer_laden(pfm_pfad: Path) -> Form:
     pfm_pfad = Path(pfm_pfad)
     pfm = json_datei_lesen(pfm_pfad)
-    _zahlen_pruefen(pfm, str(pfm.get("class", "Formular")))
+    # Erst erzeugen, dann die Zahlen: die Codeerzeugung prüft vorher
+    # den Grundaufbau, und `_zahlen_pruefen` setzt ihn voraus. Eine
+    # `.pfm` aus `[]` endete sonst mit `AttributeError` (Punkt 681).
     quelltext = design_code_erzeugen(pfm, pfm_pfad.name)
+    _zahlen_pruefen(pfm, pfm["class"])
 
     namensraum: dict[str, Any] = {}
     exec(compile(quelltext, str(pfm_pfad), "exec"), namensraum)

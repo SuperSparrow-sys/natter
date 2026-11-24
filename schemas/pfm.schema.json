@@ -12,7 +12,7 @@
     "type": { "type": "string", "minLength": 1 },
     "properties": {
       "type": "object",
-      "description": "Nur Eigenschaften, die vom Standardwert abweichen, unter ihrem flachen Namen (z. B. caption, font_size). picture ist der Pfad der Bilddatei relativ zum Ordner der .pfm."
+      "description": "Nur Eigenschaften, die vom Standardwert abweichen, unter ihrem flachen Namen (z. B. caption, font_size). Erlaubt sind nur Eigenschaften, die die Komponente öffentlich anbietet, kein Name mit _ am Anfang. Werte sind endliche Zahlen, höchstens 20 Ebenen tief verschachtelt. picture ist der Pfad der Bilddatei relativ zum Ordner der .pfm."
     },
     "events": {
       "type": "object",

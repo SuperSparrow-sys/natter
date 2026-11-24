@@ -224,3 +224,155 @@ def test_falscher_wert_oder_unbekannte_eigenschaft_heisst_beschaedigt(
 
     with pytest.raises(PfmBeschaedigt, match=erwartet):
         formular_fuer_designer_laden(pfad)
+
+
+def _bild_pfm(formular: dict, bild: str, bildkomponente: dict) -> dict:
+    return {
+        "format": "pfm/1",
+        "class": "Form1",
+        "type": "Form",
+        "properties": formular,
+        "children": [
+            {
+                "name": "i_bild",
+                "type": "Image",
+                "properties": {"picture": bild, **bildkomponente},
+            }
+        ],
+    }
+
+
+@pytest.mark.parametrize(
+    ("formular", "bildkomponente"),
+    [
+        ({"_projektordner": None}, {}),
+        ({"_projektordner": "AUSSEN"}, {}),
+        ({}, {"_qwidget": 1}),
+    ],
+)
+def test_pfm_setzt_keine_internen_attribute(
+    qapp, tmp_path: Path, formular: dict, bildkomponente: dict
+) -> None:
+    """Ein Name mit `_` am Anfang unter `properties` überschrieb im
+    erzeugten Code die Interna des Designers; mit `_projektordner`
+    lud er danach Bilder von jedem Pfad (Punkt 669). Ohne die Angabe
+    bleibt ein Bild außerhalb des Projektordners weiter ungeladen."""
+    from PySide6.QtGui import QColor, QImage
+
+    projekt = tmp_path / "projekt"
+    aussen = tmp_path / "aussen"
+    projekt.mkdir()
+    aussen.mkdir()
+    bild = QImage(8, 8, QImage.Format.Format_RGB32)
+    bild.fill(QColor("red"))
+    bild.save(str(aussen / "bild.png"))
+    fremd = str(aussen / "bild.png")
+    formular = {
+        name: str(aussen) if wert == "AUSSEN" else wert
+        for name, wert in formular.items()
+    }
+
+    ohne = projekt / "u_ohne.pfm"
+    ohne.write_text(json.dumps(_bild_pfm({}, fremd, {})), encoding="utf-8")
+    assert formular_fuer_designer_laden(ohne).i_bild.picture.original.isNull()
+
+    mit = projekt / "u_mit.pfm"
+    mit.write_text(
+        json.dumps(_bild_pfm(formular, fremd, bildkomponente)),
+        encoding="utf-8",
+    )
+    with pytest.raises(PfmBeschaedigt, match="in einer .pfm stehen darf"):
+        formular_fuer_designer_laden(mit)
+
+
+def _tief(ebenen: int) -> object:
+    wert: object = "x"
+    for _ in range(ebenen):
+        wert = [wert]
+    return wert
+
+
+def _mit_kind(kind: dict) -> str:
+    return json.dumps(
+        {
+            "format": "pfm/1",
+            "class": "Form1",
+            "type": "Form",
+            "properties": {},
+            "children": [kind],
+        }
+    )
+
+
+def test_falscher_grundaufbau_oder_wert_heisst_beschaedigt(
+    tmp_path: Path, hauptfenster
+) -> None:
+    """Grundaufbau (Punkt 681) und Werte, die das Schema durchlässt,
+    aus denen aber kein gültiger Formular-Code entsteht (Punkt 671):
+    beides endete in der Absturzmeldung statt in „beschädigt“."""
+    faelle = {
+        "liste": "[]",
+        "zahl": "7",
+        "properties_zahl": json.dumps(
+            {"format": "pfm/1", "class": "Form1", "type": "Form",
+             "properties": 7}
+        ),
+        "children_zahl": json.dumps(
+            {"format": "pfm/1", "class": "Form1", "type": "Form",
+             "properties": {}, "children": 0.5}
+        ),
+        "nan": _mit_kind(
+            {"name": "lb", "type": "Label",
+             "properties": {"top": float("nan")}}
+        ),
+        "unendlich": _mit_kind(
+            {"name": "lb", "type": "Label",
+             "properties": {"left": float("-inf")}}
+        ),
+        "menue_children_zahl": _mit_kind(
+            {"name": "mm", "type": "MainMenu", "properties": {
+                "entries": [{"caption": "a", "children": 5}]}}
+        ),
+        "tiefer_wert": _mit_kind(
+            {"name": "lb", "type": "ListBox",
+             "properties": {"items": _tief(500)}}
+        ),
+    }
+    for fall, inhalt in faelle.items():
+        datei = tmp_path / f"u_{fall}.pfm"
+        datei.write_text(inhalt, encoding="utf-8")
+        hauptfenster.statusBar().clearMessage()
+        hauptfenster.oeffnen(datei)
+        meldung = hauptfenster.statusBar().currentMessage()
+        assert "beschädigt" in meldung, fall
+
+
+@pytest.mark.parametrize("zahl", [float("nan"), float("inf"), float("-inf")])
+def test_keine_endliche_zahl_ergibt_keinen_quelltext(zahl: float) -> None:
+    """`NaN` stand im erzeugten Code als Name `nan` statt als Literal
+    (Punkt 671)."""
+    pfm = json.loads(
+        _mit_kind({"name": "lb", "type": "Label",
+                   "properties": {"top": zahl}})
+    )
+    with pytest.raises(PfmBeschaedigt, match="keine zulässige Zahl"):
+        design_code_erzeugen(pfm, "u_main.pfm")
+
+
+def test_untermenue_ohne_beschriftung_ergibt_gueltigen_code(
+    qapp, tmp_path: Path
+) -> None:
+    """Der Menü-Editor schreibt ein Untermenü mit leerer Beschriftung
+    als `{"children": [...]}`. Daraus entstand `{, "children": [`
+    (Punkt 671); die Datei stammt aber von Natter und ist nicht
+    beschädigt."""
+    pfad = tmp_path / "u_main.pfm"
+    pfad.write_text(
+        _mit_kind(
+            {"name": "mm", "type": "MainMenu", "properties": {
+                "entries": [{"children": [{"caption": "x"}]}]}}
+        ),
+        encoding="utf-8",
+    )
+    formular = formular_fuer_designer_laden(pfad)
+    assert formular.mm.entries[0]["children"][0]["caption"] == "x"
