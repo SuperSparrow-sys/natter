@@ -76,6 +76,8 @@ entries:
     was: "Der Typ von {wert} passt nicht zur erwarteten Operation oder Parameterzahl."
     pruefe: "Welchen Typ hat {wert} tatsächlich? Stimmt die Anzahl der Parameter? Kommt der Wert aus einem Eingabefeld und ist damit ein Text?"
     hinweis_abstrakte_klasse: "Bei Instanziierung einer abstrakten Klasse: Welche mit @abstractmethod markierten Methoden sind in der Unterklasse noch nicht überschrieben?"
+    # range(n / 2): „/“ ergibt immer eine Kommazahl (Punkt 699).
+    hinweis_kommazahl_statt_ganzzahl: "Hier wird eine ganze Zahl gebraucht, etwa als Grenze von range() oder als Anzahl, es steht aber eine Kommazahl da. Leitfrage: Entsteht der Wert durch eine Division mit „/“?"
 
   - id: value_error
     exception: ValueError
@@ -89,6 +91,8 @@ entries:
     # Sammlung (Punkt 422).
     hinweis_leerer_bereich: "Aus dem Bereich lässt sich keine Zufallszahl ziehen, weil er leer ist: die erste Grenze ({start}) darf nicht größer als die zweite sein."
     hinweis_leere_sammlung: "min() sollte den kleinsten Wert einer leeren Sammlung bestimmen. Ohne einen einzigen Eintrag gibt es keinen kleinsten Wert."
+    # f"{eingabe:.2f}" mit einem Text (Punkt 699).
+    hinweis_formatangabe: "Die Formatangabe mit „{code}“ passt nicht zum Wert: formatiert werden sollte {typ}. Leitfrage: Kommt der Wert aus einem Eingabefeld und ist damit noch ein Text?"
 
   # Eigener Eintrag, obwohl `NatterDatenError` von `ValueError` erbt
   # (M15, Abschnitt 6). Die Leitfrage oben fragt nach "Leerzeichen,
@@ -119,6 +123,8 @@ entries:
     exception: IndexError
     was: "Der Index {index} liegt außerhalb des gültigen Bereichs (0 bis {maximum})."
     pruefe: "Welchen Wert hat {index} an dieser Stelle? Passt er zur Länge der Liste bzw. zur Spalten- und Zeilenanzahl? Gezählt wird ab 0."
+    # random.choice([]) (Punkt 699).
+    hinweis_leere_auswahl: "Aus einer leeren Sammlung sollte zufällig ein Eintrag gewählt werden. Leitfrage: Ist die Liste an dieser Stelle schon gefüllt?"
 
   # Eine Zelle außerhalb eines StringGrid. Qt übergeht einen solchen
   # Zugriff ohne Meldung, deshalb prüft pcl den Index selbst. Steht vor
@@ -176,6 +182,14 @@ entries:
     exception: RecursionError
     was: "Die Funktion hat sich so oft selbst aufgerufen, dass kein Platz mehr da war. Meistens fehlt der Fall, der die Rekursion beendet."
     pruefe: "Welcher Fall soll die Rekursion abbrechen, und wird er überhaupt erreicht? Kommt der Aufruf dem Abbruchfall mit jedem Schritt näher?"
+
+  # Rückfall für RuntimeError; RecursionError und NatterDatenbankError
+  # haben eigene Einträge (Punkt 699).
+  - id: runtime_error
+    exception: RuntimeError
+    was: "Das Programm ist in einen Zustand geraten, in dem es nicht weiterlaufen kann."
+    pruefe: "Was hat das Programm unmittelbar vor dieser Zeile verändert? Wird eine Sammlung verändert, während eine Schleife sie durchläuft?"
+    hinweis_sammlung_in_schleife: "Ein Wörterbuch oder eine Menge wurde verändert, während eine Schleife es durchlief. Leitfrage: Über welche Sammlung könnte die Schleife stattdessen laufen, die sich dabei nicht ändert?"
 
   - id: assertion_error
     exception: AssertionError

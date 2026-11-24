@@ -123,8 +123,10 @@ def test_fehler_hat_keine_soll_ist_werte(tmp_path: Path) -> None:
     fehler = next(e for e in ergebnisse if e.id.endswith("test_wirft_fehler"))
     assert fehler.soll is None
     assert fehler.ist is None
-    # Seit Punkt 661 mit der Fehlerart davor.
-    assert fehler.nachricht == "RuntimeError: kaputt"
+    # Seit Punkt 661 mit der Fehlerart davor, seit Punkt 699 mit dem
+    # deutschen Satz aus dem Fehlerkatalog und dem Text als Zitat.
+    assert fehler.nachricht.startswith("RuntimeError: Das Programm")
+    assert "„kaputt“" in fehler.nachricht
 
 
 def test_jeder_test_hat_eine_dauer_ab_0(tmp_path: Path) -> None:

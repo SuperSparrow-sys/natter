@@ -274,3 +274,57 @@ def test_keine_meldung_beginnt_mit_pruefe() -> None:
 
     assert "Prüfe" not in text
     assert "\nZu prüfen: " in text
+
+
+# -- Punkt 699: vier häufige Fehler ohne eigenes Muster ----------------------
+
+
+def _woerterbuch_waechst() -> None:
+    d = {"a": 1}
+    for k in d:
+        d[k + "x"] = 2
+
+
+def _choice_leer() -> None:
+    import random
+
+    random.choice([])
+
+
+@pytest.mark.parametrize(
+    ("ausloeser", "stichwort", "nicht_in_pruefe"),
+    [
+        (lambda: list(range(7 / 2)), "ganze Zahl", "Anzahl der Argumente"),
+        (_choice_leer, "leeren Sammlung", "Index"),
+        (lambda: f"{'2,5':.2f}", "Formatangabe", ""),
+        (_woerterbuch_waechst, "Wörterbuch", ""),
+    ],
+    ids=["range_kommazahl", "choice_leer", "format_text", "dict_schleife"],
+)
+def test_haeufige_fehler_mit_eigener_meldung(
+    ausloeser, stichwort: str, nicht_in_pruefe: str  # noqa: ANN001
+) -> None:
+    """Bis Punkt 699 kam der allgemeine Rückfall mit englischem Zitat,
+    bei RuntimeError gar keine Meldung. Der Debugger bekommt die
+    Ausnahme nur als Text und muss dasselbe sagen."""
+    from pcl.fehlerkatalog import ORIGINALMELDUNG_PRAEFIX
+
+    fehler = _ausloesen(ausloeser)
+    meldungen = [
+        _meldung(fehler),
+        fehlermeldung_aus_dap_erzeugen({
+            "exceptionId": type(fehler).__name__,
+            "breakMode": "unhandled",
+            "description": str(fehler),
+            "details": {
+                "message": str(fehler),
+                "typeName": type(fehler).__name__,
+            },
+        }),
+    ]
+    for meldung in meldungen:
+        assert meldung is not None
+        assert ORIGINALMELDUNG_PRAEFIX not in meldung.was
+        assert stichwort in meldung.was
+        if nicht_in_pruefe:
+            assert nicht_in_pruefe not in meldung.pruefe
