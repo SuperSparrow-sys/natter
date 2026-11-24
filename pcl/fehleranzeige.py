@@ -19,6 +19,7 @@ mit, weil `Fehlermeldung.als_text()` ihn schon berücksichtigt.
 from __future__ import annotations
 
 import sys
+import threading
 import traceback
 from types import TracebackType
 
@@ -85,11 +86,33 @@ def fehler_zeigen(
         print(text, file=sys.stderr)
 
 
+def _faden_fehler_zeigen(args: threading.ExceptHookArgs) -> None:
+    """`threading.excepthook`: ein Fehler in einem Faden bekommt
+    dieselbe Meldung wie einer im Hauptfaden (Punkt 670). Vorher kam
+    Pythons Traceback samt „Did you mean“, auch im Prüfungsmodus.
+
+    Ein Fenster gibt es dafür nicht: Qt erlaubt Fenster nur im
+    Hauptfaden. Die Meldung kommt auf die Fehlerausgabe, bei einem
+    Programm mit Fenster also ins Panel „Ausgabe“."""
+    if issubclass(args.exc_type, SystemExit):
+        return
+    wert = args.exc_value
+    if wert is None:
+        wert = args.exc_type()
+    print(
+        fehlertext(args.exc_type, wert, args.exc_traceback),
+        file=sys.stderr,
+        flush=True,
+    )
+
+
 def einhaengen() -> None:
-    """Hängt `fehler_zeigen` als `sys.excepthook` ein.
+    """Hängt `fehler_zeigen` als `sys.excepthook` ein, für Fäden
+    `_faden_fehler_zeigen` als `threading.excepthook`.
 
     Wird von `Application.run()` gerufen und von der Konsolen-Hülle in
     `ide/run/starter.py`. Bewusst nicht beim Import von `pcl`: in den
     Tests soll ein Fehler weiterhin den Test scheitern lassen.
     """
     sys.excepthook = fehler_zeigen
+    threading.excepthook = _faden_fehler_zeigen

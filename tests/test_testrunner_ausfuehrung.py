@@ -463,3 +463,46 @@ def test_subtests_skip_expectedfailure_und_setupclass(tmp_path: Path) -> None:
         "Die Vorbereitung der Klasse V (setUpClass) ist gescheitert"
     )
     assert vorbereitung.dauer == 0.0
+
+
+@pytest.mark.parametrize("pruefung", [False, True], ids=["normal", "pruefung"])
+def test_ladefehler_ohne_namensvorschlag(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pruefung: bool
+) -> None:
+    """Punkt 670: Scheitert die geprüfte Unit beim Import an einem
+    Tippfehler, stand Pythons „Did you mean: 'print'?“ im
+    Test-Explorer, auch im Prüfungsmodus. Der Modus wird nur
+    vorgetäuscht; keine Ablage wird geschrieben."""
+    import pcl.pruefungsmodus
+    from ide.testrunner import harness
+
+    monkeypatch.setattr(pcl.pruefungsmodus, "laeuft", lambda *a, **k: pruefung)
+    (tmp_path / "u_rechnen670.py").write_text(
+        "def verdoppeln(x):\n    return 2 * x\n\npirnt('geladen')\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "test_rechnen670.py").write_text(
+        "import unittest\nimport u_rechnen670\n\n"
+        "class T(unittest.TestCase):\n"
+        "    def test_a(self):\n"
+        "        self.assertEqual(u_rechnen670.verdoppeln(2), 4)\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.syspath_prepend(str(tmp_path))
+    vorher = set(sys.modules)
+    try:
+        ergebnis = harness._StrukturiertesErgebnis()
+        harness._suite_erzeugen("test_rechnen670.py", None, set()).run(
+            ergebnis
+        )
+    finally:
+        for name in set(sys.modules) - vorher:
+            sys.modules.pop(name, None)
+
+    (eintrag,) = ergebnis.eintraege
+    assert "lässt sich nicht laden" in eintrag["nachricht"]
+    assert "pirnt" in eintrag["nachricht"]
+    assert "Did you mean" not in eintrag["nachricht"]
+    # Die Einrückung des Tracebacks bleibt.
+    assert '\n  File "' in eintrag["nachricht"]

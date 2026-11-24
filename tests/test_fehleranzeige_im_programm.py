@@ -221,3 +221,35 @@ def test_input_im_gui_programm_meldet_sich_deutsch_und_endet_mit_fehler(
     assert "EOF when reading" not in ausgabe
     assert "nach run" not in ausgabe
     assert ergebnis.returncode == 1
+
+
+@pytest.mark.parametrize("pruefung", [False, True], ids=["normal", "pruefung"])
+def test_ein_fehler_im_faden_bekommt_dieselbe_meldung(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    pruefung: bool,
+) -> None:
+    """Punkt 670: ein Fehler in einem Faden ging an `sys.excepthook`
+    vorbei und stand roh mit „Did you mean“ auf der Fehlerausgabe,
+    auch im Prüfungsmodus. Der Modus wird nur vorgetäuscht."""
+    import threading
+
+    import pcl.pruefungsmodus
+
+    monkeypatch.setattr(pcl.pruefungsmodus, "laeuft", lambda *a, **k: pruefung)
+    monkeypatch.setattr(sys, "excepthook", sys.__excepthook__)
+    monkeypatch.setattr(threading, "excepthook", threading.__excepthook__)
+    einhaengen()
+
+    def faden() -> None:
+        pirnt(1)  # type: ignore[name-defined]  # noqa: F821
+
+    t = threading.Thread(target=faden)
+    t.start()
+    t.join()
+
+    fehler = capsys.readouterr().err
+    assert "Unbekannter Name" in fehler
+    assert "Wo:" in fehler
+    assert "Did you mean" not in fehler
+    assert ("Zu prüfen:" in fehler) is not pruefung
