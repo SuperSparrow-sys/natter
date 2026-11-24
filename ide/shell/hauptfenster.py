@@ -66,7 +66,11 @@ from PySide6.QtWidgets import (
 from ide import dateistand
 from ide.actions import Aktion, Aktionsregister
 from ide.assets import symbol
-from ide.atomar import atomar_schreiben, ordner_beschreibbar
+from ide.atomar import (
+    atomar_schreiben,
+    ordner_beschreibbar,
+    schreibfehler_grund,
+)
 from ide.codegen.design import PfmBeschaedigt, design_code_erzeugen, pfm_pruefen
 from ide.database import DatenbankPanel
 from ide.database.panel import transaktion_nachfragen
@@ -5948,14 +5952,28 @@ class HauptFenster(QMainWindow):
                 QMessageBox.warning(self, "Nicht gespeichert", text)
             return False
         except OSError as fehler:
-            QMessageBox.warning(
-                self,
-                "Nicht gespeichert",
-                f"„{Path(pfad).name}“ konnte nicht gespeichert werden:\n{fehler}\n\n"
+            # Ohne Fehlernummer und Zwischendatei, mit „Speichern unter …“
+            # wie beim verweigerten Schreiben: bei abgezogenem Stick oder
+            # vollem Datenträger ist das der einzige Weg, den Text zu
+            # retten (Punkt 675).
+            grund = schreibfehler_grund(fehler, Path(pfad))
+            text = (
+                f"„{Path(pfad).name}“ konnte nicht gespeichert werden: "
+                + (grund or f"\n{fehler.strerror or fehler}")
+                + "\n\n"
                 + (f"{folge}\n\n" if folge else "")
-                + "Häufige Gründe: der USB-Stick ist abgezogen, die Datei ist "
-                "schreibgeschützt oder in einem anderen Programm geöffnet.",
-            )
+                + (
+                    ""
+                    if grund
+                    else "Häufige Gründe: der USB-Stick ist abgezogen, der "
+                    "Datenträger ist voll, die Datei ist schreibgeschützt "
+                    "oder in einem anderen Programm geöffnet."
+                )
+            ).rstrip()
+            if unter is not None and self._speichern_unter_anbieten(text):
+                return unter()
+            if unter is None:
+                QMessageBox.warning(self, "Nicht gespeichert", text)
             return False
         return True
 

@@ -3174,18 +3174,28 @@ class DesignerCanvas(QObject):
             # geänderte Komponenten nie.
             design_datei_erzeugen(self.pfm_pfad, self._design_pfad())
         except OSError as fehler:
+            from ide.atomar import schreibfehler_grund
+
             self.ungespeichert = True
             if not self._schreibfehler_gemeldet:
                 self._schreibfehler_gemeldet = True
+                # Ohne Fehlernummer und Zwischendatei (Punkt 675).
+                grund = schreibfehler_grund(fehler, self.pfm_pfad)
                 self._meldung_zeigen(
                     f"„{self.pfm_pfad.name}“ konnte nicht gespeichert "
-                    f"werden:\n{fehler}\n\n"
-                    "Die Änderung steht im Designer, aber nicht in der "
-                    "Datei. Gespeichert wird wieder, sobald die Datei "
-                    "beschreibbar ist, spätestens mit Strg+S.\n\n"
-                    "Häufige Gründe: der USB-Stick ist abgezogen, die "
-                    "Datei ist schreibgeschützt oder in einem anderen "
-                    "Programm geöffnet."
+                    "werden: "
+                    + (grund or f"\n{fehler.strerror or fehler}")
+                    + "\n\nDie Änderung steht im Designer, aber nicht in "
+                    "der Datei. Gespeichert wird wieder, sobald die Datei "
+                    "beschreibbar ist, spätestens mit Strg+S."
+                    + (
+                        ""
+                        if grund
+                        else "\n\nHäufige Gründe: der USB-Stick ist "
+                        "abgezogen, der Datenträger ist voll, die Datei "
+                        "ist schreibgeschützt oder in einem anderen "
+                        "Programm geöffnet."
+                    )
                 )
             return False
         self.ungespeichert = False

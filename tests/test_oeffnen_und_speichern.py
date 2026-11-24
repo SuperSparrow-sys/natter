@@ -287,7 +287,13 @@ def test_ein_gescheitertes_speichern_meldet_sich_und_behaelt_den_text(
     """Der schlimmste Fall von allen: der Text steht im Fenster, die
     Datei auf der Platte ist die alte – und vorher flog nur ein
     Traceback, in der gebauten Exe also gar nichts."""
-    gezeigt = _meldungen_abfangen(monkeypatch)
+    # Aus dem Editor kommt die Meldung mit „Speichern unter …“
+    # (Punkt 675); hier ohne es zu wählen.
+    gezeigt: list[str] = []
+    monkeypatch.setattr(
+        HauptFenster, "_speichern_unter_anbieten",
+        lambda self, text: gezeigt.append(text) and False,
+    )
     datei = tmp_path / "u_arbeit.py"
     datei.write_text("alt" + chr(10), encoding="utf-8")
     editor = fenster.datei_oeffnen(datei)
@@ -371,6 +377,53 @@ def test_der_hinweis_nennt_die_haeufigen_gruende(
     assert geklappt is False
     assert "USB-Stick" in gezeigt[0]
     assert "schreibgeschützt" in gezeigt[0]
+
+
+@pytest.mark.parametrize(
+    ("fehlernummer", "erwartet"),
+    [(2, "gibt es nicht mehr"), (28, "kein Platz mehr frei")],
+    ids=["stick_gezogen", "datentraeger_voll"],
+)
+def test_stick_weg_oder_voll_meldet_deutsch_mit_speichern_unter(
+    fenster: HauptFenster, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    fehlernummer: int, erwartet: str,
+) -> None:
+    """Punkt 675: ein deutscher Satz ohne Fehlernummer und ohne den
+    Namen der Zwischendatei, dazu „Speichern unter …“, im Editor wie
+    im Designer."""
+    import os
+
+    from ide.designer.canvas import DesignerCanvas
+
+    gewarnt = _meldungen_abfangen(monkeypatch)
+    angeboten: list[str] = []
+    monkeypatch.setattr(
+        HauptFenster, "_speichern_unter_anbieten",
+        lambda self, text: angeboten.append(text) and False,
+    )
+    designer: list[str] = []
+    monkeypatch.setattr(
+        DesignerCanvas, "_meldung_zeigen",
+        lambda self, text: designer.append(text),
+    )
+    datei = tmp_path / "u_arbeit.py"
+    datei.write_text("alt\n", encoding="utf-8")
+    editor = fenster.datei_oeffnen(datei)
+    editor.insertPlainText("neu\n")
+    formular = fenster.designer_oeffnen(_formular_anlegen(tmp_path / "f"))
+    canvas = fenster._widget_zu_canvas[formular._qwidget]
+
+    def _scheitern(_fd: int) -> None:
+        raise OSError(fehlernummer, os.strerror(fehlernummer))
+
+    monkeypatch.setattr(os, "fsync", _scheitern)
+    assert not fenster._editor_speichern(editor)
+    assert not canvas.speichern()
+
+    assert angeboten, f"Kein „Speichern unter …“, nur: {gewarnt}"
+    for text in (angeboten[-1], designer[-1]):
+        assert erwartet in text
+        assert "Errno" not in text and ".tmp" not in text
 
 
 # -- Rückgängig ---------------------------------------------------------
