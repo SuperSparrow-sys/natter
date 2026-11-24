@@ -735,6 +735,75 @@ def test_veraenderte_installation_fragt_vor_dem_start_nach(monkeypatch) -> None:
     assert "Natter wurde nach der Erstellung verändert" in gezeigt["text"]
 
 
+_START_VOR_DEM_HAUPTFENSTER = """
+import sys
+
+from PySide6.QtCore import QSettings
+from PySide6.QtWidgets import QMessageBox
+
+# Wie in tests/conftest.py: nichts landet in den echten Einstellungen,
+# auch wenn ein alter Stand das Hauptfenster doch baut.
+QSettings.setDefaultFormat(QSettings.Format.IniFormat)
+QSettings.setPath(
+    QSettings.Format.IniFormat, QSettings.Scope.UserScope, sys.argv[1]
+)
+
+import ide.main as m
+from ide.integritaet import PruefErgebnis
+
+gesehen = []
+
+
+def pruefen(*a, **k):
+    gesehen.append("ide.shell.hauptfenster" in sys.modules)
+    return PruefErgebnis(signatur_gueltig=True, veraendert=["python/x.py"])
+
+
+m.installation_pruefen = pruefen
+m.fehlerhaken_einrichten = lambda: None
+m.anwendungs_kennung_setzen = lambda: None
+QMessageBox.warning = staticmethod(
+    lambda *a, **k: QMessageBox.StandardButton.No
+)
+app, fenster = m.starten()
+print(gesehen, fenster is None)
+"""
+
+
+def test_die_pruefung_laeuft_vor_dem_import_des_hauptfensters(
+    tmp_path: Path,
+) -> None:
+    """Punkt 672: `starten()` baute zuerst das Hauptfenster und prüfte
+    danach; eine veränderte Datei unter den geladenen Modulen lief
+    schon, bevor die Meldung erscheinen konnte. Ein eigener Prozess,
+    weil der Testprozess das Hauptfenster längst geladen haben kann.
+    Nur Attrappen: keine Installation, keine Signatur, und nach „Nein“
+    entsteht kein Hauptfenster."""
+    import os
+    import subprocess
+    import sys
+
+    skript = tmp_path / "start_probe.py"
+    skript.write_text(_START_VOR_DEM_HAUPTFENSTER, encoding="utf-8")
+
+    lauf = subprocess.run(
+        [sys.executable, str(skript), str(tmp_path)],
+        capture_output=True,
+        text=True,
+        env=dict(
+            os.environ,
+            QT_QPA_PLATFORM="offscreen",
+            APPDATA=str(tmp_path),
+            LOCALAPPDATA=str(tmp_path),
+        ),
+        cwd=Path(__file__).resolve().parent.parent,
+        timeout=90,
+        check=False,
+    )
+
+    assert lauf.stdout.strip() == "[False] True", lauf.stderr
+
+
 def test_werkzeuge_umgebung_pruefen_listet_betroffene_dateien(
     monkeypatch, qtbot, hauptfenster_bauen
 ) -> None:

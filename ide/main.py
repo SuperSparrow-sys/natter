@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QCursor, QIcon
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication, QMessageBox, QWidget
 
 from ide.deutsch import deutsch_einschalten
 from ide.fehlermeldung import fehlerhaken_einrichten
@@ -68,16 +68,19 @@ def anwendungs_kennung_setzen() -> None:
         pass
 
 
-def integritaet_bestaetigen(fenster: HauptFenster) -> bool:
+def integritaet_bestaetigen(eltern: QWidget | None = None) -> bool:
     """Prüft die Installation gegen ihr signiertes Prüfsummen-Manifest
     (Abschnitt 17.8). Bei Abweichung entscheidet die Nutzerin, ob Natter
-    trotzdem startet; im Entwicklungsbaum passiert nichts."""
+    trotzdem startet; im Entwicklungsbaum passiert nichts.
+
+    `starten()` ruft das vor dem Import des Hauptfensters auf, ohne
+    Eltern (Punkt 672)."""
     ergebnis = installation_pruefen()
     if ergebnis is None or ergebnis.in_ordnung:
         return True
 
     antwort = QMessageBox.warning(
-        fenster,
+        eltern,
         "Natter wurde verändert",
         f"{ergebnis.als_meldung()}\n\nTrotzdem starten?",
         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -195,6 +198,17 @@ def starten() -> tuple[QApplication, HauptFenster | None]:
     anzeige.show()
     anzeige.melden("Natter wird gestartet …")
 
+    # Die Installation wird geprüft, bevor das Hauptfenster und mit ihm
+    # der größte Teil der IDE geladen ist. Bis Punkt 672 lief die
+    # Prüfung erst danach: eine veränderte Datei unter den rund 150
+    # Modulen war da schon ausgeführt und konnte die Meldung
+    # verhindern. Was bis hierher geladen ist, nimmt die Prüfung über
+    # `geladene_module` mit auf.
+    if not integritaet_bestaetigen(None):
+        anzeige.close()
+        QApplication.restoreOverrideCursor()
+        return app, None
+
     try:
         app, fenster = erstellen(anzeige)
     except BaseException:
@@ -204,11 +218,6 @@ def starten() -> tuple[QApplication, HauptFenster | None]:
         anzeige.close()
         QApplication.restoreOverrideCursor()
         raise
-
-    if not integritaet_bestaetigen(fenster):
-        anzeige.finish(fenster)
-        QApplication.restoreOverrideCursor()
-        return app, None
 
     # Nur mit übergebenem Projekt: bis 0.3.3 stand „Projekt wird
     # geöffnet …“ bei jedem Start im Ladebild (Punkt 33).
