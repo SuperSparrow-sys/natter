@@ -30,15 +30,15 @@ erkennen ist.
 
 # Offen
 
-## 788. Ein Formular, das sich nicht schreiben ließ, geht beim Schließen von Natter ohne Nachfrage verloren
+## 788. Ein Formular, das nicht in die Datei kam, geht beim Schließen von Natter ohne Nachfrage verloren
 
-**Gemeldet:** 24. November 2026, Prüfung E (Schülersicht, Sicherung), Stand `42d5478`.
+**Gemeldet:** 24. November 2026, Prüfung E (Schülersicht, Sicherung und Gleichzeitigkeit), Stand `42d5478`.
 
-**Beobachtet:** GUI-Projekt, Designer offen, die `.pfm` lässt sich nicht schreiben (USB-Stick gezogen, Netzlaufwerk weg, Datei gesperrt). Nach dem Platzieren eines Knopfs kommt einmal die Meldung „„u_main.pfm“ konnte nicht gespeichert werden …“, der Reiter heißt „u_main (Designer) ●“. Wird danach das Fenster von Natter geschlossen, kommt keine Frage: Natter geht zu, die Änderung ist weg, die `.pfm` ist auf dem alten Stand. Beim Schließen des einzelnen Reiters wird dagegen gefragt (Punkt 235). Bei **Projekt → Projekt schließen** kommt nur die Frage des Reiters; „Abbrechen“ darin schließt das Projekt trotzdem, und der Designer-Reiter mit „●“ bleibt ohne Projekt stehen. In die Sicherung `<Projekt>.natter-sicherung` kommt die Formularänderung nie, auch nach einem Absturz ist sie verloren.
+**Beobachtet:** Zwei Wege führen dahin. Erstens zwei Natter auf demselben Projekt, etwa weil die `.natter` zweimal doppelgeklickt wurde: In B ist der Designer offen, A setzt einen Knopf und schreibt die `.pfm`. B lädt das Formular nicht nach. Setzt B danach ein Label, fragt der Designer „… Mit der Änderung aus dem Designer überschreiben? …“ mit vorgewähltem „Nein“; danach steht das Label nur im Designer, der Reiter heißt „u_main (Designer) ●“. Zweitens lässt sich die `.pfm` nicht schreiben (USB-Stick gezogen, Netzlaufwerk weg, Datei gesperrt). Nach dem Platzieren eines Knopfs kommt einmal die Meldung „„u_main.pfm“ konnte nicht gespeichert werden …“, der Reiter heißt „u_main (Designer) ●“. Wird danach das Fenster von Natter geschlossen, kommt keine Frage: Natter geht zu, die Änderung ist weg, die `.pfm` ist auf dem alten Stand. Beim Schließen des einzelnen Reiters wird dagegen gefragt (Punkt 235). Bei **Projekt → Projekt schließen** kommt nur die Frage des Reiters; „Abbrechen“ darin schließt das Projekt trotzdem, und der Designer-Reiter mit „●“ bleibt ohne Projekt stehen. In die Sicherung `<Projekt>.natter-sicherung` kommt die Formularänderung nie, auch nach einem Absturz ist sie verloren. Im ersten Weg schließt B ebenso ohne Frage, und das Label ist weg.
 
-**Ursache:** nachgewiesen (`build/auswertung/pruefung_42d5478/E/788_formular_schliessen.py`). `_ungespeicherte_namen` in `ide/shell/hauptfenster.py:6729` zählt nur Editoren und Diagramme, nicht Designer mit `ungespeichert`; `closeEvent` (Zeile 6688) fragt nur danach. `_vorheriges_projekt_schliessen` fragt ebenso nicht nach Designern und überlässt sie `_reiter_schliessen_wenn` (Zeile 4774), das die Antwort „Abbrechen“ von `_tab_schliessen` nicht auswertet. `_sicherung_eintraege` (Zeile 6868) kennt nur Editoren und Diagramme.
+**Ursache:** nachgewiesen (`build/auswertung/pruefung_42d5478/E/788_formular_schliessen.py`, mit zwei echten Natter-Prozessen `788_designer_zwei_prozesse.py`). `_ungespeicherte_namen` in `ide/shell/hauptfenster.py:6729` zählt nur Editoren und Diagramme, nicht Designer mit `ungespeichert`; `closeEvent` (Zeile 6688) fragt nur danach. `_vorheriges_projekt_schliessen` fragt ebenso nicht nach Designern und überlässt sie `_reiter_schliessen_wenn` (Zeile 4774), das die Antwort „Abbrechen“ von `_tab_schliessen` nicht auswertet. `_sicherung_eintraege` (Zeile 6868) kennt nur Editoren und Diagramme. Der Designer bemerkt eine von außen geänderte `.pfm` erst beim nächsten eigenen Schreiben (`DesignerCanvas.speichern`, `ide/designer/canvas.py:3154`), anders als ein Editor beim Wechsel ins Fenster (`_von_aussen_geaenderte_neu_laden`).
 
-**Zu tun:** Designer mit nicht geschriebener Änderung gehören in die gemeinsame Nachfrage beim Schließen des Fensters, beim Schließen und beim Wechsel des Projekts; „Abbrechen“ lässt das Projekt offen. Ihr Formular kommt als eigener Eintrag in die Sicherung. Erledigt, wenn der Nachweis die Frage beim Schließen findet, nach „Abbrechen“ Projekt und Reiter offen bleiben und die Sicherung die `.pfm` enthält.
+**Zu tun:** Designer mit nicht geschriebener Änderung gehören in die gemeinsame Nachfrage beim Schließen des Fensters, beim Schließen und beim Wechsel des Projekts; „Abbrechen“ lässt das Projekt offen. Ihr Formular kommt als eigener Eintrag in die Sicherung. Ein Designer ohne eigene ungeschriebene Änderung lädt eine von außen geänderte `.pfm` beim Wechsel ins Fenster neu. Erledigt, wenn beide Nachweise die Frage beim Schließen finden, nach „Abbrechen“ Projekt und Reiter offen bleiben und die Sicherung die `.pfm` enthält.
 
 ---
 
@@ -99,6 +99,18 @@ erkennen ist.
 **Ursache:** nachgewiesen (`build/auswertung/pruefung_42d5478/E/793_unit_loeschen_ungespeichert.py`). `_unit_loeschen` in `ide/shell/hauptfenster.py:3886` schließt den Reiter über `_reiter_schliessen_wenn`, das den Editor vorher als unverändert setzt; die Nachfrage (Zeile 3875) prüft nicht, ob die Unit ungespeichert offen ist.
 
 **Zu tun:** Ist die Unit mit ungespeicherten Änderungen offen, steht das in der Nachfrage, und in den Papierkorb kommt der Text aus dem Editor. Erledigt, wenn der Nachweis den getippten Text im Papierkorb und den Hinweis in der Nachfrage findet.
+
+---
+
+## 794. Schließt das erste von zwei Natter auf einem Projekt, gilt das Projekt als nicht mehr offen
+
+**Gemeldet:** 24. November 2026, Prüfung E (Schülersicht, Gleichzeitigkeit), Stand `42d5478`.
+
+**Beobachtet:** Projekt in Natter A offen, dann in einem zweiten Natter B (echter zweiter Prozess). B bekommt richtig den Hinweis, dass A das Projekt offen hat. Wird A geschlossen, verschwindet `.natter-sperre`, obwohl B weiterarbeitet, und auch die Erneuerung alle fünf Minuten legt sie nicht wieder an. Ein drittes Natter, an diesem oder einem anderen Rechner, bekommt keinen Hinweis mehr. Das trifft auch die Sicherung: Arbeitet die Partnerin aus einem anderen Konto an Rechner R1 noch mit ungespeichertem Text, während die Sperrdatei fehlt, bietet Natter an Rechner R2 diesen Text als „Sicherung ungespeicherter Änderungen … Natter wurde damals beendet …“ an, setzt ihn nach „Wiederherstellen“ in den eigenen Editor und entfernt den Anteil der Partnerin aus der Sicherung. Laut Handbuch Abschnitt 6 bleibt die Sicherung eines anderen Kontos liegen, solange dessen Rechner das Projekt offen hat.
+
+**Ursache:** nachgewiesen (`build/auswertung/pruefung_42d5478/E/794_sperre_geht_verloren.py`, zwei echte Natter-Prozesse und ein vorgetäuschter zweiter Rechner). `projekt_oeffnen` in `ide/shell/hauptfenster.py:4288` legt bei einem anderen Besitzer keine eigene Sperre an; `sperre.freigeben` (`ide/project/sperre.py:254`) entfernt beim Schließen von A die Datei, und `sperre.erneuern` (Zeile 247) erneuert nur eine Sperre, die schon dem eigenen Prozess gehört. `sicherung.laeuft` (`ide/project/sicherung.py:184`) entscheidet für ein fremdes Konto an einem anderen Rechner allein über `sperre.anderer_besitzer`.
+
+**Zu tun:** Ein Natter, das ein Projekt ohne eigene Sperre offen hat, trägt sich ein, sobald die Sperrdatei fehlt oder abgelaufen ist (spätestens beim nächsten Erneuern), und `freigeben` entfernt nur den eigenen Eintrag. Erledigt, wenn der Nachweis nach dem Schließen von A die Sperre von B findet und R2 den Anteil der Partnerin nicht anbietet.
 
 # Zurückgestellt
 
