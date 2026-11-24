@@ -50,9 +50,19 @@ class DebugSitzung(QObject):
     #: überwachter Ausdruck oder der Wert unter der Maus (Punkte 99,
     #: 100). Ein Fehler kommt als `{"fehler": Text}`.
     antwort = Signal(str, object)
+    #: Eine vollständige Zeile, die ein Programm mit Fenster auf die
+    #: Standard- oder Fehlerausgabe geschrieben hat (Punkt 686).
+    ausgabe = Signal(str)
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
+        #: Was von der Ausgabe noch ohne Zeilenende ist, je Strom.
+        self._angefangen: dict[str, str] = {}
+        # Das Hauptfenster legt die Sitzung mit sich als Eltern an; seine
+        # Ausgabe ist das Panel „Ausgabe“, wie bei Strg+F5.
+        zeile_zeigen = getattr(parent, "ausgabe_zeile", None)
+        if callable(zeile_zeigen):
+            self.ausgabe.connect(zeile_zeigen)
         self.client = DapClient()
         self._befehle: queue.Queue[tuple[str, tuple[Any, ...]]] = queue.Queue()
         self._thread: threading.Thread | None = None
@@ -317,6 +327,25 @@ class DebugSitzung(QObject):
             self.fortgesetzt.emit()
         elif name == "exited":
             self._letzter_exitcode = (ereignis.get("body") or {}).get("exitCode", 0)
+        elif name == "output":
+            self._ausgabe_verarbeiten(ereignis.get("body") or {})
         elif name == "terminated":
+            for rest in self._angefangen.values():
+                if rest:
+                    self.ausgabe.emit(rest)
+            self._angefangen.clear()
             self._laeuft = False
             self.beendet.emit(self._letzter_exitcode)
+
+    def _ausgabe_verarbeiten(self, body: dict[str, Any]) -> None:
+        """Ein Stück Ausgabe des Programms, in ganzen Zeilen weiter.
+        debugpy schickt `print("x")` oft als „x“ und Zeilenende getrennt.
+        Andere Arten wie `telemetry` gehören debugpy selbst."""
+        strom = body.get("category")
+        if strom not in ("stdout", "stderr"):
+            return
+        text = self._angefangen.get(strom, "") + str(body.get("output", ""))
+        *zeilen, rest = text.replace("\r\n", "\n").split("\n")
+        self._angefangen[strom] = rest
+        for zeile in zeilen:
+            self.ausgabe.emit(zeile)

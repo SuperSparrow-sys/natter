@@ -204,3 +204,24 @@ def test_ein_stopp_waehrend_des_starts_laesst_nichts_zurueck(
         sitzung.beenden()
         for prozess in gestartet:
             prozessbaum_beenden(prozess)
+
+
+def test_ausgabe_kommt_in_ganzen_zeilen(qtbot) -> None:  # noqa: ANN001
+    """Punkt 686: debugpy schickt `print("x")` als „x“ und Zeilenende
+    getrennt; ins Panel gehört eine Zeile. Was debugpy über sich
+    selbst meldet (`telemetry`), gehört nicht dazu, und ein Rest ohne
+    Zeilenende kommt mit dem Ende des Programms."""
+    sitzung = DebugSitzung()
+    zeilen: list[str] = []
+    sitzung.ausgabe.connect(zeilen.append)
+    for body in (
+        {"category": "telemetry", "output": "debugpy"},
+        {"category": "stdout", "output": "Zeile aus "},
+        {"category": "stderr", "output": "Fehler\r\n"},
+        {"category": "stdout", "output": "print"},
+        {"category": "stdout", "output": "\nzwei\nRest"},
+    ):
+        sitzung._ereignis_verarbeiten({"event": "output", "body": body})
+    sitzung._ereignis_verarbeiten({"event": "terminated"})
+
+    assert zeilen == ["Fehler", "Zeile aus print", "zwei", "Rest"]

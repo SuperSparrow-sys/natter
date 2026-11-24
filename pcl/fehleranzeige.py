@@ -78,10 +78,39 @@ def _in_fenster_zeigen(text: str) -> bool:
     return True
 
 
+def _an_debugger_geben(
+    art: type[BaseException], wert: BaseException, spur: TracebackType | None
+) -> None:
+    """Hält unter dem Debugger (F5) an der Fehlerzeile an, wenn der
+    Fehler in einer Methode steckt, die Qt aufgerufen hat (Punkt 688).
+
+    debugpy hält nur bei einem Fehler, der bis zum äußersten Rahmen
+    durchläuft. Eine Ereignismethode ruft aber Qt aus der
+    Ereignisschleife; dahinter stehen noch `Application.run()` und
+    `main.py`, der Fehler endet in Qt und kommt hier an. debugpy sah
+    ihn nie als unbehandelt, auch ohne diesen Haken. Läuft keine
+    Ereignisschleife, ist der Fehler bis nach außen gelaufen, und
+    debugpy hat schon selbst angehalten."""
+    debugpy = sys.modules.get("debugpy")
+    if debugpy is None:
+        return
+    try:
+        from PySide6.QtCore import QThread
+
+        if not debugpy.is_client_connected():
+            return
+        if QThread.currentThread().loopLevel() == 0:
+            return
+        debugpy.trigger_exception_handler((art, wert, spur))
+    except Exception:  # noqa: BLE001 - die Meldung danach kommt trotzdem
+        pass
+
+
 def fehler_zeigen(
     art: type[BaseException], wert: BaseException, spur: TracebackType | None
 ) -> None:
     """`sys.excepthook` für Schülerprogramme."""
+    _an_debugger_geben(art, wert, spur)
     text = fehlertext(art, wert, spur)
     if not _in_fenster_zeigen(text):
         print(text, file=sys.stderr)
