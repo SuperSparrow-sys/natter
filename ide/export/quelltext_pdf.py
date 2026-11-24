@@ -284,7 +284,7 @@ def anmeldename() -> str:
 
 def abgabe_ordnername(projekt: Projekt) -> str | None:
     """Der Ordnername einer entpackten Abgabe, etwa
-    „Ampel - schueler01 - PC-R01“, sonst `None`.
+    „Ampel - anna - PC-R01“, sonst `None`.
 
     Eine Abgabe-ZIP (`abgabe_name` in `ide/shell/hauptfenster.py`)
     entpackt sich in einen Ordner aus Projektname, Konto und Rechner.
