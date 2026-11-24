@@ -1425,7 +1425,7 @@ Ein Feld aus `field_by_name` gibt seinen Wert auf vier Arten her:
 | `value` | den Wert, wie er in der Datenbank steht |
 | `as_string` | als Text, wie ihn die Data Controls zeigen; ein leeres Feld als `""`, eine Kommazahl mit Dezimalkomma (`"1,5"`) |
 | `as_integer` | als ganze Zahl; ein leeres Feld als `0` |
-| `as_float` | als Kommazahl; ein leeres Feld als `0.0`. Ein Text mit Dezimalkomma wie `"2,5"` wird verstanden |
+| `as_float` | als Kommazahl; ein leeres Feld als `0.0`. Ein Text wird wie mit `zahl()` gelesen, mit Dezimalkomma und Tausenderpunkt: `"2,5"` ergibt 2,5, `"1.234,5"` 1234,5 |
 
 Lässt sich ein Feld nicht als Zahl lesen, etwa ein Name, bricht
 `as_integer` bzw. `as_float` mit einer Meldung ab, die den Wert nennt.

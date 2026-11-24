@@ -13,7 +13,7 @@ import pytest
 
 from ide.project import Projekt
 from ide.schema import pruefen, schema_fehler
-from pcl import SQLite3Connection, SQLQuery
+from pcl import SQLite3Connection, SQLQuery, zahl
 from pcl.errors import NatterDatenError
 from pcl.fehleranzeige import fehlertext
 
@@ -125,8 +125,11 @@ def test_zahlen_kommen_wie_bisher() -> None:
     assert _feld(None).as_float == 0.0
 
 
-def test_ein_dezimalkomma_wird_verstanden() -> None:
-    assert _feld("2,5").as_float == 2.5
+@pytest.mark.parametrize("text", ["2,5", "1.234,5", "1.000", " 3 "])
+def test_as_float_liest_wie_zahl(text: str) -> None:
+    """Punkt 694: „1.000“ ergab 1,0 statt 1000, „1.234,5“ einen
+    Fehler."""
+    assert _feld(text).as_float == zahl(text)
 
 
 @pytest.mark.parametrize(
