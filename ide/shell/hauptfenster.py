@@ -4315,9 +4315,19 @@ class HauptFenster(QMainWindow):
         dasselbe = self.projekt is not None and (
             self.projekt.ordner.resolve() == neu.ordner.resolve()
         )
-        if not self._vorheriges_projekt_schliessen(neu.ordner):
+        # Das Programm des alten Projekts endet mit dem Wechsel, nach
+        # derselben Frage wie beim Schließen des Fensters (Punkt 695).
+        wechsel = self.projekt is not None and not dasselbe
+        if (
+            wechsel
+            and not self._laufendes_programm_klaeren(
+                "das andere Projekt öffnen", "wechseln"
+            )
+        ) or not self._vorheriges_projekt_schliessen(neu.ordner):
             self.statusBar().showMessage("Das Projekt wurde nicht gewechselt.")
             return self.projekt
+        if wechsel and self._programm_laeuft():
+            self.kindprozesse_beenden()
         if self.projekt is not None:
             sperre.freigeben(self.projekt.ordner)
         if not dasselbe:
@@ -4370,7 +4380,11 @@ class HauptFenster(QMainWindow):
         if self.projekt is None:
             self.statusBar().showMessage("Es ist kein Projekt offen.")
             return False
-        if not self._vorheriges_projekt_schliessen():
+        # Wie beim Schließen des Fensters: erst das laufende Programm,
+        # dann das Speichern (Punkte 433 und 695).
+        if not self._laufendes_programm_klaeren(
+            "das Projekt schließen", "schließen"
+        ) or not self._vorheriges_projekt_schliessen():
             self.statusBar().showMessage("Das Projekt bleibt offen.")
             return False
         name = self.projekt.name
@@ -4525,14 +4539,20 @@ class HauptFenster(QMainWindow):
         diagramme = [
             f for f in self._ungespeicherte_diagramme() if darin(f.diagramm.pfad)
         ]
+        designer = [
+            c for c in self._ungespeicherte_designer() if darin(c.pfm_pfad)
+        ]
         namen = [Path(e.property(_PFAD_EIGENSCHAFT)).name for e in editoren]
         namen += [f.diagramm.pfad.name for f in diagramme]
+        namen += [c.pfm_pfad.name for c in designer]
 
         def speichern() -> bool:
             for editor in editoren:
                 if not self._editor_speichern(editor):
                     return False
-            return all(fenster.speichern() for fenster in diagramme)
+            return all(fenster.speichern() for fenster in diagramme) and all(
+                self._designer_speichern(canvas) for canvas in designer
+            )
 
         return self._vor_dem_schliessen_klaeren(namen, speichern)
 
@@ -4829,6 +4849,11 @@ class HauptFenster(QMainWindow):
             inhalt = self._tab_inhalt(self.editor_tabs.widget(index))
             if isinstance(inhalt, QPlainTextEdit):
                 inhalt.document().setModified(False)
+            canvas = self._widget_zu_canvas.get(inhalt)
+            if canvas is not None:
+                # Sonst fragte der Reiter noch einmal, und sein
+                # „Abbrechen“ wertete niemand aus (Punkt 673).
+                canvas.ungespeichert = False
             self._tab_schliessen(index)
 
     def projekt_oeffnen_gemeldet(self, pfad: Path) -> Projekt | None:
@@ -5771,6 +5796,7 @@ class HauptFenster(QMainWindow):
             and self.isActiveWindow()
         ):
             self._von_aussen_geaenderte_neu_laden()
+            self._von_aussen_geaenderte_formulare_neu_laden()
             # Was inzwischen im Projektordner dazugekommen ist, etwa eine
             # Klasse der Lehrkraft (Punkt 503).
             if self.projekt is not None and self.projekt.ordner.is_dir():
@@ -5811,15 +5837,33 @@ class HauptFenster(QMainWindow):
         for fenster in self._ungespeicherte_diagramme():
             if not fenster.speichern():
                 alles_gut = False
+        for canvas in self._ungespeicherte_designer():
+            if not self._designer_speichern(canvas):
+                alles_gut = False
         self._sicherung_aufraeumen()
         return alles_gut
 
     def _ungespeicherte_diagramme(self) -> list:
         return [f for f in self._offene_diagramme.values() if f.geaendert]
 
+    def _ungespeicherte_designer(self) -> list[DesignerCanvas]:
+        """Die Designer, deren letzte Änderung nicht in die `.pfm` kam:
+        das Schreiben scheiterte, oder das Überschreiben einer von
+        außen geänderten `.pfm` wurde abgelehnt. Bis Punkt 673 fehlten
+        sie in der Nachfrage beim Schließen von Fenster und Projekt und
+        in der Sicherung, und die Änderung ging ohne ein Wort verloren."""
+        return [
+            canvas for canvas in self._offene_canvases
+            if canvas.ungespeichert and canvas.pfm_pfad is not None
+        ]
+
     def _alle_speichern_aktion(self) -> None:
         """„Datei → Alle speichern“ (Strg+Umschalt+S, Punkt 85)."""
-        anzahl = len(self._ungespeicherte_editoren()) + len(self._ungespeicherte_diagramme())
+        anzahl = (
+            len(self._ungespeicherte_editoren())
+            + len(self._ungespeicherte_diagramme())
+            + len(self._ungespeicherte_designer())
+        )
         if anzahl == 0:
             self.statusBar().showMessage("Es gibt nichts zu speichern, alles ist gespeichert.")
             return
@@ -6816,15 +6860,19 @@ class HauptFenster(QMainWindow):
         `_beim_beenden_aufraeumen` beendet das Programm wie bisher.
 
         Vorgewählt ist „Abbrechen“, denn die Frage kommt meist nach
-        einem Klick, der nicht Natter galt."""
+        einem Klick, der nicht Natter galt.
+
+        Dieselbe Frage kommt beim Schließen und Wechseln des Projekts
+        (Punkt 695); den Anlass setzt `_laufendes_programm_klaeren`."""
+        satz, knopf = self._programm_frage_anlass
         box = QMessageBox(
             QMessageBox.Icon.Question,
             "Programm läuft noch",
-            "Das Programm läuft noch. Beenden und Natter schließen?",
+            f"Das Programm läuft noch. Beenden und {satz}?",
             parent=self,
         )
         beenden = box.addButton(
-            "Beenden und schließen", QMessageBox.ButtonRole.AcceptRole
+            f"Beenden und {knopf}", QMessageBox.ButtonRole.AcceptRole
         )
         abbrechen = box.addButton(
             "Abbrechen", QMessageBox.ButtonRole.RejectRole
@@ -6834,14 +6882,35 @@ class HauptFenster(QMainWindow):
         box.exec()
         return box.clickedButton() is beenden
 
+    #: Satz und Knopf der Frage nach dem laufenden Programm.
+    _programm_frage_anlass = ("Natter schließen", "schließen")
+
+    def _laufendes_programm_klaeren(self, satz: str, knopf: str) -> bool:
+        """Fragt vor dem Schließen oder Wechseln des Projekts, ob ein
+        laufendes Programm enden soll, wie beim Schließen des Fensters.
+        Liefert, ob es weitergehen darf. Beendet wird erst danach, wenn
+        auch die Frage nach dem Speichern beantwortet ist.
+
+        Bis Punkt 695 beendete „Projekt schließen“ das Programm ohne
+        Frage, und beim Öffnen eines anderen Projekts lief es neben dem
+        neuen weiter."""
+        if not self._programm_laeuft():
+            return True
+        self._programm_frage_anlass = (satz, knopf)
+        try:
+            return self._laufendes_programm_fragen()
+        finally:
+            del self._programm_frage_anlass
+
     def _ungespeicherte_namen(self) -> list[str]:
-        """Die Dateinamen aller geänderten Editoren und Diagramme, wie
-        sie in der Nachfrage vor dem Schließen stehen."""
+        """Die Dateinamen aller geänderten Editoren, Diagramme und
+        Designer, wie sie in der Nachfrage vor dem Schließen stehen."""
         namen = [
             Path(editor.property(_PFAD_EIGENSCHAFT)).name
             for editor in self._ungespeicherte_editoren()
         ]
         namen += [f.diagramm.pfad.name for f in self._ungespeicherte_diagramme()]
+        namen += [c.pfm_pfad.name for c in self._ungespeicherte_designer()]
         return namen
 
     def _beim_beenden_aufraeumen(self) -> None:
@@ -6965,6 +7034,11 @@ class HauptFenster(QMainWindow):
             except OSError:
                 continue
             fenster._geaendert = False
+        # Ohne Meldung; eine von außen geänderte `.pfm` überschreibt
+        # der Designer hier nicht, weil er nicht fragen darf.
+        for canvas in self._ungespeicherte_designer():
+            canvas._schreibfehler_gemeldet = True
+            canvas.speichern()
 
     # -- Sicherung ungespeicherter Änderungen (Punkt 344) ---------------
 
@@ -6974,8 +7048,9 @@ class HauptFenster(QMainWindow):
         return sicherung.pfad_fuer(self.projekt.ordner, self.projekt.name)
 
     def _sicherung_eintraege(self) -> list[sicherung.Eintrag]:
-        """Jeder ungespeicherte Editor und jedes geänderte Diagramm im
-        Ordner des offenen Projekts, in der Reihenfolge der Reiter.
+        """Jeder ungespeicherte Editor, jedes geänderte Diagramm und
+        jedes Formular, das nicht in seine `.pfm` kam, im Ordner des
+        offenen Projekts, Editoren in der Reihenfolge der Reiter.
 
         Als Stand zählt bei einem Editor der, in dem er seine Datei
         zuletzt gelesen oder geschrieben hat: auf ihm beruht der Text.
@@ -7012,6 +7087,21 @@ class HauptFenster(QMainWindow):
             ) + "\n"
             eintraege.append(sicherung.Eintrag(
                 name, "diagram", text, dateistand.kennung(pfad)
+            ))
+        # Ein Formular, das nicht in die `.pfm` kam (Punkt 673). Der
+        # Stand ist der, auf dem der Designer zuletzt gelesen oder
+        # geschrieben hat.
+        for canvas in self._ungespeicherte_designer():
+            name = relativ(canvas.pfm_pfad)
+            if name is None:
+                continue
+            text = json.dumps(
+                pfm_aus_formular(canvas.formular, canvas.pfm_pfad.parent),
+                indent=2, ensure_ascii=False,
+            ) + "\n"
+            eintraege.append(sicherung.Eintrag(
+                name, "form", text,
+                canvas.pfm_stand or dateistand.kennung(canvas.pfm_pfad),
             ))
         return eintraege
 
@@ -7165,6 +7255,9 @@ class HauptFenster(QMainWindow):
             fenster._geaendert = True
             fenster._titel_setzen()
             return
+        if eintrag.art == "form":
+            self._formular_wiederherstellen(eintrag, ziel)
+            return
         editor = self.datei_oeffnen(ziel)
         if editor is None:
             return
@@ -7192,6 +7285,107 @@ class HauptFenster(QMainWindow):
         editor.centerCursor()
         if eintrag.stand:
             editor.setProperty(dateistand.EIGENSCHAFT, eintrag.stand)
+
+    def _formular_wiederherstellen(
+        self, eintrag: sicherung.Eintrag, ziel: Path
+    ) -> None:
+        """Schreibt ein gesichertes Formular in seine `.pfm` und öffnet
+        es im Designer (Punkt 673).
+
+        Anders als beim Editor kommt der Inhalt gleich auf die Platte:
+        der Designer schreibt jede Änderung von sich aus in die Datei
+        und kennt keinen ungespeicherten Stand, den Strg+S erst
+        schreiben würde. Wurde die `.pfm` seit der Sicherung geändert,
+        wird vorher gefragt; bei „Nein“ bleibt sie, wie sie ist."""
+        seither = bool(eintrag.stand) and dateistand.von_aussen_geaendert(
+            eintrag.stand, ziel
+        )
+        if seither and not self._formular_ueberschreiben_fragen(ziel.name):
+            return
+        if not self.datei_schreiben_gemeldet(
+            ziel, eintrag.text,
+            folge="Das Formular steht weiter in der Sicherung.",
+        ):
+            return
+        canvas = self._canvas_zu_pfad(ziel)
+        if canvas is not None:
+            self._designer_neu_laden(canvas)
+        else:
+            self._designer_oeffnen_gemeldet(ziel)
+
+    def _formular_ueberschreiben_fragen(self, name: str) -> bool:
+        """Ob die seit der Sicherung geänderte `.pfm` mit dem Formular
+        aus der Sicherung überschrieben werden soll. Eigene Methode,
+        damit Tests die Antwort vorgeben können."""
+        antwort = QMessageBox.question(
+            self,
+            "Formular wiederherstellen",
+            f"„{name}“ wurde seit der Sicherung geändert, zum Beispiel "
+            "in einem zweiten Natter-Fenster.\n\nMit dem Formular aus "
+            "der Sicherung überschreiben? Die andere Änderung geht "
+            "dabei verloren.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        return antwort == QMessageBox.StandardButton.Yes
+
+    def _canvas_zu_pfad(self, pfad: Path) -> DesignerCanvas | None:
+        ziel = Path(pfad).resolve()
+        for canvas in self._offene_canvases:
+            if canvas.pfm_pfad is not None and canvas.pfm_pfad.resolve() == ziel:
+                return canvas
+        return None
+
+    def _designer_oeffnen_gemeldet(self, pfad: Path) -> bool:
+        """`designer_oeffnen` mit einer Zeile in der Statusleiste statt
+        einer Ausnahme, wenn sich die `.pfm` nicht laden lässt."""
+        try:
+            self.designer_oeffnen(pfad)
+        except (
+            OSError, ValueError, KeyError, PfmBeschaedigt, schema_fehler(),
+        ) as fehler:
+            self.statusBar().showMessage(
+                f"„{Path(pfad).name}“ lässt sich nicht im Designer öffnen. "
+                f"{fehler_beschreiben(fehler)}"
+            )
+            return False
+        return True
+
+    def _designer_neu_laden(self, canvas: DesignerCanvas) -> None:
+        """Lädt ein Formular aus seiner `.pfm` neu, an derselben Stelle
+        der Reiter. Der Rückgängig-Verlauf des Designers beginnt danach
+        neu."""
+        pfad = canvas.pfm_pfad
+        index = self._tab_index(canvas.formular._qwidget)
+        if pfad is None or index == -1:
+            return
+        vorn = self.editor_tabs.currentIndex() == index
+        vorher = self.editor_tabs.currentWidget()
+        canvas.ungespeichert = False
+        self._tab_schliessen(index)
+        if not self._designer_oeffnen_gemeldet(pfad):
+            return
+        neu = self.editor_tabs.count() - 1
+        self.editor_tabs.tabBar().moveTab(neu, min(index, neu))
+        if not vorn and vorher is not None:
+            self.editor_tabs.setCurrentWidget(vorher)
+
+    def _von_aussen_geaenderte_formulare_neu_laden(self) -> None:
+        """Lädt jedes Formular neu, dessen `.pfm` sich auf der Platte
+        geändert hat, solange sein Designer keine eigene, noch nicht
+        geschriebene Änderung hat. Bis Punkt 673 bemerkte der Designer
+        das erst beim nächsten eigenen Schreiben und fragte dann, ob er
+        die andere Änderung überschreiben soll."""
+        for canvas in list(self._offene_canvases):
+            if (
+                canvas.pfm_pfad is not None
+                and not canvas.ungespeichert
+                and not canvas.schreiben_ausstehend
+                and dateistand.von_aussen_geaendert(
+                    canvas.pfm_stand, canvas.pfm_pfad
+                )
+            ):
+                self._designer_neu_laden(canvas)
 
     def _sicherung_wiederherstellen_fragen(self, text: str) -> bool:
         """Fragt, ob die Sicherung wiederhergestellt werden soll.
@@ -7391,6 +7585,10 @@ class HauptFenster(QMainWindow):
         canvas.aenderung_beobachten(
             lambda: self._designer_titel_auffrischen(canvas)
         )
+        # Kam die Änderung nicht in die `.pfm`, gehört sie in die
+        # Sicherung, sonst räumt die nächste Sicherung sie weg
+        # (Punkt 673).
+        canvas.aenderung_beobachten(self._sicherung_bald.start)
         canvas.bild_beobachten(self._designer_bild_abgelegt)
         canvas.methode_beobachten(self._zur_methode_springen)
         self._offene_canvases.append(canvas)

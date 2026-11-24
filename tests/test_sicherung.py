@@ -646,7 +646,7 @@ def test_geschriebene_sicherung_passt_zum_schema(tmp_path: Path) -> None:
     assert ziel.name == "Ampel.natter-sicherung"
     daten = json.loads(ziel.read_text(encoding="utf-8"))
     jsonschema.validate(daten, schema)
-    assert daten["format"] == "natter-sicherung/2"
+    assert daten["format"] == "natter-sicherung/3"
     teil = daten["parts"][0]
     assert teil["window"] == {
         "computer": "PC-R12", "account": "anna", "pid": 4712,
@@ -668,3 +668,17 @@ def test_geschriebene_sicherung_passt_zum_schema(tmp_path: Path) -> None:
     gelesen = sicherung.lesen(ziel)
     assert list(gelesen.eintraege) == eintraege
     assert gelesen.anteile[0].herkunft is None
+    # Punkt 673: ein Formular gibt es erst ab `/3`; `/2` wird weiter
+    # gelesen, kennt aber keins.
+    zwei = {**daten, "format": "natter-sicherung/2"}
+    jsonschema.validate(zwei, schema)
+    formular = {"path": "u_main.pfm", "kind": "form", "text": "{}\n",
+                "disk": None}
+    mit_formular = {
+        **daten, "parts": [{**teil, "files": [*teil["files"], formular]}],
+    }
+    jsonschema.validate(mit_formular, schema)
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(
+            {**mit_formular, "format": "natter-sicherung/2"}, schema
+        )

@@ -1243,7 +1243,11 @@ wieder zurück in die Arbeit.
 **Projekt → Projekt schließen** schließt das Projekt dagegen ganz,
 etwa am Stundenende, bevor die nächste Klasse an den Rechner kommt.
 Ungespeicherte Änderungen werden vorher erfragt wie beim Wechsel zu
-einem anderen Projekt. Danach sind die Reiter und Diagrammfenster des
+einem anderen Projekt, auch ein Formular, dessen letzte Änderung der
+Designer nicht in die `.pfm` schreiben konnte. Läuft noch ein
+Programm, fragt Natter beim Schließen und beim Wechsel des Projekts
+zuerst, ob es enden soll. „Abbrechen“ lässt in beiden Fragen alles
+offen. Danach sind die Reiter und Diagrammfenster des
 Projekts zu, Projekt-Explorer und Objektinspektor leer, und die
 Startseite steht vorn.
 
@@ -1255,8 +1259,10 @@ an einer Unit oder einem Diagramm, alle zwei Minuten und noch einmal unmittelbar
 Frage nach dem Speichern beim Abmelden oder Herunterfahren. Die Datei heißt wie das Projekt mit der Endung
 `.natter-sicherung`, etwa `Ampel.natter-sicherung`, und enthält den
 ungespeicherten Text jeder geänderten Unit und jedes geänderten
-Diagramms. Wird gespeichert oder verworfen, verschwindet sie wieder,
-ebenso beim Schließen des Projekts.
+Diagramms, dazu jedes Formular, das der Designer nicht in seine
+`.pfm` schreiben konnte, etwa weil der USB-Stick gezogen wurde. Wird
+gespeichert oder verworfen, verschwindet sie wieder, ebenso beim
+Schließen des Projekts.
 
 Liegt beim Öffnen eines Projekts noch eine Sicherung darin, etwa
 weil bei Windows „Trotzdem abmelden“ gewählt wurde oder der Rechner
@@ -1267,7 +1273,9 @@ geretteten Stelle; auf die Platte kommt er erst mit **Speichern**,
 und `Strg+Z` holt den Stand der Datei zurück.
 **Verwerfen** löscht die Sicherung. Wurde eine Datei nach der
 Sicherung noch anderswo geändert, steht das in der Frage, und
-**Speichern** fragt vor dem Überschreiben nach.
+**Speichern** fragt vor dem Überschreiben nach. Ein Formular kommt
+beim Wiederherstellen gleich in seine `.pfm`, wie jede Änderung im
+Designer; wurde die `.pfm` seither geändert, fragt Natter vorher.
 
 Im Projekt-Explorer erscheint die Sicherung nicht, und sie kommt
 weder in die Abgabe-ZIP noch in eine exportierte Exe oder in die
@@ -1275,7 +1283,11 @@ Kopie einer Aufgabe.
 
 Ist ein Projekt in zwei Natter-Fenstern offen, sichert jedes Fenster
 seine eigenen Dateien in dieselbe Datei, und keines entfernt, was das
-andere gesichert hat. Was ein noch offenes Fenster gesichert hat,
+andere gesichert hat. Hat das andere Fenster ein Formular geändert,
+lädt der Designer es beim Wechsel ins Fenster neu, solange er selbst
+keine ungeschriebene Änderung hat. Wird das Fenster geschlossen, das
+das Projekt zuerst geöffnet hatte, trägt sich das andere spätestens
+nach fünf Minuten in die Sperrdatei ein. Was ein noch offenes Fenster gesichert hat,
 bietet ein anderes nicht an. War das Projekt zuletzt an einem
 anderen Rechner im selben Konto offen, etwa weil der Rechner im
 vorigen Raum ausgegangen ist, bietet Natter dessen Sicherung an; der
