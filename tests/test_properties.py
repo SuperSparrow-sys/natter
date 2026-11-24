@@ -169,3 +169,60 @@ def test_zu_kleine_zahlen_werden_abgelehnt(
         setattr(objekt, eigenschaft, zu_klein)
 
     assert getattr(objekt, eigenschaft) == vorher
+
+
+@pytest.mark.parametrize(
+    ("komponente", "eigenschaft", "wert", "text"),
+    [
+        # Punkt 684: Qt nimmt nur 32-Bit-Zahlen.
+        ("Label", "left", 2**31, "2.147.483.647"),
+        ("Timer", "interval", -(2**31) - 1, "2.147.483.648"),
+        ("FloatSpinEdit", "minimum", float("nan"), "nan"),
+        # Punkt 677: Obergrenzen der Tabelle.
+        ("StringGrid", "row_count", 100_001, "100.000"),
+        ("StringGrid", "col_count", 1_001, "1.000"),
+    ],
+)
+def test_zu_grosse_zahlen_werden_abgelehnt(
+    komponente: str, eigenschaft: str, wert: float, text: str
+) -> None:
+    """Bis Punkt 684 stand der Wert schon in der Eigenschaft, bevor Qt
+    ein OverflowError ohne Text warf; nan ließ FloatSpinEdit ohne Ende
+    abgleichen. Bis Punkt 677 belegte eine Tabelle mit 10**7 Zeilen
+    über 1 GB."""
+    import pcl
+    from pcl import Form
+
+    formular = Form()
+    objekt = getattr(pcl, komponente)(formular)
+    aufrufe: list[int] = []
+    if hasattr(objekt, "on_change"):
+        objekt.on_change = lambda sender: aufrufe.append(1)
+    vorher = getattr(objekt, eigenschaft)
+
+    with pytest.raises(NatterPropertyError, match=text):
+        setattr(objekt, eigenschaft, wert)
+
+    assert getattr(objekt, eigenschaft) == vorher
+    assert aufrufe == []
+
+
+@pytest.mark.parametrize(
+    ("komponente", "eigenschaft", "wert"),
+    [
+        ("StringGrid", "row_count", 100_000),
+        ("StringGrid", "col_count", 1_000),
+        ("Label", "left", 2**31 - 1),
+        # Kommazahlen sind keine Qt-ints und dürfen groß sein.
+        ("FloatSpinEdit", "maximum", 1e300),
+    ],
+)
+def test_grenzwerte_bleiben_erlaubt(
+    komponente: str, eigenschaft: str, wert: float
+) -> None:
+    import pcl
+    from pcl import Form
+
+    objekt = getattr(pcl, komponente)(Form())
+    setattr(objekt, eigenschaft, wert)
+    assert getattr(objekt, eigenschaft) == wert

@@ -6,6 +6,7 @@ Anbindung an echte Widgets kommt mit `pcl.control` (M1, Schritt 2).
 
 from __future__ import annotations
 
+import math
 from datetime import date, time
 from typing import Any, NamedTuple
 
@@ -31,6 +32,22 @@ _TYPNAMEN: dict[type, tuple[str, str, str]] = {
     date: ("Datum", "ein", "ein"),
     time: ("Uhrzeit", "eine", "eine"),
 }
+
+
+#: Der Bereich, den Qt für ganze Zahlen annimmt (32 Bit).
+_INT_MIN = -(2**31)
+_INT_MAX = 2**31 - 1
+
+
+def _tausender(wert: float) -> str:
+    """Ganze Zahl mit Tausenderpunkt, „100.000“; sonst wie `text`."""
+    if isinstance(wert, int) or float(wert).is_integer():
+        if abs(wert) >= 10**100:
+            # Über rund 4300 Stellen verweigert Python schon das
+            # Umwandeln in Text.
+            return "eine Zahl mit mehr als 100 Stellen"
+        return f"{int(wert):,}".replace(",", ".")
+    return zahl_als_text(wert)
 
 
 def typ_beschreibung(typ: type, *, akkusativ: bool = False) -> str:
@@ -148,6 +165,7 @@ class Prop:
         werte: tuple[Any, ...] = (),
         art: str = "",
         minimum: float | None = None,
+        maximum: float | None = None,
     ) -> None:
         self.typ = typ
         self.standardwert = standardwert
@@ -167,6 +185,10 @@ class Prop:
         #: dann aber mit 1 ms, und ein Spiel, das sein Intervall
         #: schrittweise verkleinert, raste ohne Meldung los.
         self.minimum = minimum
+        #: Der größte erlaubte Wert einer Zahl, oder `None`. Ohne
+        #: Grenze belegte `StringGrid.row_count = 10**7` über 1 GB
+        #: Speicher (Punkt 677).
+        self.maximum = maximum
         self.name: str | None = None
 
     def __set_name__(self, owner: type, name: str) -> None:
@@ -203,6 +225,29 @@ class Prop:
             )
         if self.art == ART_FARBE:
             farbe_pruefen(f"{type(instance).__name__}.{self.name}", wert)
+        wer = f"{type(instance).__name__}.{self.name}"
+        if self.typ is int and not _INT_MIN <= wert <= _INT_MAX:
+            # Qt nimmt nur 32-Bit-Zahlen. Bis Punkt 684 stand der Wert
+            # danach schon in der Eigenschaft, und Qt warf ein
+            # OverflowError ohne Text.
+            raise NatterPropertyError(
+                f"{wer} erwartet eine Zahl von {_tausender(_INT_MIN)} "
+                f"bis {_tausender(_INT_MAX)}, erhalten wurde "
+                f"{_tausender(wert)}."
+            )
+        if isinstance(wert, float) and math.isnan(wert):
+            # nan ist nie gleich nan; FloatSpinEdit glich deshalb ohne
+            # Ende ab, bis RecursionError kam (Punkt 684).
+            raise NatterPropertyError(
+                f"{wer} erwartet eine Zahl, erhalten wurde nan "
+                "(keine Zahl)."
+            )
+        if self.maximum is not None and wert > self.maximum:
+            raise NatterPropertyError(
+                f"{wer} erwartet einen Wert bis "
+                f"{_tausender(self.maximum)}, erhalten wurde "
+                f"{_tausender(wert)}."
+            )
         if self.minimum is not None and wert < self.minimum:
             grenze = (
                 int(self.minimum)

@@ -29,7 +29,9 @@ from pcl import (
     StringGrid,
 )
 
-ZEILEN = 100_000
+# Mit der Kopfzeile von `load_dataframe` genau die Höchstzahl von
+# `StringGrid.row_count` (100.000, Punkt 677).
+ZEILEN = 99_999
 
 pytestmark = pytest.mark.skipif(
     sys.platform != "win32", reason="misst den Speicher über die Windows-API"
