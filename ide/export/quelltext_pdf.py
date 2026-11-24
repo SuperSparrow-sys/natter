@@ -282,6 +282,22 @@ def anmeldename() -> str:
         return ""
 
 
+def abgabe_ordnername(projekt: Projekt) -> str | None:
+    """Der Ordnername einer entpackten Abgabe, etwa
+    „Ampel - schueler01 - PC-R01“, sonst `None`.
+
+    Eine Abgabe-ZIP (`abgabe_name` in `ide/shell/hauptfenster.py`)
+    entpackt sich in einen Ordner aus Projektname, Konto und Rechner.
+    Druckt die Lehrkraft eingesammelte Abgaben, stand bis Punkt 697
+    ihr eigener Name in der Kopfzeile und der Projektname, der bei der
+    ganzen Klasse gleich ist; welches Blatt zu wem gehört, war nicht
+    zu erkennen."""
+    ordner = projekt.ordner.name
+    if ordner != projekt.name and ordner.startswith(f"{projekt.name} - "):
+        return ordner
+    return None
+
+
 def _kopfhoehe() -> float:
     return _KOPF_MM / 25.4 * _AUFLOESUNG
 
@@ -315,9 +331,10 @@ def seitenkoepfe(
                 datei_je_seite[seite] = str(datei)
         block = block.next()
 
+    titel = abgabe_ordnername(projekt) or projekt.name
     koepfe = []
     for nummer, datei in enumerate(datei_je_seite, 1):
-        teile = [projekt.name, datei, name, heute]
+        teile = [titel, datei, name, heute]
         links = " – ".join(teil for teil in teile if teil)
         koepfe.append((links, f"Seite {nummer} von {seiten}"))
     return koepfe
@@ -349,17 +366,19 @@ def quelltext_als_pdf(
 ) -> Path:
     """Schreibt den Quelltext des Projekts nach `ziel` und gibt den
     Pfad zurück. Ohne `name` steht der Name aus der Windows-Anmeldung
-    in der Kopfzeile."""
+    in der Kopfzeile, bei einer entpackten Abgabe keiner: dort nennt
+    der Ordnername das Konto der Schülerin, und der Name wäre der der
+    Lehrkraft, die druckt (Punkt 697)."""
     ziel = Path(ziel)
     ziel.parent.mkdir(parents=True, exist_ok=True)
     if name is None:
-        name = anmeldename()
+        name = "" if abgabe_ordnername(projekt) else anmeldename()
 
     schreiber = QPdfWriter(str(ziel))
     schreiber.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
     schreiber.setPageMargins(QMarginsF(_RAND_MM, _RAND_MM, _RAND_MM, _RAND_MM))
     schreiber.setResolution(_AUFLOESUNG)
-    schreiber.setTitle(f"{projekt.name} – Quelltext")
+    schreiber.setTitle(f"{abgabe_ordnername(projekt) or projekt.name} – Quelltext")
     if name:
         schreiber.setCreator(name)
 

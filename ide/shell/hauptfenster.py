@@ -2776,16 +2776,18 @@ class HauptFenster(QMainWindow):
         # Neben den Projektordner wie die Abgabe-ZIP: im Projektordner
         # nahm der nächste Exe-Export das PDF als Programmdaten mit, und
         # der Empfänger bekam den ganzen Quelltext (Punkt 586).
-        vorschlag = (
-            self.projekt.ordner.parent / f"{self.projekt.name} Quelltext.pdf"
-        )
+        # Bei einer entpackten Abgabe nach ihrem Ordner, der das Konto
+        # nennt; sonst bekamen alle Abgaben einer Klasse denselben
+        # Vorschlag und ersetzten einander (Punkt 697).
+        from ide.export.quelltext_pdf import abgabe_ordnername, quelltext_als_pdf
+
+        titel = abgabe_ordnername(self.projekt) or self.projekt.name
+        vorschlag = self.projekt.ordner.parent / f"{titel} Quelltext.pdf"
         pfad, _ = QFileDialog.getSaveFileName(
             self, "Quelltext als PDF speichern", str(vorschlag), "PDF-Dateien (*.pdf)"
         )
         if not pfad:
             return
-
-        from ide.export.quelltext_pdf import quelltext_als_pdf
 
         try:
             ziel = quelltext_als_pdf(self.projekt, Path(pfad))

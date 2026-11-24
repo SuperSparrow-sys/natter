@@ -777,7 +777,11 @@ Anstreichen. In der Kopfzeile jeder Seite stehen Projektname,
 Dateiname, der Name aus der Windows-Anmeldung, das Datum und „Seite
 n von m“, auch auf der zweiten und dritten Seite einer langen Datei
 — bei zwanzig eingesammelten Abgaben ist sonst nicht zu erkennen,
-welche zu wem gehört.
+welche zu wem gehört. Druckt die Lehrkraft eine entpackte Abgabe,
+deren Ordner wie die Abgabe-ZIP heißt, etwa
+`Ampel - schueler01 - PC-R01`, steht in der Kopfzeile statt
+Projektname und Anmeldename dieser Ordnername mit dem Konto der
+Schülerin; der vorgeschlagene Dateiname trägt ihn ebenfalls.
 
 Ausgegeben wird jede Python-Datei des Projekts, die im Explorer
 unter „Units“ steht, also auch Testdateien wie `test_neu1.py`. Die

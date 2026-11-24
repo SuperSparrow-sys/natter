@@ -108,3 +108,69 @@ def test_das_pdf_landet_am_vorschlag_nicht_unter_den_exportdaten(
     assert pdf.exists(), hauptfenster.statusBar().currentMessage()
     daten = _daten_dateien_des_projekts(hauptfenster.projekt)
     assert not [p for p in daten if p.suffix == ".pdf"]
+
+
+@pytest.mark.parametrize(
+    ("ordnername", "erwartet", "lehrkraft_im_kopf"),
+    [
+        ("Ampel - schueler01 - PC-R01", "Ampel - schueler01 - PC-R01", False),
+        ("Ampel", "Ampel", True),
+    ],
+    ids=["abgabe", "eigenes_projekt"],
+)
+def test_eine_abgabe_traegt_ihren_ordner_statt_der_lehrkraft(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    qapp,  # noqa: ANN001
+    ordnername: str,
+    erwartet: str,
+    lehrkraft_im_kopf: bool,
+) -> None:
+    """Punkt 697: Druckte die Lehrkraft eingesammelte Abgaben, stand
+    ihr eigener Name in jeder Kopfzeile, und der Projektname ist bei
+    der ganzen Klasse gleich."""
+    from ide.project.neu import projekt_erzeugen
+
+    projekt_erzeugen("console", tmp_path / ordnername, "Ampel")
+    projekt = Projekt.laden(tmp_path / ordnername / "Ampel.natter")
+    monkeypatch.setattr(modul, "anmeldename", lambda: "Frau Lehrkraft")
+    gezeichnet: list[str] = []
+    monkeypatch.setattr(
+        modul, "_kopfzeile_zeichnen",
+        lambda maler, breite, links, rechts: gezeichnet.append(links),
+    )
+
+    modul.quelltext_als_pdf(projekt, tmp_path / "a.pdf", date(2026, 11, 24))
+
+    assert gezeichnet
+    for links in gezeichnet:
+        assert links.startswith(f"{erwartet} – u_main.py")
+        assert ("Frau Lehrkraft" in links) is lehrkraft_im_kopf
+
+
+def test_zwei_abgaben_bekommen_verschiedene_vorschlaege(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, hauptfenster
+) -> None:  # noqa: ANN001
+    """Punkt 697: beide Abgaben bekamen „Ampel Quelltext.pdf“
+    vorgeschlagen und ersetzten einander im gemeinsamen Ordner."""
+    from PySide6.QtWidgets import QFileDialog
+
+    from ide.project.neu import projekt_erzeugen
+
+    vorschlaege: list[str] = []
+    monkeypatch.setattr(
+        QFileDialog, "getSaveFileName",
+        staticmethod(
+            lambda _e, _t, vorschlag, _f: (vorschlaege.append(vorschlag), ("", ""))[1]
+        ),
+    )
+    for konto in ("schueler01", "schueler02"):
+        ordner = tmp_path / f"Ampel - {konto} - PC-R01"
+        projekt_erzeugen("console", ordner, "Ampel")
+        hauptfenster.projekt_oeffnen(ordner / "Ampel.natter")
+        hauptfenster._quelltext_als_pdf_aktion()
+
+    assert [Path(v).name for v in vorschlaege] == [
+        "Ampel - schueler01 - PC-R01 Quelltext.pdf",
+        "Ampel - schueler02 - PC-R01 Quelltext.pdf",
+    ]
