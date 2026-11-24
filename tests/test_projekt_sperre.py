@@ -4,7 +4,10 @@
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
+
+import pytest
 
 from ide.project import sperre
 
@@ -80,6 +83,34 @@ def test_sperre_nennt_rechner_und_konto_und_wird_erneuert(
     assert sperre.anderer_besitzer(
         tmp_path, jetzt=100 + sperre.ZEITGRENZE + 1
     ) is None
+    # Eine noch geltende fremde Sperre bleibt beim Erneuern und
+    # Freigeben unberührt.
+    fremd = f"{os.getpid()} 1\nrechner=PC-R07\nerneuert={int(time.time())}\n"
+    datei.write_text(fremd, encoding="utf-8")
     sperre.erneuern(tmp_path)
     sperre.freigeben(tmp_path)
     assert datei.read_text(encoding="utf-8") == fremd
+
+
+@pytest.mark.parametrize(
+    "vorher",
+    ["fehlt", "abgelaufen", "prozess_beendet"],
+)
+def test_erneuern_traegt_sich_bei_freier_sperre_ein(
+    tmp_path: Path, vorher: str
+) -> None:
+    """Punkt 691: hat ein anderes Natter das Projekt zuerst geöffnet und
+    wieder geschlossen, fehlt die Sperrdatei, obwohl es hier weiter
+    offen ist. Beim nächsten Erneuern trägt sich dieses Natter ein."""
+    datei = tmp_path / sperre.SPERRDATEI
+    if vorher == "abgelaufen":
+        datei.write_text(
+            f"1 1\nrechner=PC-R07\nerneuert={int(time.time()) - sperre.ZEITGRENZE - 60}\n",
+            encoding="utf-8",
+        )
+    elif vorher == "prozess_beendet":
+        _eintragen(tmp_path, _TOT, 1)
+
+    sperre.erneuern(tmp_path)
+
+    assert sperre._gehoert_mir(tmp_path)

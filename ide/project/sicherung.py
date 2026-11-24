@@ -4,15 +4,16 @@ Beim Abmelden fragt Natter, ob gespeichert werden soll. Windows wartet
 darauf nur wenige Sekunden und bietet dann „Trotzdem abmelden“ an.
 Wer das drückt, etwa am Stundenende, verlor bis 0.4.0 jeden
 ungespeicherten Text. Natter legt deshalb vor der Frage, und
-außerdem wenige Sekunden nach jeder Änderung an einer Unit und alle
-zwei Minuten, solange etwas ungespeichert ist, eine Sicherung in den
+außerdem wenige Sekunden nach jeder Änderung an einer Unit oder einem
+Diagramm und alle zwei Minuten, solange etwas ungespeichert ist, eine Sicherung in den
 Projektordner:
 
     Ampel.natter-sicherung
 
-Sie ist JSON im Format `natter-sicherung/2`
+Sie ist JSON im Format `natter-sicherung/3`
 (`schemas/natter-sicherung.schema.json`) und hält je geändertem
-Editor oder Diagramm den Pfad relativ zum Projektordner, den
+Editor, Diagramm oder Designer, dessen Änderung nicht in die `.pfm`
+kam, den Pfad relativ zum Projektordner, den
 ungespeicherten Inhalt und den Stand der Datei auf der Platte, auf dem
 dieser Inhalt beruht. Beim nächsten Öffnen des Projekts bietet Natter
 sie an. An der eigenen Endung erkennen Projekt-Explorer, Abgabe-ZIP,
@@ -33,8 +34,9 @@ neu und ersetzt oder entfernt nur seinen eigenen Anteil
 (`anteil_ersetzen`). Beim Öffnen des Projekts bietet Natter die
 Anteile an, deren Fenster nicht mehr läuft (`laeuft`).
 
-Eine Datei im alten Format `natter-sicherung/1` wird weiter gelesen;
-sie gilt als ein Anteil ohne Herkunft.
+`natter-sicherung/2` hat denselben Aufbau ohne Formulare (Punkt 673)
+und wird weiter gelesen, ebenso eine Datei im alten Format
+`natter-sicherung/1`; sie gilt als ein Anteil ohne Herkunft.
 
 Dieses Modul kennt kein Qt; was in den Editoren steht, sammelt das
 Hauptfenster.
@@ -59,8 +61,9 @@ from ide.schema import pruefen as schema_pruefen
 #: Endung der Sicherungsdatei, mit Punkt.
 ENDUNG = ".natter-sicherung"
 
-FORMAT = "natter-sicherung/2"
-#: Wird gelesen, nicht mehr geschrieben.
+FORMAT = "natter-sicherung/3"
+#: Werden gelesen, nicht mehr geschrieben.
+FORMAT_2 = "natter-sicherung/2"
 FORMAT_1 = "natter-sicherung/1"
 
 _SCHEMA = json.loads(
@@ -72,7 +75,7 @@ _SCHEMA = json.loads(
 
 @dataclass(frozen=True)
 class Eintrag:
-    """Eine gesicherte Datei.
+    """Eine gesicherte Datei. `art` ist `text`, `diagram` oder `form`.
 
     `stand` ist die Kennung aus `ide.dateistand` („Änderungszeit in ns:
     Größe“), leer, wenn die Datei beim Sichern fehlte."""
@@ -362,8 +365,8 @@ def _eintraege_lesen(dateien: list[dict]) -> tuple[Eintrag, ...]:
 
 
 def lesen(pfad: Path) -> Sicherung:
-    """Liest und prüft eine Sicherung im Format `natter-sicherung/2`
-    oder `/1`.
+    """Liest und prüft eine Sicherung im Format `natter-sicherung/3`,
+    `/2` oder `/1`.
 
     Wirft `OSError`, `ValueError` (auch `json.JSONDecodeError` und
     `UnicodeDecodeError`) oder den Fehler aus `schema_fehler()`;

@@ -152,6 +152,27 @@ def test_neues_projekt_steht_unter_zuletzt_geoeffnet(
     assert hauptfenster._zuletzt_menue.actions()[0].text() == "Garten"
 
 
+def test_zuletzt_menue_unterscheidet_gleichnamige_abgaben(
+    tmp_path: Path, hauptfenster
+) -> None:
+    """Punkt 700: eingesammelte Abgaben tragen alle dieselbe
+    `Ampel.natter`; das Menü beschriftet sie wie die Startseite nach
+    ihrem Ordner."""
+    from ide.shell.startbild import zuletzt_merken
+
+    for nummer in range(1, 5):
+        ordner = tmp_path / f"Ampel - schueler0{nummer}"
+        ordner.mkdir()
+        natter = ordner / "Ampel.natter"
+        natter.write_text("{}", encoding="utf-8")
+        zuletzt_merken(hauptfenster._design_einstellungen, natter)
+
+    hauptfenster._zuletzt_menue_aufbauen()
+    namen = [a.text() for a in hauptfenster._zuletzt_menue.actions()]
+    assert len(namen) == 4
+    assert len(set(namen)) == 4
+
+
 def test_neues_projekt_fragt_nach_ungespeicherten_aenderungen(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, hauptfenster
 ) -> None:

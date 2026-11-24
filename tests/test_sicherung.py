@@ -384,6 +384,29 @@ def test_diagramm_kommt_mit_zurueck(
     assert pdiag.read_text(encoding="utf-8") == vorher
 
 
+def test_diagrammaenderung_startet_die_baldige_sicherung(
+    hauptfenster_bauen, natter: Path,
+) -> None:
+    """Punkt 679: wer nur ein Diagramm ändert, verlor bei einem Absturz
+    bis zu zwei Minuten Arbeit; jetzt sichert die Pause danach wie
+    nach dem Tippen in einer Unit."""
+    ordner = natter.parent
+    (ordner / "diagramme").mkdir()
+    pdiag = ordner / "diagramme" / "klassen.pdiag"
+    diagramm_erzeugen("class", pdiag)
+    hf = hauptfenster_bauen()
+    hf.projekt_oeffnen(natter)
+    df = hf.diagramm_oeffnen(pdiag)
+    hf._sicherung_bald.stop()
+
+    df.diagramm.daten["name"] = "Geändert"
+    df._bei_aenderung()
+
+    assert hf._sicherung_bald.isActive()
+    hf._sicherung_bald.timeout.emit()
+    assert "diagramme/klassen.pdiag" in _gesichert(ordner)
+
+
 @pytest.mark.parametrize(
     "inhalt",
     [
@@ -529,6 +552,43 @@ def test_sperre_eines_anderen_rechners_und_vorhandene_sicherung(
     ) == ["gesichert = 1\n", "neu = 2\n"]
 
 
+def test_nach_dem_schliessen_des_ersten_natter_haelt_das_zweite_die_sperre(
+    hauptfenster_bauen, natter: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Punkt 691: die Partnerin hat das Projekt an R1 als zweites
+    Natter offen und tippt. Das erste schließt und nimmt die Sperrdatei
+    mit. Beim nächsten Erneuern trägt sich R1 ein, und R2 aus einem
+    anderen Konto bietet den Anteil der Partnerin nicht an."""
+    ordner = natter.parent
+    eigenes = sperre.kontoname()
+    monkeypatch.setattr(sperre, "rechnername", lambda: "R1-PC03")
+    monkeypatch.setattr(sperre, "kontoname", lambda: "partnerin")
+    r1 = hauptfenster_bauen()
+    r1.projekt_oeffnen(natter)
+    _aendern(r1, ordner / "main.py", "partnerin = 1\n")
+    r1._sicherung_bald.timeout.emit()
+    # Wie nach dem Schließen des ersten Natter: die Sperre ist weg.
+    (ordner / sperre.SPERRDATEI).unlink()
+
+    r1._sperre_erneuern()
+
+    assert sperre._gehoert_mir(ordner)
+    monkeypatch.setattr(sperre, "rechnername", lambda: "R2-PC07")
+    monkeypatch.setattr(sperre, "kontoname", lambda: eigenes)
+    monkeypatch.setattr(
+        HauptFenster, "_projekt_schon_offen_melden",
+        lambda self, name, besitzer=None: None,
+    )
+    angeboten: list[str] = []
+    monkeypatch.setattr(
+        HauptFenster, "_sicherung_wiederherstellen_fragen",
+        lambda self, text: angeboten.append(text) or True,
+    )
+    hauptfenster_bauen().projekt_oeffnen(natter)
+    assert angeboten == []
+    assert _gesichert(ordner) == {"main.py": "partnerin = 1\n"}
+
+
 def test_sicherung_bleibt_aus_explorer_abgabe_export_und_kopie(
     qtbot, natter: Path, tmp_path: Path,
 ) -> None:
@@ -586,7 +646,7 @@ def test_geschriebene_sicherung_passt_zum_schema(tmp_path: Path) -> None:
     assert ziel.name == "Ampel.natter-sicherung"
     daten = json.loads(ziel.read_text(encoding="utf-8"))
     jsonschema.validate(daten, schema)
-    assert daten["format"] == "natter-sicherung/2"
+    assert daten["format"] == "natter-sicherung/3"
     teil = daten["parts"][0]
     assert teil["window"] == {
         "computer": "PC-R12", "account": "anna", "pid": 4712,
@@ -608,3 +668,17 @@ def test_geschriebene_sicherung_passt_zum_schema(tmp_path: Path) -> None:
     gelesen = sicherung.lesen(ziel)
     assert list(gelesen.eintraege) == eintraege
     assert gelesen.anteile[0].herkunft is None
+    # Punkt 673: ein Formular gibt es erst ab `/3`; `/2` wird weiter
+    # gelesen, kennt aber keins.
+    zwei = {**daten, "format": "natter-sicherung/2"}
+    jsonschema.validate(zwei, schema)
+    formular = {"path": "u_main.pfm", "kind": "form", "text": "{}\n",
+                "disk": None}
+    mit_formular = {
+        **daten, "parts": [{**teil, "files": [*teil["files"], formular]}],
+    }
+    jsonschema.validate(mit_formular, schema)
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(
+            {**mit_formular, "format": "natter-sicherung/2"}, schema
+        )

@@ -20,6 +20,7 @@ Schritt geht.
 from __future__ import annotations
 
 import contextlib
+import errno
 import os
 import time
 from pathlib import Path
@@ -68,6 +69,35 @@ def atomar_schreiben(
         with contextlib.suppress(OSError):
             zwischen.unlink(missing_ok=True)
         raise
+
+
+#: Windows-Fehlernummern für einen Ort, den es nicht mehr gibt: Pfad
+#: oder Laufwerk fehlt, Laufwerk nicht bereit, Netzpfad weg.
+_ORT_FEHLT = {2, 3, 15, 21, 53, 64, 67, 1231}
+#: Windows-Fehlernummern für einen vollen Datenträger.
+_VOLL = {39, 112}
+
+
+def schreibfehler_grund(fehler: OSError, pfad: Path | str) -> str | None:
+    """Ein deutscher Satz zu einem Schreibfehler, den jemand ohne
+    Kenntnis von Fehlernummern versteht, oder `None`, wenn der Fehler
+    keiner der bekannten Fälle ist.
+
+    Der Text von Windows nannte die Zwischendatei aus
+    `atomar_schreiben`, die niemand kennt, und war englisch („[Errno 28]
+    No space left on device“, Punkt 675).
+    """
+    ordner = Path(pfad).parent
+    winerror = getattr(fehler, "winerror", None)
+    if fehler.errno == errno.ENOSPC or winerror in _VOLL:
+        return f"Auf dem Datenträger von\n{ordner}\nist kein Platz mehr frei."
+    if fehler.errno == errno.ENOENT or winerror in _ORT_FEHLT:
+        return (
+            f"Den Ordner\n{ordner}\ngibt es nicht mehr. Vermutlich ist "
+            "der USB-Stick abgezogen oder die Verbindung zum "
+            "Netzlaufwerk unterbrochen."
+        )
+    return None
 
 
 def ordner_beschreibbar(ordner: Path | str) -> bool:

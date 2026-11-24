@@ -1236,6 +1236,21 @@ werden soll. `main.py` und die aus dem Formular erzeugte Datei werden
 von Natter geschrieben und stehen deshalb nicht in der Liste. Über
 **Projekt → Startdatei anzeigen** lassen sie sich trotzdem ansehen.
 
+Soll eine Unit des Projekts mit **Datei → Speichern unter …** in
+einen Ordner außerhalb des Projekts, etwa auf den Desktop, fragt
+Natter vorher nach: das Programm startet weiter die Unit im
+Projektordner, und in die Abgabe kommt diese auch. Ein Reiter mit
+einer Datei außerhalb des offenen Projekts trägt ihren Ordner im
+Namen, etwa „u_main.py (Desktop)“.
+
+### Speichern scheitert
+
+Ist der USB-Stick abgezogen, das Netzlaufwerk nicht erreichbar oder
+der Datenträger voll, sagt die Meldung das und bietet
+**Speichern unter …** an, wie bei einem Ordner, in den nicht
+geschrieben werden darf. Der Text bleibt bis dahin im Editor, und
+die Datei auf dem alten Stand.
+
 ### Ein Formular oder Diagramm zu viel
 
 Units, Formulare und Diagramme haben im Projekt-Explorer einen
@@ -1243,7 +1258,9 @@ Units, Formulare und Diagramme haben im Projekt-Explorer einen
 liegt auf der rechten Maustaste. Bei einem Formular gelten beide
 Befehle für die `.pfm`, die Unit und die erzeugte Datei zugleich,
 und beim Umbenennen werden die Importe in den anderen Units
-angepasst. Gelöschte Dateien landen im Papierkorb. Hat das Laufwerk
+angepasst. Gelöschte Dateien landen im Papierkorb, eine offene Unit
+mit dem ungespeicherten Text aus dem Editor; die Nachfrage nennt
+diesen Fall. Hat das Laufwerk
 keinen, etwa ein Netzlaufwerk oder ein USB-Stick, sagt die Nachfrage
 vorher, dass die Dateien endgültig gelöscht werden. Das Hauptformular,
 das `main.py` startet, lässt sich weder umbenennen noch löschen.
@@ -1257,7 +1274,11 @@ wieder zurück in die Arbeit.
 **Projekt → Projekt schließen** schließt das Projekt dagegen ganz,
 etwa am Stundenende, bevor die nächste Klasse an den Rechner kommt.
 Ungespeicherte Änderungen werden vorher erfragt wie beim Wechsel zu
-einem anderen Projekt. Danach sind die Reiter und Diagrammfenster des
+einem anderen Projekt, auch ein Formular, dessen letzte Änderung der
+Designer nicht in die `.pfm` schreiben konnte. Läuft noch ein
+Programm, fragt Natter beim Schließen und beim Wechsel des Projekts
+zuerst, ob es enden soll. „Abbrechen“ lässt in beiden Fragen alles
+offen. Danach sind die Reiter und Diagrammfenster des
 Projekts zu, Projekt-Explorer und Objektinspektor leer, und die
 Startseite steht vorn.
 
@@ -1265,12 +1286,14 @@ Startseite steht vorn.
 
 Solange in einem Projekt etwas ungespeichert ist, legt Natter eine
 Sicherung in den Projektordner: wenige Sekunden nach jeder Änderung
-an einer Unit, alle zwei Minuten und noch einmal unmittelbar vor der
+an einer Unit oder einem Diagramm, alle zwei Minuten und noch einmal unmittelbar vor der
 Frage nach dem Speichern beim Abmelden oder Herunterfahren. Die Datei heißt wie das Projekt mit der Endung
 `.natter-sicherung`, etwa `Ampel.natter-sicherung`, und enthält den
 ungespeicherten Text jeder geänderten Unit und jedes geänderten
-Diagramms. Wird gespeichert oder verworfen, verschwindet sie wieder,
-ebenso beim Schließen des Projekts.
+Diagramms, dazu jedes Formular, das der Designer nicht in seine
+`.pfm` schreiben konnte, etwa weil der USB-Stick gezogen wurde. Wird
+gespeichert oder verworfen, verschwindet sie wieder, ebenso beim
+Schließen des Projekts.
 
 Liegt beim Öffnen eines Projekts noch eine Sicherung darin, etwa
 weil bei Windows „Trotzdem abmelden“ gewählt wurde oder der Rechner
@@ -1281,7 +1304,9 @@ geretteten Stelle; auf die Platte kommt er erst mit **Speichern**,
 und `Strg+Z` holt den Stand der Datei zurück.
 **Verwerfen** löscht die Sicherung. Wurde eine Datei nach der
 Sicherung noch anderswo geändert, steht das in der Frage, und
-**Speichern** fragt vor dem Überschreiben nach.
+**Speichern** fragt vor dem Überschreiben nach. Ein Formular kommt
+beim Wiederherstellen gleich in seine `.pfm`, wie jede Änderung im
+Designer; wurde die `.pfm` seither geändert, fragt Natter vorher.
 
 Im Projekt-Explorer erscheint die Sicherung nicht, und sie kommt
 weder in die Abgabe-ZIP noch in eine exportierte Exe oder in die
@@ -1289,7 +1314,11 @@ Kopie einer Aufgabe.
 
 Ist ein Projekt in zwei Natter-Fenstern offen, sichert jedes Fenster
 seine eigenen Dateien in dieselbe Datei, und keines entfernt, was das
-andere gesichert hat. Was ein noch offenes Fenster gesichert hat,
+andere gesichert hat. Hat das andere Fenster ein Formular geändert,
+lädt der Designer es beim Wechsel ins Fenster neu, solange er selbst
+keine ungeschriebene Änderung hat. Wird das Fenster geschlossen, das
+das Projekt zuerst geöffnet hatte, trägt sich das andere spätestens
+nach fünf Minuten in die Sperrdatei ein. Was ein noch offenes Fenster gesichert hat,
 bietet ein anderes nicht an. War das Projekt zuletzt an einem
 anderen Rechner im selben Konto offen, etwa weil der Rechner im
 vorigen Raum ausgegangen ist, bietet Natter dessen Sicherung an; der
@@ -1307,6 +1336,13 @@ Programms, dazu die Panels des Debuggers („Variablen“, „Überwachen“,
 Objektinspektor wird unter **Werkzeuge → Einstellungen … →
 Schriftgröße der Oberfläche** größer. Beide Einstellungen bleiben
 über einen Neustart hinweg erhalten.
+
+Ist das Fenster niedriger als rund 700 Pixel, etwa am Beamer mit
+1280 × 800 bei 125 %, rückt Natter enger zusammen, damit das Formular
+eines neuen Projekts im Designer ganz zu sehen ist: die
+Werkzeugleiste steht links, Komponentenpalette und Panels haben keine
+Titelzeile, und der Objektinspektor nimmt die ganze rechte Seite ein.
+Über **Ansicht** lassen sich die Docks weiter ein- und ausblenden.
 
 Natter merkt sich außerdem Größe und Lage des Fensters. Beim ersten
 Start öffnet es maximiert; stand es zuletzt auf einem Bildschirm, der
