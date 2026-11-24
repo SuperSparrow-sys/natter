@@ -26,7 +26,8 @@ def test_zuletzt_geoeffnet_im_menue(qtbot, tmp_path: Path, hauptfenster) -> None
     hauptfenster._zuletzt_menue_aufbauen()
     eintraege = [a.text() for a in hauptfenster._zuletzt_menue.actions()]
 
-    assert eintraege[:2] == ["Zwei", "Eins"]
+    # Beschriftet mit dem Ordner wie die Startseite (Punkt 700).
+    assert eintraege[:2] == ["zwei", "eins"]
     hauptfenster._zuletzt_menue.actions()[1].trigger()
     assert hauptfenster.projekt.name == "Eins"
 
