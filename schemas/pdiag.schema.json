@@ -142,7 +142,7 @@
             ]
           },
           "pos": {
-            "type": "number",
+            "$ref": "#/$defs/koordinate",
             "minimum": 0
           }
         }
@@ -150,6 +150,12 @@
     }
   },
   "$defs": {
+    "koordinate": {
+      "type": "number",
+      "minimum": -1000000,
+      "maximum": 1000000,
+      "description": "Lage oder Größe in Diagrammkoordinaten. Qt nimmt für Flächen und Bilder nur 32-Bit-Zahlen; eine Million lässt dafür auch beim größten Zoom Platz."
+    },
     "block": {
       "type": "object",
       "required": [
@@ -413,16 +419,16 @@
           "type": "string"
         },
         "x": {
-          "type": "number"
+          "$ref": "#/$defs/koordinate"
         },
         "y": {
-          "type": "number"
+          "$ref": "#/$defs/koordinate"
         },
         "w": {
-          "type": "number"
+          "$ref": "#/$defs/koordinate"
         },
         "h": {
-          "type": "number"
+          "$ref": "#/$defs/koordinate"
         },
         "text": {
           "type": "object",
@@ -558,7 +564,7 @@
           "type": "string"
         },
         "y": {
-          "type": "number",
+          "$ref": "#/$defs/koordinate",
           "description": "Höhe einer waagerechten Nachricht im Sequenzdiagramm. Ihre Reihenfolge ergibt sich allein daraus."
         },
         "waypoints": {
@@ -566,7 +572,7 @@
           "items": {
             "type": "array",
             "items": {
-              "type": "number"
+              "$ref": "#/$defs/koordinate"
             },
             "minItems": 2,
             "maxItems": 2
@@ -590,7 +596,7 @@
             "from": {
               "type": "array",
               "items": {
-                "type": "number"
+                "$ref": "#/$defs/koordinate"
               },
               "minItems": 2,
               "maxItems": 2
@@ -598,7 +604,7 @@
             "to": {
               "type": "array",
               "items": {
-                "type": "number"
+                "$ref": "#/$defs/koordinate"
               },
               "minItems": 2,
               "maxItems": 2

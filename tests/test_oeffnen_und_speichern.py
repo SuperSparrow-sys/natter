@@ -214,6 +214,27 @@ def test_ein_beschaedigtes_diagramm_meldet_sich_ebenfalls(
     assert "beschädigt" in fenster.statusBar().currentMessage()
 
 
+def test_ein_diagramm_mit_riesiger_lage_meldet_sich_als_beschaedigt(
+    hauptfenster, tmp_path: Path
+) -> None:
+    """Qt nimmt für die Fläche und das Bild nur 32-Bit-Zahlen. Eine
+    Form mit `w` = 2**31 endete beim Öffnen in `OverflowError`
+    (Punkt 682)."""
+    quelle = (
+        Path(__file__).resolve().parent.parent / "beispielprojekte"
+        / "06_Kontoverwaltung" / "diagramme" / "konto_klassen.pdiag"
+    )
+    for feld, wert in [("h", 1e308), ("w", 2**31), ("x", 2**31), ("y", -2**31 - 1)]:
+        daten = json.loads(quelle.read_text(encoding="utf-8"))
+        daten["shapes"][0][feld] = wert
+        datei = tmp_path / f"probe_{feld}.pdiag"
+        datei.write_text(json.dumps(daten), encoding="utf-8")
+        hauptfenster.statusBar().clearMessage()
+        hauptfenster.oeffnen(datei)
+        meldung = hauptfenster.statusBar().currentMessage()
+        assert "beschädigt" in meldung, feld
+
+
 # -- Projekte ------------------------------------------------------------
 
 
