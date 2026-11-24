@@ -4061,6 +4061,13 @@ class HauptFenster(QMainWindow):
         Statuszeile. Punkt 348 blendet beide Docks nur in
         Konsolenprojekten aus; hier werden sie gebraucht und bleiben.
 
+        Außerdem steht die Werkzeugleiste dann links, und Palette und
+        Panels verlieren ihre Titelzeile (Punkt 698). Am Beamer mit
+        1280 × 800 bei 125 % blieben dem Designer sonst 604 × 280
+        Pixel, und schon das leere Formular eines neuen Projekts
+        (480 × 360) war abgeschnitten. Ein- und ausblenden lassen sich
+        beide Docks weiter über „Ansicht“.
+
         Auf einem großen Bildschirm bleibt alles, wie es war."""
         knapp = self.height() < KNAPPE_FENSTERHOEHE
         if knapp == self._knappe_hoehe:
@@ -4076,6 +4083,21 @@ class HauptFenster(QMainWindow):
             rechts if knapp else Qt.DockWidgetArea.BottomDockWidgetArea,
         )
         self.objektinspektor.knapp_setzen(knapp)
+        self.addToolBar(
+            Qt.ToolBarArea.LeftToolBarArea if knapp
+            else Qt.ToolBarArea.TopToolBarArea,
+            self.werkzeugleiste,
+        )
+        for dock in (self.palette_dock, self.panels_dock, self.datenbank_dock):
+            dock.setTitleBarWidget(QWidget(dock) if knapp else None)
+        if knapp:
+            # Die gewonnene Titelzeile gehört dem Designer, nicht den
+            # Panels darunter.
+            self.resizeDocks(
+                [self.panels_dock],
+                [self.panels_dock.minimumSizeHint().height()],
+                Qt.Orientation.Vertical,
+            )
 
     def menue(self, titel: str):
         """Liefert das Menü mit diesem Titel (Abschnitt 7.2)."""
@@ -7869,6 +7891,8 @@ class HauptFenster(QMainWindow):
  ist eine Eigenschaft, die der Nutzer gesetzt hat – sie darf sich
  nicht danach richten, wie groß das IDE-Fenster gerade ist."""
         rollbereich = QScrollArea()
+        # Ohne Rahmen: am Beamer zählt jedes Pixel Höhe (Punkt 698).
+        rollbereich.setFrameShape(QScrollArea.Shape.NoFrame)
         rollbereich.setWidget(formular_widget)
         rollbereich.setAlignment(
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop

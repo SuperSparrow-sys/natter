@@ -131,3 +131,27 @@ def test_ansicht_menue_holt_ein_schwebendes_dock_ins_fenster(qtbot) -> None:  # 
 
     assert dock.isVisible()
     assert not dock.isFloating()
+
+
+def test_am_beamer_passt_das_formular_eines_neuen_projekts(
+    hauptfenster, tmp_path: Path
+) -> None:
+    """Punkt 698: am Beamer mit 1280 × 800 bei 125 % bleiben rund
+    1024 × 576 logische Pixel. Dem Designer blieben davon 604 × 280,
+    und schon das leere Formular eines neuen Projekts (480 × 360) war
+    abgeschnitten. Gemessen ohne ein Dock von Hand zu schließen."""
+    from PySide6.QtCore import QEventLoop, QTimer
+
+    from ide.project import projekt_erzeugen
+
+    projekt = projekt_erzeugen("gui", tmp_path / "Ampel", "Ampel")
+    hauptfenster.projekt_oeffnen(projekt.ordner / "Ampel.natter")
+    hauptfenster.designer_oeffnen(projekt.ordner / "u_main.pfm")
+    hauptfenster.showNormal()
+    hauptfenster.resize(1024, 576)
+    schleife = QEventLoop()
+    QTimer.singleShot(300, schleife.quit)
+    schleife.exec()
+
+    sicht = hauptfenster.editor_tabs.currentWidget().viewport().size()
+    assert sicht.width() >= 480 and sicht.height() >= 360, sicht

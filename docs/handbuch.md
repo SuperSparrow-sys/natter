@@ -1306,6 +1306,13 @@ Objektinspektor wird unter **Werkzeuge → Einstellungen … →
 Schriftgröße der Oberfläche** größer. Beide Einstellungen bleiben
 über einen Neustart hinweg erhalten.
 
+Ist das Fenster niedriger als rund 700 Pixel, etwa am Beamer mit
+1280 × 800 bei 125 %, rückt Natter enger zusammen, damit das Formular
+eines neuen Projekts im Designer ganz zu sehen ist: die
+Werkzeugleiste steht links, Komponentenpalette und Panels haben keine
+Titelzeile, und der Objektinspektor nimmt die ganze rechte Seite ein.
+Über **Ansicht** lassen sich die Docks weiter ein- und ausblenden.
+
 Natter merkt sich außerdem Größe und Lage des Fensters. Beim ersten
 Start öffnet es maximiert; stand es zuletzt auf einem Bildschirm, der
 nicht mehr angeschlossen ist, erscheint es maximiert auf dem
