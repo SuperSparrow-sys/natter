@@ -141,3 +141,43 @@ def test_duplizieren_eines_panels_ist_ein_schritt(tmp_path: Path) -> None:
     assert [k["name"] for k in daten] == [
         "lb_namen", "m_text", "mm_haupt", "p_feld"
     ]
+
+
+@pytest.mark.parametrize("weg", ["kopieren_einfuegen", "duplizieren"])
+def test_menue_mit_methoden_laesst_sich_kopieren(
+    tmp_path: Path, weg: str
+) -> None:
+    """Punkt 678: Die Kopie entsteht in einer Zwischenklasse ohne die
+    Methoden des Formulars, und `MainMenu.entries` lehnte dort jeden
+    Eintrag mit `on_click` ab. Die Kopie ruft dieselben Methoden auf
+    und lässt sich danach wie jedes Menü im Designer bearbeiten."""
+    import shutil
+
+    beispiel = (
+        Path(__file__).resolve().parent.parent / "beispielprojekte"
+        / "10_Notizbuch"
+    )
+    ordner = tmp_path / "Notizbuch"
+    shutil.copytree(
+        beispiel, ordner, ignore=shutil.ignore_patterns("__pycache__")
+    )
+    pfm_pfad = ordner / "u_main.pfm"
+    canvas = DesignerCanvas(
+        formular_fuer_designer_laden(pfm_pfad), pfm_pfad=pfm_pfad
+    )
+    original = canvas.formular.mm_haupt
+    canvas.auswahl_setzen([original])
+
+    if weg == "duplizieren":
+        kopie = canvas.duplizieren()
+    else:
+        assert canvas.kopieren()
+        [kopie] = canvas.einfuegen()
+
+    assert kopie.entries == original.entries
+    assert "mi_neu_click" in json.dumps(kopie.entries)
+    eintraege = kopie.entries
+    # Im Designer darf die Methode eines Eintrags noch fehlen.
+    eintraege[0]["children"][0]["on_click"] = "mi_noch_offen_click"
+    kopie.entries = eintraege
+

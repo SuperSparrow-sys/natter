@@ -20,6 +20,7 @@ Doppelklick auf eine Komponente etwas zu tun bekommt.
 
 from __future__ import annotations
 
+import ast
 import json
 import keyword
 import os
@@ -465,6 +466,69 @@ def _menue_handler_umbenennen(
     return geaendert
 
 
+def _menue_handler_behalten(
+    eintraege: list[dict[str, Any]], behalten: Callable[[str], bool]
+) -> None:
+    """Nimmt in einem Menübaum jedes `on_click` heraus, für das
+    `behalten` nein sagt."""
+    for eintrag in eintraege:
+        if eintrag.get("on_click") and not behalten(eintrag["on_click"]):
+            del eintrag["on_click"]
+        _menue_handler_behalten(eintrag.get("children", []), behalten)
+
+
+def _menue_handler_herausnehmen(
+    eintraege: list[dict[str, Any]],
+    gesammelt: dict[str, list[dict[str, Any]]] | None = None,
+) -> dict[str, list[dict[str, Any]]]:
+    """Wie `_ereignisse_entfernen` für die Methoden der Menüeinträge:
+    liefert Name des Menüs -> seine Einträge mit `on_click` und lässt
+    in `eintraege` die Bäume ohne zurück.
+
+    Der Zwischenbau in `_eintraege_bauen` hat die Methoden des
+    Formulars nicht, und `MainMenu.entries` lehnte jeden Eintrag ab,
+    dessen Methode dort fehlt (Punkt 678)."""
+    gesammelt = {} if gesammelt is None else gesammelt
+    for eintrag in eintraege:
+        baum = eintrag.get("properties", {}).get("entries")
+        if baum:
+            gesammelt[eintrag["name"]] = json.loads(json.dumps(baum))
+            _menue_handler_behalten(baum, lambda _methode: False)
+        _menue_handler_herausnehmen(eintrag.get("children", []), gesammelt)
+    return gesammelt
+
+
+def _menue_handler(komponente: Any) -> set[str]:
+    """Die Methoden, die die Einträge eines Menüs beim Anklicken
+    aufrufen; leer für alles, was kein Menü ist."""
+    namen: set[str] = set()
+    offen = list(getattr(komponente, "entries", None) or [])
+    while offen:
+        eintrag = offen.pop()
+        if eintrag.get("on_click"):
+            namen.add(eintrag["on_click"])
+        offen.extend(eintrag.get("children", []))
+    return namen
+
+
+def _im_code_benutzt(quelltext: str, name: str) -> bool:
+    """Ob `name` im Code von `quelltext` als Name oder Attribut
+    vorkommt, außer in seiner eigenen `def`-Zeile. Kommentare und
+    Zeichenketten zählen nicht: im Kopfkommentar der Vorlage steht
+    `b_ok_click` als Beispiel, und die leere Methode eines Knopfs
+    `b_ok` blieb deshalb beim Löschen stehen (Punkt 693). Lässt sich
+    der Text nicht lesen, gilt der Name als benutzt."""
+    try:
+        baum = ast.parse(quelltext)
+    except (SyntaxError, ValueError):
+        return True
+    return any(
+        (isinstance(knoten, ast.Name) and knoten.id == name)
+        or (isinstance(knoten, ast.Attribute) and knoten.attr == name)
+        for knoten in ast.walk(baum)
+    )
+
+
 #: So lange darf zwischen zwei Pfeiltasten liegen, damit sie zu einem
 #: Schritt für Rückgängig zusammengefasst werden (Punkt 487).
 _TASTENFOLGE_S = 1.0
@@ -905,9 +969,19 @@ class _UnitTauschKommando:
 
 
 def _unit_tauschen(canvas: DesignerCanvas, erwartet: str, neu: str) -> None:
+    """Ersetzt die Unit auf der Platte und in jedem offenen Editor,
+    wie es das Umbenennen tut. Bis Punkt 685 nur auf der Platte: der
+    Editor zeigte die gelöschte Methode weiter, und Rückgängig fand
+    danach nicht mehr überall den erwarteten Text."""
     texte = canvas._unit_quelltexte()
-    if texte and all(text == erwartet for text in texte):
-        canvas._unit_schreiben(neu, "Die Unit bleibt deshalb, wie sie ist.")
+    if not texte or any(text != erwartet for text in texte):
+        return
+    vorher = dateistand.kennung(canvas.unit_pfad)
+    if not canvas._unit_schreiben(neu, "Die Unit bleibt deshalb, wie sie ist."):
+        return
+    canvas._unit_stand_nachfuehren(vorher)
+    for editor in canvas._offene_unit_editoren():
+        editortext_ersetzen(editor, neu)
 
 
 class _EscapeWache(QObject):
@@ -2052,6 +2126,7 @@ class DesignerCanvas(QObject):
 
         eintraege = json.loads(json.dumps(eintraege))
         verweise = _verweise_herausnehmen(eintraege, _namen_in(eintraege))
+        menue_handler = _menue_handler_herausnehmen(eintraege)
         self._methoden_nachladen()
         vorlage = {"format": "pfm/1", "class": "_Einfuegen", "type": "Form",
                    "properties": {}, "children": eintraege}
@@ -2059,16 +2134,31 @@ class DesignerCanvas(QObject):
         exec(compile(design_code_erzeugen(vorlage, "einfuegen.pfm"), "<einfuegen>", "exec"),
              namensraum)
         zwischen = namensraum["_EinfuegenDesign"]()
+
+        def methode_da(methode: str) -> bool:
+            handler = getattr(self.formular, methode, None)
+            return callable(handler) and not isinstance(handler, Control)
+
+        for komponente in vars(zwischen).values():
+            if isinstance(komponente, Control) and "_formular" in vars(komponente):
+                # Ein Menü merkt sich das Formular, an dem es gebaut
+                # wurde, und sucht dort seine Methoden; das ist hier
+                # die Zwischenklasse ohne sie.
+                komponente._formular = self.formular
         for name, verknuepft in (ereignisse_je_name or {}).items():
             komponente = vars(zwischen).get(name)
             for ereignis_name, methode in verknuepft.items():
-                handler = getattr(self.formular, methode, None)
-                if (
-                    komponente is not None
-                    and callable(handler)
-                    and not isinstance(handler, Control)
-                ):
-                    setattr(komponente, ereignis_name, handler)
+                if komponente is not None and methode_da(methode):
+                    setattr(
+                        komponente,
+                        ereignis_name,
+                        getattr(self.formular, methode),
+                    )
+        for name, baum in menue_handler.items():
+            komponente = vars(zwischen).get(name)
+            if komponente is not None:
+                _menue_handler_behalten(baum, methode_da)
+                komponente.entries = baum
         for name, verknuepft in verweise.items():
             komponente = vars(zwischen).get(name)
             for eigenschaft, ziel_name in verknuepft.items():
@@ -2361,6 +2451,9 @@ class DesignerCanvas(QObject):
         def methoden(komponenten: list[Any]) -> set[str]:
             namen: set[str] = set()
             for k in komponenten:
+                # Ein Menüeintrag kann dieselbe Methode aufrufen wie
+                # ein Knopf (Punkt 687).
+                namen |= _menue_handler(k)
                 for ereignis in ereignisse(type(k)):
                     handler = getattr(k, ereignis, None)
                     if handler is not None and hasattr(handler, "__name__"):
@@ -2374,7 +2467,7 @@ class DesignerCanvas(QObject):
         for name in sorted(methoden(geloescht) - methoden(bleibende)):
             # Wird die Methode irgendwo aufgerufen, gehört sie nicht
             # mehr nur zur Komponente.
-            if len(re.findall(rf"\b{re.escape(name)}\b", neu)) > 1:
+            if _im_code_benutzt(neu, name):
                 continue
             ohne = leere_handler_methode_entfernen(neu, klassenname, name)
             if ohne is not None:

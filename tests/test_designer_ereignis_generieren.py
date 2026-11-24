@@ -5,6 +5,7 @@ Arbeitspaket M3, Schritt 7.
 
 from pathlib import Path
 
+import pytest
 from PySide6.QtCore import QEvent, QPointF, Qt
 from PySide6.QtGui import QMouseEvent
 
@@ -299,3 +300,81 @@ def test_eine_methode_mit_eigenem_code_bleibt_beim_loeschen(tmp_path: Path) -> N
     canvas.loeschen(formular.b_ein)
 
     assert "print('eigener Code')" in unit.read_text(encoding="utf-8")
+
+
+def _gui_projekt(tmp_path: Path):
+    from ide.designer.laden import formular_fuer_designer_laden
+    from ide.project.neu import projekt_erzeugen
+
+    projekt = projekt_erzeugen("gui", tmp_path / "p", "Probe")
+    pfm = projekt.ordner / "u_main.pfm"
+    canvas = DesignerCanvas(formular_fuer_designer_laden(pfm), pfm_pfad=pfm)
+    return projekt, canvas
+
+
+@pytest.mark.parametrize("name", ["b_weiter", "b_ok"])
+def test_ein_kommentar_haelt_die_leere_methode_nicht_fest(
+    tmp_path: Path, name: str
+) -> None:
+    """Punkt 693: Gezählt wurde jedes Vorkommen des Namens im Text.
+    Der Kopfkommentar der Vorlage nennt `b_ok_click` als Beispiel, und
+    die leere Methode eines Knopfs `b_ok` blieb beim Löschen stehen."""
+    projekt, canvas = _gui_projekt(tmp_path)
+    unit = projekt.ordner / "u_main.py"
+    vorher = unit.read_text(encoding="utf-8")
+    assert "b_ok_click" in vorher
+    knopf = canvas.komponente_platzieren(Button, 20, 20)
+    canvas.komponente_umbenennen(knopf, name)
+    canvas.ereignis_handler_erzeugen(knopf)
+    assert f"def {name}_click" in unit.read_text(encoding="utf-8")
+
+    canvas.loeschen(knopf)
+
+    assert unit.read_text(encoding="utf-8") == vorher
+
+
+def test_eine_methode_im_code_haelt_die_leere_methode_fest(
+    tmp_path: Path,
+) -> None:
+    """Gegenstück zu Punkt 693: ein Aufruf im Code zählt weiter."""
+    unit = _unit_datei_vorbereiten(tmp_path)
+    formular = _Formular()
+    canvas = DesignerCanvas(formular, pfm_pfad=tmp_path / "test.pfm")
+    canvas.ereignis_handler_erzeugen(formular.b_ein)
+    text = unit.read_text(encoding="utf-8").replace(
+        "    pass\n", "    pass\n\n    def form_create(self, sender):\n"
+        "        self.b_ein_click(sender)\n", 1
+    )
+    unit.write_text(text, encoding="utf-8")
+
+    canvas.loeschen(formular.b_ein)
+
+    assert "def b_ein_click" in unit.read_text(encoding="utf-8")
+
+
+def test_loeschen_laesst_die_methode_eines_menueeintrags_stehen(
+    tmp_path: Path,
+) -> None:
+    """Punkt 687: Beim Löschen des Knopfs zählten nur die Ereignisse
+    der übrigen Komponenten, nicht die Methoden der Menüeinträge. Das
+    Programm brach danach beim Aufbau des Formulars ab."""
+    from ide.project import Projekt
+    from ide.run.pruefung import projekt_pruefen
+    from pcl import MainMenu
+
+    projekt, canvas = _gui_projekt(tmp_path)
+    knopf = canvas.komponente_platzieren(Button, 20, 20)
+    canvas.komponente_umbenennen(knopf, "b_weiter")
+    canvas.ereignis_handler_erzeugen(knopf)
+    menue = canvas.komponente_platzieren(MainMenu, 200, 20)
+    canvas.eigenschaft_uebernehmen(menue, "entries", menue.entries, [
+        {"caption": "&Datei", "children": [
+            {"name": "mi_ok", "caption": "&OK",
+             "on_click": "b_weiter_click"}]}])
+
+    canvas.loeschen(knopf)
+    canvas.jetzt_schreiben()
+
+    unit = (projekt.ordner / "u_main.py").read_text(encoding="utf-8")
+    assert "def b_weiter_click" in unit
+    assert projekt_pruefen(Projekt.laden(projekt.ordner)) == []

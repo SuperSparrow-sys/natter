@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from ide.project.neu import projekt_erzeugen
 from ide.shell.hauptfenster import HauptFenster
 from ide.shell.quelltexteditor import QuelltextEditor
@@ -176,3 +178,41 @@ def test_alle_vier_alt_pfeile_verschieben_im_hauptfenster(
         lagen.append((knopf.left - start[0], knopf.top - start[1]))
 
     assert lagen == [(-1, 0), (-1, -1), (0, -1), (0, 0)]
+
+
+@pytest.mark.parametrize("folge", ["loeschen", "rueckgaengig"])
+def test_platte_und_editor_bleiben_gleich(
+    tmp_path: Path, hauptfenster_bauen, folge: str
+) -> None:
+    """Punkt 685: Löschen der Komponente und Strg+Z im Designer
+    änderten nur die Datei. Der Editor zeigte die leere Methode
+    weiter, und nach Löschen und Rückgängig fehlte sie auf der
+    Platte, während der Editor sie zeigte."""
+    from ide.project import Projekt
+    from ide.run.pruefung import projekt_pruefen
+
+    fenster, canvas, knopf, unit = _neues_projekt(hauptfenster_bauen, tmp_path)
+    canvas.komponente_umbenennen(knopf, "b_rechnen")
+    canvas.ereignis_handler_erzeugen(knopf)
+    editor = _aktueller_editor(fenster)
+
+    def stand() -> tuple[bool, bool]:
+        canvas.jetzt_schreiben()
+        text = unit.read_text(encoding="utf-8")
+        assert editor.toPlainText() == text
+        assert not editor.document().isModified()
+        return "def b_rechnen_click" in text, bool(knopf.on_click)
+
+    assert stand() == (True, True)
+    if folge == "loeschen":
+        canvas.loeschen(knopf)
+        assert stand()[0] is False
+    canvas.rueckgaengig()
+    erwartet = (True, True) if folge == "loeschen" else (False, False)
+    assert stand() == erwartet
+    canvas.wiederholen()
+    erwartet = (False, True) if folge == "loeschen" else (True, True)
+    assert stand() == erwartet
+    canvas.rueckgaengig()
+    stand()
+    assert projekt_pruefen(Projekt.laden(unit.parent)) == []
