@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QApplication
 
 from ide.shell.hauptfenster import HauptFenster
@@ -188,3 +190,27 @@ def test_einstellungen_dialog_zeigt_oberflaeche(hauptfenster_bauen) -> None:
         assert dialog.oberflaeche() == 14
     finally:
         dialog.deleteLater()
+
+
+_VERSCHRIEBENE_EINSTELLUNGEN = {
+    "thema": b"[design]\nthema=dunkel\n",
+    "layout": b"[fenster]\nlayout=abc\n",
+    "verborgen": b"[fenster]\nfuer_konsole_verborgen=@Rect(0 0 1 1)\n",
+}
+
+
+@pytest.mark.parametrize("fall", sorted(_VERSCHRIEBENE_EINSTELLUNGEN))
+def test_verschriebene_einstellung_verhindert_den_start_nicht(
+    hauptfenster_bauen, fall: str
+) -> None:
+    """Punkt 676: ein von Hand verschriebener Wert in `Natter-IDE.ini`
+    wird durch den Standard ersetzt, statt den Start zu verhindern."""
+    pfad = Path(QSettings(
+        QSettings.Format.IniFormat, QSettings.Scope.UserScope,
+        "Natter", "Natter-IDE",
+    ).fileName())
+    pfad.parent.mkdir(parents=True, exist_ok=True)
+    pfad.write_bytes(_VERSCHRIEBENE_EINSTELLUNGEN[fall])
+    fenster = hauptfenster_bauen()
+    assert fenster._design_thema in ("system", "light", "dark")
+    assert fenster._fuer_konsole_verborgen == set()

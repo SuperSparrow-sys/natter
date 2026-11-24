@@ -1064,11 +1064,18 @@ class HauptFenster(QMainWindow):
         # Wo der bisherige Stand einer eben ersetzten Kopie liegt
         # (`_kopie_zuruecksetzen`, Punkt 380).
         self._aufgehoben: Path | None = None
+        # Jeder Wert aus der Einstellungsdatei wird geprüft: ein von Hand
+        # verschriebener Wert (`thema=dunkel`) verhinderte sonst den
+        # Start, und an einem Schulrechner kann ihn niemand berichtigen.
         self._design_thema = self._design_einstellungen.value("design/thema", "system")
+        if self._design_thema not in ("system", "light", "dark"):
+            self._design_thema = "system"
         _designvorgabe_setzen(self._design_thema)
         self._code_schriftart = self._design_einstellungen.value(
             "editor/schriftart", "Consolas"
         )
+        if not isinstance(self._code_schriftart, str) or not self._code_schriftart:
+            self._code_schriftart = "Consolas"
         self._stil_anwenden()
 
         self._menues: dict[str, object] = {}
@@ -1491,8 +1498,8 @@ class HauptFenster(QMainWindow):
         # „Datenbank“) soll beim nächsten Start auch geschlossen bleiben
         # - Größe/Sichtbarkeit aller Docks wird deshalb gemerkt.
         gespeichertes_layout = self._design_einstellungen.value("fenster/layout")
-        if gespeichertes_layout is not None:
-            self.restoreState(gespeichertes_layout)
+        if isinstance(gespeichertes_layout, (bytes, bytearray, QByteArray)):
+            self.restoreState(QByteArray(gespeichertes_layout))
         # Namen der Docks, die `_formular_docks_anpassen` für ein
         # Konsolenprojekt verborgen hat (Punkt 348).
         verborgen = self._design_einstellungen.value(
@@ -1500,7 +1507,11 @@ class HauptFenster(QMainWindow):
         )
         if isinstance(verborgen, str):
             verborgen = [verborgen]
-        self._fuer_konsole_verborgen: set[str] = set(verborgen or [])
+        if not isinstance(verborgen, (list, tuple)):
+            verborgen = []
+        self._fuer_konsole_verborgen: set[str] = {
+            name for name in verborgen if isinstance(name, str)
+        }
 
         self._letzte_testergebnisse: list[Testergebnis] = []
         #: Der Text jeder Python-Datei beim Start der Debug-Sitzung, gegen
