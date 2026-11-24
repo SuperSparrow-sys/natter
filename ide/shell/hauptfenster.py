@@ -6300,7 +6300,7 @@ class HauptFenster(QMainWindow):
         eine beschädigte Projektdatei eine Meldung ergibt und ein
         mitgeliefertes Original nur als Kopie aufgeht.
         """
-        from ide.shell.startbild import zuletzt_geoeffnet
+        from ide.shell.startbild import eindeutige_namen, zuletzt_geoeffnet
 
         self._zuletzt_menue.clear()
         if pruefungsmodus_laeuft():
@@ -6308,8 +6308,13 @@ class HauptFenster(QMainWindow):
             self._zuletzt_menue.setEnabled(False)
             return
         self._zuletzt_menue.setTitle("Zuletzt geöffnet")
-        for pfad in zuletzt_geoeffnet(self._design_einstellungen):
-            eintrag = self._zuletzt_menue.addAction(pfad.stem)
+        # Beschriftet wie die Startseite: mit `pfad.stem` hießen
+        # eingesammelte Abgaben alle „Ampel“ (Punkt 700).
+        zuletzt = zuletzt_geoeffnet(self._design_einstellungen)
+        for pfad, name in zip(
+            zuletzt, eindeutige_namen(zuletzt), strict=True
+        ):
+            eintrag = self._zuletzt_menue.addAction(name)
             eintrag.setStatusTip(str(pfad))
             eintrag.triggered.connect(
                 lambda *_, p=pfad: self._zuletzt_geoeffnetes_oeffnen(p)
