@@ -712,8 +712,21 @@ Stand der Aufgabe nicht noch einmal, erst nach der nächsten Änderung.
 Bei **Kopie ersetzen** kommt der bisherige Stand der Kopie in einen
 Ordner daneben, etwa `Ampel (vorher)`, und die Frage nennt ihn.
 Ein eigenes Projekt gleichen Namens oder eine gleichnamige Aufgabe aus einem anderen Ordner bleibt unberührt, und
-die Kopie bekommt eine Nummer („Ampel 2“). Woher eine Kopie stammt,
-steht in der Datei `.natter-quelle` in ihrem Ordner. Die Kopie ist
+die Kopie bekommt eine Nummer („Ampel 2“). Jede Aufgabe braucht
+deshalb einen Ordnernamen, den es für die Klasse nur einmal gibt,
+etwa `Ampel` oder `Woche2 Ampel` statt `Woche2\Aufgabe`. Die Kopie
+und später die Abgabe-ZIP heißen wie dieser Ordner. Heißen zwei
+Aufgaben aus verschiedenen Wochen gleich, bekommt die zweite Kopie
+nur bei denen eine Nummer, die die erste schon geöffnet haben; aus
+dem Namen einer Abgabe ist dann nicht mehr abzulesen, zu welcher
+Aufgabe sie gehört. Woher eine Kopie stammt,
+steht in der Datei `.natter-quelle` in ihrem Ordner.
+Alles Übrige im Aufgabenordner wird zu jeder Schülerin kopiert, auch
+eine Lösung wie `loesung.py`, die dann im Projekt-Explorer unter
+„Units“ steht. Weggelassen wird nur, was auch in der Abgabe-ZIP fehlt:
+versteckte Einträge wie ein Ordner `.lehrkraft`, dazu `__pycache__`,
+`build` und `dist`. Lösung und Notizen gehören deshalb nicht in den
+Aufgabenordner. Die Kopie ist
 immer beschreibbar, auch wenn die Dateien der Aufgabe schreibgeschützt
 sind. Liegt die Aufgabe direkt in der Wurzel einer Freigabe, etwa
 `\\server\klausur\Klausur.natter`, heißt der Ordner der Kopie wie die
@@ -764,7 +777,11 @@ Anstreichen. In der Kopfzeile jeder Seite stehen Projektname,
 Dateiname, der Name aus der Windows-Anmeldung, das Datum und „Seite
 n von m“, auch auf der zweiten und dritten Seite einer langen Datei
 — bei zwanzig eingesammelten Abgaben ist sonst nicht zu erkennen,
-welche zu wem gehört.
+welche zu wem gehört. Druckt die Lehrkraft eine entpackte Abgabe,
+deren Ordner wie die Abgabe-ZIP heißt, etwa
+`Ampel - anna - PC-R01`, steht in der Kopfzeile statt
+Projektname und Anmeldename dieser Ordnername mit dem Konto der
+Schülerin; der vorgeschlagene Dateiname trägt ihn ebenfalls.
 
 Ausgegeben wird jede Python-Datei des Projekts, die im Explorer
 unter „Units“ steht, also auch Testdateien wie `test_neu1.py`. Die
@@ -1015,6 +1032,20 @@ Für die Aufsicht heißt das in solchen Räumen:
   Modus nicht,
 - nach einer Abmeldung oder einem Neustart den Modus erneut
   einschalten. Die vier Stunden beginnen dann von vorn.
+
+Eine Klausur auf Grundlage eines Beispiels: Die Erkennung am Inhalt
+trifft auch eine Aufgabe, die eine Unit oder ein Diagramm aus einem
+Beispiel unverändert enthält, etwa die Klasse `u_konto.py` aus
+„06 Kontoverwaltung“, die in der Klausur erweitert werden soll. Im
+Prüfungsmodus gilt die ganze Aufgabe dann als Kopie des Beispiels und
+lässt sich nicht öffnen, auch nicht als eigene Kopie. Da der Modus
+vier Stunden läuft, kann die Klausur an diesem Tag nicht mehr in
+Natter geschrieben werden.
+Eine Ausnahme für Klausuren gibt es nicht. Jede Unit und jedes
+Diagramm, das aus einem Beispiel übernommen wird, muss deshalb vor
+der Klausur verändert werden. Schon ein abweichendes Zeichen hebt die
+Erkennung auf: in einer Unit genügt ein zusätzlicher Kommentar, in
+einem Diagramm eine verschobene Form.
 
 ---
 

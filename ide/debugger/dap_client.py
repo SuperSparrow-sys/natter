@@ -410,7 +410,8 @@ class DapClient:
 
             try:
                 self._handshake(
-                    anfangs_breakpoints or {}, programm_starten, zeitlimit
+                    anfangs_breakpoints or {}, programm_starten, zeitlimit,
+                    ausgabe_umleiten=konsole_titel is None,
                 )
             except (DapFehler, OSError) as fehler:
                 letzter_fehler = fehler
@@ -495,12 +496,22 @@ class DapClient:
         anfangs_breakpoints: dict[Path, list[int]],
         programm_starten: Any = None,
         zeitlimit: float = _STANDARD_ZEITLIMIT,
+        *,
+        ausgabe_umleiten: bool = False,
     ) -> None:
+        """`ausgabe_umleiten` gilt für ein Programm mit Fenster: es hat
+        keine Konsole, und was es mit `print()` schreibt, kam unter dem
+        Debugger nirgends an (Punkt 686). debugpy schickt es dann als
+        Ereignis `output`, das `DebugSitzung` ins Panel „Ausgabe“
+        bringt. Ein Konsolenprogramm schreibt in sein eigenes Fenster;
+        umgeleitet stünde alles doppelt da."""
         self.anfrage(
             "initialize",
             {"adapterID": "natter", "linesStartAt1": True, "columnsStartAt1": True},
         )
-        attach_seq = self._senden("attach", {"justMyCode": False})
+        attach_seq = self._senden(
+            "attach", {"justMyCode": False, "redirectOutput": ausgabe_umleiten}
+        )
         if programm_starten is not None:
             # Der Adapter lauscht jetzt auf das Programm und nennt den
             # Port; erst dann wird es gestartet.

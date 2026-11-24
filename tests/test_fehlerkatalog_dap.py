@@ -110,7 +110,7 @@ def test_unbekannte_exceptionid_liefert_none() -> None:
 
 
 def test_katalogloser_typ_liefert_none() -> None:
-    info = _exception_info("RuntimeError", "kein Katalogeintrag dafür", "")
+    info = _exception_info("LookupError", "kein Katalogeintrag dafür", "")
     assert fehlermeldung_aus_dap_erzeugen(info) is None
 
 

@@ -2776,16 +2776,18 @@ class HauptFenster(QMainWindow):
         # Neben den Projektordner wie die Abgabe-ZIP: im Projektordner
         # nahm der nächste Exe-Export das PDF als Programmdaten mit, und
         # der Empfänger bekam den ganzen Quelltext (Punkt 586).
-        vorschlag = (
-            self.projekt.ordner.parent / f"{self.projekt.name} Quelltext.pdf"
-        )
+        # Bei einer entpackten Abgabe nach ihrem Ordner, der das Konto
+        # nennt; sonst bekamen alle Abgaben einer Klasse denselben
+        # Vorschlag und ersetzten einander (Punkt 697).
+        from ide.export.quelltext_pdf import abgabe_ordnername, quelltext_als_pdf
+
+        titel = abgabe_ordnername(self.projekt) or self.projekt.name
+        vorschlag = self.projekt.ordner.parent / f"{titel} Quelltext.pdf"
         pfad, _ = QFileDialog.getSaveFileName(
             self, "Quelltext als PDF speichern", str(vorschlag), "PDF-Dateien (*.pdf)"
         )
         if not pfad:
             return
-
-        from ide.export.quelltext_pdf import quelltext_als_pdf
 
         try:
             ziel = quelltext_als_pdf(self.projekt, Path(pfad))
@@ -9519,13 +9521,34 @@ class HauptFenster(QMainWindow):
         # Ohne Projekt lief eine einzelne Datei, und die immer als
         # Konsolenprogramm (Punkt 454).
         konsole = self.projekt is None or self.projekt.typ == "console"
-        wo = (
-            "Die Fehlermeldung steht im Konsolenfenster des Programms, es "
-            "bleibt dafür offen."
-            if konsole
-            else "Die Fehlermeldung hat das Programm vor dem Beenden in "
-            "einem eigenen Fenster gezeigt."
-        )
+        # Scheitert ein Programm mit Fenster, bevor es eines hat (etwa
+        # beim Laden von u_main.py), steht die Meldung hier im Panel
+        # und nicht in einem Fenster (Punkt 696). Gesucht wird nur in
+        # den Zeilen seit dem Ende des vorigen Laufs.
+        im_panel = False
+        if not konsole:
+            if self._ausgabe_leser is not None:
+                self._ausgabe_abholen()
+            liste = self.ausgabe_liste
+            for nummer in range(liste.count() - 1, -1, -1):
+                zeile = re.sub(r"^\d\d:\d\d:\d\d  ", "", liste.item(nummer).text())
+                if zeile.startswith("Programm beendet (Code"):
+                    break
+                if zeile.startswith(("Wo:", "Traceback (most recent call last)")):
+                    im_panel = True
+                    break
+        if konsole:
+            wo = (
+                "Die Fehlermeldung steht im Konsolenfenster des Programms, "
+                "es bleibt dafür offen."
+            )
+        elif im_panel:
+            wo = "Die Fehlermeldung steht darüber."
+        else:
+            wo = (
+                "Die Fehlermeldung hat das Programm vor dem Beenden in "
+                "einem eigenen Fenster gezeigt."
+            )
         self.ausgabe_zeile(
             f"Programm beendet (Code {code}){dauer} – Code {code} heißt: mit einem Fehler "
             f"geendet. {wo}"

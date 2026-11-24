@@ -163,7 +163,7 @@ def test_syntax_error() -> None:
 
 def test_unbekannter_exception_typ_liefert_none() -> None:
     def f():
-        raise RuntimeError("kein Katalogeintrag dafür")
+        raise LookupError("kein Katalogeintrag dafür")
 
     assert fehlermeldung_erzeugen(_ausloesen(f)) is None
 

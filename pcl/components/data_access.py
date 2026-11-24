@@ -59,6 +59,7 @@ from typing import Any
 from pcl.errors import NatterDatenbankError, NatterDatenError
 from pcl.properties import Komponente, Prop
 from pcl.zahlen import text as zahl_text
+from pcl.zahlen import zahl
 
 
 def anzeigetext(wert: Any) -> str:
@@ -486,15 +487,16 @@ class _Feld:
     def as_float(self) -> float:
         """Der Wert als Kommazahl, ein leeres Feld als 0,0.
 
-        Ein Text mit Dezimalkomma („2,5“) wird verstanden: so steht
-        eine Zahl in einer Tabelle, die jemand mit deutscher
-        Einstellung gefüllt hat.
+        Ein Text wird gelesen wie mit `zahl()`, also mit Dezimalkomma
+        und Tausenderpunkt („2,5“, „1.234,5“): so steht eine Zahl in
+        einer Tabelle, die jemand mit deutscher Einstellung gefüllt
+        hat. Bis Punkt 694 ergab „1.000“ hier 1,0, mit `zahl()` 1000.
         """
         if self._wert is None:
             return 0.0
         try:
             if isinstance(self._wert, str):
-                return float(self._wert.strip().replace(",", "."))
+                return zahl(self._wert)
             return float(self._wert)
         except (TypeError, ValueError):
             raise NatterDatenError(

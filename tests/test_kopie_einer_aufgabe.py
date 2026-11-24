@@ -108,6 +108,34 @@ def test_eine_aufgabe_aus_der_wurzel_einer_freigabe_bekommt_ihren_namen(
     ]
 
 
+def test_die_kopie_laesst_weg_was_auch_die_abgabe_weglaesst(
+    tmp_path: Path,
+) -> None:
+    """Punkt 690: eine versteckte Notiz der Lehrkraft und die Exe aus
+    „Als Exe exportieren“ kamen in jede Schülerkopie, obwohl die
+    Abgabe-ZIP beides weglässt."""
+    aufgabe = _aufgabe(tmp_path / "Tausch" / "Ampel", "Ampel", "x = 1\n")
+    ordner = aufgabe.parent
+    (ordner / ".lehrkraft").mkdir()
+    (ordner / ".lehrkraft" / "notiz.txt").write_text("Bewertung", "utf-8")
+    for zwischen in ("dist", "build"):
+        (ordner / zwischen).mkdir()
+        (ordner / zwischen / "Ampel.exe").write_bytes(b"MZ")
+    (ordner / "bilder").mkdir()
+    (ordner / "bilder" / "ampel.png").write_bytes(b"png")
+
+    kopie = aufgabe_kopieren(aufgabe, tmp_path / "Natter").parent
+
+    angekommen = sorted(
+        p.relative_to(kopie).as_posix()
+        for p in kopie.rglob("*") if p.is_file()
+    )
+    assert angekommen == [
+        ".natter-quelle", "Ampel.natter", "bilder/ampel.png",
+        "main.py", "u_main.py",
+    ]
+
+
 def test_ein_eigenes_projekt_gleichen_namens_ist_keine_kopie(
     tmp_path: Path,
 ) -> None:

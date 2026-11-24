@@ -183,10 +183,14 @@ QUELLDATEI = ".natter-quelle"
 #: selbst schon eine Kopie war, schreibt `aufgabe_kopieren` neu. Eine
 #: Sicherung ungespeicherter Änderungen gehört zu dem, der sie
 #: hinterlassen hat; in der Kopie böte Natter sonst fremden Text zum
-#: Wiederherstellen an (Punkt 344).
+#: Wiederherstellen an (Punkt 344). Versteckte Einträge (Name mit
+#: Punkt vorn), `build` und `dist` bleiben weg wie in der Abgabe-ZIP
+#: (`zip_schreiben`): eine Notiz der Lehrkraft in `.lehrkraft` oder
+#: die Exe aus „Als Exe exportieren“ landete sonst in jeder
+#: Schülerkopie (Punkt 690).
 _NICHT_MITKOPIEREN = shutil.ignore_patterns(
     "__pycache__", "*.pyc", SPERRDATEI, QUELLDATEI,
-    f"*{SICHERUNG_ENDUNG}",
+    f"*{SICHERUNG_ENDUNG}", ".*", "build", "dist",
 )
 
 

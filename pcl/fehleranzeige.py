@@ -19,7 +19,9 @@ mit, weil `Fehlermeldung.als_text()` ihn schon berücksichtigt.
 from __future__ import annotations
 
 import sys
+import threading
 import traceback
+from pathlib import Path
 from types import TracebackType
 
 from pcl.fehlerkatalog import fehlermeldung_erzeugen
@@ -76,20 +78,99 @@ def _in_fenster_zeigen(text: str) -> bool:
     return True
 
 
+def _an_debugger_geben(
+    art: type[BaseException], wert: BaseException, spur: TracebackType | None
+) -> None:
+    """Hält unter dem Debugger (F5) an der Fehlerzeile an, wenn der
+    Fehler in einer Methode steckt, die Qt aufgerufen hat (Punkt 688).
+
+    debugpy hält nur bei einem Fehler, der bis zum äußersten Rahmen
+    durchläuft. Eine Ereignismethode ruft aber Qt aus der
+    Ereignisschleife; dahinter stehen noch `Application.run()` und
+    `main.py`, der Fehler endet in Qt und kommt hier an. debugpy sah
+    ihn nie als unbehandelt, auch ohne diesen Haken. Läuft keine
+    Ereignisschleife, ist der Fehler bis nach außen gelaufen, und
+    debugpy hat schon selbst angehalten."""
+    debugpy = sys.modules.get("debugpy")
+    if debugpy is None:
+        return
+    try:
+        from PySide6.QtCore import QThread
+
+        if not debugpy.is_client_connected():
+            return
+        if QThread.currentThread().loopLevel() == 0:
+            return
+        debugpy.trigger_exception_handler((art, wert, spur))
+    except Exception:  # noqa: BLE001 - die Meldung danach kommt trotzdem
+        pass
+
+
 def fehler_zeigen(
     art: type[BaseException], wert: BaseException, spur: TracebackType | None
 ) -> None:
     """`sys.excepthook` für Schülerprogramme."""
+    _an_debugger_geben(art, wert, spur)
     text = fehlertext(art, wert, spur)
     if not _in_fenster_zeigen(text):
         print(text, file=sys.stderr)
 
 
+def _faden_fehler_zeigen(args: threading.ExceptHookArgs) -> None:
+    """`threading.excepthook`: ein Fehler in einem Faden bekommt
+    dieselbe Meldung wie einer im Hauptfaden (Punkt 670). Vorher kam
+    Pythons Traceback samt „Did you mean“, auch im Prüfungsmodus.
+
+    Ein Fenster gibt es dafür nicht: Qt erlaubt Fenster nur im
+    Hauptfaden. Die Meldung kommt auf die Fehlerausgabe, bei einem
+    Programm mit Fenster also ins Panel „Ausgabe“."""
+    if issubclass(args.exc_type, SystemExit):
+        return
+    wert = args.exc_value
+    if wert is None:
+        wert = args.exc_type()
+    print(
+        fehlertext(args.exc_type, wert, args.exc_traceback),
+        file=sys.stderr,
+        flush=True,
+    )
+
+
 def einhaengen() -> None:
-    """Hängt `fehler_zeigen` als `sys.excepthook` ein.
+    """Hängt `fehler_zeigen` als `sys.excepthook` ein, für Fäden
+    `_faden_fehler_zeigen` als `threading.excepthook`.
 
     Wird von `Application.run()` gerufen und von der Konsolen-Hülle in
     `ide/run/starter.py`. Bewusst nicht beim Import von `pcl`: in den
     Tests soll ein Fehler weiterhin den Test scheitern lassen.
     """
     sys.excepthook = fehler_zeigen
+    threading.excepthook = _faden_fehler_zeigen
+
+
+def im_projekt_gestartet() -> bool:
+    """Ob das laufende Programm das Hauptprogramm eines Natter-Projekts
+    ist: `__main__` stammt aus einem Ordner mit einer `.natter`.
+
+    Unter pytest, in der IDE selbst und im Testlauf ist das nicht so;
+    dort bleibt `sys.excepthook`, wie er ist."""
+    datei = getattr(sys.modules.get("__main__"), "__file__", None)
+    if not datei:
+        return False
+    try:
+        return any(Path(datei).resolve().parent.glob("*.natter"))
+    except OSError:
+        return False
+
+
+def beim_import_einhaengen() -> None:
+    """Wird beim Import von `pcl` gerufen. In einem gestarteten
+    Projekt hängt sich die Anzeige sofort ein, nicht erst in
+    `Application.run()`: `main.py` importiert die Units vor
+    `Application()`, und ein Fehler beim Laden von `u_main.py` (ein
+    fehlendes Modul, eine fehlende Datei) kam bis Punkt 696 als
+    englischer Traceback. Ohne Qt-Anwendung steht die Meldung auf der
+    Fehlerausgabe, bei Strg+F5 also im Panel „Ausgabe“."""
+    if im_projekt_gestartet():
+        einhaengen()
+

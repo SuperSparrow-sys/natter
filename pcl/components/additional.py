@@ -278,11 +278,15 @@ class StringGrid(Control):
     einer einzelnen Spalte, `default_col_width` die aller übrigen.
     """
 
+    # Die Obergrenzen schützen den Schulrechner: 10**7 Zeilen belegten
+    # über 1 GB Speicher (Punkt 677).
     row_count = Prop(
-        int, 5, kategorie="Daten", doc="Anzahl der Zeilen, ab 0", minimum=0
+        int, 5, kategorie="Daten",
+        doc="Anzahl der Zeilen, 0 bis 100.000", minimum=0, maximum=100_000,
     )
     col_count = Prop(
-        int, 5, kategorie="Daten", doc="Anzahl der Spalten, ab 0", minimum=0
+        int, 5, kategorie="Daten",
+        doc="Anzahl der Spalten, 0 bis 1.000", minimum=0, maximum=1_000,
     )
     default_col_width = Prop(
         int,

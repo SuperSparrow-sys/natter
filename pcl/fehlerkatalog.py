@@ -273,6 +273,14 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
         "Aus einer leeren Sammlung sollte ein Eintrag entnommen werden.",
         "Wird vorher geprüft, ob überhaupt noch etwas darin ist?",
     ),
+    # `random.choice([])` (Punkt 699).
+    _m(
+        r"^Cannot choose from an empty sequence$",
+        "Aus einer leeren Sammlung sollte zufällig ein Eintrag gewählt "
+        "werden.",
+        "Ist die Liste an dieser Stelle schon gefüllt? Wird vorher "
+        "geprüft, ob sie überhaupt Einträge enthält?",
+    ),
     # -- TypeError ---------------------------------------------------------
     _m(
         r"^unsupported operand type\(s\) for (?P<zeichen>.+?): "
@@ -365,6 +373,17 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
         "einer Menge dienen.",
         "Welcher Wert soll hier der Schlüssel sein? Schlüssel müssen unveränderlich sein.",
     ),
+    # `range(n / 2)`: „/“ ergibt immer eine Kommazahl (Punkt 699).
+    # Ohne eigenes Muster fragte die Leitfrage nach der Anzahl der
+    # Argumente, und die stimmt hier.
+    _m(
+        r"^'(?P<typ>.+?)' object cannot be interpreted as an integer$",
+        "Hier wird eine ganze Zahl gebraucht, etwa als Grenze von range() "
+        "oder als Anzahl, es steht aber {typ} da.",
+        "Entsteht der Wert durch eine Division mit „/“? Die ergibt immer "
+        "eine Kommazahl, auch wenn sie aufgeht. Welche Rechenart teilt "
+        "ganzzahlig?",
+    ),
     _m(
         r"^can't multiply sequence by non-int of type '(?P<typ>.+?)'$",
         "Ein Text oder eine Liste lässt sich nur mit einer ganzen Zahl "
@@ -406,6 +425,16 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
         "Python schreibt Kommazahlen mit einem Dezimalpunkt statt eines "
         "Dezimalkommas – ist das hier der Fall? Stehen noch Leerzeichen oder "
         "eine Einheit im Text?",
+    ),
+    # `f"{eingabe:.2f}"` mit einem Text aus einem Eingabefeld
+    # (Punkt 699).
+    _m(
+        r"^Unknown format code '(?P<code>.)' for object of type "
+        r"'(?P<typ>.+?)'$",
+        "Die Formatangabe mit „{code}“ passt nicht zum Wert: formatiert "
+        "werden sollte {typ}.",
+        "Welchen Typ hat der Wert in der geschweiften Klammer wirklich? "
+        "Kommt er aus einem Eingabefeld und ist damit noch ein Text?",
     ),
     _m(
         r"^not enough values to unpack \(expected (?P<erwartet>\d+), "
@@ -474,6 +503,24 @@ _STANDARDMELDUNGEN: tuple[_Standardmeldung, ...] = (
         "Die Zeitangabe {wert} passt nicht zum angegebenen Muster {format}.",
         "In welcher Reihenfolge stehen Tag, Monat und Jahr im Text, und welche "
         "Trennzeichen benutzt er?",
+    ),
+    # -- RuntimeError ------------------------------------------------------
+    # Ein Wörterbuch, das in seiner eigenen Schleife wächst (Punkt 699).
+    _m(
+        r"^dictionary (?:changed size|keys changed) during iteration$",
+        "Ein Wörterbuch wurde verändert, während eine Schleife es "
+        "durchlief.",
+        "Werden in der Schleife Einträge hinzugefügt oder entfernt? Über "
+        "welche Sammlung könnte die Schleife stattdessen laufen, die "
+        "sich dabei nicht ändert?",
+    ),
+    _m(
+        r"^Set changed size during iteration$",
+        "Eine Menge wurde verändert, während eine Schleife sie "
+        "durchlief.",
+        "Werden in der Schleife Einträge hinzugefügt oder entfernt? Über "
+        "welche Sammlung könnte die Schleife stattdessen laufen, die "
+        "sich dabei nicht ändert?",
     ),
     # -- SyntaxError -------------------------------------------------------
     _m(
@@ -1341,6 +1388,22 @@ def _arithmetic_error(exc: BaseException) -> tuple[str, str, str]:
     return ("Rechnung nicht ausführbar", was, pruefe)
 
 
+def _runtime_error(exc: BaseException) -> tuple[str, str, str]:
+    """Rückfall für `RuntimeError` (Punkt 699). Ohne Eintrag kam
+    „Zu diesem Fehler gibt es noch keine deutsche Erklärung“ mit dem
+    Traceback, etwa bei einem Wörterbuch, das in seiner eigenen
+    Schleife wächst."""
+    was, pruefe = _was_und_pruefe(
+        exc,
+        "Das Programm ist in einen Zustand geraten, in dem es nicht "
+        "weiterlaufen kann.",
+        "Was hat das Programm unmittelbar vor dieser Zeile verändert? "
+        "Wird eine Sammlung verändert, während eine Schleife sie "
+        "durchläuft?",
+    )
+    return ("Programm kann nicht weiterlaufen", was, pruefe)
+
+
 def _natter_property_error(exc: BaseException) -> tuple[str, str, str]:
     """`pcl.errors.NatterPropertyError`: einer Eigenschaft wurde ein Wert
     falschen Typs zugewiesen. Die Meldung aus `pcl` ist bereits deutsch
@@ -1409,6 +1472,9 @@ _KATALOG: dict[type[BaseException], Callable[[BaseException], tuple[str, str, st
     # schon den richtigen Eintrag, siehe tests/test_analyse_fehlerkatalog.py.
     NatterPropertyError: _natter_property_error,
     NatterDatenbankError: _natter_datenbank_error,
+    # Nach den Unterklassen RecursionError und NatterDatenbankError,
+    # die ihre eigenen Einträge haben (Punkt 699).
+    RuntimeError: _runtime_error,
 }
 
 

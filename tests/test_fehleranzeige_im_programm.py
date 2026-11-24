@@ -221,3 +221,94 @@ def test_input_im_gui_programm_meldet_sich_deutsch_und_endet_mit_fehler(
     assert "EOF when reading" not in ausgabe
     assert "nach run" not in ausgabe
     assert ergebnis.returncode == 1
+
+
+@pytest.mark.parametrize(
+    ("kopf", "erwartet"),
+    [
+        ("import gibt_es_nicht_42\n", "Unit oder Paket nicht gefunden"),
+        ('PUNKTE = open("punkte.txt").read()\n', "Datei nicht gefunden"),
+    ],
+    ids=["modul", "datei"],
+)
+def test_ein_fehler_beim_laden_der_unit_meldet_sich_deutsch(
+    tmp_path: Path, kopf: str, erwartet: str
+) -> None:
+    """Punkt 696: `main.py` importiert `u_main` vor `Application()`;
+    ein Fehler dabei kam als englischer Traceback. Ein echtes
+    GUI-Projekt aus der Vorlage, in einem echten Unterprozess."""
+    from ide.project.neu import projekt_erzeugen
+
+    projekt = projekt_erzeugen("gui", tmp_path / "gui", "Probe")
+    unit = projekt.ordner / "u_main.py"
+    unit.write_text(kopf + unit.read_text(encoding="utf-8"), encoding="utf-8")
+
+    ergebnis = subprocess.run(
+        [sys.executable, "main.py"],
+        cwd=projekt.ordner,
+        capture_output=True,
+        env=dict(os.environ, PYTHONIOENCODING="utf-8", QT_QPA_PLATFORM="offscreen"),
+        timeout=60,
+        check=False,
+    )
+
+    ausgabe = ergebnis.stderr.decode("utf-8", "replace")
+    assert erwartet in ausgabe
+    assert "Wo:   u_main.py, Zeile 1" in ausgabe
+    assert "Traceback (most recent call last)" not in ausgabe
+    assert ergebnis.returncode == 1
+
+
+def test_ausserhalb_eines_projekts_bleibt_der_haken(tmp_path: Path) -> None:
+    """Unter pytest und in der IDE bleibt `sys.excepthook`, wie er
+    ist; nur das Hauptprogramm eines Projekts hängt sich beim Import
+    von `pcl` ein."""
+    (tmp_path / "skript.py").write_text(
+        "import sys\nimport pcl\nprint(sys.excepthook is sys.__excepthook__)\n",
+        encoding="utf-8",
+    )
+
+    ergebnis = subprocess.run(
+        [sys.executable, "skript.py"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env=dict(os.environ, QT_QPA_PLATFORM="offscreen"),
+        timeout=60,
+        check=False,
+    )
+
+    assert ergebnis.stdout.strip() == "True"
+    assert sys.excepthook is not fehler_zeigen
+
+
+@pytest.mark.parametrize("pruefung", [False, True], ids=["normal", "pruefung"])
+def test_ein_fehler_im_faden_bekommt_dieselbe_meldung(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    pruefung: bool,
+) -> None:
+    """Punkt 670: ein Fehler in einem Faden ging an `sys.excepthook`
+    vorbei und stand roh mit „Did you mean“ auf der Fehlerausgabe,
+    auch im Prüfungsmodus. Der Modus wird nur vorgetäuscht."""
+    import threading
+
+    import pcl.pruefungsmodus
+
+    monkeypatch.setattr(pcl.pruefungsmodus, "laeuft", lambda *a, **k: pruefung)
+    monkeypatch.setattr(sys, "excepthook", sys.__excepthook__)
+    monkeypatch.setattr(threading, "excepthook", threading.__excepthook__)
+    einhaengen()
+
+    def faden() -> None:
+        pirnt(1)  # type: ignore[name-defined]  # noqa: F821
+
+    t = threading.Thread(target=faden)
+    t.start()
+    t.join()
+
+    fehler = capsys.readouterr().err
+    assert "Unbekannter Name" in fehler
+    assert "Wo:" in fehler
+    assert "Did you mean" not in fehler
+    assert ("Zu prüfen:" in fehler) is not pruefung

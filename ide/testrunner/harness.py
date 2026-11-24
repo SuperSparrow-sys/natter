@@ -352,6 +352,12 @@ def ladefehler_meldung(modul: str, text: str) -> str:
     zeilen = text.splitlines()
     if zeilen and zeilen[0].startswith("Failed to import test module"):
         zeilen = zeilen[1:]
+    # Pythons Vorschläge („Did you mean: 'print'?“) bleiben weg wie im
+    # Fehlerkatalog; im Prüfungsmodus wären sie ein Lösungshinweis
+    # (Punkt 670).
+    from pcl.fehlerkatalog import _VORSCHLAG_MUSTER
+
+    zeilen = [_VORSCHLAG_MUSTER.sub("", z) for z in zeilen]
     traceback_text = "\n".join(zeilen).strip()
     letzte = next((z for z in reversed(zeilen) if z.strip()), "")
     teile = [f"Die Testdatei {modul}.py lässt sich nicht laden."]

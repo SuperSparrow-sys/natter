@@ -206,3 +206,62 @@ def test_unbehandelte_ausnahme_zeigt_die_fehlerkatalog_meldung_und_springt_hin(
     finally:
         if fenster.debug_sitzung is not None:
             fenster._debugger_stoppen_aktion()
+
+
+_FENSTER_UNIT = '''from PySide6.QtCore import QTimer
+
+from u_main_design import Form1Design
+
+
+class Form1(Form1Design):
+    def form_create(self, sender):
+        print("Zeile aus print")
+        QTimer.singleShot(200, self.kaputt)
+
+    def kaputt(self):
+        teiler = 0
+        print(1 / teiler)
+'''
+
+
+def test_programm_mit_fenster_zeigt_print_und_haelt_im_ereignis(
+    qtbot, tmp_path: Path, hauptfenster  # noqa: ANN001
+) -> None:
+    """Punkt 686: `print()` eines Programms mit Fenster erschien mit F5
+    nirgends. Punkt 688: ein Fehler in einer Methode, die Qt aufruft,
+    ließ den Debugger nicht anhalten; debugpy sah ihn nie als
+    unbehandelt. Ein Start für beide, weil jeder Start Sekunden
+    kostet."""
+    from ide.codegen.design import design_datei_erzeugen
+    from ide.project.neu import projekt_erzeugen
+
+    ordner = tmp_path / "Fenster"
+    projekt_erzeugen("gui", ordner, "Fenster")
+    pfm = json.loads((ordner / "u_main.pfm").read_text(encoding="utf-8"))
+    pfm["events"] = {"on_create": "form_create"}
+    (ordner / "u_main.pfm").write_text(json.dumps(pfm), encoding="utf-8")
+    design_datei_erzeugen(ordner / "u_main.pfm", ordner / "u_main_design.py")
+    (ordner / "u_main.py").write_text(_FENSTER_UNIT, encoding="utf-8")
+    fenster = hauptfenster
+    fenster.projekt_oeffnen(ordner / "Fenster.natter")
+    fehlerzeile = _zeile(_FENSTER_UNIT, "1 / teiler")
+
+    try:
+        fenster._projekt_mit_debugger_starten_aktion()
+        qtbot.waitUntil(
+            lambda: fenster.meldungen_liste.count() > 0, timeout=DEBUG_ZEITGRENZE
+        )
+        text = fenster.meldungen_liste.item(0).text()
+        assert "ZeroDivisionError" in text
+        assert f"Zeile {fehlerzeile}" in text
+        editor = fenster.editor_tabs.currentWidget()
+        assert editor.property("pfad") == str(ordner / "u_main.py")
+        assert editor.textCursor().blockNumber() + 1 == fehlerzeile
+        ausgabe = [
+            fenster.ausgabe_liste.item(i).text()
+            for i in range(fenster.ausgabe_liste.count())
+        ]
+        assert any(z.endswith("  Zeile aus print") for z in ausgabe), ausgabe
+    finally:
+        if fenster.debug_sitzung is not None:
+            fenster._debugger_stoppen_aktion()

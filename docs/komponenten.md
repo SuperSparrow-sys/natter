@@ -54,6 +54,11 @@ noch einmal.
 Genaueres steht unter „Die Maus“, „Die Tastatur“ und „Ein- und
 ausblenden“ weiter unten.
 
+Jede Eigenschaft vom Typ `int` nimmt Zahlen von -2.147.483.648 bis
+2.147.483.647, mehr kann die Oberfläche nicht darstellen. Ein Wert
+außerhalb davon und `nan` bei einer Kommazahl enden mit
+`NatterPropertyError`; die Eigenschaft behält ihren alten Wert.
+
 Dazu drei Methoden: `nach_vorne_bringen()` holt die Komponente vor
 alle anderen, die sie überlappen, `nach_hinten_schicken()` schickt sie
 dahinter. So liegt etwa ein `Label` über einer `Shape`. `set_focus()`
@@ -370,8 +375,8 @@ Eine Tabelle mit Zellen aus Text.
 
 | Eigenschaft | Typ | Standardwert | Kategorie | Hilfetext |
 |---|---|---|---|---|
-| row_count | int | 5 | Daten | Anzahl der Zeilen, ab 0 |
-| col_count | int | 5 | Daten | Anzahl der Spalten, ab 0 |
+| row_count | int | 5 | Daten | Anzahl der Zeilen, 0 bis 100.000 |
+| col_count | int | 5 | Daten | Anzahl der Spalten, 0 bis 1.000 |
 | cells\[spalte, zeile\] | str | "" | – | Inhalt einer Zelle |
 | col_titles | `Strings` | leer | Daten | Die Spaltenköpfe, einer je Zeile; leer = Spaltennummern |
 | default_col_width | int | 100 | Layout | Breite der Spalten in Pixeln, sofern col_widths nichts anderes sagt |
@@ -410,8 +415,14 @@ Zelle wie „2,5 · 10^21“ als Kommazahl.
 Auch große Datensätze passen hinein. `load_dataframe` legt die Werte
 unverändert ab, zu Text werden sie erst, wenn eine Zelle zu sehen ist
 oder abgefragt wird. 100.000 Zeilen mit vier Spalten sind so in
-einer Zehntelsekunde geladen und belegen rund 20 MB, eine Million
-Zeilen in etwa einer halben Sekunde rund 160 MB.
+einer Zehntelsekunde geladen und belegen rund 20 MB.
+
+Eine Tabelle hat höchstens 100.000 Zeilen und 1.000 Spalten; die
+Kopfzeile von `load_dataframe` zählt mit. Ein größerer Wert für
+`row_count` oder `col_count` und ein größerer Datensatz enden mit
+`NatterPropertyError` und einer Meldung, die die Grenze nennt. Ohne
+Grenze legte ein Tippfehler wie `row_count = 10**7` den Rechner mit
+über 1 GB Speicher lahm.
 
 Ein Doppelklick im Designer legt `on_select_cell` an.
 
@@ -1414,7 +1425,7 @@ Ein Feld aus `field_by_name` gibt seinen Wert auf vier Arten her:
 | `value` | den Wert, wie er in der Datenbank steht |
 | `as_string` | als Text, wie ihn die Data Controls zeigen; ein leeres Feld als `""`, eine Kommazahl mit Dezimalkomma (`"1,5"`) |
 | `as_integer` | als ganze Zahl; ein leeres Feld als `0` |
-| `as_float` | als Kommazahl; ein leeres Feld als `0.0`. Ein Text mit Dezimalkomma wie `"2,5"` wird verstanden |
+| `as_float` | als Kommazahl; ein leeres Feld als `0.0`. Ein Text wird wie mit `zahl()` gelesen, mit Dezimalkomma und Tausenderpunkt: `"2,5"` ergibt 2,5, `"1.234,5"` 1234,5 |
 
 Lässt sich ein Feld nicht als Zahl lesen, etwa ein Name, bricht
 `as_integer` bzw. `as_float` mit einer Meldung ab, die den Wert nennt.
