@@ -1205,6 +1205,21 @@ werden soll. `main.py` und die aus dem Formular erzeugte Datei werden
 von Natter geschrieben und stehen deshalb nicht in der Liste. Über
 **Projekt → Startdatei anzeigen** lassen sie sich trotzdem ansehen.
 
+Soll eine Unit des Projekts mit **Datei → Speichern unter …** in
+einen Ordner außerhalb des Projekts, etwa auf den Desktop, fragt
+Natter vorher nach: das Programm startet weiter die Unit im
+Projektordner, und in die Abgabe kommt diese auch. Ein Reiter mit
+einer Datei außerhalb des offenen Projekts trägt ihren Ordner im
+Namen, etwa „u_main.py (Desktop)“.
+
+### Speichern scheitert
+
+Ist der USB-Stick abgezogen, das Netzlaufwerk nicht erreichbar oder
+der Datenträger voll, sagt die Meldung das und bietet
+**Speichern unter …** an, wie bei einem Ordner, in den nicht
+geschrieben werden darf. Der Text bleibt bis dahin im Editor, und
+die Datei auf dem alten Stand.
+
 ### Ein Formular oder Diagramm zu viel
 
 Units, Formulare und Diagramme haben im Projekt-Explorer einen
@@ -1212,7 +1227,9 @@ Units, Formulare und Diagramme haben im Projekt-Explorer einen
 liegt auf der rechten Maustaste. Bei einem Formular gelten beide
 Befehle für die `.pfm`, die Unit und die erzeugte Datei zugleich,
 und beim Umbenennen werden die Importe in den anderen Units
-angepasst. Gelöschte Dateien landen im Papierkorb. Hat das Laufwerk
+angepasst. Gelöschte Dateien landen im Papierkorb, eine offene Unit
+mit dem ungespeicherten Text aus dem Editor; die Nachfrage nennt
+diesen Fall. Hat das Laufwerk
 keinen, etwa ein Netzlaufwerk oder ein USB-Stick, sagt die Nachfrage
 vorher, dass die Dateien endgültig gelöscht werden. Das Hauptformular,
 das `main.py` startet, lässt sich weder umbenennen noch löschen.

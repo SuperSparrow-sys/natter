@@ -5,6 +5,7 @@ Schritt 5/6.
 
 from pathlib import Path
 
+import pytest
 from PySide6.QtGui import QTextCursor
 
 _AMPEL_ORDNER = Path(__file__).resolve().parent.parent / "beispielprojekte" / "06_Kontoverwaltung"
@@ -57,8 +58,15 @@ def test_datei_oeffnen_zweimal_aktiviert_nur_den_vorhandenen_tab(hauptfenster) -
     assert hauptfenster.editor_tabs.count() == 1
 
 
-def test_explorer_doppelklick_oeffnet_die_datei(hauptfenster) -> None:
-    hauptfenster.projekt_oeffnen(_AMPEL_ORDNER)
+def test_explorer_doppelklick_oeffnet_die_datei(hauptfenster, tmp_path: Path) -> None:
+    # Eine Kopie: eine Datei des mitgelieferten Originals öffnet Natter
+    # in der eigenen Kopie des Beispiels, und deren Reiter trägt dann
+    # den Ordner, weil sie nicht zum offenen Projekt gehört (Punkt 674).
+    import shutil
+
+    hauptfenster.projekt_oeffnen(
+        shutil.copytree(_AMPEL_ORDNER, tmp_path / _AMPEL_ORDNER.name)
+    )
 
     eintrag = hauptfenster.explorer.units_gruppe.child(0)  # u_konto.py
     hauptfenster.explorer.itemActivated.emit(eintrag, 0)
@@ -239,3 +247,42 @@ def test_eine_klasse_aus_einem_ordner_nur_zum_lesen_laesst_sich_woanders_speiche
     tabs = hauptfenster.editor_tabs
     assert tabs.tabText(tabs.currentIndex()) == "konto.py"
     assert editor.property("pfad") == str(eigene)
+
+
+@pytest.mark.parametrize("trotzdem", [True, False], ids=["ja", "nein"])
+def test_speichern_unter_ausserhalb_des_projekts_fragt_und_beschriftet(
+    hauptfenster, tmp_path: Path, monkeypatch, trotzdem: bool  # noqa: ANN001
+) -> None:
+    """Punkt 674: eine Unit des Projekts, versehentlich mit „Speichern
+    unter …“ auf den Desktop gelegt. Vorher kommt eine Nachfrage, und
+    danach heißt der Reiter anders als die Unit des Projekts."""
+    from ide.project.neu import projekt_erzeugen
+    from ide.shell.hauptfenster import HauptFenster
+
+    projekt = projekt_erzeugen("gui", tmp_path / "Ampel", "Ampel")
+    hauptfenster.projekt_oeffnen(projekt.ordner / "Ampel.natter")
+    unit = projekt.ordner / "u_main.py"
+    editor = hauptfenster.datei_oeffnen(unit)
+    editor.insertPlainText("# Teil 1\n")
+    desktop = tmp_path / "Desktop"
+    desktop.mkdir()
+    gefragt: list[Path] = []
+    monkeypatch.setattr(
+        HauptFenster, "_ausserhalb_speichern_fragen",
+        lambda self, alt, pfad: gefragt.append(pfad) or trotzdem,
+        raising=False,
+    )
+
+    ergebnis = hauptfenster.editor_speichern_unter(editor, desktop / "u_main.py")
+
+    assert gefragt == [desktop / "u_main.py"]
+    assert (desktop / "u_main.py").exists() is trotzdem
+    if not trotzdem:
+        assert ergebnis is None
+        assert editor.property("pfad") == str(unit)
+        return
+    hauptfenster.datei_oeffnen(unit)
+    tabs = hauptfenster.editor_tabs
+    namen = [tabs.tabText(i) for i in range(tabs.count())]
+    assert len(namen) == 2 and len(set(namen)) == 2, namen
+    assert "u_main.py (Desktop)" in namen

@@ -5488,7 +5488,7 @@ class HauptFenster(QMainWindow):
         # Jede Änderung schiebt die Sicherung um ein paar Sekunden
         # hinaus; sie kommt, sobald eine Pause eintritt (Punkt 473).
         editor.document().contentsChanged.connect(self._sicherung_bald.start)
-        index = self.editor_tabs.addTab(editor, pfad.name)
+        index = self.editor_tabs.addTab(editor, self._reiter_titel(pfad))
         self.editor_tabs.setCurrentIndex(index)
         return editor
 
@@ -5524,7 +5524,7 @@ class HauptFenster(QMainWindow):
         index = self.editor_tabs.indexOf(editor)
         if index == -1:
             return
-        basisname = Path(editor.property(_PFAD_EIGENSCHAFT)).name
+        basisname = self._reiter_titel(Path(editor.property(_PFAD_EIGENSCHAFT)))
         self.editor_tabs.setTabText(index, f"{basisname} ●" if geaendert else basisname)
 
     def _reiter_schliessen_fragen(self) -> QMessageBox.StandardButton:
@@ -5588,6 +5588,17 @@ class HauptFenster(QMainWindow):
             if not gewaehlt:
                 return None
             pfad = Path(gewaehlt)
+        # Eine Unit des Projekts, versehentlich auf den Desktop gelegt:
+        # das Programm startet weiter die im Projekt, und was danach
+        # getippt wird, kommt weder in die Abgabe noch in die Sicherung
+        # (Punkt 674).
+        if (
+            self._im_projekt(alt)
+            and not self._im_projekt(pfad)
+            and not self._ausserhalb_speichern_fragen(alt, pfad)
+        ):
+            self.statusBar().showMessage(f"„{alt.name}“ wurde nicht gespeichert.")
+            return None
         if not self.datei_schreiben_gemeldet(
             pfad, editor.toPlainText(), folge="Der Text steht noch im Editor."
         ):
@@ -5597,11 +5608,43 @@ class HauptFenster(QMainWindow):
         _stand_merken(editor)
         index = self.editor_tabs.indexOf(editor)
         if index != -1:
-            self.editor_tabs.setTabText(index, pfad.name)
+            self.editor_tabs.setTabText(index, self._reiter_titel(pfad))
         if self.projekt is not None:
             self.explorer.auffrischen(self.projekt)
         self.statusBar().showMessage(f"Gespeichert als {pfad}.")
         return pfad
+
+    def _im_projekt(self, pfad: Path) -> bool:
+        return self.projekt is not None and Path(pfad).resolve().is_relative_to(
+            self.projekt.ordner.resolve()
+        )
+
+    def _reiter_titel(self, pfad: Path) -> str:
+        """Der Name einer Datei für ihren Reiter. Liegt sie bei offenem
+        Projekt außerhalb davon, steht ihr Ordner dabei: sonst hießen
+        `u_main.py` des Projekts und eine Kopie auf dem Desktop gleich
+        (Punkt 674)."""
+        if self.projekt is None or self._im_projekt(pfad):
+            return pfad.name
+        return f"{pfad.name} ({pfad.parent.name})"
+
+    def _ausserhalb_speichern_fragen(self, alt: Path, pfad: Path) -> bool:
+        """Ob eine Unit des Projekts trotzdem außerhalb davon
+        gespeichert werden soll. Eigene Methode, damit Tests die
+        Antwort vorgeben können."""
+        antwort = QMessageBox.question(
+            self,
+            "Speichern unter",
+            f"Der Ordner\n{pfad.parent}\ngehört nicht zum Projekt "
+            f"„{self.projekt.name}“.\n\nDer Reiter arbeitet danach mit "
+            "der Datei dort weiter. Das Programm startet weiter "
+            f"„{alt.name}“ aus dem Projektordner, ohne diese Änderungen, "
+            "und in eine Abgabe kommen sie auch nicht.\n\n"
+            "Trotzdem dort speichern?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        return antwort == QMessageBox.StandardButton.Yes
 
     def _editor_speichern(self, editor: QPlainTextEdit) -> bool:
         """Schreibt den Text eines Editors in seine Datei. Liefert, ob

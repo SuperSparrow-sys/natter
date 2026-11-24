@@ -132,7 +132,8 @@ def test_eine_datei_ausserhalb_des_projekts_kommt_nur_in_den_reiter(
     ]
     titel = [fenster.editor_tabs.tabText(i) for i in range(fenster.editor_tabs.count())]
     assert "woanders.py" not in gezeigt
-    assert "woanders.py" in titel
+    # Mit dem Ordner, weil die Datei nicht zum Projekt gehört (Punkt 674).
+    assert f"woanders.py ({tmp_path.name})" in titel
 
 
 def test_das_diagrammfenster_ist_angeschlossen(tmp_path: Path, qtbot) -> None:
