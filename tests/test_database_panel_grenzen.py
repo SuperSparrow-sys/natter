@@ -384,3 +384,23 @@ def test_import_einer_datei_mit_sqlite_im_namen(tmp_path: Path) -> None:
     assert name == "daten"
     assert _roh(panel).execute("SELECT name FROM daten").fetchall() == [("Anna",)]
     panel.trennen()
+
+
+def test_lange_ziffernfolge_wird_als_text_importiert(tmp_path: Path) -> None:
+    """Punkt 683: `int()` lehnt mehr als 4300 Ziffern mit `ValueError`
+    ab, und der Import endete in der allgemeinen Fehlermeldung. Eine
+    Folge über 19 Stellen ist ohnehin keine Zahl für SQLite."""
+    datei = tmp_path / "daten.csv"
+    datei.write_text("kennung;wert\n" + "9" * 5000 + ";1\n", encoding="utf-8")
+    panel = _verbunden()
+
+    name = panel.csv_importieren(datei)
+
+    spalten = _roh(panel).execute(f"PRAGMA table_info({name})").fetchall()
+    assert [(spalte[1], spalte[2]) for spalte in spalten] == [
+        ("kennung", "TEXT"), ("wert", "INTEGER")
+    ]
+    assert _roh(panel).execute(
+        f"SELECT kennung FROM {name}"
+    ).fetchone() == ("9" * 5000,)
+    panel.trennen()

@@ -100,6 +100,11 @@ _FUEHRENDE_NULL = re.compile(r"[+-]?0\d")
 #: Ziffernfolgen (Kontonummern, Kennungen) bleiben Text.
 _GROESSTE_GANZZAHL = 2**63 - 1
 
+#: So viele Ziffern hat `_GROESSTE_GANZZAHL`. Eine längere Folge ist
+#: Text, ohne dass `int` sie liest: ab 4300 Ziffern lehnt Python das
+#: mit `ValueError` ab (Punkt 683).
+_GROESSTE_STELLEN = len(str(_GROESSTE_GANZZAHL))
+
 
 def _zahlenart(wert: str) -> str | None:
     """„INTEGER“ oder „REAL“, wenn `wert` (nicht leer, ohne Rand)
@@ -107,7 +112,10 @@ def _zahlenart(wert: str) -> str | None:
     Kommazahlen liest `pcl.zahlen.zahl`, also mit Dezimalkomma wie
     mit Dezimalpunkt."""
     if _GANZZAHL.fullmatch(wert):
-        if abs(int(wert)) > _GROESSTE_GANZZAHL:
+        if (
+            len(wert.lstrip("+-")) > _GROESSTE_STELLEN
+            or abs(int(wert)) > _GROESSTE_GANZZAHL
+        ):
             return None
         return "INTEGER"
     if _FUEHRENDE_NULL.match(wert):
