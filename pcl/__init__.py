@@ -54,11 +54,17 @@ from pcl.dialogs import (
     save_dialog,
     show_message,
 )
+from pcl.fehleranzeige import beim_import_einhaengen
 from pcl.files import open_url
 from pcl.form import Form
 from pcl.properties import Event, Prop
 from pcl.strings import Strings
 from pcl.zahlen import text, zahl
+
+# `main.py` importiert `pcl` vor den Units. Schon ein Fehler beim Laden
+# von `u_main.py` bekommt so die deutsche Meldung (Punkt 696).
+beim_import_einhaengen()
+del beim_import_einhaengen
 
 __all__ = [
     "Application",

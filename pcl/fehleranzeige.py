@@ -21,6 +21,7 @@ from __future__ import annotations
 import sys
 import threading
 import traceback
+from pathlib import Path
 from types import TracebackType
 
 from pcl.fehlerkatalog import fehlermeldung_erzeugen
@@ -116,3 +117,31 @@ def einhaengen() -> None:
     """
     sys.excepthook = fehler_zeigen
     threading.excepthook = _faden_fehler_zeigen
+
+
+def im_projekt_gestartet() -> bool:
+    """Ob das laufende Programm das Hauptprogramm eines Natter-Projekts
+    ist: `__main__` stammt aus einem Ordner mit einer `.natter`.
+
+    Unter pytest, in der IDE selbst und im Testlauf ist das nicht so;
+    dort bleibt `sys.excepthook`, wie er ist."""
+    datei = getattr(sys.modules.get("__main__"), "__file__", None)
+    if not datei:
+        return False
+    try:
+        return any(Path(datei).resolve().parent.glob("*.natter"))
+    except OSError:
+        return False
+
+
+def beim_import_einhaengen() -> None:
+    """Wird beim Import von `pcl` gerufen. In einem gestarteten
+    Projekt hängt sich die Anzeige sofort ein, nicht erst in
+    `Application.run()`: `main.py` importiert die Units vor
+    `Application()`, und ein Fehler beim Laden von `u_main.py` (ein
+    fehlendes Modul, eine fehlende Datei) kam bis Punkt 696 als
+    englischer Traceback. Ohne Qt-Anwendung steht die Meldung auf der
+    Fehlerausgabe, bei Strg+F5 also im Panel „Ausgabe“."""
+    if im_projekt_gestartet():
+        einhaengen()
+

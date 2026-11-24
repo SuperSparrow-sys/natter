@@ -117,6 +117,36 @@ def test_ein_exitcode_ungleich_null_wird_erklaert(
     assert "bleibt dafür offen" not in zeile
 
 
+@pytest.mark.parametrize(
+    ("vorher", "erwartet"),
+    [
+        (["Probe gestartet (main.py)", "Wo:   u_main.py, Zeile 1"],
+         "Die Fehlermeldung steht darüber."),
+        (["Wo:   u_main.py, Zeile 1",
+          "Programm beendet (Code 1) – mit einem Fehler geendet.",
+          "Probe gestartet (main.py)"],
+         "eigenen Fenster gezeigt"),
+    ],
+    ids=["meldung_im_panel", "meldung_vom_vorigen_lauf"],
+)
+def test_die_schlusszeile_sagt_wo_die_meldung_steht(
+    fenster: HauptFenster, tmp_path: Path, vorher: list[str], erwartet: str
+) -> None:
+    """Punkt 696: scheitert ein Programm mit Fenster schon beim Laden
+    der Unit, steht die Meldung im Panel; die Schlusszeile verwies
+    trotzdem auf ein Fenster, das es nicht gab."""
+    from ide.project.neu import projekt_erzeugen
+
+    projekt = projekt_erzeugen("gui", tmp_path / "gui", "Fenster")
+    fenster.projekt_oeffnen(projekt.ordner / "Fenster.natter")
+    for zeile in vorher:
+        fenster.ausgabe_zeile(zeile)
+
+    fenster.programmende_melden(1)
+
+    assert erwartet in _zeilen(fenster)[-1]
+
+
 def test_im_konsolenprojekt_bleibt_die_konsole_offen(fenster: HauptFenster) -> None:
     """Nur ein Konsolenprogramm lässt sein Fenster für die Meldung
     offen; das Projekt der Fixture ist eines."""
