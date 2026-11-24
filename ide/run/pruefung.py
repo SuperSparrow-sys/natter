@@ -788,6 +788,13 @@ def _ereignisse_pruefen(projekt: Projekt) -> list[RuffFund]:
                         unit_datei, klasse, komponente, ereignis, methode
                     )
                 )
+        for menue, beschriftung, methode in _menue_verknuepfungen(pfm):
+            if methode not in methoden:
+                funde.append(
+                    _menue_fund(
+                        unit_datei, klasse, menue, beschriftung, methode
+                    )
+                )
     return funde
 
 
@@ -832,6 +839,66 @@ def _verknuepfungen(
 
     sammeln(pfm, None)
     return ergebnis
+
+
+def _menue_verknuepfungen(
+    pfm: dict[str, Any],
+) -> list[tuple[str, str, str]]:
+    """(Menü, Beschriftung, Methode) für jeden Menüeintrag der `.pfm`,
+    der beim Anklicken eine Methode aufruft. Sie stehen nicht unter
+    `events`, sondern in `properties.entries` des Menüs (Punkt 692)."""
+    ergebnis: list[tuple[str, str, str]] = []
+
+    def eintraege(menue: str, liste: Any) -> None:
+        for eintrag in liste if isinstance(liste, list) else []:
+            if not isinstance(eintrag, dict):
+                continue
+            methode = eintrag.get("on_click")
+            if isinstance(methode, str) and methode:
+                beschriftung = str(eintrag.get("caption", ""))
+                ergebnis.append(
+                    (menue, beschriftung.replace("&", ""), methode)
+                )
+            eintraege(menue, eintrag.get("children"))
+
+    def sammeln(eintrag: dict[str, Any]) -> None:
+        for kind in eintrag.get("children") or []:
+            if not isinstance(kind, dict):
+                continue
+            eigenschaften = kind.get("properties")
+            if isinstance(eigenschaften, dict):
+                eintraege(
+                    str(kind.get("name")), eigenschaften.get("entries")
+                )
+            sammeln(kind)
+
+    sammeln(pfm)
+    return ergebnis
+
+
+def _menue_fund(
+    unit_datei: Path,
+    klasse: ast.ClassDef,
+    menue: str,
+    beschriftung: str,
+    methode: str,
+) -> RuffFund:
+    return RuffFund(
+        datei=unit_datei,
+        zeile=klasse.lineno,
+        spalte=1,
+        code="natter-ereignis",
+        meldung=(
+            f"Die Methode {methode} fehlt in der Klasse {klasse.name}. "
+            f"Der Menüeintrag „{beschriftung}“ in {menue} ruft sie beim "
+            "Anklicken auf."
+        ),
+        leitfrage=(
+            f"Wurde {methode} gelöscht, umbenannt oder mit Strg+Z "
+            f"zurückgenommen, oder steht im Menü-Editor von {menue} "
+            "unter „Beim Anklicken“ ein Tippfehler?"
+        ),
+    )
 
 
 def _ereignis_fund(

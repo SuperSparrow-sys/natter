@@ -176,6 +176,49 @@ def test_vorhandene_ereignismethode_ist_kein_fund(tmp_path: Path) -> None:
     assert projekt_pruefen(projekt) == []
 
 
+@pytest.mark.parametrize("vorhanden", [False, True])
+def test_fehlende_menuemethode_verhindert_den_start(
+    tmp_path: Path, vorhanden: bool
+) -> None:
+    """Ein Menüeintrag nennt seine Methode in `properties.entries`,
+    nicht unter `events`; die Prüfung übersah sie, und das Programm
+    brach erst beim Aufbau des Formulars ab (Punkt 692)."""
+    methode = (
+        "    def mi_ende_click(self, sender) -> None:\n        pass\n"
+        if vorhanden
+        else "    pass\n"
+    )
+    projekt = projekt_erzeugen("gui", tmp_path / "p", "Menue")
+    pfm_pfad = projekt.ordner / "u_main.pfm"
+    pfm = json.loads(pfm_pfad.read_text(encoding="utf-8"))
+    pfm["children"].append({
+        "name": "mm_haupt", "type": "MainMenu",
+        "properties": {"left": 8, "top": 8, "entries": [
+            {"caption": "&Datei", "children": [
+                {"name": "mi_ende", "caption": "&Ende",
+                 "on_click": "mi_ende_click"}]}]},
+    })
+    pfm_pfad.write_text(json.dumps(pfm), encoding="utf-8")
+    (projekt.ordner / "u_main.py").write_text(
+        "from u_main_design import Form1Design\n\n\n"
+        "class Form1(Form1Design):\n" + methode,
+        encoding="utf-8",
+    )
+
+    funde = projekt_pruefen(projekt)
+
+    if vorhanden:
+        assert funde == []
+        return
+    assert len(funde) == 1
+    fund = funde[0]
+    assert fund.blockiert
+    assert "mi_ende_click" in fund.was
+    assert "„Ende“" in fund.was
+    assert "mm_haupt" in fund.was
+    assert fund.pruefe.strip().endswith("?")
+
+
 # -- Punkt 291 --------------------------------------------------------------
 
 
