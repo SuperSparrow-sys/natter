@@ -136,13 +136,20 @@ def _zeilenumbruch_vereinheitlichen(text: str) -> str:
 def _zeichenkette_lesen(
     rohwert: str, zeilen: list[str], index: int
 ) -> tuple[str, int] | None:
-    """Eine Zeichenkette samt Fortsetzungszeilen (`+` am Ende)."""
+    """Eine Zeichenkette samt Fortsetzungszeilen: `+` am Ende einer
+    Zeile oder am Anfang der nächsten (`+'weiter'`, Punkt 689)."""
     gelesen = _zeichenkette(rohwert)
     if gelesen is None:
         return None
     text, weiter = gelesen
-    while weiter:
-        folge = _zeichenkette(_zeile(zeilen, index, "einer Zeichenkette"))
+    while True:
+        naechste = zeilen[index].strip() if index < len(zeilen) else ""
+        if weiter:
+            folge = _zeichenkette(_zeile(zeilen, index, "einer Zeichenkette"))
+        elif naechste.startswith("+"):
+            folge = _zeichenkette(naechste[1:])
+        else:
+            break
         if folge is None:
             raise LfmParserError(
                 f"Nach '+' wird eine Zeichenkette erwartet: {zeilen[index]!r}"

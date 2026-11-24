@@ -146,6 +146,25 @@ def test_zeichenketten_wie_lazarus_sie_schreibt() -> None:
     assert objekt["children"][1]["properties"]["Lines.Strings"] == ["a", "b"]
 
 
+@pytest.mark.parametrize(
+    "fortsetzung",
+    ["'Ein langer Text, der '+\n      'weitergeht'",
+     "'Ein langer Text, der '\n      +'weitergeht'",
+     "'Ein langer '\n      +'Text, der '\n      + 'weitergeht'"],
+)
+def test_fortsetzung_mit_plus_am_ende_oder_am_anfang(fortsetzung: str) -> None:
+    """Punkt 689: `+'…'` am Anfang der Folgezeile wurde als „Unerwartete
+    Zeile“ abgelehnt."""
+    text = (
+        "object Form1: TForm1\n  object Label1: TLabel\n"
+        f"    Caption = {fortsetzung}\n  end\nend\n"
+    )
+    objekt = parse_lfm(text)
+
+    assert (objekt["children"][0]["properties"]["Caption"]
+            == "Ein langer Text, der weitergeht")
+
+
 def test_eine_liste_ohne_ende_ist_ein_parserfehler() -> None:
     text = "object Form1: TForm1\n  Lines.Strings = (\n    'x'\n"
 
